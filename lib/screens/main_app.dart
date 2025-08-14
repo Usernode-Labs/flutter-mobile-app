@@ -1,6 +1,8 @@
+import 'package:crypto_mobile_app/screens/home/home_screen.dart';
+import 'package:crypto_mobile_app/screens/node/node_status_screen.dart';
 import 'package:flutter/material.dart';
 import '../gen_l10n/app_localizations.dart';
-import 'placeholder_screens.dart';
+import 'wallet/wallet_screen.dart';
 
 class MainApp extends StatefulWidget {
   const MainApp({Key? key}) : super(key: key);
@@ -13,18 +15,18 @@ class _MainAppState extends State<MainApp> {
   int _currentIndex = 0;
 
   final List<Widget> _screens = [
-    WalletPlaceholder(),
-    IdentityPlaceholder(),
-    StatusPlaceholder(),
+    HomeScreen(),
+    WalletScreen(),
+    NodeStatusScreen(),
+    NodeStatusScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!; // 🔥 NEW: Get localizations
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       body: _screens[_currentIndex],
-      // 🔥 CHANGED: Using Material 3 NavigationBar instead of BottomNavigationBar
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (index) => setState(() => _currentIndex = index),
@@ -32,17 +34,17 @@ class _MainAppState extends State<MainApp> {
           NavigationDestination(
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home),
-            label: l10n.home, // 🔥 NEW: Using localized strings
+            label: l10n.home,
           ),
           NavigationDestination(
             icon: Icon(Icons.account_balance_wallet_outlined),
             selectedIcon: Icon(Icons.account_balance_wallet),
-            label: l10n.wallet, // 🔥 NEW: Using localized strings
+            label: l10n.wallet,
           ),
           NavigationDestination(
             icon: Icon(Icons.hub_outlined),
             selectedIcon: Icon(Icons.hub),
-            label: l10n.node, // 🔥 NEW: Using localized strings
+            label: l10n.node,
           ),
         ],
       ),

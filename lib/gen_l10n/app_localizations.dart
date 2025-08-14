@@ -161,7 +161,7 @@ abstract class AppLocalizations {
   /// Bridge button text
   ///
   /// In en, this message translates to:
-  /// **'Bridge'**
+  /// **'Node Status'**
   String get bridge;
 
   /// Verification card title
@@ -257,7 +257,7 @@ abstract class AppLocalizations {
   /// Bridge screen title
   ///
   /// In en, this message translates to:
-  /// **'Cross-Chain Bridge'**
+  /// **'Node status'**
   String get crossChainBridge;
 
   /// Node status screen title

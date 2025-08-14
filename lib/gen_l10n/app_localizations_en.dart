@@ -44,7 +44,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Bridge assets to the network within your first week';
 
   @override
-  String get bridge => 'Bridge';
+  String get bridge => 'Node Status';
 
   @override
   String get completeVerification => 'Complete verification';
@@ -98,7 +98,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get walletManagement => 'Wallet Management';
 
   @override
-  String get crossChainBridge => 'Cross-Chain Bridge';
+  String get crossChainBridge => 'Node status';
 
   @override
   String get nodeStatus => 'Node Status';

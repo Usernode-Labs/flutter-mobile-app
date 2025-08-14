@@ -50,7 +50,7 @@
   "@bridgeAssetsDescription": {
     "description": "Bridge assets description"
   },
-  "bridge": "Bridge",
+  "bridge": "Node Status",
   "@bridge": {
     "description": "Bridge button text"
   },
@@ -127,7 +127,7 @@
   "@walletManagement": {
     "description": "Wallet screen title"
   },
-  "crossChainBridge": "Cross-Chain Bridge",
+  "crossChainBridge": "Node status",
   "@crossChainBridge": {
     "description": "Bridge screen title"
   },

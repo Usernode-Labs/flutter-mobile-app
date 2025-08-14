@@ -150,5 +150,9 @@
   "rewardsAchievements": "Rewards & Achievements",
   "@rewardsAchievements": {
     "description": "Rewards screen description"
+  },
+  "yourMultiplier": "Your Multiplier",
+  "@yourMultiplier": {
+    "description": "Your Multiplier"
   }
 }

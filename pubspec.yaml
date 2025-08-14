@@ -12,18 +12,14 @@ dependencies:
     sdk: flutter
   flutter_localizations: # 🔥 NEW: For internationalization
     sdk: flutter
+  intl: any
   cupertino_icons: ^1.0.2
-  intl: ^0.18.1 # 🔥 NEW: For internationalization
 
 dev_dependencies:
+  flutter_lints: ^2.0.0
   flutter_test:
     sdk: flutter
-  flutter_lints: ^2.0.0
 
 flutter:
   uses-material-design: true
-  generate: true # 🔥 NEW: Enable code generation for i18n
-
-  # 🔥 NEW: Assets section
-  assets:
-    - assets/images/
+  generate: true

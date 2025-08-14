@@ -24,9 +24,10 @@ class ActivityCard extends StatelessWidget {
     final theme = Theme.of(context); // 🔥 NEW: Get theme from context
 
     return Card(
-      // 🔥 CHANGED: Using Material 3 Card
-      margin: EdgeInsets.symmetric(vertical: 4), // 🔥 REDUCED: Margin
       color: Colors.white,
+      surfaceTintColor:
+          Colors.transparent, // 🔥 ADD THIS - removes Material 3 tint
+      margin: EdgeInsets.symmetric(vertical: 4), // 🔥 REDUCED: Margin
       child: ListTile(
         leading: Container(
           width: 40,

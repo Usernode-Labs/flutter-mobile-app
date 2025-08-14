@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart'; // 🔥 NEW
+import '../gen_l10n/app_localizations.dart';
 import 'placeholder_screens.dart';
 
 class MainApp extends StatefulWidget {

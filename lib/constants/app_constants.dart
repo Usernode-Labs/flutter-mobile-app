@@ -8,10 +8,10 @@ class AppConstants {
   static const String appVersion = '1.0.0';
 
   // Animation Durations
-  static const Duration splashDuration = Duration(seconds: 3);
+  static const Duration splashDuration = Duration(seconds: 1);
   static const Duration shortAnimation = Duration(milliseconds: 200);
   static const Duration mediumAnimation = Duration(milliseconds: 500);
-  static const Duration longAnimation = Duration(seconds: 2);
+  static const Duration longAnimation = Duration(seconds: 1);
 
   // Navigation - Updated to match screenshot
   static const List<NavigationItem> navigationItems = [

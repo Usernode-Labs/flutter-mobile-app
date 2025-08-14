@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import '../../gen_l10n/app_localizations.dart';
 import '../../theme/app_theme.dart';
 import 'liquidity_bridge_card.dart';
 
@@ -18,7 +18,7 @@ class HorizontalCardScroll extends StatelessWidget {
         itemCount: _getCards(l10n).length,
         itemBuilder: (context, index) {
           return Container(
-            width: 300,
+            width: 320,
             margin: EdgeInsets.only(right: 12),
             child: _getCards(l10n)[index],
           );

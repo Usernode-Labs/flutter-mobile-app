@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import '../gen_l10n/app_localizations.dart';
 import '../constants/app_constants.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common/activity_card.dart';
@@ -19,8 +19,6 @@ class WalletPlaceholder extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(height: 16),
-
             // Node status card (with i18n)
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 16),
@@ -39,6 +37,14 @@ class WalletPlaceholder extends StatelessWidget {
 
             SizedBox(height: 16),
 
+            // Activity section (with i18n)
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                l10n.yourMultiplier,
+                style: AppTheme.activityTitleStyle,
+              ),
+            ),
             // Multiplier card (with i18n)
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 16),

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart'; // 🔥 NEW
 import 'theme/app_theme.dart';
 import 'screens/splash_screen.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart'; // 🔥 NEW
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'gen_l10n/app_localizations.dart';
 
 void main() {
   runApp(CryptoMobileApp());
@@ -17,8 +17,6 @@ class CryptoMobileApp extends StatelessWidget {
       title: 'Usernode',
       theme: AppTheme.lightTheme,
       debugShowCheckedModeBanner: false,
-
-      // 🔥 NEW: Internationalization support
       localizationsDelegates: [
         AppLocalizations.delegate,
         GlobalMaterialLocalizations.delegate,
@@ -31,7 +29,6 @@ class CryptoMobileApp extends StatelessWidget {
         Locale('fr'), // French (you can add more)
         Locale('de'), // German
       ],
-
       home: SplashScreen(),
     );
   }

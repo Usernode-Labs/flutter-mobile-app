@@ -20,37 +20,48 @@ class AppTheme {
     displayLarge: TextStyle(
       fontSize: 28,
       fontWeight: FontWeight.w600,
-      color: Color(0xFF1C1C1E),
+      color: Colors.black,
+      letterSpacing: -0.5,
+    ),
+    displayMedium: TextStyle(
+      fontSize: 24,
+      fontWeight: FontWeight.w600,
+      color: Colors.black,
       letterSpacing: -0.5,
     ),
     headlineMedium: TextStyle(
       fontSize: 20,
       fontWeight: FontWeight.w600,
-      color: Color(0xFF1C1C1E),
+      color: Colors.black,
       letterSpacing: -0.25,
     ),
     titleLarge: TextStyle(
       fontSize: 18,
       fontWeight: FontWeight.w600,
-      color: Color(0xFF1C1C1E),
+      color: Colors.black,
+    ),
+    titleMedium: TextStyle(
+      fontSize: 14,
+      fontWeight: FontWeight.bold,
+      color: Colors.black,
     ),
     bodyLarge: TextStyle(
       fontSize: 16,
       fontWeight: FontWeight.w400,
-      color: Color(0xFF1C1C1E),
+      color: Colors.black,
       height: 1.5,
     ),
     bodyMedium: TextStyle(
       fontSize: 14,
       fontWeight: FontWeight.w400,
-      color: Color(0xFF8E8E93),
+      color: Colors.black,
       height: 1.4,
     ),
   );
 
   // 🔥 UPDATED: Material 3 App Bar
   static final AppBarTheme _appBarTheme = AppBarTheme(
-    backgroundColor: Color(0xFFFAFAFA),
+    backgroundColor: Colors.white,
     elevation: 0,
     scrolledUnderElevation: 1, // 🔥 NEW: Material 3 elevation
     centerTitle: false,
@@ -63,26 +74,40 @@ class AppTheme {
   static final NavigationBarThemeData _navigationBarTheme =
       NavigationBarThemeData(
     backgroundColor: Colors.white,
+    surfaceTintColor: Colors.transparent,
     elevation: 8,
-    indicatorColor: Color(0xFF007AFF).withOpacity(0.12),
-    labelTextStyle: MaterialStateProperty.resolveWith((states) {
-      if (states.contains(MaterialState.selected)) {
+    indicatorColor: Color(0xFFFFFFFF),
+    shadowColor: Colors.grey.withOpacity(0.3),
+    labelTextStyle: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.selected)) {
         return TextStyle(
-          fontWeight: FontWeight.w600,
-          fontSize: 12,
-          color: Color(0xFF007AFF),
-        );
+            fontWeight: FontWeight.w600,
+            fontSize: 12,
+            color: Color(0xFF007AFF));
       }
       return TextStyle(
         fontWeight: FontWeight.w400,
         fontSize: 12,
-        color: Color(0xFF8E8E93),
+        color: Colors.black87,
+      );
+    }),
+    // Icon styling
+    iconTheme: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.selected)) {
+        return const IconThemeData(
+          color: Colors.blue,
+          size: 28,
+        );
+      }
+      return const IconThemeData(
+        color: Colors.black87,
+        size: 24,
       );
     }),
   );
 
   // 🔥 UPDATED: Material 3 Cards
-  static final CardTheme _cardTheme = CardTheme(
+  static final CardThemeData _cardTheme = CardThemeData(
     color: Colors.white,
     elevation: 1, // 🔥 REDUCED: Material 3 uses lower elevation
     shadowColor: Color(0x0A000000),
@@ -114,14 +139,14 @@ class AppTheme {
 
   // Main Material 3 theme
   static final ThemeData lightTheme = ThemeData(
-    useMaterial3: true, // 🔥 IMPORTANT: Enable Material 3
+    useMaterial3: true,
     colorScheme: _lightColorScheme,
     textTheme: _textTheme,
     appBarTheme: _appBarTheme,
     navigationBarTheme: _navigationBarTheme, // 🔥 NEW: Navigation Bar theme
     cardTheme: _cardTheme,
     filledButtonTheme: _filledButtonTheme, // 🔥 NEW: Filled Button theme
-    scaffoldBackgroundColor: Color(0xFFFAFAFA),
+    scaffoldBackgroundColor: Colors.white,
     dividerColor: Color(0xFFF2F2F7),
 
     // 🔥 NEW: Material 3 specific themes

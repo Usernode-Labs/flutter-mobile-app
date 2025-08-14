@@ -42,8 +42,7 @@ class MultiplierCard extends StatelessWidget {
                 SizedBox(width: 12),
                 Text(
                   multiplier,
-                  style:
-                      theme.textTheme.displayMedium, // 🔥 CHANGED: Using theme
+                  style: theme.textTheme.displayMedium,
                 ),
               ],
             ),

@@ -23,7 +23,7 @@ class _ReceiveScreenState extends State<ReceiveScreen>
   ReceiveAddress? _currentAddress;
   PaymentRequest? _currentPaymentRequest;
   String? _amountError;
-  bool _isLoading = false;
+  final bool _isLoading = false;
   bool _isGeneratingAddress = false;
 
   @override
@@ -166,7 +166,7 @@ class _ReceiveScreenState extends State<ReceiveScreen>
         context: context,
         builder: (context) => Dialog(
           child: Padding(
-            padding: EdgeInsets.all(24),
+            padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -176,7 +176,7 @@ class _ReceiveScreenState extends State<ReceiveScreen>
                         fontWeight: FontWeight.w600,
                       ),
                 ),
-                SizedBox(height: 20),
+                const SizedBox(height: 20),
                 Container(
                   width: 250,
                   height: 250,
@@ -194,7 +194,7 @@ class _ReceiveScreenState extends State<ReceiveScreen>
                           size: 100,
                           color: Colors.grey.shade400,
                         ),
-                        SizedBox(height: 8),
+                        const SizedBox(height: 8),
                         Text(
                           'QR Code',
                           style: TextStyle(
@@ -206,13 +206,13 @@ class _ReceiveScreenState extends State<ReceiveScreen>
                     ),
                   ),
                 ),
-                SizedBox(height: 20),
+                const SizedBox(height: 20),
                 if (_currentPaymentRequest!.hasAmount) ...[
                   Text(
                     'Amount: ${_currentPaymentRequest!.formattedAmount}',
                     style: AppTheme.nodeStatusStyle,
                   ),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 8),
                 ],
                 if (_currentPaymentRequest!.hasMemo) ...[
                   Text(
@@ -220,7 +220,7 @@ class _ReceiveScreenState extends State<ReceiveScreen>
                     style: AppTheme.nodeSubtitleStyle,
                     textAlign: TextAlign.center,
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                 ],
                 Row(
                   children: [
@@ -232,14 +232,14 @@ class _ReceiveScreenState extends State<ReceiveScreen>
                           );
                           _showSuccessSnackBar('Payment data copied');
                         },
-                        child: Text('Copy Data'),
+                        child: const Text('Copy Data'),
                       ),
                     ),
-                    SizedBox(width: 12),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: FilledButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        child: Text('Close'),
+                        child: const Text('Close'),
                       ),
                     ),
                   ],
@@ -257,7 +257,7 @@ class _ReceiveScreenState extends State<ReceiveScreen>
       SnackBar(
         content: Text(message),
         backgroundColor: AppTheme.successCheckColor,
-        duration: Duration(seconds: 2),
+        duration: const Duration(seconds: 2),
       ),
     );
   }
@@ -267,7 +267,7 @@ class _ReceiveScreenState extends State<ReceiveScreen>
       SnackBar(
         content: Text(message),
         backgroundColor: Theme.of(context).colorScheme.error,
-        duration: Duration(seconds: 3),
+        duration: const Duration(seconds: 3),
       ),
     );
   }
@@ -278,12 +278,12 @@ class _ReceiveScreenState extends State<ReceiveScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Receive Tokens'),
+        title: const Text('Receive Tokens'),
         backgroundColor: theme.scaffoldBackgroundColor,
         elevation: 0,
         bottom: TabBar(
           controller: _tabController,
-          tabs: [
+          tabs: const [
             Tab(text: 'Receive'),
             Tab(text: 'History'),
           ],
@@ -292,7 +292,7 @@ class _ReceiveScreenState extends State<ReceiveScreen>
           if (_isGeneratingAddress)
             Center(
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: SizedBox(
                   width: 20,
                   height: 20,
@@ -307,7 +307,7 @@ class _ReceiveScreenState extends State<ReceiveScreen>
             )
           else
             IconButton(
-              icon: Icon(Icons.refresh),
+              icon: const Icon(Icons.refresh),
               onPressed: _generateNewAddress,
               tooltip: 'Generate new address',
             ),
@@ -325,13 +325,13 @@ class _ReceiveScreenState extends State<ReceiveScreen>
 
   Widget _buildReceiveTab() {
     if (_currentAddress == null || _currentPaymentRequest == null) {
-      return Center(
+      return const Center(
         child: CircularProgressIndicator(),
       );
     }
 
     return SingleChildScrollView(
-      padding: EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       child: Column(
         children: [
           // QR Code Card
@@ -340,7 +340,7 @@ class _ReceiveScreenState extends State<ReceiveScreen>
             onTap: _showQRCodeDialog,
           ),
 
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
 
           // Address Display Card
           AddressDisplayCard(
@@ -350,7 +350,7 @@ class _ReceiveScreenState extends State<ReceiveScreen>
             onGenerateNew: _generateNewAddress,
           ),
 
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
 
           // Payment Request Form
           PaymentRequestForm(
@@ -361,7 +361,7 @@ class _ReceiveScreenState extends State<ReceiveScreen>
             isLoading: _isLoading,
           ),
 
-          SizedBox(height: 20),
+          const SizedBox(height: 20),
         ],
       ),
     );
@@ -371,14 +371,14 @@ class _ReceiveScreenState extends State<ReceiveScreen>
     final addresses = _receiveService.getAllAddresses();
 
     return SingleChildScrollView(
-      padding: EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       child: Column(
         children: [
           AddressHistoryCard(
             addresses: addresses,
             onAddressSelected: _selectAddressFromHistory,
           ),
-          SizedBox(height: 20),
+          const SizedBox(height: 20),
         ],
       ),
     );

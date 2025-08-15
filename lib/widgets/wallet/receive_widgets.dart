@@ -17,7 +17,7 @@ class QRCodeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
-        padding: EdgeInsets.all(20),
+        padding: const EdgeInsets.all(20),
         child: Column(
           children: [
             Text(
@@ -26,7 +26,7 @@ class QRCodeCard extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             GestureDetector(
               onTap: onTap,
               child: Container(
@@ -46,7 +46,7 @@ class QRCodeCard extends StatelessWidget {
                         size: 80,
                         color: Colors.grey.shade400,
                       ),
-                      SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       Text(
                         'QR Code',
                         style: TextStyle(
@@ -59,8 +59,8 @@ class QRCodeCard extends StatelessWidget {
                 ),
               ),
             ),
-            SizedBox(height: 12),
-            Text(
+            const SizedBox(height: 12),
+            const Text(
               'Tap to enlarge',
               style: AppTheme.nodeSubtitleStyle,
             ),
@@ -91,7 +91,7 @@ class AddressDisplayCard extends StatelessWidget {
 
     return Card(
       child: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -108,7 +108,8 @@ class AddressDisplayCard extends StatelessWidget {
                   GestureDetector(
                     onTap: onGenerateNew,
                     child: Container(
-                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: theme.colorScheme.primary.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
@@ -121,7 +122,7 @@ class AddressDisplayCard extends StatelessWidget {
                             size: 14,
                             color: theme.colorScheme.primary,
                           ),
-                          SizedBox(width: 4),
+                          const SizedBox(width: 4),
                           Text(
                             'New',
                             style: TextStyle(
@@ -136,11 +137,11 @@ class AddressDisplayCard extends StatelessWidget {
                   ),
               ],
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             Container(
-              padding: EdgeInsets.all(12),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceVariant,
+                color: theme.colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: theme.colorScheme.outline),
               ),
@@ -156,7 +157,7 @@ class AddressDisplayCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   GestureDetector(
                     onTap: onCopy,
                     child: Icon(
@@ -168,33 +169,33 @@ class AddressDisplayCard extends StatelessWidget {
                 ],
               ),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             Row(
               children: [
                 _buildStatusChip(context, address.typeLabel, address.type),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 _buildStatusChip(context, address.statusText, null,
                     color: address.isValid
                         ? AppTheme.successCheckColor
                         : AppTheme.pendingIconColor),
               ],
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: onCopy,
-                    icon: Icon(Icons.copy, size: 16),
-                    label: Text('Copy'),
+                    icon: const Icon(Icons.copy, size: 16),
+                    label: const Text('Copy'),
                   ),
                 ),
-                SizedBox(width: 12),
+                const SizedBox(width: 12),
                 Expanded(
                   child: FilledButton.icon(
                     onPressed: onShare,
-                    icon: Icon(Icons.share, size: 16),
-                    label: Text('Share'),
+                    icon: const Icon(Icons.share, size: 16),
+                    label: const Text('Share'),
                   ),
                 ),
               ],
@@ -228,7 +229,7 @@ class AddressDisplayCard extends StatelessWidget {
     }
 
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: chipColor.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
@@ -263,11 +264,9 @@ class PaymentRequestForm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Card(
       child: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -277,10 +276,11 @@ class PaymentRequestForm extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             TextField(
               controller: amountController,
-              keyboardType: TextInputType.numberWithOptions(decimal: true),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
               ],
@@ -296,7 +296,7 @@ class PaymentRequestForm extends StatelessWidget {
               ),
               style: AppTheme.nodeStatusStyle,
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             TextField(
               controller: memoController,
               maxLines: 2,
@@ -309,13 +309,13 @@ class PaymentRequestForm extends StatelessWidget {
               ),
               style: AppTheme.nodeStatusStyle,
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
                 onPressed: isLoading ? null : onCreateRequest,
                 icon: isLoading
-                    ? SizedBox(
+                    ? const SizedBox(
                         width: 16,
                         height: 16,
                         child: CircularProgressIndicator(
@@ -324,7 +324,7 @@ class PaymentRequestForm extends StatelessWidget {
                               AlwaysStoppedAnimation<Color>(Colors.white),
                         ),
                       )
-                    : Icon(Icons.qr_code),
+                    : const Icon(Icons.qr_code),
                 label: Text(isLoading ? 'Creating...' : 'Create QR Code'),
               ),
             ),
@@ -348,7 +348,7 @@ class AddressHistoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (addresses.isEmpty) {
-      return Card(
+      return const Card(
         child: Padding(
           padding: EdgeInsets.all(32),
           child: Column(
@@ -377,7 +377,7 @@ class AddressHistoryCard extends StatelessWidget {
 
     return Card(
       child: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -387,7 +387,7 @@ class AddressHistoryCard extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             ...addresses
                 .take(5)
                 .map((address) => _buildAddressHistoryItem(
@@ -396,7 +396,7 @@ class AddressHistoryCard extends StatelessWidget {
                     ))
                 .toList(),
             if (addresses.length > 5) ...[
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Center(
                 child: TextButton(
                   onPressed: () {
@@ -419,10 +419,10 @@ class AddressHistoryCard extends StatelessWidget {
     return GestureDetector(
       onTap: () => onAddressSelected(address),
       child: Container(
-        margin: EdgeInsets.only(bottom: 8),
-        padding: EdgeInsets.all(12),
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
+          color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: theme.colorScheme.outline.withOpacity(0.3)),
         ),
@@ -438,7 +438,7 @@ class AddressHistoryCard extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
             ),
-            SizedBox(width: 12),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -450,7 +450,7 @@ class AddressHistoryCard extends StatelessWidget {
                       fontSize: 12,
                     ),
                   ),
-                  SizedBox(height: 2),
+                  const SizedBox(height: 2),
                   Row(
                     children: [
                       Text(
@@ -483,7 +483,7 @@ class AddressHistoryCard extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(
+            const Icon(
               Icons.chevron_right,
               size: 16,
               color: AppTheme.nodeIconColor,

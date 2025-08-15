@@ -8,18 +8,18 @@ class HorizontalCardScroll extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = AppLocalizations.of(context);
 
     return SizedBox(
       height: 180,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         itemCount: _getCards(l10n).length,
         itemBuilder: (context, index) {
           return Container(
             width: 320,
-            margin: EdgeInsets.only(right: 12),
+            margin: const EdgeInsets.only(right: 12),
             child: _getCards(l10n)[index],
           );
         },
@@ -43,10 +43,13 @@ class HorizontalCardScroll extends StatelessWidget {
         subtitle: l10n.verificationDescription,
         buttonText: l10n.verify,
         bonusText: '+2.0x',
-        backgroundColor: Color(0xFFE8F5E8),
+        backgroundColor: const Color(0xFFE8F5E8),
         buttonColor: AppTheme.successCheckColor,
         bonusColor: AppTheme.successCheckColor,
         icon: Icons.verified_user,
+        onPressed: () {
+          // Handle verification action
+        },
       ),
 
       // Third card - Stake tokens (with custom text)
@@ -55,10 +58,13 @@ class HorizontalCardScroll extends StatelessWidget {
         subtitle: l10n.stakingDescription,
         buttonText: l10n.stake,
         bonusText: '+3.0x',
-        backgroundColor: Color(0xFFFFF3E0),
-        buttonColor: Color(0xFFFF9800),
-        bonusColor: Color(0xFFFF9800),
+        backgroundColor: const Color(0xFFFFF3E0),
+        buttonColor: const Color(0xFFFF9800),
+        bonusColor: const Color(0xFFFF9800),
         icon: Icons.lock,
+        onPressed: () {
+          // Handle staking action
+        },
       ),
     ];
   }
@@ -73,7 +79,7 @@ class _PromoCard extends StatelessWidget {
   final Color buttonColor;
   final Color bonusColor;
   final IconData icon;
-  final VoidCallback? onPressed;
+  final VoidCallback? onPressed; // This field was declared but not initialized
 
   const _PromoCard({
     Key? key,
@@ -85,7 +91,7 @@ class _PromoCard extends StatelessWidget {
     required this.buttonColor,
     required this.bonusColor,
     required this.icon,
-    this.onPressed,
+    this.onPressed, // ✅ Added this parameter to the constructor
   }) : super(key: key);
 
   @override
@@ -93,7 +99,7 @@ class _PromoCard extends StatelessWidget {
     return Card(
       color: backgroundColor,
       child: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -102,7 +108,7 @@ class _PromoCard extends StatelessWidget {
               title,
               style: Theme.of(context).textTheme.titleMedium,
             ),
-            SizedBox(height: 6),
+            const SizedBox(height: 6),
             Expanded(
               child: Text(
                 subtitle,
@@ -111,17 +117,17 @@ class _PromoCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             Row(
               children: [
                 FilledButton(
-                  onPressed: onPressed,
+                  onPressed: onPressed, // This now works properly
                   style: FilledButton.styleFrom(
                     backgroundColor: buttonColor,
                   ),
                   child: Text(buttonText),
                 ),
-                SizedBox(width: 12),
+                const SizedBox(width: 12),
                 Chip(
                   avatar: Icon(icon, size: 14, color: bonusColor),
                   label: Text(

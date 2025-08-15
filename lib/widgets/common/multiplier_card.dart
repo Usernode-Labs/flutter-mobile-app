@@ -20,7 +20,7 @@ class MultiplierCard extends StatelessWidget {
     return Card(
       // 🔥 CHANGED: Using Material 3 Card
       child: Padding(
-        padding: EdgeInsets.all(20),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -33,27 +33,27 @@ class MultiplierCard extends StatelessWidget {
                     color: AppTheme.multiplierColor.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.settings,
                     color: AppTheme.multiplierColor,
                     size: 20,
                   ),
                 ),
-                SizedBox(width: 12),
+                const SizedBox(width: 12),
                 Text(
                   multiplier,
                   style: theme.textTheme.displayMedium,
                 ),
               ],
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             LinearProgressIndicator(
               value: progress,
-              backgroundColor: Color(0xFFE8EAED),
+              backgroundColor: const Color(0xFFE8EAED),
               valueColor:
-                  AlwaysStoppedAnimation<Color>(AppTheme.multiplierColor),
+                  const AlwaysStoppedAnimation<Color>(AppTheme.multiplierColor),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             Text(
               subtitle,
               style: theme.textTheme.bodyMedium, // 🔥 CHANGED: Using theme

@@ -6,52 +6,52 @@ class AppTheme {
 
   // 🔥 UPDATED: Material 3 Color Scheme with colors from screenshot
   static final ColorScheme _lightColorScheme = ColorScheme.fromSeed(
-    seedColor: Color(0xFF007AFF),
+    seedColor: const Color(0xFF007AFF),
     brightness: Brightness.light,
   ).copyWith(
     // Custom overrides for crypto app - updated colors from screenshot
     surface: Colors.white,
-    surfaceVariant: Color(0xFFF2F2F7),
-    outline: Color(0xFFE5E5EA),
+    surfaceContainerHighest: const Color(0xFFF2F2F7),
+    outline: const Color(0xFFE5E5EA),
   );
 
   // 🔥 NEW: Material 3 Typography with proper scaling
   static final TextTheme _textTheme = Typography.englishLike2021.copyWith(
-    displayLarge: TextStyle(
+    displayLarge: const TextStyle(
       fontSize: 28,
       fontWeight: FontWeight.w600,
       color: Colors.black,
       letterSpacing: -0.5,
     ),
-    displayMedium: TextStyle(
+    displayMedium: const TextStyle(
       fontSize: 24,
       fontWeight: FontWeight.w600,
       color: Colors.black,
       letterSpacing: -0.5,
     ),
-    headlineMedium: TextStyle(
+    headlineMedium: const TextStyle(
       fontSize: 20,
       fontWeight: FontWeight.w600,
       color: Colors.black,
       letterSpacing: -0.25,
     ),
-    titleLarge: TextStyle(
+    titleLarge: const TextStyle(
       fontSize: 18,
       fontWeight: FontWeight.w600,
       color: Colors.black,
     ),
-    titleMedium: TextStyle(
+    titleMedium: const TextStyle(
       fontSize: 14,
       fontWeight: FontWeight.bold,
       color: Colors.black,
     ),
-    bodyLarge: TextStyle(
+    bodyLarge: const TextStyle(
       fontSize: 16,
       fontWeight: FontWeight.w400,
       color: Colors.black,
       height: 1.5,
     ),
-    bodyMedium: TextStyle(
+    bodyMedium: const TextStyle(
       fontSize: 14,
       fontWeight: FontWeight.w400,
       color: Colors.black,
@@ -66,7 +66,7 @@ class AppTheme {
     scrolledUnderElevation: 1, // 🔥 NEW: Material 3 elevation
     centerTitle: false,
     titleTextStyle: _textTheme.headlineMedium,
-    iconTheme: IconThemeData(color: Color(0xFF1C1C1E)),
+    iconTheme: const IconThemeData(color: Color(0xFF1C1C1E)),
     systemOverlayStyle: SystemUiOverlayStyle.dark,
   );
 
@@ -76,16 +76,16 @@ class AppTheme {
     backgroundColor: Colors.white,
     surfaceTintColor: Colors.transparent,
     elevation: 8,
-    indicatorColor: Color(0xFFFFFFFF),
+    indicatorColor: const Color(0xFFFFFFFF),
     shadowColor: Colors.grey.withOpacity(0.3),
     labelTextStyle: WidgetStateProperty.resolveWith((states) {
       if (states.contains(WidgetState.selected)) {
-        return TextStyle(
+        return const TextStyle(
             fontWeight: FontWeight.w600,
             fontSize: 12,
             color: Color(0xFF007AFF));
       }
-      return TextStyle(
+      return const TextStyle(
         fontWeight: FontWeight.w400,
         fontSize: 12,
         color: Colors.black87,
@@ -110,26 +110,27 @@ class AppTheme {
   static final CardThemeData _cardTheme = CardThemeData(
     color: Colors.white,
     elevation: 1, // 🔥 REDUCED: Material 3 uses lower elevation
-    shadowColor: Color(0x0A000000),
-    surfaceTintColor: Color(0xFF007AFF), // 🔥 NEW: Material 3 surface tint
+    shadowColor: const Color(0x0A000000),
+    surfaceTintColor:
+        const Color(0xFF007AFF), // 🔥 NEW: Material 3 surface tint
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(16),
     ),
-    margin: EdgeInsets.symmetric(
+    margin: const EdgeInsets.symmetric(
         horizontal: 0, vertical: 6), // 🔥 CHANGED: Remove horizontal margin
   );
 
   // 🔥 UPDATED: Material 3 Filled Buttons
   static final FilledButtonThemeData _filledButtonTheme = FilledButtonThemeData(
     style: FilledButton.styleFrom(
-      backgroundColor: Color(0xFF007AFF),
+      backgroundColor: const Color(0xFF007AFF),
       foregroundColor: Colors.white,
-      padding: EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
       ),
       elevation: 0,
-      textStyle: TextStyle(
+      textStyle: const TextStyle(
         fontSize: 13,
         fontWeight: FontWeight.w600,
         letterSpacing: 0.25,
@@ -147,19 +148,19 @@ class AppTheme {
     cardTheme: _cardTheme,
     filledButtonTheme: _filledButtonTheme, // 🔥 NEW: Filled Button theme
     scaffoldBackgroundColor: Colors.white,
-    dividerColor: Color(0xFFF2F2F7),
+    dividerColor: const Color(0xFFF2F2F7),
 
     // 🔥 NEW: Material 3 specific themes
     chipTheme: ChipThemeData(
-      backgroundColor: Color(0xFFF2F2F7),
-      selectedColor: Color(0xFF007AFF).withOpacity(0.12),
-      labelStyle: TextStyle(color: Color(0xFF1C1C1E)),
+      backgroundColor: const Color(0xFFF2F2F7),
+      selectedColor: const Color(0xFF007AFF).withOpacity(0.12),
+      labelStyle: const TextStyle(color: Color(0xFF1C1C1E)),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
       ),
     ),
 
-    progressIndicatorTheme: ProgressIndicatorThemeData(
+    progressIndicatorTheme: const ProgressIndicatorThemeData(
       color: Color(0xFF007AFF),
       linearTrackColor: Color(0xFFF2F2F7),
     ),

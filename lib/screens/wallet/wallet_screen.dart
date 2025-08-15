@@ -59,14 +59,14 @@ class _WalletScreenState extends State<WalletScreen> {
   void _handleSendTap() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => SendScreen()),
+      MaterialPageRoute(builder: (context) => const SendScreen()),
     );
   }
 
   void _handleReceiveTap() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => ReceiveScreen()),
+      MaterialPageRoute(builder: (context) => const ReceiveScreen()),
     );
   }
 
@@ -79,7 +79,7 @@ class _WalletScreenState extends State<WalletScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('$feature coming soon!'),
-        duration: Duration(seconds: 2),
+        duration: const Duration(seconds: 2),
         backgroundColor: Theme.of(context).colorScheme.primary,
       ),
     );
@@ -89,7 +89,7 @@ class _WalletScreenState extends State<WalletScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        duration: Duration(seconds: 3),
+        duration: const Duration(seconds: 3),
         backgroundColor: Theme.of(context).colorScheme.error,
       ),
     );
@@ -97,7 +97,7 @@ class _WalletScreenState extends State<WalletScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -109,7 +109,7 @@ class _WalletScreenState extends State<WalletScreen> {
           if (_isLoading)
             Center(
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: SizedBox(
                   width: 20,
                   height: 20,
@@ -124,7 +124,7 @@ class _WalletScreenState extends State<WalletScreen> {
             )
           else
             IconButton(
-              icon: Icon(Icons.refresh),
+              icon: const Icon(Icons.refresh),
               onPressed: _refreshWallet,
               tooltip: 'Refresh wallet',
             ),
@@ -133,8 +133,8 @@ class _WalletScreenState extends State<WalletScreen> {
       body: RefreshIndicator(
         onRefresh: _refreshWallet,
         child: SingleChildScrollView(
-          physics: AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.all(16),
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -144,7 +144,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 onVisibilityToggle: _toggleBalanceVisibility,
               ),
 
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
 
               // Quick Actions
               QuickActionsRow(
@@ -152,7 +152,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 onReceiveTap: _handleReceiveTap,
               ),
 
-              SizedBox(height: 24),
+              const SizedBox(height: 24),
 
               // Recent Transactions Header
               Text(
@@ -162,7 +162,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 ),
               ),
 
-              SizedBox(height: 12),
+              const SizedBox(height: 12),
 
               // Transaction List
               TransactionsList(
@@ -171,7 +171,7 @@ class _WalletScreenState extends State<WalletScreen> {
               ),
 
               // Add some bottom padding for better scrolling experience
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
             ],
           ),
         ),

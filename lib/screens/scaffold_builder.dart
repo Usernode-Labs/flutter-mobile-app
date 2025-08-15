@@ -8,7 +8,7 @@ Widget buildScaffold(
   required IconData icon,
   required String screenName,
 }) {
-  final l10n = AppLocalizations.of(context)!;
+  final l10n = AppLocalizations.of(context);
 
   return Scaffold(
     appBar: AppBar(title: Text(title)),
@@ -21,12 +21,12 @@ Widget buildScaffold(
             size: AppConstants.placeholderIconSize,
             color: Theme.of(context).colorScheme.primary,
           ),
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
           Text(
             screenName,
             style: Theme.of(context).textTheme.headlineMedium,
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           Text(
             l10n.comingSoon, // 🔥 USING: l10n variable
             style: Theme.of(context).textTheme.bodyMedium,

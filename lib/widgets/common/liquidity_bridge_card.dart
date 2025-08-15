@@ -22,12 +22,12 @@ class LiquidityBridgeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final l10n = AppLocalizations.of(context)!; // 🔥 NEW: Get localizations
+    final l10n = AppLocalizations.of(context); // 🔥 NEW: Get localizations
 
     return Card(
       color: AppTheme.multiplierColor.withOpacity(0.1),
       child: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -36,7 +36,7 @@ class LiquidityBridgeCard extends StatelessWidget {
               title ?? l10n.bringLiquidity, // 🔥 NEW: Use i18n with fallback
               style: theme.textTheme.titleMedium?.copyWith(fontSize: 16),
             ),
-            SizedBox(height: 6),
+            const SizedBox(height: 6),
             Expanded(
               child: Text(
                 subtitle ??
@@ -46,7 +46,7 @@ class LiquidityBridgeCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             Row(
               children: [
                 FilledButton(
@@ -57,13 +57,13 @@ class LiquidityBridgeCard extends StatelessWidget {
                   child: Text(buttonText ??
                       l10n.bridge), // 🔥 NEW: Use i18n with fallback
                 ),
-                SizedBox(width: 12),
+                const SizedBox(width: 12),
                 Chip(
-                  avatar: Icon(Icons.star,
+                  avatar: const Icon(Icons.star,
                       size: 14, color: AppTheme.successCheckColor),
                   label: Text(
                     bonusText, // This remains dynamic
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: AppTheme.successCheckColor,

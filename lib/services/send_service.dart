@@ -1,6 +1,5 @@
 import 'dart:math';
 import '../models/send_models.dart';
-import '../models/transaction_model.dart';
 import 'wallet_service.dart';
 
 class SendService {
@@ -17,7 +16,7 @@ class SendService {
   // Get current network fees
   Future<NetworkFee> getNetworkFees() async {
     // Simulate network delay
-    await Future.delayed(Duration(milliseconds: 500));
+    await Future.delayed(const Duration(milliseconds: 500));
 
     // Mock network fees - in real app this would fetch from network
     return NetworkFee(
@@ -115,7 +114,7 @@ class SendService {
 
   // Check if address is in contacts (mock)
   Future<String?> getContactName(String address) async {
-    await Future.delayed(Duration(milliseconds: 200));
+    await Future.delayed(const Duration(milliseconds: 200));
 
     // Mock contacts
     final mockContacts = {
@@ -129,7 +128,7 @@ class SendService {
 
   // Scan QR code (mock)
   Future<String?> scanQRCode() async {
-    await Future.delayed(Duration(seconds: 1));
+    await Future.delayed(const Duration(seconds: 1));
 
     // Mock QR code result
     final mockAddresses = [
@@ -145,9 +144,7 @@ class SendService {
   String _generateTransactionId() {
     const chars = '0123456789abcdef';
     final random = Random();
-    return '0x' +
-        String.fromCharCodes(Iterable.generate(
-            64, (_) => chars.codeUnitAt(random.nextInt(chars.length))));
+    return '0x${String.fromCharCodes(Iterable.generate(64, (_) => chars.codeUnitAt(random.nextInt(chars.length))))}';
   }
 }
 

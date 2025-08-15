@@ -28,7 +28,7 @@ class WalletService {
       currency: 'TOKENS',
       type: TransactionType.receive,
       status: TransactionStatus.completed,
-      timestamp: DateTime.now().subtract(Duration(hours: 2)),
+      timestamp: DateTime.now().subtract(const Duration(hours: 2)),
       icon: Icons.arrow_downward,
       color: AppTheme.successCheckColor,
     ),
@@ -40,7 +40,7 @@ class WalletService {
       currency: 'TOKENS',
       type: TransactionType.reward,
       status: TransactionStatus.completed,
-      timestamp: DateTime.now().subtract(Duration(days: 1)),
+      timestamp: DateTime.now().subtract(const Duration(days: 1)),
       icon: Icons.hub,
       color: AppTheme.successCheckColor,
     ),
@@ -52,7 +52,7 @@ class WalletService {
       currency: 'TOKENS',
       type: TransactionType.send,
       status: TransactionStatus.completed,
-      timestamp: DateTime.now().subtract(Duration(days: 2)),
+      timestamp: DateTime.now().subtract(const Duration(days: 2)),
       icon: Icons.arrow_upward,
       color: AppTheme.multiplierColor,
     ),
@@ -64,7 +64,7 @@ class WalletService {
       currency: 'TOKENS',
       type: TransactionType.fee,
       status: TransactionStatus.pending,
-      timestamp: DateTime.now().subtract(Duration(days: 3)),
+      timestamp: DateTime.now().subtract(const Duration(days: 3)),
       icon: Icons.schedule,
       color: AppTheme.pendingIconColor,
     ),
@@ -101,7 +101,7 @@ class WalletService {
     required double amount,
   }) async {
     // Simulate network delay
-    await Future.delayed(Duration(seconds: 2));
+    await Future.delayed(const Duration(seconds: 2));
 
     // Mock validation
     if (amount <= 0 || amount > _balance.tokenAmount) {
@@ -136,7 +136,7 @@ class WalletService {
   // Generate receive address (mock implementation)
   Future<String> generateReceiveAddress() async {
     // Simulate network delay
-    await Future.delayed(Duration(seconds: 1));
+    await Future.delayed(const Duration(seconds: 1));
 
     // Return mock address
     return '0x1234567890abcdef1234567890abcdef12345678';
@@ -145,7 +145,7 @@ class WalletService {
   // Refresh wallet data (mock implementation)
   Future<void> refreshWalletData() async {
     // Simulate network delay
-    await Future.delayed(Duration(seconds: 2));
+    await Future.delayed(const Duration(seconds: 2));
 
     // In a real app, this would fetch fresh data from the blockchain/API
     // For now, we'll just simulate a small balance update

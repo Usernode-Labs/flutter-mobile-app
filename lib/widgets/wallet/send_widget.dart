@@ -25,7 +25,7 @@ class RecipientInputCard extends StatelessWidget {
 
     return Card(
       child: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -41,7 +41,8 @@ class RecipientInputCard extends StatelessWidget {
                 GestureDetector(
                   onTap: onScanQR,
                   child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: theme.colorScheme.primary.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
@@ -54,7 +55,7 @@ class RecipientInputCard extends StatelessWidget {
                           size: 16,
                           color: theme.colorScheme.primary,
                         ),
-                        SizedBox(width: 4),
+                        const SizedBox(width: 4),
                         Text(
                           'Scan',
                           style: TextStyle(
@@ -69,7 +70,7 @@ class RecipientInputCard extends StatelessWidget {
                 ),
               ],
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             TextField(
               controller: controller,
               onChanged: onAddressChanged,
@@ -93,14 +94,15 @@ class RecipientInputCard extends StatelessWidget {
                 ),
                 errorText: errorText,
                 contentPadding:
-                    EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),
               style: AppTheme.nodeStatusStyle,
             ),
             if (contactName != null) ...[
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Container(
-                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: AppTheme.successCheckColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
@@ -108,15 +110,15 @@ class RecipientInputCard extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.person,
                       size: 16,
                       color: AppTheme.successCheckColor,
                     ),
-                    SizedBox(width: 4),
+                    const SizedBox(width: 4),
                     Text(
                       contactName!,
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: AppTheme.successCheckColor,
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
@@ -153,7 +155,7 @@ class AmountInputCard extends StatelessWidget {
 
     return Card(
       child: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -169,7 +171,8 @@ class AmountInputCard extends StatelessWidget {
                 GestureDetector(
                   onTap: onMaxTap,
                   child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: theme.colorScheme.primary.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
@@ -186,10 +189,11 @@ class AmountInputCard extends StatelessWidget {
                 ),
               ],
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             TextField(
               controller: controller,
-              keyboardType: TextInputType.numberWithOptions(decimal: true),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
               ],
@@ -215,13 +219,13 @@ class AmountInputCard extends StatelessWidget {
                 ),
                 errorText: errorText,
                 contentPadding:
-                    EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),
               style: theme.textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
               'Available: ${availableBalance.toStringAsFixed(2)} TOKENS',
               style: AppTheme.nodeSubtitleStyle,
@@ -253,7 +257,7 @@ class FeeSelectionCard extends StatelessWidget {
 
     return Card(
       child: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -263,7 +267,7 @@ class FeeSelectionCard extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             ...FeeType.values.map((feeType) => _buildFeeOption(
                   context,
                   theme,
@@ -305,8 +309,8 @@ class FeeSelectionCard extends StatelessWidget {
     return GestureDetector(
       onTap: () => onFeeSelected(feeType),
       child: Container(
-        margin: EdgeInsets.only(bottom: 8),
-        padding: EdgeInsets.all(12),
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: isSelected
               ? theme.colorScheme.primary.withOpacity(0.1)
@@ -331,7 +335,7 @@ class FeeSelectionCard extends StatelessWidget {
                       : theme.colorScheme.outline,
                   size: 20,
                 ),
-                SizedBox(width: 12),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -368,10 +372,11 @@ class FeeSelectionCard extends StatelessWidget {
               ],
             ),
             if (feeType == FeeType.custom && isSelected) ...[
-              SizedBox(height: 12),
+              const SizedBox(height: 12),
               TextField(
                 controller: customFeeController,
-                keyboardType: TextInputType.numberWithOptions(decimal: true),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
                 ],
@@ -384,7 +389,7 @@ class FeeSelectionCard extends StatelessWidget {
                     borderSide: BorderSide(color: theme.colorScheme.outline),
                   ),
                   contentPadding:
-                      EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 ),
                 style: AppTheme.nodeStatusStyle,
               ),
@@ -412,11 +417,9 @@ class TransactionSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Card(
       child: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -426,7 +429,7 @@ class TransactionSummaryCard extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             _buildSummaryRow('To:', contactName ?? 'Unknown Contact'),
             _buildSummaryRow('Address:', request.toAddress, isAddress: true),
             _buildSummaryRow(
@@ -435,7 +438,7 @@ class TransactionSummaryCard extends StatelessWidget {
                 'Network Fee:', '${fee.toStringAsFixed(3)} TOKENS'),
             if (request.memo != null && request.memo!.isNotEmpty)
               _buildSummaryRow('Memo:', request.memo!),
-            Divider(height: 24),
+            const Divider(height: 24),
             _buildSummaryRow(
               'Total:',
               '${total.toStringAsFixed(3)} TOKENS',
@@ -450,7 +453,7 @@ class TransactionSummaryCard extends StatelessWidget {
   Widget _buildSummaryRow(String label, String value,
       {bool isAddress = false, bool isTotal = false}) {
     return Padding(
-      padding: EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

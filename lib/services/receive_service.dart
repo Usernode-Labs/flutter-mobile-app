@@ -45,7 +45,7 @@ class ReceiveService {
     Duration? expiration,
   }) async {
     // Simulate network delay
-    await Future.delayed(Duration(milliseconds: 500));
+    await Future.delayed(const Duration(milliseconds: 500));
 
     final addressType = type ?? _settings.preferredAddressType;
     final address = _generateMockAddress(addressType);
@@ -129,7 +129,7 @@ class ReceiveService {
 
   // Share address via different methods
   Future<bool> shareAddress(String address, ShareMethod method) async {
-    await Future.delayed(Duration(milliseconds: 300));
+    await Future.delayed(const Duration(milliseconds: 300));
 
     switch (method) {
       case ShareMethod.copy:
@@ -152,7 +152,7 @@ class ReceiveService {
 
   // Check for incoming payments (mock)
   Future<List<IncomingPayment>> checkIncomingPayments() async {
-    await Future.delayed(Duration(seconds: 1));
+    await Future.delayed(const Duration(seconds: 1));
 
     // Mock incoming payments
     final random = Random();
@@ -178,15 +178,13 @@ class ReceiveService {
 
   // Generate mock address based on type
   String _generateMockAddress(ReceiveAddressType type) {
-    final random = Random();
-
     switch (type) {
       case ReceiveAddressType.standard:
-        return '0x' + _generateHexString(40);
+        return '0x${_generateHexString(40)}';
       case ReceiveAddressType.temporary:
-        return 'temp_' + _generateHexString(32);
+        return 'temp_${_generateHexString(32)}';
       case ReceiveAddressType.stealth:
-        return 'stealth_' + _generateHexString(48);
+        return 'stealth_${_generateHexString(48)}';
     }
   }
 
@@ -198,7 +196,7 @@ class ReceiveService {
   }
 
   String _generateTransactionId() {
-    return '0x' + _generateHexString(64);
+    return '0x${_generateHexString(64)}';
   }
 }
 

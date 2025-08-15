@@ -10,7 +10,7 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.home)),
@@ -20,7 +20,7 @@ class HomeScreen extends StatelessWidget {
           children: [
             // Node status card (with i18n)
             Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: ActivityCard(
                 icon: Icons.hub,
                 title: l10n.nodeStatusSynced('1.32s'),
@@ -29,16 +29,16 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
 
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
 
             // Horizontal scrolling cards
-            HorizontalCardScroll(),
+            const HorizontalCardScroll(),
 
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
 
             // Activity section (with i18n)
             Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
                 l10n.yourMultiplier,
                 style: AppTheme.activityTitleStyle,
@@ -46,7 +46,7 @@ class HomeScreen extends StatelessWidget {
             ),
             // Multiplier card (with i18n)
             Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: MultiplierCard(
                 multiplier: '2.5x',
                 subtitle: l10n.tokensExpected('100', '14'),
@@ -54,21 +54,21 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
 
-            SizedBox(height: 24),
+            const SizedBox(height: 24),
 
             // Activity section (with i18n)
             Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
                 l10n.activity,
                 style: AppTheme.activityTitleStyle,
               ),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
 
             // Activity items (with i18n)
             Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(
                 children: [
                   ActivityCard(
@@ -83,12 +83,13 @@ class HomeScreen extends StatelessWidget {
                     subtitle: '10/14/2025 at 2:30pm',
                     iconColor: AppTheme.successCheckColor,
                     trailing: Container(
-                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: AppTheme.successCheckColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Text(
+                      child: const Text(
                         '+1.5x',
                         style: TextStyle(
                           color: AppTheme.successCheckColor,
@@ -104,12 +105,13 @@ class HomeScreen extends StatelessWidget {
                     subtitle: '10/14/2025 at 1:30pm',
                     iconColor: AppTheme.successCheckColor,
                     trailing: Container(
-                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: AppTheme.successCheckColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Text(
+                      child: const Text(
                         '+10,000 USN',
                         style: TextStyle(
                           color: AppTheme.successCheckColor,
@@ -123,7 +125,7 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
 
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
           ],
         ),
       ),

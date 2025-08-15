@@ -18,14 +18,14 @@ class WalletBalanceCard extends StatelessWidget {
 
     return Card(
       child: Padding(
-        padding: EdgeInsets.all(20),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
+                const Text(
                   'Total Balance',
                   style: AppTheme.nodeSubtitleStyle,
                 ),
@@ -41,7 +41,7 @@ class WalletBalanceCard extends StatelessWidget {
                 ),
               ],
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
               balance.isVisible ? balance.formattedTokenAmount : '••••••',
               style: theme.textTheme.displayMedium?.copyWith(
@@ -49,7 +49,7 @@ class WalletBalanceCard extends StatelessWidget {
                 color: theme.colorScheme.onSurface,
               ),
             ),
-            SizedBox(height: 4),
+            const SizedBox(height: 4),
             Text(
               balance.isVisible ? balance.formattedUsdValue : '••••••',
               style: AppTheme.nodeSubtitleStyle,
@@ -81,7 +81,7 @@ class QuickActionButton extends StatelessWidget {
       onTap: onTap,
       child: Card(
         child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
           child: Column(
             children: [
               Container(
@@ -97,7 +97,7 @@ class QuickActionButton extends StatelessWidget {
                   size: 20,
                 ),
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Text(
                 label,
                 style: AppTheme.nodeStatusStyle.copyWith(
@@ -138,7 +138,7 @@ class QuickActionsRow extends StatelessWidget {
             onTap: onSendTap,
           ),
         ),
-        SizedBox(width: 12),
+        const SizedBox(width: 12),
         Expanded(
           child: QuickActionButton(
             label: 'Receive',
@@ -167,9 +167,9 @@ class TransactionTile extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Card(
-      margin: EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
-        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         leading: Container(
           width: 40,
           height: 40,
@@ -231,7 +231,7 @@ class TransactionsList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (transactions.isEmpty) {
-      return Card(
+      return const Card(
         child: Padding(
           padding: EdgeInsets.all(40),
           child: Column(

@@ -26,8 +26,6 @@ class CryptoMobileApp extends StatelessWidget {
       supportedLocales: [
         Locale('en'), // English
         Locale('es'), // Spanish
-        Locale('fr'), // French (you can add more)
-        Locale('de'), // German
       ],
       home: SplashScreen(),
     );

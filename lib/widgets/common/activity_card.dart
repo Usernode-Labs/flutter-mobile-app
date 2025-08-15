@@ -27,7 +27,7 @@ class ActivityCard extends StatelessWidget {
       color: Colors.white,
       surfaceTintColor:
           Colors.transparent, // 🔥 ADD THIS - removes Material 3 tint
-      margin: EdgeInsets.symmetric(vertical: 4), // 🔥 REDUCED: Margin
+      margin: const EdgeInsets.symmetric(vertical: 4), // 🔥 REDUCED: Margin
       child: ListTile(
         leading: Container(
           width: 40,
@@ -51,13 +51,13 @@ class ActivityCard extends StatelessWidget {
           style: theme.textTheme.bodyMedium, // 🔥 CHANGED: Using theme
         ),
         trailing: trailing ??
-            Icon(
+            const Icon(
               Icons.arrow_forward_ios,
               size: 16,
               color: AppTheme.nodeIconColor,
             ),
         onTap: onTap,
-        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       ),
     );
   }

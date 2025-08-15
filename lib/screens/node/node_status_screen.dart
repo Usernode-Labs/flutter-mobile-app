@@ -1,18 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../gen_l10n/app_localizations.dart';
-import '../../constants/app_constants.dart';
 import '../../screens/scaffold_builder.dart';
-import '../../theme/app_theme.dart';
-import '../../widgets/common/activity_card.dart';
-import '../../widgets/common/multiplier_card.dart';
-import '../../widgets/common/horizontal_card_scroll.dart';
 
 class NodeStatusScreen extends StatelessWidget {
   const NodeStatusScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = AppLocalizations.of(context);
     return buildScaffold(
       context,
       title: l10n.bridge,
@@ -42,7 +37,7 @@ class StatusPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = AppLocalizations.of(context);
     return buildScaffold(
       context,
       title: l10n.node,

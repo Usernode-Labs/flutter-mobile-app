@@ -41,7 +41,7 @@ class _SplashScreenState extends State<SplashScreen>
     Future.delayed(AppConstants.splashDuration, () {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => MainApp()),
+        MaterialPageRoute(builder: (context) => const MainApp()),
       );
     });
   }
@@ -59,7 +59,7 @@ class _SplashScreenState extends State<SplashScreen>
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           // Clean white background to match the main app design
           color: Colors.white,
         ),
@@ -68,7 +68,7 @@ class _SplashScreenState extends State<SplashScreen>
             opacity: _fadeAnimation,
             child: SlideTransition(
               position: Tween<Offset>(
-                begin: Offset(0, 0.05),
+                begin: const Offset(0, 0.05),
                 end: Offset.zero,
               ).animate(_slideAnimation),
               child: ScaleTransition(
@@ -95,7 +95,7 @@ class _SplashScreenState extends State<SplashScreen>
                       ),
                     ),
 
-                    SizedBox(height: 32),
+                    const SizedBox(height: 32),
 
                     // App name using theme typography
                     Text(
@@ -106,7 +106,7 @@ class _SplashScreenState extends State<SplashScreen>
                       ),
                     ),
 
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
 
                     // Tagline with theme styling
                     Text(
@@ -117,7 +117,7 @@ class _SplashScreenState extends State<SplashScreen>
                       ),
                     ),
 
-                    SizedBox(height: 60),
+                    const SizedBox(height: 60),
 
                     // Clean loading indicator matching the design
                     SizedBox(
@@ -133,7 +133,7 @@ class _SplashScreenState extends State<SplashScreen>
                       ),
                     ),
 
-                    SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
                     // Loading text using theme colors
                     Text(

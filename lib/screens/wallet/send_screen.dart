@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../gen_l10n/app_localizations.dart';
 import '../../models/send_models.dart';
 import '../../models/transaction_model.dart';
 import '../../services/send_service.dart';
@@ -179,7 +178,7 @@ class _SendScreenState extends State<SendScreen> {
         _currentStep = SendStep.review;
       });
       _pageController.nextPage(
-        duration: Duration(milliseconds: 300),
+        duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
     }
@@ -190,7 +189,7 @@ class _SendScreenState extends State<SendScreen> {
       _currentStep = SendStep.enterDetails;
     });
     _pageController.previousPage(
-      duration: Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
     );
   }
@@ -225,7 +224,7 @@ class _SendScreenState extends State<SendScreen> {
           _currentStep = SendStep.success;
         });
         _pageController.nextPage(
-          duration: Duration(milliseconds: 300),
+          duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
         );
       } else {
@@ -251,7 +250,7 @@ class _SendScreenState extends State<SendScreen> {
       SnackBar(
         content: Text(message),
         backgroundColor: Theme.of(context).colorScheme.error,
-        duration: Duration(seconds: 3),
+        duration: const Duration(seconds: 3),
       ),
     );
   }
@@ -286,7 +285,7 @@ class _SendScreenState extends State<SendScreen> {
         leading: _currentStep == SendStep.review ||
                 _currentStep == SendStep.processing
             ? IconButton(
-                icon: Icon(Icons.arrow_back),
+                icon: const Icon(Icons.arrow_back),
                 onPressed:
                     _currentStep == SendStep.processing ? null : _goBackToEdit,
               )
@@ -294,7 +293,7 @@ class _SendScreenState extends State<SendScreen> {
       ),
       body: PageView(
         controller: _pageController,
-        physics: NeverScrollableScrollPhysics(),
+        physics: const NeverScrollableScrollPhysics(),
         children: [
           _buildEnterDetailsPage(context, theme, balance),
           _buildReviewPage(context, theme),
@@ -323,7 +322,7 @@ class _SendScreenState extends State<SendScreen> {
   Widget _buildEnterDetailsPage(
       BuildContext context, ThemeData theme, WalletBalance balance) {
     return SingleChildScrollView(
-      padding: EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       child: Column(
         children: [
           // Recipient Input
@@ -335,7 +334,7 @@ class _SendScreenState extends State<SendScreen> {
             errorText: _addressError,
           ),
 
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
 
           // Amount Input
           AmountInputCard(
@@ -345,12 +344,12 @@ class _SendScreenState extends State<SendScreen> {
             errorText: _amountError,
           ),
 
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
 
           // Memo Input (Optional)
           Card(
             child: Padding(
-              padding: EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -360,7 +359,7 @@ class _SendScreenState extends State<SendScreen> {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  SizedBox(height: 12),
+                  const SizedBox(height: 12),
                   TextField(
                     controller: _memoController,
                     maxLines: 2,
@@ -381,8 +380,8 @@ class _SendScreenState extends State<SendScreen> {
                         borderSide:
                             BorderSide(color: theme.colorScheme.primary),
                       ),
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
                     ),
                     style: AppTheme.nodeStatusStyle,
                   ),
@@ -391,7 +390,7 @@ class _SendScreenState extends State<SendScreen> {
             ),
           ),
 
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
 
           // Fee Selection
           if (_networkFees != null)
@@ -406,7 +405,7 @@ class _SendScreenState extends State<SendScreen> {
               customFeeController: _customFeeController,
             ),
 
-          SizedBox(height: 24),
+          const SizedBox(height: 24),
 
           // Continue Button
           SizedBox(
@@ -414,7 +413,7 @@ class _SendScreenState extends State<SendScreen> {
             child: FilledButton(
               onPressed: _isLoading ? null : _proceedToReview,
               child: _isLoading
-                  ? SizedBox(
+                  ? const SizedBox(
                       height: 20,
                       width: 20,
                       child: CircularProgressIndicator(
@@ -422,11 +421,11 @@ class _SendScreenState extends State<SendScreen> {
                         valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                       ),
                     )
-                  : Text('Review Transaction'),
+                  : const Text('Review Transaction'),
             ),
           ),
 
-          SizedBox(height: 20),
+          const SizedBox(height: 20),
         ],
       ),
     );
@@ -445,7 +444,7 @@ class _SendScreenState extends State<SendScreen> {
     final total = _getTotalAmount();
 
     return SingleChildScrollView(
-      padding: EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       child: Column(
         children: [
           TransactionSummaryCard(
@@ -455,7 +454,7 @@ class _SendScreenState extends State<SendScreen> {
             contactName: _contactName,
           ),
 
-          SizedBox(height: 24),
+          const SizedBox(height: 24),
 
           // Confirm Button
           SizedBox(
@@ -465,22 +464,22 @@ class _SendScreenState extends State<SendScreen> {
               style: FilledButton.styleFrom(
                 backgroundColor: AppTheme.successCheckColor,
               ),
-              child: Text('Confirm & Send'),
+              child: const Text('Confirm & Send'),
             ),
           ),
 
-          SizedBox(height: 12),
+          const SizedBox(height: 12),
 
           // Edit Button
           SizedBox(
             width: double.infinity,
             child: OutlinedButton(
               onPressed: _goBackToEdit,
-              child: Text('Edit Transaction'),
+              child: const Text('Edit Transaction'),
             ),
           ),
 
-          SizedBox(height: 20),
+          const SizedBox(height: 20),
         ],
       ),
     );
@@ -500,15 +499,15 @@ class _SendScreenState extends State<SendScreen> {
                   AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
             ),
           ),
-          SizedBox(height: 32),
+          const SizedBox(height: 32),
           Text(
             'Processing Transaction',
             style: theme.textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.w600,
             ),
           ),
-          SizedBox(height: 12),
-          Text(
+          const SizedBox(height: 12),
+          const Text(
             'Please wait while your transaction\nis being processed...',
             style: AppTheme.nodeSubtitleStyle,
             textAlign: TextAlign.center,
@@ -521,7 +520,7 @@ class _SendScreenState extends State<SendScreen> {
   Widget _buildSuccessPage(BuildContext context, ThemeData theme) {
     return Center(
       child: Padding(
-        padding: EdgeInsets.all(32),
+        padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -532,13 +531,13 @@ class _SendScreenState extends State<SendScreen> {
                 color: AppTheme.successCheckColor.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
+              child: const Icon(
                 Icons.check,
                 size: 60,
                 color: AppTheme.successCheckColor,
               ),
             ),
-            SizedBox(height: 32),
+            const SizedBox(height: 32),
             Text(
               'Transaction Sent!',
               style: theme.textTheme.headlineMedium?.copyWith(
@@ -546,23 +545,23 @@ class _SendScreenState extends State<SendScreen> {
                 color: AppTheme.successCheckColor,
               ),
             ),
-            SizedBox(height: 12),
-            Text(
+            const SizedBox(height: 12),
+            const Text(
               'Your transaction has been successfully\nsubmitted to the network.',
               style: AppTheme.nodeSubtitleStyle,
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: 40),
+            const SizedBox(height: 40),
             SizedBox(
               width: double.infinity,
               child: FilledButton(
                 onPressed: () {
                   Navigator.of(context).popUntil((route) => route.isFirst);
                 },
-                child: Text('Done'),
+                child: const Text('Done'),
               ),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
@@ -570,7 +569,7 @@ class _SendScreenState extends State<SendScreen> {
                   // TODO: Navigate to transaction details
                   _showErrorSnackBar('Transaction details coming soon!');
                 },
-                child: Text('View Transaction'),
+                child: const Text('View Transaction'),
               ),
             ),
           ],

@@ -10,13 +10,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_localizations: # 🔥 NEW: For internationalization
+  flutter_localizations:
     sdk: flutter
   intl: any
   cupertino_icons: ^1.0.2
-  rust_lib_crypto_mobile_app:
-    path: rust_builder
-  flutter_rust_bridge: 2.11.1
 
 dev_dependencies:
   flutter_lints: ^2.0.0

@@ -95,6 +95,7 @@ Usernode is a comprehensive decentralized finance (DeFi) mobile application that
 
    ```bash
    git clone [repository-url]
+   git clone https://github.com/Usernode-Labs/usernode
    cd flutter-mobile-app
    ```
 
@@ -110,6 +111,12 @@ Usernode is a comprehensive decentralized finance (DeFi) mobile application that
    flutter gen-l10n
    ```
 
+4. **Install and run flutter_rust_bridge_codegen**
+
+   ```bash
+   cargo install --git https://github.com/Usernode-Labs/flutter_rust_bridge flutter_rust_bridge_codegen
+   flutter_rust_bridge_codegen generate
+   ```
 4. **Run the Application**
 
    ```bash

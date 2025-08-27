@@ -14,6 +14,13 @@ dependencies:
     sdk: flutter
   intl: any
   cupertino_icons: ^1.0.2
+  rust_lib_crypto_mobile_app:
+    path: rust_builder
+  flutter_rust_bridge: 
+    git:
+      path: frb_dart
+      url: https://github.com/Usernode-Labs/flutter_rust_bridge
+      ref: 1a911e6435156487cb73929f652dd983ce3fabf6
 
 dev_dependencies:
   flutter_lints: ^2.0.0

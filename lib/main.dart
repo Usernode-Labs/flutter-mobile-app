@@ -1,10 +1,21 @@
+import 'package:crypto_mobile_app/src/rust/frb_generated.dart';
+import 'package:crypto_mobile_app/src/rust/node.dart';
+import 'package:crypto_mobile_app/src/rust/node/builder.dart';
+import 'package:crypto_mobile_app/src/rust/rpc.dart';
 import 'package:flutter/material.dart';
 import 'theme/app_theme.dart';
 import 'screens/splash/splash_screen.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'gen_l10n/app_localizations.dart';
 
-void main() {
+void main() async {
+  await RustLib.init();
+  NodeBuilder builder = NodeBuilder();
+  // builder.initialPeersFromUrl(url: "");
+  Node node = builder.build();
+  NodeRpcClient rpc = node.rpc();
+  node.runForeverInNewThread();
+  print('peer count: ${(await rpc.status())?.peers.length}');
   runApp(CryptoMobileApp());
 }
 

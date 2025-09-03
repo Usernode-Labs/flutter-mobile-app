@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:crypto_mobile_app/src/rust/frb_generated.dart';
+import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:crypto_mobile_app/src/rust/node.dart';
 import 'package:crypto_mobile_app/src/rust/node/builder.dart';
 import 'package:crypto_mobile_app/src/rust/rpc.dart';
@@ -9,7 +12,10 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'gen_l10n/app_localizations.dart';
 
 void main() async {
-  await RustLib.init();
+  await RustLib.init(
+    externalLibrary:
+        Platform.isIOS ? ExternalLibrary.process(iKnowHowToUseIt: true) : null,
+  );
   NodeBuilder builder = NodeBuilder();
   // builder.initialPeersFromUrl(url: "");
   Node node = builder.build();

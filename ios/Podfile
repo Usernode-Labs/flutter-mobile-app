@@ -1,5 +1,5 @@
-# Uncomment this line to define a global platform for your project
-# platform :ios, '12.0'
+# Define a global platform for your project
+platform :ios, '13.0'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
@@ -37,7 +37,20 @@ target 'Runner' do
 end
 
 post_install do |installer|
+  # Exclude x86_64 for iOS Simulator to force arm64-only builds on Apple Silicon.
+  installer.pods_project.build_configurations.each do |config|
+    config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'x86_64'
+    config.build_settings['ARCHS[sdk=iphonesimulator*]'] = 'arm64'
+    config.build_settings['ONLY_ACTIVE_ARCH'] = 'YES'
+  end
+
   installer.pods_project.targets.each do |target|
+    # Also apply the exclusion at the target level and keep Flutter additions.
+    target.build_configurations.each do |config|
+      config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'x86_64'
+      config.build_settings['ARCHS[sdk=iphonesimulator*]'] = 'arm64'
+      config.build_settings['ONLY_ACTIVE_ARCH'] = 'YES'
+    end
     flutter_additional_ios_build_settings(target)
   end
 end

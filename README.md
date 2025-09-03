@@ -81,7 +81,6 @@ source $HOME/.cargo/env
 
 # Add iOS targets for cross-compilation
 rustup target add aarch64-apple-ios
-rustup target add x86_64-apple-ios
 rustup target add aarch64-apple-ios-sim
 ```
 

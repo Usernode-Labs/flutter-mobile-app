@@ -68,88 +68,159 @@ Usernode is a comprehensive decentralized finance (DeFi) mobile application that
 - Android SDK and NDK (for Android development)
 - Xcode 12+ and iOS Simulator (for iOS development)
 
+### Installing required Dependencies on macOS
+
+To install the required dependencies on macOS, you need to set up the Rust toolchain and required system/lib dependencies. Here's how:
+
+#### 1. Install Rust Toolchain
+
+```bash
+# Install Rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source $HOME/.cargo/env
+
+# Add iOS targets for cross-compilation
+rustup target add aarch64-apple-ios
+rustup target add x86_64-apple-ios
+rustup target add aarch64-apple-ios-sim
+```
+
+#### 2. Install Required System Dependencies
+
+```bash
+# Install Homebrew if you don't have it
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Install CMake (required for building native libraries)
+brew install cmake
+
+# Install pkg-config (for dependency management)
+brew install pkg-config
+
+# Install OpenSSL (often required for networking libraries)
+brew install openssl
+
+# Install additional build tools
+brew install automake autoconf libtool
+```
+
+#### 3. Set Environment Variables
+
+Add these to your shell profile (`~/.zshrc` or `~/.bash_profile`):
+
+```bash
+export PATH="$HOME/.cargo/bin:$PATH"
+export PKG_CONFIG_PATH="/opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH"
+export OPENSSL_ROOT_DIR="/opt/homebrew/opt/openssl"
+export OPENSSL_LIB_DIR="/opt/homebrew/opt/openssl/lib"
+export OPENSSL_INCLUDE_DIR="/opt/homebrew/opt/openssl/include"
+```
+
+Reload your shell:
+
+```bash
+source ~/.zshrc  # or source ~/.bash_profile
+```
+
+#### 4. Verify Rust Installation
+
+```bash
+rustc --version
+cargo --version
+rustup show
+```
+
+#### 5. Install Cargo Tools (if needed)
+
+```bash
+# Install cargo-lipo for iOS fat binary creation
+cargo install cargo-lipo
+
+# Install cbindgen if needed for C bindings
+cargo install cbindgen
+```
+
+#### Common Issues & Solutions
+
+**If you get linking errors with OpenSSL:**
+
+```bash
+export LIBRARY_PATH="/opt/homebrew/lib:$LIBRARY_PATH"
+export CPATH="/opt/homebrew/include:$CPATH"
+```
+
+**For M2 Macs specifically:**
+
+Make sure you're using Homebrew for Apple Silicon:
+
+```bash
+# Check if Homebrew is in the right location
+which brew
+# Should show: /opt/homebrew/bin/brew
+```
+
 ### Installation Instructions
 
-1. **Install Flutter SDK**
+#### 1. **Install Flutter SDK**
 
-   ```bash
-   # Download Flutter from https://flutter.dev/docs/get-started/install
-   # Add Flutter to your PATH
-   export PATH="$PATH:`pwd`/flutter/bin"
-   ```
+```bash
+# Download Flutter from https://flutter.dev/docs/get-started/install
+# Add Flutter to your PATH
+export PATH="$PATH:`pwd`/flutter/bin"
+```
 
-2. **Verify Installation**
+#### 2. **Verify Installation**
 
-   ```bash
-   flutter doctor
-   ```
+```bash
+flutter doctor
+```
 
-3. **Install Dependencies**
-   ```bash
-   flutter pub get
-   ```
+#### 3. **Install Dependencies**
+
+```bash
+flutter pub get
+```
 
 ### Project Setup
 
-1. **Clone Repository**
+#### 1. **Clone Repository**
 
-   ```bash
-   git clone [repository-url]
-   git clone https://github.com/Usernode-Labs/usernode
-   cd flutter-mobile-app
-   ```
+```bash
+git clone https://github.com/Usernode-Labs/usernode
+cd flutter-mobile-app
+```
 
-2. **Install Dependencies**
+#### 2. **Install Dependencies**
 
-   ```bash
-   flutter pub get
-   ```
+```bash
+flutter pub get
+```
 
-3. **Generate Localization Files**
+#### 3. **Generate Localization Files**
 
-   ```bash
-   flutter gen-l10n
-   ```
+```bash
+flutter gen-l10n
+```
 
-4. **Install and run flutter_rust_bridge_codegen**
+#### 4. **Install and run flutter_rust_bridge_codegen**
 
-   ```bash
-   cargo install --git https://github.com/Usernode-Labs/flutter_rust_bridge flutter_rust_bridge_codegen
-   flutter_rust_bridge_codegen generate
-   ```
-4. **Run the Application**
+```bash
+cargo install --git https://github.com/Usernode-Labs/flutter_rust_bridge flutter_rust_bridge_codegen
+flutter_rust_bridge_codegen generate
+```
 
-   ```bash
-   # Debug mode
-   flutter run
+#### 5. **Run the Application**
 
-   # Specific platform
-   flutter run -d android
-   flutter run -d ios
-   ```
+```bash
+# Debug mode -- This will ask you to select the device / emulator on which you wanted to deploy/test the application
+flutter run
+
+# Specific platform command lines
+flutter run -d android
+flutter run -d ios
+```
 
 ### Environment Configuration
-
-#### Development Environment
-
-- API Base URL: `https://dev-api.usernode.com`
-- Debug logging enabled
-- Hot reload enabled
-- Development certificates
-
-#### Staging Environment
-
-- API Base URL: `https://staging-api.usernode.com`
-- Limited logging
-- Performance monitoring
-- Staging certificates
-
-#### Production Environment
-
-- API Base URL: `https://api.usernode.com`
-- Error reporting only
-- Analytics enabled
-- Production certificates
 
 ### IDE Configuration
 
@@ -1321,3 +1392,11 @@ A few resources to get you started if this is your first Flutter project:
 For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
+
+```
+
+```
+
+```
+
+```

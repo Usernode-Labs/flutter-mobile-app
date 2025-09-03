@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:crypto_mobile_app/src/rust/frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:crypto_mobile_app/src/rust/node.dart';
@@ -11,8 +13,8 @@ import 'gen_l10n/app_localizations.dart';
 
 void main() async {
   await RustLib.init(
-    // Use symbols linked into the app (static link), not dlopen a framework.
-    externalLibrary: ExternalLibrary.process(iKnowHowToUseIt: true),
+    externalLibrary:
+        Platform.isIOS ? ExternalLibrary.process(iKnowHowToUseIt: true) : null,
   );
   NodeBuilder builder = NodeBuilder();
   // builder.initialPeersFromUrl(url: "");

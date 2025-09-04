@@ -21,9 +21,12 @@ dependencies:
       path: frb_dart
       url: https://github.com/Usernode-Labs/flutter_rust_bridge
       ref: 1a911e6435156487cb73929f652dd983ce3fabf6
+  web3dart: ^2.7.3
+  bip39: ^1.0.6
+  bip32_bip44: ^1.0.0
 
 dev_dependencies:
-  flutter_lints: ^2.0.0
+  flutter_lints: ^6.0.0
   flutter_test:
     sdk: flutter
   integration_test:

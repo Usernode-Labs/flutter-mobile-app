@@ -5,6 +5,7 @@ import '../../services/wallet_service.dart';
 import '../../widgets/wallet/wallet_widgets.dart';
 import 'send_screen.dart';
 import 'receive_screen.dart';
+import 'package:crypto_mobile_app/config/feature_flags.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({Key? key}) : super(key: key);
@@ -150,25 +151,29 @@ class _WalletScreenState extends State<WalletScreen> {
               QuickActionsRow(
                 onSendTap: _handleSendTap,
                 onReceiveTap: _handleReceiveTap,
+                showSend: FeatureFlags.on('wallet.send'),
+                showReceive: FeatureFlags.on('wallet.receive'),
               ),
 
               const SizedBox(height: 24),
 
-              // Recent Transactions Header
-              Text(
-                'Recent Transactions',
-                style: theme.textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
+              if (FeatureFlags.on('wallet.transactions')) ...[
+                // Recent Transactions Header
+                Text(
+                  'Recent Transactions',
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
 
-              const SizedBox(height: 12),
+                const SizedBox(height: 12),
 
-              // Transaction List
-              TransactionsList(
-                transactions: _transactions,
-                onTransactionTap: _handleTransactionTap,
-              ),
+                // Transaction List
+                TransactionsList(
+                  transactions: _transactions,
+                  onTransactionTap: _handleTransactionTap,
+                ),
+              ],
 
               // Add some bottom padding for better scrolling experience
               const SizedBox(height: 20),

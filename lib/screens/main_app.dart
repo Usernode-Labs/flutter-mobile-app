@@ -3,6 +3,7 @@ import 'package:crypto_mobile_app/screens/node/node_status_screen.dart';
 import 'package:flutter/material.dart';
 import '../gen_l10n/app_localizations.dart';
 import 'wallet/wallet_screen.dart';
+import 'package:crypto_mobile_app/config/feature_flags.dart';
 
 class MainApp extends StatefulWidget {
   const MainApp({Key? key}) : super(key: key);
@@ -14,38 +15,53 @@ class MainApp extends StatefulWidget {
 class _MainAppState extends State<MainApp> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = [
-    const HomeScreen(),
-    const WalletScreen(),
-    const NodeStatusScreen(),
-    const NodeStatusScreen(),
-  ];
+  Widget _screenFor(AppFeature f) {
+    switch (f) {
+      case AppFeature.home:
+        return const HomeScreen();
+      case AppFeature.wallet:
+        return const WalletScreen();
+      case AppFeature.node:
+        return const NodeStatusScreen();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
+    final active = FeatureFlags.ordered.where(FeatureFlags.isEnabled).toList();
+    // Clamp current index to available items without relying on num.clamp casting.
+    int index = _currentIndex;
+    final maxIndex = active.isEmpty ? 0 : active.length - 1;
+    if (index > maxIndex) index = maxIndex;
+    if (index < 0) index = 0;
+    final screens = active.map(_screenFor).toList(growable: false);
+
     return Scaffold(
-      body: _screens[_currentIndex],
+      body: screens[index],
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (index) => setState(() => _currentIndex = index),
+        selectedIndex: index,
+        onDestinationSelected: (i) => setState(() => _currentIndex = i),
         destinations: [
-          NavigationDestination(
-            icon: const Icon(Icons.home_outlined),
-            selectedIcon: const Icon(Icons.home),
-            label: l10n.home,
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.account_balance_wallet_outlined),
-            selectedIcon: const Icon(Icons.account_balance_wallet),
-            label: l10n.wallet,
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.hub_outlined),
-            selectedIcon: const Icon(Icons.hub),
-            label: l10n.node,
-          ),
+          for (final f in active)
+            switch (f) {
+              AppFeature.home => NavigationDestination(
+                  icon: const Icon(Icons.home_outlined),
+                  selectedIcon: const Icon(Icons.home),
+                  label: l10n.home,
+                ),
+              AppFeature.wallet => NavigationDestination(
+                  icon: const Icon(Icons.account_balance_wallet_outlined),
+                  selectedIcon: const Icon(Icons.account_balance_wallet),
+                  label: l10n.wallet,
+                ),
+              AppFeature.node => NavigationDestination(
+                  icon: const Icon(Icons.hub_outlined),
+                  selectedIcon: const Icon(Icons.hub),
+                  label: l10n.node,
+                ),
+            }
         ],
       ),
     );

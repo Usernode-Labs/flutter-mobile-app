@@ -117,19 +117,24 @@ class QuickActionButton extends StatelessWidget {
 class QuickActionsRow extends StatelessWidget {
   final VoidCallback onSendTap;
   final VoidCallback onReceiveTap;
+  final bool showSend;
+  final bool showReceive;
 
   const QuickActionsRow({
     Key? key,
     required this.onSendTap,
     required this.onReceiveTap,
+    this.showSend = true,
+    this.showReceive = true,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Row(
-      children: [
+    final children = <Widget>[];
+    if (showSend) {
+      children.add(
         Expanded(
           child: QuickActionButton(
             label: 'Send',
@@ -138,7 +143,13 @@ class QuickActionsRow extends StatelessWidget {
             onTap: onSendTap,
           ),
         ),
-        const SizedBox(width: 12),
+      );
+    }
+    if (showSend && showReceive) {
+      children.add(const SizedBox(width: 12));
+    }
+    if (showReceive) {
+      children.add(
         Expanded(
           child: QuickActionButton(
             label: 'Receive',
@@ -147,8 +158,10 @@ class QuickActionsRow extends StatelessWidget {
             onTap: onReceiveTap,
           ),
         ),
-      ],
-    );
+      );
+    }
+    if (children.isEmpty) return const SizedBox.shrink();
+    return Row(children: children);
   }
 }
 

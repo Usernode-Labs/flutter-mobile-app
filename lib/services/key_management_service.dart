@@ -2,13 +2,10 @@ import 'package:bip32_bip44/dart_bip32_bip44.dart';
 import 'package:bip39/bip39.dart' as bip39;
 import 'package:web3dart/credentials.dart';
 import 'package:web3dart/web3dart.dart';
-import 'package:logging/logging.dart';
 
 class KeyManagementService {
   static const String pathForPublicKey = "m/44'/60'/0'/0";
   static const String pathForPrivateKey = "m/44'/60'/0'/0/0";
-
-  final Logger _logger = Logger('Web3Service');
 
   String mnemonic = "";
   String privateKey = "";
@@ -35,11 +32,8 @@ class KeyManagementService {
 
       walletAddress = ethereumAddress.hex;
 
-      _logger.info("Wallet generated: $walletAddress");
-
       return [true, mnemonic, privateKey, publicKey, walletAddress];
     } catch (e) {
-      _logger.severe("Error creating wallet: $e");
       return [false, e.toString()];
     }
   }

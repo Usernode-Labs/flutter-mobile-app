@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../gen_l10n/app_localizations.dart';
 import '../../theme/app_theme.dart';
 import 'liquidity_bridge_card.dart';
+import 'package:crypto_mobile_app/config/feature_flags.dart';
 
 class HorizontalCardScroll extends StatelessWidget {
   const HorizontalCardScroll({Key? key}) : super(key: key);
@@ -28,45 +29,46 @@ class HorizontalCardScroll extends StatelessWidget {
   }
 
   List<Widget> _getCards(AppLocalizations l10n) {
-    return [
-      // First card - Bring your own liquidity (using default i18n)
-      LiquidityBridgeCard(
-        bonusText: '+1.5x', // 🔥 SIMPLIFIED: Only pass dynamic values
-        onBridgePressed: () {
-          // Handle bridge action
-        },
-      ),
-
-      // Second card - Complete verification (with custom text)
-      _PromoCard(
-        title: l10n.completeVerification,
-        subtitle: l10n.verificationDescription,
-        buttonText: l10n.verify,
-        bonusText: '+2.0x',
-        backgroundColor: const Color(0xFFE8F5E8),
-        buttonColor: AppTheme.successCheckColor,
-        bonusColor: AppTheme.successCheckColor,
-        icon: Icons.verified_user,
-        onPressed: () {
-          // Handle verification action
-        },
-      ),
-
-      // Third card - Stake tokens (with custom text)
-      _PromoCard(
-        title: l10n.stakeTokens,
-        subtitle: l10n.stakingDescription,
-        buttonText: l10n.stake,
-        bonusText: '+3.0x',
-        backgroundColor: const Color(0xFFFFF3E0),
-        buttonColor: const Color(0xFFFF9800),
-        bonusColor: const Color(0xFFFF9800),
-        icon: Icons.lock,
-        onPressed: () {
-          // Handle staking action
-        },
-      ),
-    ];
+    final cards = <Widget>[];
+    if (FeatureFlags.on('home.bridgeCard')) {
+      cards.add(
+        LiquidityBridgeCard(
+          bonusText: '+1.5x',
+          onBridgePressed: () {},
+        ),
+      );
+    }
+    if (FeatureFlags.on('home.verifyCard')) {
+      cards.add(
+        _PromoCard(
+          title: l10n.completeVerification,
+          subtitle: l10n.verificationDescription,
+          buttonText: l10n.verify,
+          bonusText: '+2.0x',
+          backgroundColor: const Color(0xFFE8F5E8),
+          buttonColor: AppTheme.successCheckColor,
+          bonusColor: AppTheme.successCheckColor,
+          icon: Icons.verified_user,
+          onPressed: () {},
+        ),
+      );
+    }
+    if (FeatureFlags.on('home.stakeCard')) {
+      cards.add(
+        _PromoCard(
+          title: l10n.stakeTokens,
+          subtitle: l10n.stakingDescription,
+          buttonText: l10n.stake,
+          bonusText: '+3.0x',
+          backgroundColor: const Color(0xFFFFF3E0),
+          buttonColor: const Color(0xFFFF9800),
+          bonusColor: const Color(0xFFFF9800),
+          icon: Icons.lock,
+          onPressed: () {},
+        ),
+      );
+    }
+    return cards;
   }
 }
 

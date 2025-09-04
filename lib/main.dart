@@ -4,8 +4,12 @@ import 'screens/splash/splash_screen.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'gen_l10n/app_localizations.dart';
 import 'services/rust_backend_service.dart';
+import 'config/feature_flags.dart';
 
 void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Load feature flags from assets (if provided) before rendering UI
+  await FeatureFlags.loadFromAssetIfAvailable();
   // Initialize and start the Rust backend via the dedicated service
   await RustBackendService.instance.init();
   await RustBackendService.instance.startNode();

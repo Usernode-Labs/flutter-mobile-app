@@ -24,6 +24,8 @@ dependencies:
   web3dart: ^2.7.3
   bip39: ^1.0.6
   bip32_bip44: ^1.0.0
+  shared_preferences: ^2.2.3
+  flutter_secure_storage: ^9.2.2
 
 dev_dependencies:
   flutter_lints: ^6.0.0
@@ -37,3 +39,4 @@ flutter:
   generate: true
   assets:
     - assets/feature_flags.json
+    - assets/images/

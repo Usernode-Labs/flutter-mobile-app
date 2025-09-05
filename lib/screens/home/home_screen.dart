@@ -14,8 +14,15 @@ class HomeScreen extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.home)),
-      body: SingleChildScrollView(
+      appBar: Navigator.of(context).canPop()
+          ? AppBar(
+              leading: const BackButton(),
+              elevation: 0,
+              backgroundColor: Colors.transparent,
+            )
+          : null,
+      body: SafeArea(
+        child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -131,6 +138,7 @@ class HomeScreen extends StatelessWidget {
             const SizedBox(height: 20),
           ],
         ),
+      ),
       ),
     );
   }

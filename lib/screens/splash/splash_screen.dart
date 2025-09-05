@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../constants/app_constants.dart';
 import '../main_app.dart';
+import '../onboarding/account_onboarding_screen.dart';
+import '../../services/accounts_repository.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);
@@ -38,11 +40,21 @@ class _SplashScreenState extends State<SplashScreen>
 
     _controller.forward();
 
-    Future.delayed(AppConstants.splashDuration, () {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const MainApp()),
-      );
+    Future.delayed(AppConstants.splashDuration, () async {
+      final repo = await AccountsRepository.create();
+      final hasAny = await repo.hasAny();
+      if (!mounted) return;
+      if (!hasAny) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const AccountOnboardingScreen()),
+        );
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const MainApp()),
+        );
+      }
     });
   }
 

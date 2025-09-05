@@ -1,64 +1,138 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../models/transaction_model.dart';
 import '../../theme/app_theme.dart';
 
-class WalletBalanceCard extends StatelessWidget {
+class WalletBalanceCard extends StatefulWidget {
   final WalletBalance balance;
-  final VoidCallback onVisibilityToggle;
+  final String? address;
+  final String? publicKey; // Ignored in UI (hidden)
+  final VoidCallback? onManageAccounts;
+  final String? accountName;
+  final List<TokenHolding> holdings;
 
   const WalletBalanceCard({
     Key? key,
     required this.balance,
-    required this.onVisibilityToggle,
+    required this.holdings,
+    this.address,
+    this.publicKey,
+    this.onManageAccounts,
+    this.accountName,
   }) : super(key: key);
+
+  @override
+  State<WalletBalanceCard> createState() => _WalletBalanceCardState();
+}
+
+class _WalletBalanceCardState extends State<WalletBalanceCard> {
+  String _shortAddress(String addr) {
+    if (addr.length <= 12) return addr;
+    final start = addr.substring(0, 6);
+    final end = addr.substring(addr.length - 4);
+    return '$start…$end';
+  }
+
+  void _copy(String value, String label) {
+    Clipboard.setData(ClipboardData(text: value));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('$label copied')));
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Total Balance',
-                  style: AppTheme.nodeSubtitleStyle,
-                ),
-                GestureDetector(
-                  onTap: onVisibilityToggle,
-                  child: Icon(
-                    balance.isVisible
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined,
-                    size: 20,
-                    color: AppTheme.nodeIconColor,
+      clipBehavior: Clip.antiAlias,
+      color: theme.scaffoldBackgroundColor,
+      elevation: 0,
+      surfaceTintColor: Colors.transparent,
+      shadowColor: Colors.transparent,
+      child: Stack(
+        children: [
+          // Background reference image with soft overlay
+          if (widget.address != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Account header removed; shown separately in Wallet screen
+                  const SizedBox(height: 4),
+                  // Token holdings list (limit 2) with transparent tiles
+                  ListTileTheme(
+                    data: const ListTileThemeData(
+                      tileColor: Colors.transparent,
+                      selectedTileColor: Colors.transparent,
+                    ),
+                    child: Column(
+                      children: [
+                        for (final h in widget.holdings.take(2))
+                          ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            leading: CircleAvatar(
+                              radius: 18,
+                              backgroundColor:
+                                  theme.colorScheme.primary.withOpacity(0.08),
+                              foregroundColor: theme.colorScheme.primary,
+                              child: Icon(h.icon, size: 18),
+                            ),
+                            title: Text(
+                              h.name,
+                              style: theme.textTheme.titleMedium,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            trailing: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  h.formattedAmount,
+                                  style: theme.textTheme.titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.w600),
+                                ),
+                                Text(
+                                  h.formattedUsd,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                      color:
+                                          theme.colorScheme.onSurfaceVariant),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              balance.isVisible ? balance.formattedTokenAmount : '••••••',
-              style: theme.textTheme.displayMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: theme.colorScheme.onSurface,
+                  // Details section removed per request
+                ],
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              balance.isVisible ? balance.formattedUsdValue : '••••••',
-              style: AppTheme.nodeSubtitleStyle,
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }
+}
+
+class TokenHolding {
+  final String name;
+  final String symbol;
+  final double amount;
+  final double usdValue;
+  final IconData icon;
+
+  TokenHolding({
+    required this.name,
+    required this.symbol,
+    required this.amount,
+    required this.usdValue,
+    this.icon = Icons.token_outlined,
+  });
+
+  String get formattedAmount => '${amount.toStringAsFixed(2)} $symbol';
+  String get formattedUsd => '≈ \$${usdValue.toStringAsFixed(2)}';
 }
 
 class QuickActionButton extends StatelessWidget {
@@ -117,15 +191,19 @@ class QuickActionButton extends StatelessWidget {
 class QuickActionsRow extends StatelessWidget {
   final VoidCallback onSendTap;
   final VoidCallback onReceiveTap;
+  final VoidCallback? onBridgeTap;
   final bool showSend;
   final bool showReceive;
+  final bool showBridge;
 
   const QuickActionsRow({
     Key? key,
     required this.onSendTap,
     required this.onReceiveTap,
+    this.onBridgeTap,
     this.showSend = true,
     this.showReceive = true,
+    this.showBridge = true,
   }) : super(key: key);
 
   @override
@@ -133,32 +211,37 @@ class QuickActionsRow extends StatelessWidget {
     final theme = Theme.of(context);
 
     final children = <Widget>[];
-    if (showSend) {
-      children.add(
-        Expanded(
-          child: QuickActionButton(
-            label: 'Send',
-            icon: Icons.arrow_upward,
-            color: theme.colorScheme.primary,
-            onTap: onSendTap,
-          ),
-        ),
-      );
+    void addButton(Widget w) {
+      if (children.isNotEmpty) children.add(const SizedBox(width: 12));
+      children.add(Expanded(child: w));
     }
-    if (showSend && showReceive) {
-      children.add(const SizedBox(width: 12));
+
+    if (showSend) {
+      addButton(FilledButton.icon(
+        onPressed: onSendTap,
+        icon: const Icon(Icons.arrow_upward),
+        label: const Text('Send'),
+      ));
     }
     if (showReceive) {
-      children.add(
-        Expanded(
-          child: QuickActionButton(
-            label: 'Receive',
-            icon: Icons.arrow_downward,
-            color: AppTheme.successCheckColor,
-            onTap: onReceiveTap,
-          ),
+      addButton(OutlinedButton.icon(
+        onPressed: onReceiveTap,
+        icon: const Icon(Icons.arrow_downward),
+        label: const Text('Receive'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: theme.colorScheme.primary,
         ),
-      );
+      ));
+    }
+    if (showBridge && onBridgeTap != null) {
+      addButton(OutlinedButton.icon(
+        onPressed: onBridgeTap,
+        icon: const Icon(Icons.swap_horiz),
+        label: const Text('Bridge'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: theme.colorScheme.primary,
+        ),
+      ));
     }
     if (children.isEmpty) return const SizedBox.shrink();
     return Row(children: children);

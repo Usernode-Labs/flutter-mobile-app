@@ -161,7 +161,7 @@ abstract class AppLocalizations {
   /// Bridge button text
   ///
   /// In en, this message translates to:
-  /// **'Node Status'**
+  /// **'Bridge'**
   String get bridge;
 
   /// Verification card title
@@ -295,6 +295,168 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Your Multiplier'**
   String get yourMultiplier;
+
+  /// No description provided for @createAccountTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Account'**
+  String get createAccountTitle;
+
+  /// No description provided for @recoveryPhraseTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your recovery phrase'**
+  String get recoveryPhraseTitle;
+
+  /// No description provided for @recoveryPhraseWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'This recovery phrase is the ONLY way to restore your keys and regain access to this account if something goes wrong. Store it securely and never share it.'**
+  String get recoveryPhraseWarning;
+
+  /// No description provided for @recoveryPhraseInstruction.
+  ///
+  /// In en, this message translates to:
+  /// **'Write these words down and store them securely. They will NOT be stored by the app and cannot be recovered.'**
+  String get recoveryPhraseInstruction;
+
+  /// No description provided for @accountNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Account name'**
+  String get accountNameLabel;
+
+  /// No description provided for @accountNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g., Account 1'**
+  String get accountNameHint;
+
+  /// No description provided for @accountNameExplain.
+  ///
+  /// In en, this message translates to:
+  /// **'This name is only stored on your device to help you identify the account. It does not affect your blockchain address or keys.'**
+  String get accountNameExplain;
+
+  /// No description provided for @seedStoredCheckbox.
+  ///
+  /// In en, this message translates to:
+  /// **'I have securely stored my recovery phrase.'**
+  String get seedStoredCheckbox;
+
+  /// No description provided for @continueButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get continueButton;
+
+  /// No description provided for @send.
+  ///
+  /// In en, this message translates to:
+  /// **'Send'**
+  String get send;
+
+  /// No description provided for @receive.
+  ///
+  /// In en, this message translates to:
+  /// **'Receive'**
+  String get receive;
+
+  /// No description provided for @balances.
+  ///
+  /// In en, this message translates to:
+  /// **'Balances'**
+  String get balances;
+
+  /// No description provided for @recentTransactions.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent Transactions'**
+  String get recentTransactions;
+
+  /// No description provided for @copyAddress.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy address'**
+  String get copyAddress;
+
+  /// No description provided for @addressCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Address copied'**
+  String get addressCopied;
+
+  /// No description provided for @manageAccounts.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage accounts'**
+  String get manageAccounts;
+
+  /// No description provided for @selectAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Select account'**
+  String get selectAccount;
+
+  /// No description provided for @selectAccountHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap an account to switch'**
+  String get selectAccountHint;
+
+  /// No description provided for @createNewAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Create new account'**
+  String get createNewAccount;
+
+  /// No description provided for @importFromSeed.
+  ///
+  /// In en, this message translates to:
+  /// **'Import from seed phrase'**
+  String get importFromSeed;
+
+  /// No description provided for @importFromPrivateKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Import from private key'**
+  String get importFromPrivateKey;
+
+  /// No description provided for @deleteAllAccountsDev.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete all accounts (dev)'**
+  String get deleteAllAccountsDev;
+
+  /// No description provided for @deleteAllConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete all accounts?'**
+  String get deleteAllConfirmTitle;
+
+  /// No description provided for @deleteAllConfirmBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This will remove all stored accounts on this device.'**
+  String get deleteAllConfirmBody;
+
+  /// No description provided for @cancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get cancel;
+
+  /// No description provided for @delete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get delete;
+
+  /// No description provided for @generateNewAddress.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate new address'**
+  String get generateNewAddress;
 }
 
 class _AppLocalizationsDelegate

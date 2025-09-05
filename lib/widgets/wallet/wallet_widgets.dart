@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/transaction_model.dart';
 import '../../theme/app_theme.dart';
+import '../../gen_l10n/app_localizations.dart';
 
 class WalletBalanceCard extends StatefulWidget {
   final WalletBalance balance;
@@ -220,14 +221,14 @@ class QuickActionsRow extends StatelessWidget {
       addButton(FilledButton.icon(
         onPressed: onSendTap,
         icon: const Icon(Icons.arrow_upward),
-        label: const Text('Send'),
+        label: Text(AppLocalizations.of(context).send),
       ));
     }
     if (showReceive) {
       addButton(OutlinedButton.icon(
         onPressed: onReceiveTap,
         icon: const Icon(Icons.arrow_downward),
-        label: const Text('Receive'),
+        label: Text(AppLocalizations.of(context).receive),
         style: OutlinedButton.styleFrom(
           foregroundColor: theme.colorScheme.primary,
         ),
@@ -237,7 +238,7 @@ class QuickActionsRow extends StatelessWidget {
       addButton(OutlinedButton.icon(
         onPressed: onBridgeTap,
         icon: const Icon(Icons.swap_horiz),
-        label: const Text('Bridge'),
+        label: Text(AppLocalizations.of(context).bridge),
         style: OutlinedButton.styleFrom(
           foregroundColor: theme.colorScheme.primary,
         ),

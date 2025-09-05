@@ -667,12 +667,14 @@ class _WalletScreenState extends State<WalletScreen> {
                         const SizedBox(width: 8),
                         IconButton(
                           icon: const Icon(Icons.copy, size: 22),
-                          tooltip: 'Copy address',
+                          tooltip: AppLocalizations.of(context).copyAddress,
                           onPressed: () {
                             Clipboard.setData(
                                 ClipboardData(text: _account!.address));
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Address copied')),
+                              SnackBar(
+                                  content: Text(AppLocalizations.of(context)
+                                      .addressCopied)),
                             );
                           },
                           visualDensity:
@@ -682,7 +684,7 @@ class _WalletScreenState extends State<WalletScreen> {
                               const BoxConstraints(minWidth: 28, minHeight: 28),
                         ),
                         IconButton(
-                          tooltip: 'Manage accounts',
+                          tooltip: AppLocalizations.of(context).manageAccounts,
                           icon: const Icon(Icons.settings_outlined, size: 22),
                           onPressed: _openAccountManager,
                           visualDensity:
@@ -709,12 +711,9 @@ class _WalletScreenState extends State<WalletScreen> {
 
                 // Wallet Balance Card
                 // Balances Header
-                Text(
-                  'Balances',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                Text(AppLocalizations.of(context).balances,
+                    style: theme.textTheme.titleLarge
+                        ?.copyWith(fontWeight: FontWeight.w600)),
                 WalletBalanceCard(
                   balance: _balance,
                   holdings: _topHoldingsFromBalance(),
@@ -726,12 +725,9 @@ class _WalletScreenState extends State<WalletScreen> {
 
                 if (FeatureFlags.on('wallet.transactions')) ...[
                   // Recent Transactions Header
-                  Text(
-                    'Recent Transactions',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  Text(AppLocalizations.of(context).recentTransactions,
+                      style: theme.textTheme.titleLarge
+                          ?.copyWith(fontWeight: FontWeight.w600)),
 
                   const SizedBox(height: 12),
 

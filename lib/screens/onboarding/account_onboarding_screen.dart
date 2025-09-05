@@ -4,6 +4,7 @@ import 'package:bip39/bip39.dart' as bip39;
 import '../../services/accounts_repository.dart';
 import '../../models/account_creation_result.dart';
 import '../main_app.dart';
+import '../../gen_l10n/app_localizations.dart';
 
 class AccountOnboardingScreen extends StatefulWidget {
   const AccountOnboardingScreen({super.key});
@@ -74,7 +75,7 @@ class _AccountOnboardingScreenState extends State<AccountOnboardingScreen> {
       onWillPop: () async => _hasExistingAccounts,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Create Account'),
+          title: Text(AppLocalizations.of(context).createAccountTitle),
           elevation: 0,
           backgroundColor: Colors.transparent,
           leading: _hasExistingAccounts && Navigator.of(context).canPop()
@@ -107,7 +108,7 @@ class _AccountOnboardingScreenState extends State<AccountOnboardingScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Your recovery phrase',
+                            Text(AppLocalizations.of(context).recoveryPhraseTitle,
                                 style: theme.textTheme.titleLarge),
                             const SizedBox(height: 8),
                             Container(
@@ -126,11 +127,9 @@ class _AccountOnboardingScreenState extends State<AccountOnboardingScreen> {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      'This recovery phrase is the ONLY way to restore your keys and regain access to this account if something goes wrong. Store it securely and never share it.',
-                                      style:
-                                          theme.textTheme.bodyMedium?.copyWith(
-                                        color:
-                                            theme.colorScheme.onErrorContainer,
+                                      AppLocalizations.of(context).recoveryPhraseWarning,
+                                      style: theme.textTheme.bodyMedium?.copyWith(
+                                        color: theme.colorScheme.onErrorContainer,
                                       ),
                                     ),
                                   ),
@@ -138,11 +137,8 @@ class _AccountOnboardingScreenState extends State<AccountOnboardingScreen> {
                               ),
                             ),
                             const SizedBox(height: 8),
-                            Text(
-                              'Write these words down and store them securely. '
-                              'They will NOT be stored by the app and cannot be recovered.',
-                              style: theme.textTheme.bodyMedium,
-                            ),
+                            Text(AppLocalizations.of(context).recoveryPhraseInstruction,
+                                style: theme.textTheme.bodyMedium),
                             const SizedBox(height: 16),
                             if (_mnemonic != null)
                               Card(
@@ -153,21 +149,20 @@ class _AccountOnboardingScreenState extends State<AccountOnboardingScreen> {
                                 ),
                               ),
                             const SizedBox(height: 24),
-                            Text('Account name',
+                            Text(AppLocalizations.of(context).accountNameLabel,
                                 style: theme.textTheme.titleMedium),
                             const SizedBox(height: 8),
                             TextField(
                               controller: _nameCtrl,
-                          decoration: const InputDecoration(
-                            hintText: 'e.g., Account 1',
-                            border: OutlineInputBorder(),
+                          decoration: InputDecoration(
+                            hintText: AppLocalizations.of(context).accountNameHint,
+                            border: const OutlineInputBorder(),
                           ),
                               onChanged: (_) => setState(() {}),
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'This name is only stored on your device to help you identify the account. '
-                              'It does not affect your blockchain address or keys.',
+                              AppLocalizations.of(context).accountNameExplain,
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: theme.colorScheme.onSurfaceVariant,
                               ),
@@ -179,9 +174,9 @@ class _AccountOnboardingScreenState extends State<AccountOnboardingScreen> {
                                     value: _ack,
                                     onChanged: (v) =>
                                         setState(() => _ack = v ?? false)),
-                                const Expanded(
-                                  child: Text(
-                                      'I have securely stored my recovery phrase.'),
+                                Expanded(
+                                  child: Text(AppLocalizations.of(context)
+                                      .seedStoredCheckbox),
                                 ),
                               ],
                             ),
@@ -190,7 +185,8 @@ class _AccountOnboardingScreenState extends State<AccountOnboardingScreen> {
                               width: double.infinity,
                               child: FilledButton(
                                 onPressed: _ack ? _complete : null,
-                                child: const Text('Continue'),
+                                child: Text(AppLocalizations.of(context)
+                                    .continueButton),
                               ),
                             )
                           ],

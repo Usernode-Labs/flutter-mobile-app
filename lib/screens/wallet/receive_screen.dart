@@ -4,6 +4,7 @@ import '../../models/receive_models.dart';
 import '../../services/receive_service.dart';
 import '../../widgets/wallet/receive_widgets.dart';
 import '../../theme/app_theme.dart';
+import '../../gen_l10n/app_localizations.dart';
 
 class ReceiveScreen extends StatefulWidget {
   const ReceiveScreen({Key? key}) : super(key: key);
@@ -295,8 +296,8 @@ class _ReceiveScreenState extends State<ReceiveScreen>
                 Expanded(
                   child: TabBar(
                     controller: _tabController,
-                    tabs: const [
-                      Tab(text: 'Receive'),
+                    tabs: [
+                      Tab(text: AppLocalizations.of(context).receive),
                       Tab(text: 'History'),
                     ],
                   ),
@@ -312,7 +313,7 @@ class _ReceiveScreenState extends State<ReceiveScreen>
                       : IconButton(
                           icon: const Icon(Icons.refresh),
                           onPressed: _generateNewAddress,
-                          tooltip: 'Generate new address',
+                          tooltip: AppLocalizations.of(context).generateNewAddress,
                         ),
                 ),
               ],

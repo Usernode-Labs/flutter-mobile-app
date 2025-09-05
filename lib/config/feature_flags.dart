@@ -13,9 +13,9 @@ enum AppFeature { home, wallet, node }
 class FeatureFlags {
   /// Ordered list used to render navigation and related UI deterministically.
   static final List<AppFeature> ordered = [
-    AppFeature.home,
-    AppFeature.wallet,
+    // Default order: Node first (default tab), then Wallet
     AppFeature.node,
+    AppFeature.wallet,
   ];
 
   /// Compute enabled set from compile-time env or fallback defaults.
@@ -111,8 +111,8 @@ class FeatureFlags {
     const csvDisabled =
         String.fromEnvironment('DISABLED_FEATURES', defaultValue: '');
     if (csv.trim().isEmpty) {
-      // Default: ship Home and Node initially; enable Wallet when ready.
-      return {AppFeature.home, AppFeature.node};
+      // Default: only Wallet and Node enabled; Home disabled.
+      return {AppFeature.wallet, AppFeature.node};
     }
     final value = csv.trim().toLowerCase();
     if (value == 'all') {
@@ -148,8 +148,8 @@ class FeatureFlags {
         }
       }
     }
-    // Safety: ensure at least Home exists to avoid empty nav.
-    if (mapped.isEmpty) mapped.add(AppFeature.home);
+    // Safety: ensure at least Node exists to avoid empty nav.
+    if (mapped.isEmpty) mapped.add(AppFeature.node);
     return mapped;
   }
 }

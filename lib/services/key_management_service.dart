@@ -10,7 +10,7 @@ class KeyManagementService {
   String mnemonic = "";
   String privateKey = "";
   String publicKey = "";
-  String walletAddress = "";
+  String address = "";
   String message = "";
 
   Future<List<dynamic>> createWallet() async {
@@ -23,16 +23,16 @@ class KeyManagementService {
       final ExtendedKey extendedKey = chain.forPath(pathForPrivateKey);
       privateKey = extendedKey.privateKeyHex();
 
-      final EthPrivateKey ethPrivateKey = EthPrivateKey.fromHex(privateKey);
-      final EthereumAddress ethereumAddress =
-          await ethPrivateKey.extractAddress();
+      final EthPrivateKey cryptoPrivateKey = EthPrivateKey.fromHex(privateKey);
+      final EthereumAddress cryptoAddress =
+          await cryptoPrivateKey.extractAddress();
 
       final ExtendedKey extendedKeyPublic = chain.forPath(pathForPublicKey);
       publicKey = extendedKeyPublic.publicKey().toString();
 
-      walletAddress = ethereumAddress.hex;
+      address = cryptoAddress.hex;
 
-      return [true, mnemonic, privateKey, publicKey, walletAddress];
+      return [true, mnemonic, privateKey, publicKey, address];
     } catch (e) {
       return [false, e.toString()];
     }

@@ -20,8 +20,8 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
-  integration_test: 4a889634ef21a45d28d50d622cf412dc6d9f586e
-  rust_lib_crypto_mobile_app: 22f49b590da6a78489e7d47046b56ddaab2c9d28
+  integration_test: 252f60fa39af5e17c3aa9899d35d908a0721b573
+  rust_lib_crypto_mobile_app: 9ba889d5d75479ce09312b2330125910ad8c6150
 
 PODFILE CHECKSUM: 533c34e1eaec0c81bad257898166cee1b2be4ce4
 

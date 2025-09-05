@@ -1,0 +1,4 @@
+{
+  "enabled": ["home", "node"],
+  "order": ["home", "wallet", "node"]
+}

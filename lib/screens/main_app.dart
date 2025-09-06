@@ -6,7 +6,8 @@ import 'wallet/wallet_screen.dart';
 import 'package:crypto_mobile_app/config/feature_flags.dart';
 
 class MainApp extends StatefulWidget {
-  const MainApp({Key? key}) : super(key: key);
+  final AppFeature? initialFeature;
+  const MainApp({Key? key, this.initialFeature}) : super(key: key);
 
   @override
   _MainAppState createState() => _MainAppState();
@@ -14,6 +15,7 @@ class MainApp extends StatefulWidget {
 
 class _MainAppState extends State<MainApp> {
   int _currentIndex = 0;
+  bool _initialApplied = false;
 
   Widget _screenFor(AppFeature f) {
     switch (f) {
@@ -23,6 +25,20 @@ class _MainAppState extends State<MainApp> {
         return const WalletScreen();
       case AppFeature.node:
         return const NodeStatusScreen();
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Apply initial feature selection once
+    if (widget.initialFeature != null) {
+      final active = FeatureFlags.ordered.where(FeatureFlags.isEnabled).toList();
+      final desired = active.indexOf(widget.initialFeature!);
+      if (desired >= 0) {
+        _currentIndex = desired;
+      }
+      _initialApplied = true;
     }
   }
 

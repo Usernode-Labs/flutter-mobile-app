@@ -182,5 +182,30 @@
   "deleteAllConfirmBody": "This will remove all stored accounts on this device.",
   "cancel": "Cancel",
   "delete": "Delete",
-  "generateNewAddress": "Generate new address"
+  "generateNewAddress": "Generate new address",
+  "backendStarting": "Starting backend for your account...",
+  "nodeStatusLoading": "Loading node status...",
+  "nodeStatusError": "Failed to load node status",
+  "nodePeersCount": "Peers: {count}",
+  "@nodePeersCount": {
+    "placeholders": {"count": {"type": "String"}}
+  },
+  "refresh": "Refresh",
+  "currentBlockHeightLabel": "Current block height",
+  "nodeStatusLabel": "Status",
+  "peersLabel": "Peers",
+  "mempoolLabel": "Mempool",
+  "evaluatedDiscoveredLabel": "Evaluated / Discovered Slots",
+  "upcoming": "Upcoming",
+  "pastSlots": "Past Slots",
+  "scheduledSlot": "Scheduled Slot",
+  "discoveredSlot": "Discovered Slot {id}",
+  "@discoveredSlot": {"placeholders": {"id": {"type": "String"}}},
+  "inTime": "in {time}",
+  "@inTime": {"placeholders": {"time": {"type": "String"}}},
+  "transactionsSuffix": "{count} Transactions",
+  "@transactionsSuffix": {"placeholders": {"count": {"type": "String"}}}
+  ,
+  "checkedAgoSeconds": "Checked {seconds} seconds ago",
+  "@checkedAgoSeconds": {"placeholders": {"seconds": {"type": "String"}}}
 }

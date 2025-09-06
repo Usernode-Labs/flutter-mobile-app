@@ -6,7 +6,6 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/intl.dart' as intl;
 
 import 'app_localizations_en.dart';
-import 'app_localizations_es.dart';
 
 // ignore_for_file: type=lint
 
@@ -93,10 +92,7 @@ abstract class AppLocalizations {
   ];
 
   /// A list of this localizations delegate's supported locales.
-  static const List<Locale> supportedLocales = <Locale>[
-    Locale('en'),
-    Locale('es')
-  ];
+  static const List<Locale> supportedLocales = <Locale>[Locale('en')];
 
   /// The name of the application
   ///
@@ -457,6 +453,108 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Generate new address'**
   String get generateNewAddress;
+
+  /// No description provided for @backendStarting.
+  ///
+  /// In en, this message translates to:
+  /// **'Starting backend for your account...'**
+  String get backendStarting;
+
+  /// No description provided for @nodeStatusLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading node status...'**
+  String get nodeStatusLoading;
+
+  /// No description provided for @nodeStatusError.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load node status'**
+  String get nodeStatusError;
+
+  /// No description provided for @nodePeersCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Peers: {count}'**
+  String nodePeersCount(String count);
+
+  /// No description provided for @refresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get refresh;
+
+  /// No description provided for @currentBlockHeightLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Current block height'**
+  String get currentBlockHeightLabel;
+
+  /// No description provided for @nodeStatusLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Status'**
+  String get nodeStatusLabel;
+
+  /// No description provided for @peersLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Peers'**
+  String get peersLabel;
+
+  /// No description provided for @mempoolLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Mempool'**
+  String get mempoolLabel;
+
+  /// No description provided for @evaluatedDiscoveredLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Evaluated / Discovered Slots'**
+  String get evaluatedDiscoveredLabel;
+
+  /// No description provided for @upcoming.
+  ///
+  /// In en, this message translates to:
+  /// **'Upcoming'**
+  String get upcoming;
+
+  /// No description provided for @pastSlots.
+  ///
+  /// In en, this message translates to:
+  /// **'Past Slots'**
+  String get pastSlots;
+
+  /// No description provided for @scheduledSlot.
+  ///
+  /// In en, this message translates to:
+  /// **'Scheduled Slot'**
+  String get scheduledSlot;
+
+  /// No description provided for @discoveredSlot.
+  ///
+  /// In en, this message translates to:
+  /// **'Discovered Slot {id}'**
+  String discoveredSlot(String id);
+
+  /// No description provided for @inTime.
+  ///
+  /// In en, this message translates to:
+  /// **'in {time}'**
+  String inTime(String time);
+
+  /// No description provided for @transactionsSuffix.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} Transactions'**
+  String transactionsSuffix(String count);
+
+  /// No description provided for @checkedAgoSeconds.
+  ///
+  /// In en, this message translates to:
+  /// **'Checked {seconds} seconds ago'**
+  String checkedAgoSeconds(String seconds);
 }
 
 class _AppLocalizationsDelegate
@@ -470,7 +568,7 @@ class _AppLocalizationsDelegate
 
   @override
   bool isSupported(Locale locale) =>
-      <String>['en', 'es'].contains(locale.languageCode);
+      <String>['en'].contains(locale.languageCode);
 
   @override
   bool shouldReload(_AppLocalizationsDelegate old) => false;
@@ -481,8 +579,6 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   switch (locale.languageCode) {
     case 'en':
       return AppLocalizationsEn();
-    case 'es':
-      return AppLocalizationsEs();
   }
 
   throw FlutterError(

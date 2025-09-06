@@ -5,6 +5,7 @@ import '../../services/accounts_repository.dart';
 import '../../models/account_creation_result.dart';
 import '../main_app.dart';
 import '../../gen_l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/config/feature_flags.dart';
 
 class AccountOnboardingScreen extends StatefulWidget {
   const AccountOnboardingScreen({super.key});
@@ -63,7 +64,7 @@ class _AccountOnboardingScreenState extends State<AccountOnboardingScreen> {
     await repo.importFromMnemonic(name: newName, mnemonic: _mnemonic!);
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const MainApp()),
+      MaterialPageRoute(builder: (_) => const MainApp(initialFeature: AppFeature.wallet)),
       (_) => false,
     );
   }

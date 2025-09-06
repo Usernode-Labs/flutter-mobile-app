@@ -11,6 +11,7 @@ import 'package:crypto_mobile_app/models/account.dart';
 import '../onboarding/account_onboarding_screen.dart';
 import 'package:flutter/services.dart';
 import 'package:bip39/bip39.dart' as bip39;
+import 'package:crypto_mobile_app/services/rust_backend_service.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({Key? key}) : super(key: key);
@@ -67,6 +68,13 @@ class _WalletScreenState extends State<WalletScreen> {
     setState(() {
       _account = active;
     });
+    // Ensure backend is started for the active account; show info if starting
+    if (_account != null && !RustBackendService.instance.isRunning) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context).backendStarting)),
+      );
+      await RustBackendService.instance.startForActiveAccount();
+    }
   }
 
   Future<void> _openAccountManager() async {
@@ -101,6 +109,14 @@ class _WalletScreenState extends State<WalletScreen> {
             final active =
                 await (await AccountsRepository.create()).getActive();
             if (mounted) setState(() => _account = active);
+            await RustBackendService.instance.restartForActiveAccount();
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                    content: Text(
+                        AppLocalizations.of(context).backendStarting)),
+              );
+            }
             if (Navigator.of(ctx).canPop()) Navigator.of(ctx).pop();
           }
 

@@ -1,6 +1,8 @@
 import 'dart:io' show Platform;
 
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
+import 'package:crypto_mobile_app/services/accounts_repository.dart';
+import 'package:crypto_mobile_app/utils/logger.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:crypto_mobile_app/src/rust/frb_generated.dart';
 import 'package:crypto_mobile_app/src/rust/node.dart';
@@ -20,17 +22,20 @@ class RustBackendService {
 
   Node? _node;
   NodeRpcClient? _rpc;
+  bool get isRunning => _nodeRunning;
 
   /// Initialize flutter_rust_bridge and load the dynamic library.
   /// Call once at app startup (before runApp).
   Future<void> init() async {
     if (_initialized) return;
+    Log.i('RUST', 'Init FRB');
     await RustLib.init(
       externalLibrary: Platform.isIOS
           ? ExternalLibrary.process(iKnowHowToUseIt: true)
           : null,
     );
     _initialized = true;
+    Log.i('RUST', 'Init complete');
   }
 
   /// Build and start the Rust node, then expose an RPC client.
@@ -40,6 +45,7 @@ class RustBackendService {
       await init();
     }
     if (_nodeRunning) return;
+    Log.i('RUST', 'Starting node' + (httpPort != null ? ' on $httpPort' : ''));
 
     final builder = NodeBuilder();
     if (httpPort != null) {
@@ -52,6 +58,38 @@ class RustBackendService {
     // Run the node in a background thread.
     _node!.runForeverInNewThread();
     _nodeRunning = true;
+    Log.i('RUST', 'Node started');
+  }
+
+  Future<void> stopNode() async {
+    if (!_initialized && !_nodeRunning) return;
+    // Currently frb-generated API does not expose a graceful shutdown; dispose bridge.
+    Log.w('RUST', 'Stopping node (dropping references; FRB stays initialized)');
+    _nodeRunning = false;
+    _node = null;
+    _rpc = null;
+  }
+
+  /// Start node if there is an active account; otherwise do nothing.
+  Future<bool> startForActiveAccount() async {
+    Log.d('RUST', 'startForActiveAccount begin');
+    final repo = await AccountsRepository.create();
+    final hasAny = await repo.hasAny();
+    if (!hasAny) return false;
+    if (!_initialized) {
+      await init();
+    }
+    if (_nodeRunning) return true;
+    await startNode();
+    Log.d('RUST', 'startForActiveAccount done');
+    return true;
+  }
+
+  /// Restart node using current active account context.
+  Future<void> restartForActiveAccount() async {
+    Log.i('RUST', 'Restarting node for active account');
+    await stopNode();
+    await startForActiveAccount();
   }
 
   /// Obtain the RPC client for ad-hoc calls.
@@ -59,15 +97,17 @@ class RustBackendService {
 
   /// Convenience helper to fetch node status via RPC.
   Future<RpcStatusResp?> getStatus() async {
+    Log.d('RUST', 'getStatus called');
     final r = _rpc;
     if (r == null) return null;
-    return r.status();
+    final status = await r.status();
+    Log.d('RUST', 'getStatus ok');
+    return status;
   }
 
   /// Dispose bridge resources when the app is exiting.
   void dispose() {
-    RustLib.dispose();
-    _initialized = false;
+    // Keep FRB initialized for app lifetime to avoid double-init errors.
     _nodeRunning = false;
     _node = null;
     _rpc = null;

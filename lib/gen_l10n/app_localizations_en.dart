@@ -202,4 +202,65 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get generateNewAddress => 'Generate new address';
+
+  @override
+  String get backendStarting => 'Starting backend for your account...';
+
+  @override
+  String get nodeStatusLoading => 'Loading node status...';
+
+  @override
+  String get nodeStatusError => 'Failed to load node status';
+
+  @override
+  String nodePeersCount(String count) {
+    return 'Peers: $count';
+  }
+
+  @override
+  String get refresh => 'Refresh';
+
+  @override
+  String get currentBlockHeightLabel => 'Current block height';
+
+  @override
+  String get nodeStatusLabel => 'Status';
+
+  @override
+  String get peersLabel => 'Peers';
+
+  @override
+  String get mempoolLabel => 'Mempool';
+
+  @override
+  String get evaluatedDiscoveredLabel => 'Evaluated / Discovered Slots';
+
+  @override
+  String get upcoming => 'Upcoming';
+
+  @override
+  String get pastSlots => 'Past Slots';
+
+  @override
+  String get scheduledSlot => 'Scheduled Slot';
+
+  @override
+  String discoveredSlot(String id) {
+    return 'Discovered Slot $id';
+  }
+
+  @override
+  String inTime(String time) {
+    return 'in $time';
+  }
+
+  @override
+  String transactionsSuffix(String count) {
+    return '$count Transactions';
+  }
+
+  @override
+  String checkedAgoSeconds(String seconds) {
+    return 'Checked $seconds seconds ago';
+  }
 }

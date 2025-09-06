@@ -12,6 +12,7 @@ import '../onboarding/account_onboarding_screen.dart';
 import 'package:flutter/services.dart';
 import 'package:bip39/bip39.dart' as bip39;
 import 'package:crypto_mobile_app/services/rust_backend_service.dart';
+import 'import_account_sheets.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({Key? key}) : super(key: key);
@@ -130,170 +131,65 @@ class _WalletScreenState extends State<WalletScreen> {
           }
 
           Future<void> importWithSeed() async {
-            controller.text = 'Imported ${items.length + 1}';
-            await showDialog(
+            final result = await showModalBottomSheet<ImportSeedData>(
               context: ctx,
-              builder: (dctx) {
-                String? err;
-                return StatefulBuilder(builder: (dctx, setStateDialog) {
-                  return AlertDialog(
-                    title: const Text('Import with seed phrase'),
-                    content: SingleChildScrollView(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          TextField(
-                            controller: controller,
-                            decoration: const InputDecoration(
-                                labelText: 'Account name'),
-                          ),
-                          const SizedBox(height: 8),
-                          TextField(
-                            controller: seedCtrl,
-                            minLines: 2,
-                            maxLines: 4,
-                            decoration: const InputDecoration(
-                              labelText: 'Seed phrase (space-separated words)',
-                            ),
-                          ),
-                          if (err != null) ...[
-                            const SizedBox(height: 8),
-                            Text(err!,
-                                style: TextStyle(
-                                    color: Theme.of(dctx).colorScheme.error)),
-                          ]
-                        ],
-                      ),
-                    ),
-                    actions: [
-                      TextButton(
-                          onPressed: () => Navigator.pop(dctx),
-                          child: const Text('Cancel')),
-                      FilledButton(
-                        onPressed: () async {
-                          final name = controller.text.trim().isEmpty
-                              ? 'Imported'
-                              : controller.text.trim();
-                          final phrase = seedCtrl.text
-                              .trim()
-                              .toLowerCase()
-                              .replaceAll(RegExp(r'\s+'), ' ');
-                          if (phrase.isEmpty) {
-                            setStateDialog(() => err = 'Seed phrase required');
-                            return;
-                          }
-                          if (!bip39.validateMnemonic(phrase)) {
-                            setStateDialog(
-                                () => err = 'Invalid BIP39 seed phrase');
-                            return;
-                          }
-                          final res = await (await AccountsRepository.create())
-                              .importFromMnemonic(
-                            name: name,
-                            mnemonic: phrase,
-                          );
-                          if (res == null) {
-                            setStateDialog(
-                                () => err = 'Failed to import account');
-                            return;
-                          }
-                          if (mounted) {
-                            Navigator.pop(dctx);
-                            Navigator.pop(ctx);
-                            _loadActiveAccount();
-                          }
-                        },
-                        child: const Text('Import'),
-                      )
-                    ],
-                  );
-                });
-              },
+              isScrollControlled: true,
+              useSafeArea: true,
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+              ),
+              builder: (_) => ImportSeedSheet(
+                initialName: 'Imported ${items.length + 1}',
+              ),
             );
+            if (result != null) {
+              final res = await (await AccountsRepository.create())
+                  .importFromMnemonic(name: result.name, mnemonic: result.mnemonic);
+              if (res == null) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Failed to import account')),
+                  );
+                }
+              } else {
+                if (mounted) {
+                  Navigator.pop(ctx);
+                  _loadActiveAccount();
+                }
+              }
+            }
           }
 
           Future<void> importWithPrivateKey() async {
-            controller.text = 'Imported ${items.length + 1}';
-            await showDialog(
+            final result = await showModalBottomSheet<ImportPrivateKeyData>(
               context: ctx,
-              builder: (dctx) {
-                String? err;
-                return StatefulBuilder(builder: (dctx, setStateDialog) {
-                  return AlertDialog(
-                    title: const Text('Import with private key'),
-                    content: SingleChildScrollView(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          TextField(
-                            controller: controller,
-                            decoration: const InputDecoration(
-                                labelText: 'Account name'),
-                          ),
-                          const SizedBox(height: 8),
-                          TextField(
-                            controller: keyCtrl,
-                            decoration: const InputDecoration(
-                              labelText:
-                                  'Private key (hex) — 64 chars, optional 0x prefix',
-                            ),
-                          ),
-                          if (err != null) ...[
-                            const SizedBox(height: 8),
-                            Text(err!,
-                                style: TextStyle(
-                                    color: Theme.of(dctx).colorScheme.error)),
-                          ]
-                        ],
-                      ),
-                    ),
-                    actions: [
-                      TextButton(
-                          onPressed: () => Navigator.pop(dctx),
-                          child: const Text('Cancel')),
-                      FilledButton(
-                        onPressed: () async {
-                          final name = controller.text.trim().isEmpty
-                              ? 'Imported'
-                              : controller.text.trim();
-                          var pk = keyCtrl.text.trim();
-                          if (pk.isEmpty) {
-                            setStateDialog(() => err = 'Private key required');
-                            return;
-                          }
-                          if (pk.startsWith('0x')) pk = pk.substring(2);
-                          final isHex64 =
-                              RegExp(r'^[0-9a-fA-F]{64}$').hasMatch(pk);
-                          if (!isHex64) {
-                            setStateDialog(
-                                () => err = 'Invalid private key format');
-                            return;
-                          }
-                          final res = await (await AccountsRepository.create())
-                              .importFromPrivateKey(
-                            name: name,
-                            privateKey: pk,
-                          );
-                          if (res == null) {
-                            setStateDialog(
-                                () => err = 'Failed to import account');
-                            return;
-                          }
-                          if (mounted) {
-                            Navigator.pop(dctx);
-                            Navigator.pop(ctx);
-                            _loadActiveAccount();
-                          }
-                        },
-                        child: const Text('Import'),
-                      )
-                    ],
-                  );
-                });
-              },
+              isScrollControlled: true,
+              useSafeArea: true,
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+              ),
+              builder: (_) => ImportPrivateKeySheet(
+                initialName: 'Imported ${items.length + 1}',
+              ),
             );
+            if (result != null) {
+              final res = await (await AccountsRepository.create()).importFromPrivateKey(
+                name: result.name,
+                privateKey: result.privateKey,
+              );
+              if (res == null) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Failed to import account')),
+                  );
+                }
+              } else {
+                if (mounted) {
+                  Navigator.pop(ctx);
+                  _loadActiveAccount();
+                }
+              }
+            }
           }
 
           final others = items.where((a) => a.id != _account?.id).toList();

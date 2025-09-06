@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../gen_l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/services/rust_backend_service.dart';
 import 'package:crypto_mobile_app/utils/logger.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 
 class NodeStatusScreen extends StatefulWidget {
   const NodeStatusScreen({Key? key}) : super(key: key);
@@ -16,6 +17,7 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
   bool _refreshing = false;
   String? _error;
   int? _peerCount;
+  List<RpcPeerInfo> _peers = const [];
   int? _blockHeight;
   int? _mempoolCount;
   int? _evaluatedSlots;
@@ -44,6 +46,7 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
   }
 
   Future<void> _refresh() async {
+    if (!mounted) return;
     setState(() {
       _refreshing = true;
       _error = null; // keep content visible; show error inline
@@ -51,8 +54,10 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     try {
       Log.d('NODE', 'Fetching status');
       final status = await RustBackendService.instance.getStatus();
+      if (!mounted) return;
       setState(() {
-        _peerCount = status?.peers.length;
+        _peers = status?.peers ?? const [];
+        _peerCount = _peers.length;
         // TODO: Map real fields once exposed by RPC (placeholders for now)
         _blockHeight = null;
         _mempoolCount = null;
@@ -62,9 +67,11 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
       });
     } catch (e, st) {
       Log.e('NODE', 'getStatus failed', e, st);
-      setState(() {
-        _error = e.toString();
-      });
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+        });
+      }
     } finally {
       if (mounted) {
         setState(() => _refreshing = false);
@@ -75,6 +82,7 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final backendId = RustBackendService.instance.instanceId;
     return SafeArea(
       child: RefreshIndicator(
         onRefresh: _refresh,
@@ -135,11 +143,31 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      if (backendId != null && backendId.isNotEmpty) ...[
+                        _StatusItem(label: 'Backend ID', value: backendId),
+                        const SizedBox(height: 16),
+                      ],
                       _StatusItem(label: l10n.currentBlockHeightLabel, value: _fmtInt(_blockHeight)),
                       const SizedBox(height: 16),
                       _StatusItem(label: l10n.nodeStatusLabel, value: _statusText(l10n)),
                       const SizedBox(height: 16),
-                      _StatusItem(label: l10n.peersLabel, value: (_peerCount ?? 0).toString()),
+                      // Peers with icon to open details
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: _StatusItem(
+                              label: l10n.peersLabel,
+                              value: (_peerCount ?? 0).toString(),
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Show peers',
+                            icon: const Icon(Icons.people_alt_outlined),
+                            onPressed: _peers.isEmpty ? null : _showPeersSheet,
+                          ),
+                        ],
+                      ),
                       const SizedBox(height: 16),
                       _StatusItem(label: l10n.mempoolLabel, value: l10n.transactionsSuffix((_mempoolCount ?? 0).toString())),
                       const SizedBox(height: 16),
@@ -211,6 +239,216 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
         ),
       ),
     );
+  }
+
+  void _showPeersSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        final theme = Theme.of(ctx);
+        return SafeArea(
+          child: Container(
+            color: theme.colorScheme.surface,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Header
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(16, 16, 8, 12),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer,
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.people_alt_outlined, color: theme.colorScheme.onPrimaryContainer),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Connected peers (${_peers.length})',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: theme.colorScheme.onPrimaryContainer,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.close, color: theme.colorScheme.onPrimaryContainer),
+                          onPressed: () => Navigator.of(ctx).pop(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Flexible(
+                    child: ListView.separated(
+                      padding: const EdgeInsets.all(16),
+                      shrinkWrap: true,
+                      itemCount: _peers.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (_, i) {
+                        final p = _peers[i];
+                        final status = p.connectionStatus.toString().split('.').last;
+                        final statusColor = _statusColor(theme, p.connectionStatus);
+                        final addr = p.address ?? '(no address)';
+                        final details = p.connectingDetails;
+                        final incoming = p.incoming ? 'incoming' : 'outgoing';
+                        final peerIdRaw = p.peerId.toString();
+                        final idOnly = _extractPeerId(peerIdRaw);
+                        final idShort = idOnly != null ? _shortenMid(idOnly) : _shortenMid(peerIdRaw);
+                        final ipPort = _peerIp(p) ?? _extractIpPort(peerIdRaw);
+                        final time = p.time.toString();
+                        return Material(
+                          color: theme.colorScheme.surface,
+                          child: ListTile(
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            tileColor: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            leading: CircleAvatar(
+                              backgroundColor: statusColor.withOpacity(0.12),
+                              foregroundColor: statusColor,
+                              child: const Icon(Icons.hub),
+                            ),
+                            title: Text(
+                              addr,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                color: theme.colorScheme.onSurface,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            subtitle: Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Chip(
+                                        label: Text(status),
+                                        backgroundColor: statusColor.withOpacity(0.12),
+                                        labelStyle: theme.textTheme.bodySmall?.copyWith(color: statusColor),
+                                        visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+                                        padding: EdgeInsets.zero,
+                                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        incoming,
+                                        style: theme.textTheme.bodySmall?.copyWith(
+                                          color: theme.colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  if (details != null && details.isNotEmpty)
+                                    Text(
+                                      details,
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        color: theme.colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  Text(
+                                    'id: $idShort',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  if (ipPort != null)
+                                    Text(
+                                      'ip: $ipPort',
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        color: theme.colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  Text(
+                                    'time: $time',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            dense: false,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Color _statusColor(ThemeData theme, PeerConnectionStatus s) {
+    switch (s) {
+      case PeerConnectionStatus.connected:
+        return theme.colorScheme.primary;
+      case PeerConnectionStatus.connecting:
+        return theme.colorScheme.tertiary;
+      case PeerConnectionStatus.disconnected:
+        return theme.colorScheme.outline;
+      case PeerConnectionStatus.disconnecting:
+        return theme.colorScheme.error;
+    }
+  }
+
+  String? _extractPeerId(String raw) {
+    String cleaned = raw.trim();
+    // Remove wrappers like "PeerId(...)" or braces
+    cleaned = cleaned.replaceAll(RegExp(r'^PeerId\s*[({]'), '');
+    cleaned = cleaned.replaceAll(RegExp(r'[)}]$'), '');
+    // Format like "<id>@..."
+    if (cleaned.contains('@')) {
+      return cleaned.split('@').first;
+    }
+    // key-value style
+    final idKV = RegExp(r'id\s*[:=]\s*([^,\s}]+)').firstMatch(cleaned);
+    if (idKV != null) return idKV.group(1);
+    // fallback: longest token
+    final tokens = cleaned.split(RegExp(r'[^A-Za-z0-9_-]+')).where((t) => t.isNotEmpty).toList();
+    tokens.removeWhere((t) => t.toLowerCase() == 'peerid');
+    tokens.sort((a, b) => b.length.compareTo(a.length));
+    return tokens.isNotEmpty ? tokens.first : null;
+  }
+
+  String? _peerIp(RpcPeerInfo p) {
+    // Prefer address field, then connectingDetails
+    final addr = _extractIpPort(p.address);
+    if (addr != null) return addr;
+    final det = _extractIpPort(p.connectingDetails);
+    return det;
+  }
+
+  String? _extractIpPort(String? text) {
+    if (text == null) return null;
+    final s = text.trim();
+    // IPv6 in brackets, include optional port
+    final ipv6 = RegExp(r'\[([0-9a-fA-F:]+)\](?::\d+)?').firstMatch(s);
+    if (ipv6 != null) return ipv6.group(0);
+    // IPv4 with optional port
+    final ipv4 = RegExp(r'(\d{1,3}(?:\.\d{1,3}){3})(?::\d+)?').firstMatch(s);
+    if (ipv4 != null) return ipv4.group(0);
+    // Fallback: hostname:port
+    final host = RegExp(r'([A-Za-z0-9.-]+(?::\d+)?)').firstMatch(s)?.group(0);
+    return host;
+  }
+
+  String _shortenMid(String s, {int head = 6, int tail = 6}) {
+    if (s.length <= head + tail + 1) return s;
+    return s.substring(0, head) + '…' + s.substring(s.length - tail);
   }
 
   String _fmtInt(int? v) => v == null ? 'N/A' : v.toString();

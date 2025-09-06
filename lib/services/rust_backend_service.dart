@@ -1,4 +1,5 @@
 import 'dart:io' show Platform;
+import 'dart:convert';
 
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'package:crypto_mobile_app/services/accounts_repository.dart';
@@ -19,10 +20,15 @@ class RustBackendService {
 
   bool _initialized = false;
   bool _nodeRunning = false;
+  String? _instanceId;
 
   Node? _node;
   NodeRpcClient? _rpc;
   bool get isRunning => _nodeRunning;
+  String? get instanceId => _instanceId;
+  void setInstanceId(String id) {
+    _instanceId = id;
+  }
 
   /// Initialize flutter_rust_bridge and load the dynamic library.
   /// Call once at app startup (before runApp).
@@ -101,6 +107,34 @@ class RustBackendService {
     final r = _rpc;
     if (r == null) return null;
     final status = await r.status();
+    try {
+      if (status != null) {
+        final peers = status.peers
+            .map((p) => {
+                  'address': p.address,
+                  'connectingDetails': p.connectingDetails,
+                  'connectionStatus': (() {
+                    try {
+                      // Dart enums have a `name` getter in modern SDKs
+                      // Fallback to toString parsing if unavailable.
+                      // ignore: unnecessary_cast
+                      final dynamic cs = p.connectionStatus;
+                      return (cs as dynamic).name ?? cs.toString().split('.').last;
+                    } catch (_) {
+                      return p.connectionStatus.toString();
+                    }
+                  })(),
+                  'incoming': p.incoming,
+                  'peerId': p.peerId.toString(),
+                  'time': p.time.toString(),
+                })
+            .toList();
+        final json = jsonEncode({'peers': peers});
+        Log.d('RUST', 'getStatus json: $json');
+      }
+    } catch (e, st) {
+      Log.w('RUST', 'Failed to encode getStatus to JSON: $e\n$st');
+    }
     Log.d('RUST', 'getStatus ok');
     return status;
   }

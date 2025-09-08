@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'theme/app_theme.dart';
+import 'theme/theme.dart';
 import 'screens/splash/splash_screen.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'gen_l10n/app_localizations.dart';
@@ -33,7 +33,7 @@ class CryptoMobileApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Usernode',
-      theme: AppTheme.lightTheme,
+      theme: MaterialTheme(ThemeData.light().textTheme).light(),
       debugShowCheckedModeBanner: false,
       localizationsDelegates: [
         AppLocalizations.delegate,

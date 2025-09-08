@@ -1288,6 +1288,29 @@ flutter pub upgrade package_name
 
 ## Team Guidelines
 
+## Feature Flags
+
+- Purpose: Gate features behind a simple, central switch so you can show/hide tabs and roll out over time without code changes.
+- Files: `lib/config/feature_flags.dart` (logic) and optional `assets/feature_flags.json` (configuration).
+- How it works:
+  - Defaults are defined in code (currently `home` and `node` enabled; `wallet` gated).
+  - Option A — JSON file (recommended for local dev): edit `assets/feature_flags.json`
+    - Example:
+      - `{ "enabled": ["home", "node"], "order": ["home", "wallet", "node"], "disabled": ["wallet.send"] }`
+    - App loads this at startup; no CLI args needed.
+  - Option B — CLI overrides: use a compile-time define
+    - Enable specific features: `flutter run --dart-define=ENABLED_FEATURES=home,wallet`
+    - Enable all features: `flutter run --dart-define=ENABLED_FEATURES=all`
+  - Bottom navigation and screens are built from the enabled features.
+
+Notes:
+- The order of tabs is controlled by `FeatureFlags.ordered`.
+- Unknown values in `ENABLED_FEATURES` are ignored; at least `home` will remain enabled.
+- Granular flags (widget-level) supported via keys:
+  - Home: `home.cards`, `home.bridgeCard`, `home.verifyCard`, `home.stakeCard`, `home.multiplier`, `home.activity`
+  - Wallet: `wallet.send`, `wallet.receive`, `wallet.transactions`
+  - Use `disabled` array to hide any of the above (default is on if unspecified).
+
 ### Git Workflow
 
 #### Branch Strategy

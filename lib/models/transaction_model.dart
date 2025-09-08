@@ -78,13 +78,11 @@ class WalletBalance {
   final double tokenAmount;
   final String tokenSymbol;
   final double usdValue;
-  final bool isVisible;
 
   WalletBalance({
     required this.tokenAmount,
     required this.tokenSymbol,
     required this.usdValue,
-    this.isVisible = true,
   });
 
   String get formattedTokenAmount =>
@@ -95,13 +93,11 @@ class WalletBalance {
     double? tokenAmount,
     String? tokenSymbol,
     double? usdValue,
-    bool? isVisible,
   }) {
     return WalletBalance(
       tokenAmount: tokenAmount ?? this.tokenAmount,
       tokenSymbol: tokenSymbol ?? this.tokenSymbol,
       usdValue: usdValue ?? this.usdValue,
-      isVisible: isVisible ?? this.isVisible,
     );
   }
 }

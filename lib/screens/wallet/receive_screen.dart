@@ -4,6 +4,7 @@ import '../../models/receive_models.dart';
 import '../../services/receive_service.dart';
 import '../../widgets/wallet/receive_widgets.dart';
 import '../../theme/app_theme.dart';
+import '../../gen_l10n/app_localizations.dart';
 
 class ReceiveScreen extends StatefulWidget {
   const ReceiveScreen({Key? key}) : super(key: key);
@@ -277,48 +278,58 @@ class _ReceiveScreenState extends State<ReceiveScreen>
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Receive Tokens'),
-        backgroundColor: theme.scaffoldBackgroundColor,
-        elevation: 0,
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'Receive'),
-            Tab(text: 'History'),
-          ],
-        ),
-        actions: [
-          if (_isGeneratingAddress)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      theme.colorScheme.primary,
-                    ),
+      appBar: Navigator.of(context).canPop()
+          ? AppBar(
+              leading: const BackButton(),
+              elevation: 0,
+              backgroundColor: Colors.transparent,
+            )
+          : null,
+      body: SafeArea(
+        child: Column(
+        children: [
+          // Top controls (TabBar + action)
+          Material(
+            color: theme.scaffoldBackgroundColor,
+            child: Row(
+              children: [
+                Expanded(
+                  child: TabBar(
+                    controller: _tabController,
+                    tabs: [
+                      Tab(text: AppLocalizations.of(context).receive),
+                      Tab(text: 'History'),
+                    ],
                   ),
                 ),
-              ),
-            )
-          else
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: _generateNewAddress,
-              tooltip: 'Generate new address',
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: _isGeneratingAddress
+                      ? const SizedBox(
+                          height: 24,
+                          width: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : IconButton(
+                          icon: const Icon(Icons.refresh),
+                          onPressed: _generateNewAddress,
+                          tooltip: AppLocalizations.of(context).generateNewAddress,
+                        ),
+                ),
+              ],
             ),
+          ),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildReceiveTab(),
+                _buildHistoryTab(),
+              ],
+            ),
+          ),
         ],
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildReceiveTab(),
-          _buildHistoryTab(),
-        ],
+        ),
       ),
     );
   }

@@ -44,7 +44,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Bridge assets to the network within your first week';
 
   @override
-  String get bridge => 'Node Status';
+  String get bridge => 'Bridge';
 
   @override
   String get completeVerification => 'Complete verification';
@@ -117,4 +117,150 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get yourMultiplier => 'Your Multiplier';
+
+  @override
+  String get createAccountTitle => 'Create Account';
+
+  @override
+  String get recoveryPhraseTitle => 'Your recovery phrase';
+
+  @override
+  String get recoveryPhraseWarning =>
+      'This recovery phrase is the ONLY way to restore your keys and regain access to this account if something goes wrong. Store it securely and never share it.';
+
+  @override
+  String get recoveryPhraseInstruction =>
+      'Write these words down and store them securely. They will NOT be stored by the app and cannot be recovered.';
+
+  @override
+  String get accountNameLabel => 'Account name';
+
+  @override
+  String get accountNameHint => 'e.g., Account 1';
+
+  @override
+  String get accountNameExplain =>
+      'This name is only stored on your device to help you identify the account. It does not affect your blockchain address or keys.';
+
+  @override
+  String get seedStoredCheckbox => 'I have securely stored my recovery phrase.';
+
+  @override
+  String get continueButton => 'Continue';
+
+  @override
+  String get send => 'Send';
+
+  @override
+  String get receive => 'Receive';
+
+  @override
+  String get balances => 'Balances';
+
+  @override
+  String get recentTransactions => 'Recent Transactions';
+
+  @override
+  String get copyAddress => 'Copy address';
+
+  @override
+  String get addressCopied => 'Address copied';
+
+  @override
+  String get manageAccounts => 'Manage accounts';
+
+  @override
+  String get selectAccount => 'Select account';
+
+  @override
+  String get selectAccountHint => 'Tap an account to switch';
+
+  @override
+  String get createNewAccount => 'Create new account';
+
+  @override
+  String get importFromSeed => 'Import from seed phrase';
+
+  @override
+  String get importFromPrivateKey => 'Import from private key';
+
+  @override
+  String get deleteAllAccountsDev => 'Delete all accounts (dev)';
+
+  @override
+  String get deleteAllConfirmTitle => 'Delete all accounts?';
+
+  @override
+  String get deleteAllConfirmBody =>
+      'This will remove all stored accounts on this device.';
+
+  @override
+  String get cancel => 'Cancel';
+
+  @override
+  String get delete => 'Delete';
+
+  @override
+  String get generateNewAddress => 'Generate new address';
+
+  @override
+  String get backendStarting => 'Starting backend for your account...';
+
+  @override
+  String get nodeStatusLoading => 'Loading node status...';
+
+  @override
+  String get nodeStatusError => 'Failed to load node status';
+
+  @override
+  String nodePeersCount(String count) {
+    return 'Peers: $count';
+  }
+
+  @override
+  String get refresh => 'Refresh';
+
+  @override
+  String get currentBlockHeightLabel => 'Current block height';
+
+  @override
+  String get nodeStatusLabel => 'Status';
+
+  @override
+  String get peersLabel => 'Peers';
+
+  @override
+  String get mempoolLabel => 'Mempool';
+
+  @override
+  String get evaluatedDiscoveredLabel => 'Evaluated / Discovered Slots';
+
+  @override
+  String get upcoming => 'Upcoming';
+
+  @override
+  String get pastSlots => 'Past Slots';
+
+  @override
+  String get scheduledSlot => 'Scheduled Slot';
+
+  @override
+  String discoveredSlot(String id) {
+    return 'Discovered Slot $id';
+  }
+
+  @override
+  String inTime(String time) {
+    return 'in $time';
+  }
+
+  @override
+  String transactionsSuffix(String count) {
+    return '$count Transactions';
+  }
+
+  @override
+  String checkedAgoSeconds(String seconds) {
+    return 'Checked $seconds seconds ago';
+  }
 }

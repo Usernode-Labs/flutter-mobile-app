@@ -4,18 +4,28 @@ import 'screens/splash/splash_screen.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'gen_l10n/app_localizations.dart';
 import 'services/rust_backend_service.dart';
+import 'config/feature_flags.dart';
+import 'utils/logger.dart';
 
 void main() async {
-  // Initialize and start the Rust backend via the dedicated service
+  WidgetsFlutterBinding.ensureInitialized();
+  // Load feature flags from assets (if provided) before rendering UI
+  Log.i('MAIN', 'Initializing application');
+  await FeatureFlags.loadFromAssetIfAvailable();
+  Log.d(
+      'MAIN',
+      'Feature flags loaded: ' +
+          FeatureFlags.ordered
+              .where(FeatureFlags.isEnabled)
+              .toList()
+              .toString());
+  // Initialize FRB only; start backend only if an account exists
   await RustBackendService.instance.init();
-  await RustBackendService.instance.startNode();
+  final started = await RustBackendService.instance.startForActiveAccount();
+  Log.i('MAIN', 'Backend startForActiveAccount => ' + started.toString());
 
-  // Optional: quick health log
-  final status = await RustBackendService.instance.getStatus();
-  // ignore: avoid_print
-  print('peer count: ${status?.peers.length}');
-
-  runApp(CryptoMobileApp());
+  Log.i('MAIN', 'Running app UI');
+  runApp(const CryptoMobileApp());
 }
 
 class CryptoMobileApp extends StatelessWidget {
@@ -35,7 +45,6 @@ class CryptoMobileApp extends StatelessWidget {
       ],
       supportedLocales: [
         Locale('en'), // English
-        Locale('es'), // Spanish
       ],
       home: SplashScreen(),
     );

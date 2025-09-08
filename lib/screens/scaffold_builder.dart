@@ -11,7 +11,13 @@ Widget buildScaffold(
   final l10n = AppLocalizations.of(context);
 
   return Scaffold(
-    appBar: AppBar(title: Text(title)),
+    appBar: Navigator.of(context).canPop()
+        ? AppBar(
+            leading: const BackButton(),
+            elevation: 0,
+            backgroundColor: Colors.transparent,
+          )
+        : null,
     body: Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,

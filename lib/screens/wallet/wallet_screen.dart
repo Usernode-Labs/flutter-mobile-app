@@ -5,6 +5,14 @@ import '../../services/wallet_service.dart';
 import '../../widgets/wallet/wallet_widgets.dart';
 import 'send_screen.dart';
 import 'receive_screen.dart';
+import 'package:crypto_mobile_app/config/feature_flags.dart';
+import 'package:crypto_mobile_app/services/accounts_repository.dart';
+import 'package:crypto_mobile_app/models/account.dart';
+import '../onboarding/account_onboarding_screen.dart';
+import 'package:flutter/services.dart';
+import 'package:bip39/bip39.dart' as bip39;
+import 'package:crypto_mobile_app/services/rust_backend_service.dart';
+import 'import_account_sheets.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({Key? key}) : super(key: key);
@@ -18,12 +26,33 @@ class _WalletScreenState extends State<WalletScreen> {
   late WalletBalance _balance;
   late List<TransactionModel> _transactions;
   bool _isLoading = false;
+  AccountMeta? _account;
+  bool _accountExpanded =
+      false; // no longer used for details; used for selector arrow only
+
+  Color _accountColor(ThemeData theme, String addr) {
+    final palette = [
+      theme.colorScheme.primary,
+      theme.colorScheme.secondary,
+      theme.colorScheme.tertiary,
+    ];
+    final idx = addr.hashCode.abs() % palette.length;
+    return palette[idx];
+  }
+
+  String _shortAddr(String addr) {
+    if (addr.length <= 12) return addr;
+    final start = addr.substring(0, 6);
+    final end = addr.substring(addr.length - 4);
+    return '$start…$end';
+  }
 
   @override
   void initState() {
     super.initState();
     _walletService = WalletService.instance;
     _loadWalletData();
+    _loadActiveAccount();
   }
 
   void _loadWalletData() {
@@ -33,11 +62,377 @@ class _WalletScreenState extends State<WalletScreen> {
     });
   }
 
-  void _toggleBalanceVisibility() {
+  Future<void> _loadActiveAccount() async {
+    final repo = await AccountsRepository.create();
+    final active = await repo.getActive();
+    if (!mounted) return;
     setState(() {
-      _balance = _walletService.toggleBalanceVisibility();
+      _account = active;
     });
+    // Ensure backend is started for the active account; show info if starting
+    if (_account != null && !RustBackendService.instance.isRunning) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context).backendStarting)),
+      );
+      await RustBackendService.instance.startForActiveAccount();
+    }
   }
+
+  Future<void> _openAccountManager() async {
+    final repo = await AccountsRepository.create();
+    final items = await repo.list();
+    if (!mounted) return;
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        final theme = Theme.of(ctx);
+        final controller = TextEditingController();
+        final keyCtrl = TextEditingController();
+        final seedCtrl = TextEditingController();
+        String? selectedId = _account?.id;
+        return StatefulBuilder(builder: (ctx, setStateSheet) {
+          Color _accountColor(ThemeData theme, String addr) {
+            final palette = [
+              theme.colorScheme.primary,
+              theme.colorScheme.secondary,
+              theme.colorScheme.tertiary,
+            ];
+            final idx = addr.hashCode.abs() % palette.length;
+            return palette[idx];
+          }
+
+          Future<void> select(String id) async {
+            await (await AccountsRepository.create()).setActiveId(id);
+            final active =
+                await (await AccountsRepository.create()).getActive();
+            if (mounted) setState(() => _account = active);
+            await RustBackendService.instance.restartForActiveAccount();
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                    content: Text(
+                        AppLocalizations.of(context).backendStarting)),
+              );
+            }
+            if (Navigator.of(ctx).canPop()) Navigator.of(ctx).pop();
+          }
+
+          Future<void> createNew() async {
+            Navigator.of(ctx).pop();
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const AccountOnboardingScreen()),
+            ).then((_) => _loadActiveAccount());
+          }
+
+          Future<void> importWithSeed() async {
+            final result = await showModalBottomSheet<ImportSeedData>(
+              context: ctx,
+              isScrollControlled: true,
+              useSafeArea: true,
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+              ),
+              builder: (_) => ImportSeedSheet(
+                initialName: 'Imported ${items.length + 1}',
+              ),
+            );
+            if (result != null) {
+              final res = await (await AccountsRepository.create())
+                  .importFromMnemonic(name: result.name, mnemonic: result.mnemonic);
+              if (res == null) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Failed to import account')),
+                  );
+                }
+              } else {
+                if (mounted) {
+                  Navigator.pop(ctx);
+                  _loadActiveAccount();
+                }
+              }
+            }
+          }
+
+          Future<void> importWithPrivateKey() async {
+            final result = await showModalBottomSheet<ImportPrivateKeyData>(
+              context: ctx,
+              isScrollControlled: true,
+              useSafeArea: true,
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+              ),
+              builder: (_) => ImportPrivateKeySheet(
+                initialName: 'Imported ${items.length + 1}',
+              ),
+            );
+            if (result != null) {
+              final res = await (await AccountsRepository.create()).importFromPrivateKey(
+                name: result.name,
+                privateKey: result.privateKey,
+              );
+              if (res == null) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Failed to import account')),
+                  );
+                }
+              } else {
+                if (mounted) {
+                  Navigator.pop(ctx);
+                  _loadActiveAccount();
+                }
+              }
+            }
+          }
+
+          final others = items.where((a) => a.id != _account?.id).toList();
+
+          // Enhanced UI/UX for account manager with identicons and animations
+          return SafeArea(
+            child: Container(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Header
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer,
+                      borderRadius:
+                          const BorderRadius.vertical(top: Radius.circular(16)),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Select account',
+                                  style: theme.textTheme.titleLarge?.copyWith(
+                                    color: theme.colorScheme.onPrimaryContainer,
+                                    fontWeight: FontWeight.w700,
+                                  )),
+                              const SizedBox(height: 4),
+                              Text('Tap an account to switch',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: theme.colorScheme.onPrimaryContainer
+                                        .withOpacity(0.8),
+                                  )),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          color: theme.colorScheme.onPrimaryContainer,
+                          onPressed: () => Navigator.of(ctx).pop(),
+                        )
+                      ],
+                    ),
+                  ),
+
+                  // Accounts list
+                  Flexible(
+                    child: ListView.separated(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      shrinkWrap: true,
+                      itemCount: items.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 6),
+                      itemBuilder: (c, i) {
+                        final acc = items[i];
+                        final isSelected = acc.id == selectedId;
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 220),
+                          curve: Curves.easeOutCubic,
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? theme.colorScheme.primary.withOpacity(0.06)
+                                : null,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () {
+                              setStateSheet(() => selectedId = acc.id);
+                              Future.delayed(const Duration(milliseconds: 200),
+                                  () {
+                                select(acc.id);
+                              });
+                            },
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 8),
+                              child: Row(
+                                children: [
+                                  // Colorful account icon
+                                  Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: CircleAvatar(
+                                      radius: 20,
+                                      backgroundColor:
+                                          _accountColor(theme, acc.address)
+                                              .withOpacity(0.12),
+                                      foregroundColor:
+                                          _accountColor(theme, acc.address),
+                                      child: const Icon(
+                                          Icons.account_circle_outlined),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  // Texts
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          acc.name,
+                                          style: theme.textTheme.titleMedium
+                                              ?.copyWith(
+                                            fontWeight: isSelected
+                                                ? FontWeight.w700
+                                                : FontWeight.w500,
+                                          ),
+                                        ),
+                                        Text(
+                                          _shortAddr(acc.address),
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                            color: theme
+                                                .colorScheme.onSurfaceVariant,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 220),
+                                    transitionBuilder: (child, anim) =>
+                                        ScaleTransition(
+                                      scale: anim,
+                                      child: child,
+                                    ),
+                                    child: isSelected
+                                        ? Icon(Icons.check_circle,
+                                            key: ValueKey(acc.id),
+                                            color: theme.colorScheme.primary)
+                                        : const SizedBox.shrink(
+                                            key: ValueKey('empty')),
+                                  ),
+                                  const SizedBox(width: 4),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+
+                  // Actions
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Column(
+                      children: [
+                        ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor:
+                                theme.colorScheme.secondary.withOpacity(0.12),
+                            foregroundColor: theme.colorScheme.secondary,
+                            child: const Icon(Icons.add),
+                          ),
+                          title: const Text('Create new account'),
+                          onTap: createNew,
+                        ),
+                        ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor:
+                                theme.colorScheme.tertiary.withOpacity(0.12),
+                            foregroundColor: theme.colorScheme.tertiary,
+                            child: const Icon(Icons.key),
+                          ),
+                          title: const Text('Import from seed phrase'),
+                          onTap: importWithSeed,
+                        ),
+                        ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: theme.colorScheme.errorContainer
+                                .withOpacity(0.25),
+                            foregroundColor: theme.colorScheme.error,
+                            child: const Icon(Icons.vpn_key),
+                          ),
+                          title: const Text('Import from private key'),
+                          onTap: importWithPrivateKey,
+                        ),
+                        if (FeatureFlags.on('dev.deleteAccounts')) ...[
+                          const Divider(),
+                          ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: theme.colorScheme.error.withOpacity(0.12),
+                              foregroundColor: theme.colorScheme.error,
+                              child: const Icon(Icons.delete_forever),
+                            ),
+                            title: const Text('Delete all accounts (dev)'),
+                            onTap: () async {
+                              final confirmed = await showDialog<bool>(
+                                context: ctx,
+                                builder: (dctx) => AlertDialog(
+                                  title: const Text('Delete all accounts?'),
+                                  content: const Text('This will remove all stored accounts on this device.'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(dctx, false),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(dctx, true),
+                                      style: TextButton.styleFrom(foregroundColor: theme.colorScheme.error),
+                                      child: const Text('Delete'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (confirmed == true) {
+                                await (await AccountsRepository.create()).deleteAll();
+                                if (mounted) {
+                                  setState(() => _account = null);
+                                  Navigator.of(ctx).pop();
+                                  // ignore: use_build_context_synchronously
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => const AccountOnboardingScreen(),
+                                    ),
+                                  ).then((_) => _loadActiveAccount());
+                                }
+                              }
+                            },
+                          ),
+                        ],
+                      ],
+                    ),
+                  )
+                ],
+              ),
+            ),
+          );
+        });
+      },
+    );
+  }
+
+  // Removed balance visibility toggle: balances are always visible now.
 
   Future<void> _refreshWallet() async {
     setState(() {
@@ -70,9 +465,26 @@ class _WalletScreenState extends State<WalletScreen> {
     );
   }
 
+  void _handleBridgeTap() {
+    _showComingSoon('Bridge');
+  }
+
   void _handleTransactionTap(TransactionModel transaction) {
     // TODO: Navigate to transaction details
     _showComingSoon('Transaction details for ${transaction.title}');
+  }
+
+  List<TokenHolding> _topHoldingsFromBalance() {
+    // For now, derive holdings from the single balance; can be extended later
+    return [
+      TokenHolding(
+        name: _balance.tokenSymbol,
+        symbol: _balance.tokenSymbol,
+        amount: _balance.tokenAmount,
+        usdValue: _balance.usdValue,
+        icon: Icons.monetization_on_outlined,
+      ),
+    ];
   }
 
   void _showComingSoon(String feature) {
@@ -101,78 +513,147 @@ class _WalletScreenState extends State<WalletScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.wallet),
-        backgroundColor: theme.scaffoldBackgroundColor,
-        elevation: 0,
-        actions: [
-          if (_isLoading)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      theme.colorScheme.primary,
+      appBar: Navigator.of(context).canPop()
+          ? AppBar(
+              leading: const BackButton(),
+              elevation: 0,
+              backgroundColor: Colors.transparent,
+            )
+          : null,
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _refreshWallet,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_account != null) ...[
+                  Container(
+                    decoration: BoxDecoration(
+                      color: theme.scaffoldBackgroundColor,
+                    ),
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        CircleAvatar(
+                          radius: 20,
+                          backgroundColor:
+                              _accountColor(theme, _account!.address)
+                                  .withOpacity(0.12),
+                          foregroundColor:
+                              _accountColor(theme, _account!.address),
+                          child: const Icon(Icons.account_circle_outlined),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _account!.name,
+                                style: theme.textTheme.titleMedium,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      _shortAddr(_account!.address),
+                                      style:
+                                          theme.textTheme.bodySmall?.copyWith(
+                                        color:
+                                            theme.colorScheme.onSurfaceVariant,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.copy, size: 22),
+                          tooltip: AppLocalizations.of(context).copyAddress,
+                          onPressed: () {
+                            Clipboard.setData(
+                                ClipboardData(text: _account!.address));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                  content: Text(AppLocalizations.of(context)
+                                      .addressCopied)),
+                            );
+                          },
+                          visualDensity:
+                              const VisualDensity(horizontal: -4, vertical: -4),
+                          padding: EdgeInsets.zero,
+                          constraints:
+                              const BoxConstraints(minWidth: 28, minHeight: 28),
+                        ),
+                        IconButton(
+                          tooltip: AppLocalizations.of(context).manageAccounts,
+                          icon: const Icon(Icons.settings_outlined, size: 22),
+                          onPressed: _openAccountManager,
+                          visualDensity:
+                              const VisualDensity(horizontal: -4, vertical: -4),
+                          padding: EdgeInsets.zero,
+                          constraints:
+                              const BoxConstraints(minWidth: 28, minHeight: 28),
+                        ),
+                      ],
                     ),
                   ),
+                  const SizedBox(height: 16),
+                ],
+                // Quick Actions under account
+                QuickActionsRow(
+                  onSendTap: _handleSendTap,
+                  onReceiveTap: _handleReceiveTap,
+                  onBridgeTap: _handleBridgeTap,
+                  showSend: FeatureFlags.on('wallet.send'),
+                  showReceive: FeatureFlags.on('wallet.receive'),
+                  showBridge: FeatureFlags.on('wallet.bridge'),
                 ),
-              ),
-            )
-          else
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: _refreshWallet,
-              tooltip: 'Refresh wallet',
+                const SizedBox(height: 16),
+
+                // Wallet Balance Card
+                // Balances Header
+                Text(AppLocalizations.of(context).balances,
+                    style: theme.textTheme.titleLarge
+                        ?.copyWith(fontWeight: FontWeight.w600)),
+                WalletBalanceCard(
+                  balance: _balance,
+                  holdings: _topHoldingsFromBalance(),
+                  address: _account?.address,
+                  publicKey: _account?.publicKey,
+                ),
+
+                const SizedBox(height: 20),
+
+                if (FeatureFlags.on('wallet.transactions')) ...[
+                  // Recent Transactions Header
+                  Text(AppLocalizations.of(context).recentTransactions,
+                      style: theme.textTheme.titleLarge
+                          ?.copyWith(fontWeight: FontWeight.w600)),
+
+                  const SizedBox(height: 12),
+
+                  // Transaction List
+                  TransactionsList(
+                    transactions: _transactions,
+                    onTransactionTap: _handleTransactionTap,
+                  ),
+                ],
+
+                // Add some bottom padding for better scrolling experience
+                const SizedBox(height: 20),
+              ],
             ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: _refreshWallet,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Wallet Balance Card
-              WalletBalanceCard(
-                balance: _balance,
-                onVisibilityToggle: _toggleBalanceVisibility,
-              ),
-
-              const SizedBox(height: 20),
-
-              // Quick Actions
-              QuickActionsRow(
-                onSendTap: _handleSendTap,
-                onReceiveTap: _handleReceiveTap,
-              ),
-
-              const SizedBox(height: 24),
-
-              // Recent Transactions Header
-              Text(
-                'Recent Transactions',
-                style: theme.textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              // Transaction List
-              TransactionsList(
-                transactions: _transactions,
-                onTransactionTap: _handleTransactionTap,
-              ),
-
-              // Add some bottom padding for better scrolling experience
-              const SizedBox(height: 20),
-            ],
           ),
         ),
       ),

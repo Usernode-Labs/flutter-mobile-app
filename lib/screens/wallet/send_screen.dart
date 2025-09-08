@@ -278,20 +278,15 @@ class _SendScreenState extends State<SendScreen> {
     final balance = _walletService.getBalance();
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_getAppBarTitle()),
-        backgroundColor: theme.scaffoldBackgroundColor,
-        elevation: 0,
-        leading: _currentStep == SendStep.review ||
-                _currentStep == SendStep.processing
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed:
-                    _currentStep == SendStep.processing ? null : _goBackToEdit,
-              )
-            : null,
-      ),
-      body: PageView(
+      appBar: Navigator.of(context).canPop()
+          ? AppBar(
+              leading: const BackButton(),
+              elevation: 0,
+              backgroundColor: Colors.transparent,
+            )
+          : null,
+      body: SafeArea(
+        child: PageView(
         controller: _pageController,
         physics: const NeverScrollableScrollPhysics(),
         children: [
@@ -300,6 +295,7 @@ class _SendScreenState extends State<SendScreen> {
           _buildProcessingPage(context, theme),
           _buildSuccessPage(context, theme),
         ],
+        ),
       ),
     );
   }

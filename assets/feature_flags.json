@@ -1,0 +1,4 @@
+{
+  "enabled": ["wallet", "node"],
+  "order": ["node", "wallet"]
+}

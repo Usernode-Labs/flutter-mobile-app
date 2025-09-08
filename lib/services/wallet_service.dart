@@ -75,11 +75,7 @@ class WalletService {
     return _balance;
   }
 
-  // Toggle balance visibility
-  WalletBalance toggleBalanceVisibility() {
-    _balance = _balance.copyWith(isVisible: !_balance.isVisible);
-    return _balance;
-  }
+  // Balance is always visible; toggle removed.
 
   // Get recent transactions
   List<TransactionModel> getRecentTransactions({int limit = 10}) {

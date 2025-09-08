@@ -2,18 +2,15 @@ import 'package:bip32_bip44/dart_bip32_bip44.dart';
 import 'package:bip39/bip39.dart' as bip39;
 import 'package:web3dart/credentials.dart';
 import 'package:web3dart/web3dart.dart';
-import 'package:logging/logging.dart';
 
 class KeyManagementService {
   static const String pathForPublicKey = "m/44'/60'/0'/0";
   static const String pathForPrivateKey = "m/44'/60'/0'/0/0";
 
-  final Logger _logger = Logger('Web3Service');
-
   String mnemonic = "";
   String privateKey = "";
   String publicKey = "";
-  String walletAddress = "";
+  String address = "";
   String message = "";
 
   Future<List<dynamic>> createWallet() async {
@@ -26,20 +23,17 @@ class KeyManagementService {
       final ExtendedKey extendedKey = chain.forPath(pathForPrivateKey);
       privateKey = extendedKey.privateKeyHex();
 
-      final EthPrivateKey ethPrivateKey = EthPrivateKey.fromHex(privateKey);
-      final EthereumAddress ethereumAddress =
-          await ethPrivateKey.extractAddress();
+      final EthPrivateKey cryptoPrivateKey = EthPrivateKey.fromHex(privateKey);
+      final EthereumAddress cryptoAddress =
+          await cryptoPrivateKey.extractAddress();
 
       final ExtendedKey extendedKeyPublic = chain.forPath(pathForPublicKey);
       publicKey = extendedKeyPublic.publicKey().toString();
 
-      walletAddress = ethereumAddress.hex;
+      address = cryptoAddress.hex;
 
-      _logger.info("Wallet generated: $walletAddress");
-
-      return [true, mnemonic, privateKey, publicKey, walletAddress];
+      return [true, mnemonic, privateKey, publicKey, address];
     } catch (e) {
-      _logger.severe("Error creating wallet: $e");
       return [false, e.toString()];
     }
   }

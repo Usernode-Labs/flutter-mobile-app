@@ -107,6 +107,7 @@ class RustBackendService {
     final r = _rpc;
     if (r == null) return null;
     final status = await r.status();
+    // Log the response for debugging purposes as JSON.
     try {
       if (status != null) {
         final peers = status.peers
@@ -115,9 +116,6 @@ class RustBackendService {
                   'connectingDetails': p.connectingDetails,
                   'connectionStatus': (() {
                     try {
-                      // Dart enums have a `name` getter in modern SDKs
-                      // Fallback to toString parsing if unavailable.
-                      // ignore: unnecessary_cast
                       final dynamic cs = p.connectionStatus;
                       return (cs as dynamic).name ?? cs.toString().split('.').last;
                     } catch (_) {
@@ -130,7 +128,7 @@ class RustBackendService {
                 })
             .toList();
         final json = jsonEncode({'peers': peers});
-        Log.d('RUST', 'getStatus json: $json');
+        Log.d('RUST', 'getStatus response: $json');
       }
     } catch (e, st) {
       Log.w('RUST', 'Failed to encode getStatus to JSON: $e\n$st');

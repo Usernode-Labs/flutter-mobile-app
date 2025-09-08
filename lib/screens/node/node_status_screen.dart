@@ -33,8 +33,8 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _refresh();
-    // Periodic auto-refresh every 8 seconds while this screen is alive.
-    _autoTimer = Timer.periodic(const Duration(seconds: 8), (_) {
+    // Periodic auto-refresh every 30 seconds while this screen is alive.
+    _autoTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted && !_refreshing) {
         _refresh();
       }
@@ -93,7 +93,8 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
               children: [
                 const Icon(Icons.hub, size: 28),
                 const SizedBox(width: 8),
-                Text(l10n.nodeStatus, style: Theme.of(context).textTheme.titleLarge),
+                Text(l10n.nodeStatus,
+                    style: Theme.of(context).textTheme.titleLarge),
                 const Spacer(),
                 Row(children: [
                   IconButton(
@@ -128,12 +129,13 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(l10n.nodeStatusError, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                  Text(l10n.nodeStatusError,
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.error)),
                   const SizedBox(height: 6),
                   Text(_error!, style: Theme.of(context).textTheme.bodySmall),
                 ],
-              )
-            ,
+              ),
             // Always keep content visible; show placeholders when data is null
             ...[
               // Status Card
@@ -147,18 +149,45 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
                         _StatusItem(label: 'Backend ID', value: backendId),
                         const SizedBox(height: 16),
                       ],
-                      _StatusItem(label: l10n.currentBlockHeightLabel, value: _fmtInt(_blockHeight)),
+                      _StatusItem(
+                          label: l10n.currentBlockHeightLabel,
+                          value: _fmtInt(_blockHeight)),
                       const SizedBox(height: 16),
-                      _StatusItem(label: l10n.nodeStatusLabel, value: _statusText(l10n)),
+                      _StatusItem(
+                          label: l10n.nodeStatusLabel,
+                          value: _statusText(l10n)),
                       const SizedBox(height: 16),
-                      // Peers with icon to open details
+                      // Peers summary with colored/icon chips + icon to open details
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            child: _StatusItem(
-                              label: l10n.peersLabel,
-                              value: (_peerCount ?? 0).toString(),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(l10n.peersLabel,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onSurfaceVariant)),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Peers: ${_peers.length}',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.w600),
+                                ),
+                                const SizedBox(height: 6),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: _buildPeersChips(context),
+                                ),
+                              ],
                             ),
                           ),
                           IconButton(
@@ -169,9 +198,14 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
                         ],
                       ),
                       const SizedBox(height: 16),
-                      _StatusItem(label: l10n.mempoolLabel, value: l10n.transactionsSuffix((_mempoolCount ?? 0).toString())),
+                      _StatusItem(
+                          label: l10n.mempoolLabel,
+                          value: l10n.transactionsSuffix(
+                              (_mempoolCount ?? 0).toString())),
                       const SizedBox(height: 16),
-                      _StatusItem(label: l10n.evaluatedDiscoveredLabel, value: _evalDiscovered()),
+                      _StatusItem(
+                          label: l10n.evaluatedDiscoveredLabel,
+                          value: _evalDiscovered()),
                     ],
                   ),
                 ),
@@ -245,146 +279,154 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      clipBehavior: Clip.antiAlias,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       builder: (ctx) {
         final theme = Theme.of(ctx);
         return SafeArea(
-          child: Container(
-            color: theme.colorScheme.surface,
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Header
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.fromLTRB(16, 16, 8, 12),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer,
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.people_alt_outlined, color: theme.colorScheme.onPrimaryContainer),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Connected peers (${_peers.length})',
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(16, 16, 8, 12),
+                  color: theme.colorScheme.primaryContainer,
+                  child: Row(
+                    children: [
+                      Icon(Icons.people_alt_outlined,
+                          color: theme.colorScheme.onPrimaryContainer),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Connected peers (${_peers.length})',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: theme.colorScheme.onPrimaryContainer,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.close,
+                            color: theme.colorScheme.onPrimaryContainer),
+                        onPressed: () => Navigator.of(ctx).pop(),
+                      ),
+                    ],
+                  ),
+                ),
+                Flexible(
+                  child: ListView.separated(
+                    padding: const EdgeInsets.all(16),
+                    shrinkWrap: true,
+                    itemCount: _peers.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (_, i) {
+                      final p = _peers[i];
+                      final status =
+                          p.connectionStatus.toString().split('.').last;
+                      final statusColor =
+                          _statusColor(theme, p.connectionStatus);
+                      final addr = p.address ?? '(no address)';
+                      final details = p.connectingDetails;
+                      final incoming = p.incoming ? 'incoming' : 'outgoing';
+                      final peerIdRaw = p.peerId.toString();
+                      final idShort = _shortenMid(peerIdRaw);
+                      final ipPort = _peerIp(p) ?? _extractIpPort(peerIdRaw);
+                      final timeStr = _formatUtc(p.time);
+                      final titleText = ipPort ?? addr;
+                      return Material(
+                        color: theme.colorScheme.surface,
+                        child: ListTile(
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          tileColor:
+                              theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          leading: CircleAvatar(
+                            backgroundColor: statusColor.withOpacity(0.12),
+                            foregroundColor: statusColor,
+                            child: const Icon(Icons.hub),
+                          ),
+                          title: Text(
+                            titleText,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: theme.colorScheme.onPrimaryContainer,
+                              color: theme.colorScheme.onSurface,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.close, color: theme.colorScheme.onPrimaryContainer),
-                          onPressed: () => Navigator.of(ctx).pop(),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Flexible(
-                    child: ListView.separated(
-                      padding: const EdgeInsets.all(16),
-                      shrinkWrap: true,
-                      itemCount: _peers.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
-                      itemBuilder: (_, i) {
-                        final p = _peers[i];
-                        final status = p.connectionStatus.toString().split('.').last;
-                        final statusColor = _statusColor(theme, p.connectionStatus);
-                        final addr = p.address ?? '(no address)';
-                        final details = p.connectingDetails;
-                        final incoming = p.incoming ? 'incoming' : 'outgoing';
-                        final peerIdRaw = p.peerId.toString();
-                        final idOnly = _extractPeerId(peerIdRaw);
-                        final idShort = idOnly != null ? _shortenMid(idOnly) : _shortenMid(peerIdRaw);
-                        final ipPort = _peerIp(p) ?? _extractIpPort(peerIdRaw);
-                        final time = p.time.toString();
-                        return Material(
-                          color: theme.colorScheme.surface,
-                          child: ListTile(
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            tileColor: theme.colorScheme.surfaceVariant.withOpacity(0.3),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            leading: CircleAvatar(
-                              backgroundColor: statusColor.withOpacity(0.12),
-                              foregroundColor: statusColor,
-                              child: const Icon(Icons.hub),
-                            ),
-                            title: Text(
-                              addr,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                color: theme.colorScheme.onSurface,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            subtitle: Padding(
-                              padding: const EdgeInsets.only(top: 6),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Chip(
-                                        label: Text(status),
-                                        backgroundColor: statusColor.withOpacity(0.12),
-                                        labelStyle: theme.textTheme.bodySmall?.copyWith(color: statusColor),
-                                        visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
-                                        padding: EdgeInsets.zero,
-                                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        incoming,
-                                        style: theme.textTheme.bodySmall?.copyWith(
-                                          color: theme.colorScheme.onSurfaceVariant,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  if (details != null && details.isNotEmpty)
-                                    Text(
-                                      details,
-                                      style: theme.textTheme.bodySmall?.copyWith(
-                                        color: theme.colorScheme.onSurfaceVariant,
+                          subtitle: Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Chip(
+                                      label: Text(status),
+                                      backgroundColor:
+                                          statusColor.withOpacity(0.12),
+                                      labelStyle: theme.textTheme.bodySmall
+                                          ?.copyWith(color: statusColor),
+                                      visualDensity: const VisualDensity(
+                                          horizontal: -4, vertical: -4),
+                                      padding: EdgeInsets.zero,
+                                      materialTapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Tooltip(
+                                      message: incoming == 'incoming'
+                                          ? 'Incoming'
+                                          : 'Outgoing',
+                                      child: Icon(
+                                        incoming == 'incoming'
+                                            ? Icons.call_received
+                                            : Icons.call_made,
+                                        size: 16,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurfaceVariant,
                                       ),
                                     ),
+                                  ],
+                                ),
+                                if (details != null && details.isNotEmpty)
                                   Text(
-                                    'id: $idShort',
+                                    details,
                                     style: theme.textTheme.bodySmall?.copyWith(
                                       color: theme.colorScheme.onSurfaceVariant,
                                     ),
                                   ),
-                                  if (ipPort != null)
-                                    Text(
-                                      'ip: $ipPort',
-                                      style: theme.textTheme.bodySmall?.copyWith(
-                                        color: theme.colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                                  Text(
-                                    'time: $time',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                    ),
+                                Text(
+                                  'id: $idShort',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
                                   ),
-                                ],
-                              ),
+                                ),
+                                Text(
+                                  'time: $timeStr',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
                             ),
-                            dense: false,
                           ),
-                        );
-                      },
-                    ),
+                          dense: false,
+                        ),
+                      );
+                    },
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         );
@@ -395,18 +437,95 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
   Color _statusColor(ThemeData theme, PeerConnectionStatus s) {
     switch (s) {
       case PeerConnectionStatus.connected:
-        return theme.colorScheme.primary;
+        return Colors.green;
       case PeerConnectionStatus.connecting:
-        return theme.colorScheme.tertiary;
+        return Colors.amber;
       case PeerConnectionStatus.disconnected:
-        return theme.colorScheme.outline;
+        return Colors.red;
       case PeerConnectionStatus.disconnecting:
-        return theme.colorScheme.error;
+        return Colors.orange;
     }
+  }
+
+  String _peersSummaryText() {
+    final total = _peers.length;
+    return 'Total: $total';
+  }
+
+  String _peersBreakdownText() {
+    int connected = 0, connecting = 0, disconnected = 0, disconnecting = 0;
+    for (final p in _peers) {
+      switch (p.connectionStatus) {
+        case PeerConnectionStatus.connected:
+          connected++;
+          break;
+        case PeerConnectionStatus.connecting:
+          connecting++;
+          break;
+        case PeerConnectionStatus.disconnected:
+          disconnected++;
+          break;
+        case PeerConnectionStatus.disconnecting:
+          disconnecting++;
+          break;
+      }
+    }
+    return 'connected $connected · connecting $connecting · disconnected $disconnected · disconnecting $disconnecting';
+  }
+
+  List<Widget> _buildPeersChips(BuildContext context) {
+    int connected = 0, connecting = 0, disconnected = 0, disconnecting = 0;
+    for (final p in _peers) {
+      switch (p.connectionStatus) {
+        case PeerConnectionStatus.connected:
+          connected++;
+          break;
+        case PeerConnectionStatus.connecting:
+          connecting++;
+          break;
+        case PeerConnectionStatus.disconnected:
+          disconnected++;
+          break;
+        case PeerConnectionStatus.disconnecting:
+          disconnecting++;
+          break;
+      }
+    }
+
+    final theme = Theme.of(context);
+    List<Widget> chips = [];
+
+    Widget chip(String tooltip, IconData icon, Color color, int count) {
+      return Tooltip(
+        message: tooltip,
+        child: Chip(
+          avatar: Icon(icon, size: 16, color: color),
+          label: Text('$count'),
+          backgroundColor: color.withOpacity(0.12),
+          labelStyle: theme.textTheme.bodySmall
+              ?.copyWith(color: theme.colorScheme.onSurface),
+          visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+      );
+    }
+
+    chips.add(chip('Connected', Icons.check_circle, Colors.green, connected));
+    chips.add(chip('Connecting', Icons.autorenew, Colors.amber, connecting));
+    chips.add(chip('Disconnected', Icons.cancel, Colors.red, disconnected));
+    chips.add(chip('Disconnecting', Icons.power_settings_new, Colors.orange,
+        disconnecting));
+
+    return chips;
   }
 
   String? _extractPeerId(String raw) {
     String cleaned = raw.trim();
+    // Slash-form: /ID/Protocol/IP/Port
+    if (cleaned.startsWith('/')) {
+      final parts = cleaned.split('/').where((e) => e.isNotEmpty).toList();
+      if (parts.isNotEmpty) return parts[0];
+    }
     // Remove wrappers like "PeerId(...)" or braces
     cleaned = cleaned.replaceAll(RegExp(r'^PeerId\s*[({]'), '');
     cleaned = cleaned.replaceAll(RegExp(r'[)}]$'), '');
@@ -418,7 +537,10 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     final idKV = RegExp(r'id\s*[:=]\s*([^,\s}]+)').firstMatch(cleaned);
     if (idKV != null) return idKV.group(1);
     // fallback: longest token
-    final tokens = cleaned.split(RegExp(r'[^A-Za-z0-9_-]+')).where((t) => t.isNotEmpty).toList();
+    final tokens = cleaned
+        .split(RegExp(r'[^A-Za-z0-9_-]+'))
+        .where((t) => t.isNotEmpty)
+        .toList();
     tokens.removeWhere((t) => t.toLowerCase() == 'peerid');
     tokens.sort((a, b) => b.length.compareTo(a.length));
     return tokens.isNotEmpty ? tokens.first : null;
@@ -435,6 +557,18 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
   String? _extractIpPort(String? text) {
     if (text == null) return null;
     final s = text.trim();
+    // Slash-form: /ID/Protocol/IP/Port
+    if (s.startsWith('/')) {
+      final parts = s.split('/').where((e) => e.isNotEmpty).toList();
+      if (parts.length >= 4) {
+        final ip = parts[2];
+        final port = parts[3];
+        return '$ip:$port';
+      } else if (parts.length >= 3) {
+        final ip = parts[2];
+        return ip;
+      }
+    }
     // IPv6 in brackets, include optional port
     final ipv6 = RegExp(r'\[([0-9a-fA-F:]+)\](?::\d+)?').firstMatch(s);
     if (ipv6 != null) return ipv6.group(0);
@@ -446,9 +580,32 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     return host;
   }
 
-  String _shortenMid(String s, {int head = 6, int tail = 6}) {
+  String _shortenMid(String s, {int head = 25, int tail = 24}) {
     if (s.length <= head + tail + 1) return s;
     return s.substring(0, head) + '…' + s.substring(s.length - tail);
+  }
+
+  String _formatUtc(BigInt value) {
+    // Heuristic to interpret epoch unit from digit length
+    final digits = value.toString().length;
+    BigInt ms;
+    if (digits >= 19) {
+      // nanoseconds -> ms
+      ms = value ~/ BigInt.from(1000000);
+    } else if (digits >= 16) {
+      // microseconds -> ms
+      ms = value ~/ BigInt.from(1000);
+    } else if (digits >= 13) {
+      // already milliseconds
+      ms = value;
+    } else {
+      // seconds -> ms
+      ms = value * BigInt.from(1000);
+    }
+    final millis = ms.toInt();
+    final dt = DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true);
+    // ISO 8601 UTC
+    return dt.toIso8601String();
   }
 
   String _fmtInt(int? v) => v == null ? 'N/A' : v.toString();
@@ -485,9 +642,13 @@ class _StatusItem extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+        Text(label,
+            style: theme.textTheme.bodySmall
+                ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
         const SizedBox(height: 4),
-        Text(value, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+        Text(value,
+            style: theme.textTheme.titleMedium
+                ?.copyWith(fontWeight: FontWeight.w600)),
       ],
     );
   }
@@ -498,7 +659,11 @@ class _SlotItem extends StatelessWidget {
   final String title;
   final String subtitle;
   final Color iconColor;
-  const _SlotItem({required this.icon, required this.title, required this.subtitle, required this.iconColor});
+  const _SlotItem(
+      {required this.icon,
+      required this.title,
+      required this.subtitle,
+      required this.iconColor});
 
   @override
   Widget build(BuildContext context) {
@@ -507,7 +672,9 @@ class _SlotItem extends StatelessWidget {
         Container(
           width: 40,
           height: 40,
-          decoration: BoxDecoration(color: iconColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+          decoration: BoxDecoration(
+              color: iconColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8)),
           child: Icon(icon, color: iconColor, size: 20),
         ),
         const SizedBox(width: 12),
@@ -515,7 +682,11 @@ class _SlotItem extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+              Text(title,
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w600)),
               const SizedBox(height: 2),
               Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
             ],
@@ -549,7 +720,8 @@ class SwapPlaceholder extends StatelessWidget {
               const SizedBox(height: 12),
               Text(l10n.swap, style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 6),
-              Text(l10n.tokenSwap, style: Theme.of(context).textTheme.bodyMedium),
+              Text(l10n.tokenSwap,
+                  style: Theme.of(context).textTheme.bodyMedium),
             ],
           ),
         ),
@@ -581,7 +753,8 @@ class StatusPlaceholder extends StatelessWidget {
               const SizedBox(height: 12),
               Text(l10n.node, style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 6),
-              Text(l10n.nodeStatus, style: Theme.of(context).textTheme.bodyMedium),
+              Text(l10n.nodeStatus,
+                  style: Theme.of(context).textTheme.bodyMedium),
             ],
           ),
         ),
@@ -613,7 +786,8 @@ class RewardsPlaceholder extends StatelessWidget {
               const SizedBox(height: 12),
               Text(l10n.rewards, style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 6),
-              Text(l10n.rewardsAchievements, style: Theme.of(context).textTheme.bodyMedium),
+              Text(l10n.rewardsAchievements,
+                  style: Theme.of(context).textTheme.bodyMedium),
             ],
           ),
         ),

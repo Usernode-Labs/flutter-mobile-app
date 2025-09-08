@@ -20,10 +20,16 @@ A new Flutter FFI plugin project.
   s.source           = { :path => '.' }
   s.source_files = 'Classes/**/*'
   s.dependency 'Flutter'
-  s.platform = :ios, '11.0'
+  s.ios.deployment_target = '12.0'
 
   # Flutter.framework does not contain a i386 slice.
-  s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES', 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386' }
+  s.pod_target_xcconfig = {
+    'DEFINES_MODULE' => 'YES',
+    # Flutter.framework does not contain a i386 slice.
+    'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386',
+    'OTHER_LDFLAGS' => '$(inherited) -lc++ -force_load ${BUILT_PRODUCTS_DIR}/libusernode.a',
+    'IPHONEOS_DEPLOYMENT_TARGET' => '12.0'
+  }
   s.swift_version = '5.0'
 
   s.script_phase = {
@@ -35,11 +41,5 @@ A new Flutter FFI plugin project.
     # Let XCode know that the static library referenced in -force_load below is
     # created by this build step.
     :output_files => ["${BUILT_PRODUCTS_DIR}/libusernode.a"],
-  }
-  s.pod_target_xcconfig = {
-    'DEFINES_MODULE' => 'YES',
-    # Flutter.framework does not contain a i386 slice.
-    'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386',
-    'OTHER_LDFLAGS' => '$(inherited) -lc++ -force_load ${BUILT_PRODUCTS_DIR}/libusernode.a',
   }
 end

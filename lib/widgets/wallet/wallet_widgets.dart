@@ -13,14 +13,14 @@ class WalletBalanceCard extends StatefulWidget {
   final List<TokenHolding> holdings;
 
   const WalletBalanceCard({
-    Key? key,
+    super.key,
     required this.balance,
     required this.holdings,
     this.address,
     this.publicKey,
     this.onManageAccounts,
     this.accountName,
-  }) : super(key: key);
+  });
 
   @override
   State<WalletBalanceCard> createState() => _WalletBalanceCardState();
@@ -143,12 +143,12 @@ class QuickActionButton extends StatelessWidget {
   final VoidCallback onTap;
 
   const QuickActionButton({
-    Key? key,
+    super.key,
     required this.label,
     required this.icon,
     required this.color,
     required this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -198,14 +198,14 @@ class QuickActionsRow extends StatelessWidget {
   final bool showBridge;
 
   const QuickActionsRow({
-    Key? key,
+    super.key,
     required this.onSendTap,
     required this.onReceiveTap,
     this.onBridgeTap,
     this.showSend = true,
     this.showReceive = true,
     this.showBridge = true,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -218,29 +218,68 @@ class QuickActionsRow extends StatelessWidget {
     }
 
     if (showSend) {
-      addButton(FilledButton.icon(
-        onPressed: onSendTap,
-        icon: const Icon(Icons.arrow_upward),
-        label: Text(AppLocalizations.of(context).send),
+      addButton(Container(
+        height: 56,
+        decoration: BoxDecoration(
+          color: theme.colorScheme.primaryContainer.withOpacity(0.3),
+          borderRadius: BorderRadius.circular(28),
+        ),
+        child: InkWell(
+          onTap: onSendTap,
+          borderRadius: BorderRadius.circular(28),
+          child: Center(
+            child: Text(
+              AppLocalizations.of(context).send,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+          ),
+        ),
       ));
     }
     if (showReceive) {
-      addButton(OutlinedButton.icon(
-        onPressed: onReceiveTap,
-        icon: const Icon(Icons.arrow_downward),
-        label: Text(AppLocalizations.of(context).receive),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: theme.colorScheme.primary,
+      addButton(Container(
+        height: 56,
+        decoration: BoxDecoration(
+          color: theme.colorScheme.primaryContainer.withOpacity(0.3),
+          borderRadius: BorderRadius.circular(28),
+        ),
+        child: InkWell(
+          onTap: onReceiveTap,
+          borderRadius: BorderRadius.circular(28),
+          child: Center(
+            child: Text(
+              AppLocalizations.of(context).receive,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+          ),
         ),
       ));
     }
     if (showBridge && onBridgeTap != null) {
-      addButton(OutlinedButton.icon(
-        onPressed: onBridgeTap,
-        icon: const Icon(Icons.swap_horiz),
-        label: Text(AppLocalizations.of(context).bridge),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: theme.colorScheme.primary,
+      addButton(Container(
+        height: 56,
+        decoration: BoxDecoration(
+          color: theme.colorScheme.primaryContainer.withOpacity(0.3),
+          borderRadius: BorderRadius.circular(28),
+        ),
+        child: InkWell(
+          onTap: onBridgeTap,
+          borderRadius: BorderRadius.circular(28),
+          child: Center(
+            child: Text(
+              AppLocalizations.of(context).bridge,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+          ),
         ),
       ));
     }
@@ -254,10 +293,10 @@ class TransactionTile extends StatelessWidget {
   final VoidCallback? onTap;
 
   const TransactionTile({
-    Key? key,
+    super.key,
     required this.transaction,
     this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -320,10 +359,10 @@ class TransactionsList extends StatelessWidget {
   final Function(TransactionModel)? onTransactionTap;
 
   const TransactionsList({
-    Key? key,
+    super.key,
     required this.transactions,
     this.onTransactionTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

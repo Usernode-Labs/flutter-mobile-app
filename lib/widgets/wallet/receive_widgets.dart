@@ -8,10 +8,10 @@ class QRCodeCard extends StatelessWidget {
   final VoidCallback? onTap;
 
   const QRCodeCard({
-    Key? key,
+    super.key,
     required this.qrData,
     this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -78,12 +78,12 @@ class AddressDisplayCard extends StatelessWidget {
   final VoidCallback? onGenerateNew;
 
   const AddressDisplayCard({
-    Key? key,
+    super.key,
     required this.address,
     required this.onCopy,
     required this.onShare,
     this.onGenerateNew,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -254,13 +254,13 @@ class PaymentRequestForm extends StatelessWidget {
   final bool isLoading;
 
   const PaymentRequestForm({
-    Key? key,
+    super.key,
     required this.amountController,
     required this.memoController,
     this.amountError,
     required this.onCreateRequest,
     this.isLoading = false,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -340,10 +340,10 @@ class AddressHistoryCard extends StatelessWidget {
   final Function(ReceiveAddress) onAddressSelected;
 
   const AddressHistoryCard({
-    Key? key,
+    super.key,
     required this.addresses,
     required this.onAddressSelected,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -394,7 +394,7 @@ class AddressHistoryCard extends StatelessWidget {
                       context,
                       address,
                     ))
-                .toList(),
+                ,
             if (addresses.length > 5) ...[
               const SizedBox(height: 8),
               Center(

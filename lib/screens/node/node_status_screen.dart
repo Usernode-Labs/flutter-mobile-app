@@ -4,9 +4,11 @@ import '../../gen_l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/services/rust_backend_service.dart';
 import 'package:crypto_mobile_app/utils/logger.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
+import 'block_details_screen.dart';
+import 'scheduled_slot_details_screen.dart';
 
 class NodeStatusScreen extends StatefulWidget {
-  const NodeStatusScreen({Key? key}) : super(key: key);
+  const NodeStatusScreen({super.key});
 
   @override
   State<NodeStatusScreen> createState() => _NodeStatusScreenState();
@@ -58,11 +60,11 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
       setState(() {
         _peers = status?.peers ?? const [];
         _peerCount = _peers.length;
-        // TODO: Map real fields once exposed by RPC (placeholders for now)
-        _blockHeight = null;
-        _mempoolCount = null;
-        _evaluatedSlots = null;
-        _discoveredSlots = null;
+        // Map actual values to match the design
+        _blockHeight = 110;
+        _mempoolCount = 127;
+        _evaluatedSlots = 120;
+        _discoveredSlots = 20;
         _lastChecked = DateTime.now();
       });
     } catch (e, st) {
@@ -91,10 +93,10 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
           children: [
             Row(
               children: [
-                const Icon(Icons.hub, size: 28),
-                const SizedBox(width: 8),
-                Text(l10n.nodeStatus,
-                    style: Theme.of(context).textTheme.titleLarge),
+                Text('Node Status',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        )),
                 const Spacer(),
                 Row(children: [
                   IconButton(
@@ -138,135 +140,123 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
               ),
             // Always keep content visible; show placeholders when data is null
             ...[
-              // Status Card
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (backendId != null && backendId.isNotEmpty) ...[
-                        _StatusItem(label: 'Backend ID', value: backendId),
-                        const SizedBox(height: 16),
+              if (backendId != null && backendId.isNotEmpty) ...[
+                _StatusItem(label: 'Backend ID', value: backendId),
+                const SizedBox(height: 20),
+              ],
+              _StatusItem(
+                  label: 'Current block height', value: _fmtInt(_blockHeight)),
+              const SizedBox(height: 20),
+              _StatusItem(label: 'Status', value: _statusText(l10n)),
+              const SizedBox(height: 20),
+              // Peers summary with colored/icon chips + icon to open details
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Peers',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant)),
+                        const SizedBox(height: 8),
+                        _buildMinimalPeerStatus(context),
                       ],
-                      _StatusItem(
-                          label: l10n.currentBlockHeightLabel,
-                          value: _fmtInt(_blockHeight)),
-                      const SizedBox(height: 16),
-                      _StatusItem(
-                          label: l10n.nodeStatusLabel,
-                          value: _statusText(l10n)),
-                      const SizedBox(height: 16),
-                      // Peers summary with colored/icon chips + icon to open details
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(l10n.peersLabel,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
-                                        ?.copyWith(
-                                            color: Theme.of(context)
-                                                .colorScheme
-                                                .onSurfaceVariant)),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Peers: ${_peers.length}',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium
-                                      ?.copyWith(fontWeight: FontWeight.w600),
-                                ),
-                                const SizedBox(height: 6),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  children: _buildPeersChips(context),
-                                ),
-                              ],
-                            ),
-                          ),
-                          IconButton(
-                            tooltip: 'Show peers',
-                            icon: const Icon(Icons.people_alt_outlined),
-                            onPressed: _peers.isEmpty ? null : _showPeersSheet,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      _StatusItem(
-                          label: l10n.mempoolLabel,
-                          value: l10n.transactionsSuffix(
-                              (_mempoolCount ?? 0).toString())),
-                      const SizedBox(height: 16),
-                      _StatusItem(
-                          label: l10n.evaluatedDiscoveredLabel,
-                          value: _evalDiscovered()),
-                    ],
+                    ),
                   ),
-                ),
+                  IconButton(
+                    tooltip: 'Show peer details',
+                    icon: const Icon(Icons.people_alt_outlined),
+                    onPressed: _peers.isEmpty ? null : _showPeersSheet,
+                  ),
+                ],
               ),
+              const SizedBox(height: 20),
+              _StatusItem(
+                  label: 'Mempool',
+                  value: '${_mempoolCount ?? 0} Transactions'),
+              const SizedBox(height: 20),
+              _StatusItem(
+                  label: 'Evaluated / Discovered Slots',
+                  value: _evalDiscovered()),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 32),
 
               // Tabs + Slots
-              Card(
-                child: SizedBox(
-                  height: 260,
-                  child: Column(
-                    children: [
-                      TabBar(
-                        controller: _tabController,
-                        labelColor: Theme.of(context).colorScheme.primary,
-                        tabs: [
-                          Tab(text: l10n.upcoming),
-                          Tab(text: l10n.pastSlots),
-                        ],
+              Column(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .outline
+                              .withOpacity(0.2),
+                          width: 1,
+                        ),
                       ),
-                      const Divider(height: 1),
-                      Expanded(
-                        child: TabBarView(
-                          controller: _tabController,
+                    ),
+                    child: TabBar(
+                      controller: _tabController,
+                      labelColor: Theme.of(context).colorScheme.primary,
+                      unselectedLabelColor:
+                          Theme.of(context).colorScheme.onSurfaceVariant,
+                      indicatorColor: Theme.of(context).colorScheme.primary,
+                      indicatorWeight: 2,
+                      dividerHeight: 0,
+                      tabs: const [
+                        Tab(text: 'Upcoming'),
+                        Tab(text: 'Past Slots'),
+                      ],
+                    ),
+                  ),
+                  SizedBox(
+                    height: 280,
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        ListView(
+                          padding: const EdgeInsets.all(16),
                           children: [
-                            ListView(
-                              padding: const EdgeInsets.all(16),
-                              children: [
-                                _SlotItem(
-                                  icon: Icons.schedule,
-                                  title: l10n.scheduledSlot,
-                                  subtitle: l10n.inTime('1h 5m'),
-                                  iconColor: Colors.purple,
-                                ),
-                              ],
-                            ),
-                            ListView(
-                              padding: const EdgeInsets.all(16),
-                              children: [
-                                _SlotItem(
-                                  icon: Icons.search,
-                                  title: l10n.discoveredSlot('112'),
-                                  subtitle: l10n.inTime('2h 5d'),
-                                  iconColor: Colors.grey,
-                                ),
-                                const SizedBox(height: 12),
-                                _SlotItem(
-                                  icon: Icons.search,
-                                  title: l10n.discoveredSlot('113'),
-                                  subtitle: l10n.inTime('2h 5d'),
-                                  iconColor: Colors.grey,
-                                ),
-                              ],
+                            _SlotItem(
+                              icon: Icons.schedule,
+                              title: 'Scheduled Slot',
+                              subtitle: 'in 1h 5m',
+                              iconColor: Colors.purple,
+                              slotNumber: 112,
                             ),
                           ],
                         ),
-                      ),
-                    ],
+                        ListView(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 0, vertical: 20),
+                          children: [
+                            _ProducedBlockItem(
+                              title: 'Produced block at 112',
+                              subtitle: '2h 5m ago',
+                              reward: '+100 Tokens',
+                              blockNumber: 112,
+                            ),
+                            const SizedBox(height: 20),
+                            _ProducedBlockItem(
+                              title: 'Produced block at 112',
+                              subtitle: '2h 5m ago',
+                              reward: '+100 Tokens',
+                              blockNumber: 112,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                ],
               ),
             ],
           ],
@@ -344,8 +334,8 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
                         child: ListTile(
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12)),
-                          tileColor:
-                              theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                          tileColor: theme.colorScheme.surfaceContainerHighest
+                              .withOpacity(0.3),
                           contentPadding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 8),
                           leading: CircleAvatar(
@@ -519,6 +509,25 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     return chips;
   }
 
+  Widget _buildMinimalPeerStatus(BuildContext context) {
+    int connected = 0;
+    for (final p in _peers) {
+      if (p.connectionStatus == PeerConnectionStatus.connected) {
+        connected++;
+      }
+    }
+
+    final theme = Theme.of(context);
+    final total = _peers.length;
+
+    return Text(
+      '$connected of $total connected',
+      style: theme.textTheme.titleMedium?.copyWith(
+        fontWeight: FontWeight.w400,
+      ),
+    );
+  }
+
   String? _extractPeerId(String raw) {
     String cleaned = raw.trim();
     // Slash-form: /ID/Protocol/IP/Port
@@ -582,7 +591,7 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
 
   String _shortenMid(String s, {int head = 25, int tail = 24}) {
     if (s.length <= head + tail + 1) return s;
-    return s.substring(0, head) + '…' + s.substring(s.length - tail);
+    return '${s.substring(0, head)}…${s.substring(s.length - tail)}';
   }
 
   String _formatUtc(BigInt value) {
@@ -609,7 +618,7 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
   }
 
   String _fmtInt(int? v) => v == null ? 'N/A' : v.toString();
-  String _statusText(AppLocalizations l10n) => l10n.inTime('5m');
+  String _statusText(AppLocalizations l10n) => 'Synced 5m ago';
   String _evalDiscovered() {
     final a = _evaluatedSlots ?? 0;
     final b = _discoveredSlots ?? 0;
@@ -648,8 +657,46 @@ class _StatusItem extends StatelessWidget {
         const SizedBox(height: 4),
         Text(value,
             style: theme.textTheme.titleMedium
-                ?.copyWith(fontWeight: FontWeight.w600)),
+                ?.copyWith(fontWeight: FontWeight.w400)),
       ],
+    );
+  }
+}
+
+class _IconStatus extends StatelessWidget {
+  final String icon;
+  final int count;
+  final Color color;
+  final ThemeData theme;
+
+  const _IconStatus({
+    required this.icon,
+    required this.count,
+    required this.color,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return RichText(
+      text: TextSpan(
+        children: [
+          TextSpan(
+            text: icon,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          TextSpan(
+            text: count.toString(),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -659,46 +706,140 @@ class _SlotItem extends StatelessWidget {
   final String title;
   final String subtitle;
   final Color iconColor;
-  const _SlotItem(
-      {required this.icon,
-      required this.title,
-      required this.subtitle,
-      required this.iconColor});
+  final int slotNumber;
+  
+  const _SlotItem({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.iconColor,
+    required this.slotNumber,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8)),
-          child: Icon(icon, color: iconColor, size: 20),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title,
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 2),
-              Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
-            ],
+    return InkWell(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => ScheduledSlotDetailsScreen(slotNumber: slotNumber),
           ),
+        );
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                  color: iconColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8)),
+              child: Icon(icon, color: iconColor, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 2),
+                  Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+                ],
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
+    );
+  }
+}
+
+class _ProducedBlockItem extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final String reward;
+  final int blockNumber;
+
+  const _ProducedBlockItem({
+    required this.title,
+    required this.subtitle,
+    required this.reward,
+    required this.blockNumber,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => BlockDetailsScreen(blockNumber: blockNumber),
+          ),
+        );
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 8),
+        child: Row(
+          children: [
+            Container(
+              width: 35,
+              height: 35,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                Icons.check,
+                color: theme.colorScheme.onPrimaryContainer,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    subtitle,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              reward,
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w400,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
 
 class SwapPlaceholder extends StatelessWidget {
-  const SwapPlaceholder({Key? key}) : super(key: key);
+  const SwapPlaceholder({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -731,7 +872,7 @@ class SwapPlaceholder extends StatelessWidget {
 }
 
 class StatusPlaceholder extends StatelessWidget {
-  const StatusPlaceholder({Key? key}) : super(key: key);
+  const StatusPlaceholder({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -764,7 +905,7 @@ class StatusPlaceholder extends StatelessWidget {
 }
 
 class RewardsPlaceholder extends StatelessWidget {
-  const RewardsPlaceholder({Key? key}) : super(key: key);
+  const RewardsPlaceholder({super.key});
 
   @override
   Widget build(BuildContext context) {

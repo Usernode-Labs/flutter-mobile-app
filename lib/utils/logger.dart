@@ -10,7 +10,7 @@ class Log {
 
   static String _ts() {
     final now = DateTime.now();
-    final two = (int n) => n.toString().padLeft(2, '0');
+    String two(int n) => n.toString().padLeft(2, '0');
     final ms = now.millisecond.toString().padLeft(3, '0');
     return '${two(now.hour)}:${two(now.minute)}:${two(now.second)}.$ms';
   }

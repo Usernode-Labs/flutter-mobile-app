@@ -51,7 +51,7 @@ class RustBackendService {
       await init();
     }
     if (_nodeRunning) return;
-    Log.i('RUST', 'Starting node' + (httpPort != null ? ' on $httpPort' : ''));
+    Log.i('RUST', 'Starting node${httpPort != null ? ' on $httpPort' : ''}');
 
     final builder = NodeBuilder();
     if (httpPort != null) {

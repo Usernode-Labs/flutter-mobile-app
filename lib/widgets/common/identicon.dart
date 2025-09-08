@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 
 /// Simple, dependency-free identicon generator based on a 5x5 mirrored grid.

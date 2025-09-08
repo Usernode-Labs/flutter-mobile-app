@@ -7,11 +7,11 @@ class MultiplierCard extends StatelessWidget {
   final double progress;
 
   const MultiplierCard({
-    Key? key,
+    super.key,
     required this.multiplier,
     required this.subtitle,
     required this.progress,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

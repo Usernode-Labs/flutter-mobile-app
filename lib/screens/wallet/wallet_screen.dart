@@ -15,7 +15,7 @@ import 'package:crypto_mobile_app/services/rust_backend_service.dart';
 import 'import_account_sheets.dart';
 
 class WalletScreen extends StatefulWidget {
-  const WalletScreen({Key? key}) : super(key: key);
+  const WalletScreen({super.key});
 
   @override
   State<WalletScreen> createState() => _WalletScreenState();
@@ -27,7 +27,7 @@ class _WalletScreenState extends State<WalletScreen> {
   late List<TransactionModel> _transactions;
   bool _isLoading = false;
   AccountMeta? _account;
-  bool _accountExpanded =
+  final bool _accountExpanded =
       false; // no longer used for details; used for selector arrow only
 
   Color _accountColor(ThemeData theme, String addr) {
@@ -95,7 +95,7 @@ class _WalletScreenState extends State<WalletScreen> {
         final seedCtrl = TextEditingController();
         String? selectedId = _account?.id;
         return StatefulBuilder(builder: (ctx, setStateSheet) {
-          Color _accountColor(ThemeData theme, String addr) {
+          Color accountColor(ThemeData theme, String addr) {
             final palette = [
               theme.colorScheme.primary,
               theme.colorScheme.secondary,
@@ -281,10 +281,10 @@ class _WalletScreenState extends State<WalletScreen> {
                                     child: CircleAvatar(
                                       radius: 20,
                                       backgroundColor:
-                                          _accountColor(theme, acc.address)
+                                          accountColor(theme, acc.address)
                                               .withOpacity(0.12),
                                       foregroundColor:
-                                          _accountColor(theme, acc.address),
+                                          accountColor(theme, acc.address),
                                       child: const Icon(
                                           Icons.account_circle_outlined),
                                     ),

@@ -7,7 +7,7 @@ import '../../widgets/common/horizontal_card_scroll.dart';
 import 'package:crypto_mobile_app/config/feature_flags.dart';
 
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+  const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

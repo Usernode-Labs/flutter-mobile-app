@@ -6,7 +6,7 @@ import 'package:crypto_mobile_app/utils/logger.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 
 class NodeStatusScreen extends StatefulWidget {
-  const NodeStatusScreen({Key? key}) : super(key: key);
+  const NodeStatusScreen({super.key});
 
   @override
   State<NodeStatusScreen> createState() => _NodeStatusScreenState();
@@ -345,7 +345,7 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12)),
                           tileColor:
-                              theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                              theme.colorScheme.surfaceContainerHighest.withOpacity(0.3),
                           contentPadding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 8),
                           leading: CircleAvatar(
@@ -582,7 +582,7 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
 
   String _shortenMid(String s, {int head = 25, int tail = 24}) {
     if (s.length <= head + tail + 1) return s;
-    return s.substring(0, head) + '…' + s.substring(s.length - tail);
+    return '${s.substring(0, head)}…${s.substring(s.length - tail)}';
   }
 
   String _formatUtc(BigInt value) {
@@ -698,7 +698,7 @@ class _SlotItem extends StatelessWidget {
 }
 
 class SwapPlaceholder extends StatelessWidget {
-  const SwapPlaceholder({Key? key}) : super(key: key);
+  const SwapPlaceholder({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -731,7 +731,7 @@ class SwapPlaceholder extends StatelessWidget {
 }
 
 class StatusPlaceholder extends StatelessWidget {
-  const StatusPlaceholder({Key? key}) : super(key: key);
+  const StatusPlaceholder({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -764,7 +764,7 @@ class StatusPlaceholder extends StatelessWidget {
 }
 
 class RewardsPlaceholder extends StatelessWidget {
-  const RewardsPlaceholder({Key? key}) : super(key: key);
+  const RewardsPlaceholder({super.key});
 
   @override
   Widget build(BuildContext context) {

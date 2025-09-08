@@ -166,7 +166,7 @@ class _ImportSeedSheetState extends State<ImportSeedSheet> {
                     child: Chip(
                       label: Text('$wc words'),
                       backgroundColor:
-                          theme.colorScheme.surfaceVariant.withOpacity(0.6),
+                          theme.colorScheme.surfaceContainerHighest.withOpacity(0.6),
                       shape: const StadiumBorder(),
                     ),
                   ),

@@ -13,14 +13,14 @@ class WalletBalanceCard extends StatefulWidget {
   final List<TokenHolding> holdings;
 
   const WalletBalanceCard({
-    Key? key,
+    super.key,
     required this.balance,
     required this.holdings,
     this.address,
     this.publicKey,
     this.onManageAccounts,
     this.accountName,
-  }) : super(key: key);
+  });
 
   @override
   State<WalletBalanceCard> createState() => _WalletBalanceCardState();
@@ -143,12 +143,12 @@ class QuickActionButton extends StatelessWidget {
   final VoidCallback onTap;
 
   const QuickActionButton({
-    Key? key,
+    super.key,
     required this.label,
     required this.icon,
     required this.color,
     required this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -198,14 +198,14 @@ class QuickActionsRow extends StatelessWidget {
   final bool showBridge;
 
   const QuickActionsRow({
-    Key? key,
+    super.key,
     required this.onSendTap,
     required this.onReceiveTap,
     this.onBridgeTap,
     this.showSend = true,
     this.showReceive = true,
     this.showBridge = true,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -254,10 +254,10 @@ class TransactionTile extends StatelessWidget {
   final VoidCallback? onTap;
 
   const TransactionTile({
-    Key? key,
+    super.key,
     required this.transaction,
     this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -320,10 +320,10 @@ class TransactionsList extends StatelessWidget {
   final Function(TransactionModel)? onTransactionTap;
 
   const TransactionsList({
-    Key? key,
+    super.key,
     required this.transactions,
     this.onTransactionTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

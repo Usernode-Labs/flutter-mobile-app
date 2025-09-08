@@ -7,7 +7,7 @@ import 'package:crypto_mobile_app/config/feature_flags.dart';
 
 class MainApp extends StatefulWidget {
   final AppFeature? initialFeature;
-  const MainApp({Key? key, this.initialFeature}) : super(key: key);
+  const MainApp({super.key, this.initialFeature});
 
   @override
   _MainAppState createState() => _MainAppState();

@@ -7,7 +7,7 @@ import '../../widgets/wallet/send_widget.dart';
 import '../../theme/app_theme.dart';
 
 class SendScreen extends StatefulWidget {
-  const SendScreen({Key? key}) : super(key: key);
+  const SendScreen({super.key});
 
   @override
   State<SendScreen> createState() => _SendScreenState();

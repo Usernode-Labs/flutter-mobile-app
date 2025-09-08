@@ -11,13 +11,13 @@ class LiquidityBridgeCard extends StatelessWidget {
   final VoidCallback? onBridgePressed;
 
   const LiquidityBridgeCard({
-    Key? key,
+    super.key,
     this.title, // 🔥 CHANGED: Optional
     this.subtitle, // 🔥 CHANGED: Optional
     this.buttonText, // 🔥 CHANGED: Optional
     this.bonusText = '+1.5x',
     this.onBridgePressed,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

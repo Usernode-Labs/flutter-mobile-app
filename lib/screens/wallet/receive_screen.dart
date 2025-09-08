@@ -7,7 +7,7 @@ import '../../theme/app_theme.dart';
 import '../../gen_l10n/app_localizations.dart';
 
 class ReceiveScreen extends StatefulWidget {
-  const ReceiveScreen({Key? key}) : super(key: key);
+  const ReceiveScreen({super.key});
 
   @override
   State<ReceiveScreen> createState() => _ReceiveScreenState();

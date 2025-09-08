@@ -229,7 +229,7 @@ class _MnemonicGrid extends StatelessWidget {
           return Container(
             padding: const EdgeInsets.all(0),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceVariant.withOpacity(0.6),
+              color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.6),
               borderRadius: BorderRadius.circular(0),
             ),
             child: Row(

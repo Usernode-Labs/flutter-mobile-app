@@ -11,13 +11,13 @@ class RecipientInputCard extends StatelessWidget {
   final String? errorText;
 
   const RecipientInputCard({
-    Key? key,
+    super.key,
     required this.controller,
     this.contactName,
     required this.onScanQR,
     required this.onAddressChanged,
     this.errorText,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -142,12 +142,12 @@ class AmountInputCard extends StatelessWidget {
   final String? errorText;
 
   const AmountInputCard({
-    Key? key,
+    super.key,
     required this.controller,
     required this.availableBalance,
     required this.onMaxTap,
     this.errorText,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -244,12 +244,12 @@ class FeeSelectionCard extends StatelessWidget {
   final TextEditingController? customFeeController;
 
   const FeeSelectionCard({
-    Key? key,
+    super.key,
     required this.selectedFee,
     required this.networkFees,
     required this.onFeeSelected,
     this.customFeeController,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -408,12 +408,12 @@ class TransactionSummaryCard extends StatelessWidget {
   final String? contactName;
 
   const TransactionSummaryCard({
-    Key? key,
+    super.key,
     required this.request,
     required this.fee,
     required this.total,
     this.contactName,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

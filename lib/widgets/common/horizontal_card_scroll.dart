@@ -5,7 +5,7 @@ import 'liquidity_bridge_card.dart';
 import 'package:crypto_mobile_app/config/feature_flags.dart';
 
 class HorizontalCardScroll extends StatelessWidget {
-  const HorizontalCardScroll({Key? key}) : super(key: key);
+  const HorizontalCardScroll({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -84,7 +84,7 @@ class _PromoCard extends StatelessWidget {
   final VoidCallback? onPressed; // This field was declared but not initialized
 
   const _PromoCard({
-    Key? key,
+    super.key,
     required this.title,
     required this.subtitle,
     required this.buttonText,
@@ -94,7 +94,7 @@ class _PromoCard extends StatelessWidget {
     required this.bonusColor,
     required this.icon,
     this.onPressed, // ✅ Added this parameter to the constructor
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

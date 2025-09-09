@@ -684,9 +684,11 @@ class _WalletScreenState extends State<WalletScreen> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            _shortAddr(_account!.address),
+                            '${_account!.name} (${_shortAddr(_account!.address)})',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.w500,
+                              fontWeight: FontWeight.w600,
                               fontSize: 18,
                             ),
                           ),

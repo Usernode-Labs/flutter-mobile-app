@@ -18,6 +18,7 @@ class BlockDetailsScreen extends StatelessWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: theme.colorScheme.onSurface,
+        centerTitle: false,
       ),
       body: SafeArea(
         child: ListView(
@@ -155,13 +156,13 @@ class _TimelineItem extends StatelessWidget {
           Column(
             children: [
               Container(
-                width: 30,
-                height: 30,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
                   color: icon == Icons.shield_outlined
                       ? theme.colorScheme.surfaceContainerHighest
                       : theme.colorScheme.onSurface,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(20),
                 ),
                 child: Icon(
                   icon,
@@ -194,7 +195,7 @@ class _TimelineItem extends StatelessWidget {
                       child: Text(
                         title,
                         style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w400,
                         ),
                       ),
                     ),

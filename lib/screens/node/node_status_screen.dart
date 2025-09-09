@@ -652,7 +652,7 @@ class _StatusItem extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label,
-            style: theme.textTheme.bodySmall
+            style: theme.textTheme.bodyMedium
                 ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
         const SizedBox(height: 4),
         Text(value,
@@ -707,7 +707,7 @@ class _SlotItem extends StatelessWidget {
   final String subtitle;
   final Color iconColor;
   final int slotNumber;
-  
+
   const _SlotItem({
     required this.icon,
     required this.title,
@@ -722,7 +722,8 @@ class _SlotItem extends StatelessWidget {
       onTap: () {
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (context) => ScheduledSlotDetailsScreen(slotNumber: slotNumber),
+            builder: (context) =>
+                ScheduledSlotDetailsScreen(slotNumber: slotNumber),
           ),
         );
       },

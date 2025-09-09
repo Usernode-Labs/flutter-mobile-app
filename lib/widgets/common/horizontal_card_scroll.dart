@@ -12,14 +12,14 @@ class HorizontalCardScroll extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
 
     return SizedBox(
-      height: 180,
+      height: 208,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.only(left: 16, right: 8),
         itemCount: _getCards(l10n).length,
         itemBuilder: (context, index) {
           return Container(
-            width: 320,
+            width: 370,
             margin: const EdgeInsets.only(right: 12),
             child: _getCards(l10n)[index],
           );
@@ -30,6 +30,14 @@ class HorizontalCardScroll extends StatelessWidget {
 
   List<Widget> _getCards(AppLocalizations l10n) {
     final cards = <Widget>[];
+
+    // Add the boost card as the first item
+    cards.add(
+      _BoostTierCard(
+        onPressed: () {},
+      ),
+    );
+
     if (FeatureFlags.on('home.bridgeCard')) {
       cards.add(
         LiquidityBridgeCard(
@@ -45,7 +53,6 @@ class HorizontalCardScroll extends StatelessWidget {
           subtitle: l10n.verificationDescription,
           buttonText: l10n.verify,
           bonusText: '+2.0x',
-          backgroundColor: const Color(0xFFE8F5E8),
           buttonColor: AppTheme.successCheckColor,
           bonusColor: AppTheme.successCheckColor,
           icon: Icons.verified_user,
@@ -60,9 +67,8 @@ class HorizontalCardScroll extends StatelessWidget {
           subtitle: l10n.stakingDescription,
           buttonText: l10n.stake,
           bonusText: '+3.0x',
-          backgroundColor: const Color(0xFFFFF3E0),
-          buttonColor: const Color(0xFFFF9800),
-          bonusColor: const Color(0xFFFF9800),
+          buttonColor: AppTheme.pendingIconColor,
+          bonusColor: AppTheme.pendingIconColor,
           icon: Icons.lock,
           onPressed: () {},
         ),
@@ -77,11 +83,10 @@ class _PromoCard extends StatelessWidget {
   final String subtitle;
   final String buttonText;
   final String bonusText;
-  final Color backgroundColor;
   final Color buttonColor;
   final Color bonusColor;
   final IconData icon;
-  final VoidCallback? onPressed; // This field was declared but not initialized
+  final VoidCallback? onPressed;
 
   const _PromoCard({
     super.key,
@@ -89,17 +94,22 @@ class _PromoCard extends StatelessWidget {
     required this.subtitle,
     required this.buttonText,
     required this.bonusText,
-    required this.backgroundColor,
     required this.buttonColor,
     required this.bonusColor,
     required this.icon,
-    this.onPressed, // ✅ Added this parameter to the constructor
+    this.onPressed,
   });
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    // Theme-aware tinted background that works in dark mode as well
+    final bg =
+        Color.alphaBlend(buttonColor.withOpacity(0.10), colorScheme.surface);
+
     return Card(
-      color: backgroundColor,
+      color: bg,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -108,13 +118,19 @@ class _PromoCard extends StatelessWidget {
           children: [
             Text(
               title,
-              style: Theme.of(context).textTheme.titleMedium,
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: 6),
             Expanded(
               child: Text(
                 subtitle,
-                style: Theme.of(context).textTheme.bodyMedium,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  height: 1.4,
+                ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -130,18 +146,123 @@ class _PromoCard extends StatelessWidget {
                   child: Text(buttonText),
                 ),
                 const SizedBox(width: 12),
-                Chip(
-                  avatar: Icon(icon, size: 14, color: bonusColor),
-                  label: Text(
-                    bonusText,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: bonusColor,
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Color.alphaBlend(
+                        bonusColor.withOpacity(0.12), colorScheme.surface),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: bonusColor.withOpacity(0.28)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, size: 14, color: bonusColor),
+                      const SizedBox(width: 6),
+                      Text(
+                        bonusText,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: bonusColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BoostTierCard extends StatelessWidget {
+  final VoidCallback? onPressed;
+
+  const _BoostTierCard({
+    super.key,
+    this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    final bg = Color.alphaBlend(
+        theme.colorScheme.primaryContainer.withOpacity(0.8),
+        colorScheme.surface);
+
+    return Card(
+      color: bg,
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Boost your tier',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: Text(
+                'Complete on-chain tasks to earn points and unlock higher reward tiers.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  height: 1.4,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton(
+                    onPressed: onPressed,
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                    child: Text(
+                      'Prove you\'re human',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w500,
+                        color: colorScheme.onPrimary,
+                        fontSize: 14,
+                      ),
                     ),
                   ),
-                  backgroundColor: bonusColor.withOpacity(0.1),
-                  side: BorderSide(color: bonusColor.withOpacity(0.3)),
+                ),
+                const SizedBox(width: 12),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '+20 tier points',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Icon(
+                        Icons.settings,
+                        size: 16,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),

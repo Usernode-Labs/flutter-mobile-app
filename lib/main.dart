@@ -34,6 +34,8 @@ class CryptoMobileApp extends StatelessWidget {
     return MaterialApp(
       title: 'Usernode',
       theme: MaterialTheme(ThemeData.light().textTheme).light(),
+      darkTheme: MaterialTheme(ThemeData.dark().textTheme).dark(),
+      themeMode: ThemeMode.system,
       debugShowCheckedModeBanner: false,
       localizationsDelegates: [
         AppLocalizations.delegate,

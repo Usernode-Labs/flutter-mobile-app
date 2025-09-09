@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:bip39/bip39.dart' as bip39;
+import '../../gen_l10n/app_localizations.dart';
 
 class ImportSeedData {
   final String name;
@@ -93,20 +94,11 @@ class _ImportSeedSheetState extends State<ImportSeedSheet> {
           children: [
             Row(
               children: [
-                Container(
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.tertiary.withOpacity(0.12),
-                    shape: BoxShape.circle,
-                  ),
-                  padding: const EdgeInsets.all(10),
-                  child: Icon(Icons.key, color: theme.colorScheme.tertiary),
-                ),
-                const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     'Import from seed phrase',
                     style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -116,6 +108,21 @@ class _ImportSeedSheetState extends State<ImportSeedSheet> {
                   onPressed: () => Navigator.pop(context),
                 )
               ],
+            ),
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                'Import adds an existing account to this app. "Create new" generates a brand new account and recovery phrase.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
             ),
             const SizedBox(height: 12),
             Form(
@@ -130,11 +137,21 @@ class _ImportSeedSheetState extends State<ImportSeedSheet> {
                       prefixIcon: Icon(Icons.account_circle_outlined),
                     ),
                   ),
+                  const SizedBox(height: 6),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      AppLocalizations.of(context).accountNameExplain,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _seedCtrl,
-                    minLines: 3,
-                    maxLines: 6,
+                    minLines: 6,
+                    maxLines: 10,
                     decoration: InputDecoration(
                       labelText: 'Seed phrase',
                       hintText: 'Enter 12–24 space-separated words',
@@ -157,19 +174,24 @@ class _ImportSeedSheetState extends State<ImportSeedSheet> {
                         ],
                       ),
                       helperText: 'Never share your seed phrase',
+                      contentPadding: const EdgeInsets.symmetric(
+                        vertical: 16,
+                        horizontal: 12,
+                      ),
                     ),
                     onChanged: (_) => _revalidate(),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Align(
                     alignment: Alignment.centerLeft,
-                    child: Chip(
-                      label: Text('$wc words'),
-                      backgroundColor:
-                          theme.colorScheme.surfaceContainerHighest.withOpacity(0.6),
-                      shape: const StadiumBorder(),
+                    child: Text(
+                      'Words are separated by single spaces, usually lowercase. We never transmit your recovery phrase.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
+                  const SizedBox(height: 8),
                 ],
               ),
             ),
@@ -281,21 +303,11 @@ class _ImportPrivateKeySheetState extends State<ImportPrivateKeySheet> {
           children: [
             Row(
               children: [
-                Container(
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.errorContainer.withOpacity(0.4),
-                    shape: BoxShape.circle,
-                  ),
-                  padding: const EdgeInsets.all(10),
-                  child:
-                      Icon(Icons.vpn_key, color: theme.colorScheme.error),
-                ),
-                const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     'Import from private key',
                     style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -306,6 +318,21 @@ class _ImportPrivateKeySheetState extends State<ImportPrivateKeySheet> {
                 )
               ],
             ),
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                'Import adds an existing account to this app. "Create new" generates a brand new account and private key.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _nameCtrl,
@@ -313,6 +340,16 @@ class _ImportPrivateKeySheetState extends State<ImportPrivateKeySheet> {
               decoration: const InputDecoration(
                 labelText: 'Account name',
                 prefixIcon: Icon(Icons.account_circle_outlined),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                AppLocalizations.of(context).accountNameExplain,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
             const SizedBox(height: 12),
@@ -350,9 +387,24 @@ class _ImportPrivateKeySheetState extends State<ImportPrivateKeySheet> {
                   ],
                 ),
                 helperText: '$len / 64 hex chars',
+                contentPadding: const EdgeInsets.symmetric(
+                  vertical: 16,
+                  horizontal: 12,
+                ),
               ),
               onChanged: (_) => _revalidate(),
             ),
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'We never transmit your private key. Keep it confidential and never share it.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
             const SizedBox(height: 8),
             Row(
               children: [

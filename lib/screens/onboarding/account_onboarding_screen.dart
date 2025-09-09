@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:crypto_mobile_app/theme/app_theme.dart';
+// import 'package:crypto_mobile_app/theme/app_theme.dart';
 import 'package:bip39/bip39.dart' as bip39;
 import '../../services/accounts_repository.dart';
 import '../../models/account_creation_result.dart';
@@ -64,7 +64,8 @@ class _AccountOnboardingScreenState extends State<AccountOnboardingScreen> {
     await repo.importFromMnemonic(name: newName, mnemonic: _mnemonic!);
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const MainApp(initialFeature: AppFeature.wallet)),
+      MaterialPageRoute(
+          builder: (_) => const MainApp(initialFeature: AppFeature.wallet)),
       (_) => false,
     );
   }
@@ -78,6 +79,7 @@ class _AccountOnboardingScreenState extends State<AccountOnboardingScreen> {
         appBar: AppBar(
           title: Text(AppLocalizations.of(context).createAccountTitle),
           elevation: 0,
+          centerTitle: false,
           backgroundColor: Colors.transparent,
           leading: _hasExistingAccounts && Navigator.of(context).canPop()
               ? const BackButton()
@@ -109,28 +111,34 @@ class _AccountOnboardingScreenState extends State<AccountOnboardingScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(AppLocalizations.of(context).recoveryPhraseTitle,
+                            Text(
+                                AppLocalizations.of(context)
+                                    .recoveryPhraseTitle,
                                 style: theme.textTheme.titleLarge),
                             const SizedBox(height: 8),
                             Container(
                               width: double.infinity,
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: theme.colorScheme.errorContainer
-                                    .withOpacity(0.4),
+                                color: theme.colorScheme.errorContainer,
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Icon(Icons.warning_amber_rounded,
-                                      color: theme.colorScheme.error),
+                                  Icon(
+                                    Icons.warning_amber_rounded,
+                                    color: theme.colorScheme.onErrorContainer,
+                                  ),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      AppLocalizations.of(context).recoveryPhraseWarning,
-                                      style: theme.textTheme.bodyMedium?.copyWith(
-                                        color: theme.colorScheme.onErrorContainer,
+                                      AppLocalizations.of(context)
+                                          .recoveryPhraseWarning,
+                                      style:
+                                          theme.textTheme.bodyMedium?.copyWith(
+                                        color:
+                                            theme.colorScheme.onErrorContainer,
                                       ),
                                     ),
                                   ),
@@ -138,14 +146,18 @@ class _AccountOnboardingScreenState extends State<AccountOnboardingScreen> {
                               ),
                             ),
                             const SizedBox(height: 8),
-                            Text(AppLocalizations.of(context).recoveryPhraseInstruction,
-                                style: theme.textTheme.bodyMedium),
+                            Text(
+                              AppLocalizations.of(context)
+                                  .recoveryPhraseInstruction,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
                             const SizedBox(height: 16),
                             if (_mnemonic != null)
                               Card(
-                                color: Colors.white,
                                 child: Padding(
-                                  padding: const EdgeInsets.all(0),
+                                  padding: const EdgeInsets.all(12),
                                   child: _MnemonicGrid(mnemonic: _mnemonic!),
                                 ),
                               ),
@@ -155,10 +167,11 @@ class _AccountOnboardingScreenState extends State<AccountOnboardingScreen> {
                             const SizedBox(height: 8),
                             TextField(
                               controller: _nameCtrl,
-                          decoration: InputDecoration(
-                            hintText: AppLocalizations.of(context).accountNameHint,
-                            border: const OutlineInputBorder(),
-                          ),
+                              decoration: InputDecoration(
+                                hintText: AppLocalizations.of(context)
+                                    .accountNameHint,
+                                border: const OutlineInputBorder(),
+                              ),
                               onChanged: (_) => setState(() {}),
                             ),
                             const SizedBox(height: 8),
@@ -227,25 +240,25 @@ class _MnemonicGrid extends StatelessWidget {
           final idx = i + 1;
           final w = words[i];
           return Container(
-            padding: const EdgeInsets.all(0),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.6),
-              borderRadius: BorderRadius.circular(0),
+              color: theme.colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
               children: [
                 Container(
-                  width: 22,
-                  height: 22,
+                  width: 24,
+                  height: 24,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(6),
+                    color: theme.colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     '$idx',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.primary,
+                      color: theme.colorScheme.onPrimaryContainer,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -256,6 +269,7 @@ class _MnemonicGrid extends StatelessWidget {
                     w,
                     style: theme.textTheme.titleMedium,
                     softWrap: false,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],

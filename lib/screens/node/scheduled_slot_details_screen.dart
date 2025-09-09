@@ -18,6 +18,7 @@ class ScheduledSlotDetailsScreen extends StatelessWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: theme.colorScheme.onSurface,
+        centerTitle: false,
       ),
       body: SafeArea(
         child: ListView(
@@ -164,8 +165,8 @@ class _ScheduledTimelineItem extends StatelessWidget {
           Column(
             children: [
               Container(
-                width: 28,
-                height: 28,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
                   color: isCompleted
                       ? theme.colorScheme.onSurface
@@ -176,7 +177,7 @@ class _ScheduledTimelineItem extends StatelessWidget {
                           color: theme.colorScheme.outline,
                           width: 2,
                         ),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(20),
                 ),
                 child: Icon(
                   icon,

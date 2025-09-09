@@ -1,4 +1,4 @@
 {
-  "enabled": ["wallet", "node"],
-  "order": ["node", "wallet"]
+  "enabled": ["wallet", "node", "home"],
+  "order": ["home", "node", "wallet"]
 }

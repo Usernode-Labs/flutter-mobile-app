@@ -526,14 +526,14 @@ class _WalletScreenState extends State<WalletScreen> {
                     child: Text(
                       token.name,
                       style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.w400,
                       ),
                     ),
                   ),
                   Text(
                     '${token.amount.toInt()} ${token.symbol}',
                     style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w400,
                     ),
                   ),
                 ],
@@ -596,7 +596,7 @@ class _WalletScreenState extends State<WalletScreen> {
                         Text(
                           activity['title'] as String,
                           style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w400,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -612,7 +612,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   Text(
                     activity['amount'] as String,
                     style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w400,
                       color: (activity['amount'] as String).startsWith('+')
                           ? Colors.green
                           : theme.colorScheme.onSurface,
@@ -686,8 +686,8 @@ class _WalletScreenState extends State<WalletScreen> {
                           child: Text(
                             _shortAddr(_account!.address),
                             style: theme.textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 20,
+                              fontWeight: FontWeight.w500,
+                              fontSize: 18,
                             ),
                           ),
                         ),
@@ -715,13 +715,13 @@ class _WalletScreenState extends State<WalletScreen> {
                   showReceive: FeatureFlags.on('wallet.receive'),
                   showBridge: FeatureFlags.on('wallet.bridge'),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 30),
 
                 // Balances section
                 Text(
                   'Balances',
                   style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     fontSize: theme.textTheme.titleMedium!.fontSize!,
                   ),
                 ),
@@ -736,7 +736,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 Text(
                   'Recent Activity',
                   style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     fontSize: theme.textTheme.titleMedium!.fontSize!,
                   ),
                 ),

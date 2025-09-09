@@ -1,144 +1,246 @@
 import 'package:flutter/material.dart';
-import '../../gen_l10n/app_localizations.dart';
-import '../../theme/app_theme.dart';
-import '../../widgets/common/activity_card.dart';
-import '../../widgets/common/multiplier_card.dart';
 import '../../widgets/common/horizontal_card_scroll.dart';
-import 'package:crypto_mobile_app/config/feature_flags.dart';
+import '../../widgets/common/activity_list_item.dart';
+import '../rewards/rewards_breakdown_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     return Scaffold(
+      // Use scaffold defaults from theme for proper light/dark support
       appBar: Navigator.of(context).canPop()
           ? AppBar(
               leading: const BackButton(),
-              elevation: 0,
-              backgroundColor: Colors.transparent,
             )
           : null,
       body: SafeArea(
         child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Node status card (with i18n)
-            if (FeatureFlags.isEnabled(AppFeature.node))
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header section with tier and points
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: ActivityCard(
-                  icon: Icons.hub,
-                  title: l10n.nodeStatusSynced('1.32s'),
-                  subtitle: l10n.totalNodes('231,641'),
-                  iconColor: AppTheme.nodeIconColor,
-                ),
-              ),
-
-            const SizedBox(height: 16),
-
-            // Horizontal scrolling cards
-            if (FeatureFlags.on('home.cards')) const HorizontalCardScroll(),
-
-            const SizedBox(height: 16),
-
-            // Activity section (with i18n)
-            if (FeatureFlags.on('home.multiplier')) ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  l10n.yourMultiplier,
-                  style: AppTheme.activityTitleStyle,
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: MultiplierCard(
-                  multiplier: '2.5x',
-                  subtitle: l10n.tokensExpected('100', '14'),
-                  progress: 0.7,
-                ),
-              ),
-            ],
-
-            const SizedBox(height: 24),
-
-            // Activity section (with i18n)
-            if (FeatureFlags.on('home.activity')) ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  l10n.activity,
-                  style: AppTheme.activityTitleStyle,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    ActivityCard(
-                      icon: Icons.schedule,
-                      title: l10n.upcomingBlock('3h 2m'),
-                      subtitle: l10n.scheduledBackground,
-                      iconColor: AppTheme.pendingIconColor,
-                    ),
-                    ActivityCard(
-                      icon: Icons.check_circle,
-                      title: l10n.identityProven,
-                      subtitle: '10/14/2025 at 2:30pm',
-                      iconColor: AppTheme.successCheckColor,
-                      trailing: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppTheme.successCheckColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Text(
-                          '+1.5x',
-                          style: TextStyle(
-                            color: AppTheme.successCheckColor,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 12,
+                    Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: colorScheme.secondaryContainer,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.star_outline,
+                            color: colorScheme.onSecondaryContainer,
+                            size: 22,
                           ),
                         ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Basic Tier',
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            color: colorScheme.onSurface,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surface,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color: colorScheme.outlineVariant.withOpacity(0.4)),
                       ),
-                    ),
-                    ActivityCard(
-                      icon: Icons.check_circle,
-                      title: l10n.depositSuccessful,
-                      subtitle: '10/14/2025 at 1:30pm',
-                      iconColor: AppTheme.successCheckColor,
-                      trailing: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppTheme.successCheckColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Text(
-                          '+10,000 USN',
-                          style: TextStyle(
-                            color: AppTheme.successCheckColor,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 12,
-                          ),
+                      child: Text(
+                        '0 points',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurface,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
                   ],
                 ),
               ),
-            ],
+              const SizedBox(height: 8),
+              // Horizontal action cards (kept as requested)
+              const SizedBox(height: 196, child: HorizontalCardScroll()),
 
-            const SizedBox(height: 20),
-          ],
+              const SizedBox(height: 20),
+
+              // Rewards and projection card
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHigh.withOpacity(0.8),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // This epoch's rewards section
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'This epoch\'s rewards (Basic Tier)',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              color: colorScheme.onSurface,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Breakdown',
+                            icon: Icon(Icons.bar_chart_rounded,
+                                color: colorScheme.primary),
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const RewardsBreakdownScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      // Rewards amount
+                      Text(
+                        '2200 TKN',
+                        style: theme.textTheme.headlineMedium?.copyWith(
+                          fontSize: 36,
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // Progress bar and epoch info
+                      ClipRRect(
+                        borderRadius:
+                            const BorderRadius.all(Radius.circular(3)),
+                        child: LinearProgressIndicator(
+                          value: 0.8,
+                          backgroundColor: colorScheme.surfaceContainerHighest,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                              colorScheme.primary),
+                          minHeight: 6,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Epoch 1',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurface,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          Text(
+                            '12h left',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 16),
+                      const Divider(height: 1),
+                      const SizedBox(height: 12),
+
+                      // Next epoch projection
+                      Text(
+                        'Next epoch projection (Bronze Tier)',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: colorScheme.onSurface,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '~2450 TKN',
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Your next epoch\'s rate is higher. Well done!',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 28),
+
+              // Recent Activity section
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  'Recent Activity',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // Activity item
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: ActivityListItem(
+                  icon: Icons.verified_user,
+                  title: 'Identity verified',
+                  trailing: '+50 points',
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Second activity item for visual balance
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: ActivityListItem(
+                  key: const ValueKey('activity-bridge'),
+                  icon: Icons.swap_horiz,
+                  title: 'Bridge deposit completed',
+                  trailing: '+1.5x bonus',
+                ),
+              ),
+
+              const SizedBox(height: 32),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }

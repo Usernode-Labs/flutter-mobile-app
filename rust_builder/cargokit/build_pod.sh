@@ -34,6 +34,11 @@ export CARGOKIT_OUTPUT_DIR=$PODS_CONFIGURATION_BUILD_DIR/$PRODUCT_NAME
 # Directory to store built tool artifacts.
 export CARGOKIT_TOOL_TEMP_DIR=$TARGET_TEMP_DIR/build_tool
 
+# Workaround bindgen/Clang target triple for iOS Simulator on arm64.
+# Rust target uses aarch64-apple-ios-sim, but Clang expects arm64-apple-ios-simulator.
+# Use per-target env var so it only affects this target.
+export BINDGEN_EXTRA_CLANG_ARGS_aarch64_apple_ios_sim="--target=arm64-apple-ios-simulator"
+
 # Directory inside root project. Not necessarily the top level directory of root project.
 export CARGOKIT_ROOT_PROJECT_DIR=$SRCROOT
 

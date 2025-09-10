@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'review_send_screen.dart';
+import 'package:flutter/services.dart';
 
 class SendScreen extends StatefulWidget {
   const SendScreen({super.key});
@@ -15,14 +16,42 @@ class _SendScreenState extends State<SendScreen> {
   final _memoController = TextEditingController();
   final _networkFeeController = TextEditingController();
 
+  final FocusNode _amountFocus = FocusNode();
+  final FocusNode _feeFocus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _amountFocus.addListener(() => setState(() {}));
+    _feeFocus.addListener(() => setState(() {}));
+  }
+
   @override
   void dispose() {
     _recipientController.dispose();
     _amountController.dispose();
     _memoController.dispose();
     _networkFeeController.dispose();
+    _amountFocus.dispose();
+    _feeFocus.dispose();
     super.dispose();
   }
+
+  // Allow only digits and a single optional decimal point, no length limits
+  static final TextInputFormatter decimalFormatter = TextInputFormatter.withFunction(
+    (oldValue, newValue) {
+      final text = newValue.text;
+      // Empty is allowed
+      if (text.isEmpty) return newValue;
+      // Only digits and at most one dot
+      final valid = RegExp(r'^[0-9]*\.?[0-9]*$').hasMatch(text);
+      if (!valid) return oldValue;
+      // Prevent multiple dots
+      final dotCount = '.'.allMatches(text).length;
+      if (dotCount > 1) return oldValue;
+      return newValue;
+    },
+  );
 
   void _proceedToReview() {
     if (!_formKey.currentState!.validate()) return;
@@ -76,7 +105,7 @@ class _SendScreenState extends State<SendScreen> {
             children: [
               // Recipient Address Field
               Container(
-                margin: const EdgeInsets.only(bottom: 8),
+                margin: const EdgeInsets.only(bottom: 4),
                 child: TextFormField(
                   controller: _recipientController,
                   decoration: InputDecoration(
@@ -115,7 +144,7 @@ class _SendScreenState extends State<SendScreen> {
               Align(
                 alignment: Alignment.centerLeft,
                 child: Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
+                  padding: const EdgeInsets.only(bottom: 16.0),
                   child: Text(
                     "Enter the recipient's wallet address.",
                     style: TextStyle(color: Colors.grey[600], fontSize: 12),
@@ -125,10 +154,17 @@ class _SendScreenState extends State<SendScreen> {
 
               // Amount Field
               Container(
-                margin: const EdgeInsets.only(bottom: 8),
+                margin: const EdgeInsets.only(bottom: 4),
                 child: TextFormField(
                   controller: _amountController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: false),
+                  inputFormatters: [decimalFormatter],
+                  enableSuggestions: false,
+                  autocorrect: false,
+                  textInputAction: TextInputAction.done,
+                  focusNode: _amountFocus,
+                  onEditingComplete: () => _amountFocus.unfocus(),
+                  onFieldSubmitted: (_) => _amountFocus.unfocus(),
                   decoration: InputDecoration(
                     hintText: 'Amount',
                     hintStyle: TextStyle(
@@ -153,6 +189,15 @@ class _SendScreenState extends State<SendScreen> {
                       horizontal: 16,
                       vertical: 20,
                     ),
+                    suffixIcon: _amountFocus.hasFocus
+                        ? Padding(
+                            padding: const EdgeInsets.only(right: 8.0),
+                            child: TextButton(
+                              onPressed: () => _amountFocus.unfocus(),
+                              child: const Text('Done'),
+                            ),
+                          )
+                        : null,
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -168,7 +213,7 @@ class _SendScreenState extends State<SendScreen> {
               Align(
                 alignment: Alignment.centerLeft,
                 child: Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
+                  padding: const EdgeInsets.only(bottom: 16.0),
                   child: Text(
                     'Amount to send in tokens.',
                     style: TextStyle(color: Colors.grey[600], fontSize: 12),
@@ -178,7 +223,7 @@ class _SendScreenState extends State<SendScreen> {
 
               // Memo Field (optional)
               Container(
-                margin: const EdgeInsets.only(bottom: 8),
+                margin: const EdgeInsets.only(bottom: 4),
                 child: TextFormField(
                   controller: _memoController,
                   decoration: InputDecoration(
@@ -211,7 +256,7 @@ class _SendScreenState extends State<SendScreen> {
               Align(
                 alignment: Alignment.centerLeft,
                 child: Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
+                  padding: const EdgeInsets.only(bottom: 16.0),
                   child: Text(
                     'Optional note; visible to recipient.',
                     style: TextStyle(color: Colors.grey[600], fontSize: 12),
@@ -221,10 +266,17 @@ class _SendScreenState extends State<SendScreen> {
 
               // Network Fee Field (optional)
               Container(
-                margin: const EdgeInsets.only(bottom: 8),
+                margin: const EdgeInsets.only(bottom: 4),
                 child: TextFormField(
                   controller: _networkFeeController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: false),
+                  inputFormatters: [decimalFormatter],
+                  enableSuggestions: false,
+                  autocorrect: false,
+                  textInputAction: TextInputAction.done,
+                  focusNode: _feeFocus,
+                  onEditingComplete: () => _feeFocus.unfocus(),
+                  onFieldSubmitted: (_) => _feeFocus.unfocus(),
                   decoration: InputDecoration(
                     hintText: 'Network Fee',
                     hintStyle: TextStyle(
@@ -249,6 +301,15 @@ class _SendScreenState extends State<SendScreen> {
                       horizontal: 16,
                       vertical: 20,
                     ),
+                    suffixIcon: _feeFocus.hasFocus
+                        ? Padding(
+                            padding: const EdgeInsets.only(right: 8.0),
+                            child: TextButton(
+                              onPressed: () => _feeFocus.unfocus(),
+                              child: const Text('Done'),
+                            ),
+                          )
+                        : null,
                   ),
                 ),
               ),
@@ -265,25 +326,31 @@ class _SendScreenState extends State<SendScreen> {
 
               const Spacer(),
 
-              // Continue Button
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: _proceedToReview,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.indigo[700],
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(28),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: const Text(
-                    'Send',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
+              // Continue Button with extra bottom spacing
+              SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 24.0),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: ElevatedButton(
+                      onPressed: _proceedToReview,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.indigo[700],
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(28),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: const Text(
+                        'Send',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -295,4 +362,3 @@ class _SendScreenState extends State<SendScreen> {
     );
   }
 }
-

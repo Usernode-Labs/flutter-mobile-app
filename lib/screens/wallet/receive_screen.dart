@@ -13,44 +13,27 @@ class ReceiveScreen extends StatefulWidget {
   State<ReceiveScreen> createState() => _ReceiveScreenState();
 }
 
-class _ReceiveScreenState extends State<ReceiveScreen>
-    with TickerProviderStateMixin {
+class _ReceiveScreenState extends State<ReceiveScreen> {
   late ReceiveService _receiveService;
-  late TabController _tabController;
-
-  final TextEditingController _amountController = TextEditingController();
-  final TextEditingController _memoController = TextEditingController();
 
   ReceiveAddress? _currentAddress;
   PaymentRequest? _currentPaymentRequest;
-  String? _amountError;
-  final bool _isLoading = false;
-  bool _isGeneratingAddress = false;
+  // No long-running UI state here after simplification
 
   @override
   void initState() {
     super.initState();
     _receiveService = ReceiveService.instance;
-    _tabController = TabController(length: 2, vsync: this);
     _loadCurrentAddress();
 
-    // Listen to amount changes for validation
-    _amountController.addListener(_onAmountChanged);
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
-    _amountController.dispose();
-    _memoController.dispose();
     super.dispose();
   }
 
   Future<void> _loadCurrentAddress() async {
-    setState(() {
-      _isGeneratingAddress = true;
-    });
-
     try {
       final address = await _receiveService.getCurrentAddress();
       setState(() {
@@ -61,41 +44,9 @@ class _ReceiveScreenState extends State<ReceiveScreen>
       });
     } catch (e) {
       _showErrorSnackBar('Failed to load receiving address');
-    } finally {
-      setState(() {
-        _isGeneratingAddress = false;
-      });
-    }
+    } finally {}
   }
 
-  void _onAmountChanged() {
-    setState(() {
-      _amountError = null;
-    });
-  }
-
-  Future<void> _generateNewAddress() async {
-    setState(() {
-      _isGeneratingAddress = true;
-    });
-
-    try {
-      final newAddress = await _receiveService.generateNewAddress();
-      setState(() {
-        _currentAddress = newAddress;
-        _currentPaymentRequest = _receiveService.createPaymentRequest(
-          address: newAddress.address,
-        );
-      });
-      _showSuccessSnackBar('New address generated successfully');
-    } catch (e) {
-      _showErrorSnackBar('Failed to generate new address');
-    } finally {
-      setState(() {
-        _isGeneratingAddress = false;
-      });
-    }
-  }
 
   Future<void> _copyAddressToClipboard() async {
     if (_currentAddress != null) {
@@ -104,62 +55,7 @@ class _ReceiveScreenState extends State<ReceiveScreen>
     }
   }
 
-  Future<void> _shareAddress() async {
-    if (_currentAddress != null) {
-      try {
-        final success = await _receiveService.shareAddress(
-          _currentAddress!.address,
-          ShareMethod.share,
-        );
-        if (success) {
-          _showSuccessSnackBar('Address shared successfully');
-        }
-      } catch (e) {
-        _showErrorSnackBar('Failed to share address');
-      }
-    }
-  }
-
-  void _createPaymentRequest() {
-    // Validate amount
-    final validation = _receiveService.validateAmount(_amountController.text);
-    if (!validation.isValid) {
-      setState(() {
-        _amountError = validation.errorMessage;
-      });
-      return;
-    }
-
-    if (_currentAddress != null) {
-      final amount = _amountController.text.trim().isEmpty
-          ? null
-          : double.tryParse(_amountController.text.trim());
-
-      final memo = _memoController.text.trim().isEmpty
-          ? null
-          : _memoController.text.trim();
-
-      setState(() {
-        _currentPaymentRequest = _receiveService.createPaymentRequest(
-          address: _currentAddress!.address,
-          amount: amount,
-          memo: memo,
-        );
-      });
-
-      _showSuccessSnackBar('Payment request created');
-    }
-  }
-
-  void _selectAddressFromHistory(ReceiveAddress address) {
-    setState(() {
-      _currentAddress = address;
-      _currentPaymentRequest = _receiveService.createPaymentRequest(
-        address: address.address,
-      );
-    });
-    _showSuccessSnackBar('Address selected');
-  }
+  // Amount/memo request removed per design update
 
   void _showQRCodeDialog() {
     if (_currentPaymentRequest != null) {
@@ -208,21 +104,7 @@ class _ReceiveScreenState extends State<ReceiveScreen>
                   ),
                 ),
                 const SizedBox(height: 20),
-                if (_currentPaymentRequest!.hasAmount) ...[
-                  Text(
-                    'Amount: ${_currentPaymentRequest!.formattedAmount}',
-                    style: AppTheme.nodeStatusStyle,
-                  ),
-                  const SizedBox(height: 8),
-                ],
-                if (_currentPaymentRequest!.hasMemo) ...[
-                  Text(
-                    'Note: ${_currentPaymentRequest!.memo}',
-                    style: AppTheme.nodeSubtitleStyle,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                ],
+                // Amount and memo removed per design update
                 Row(
                   children: [
                     Expanded(
@@ -275,61 +157,12 @@ class _ReceiveScreenState extends State<ReceiveScreen>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
-      appBar: Navigator.of(context).canPop()
-          ? AppBar(
-              leading: const BackButton(),
-              elevation: 0,
-              backgroundColor: Colors.transparent,
-            )
-          : null,
+      appBar: AppBar(
+        title: Text(AppLocalizations.of(context).receive),
+      ),
       body: SafeArea(
-        child: Column(
-        children: [
-          // Top controls (TabBar + action)
-          Material(
-            color: theme.scaffoldBackgroundColor,
-            child: Row(
-              children: [
-                Expanded(
-                  child: TabBar(
-                    controller: _tabController,
-                    tabs: [
-                      Tab(text: AppLocalizations.of(context).receive),
-                      Tab(text: 'History'),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: _isGeneratingAddress
-                      ? const SizedBox(
-                          height: 24,
-                          width: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : IconButton(
-                          icon: const Icon(Icons.refresh),
-                          onPressed: _generateNewAddress,
-                          tooltip: AppLocalizations.of(context).generateNewAddress,
-                        ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildReceiveTab(),
-                _buildHistoryTab(),
-              ],
-            ),
-          ),
-        ],
-        ),
+        child: _buildReceiveTab(),
       ),
     );
   }
@@ -357,41 +190,12 @@ class _ReceiveScreenState extends State<ReceiveScreen>
           AddressDisplayCard(
             address: _currentAddress!,
             onCopy: _copyAddressToClipboard,
-            onShare: _shareAddress,
-            onGenerateNew: _generateNewAddress,
           ),
 
           const SizedBox(height: 16),
-
-          // Payment Request Form
-          PaymentRequestForm(
-            amountController: _amountController,
-            memoController: _memoController,
-            amountError: _amountError,
-            onCreateRequest: _createPaymentRequest,
-            isLoading: _isLoading,
-          ),
-
-          const SizedBox(height: 20),
         ],
       ),
     );
   }
 
-  Widget _buildHistoryTab() {
-    final addresses = _receiveService.getAllAddresses();
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          AddressHistoryCard(
-            addresses: addresses,
-            onAddressSelected: _selectAddressFromHistory,
-          ),
-          const SizedBox(height: 20),
-        ],
-      ),
-    );
-  }
 }

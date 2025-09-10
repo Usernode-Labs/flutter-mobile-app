@@ -84,15 +84,7 @@ class ReceiveService {
     );
   }
 
-  // Get all addresses
-  List<ReceiveAddress> getAllAddresses() {
-    return List.from(_addresses);
-  }
-
-  // Get active addresses only
-  List<ReceiveAddress> getActiveAddresses() {
-    return _addresses.where((addr) => addr.isValid && !addr.isUsed).toList();
-  }
+  // Address listing APIs removed (screen no longer shows history)
 
   // Mark address as used (when payment is received)
   void markAddressAsUsed(String address, double amount) {
@@ -105,27 +97,7 @@ class ReceiveService {
     }
   }
 
-  // Validate amount for payment request
-  ValidationResult validateAmount(String amountText) {
-    if (amountText.trim().isEmpty) {
-      return ValidationResult.success(); // Amount is optional
-    }
-
-    final amount = double.tryParse(amountText.trim());
-    if (amount == null) {
-      return ValidationResult.error('Please enter a valid amount');
-    }
-
-    if (amount <= 0) {
-      return ValidationResult.error('Amount must be greater than 0');
-    }
-
-    if (amount > 1000000) {
-      return ValidationResult.error('Amount is too large');
-    }
-
-    return ValidationResult.success();
-  }
+  // Amount validation removed (no longer used on receive screen)
 
   // Share address via different methods
   Future<bool> shareAddress(String address, ShareMethod method) async {
@@ -219,13 +191,4 @@ class IncomingPayment {
   String get formattedAmount => '${amount.toStringAsFixed(2)} TOKENS';
 }
 
-class ValidationResult {
-  final bool isValid;
-  final String? errorMessage;
-
-  ValidationResult._(this.isValid, this.errorMessage);
-
-  factory ValidationResult.success() => ValidationResult._(true, null);
-  factory ValidationResult.error(String message) =>
-      ValidationResult._(false, message);
-}
+// ValidationResult for receive removed. Send flow has its own type.

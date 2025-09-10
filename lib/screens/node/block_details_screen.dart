@@ -170,7 +170,6 @@ class _TimelineItem extends StatelessWidget {
                       ? theme.colorScheme.onSurfaceVariant
                       : theme.colorScheme.surface,
                   size: 14,
-                  fontWeight: FontWeight.w800,
                 ),
               ),
               if (!isLast)

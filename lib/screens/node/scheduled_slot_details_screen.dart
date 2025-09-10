@@ -185,7 +185,6 @@ class _ScheduledTimelineItem extends StatelessWidget {
                       ? theme.colorScheme.surface
                       : theme.colorScheme.outline,
                   size: 14,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
               if (!isLast)

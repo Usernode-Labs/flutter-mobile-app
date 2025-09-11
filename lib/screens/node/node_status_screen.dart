@@ -325,9 +325,9 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
                       final incoming = p.incoming ? 'incoming' : 'outgoing';
                       final peerIdRaw = p.peerId.toString();
                       final idShort = _shortenMid(peerIdRaw);
-                      final ipPort = _peerIp(p) ?? _extractIpPort(peerIdRaw);
-                      final timeStr = _formatUtc(p.time);
-                      final titleText = ipPort ?? addr;
+                      final ipOnly = _peerIpOnly(p);
+                      final timeStr = _formatTimeAgo(p.time);
+                      final titleText = ipOnly ?? '(no address)';
                       return Material(
                         color: theme.colorScheme.surface,
                         child: ListTile(
@@ -467,20 +467,33 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     return det;
   }
 
+  String? _peerIpOnly(RpcPeerInfo p) {
+    // Prefer address field, then connectingDetails
+    final addr = _extractIpOnly(p.address);
+    if (addr != null) return addr;
+    final det = _extractIpOnly(p.connectingDetails);
+    return det;
+  }
+
   String? _extractIpPort(String? text) {
     if (text == null) return null;
     final s = text.trim();
-    // Slash-form: /ID/Protocol/IP/Port
+    // Multiaddr form: /ip4/<ip>/tcp/<port>/p2p/<peerId> (or ip6/dns)
     if (s.startsWith('/')) {
       final parts = s.split('/').where((e) => e.isNotEmpty).toList();
-      if (parts.length >= 4) {
-        final ip = parts[2];
-        final port = parts[3];
-        return '$ip:$port';
-      } else if (parts.length >= 3) {
-        final ip = parts[2];
-        return ip;
+      String? host;
+      String? port;
+      for (var i = 0; i < parts.length - 1; i++) {
+        final t = parts[i].toLowerCase();
+        if (t == 'ip4' || t == 'ip6' || t.startsWith('dns')) {
+          host = parts[i + 1];
+        }
+        if (t == 'tcp' || t == 'udp') {
+          port = i + 1 < parts.length ? parts[i + 1] : null;
+        }
       }
+      if (host != null && port != null) return '$host:$port';
+      if (host != null) return host;
     }
     // IPv6 in brackets, include optional port
     final ipv6 = RegExp(r'\[([0-9a-fA-F:]+)\](?::\d+)?').firstMatch(s);
@@ -493,7 +506,33 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     return host;
   }
 
-  String _shortenMid(String s, {int head = 25, int tail = 24}) {
+  String? _extractIpOnly(String? text) {
+    if (text == null) return null;
+    final s = text.trim();
+    // Multiaddr form: /ip4/<ip>/tcp/<port>/p2p/<peerId> (or ip6/dns)
+    if (s.startsWith('/')) {
+      final parts = s.split('/').where((e) => e.isNotEmpty).toList();
+      for (var i = 0; i < parts.length - 1; i++) {
+        final t = parts[i].toLowerCase();
+        if (t == 'ip4' || t == 'ip6' || t.startsWith('dns')) {
+          return parts[i + 1];
+        }
+      }
+    }
+    // IPv6 in brackets or raw
+    final ipv6Br = RegExp(r'\[([0-9a-fA-F:]+)\]').firstMatch(s);
+    if (ipv6Br != null) return ipv6Br.group(0);
+    final ipv6Raw = RegExp(r'\b[0-9a-fA-F:]{2,}\b').firstMatch(s);
+    if (ipv6Raw != null && ipv6Raw.group(0)!.contains(':')) return ipv6Raw.group(0);
+    // IPv4 only
+    final ipv4 = RegExp(r'(\d{1,3}(?:\.\d{1,3}){3})').firstMatch(s);
+    if (ipv4 != null) return ipv4.group(1);
+    // Hostname only
+    final hostOnly = RegExp(r'^([A-Za-z0-9.-]+)').firstMatch(s)?.group(1);
+    return hostOnly;
+  }
+
+  String _shortenMid(String s, {int head = 8, int tail = 8}) {
     if (s.length <= head + tail + 1) return s;
     return '${s.substring(0, head)}…${s.substring(s.length - tail)}';
   }
@@ -519,6 +558,32 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     final dt = DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true);
     // ISO 8601 UTC
     return dt.toIso8601String();
+  }
+
+  String _formatTimeAgo(BigInt value) {
+    // Convert using the same unit heuristic as _formatUtc
+    final iso = _formatUtc(value);
+    late final DateTime dt;
+    try {
+      dt = DateTime.parse(iso).toUtc();
+    } catch (_) {
+      return 'just now';
+    }
+    final now = DateTime.now().toUtc();
+    final diff = now.difference(dt);
+    if (diff.inSeconds < 45) return 'just now';
+    if (diff.inMinutes < 2) return 'a minute ago';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} minutes ago';
+    if (diff.inHours < 2) return 'an hour ago';
+    if (diff.inHours < 24) return '${diff.inHours} hours ago';
+    if (diff.inDays < 2) return 'yesterday';
+    if (diff.inDays < 7) return '${diff.inDays} days ago';
+    final weeks = (diff.inDays / 7).floor();
+    if (weeks < 5) return '$weeks week${weeks > 1 ? 's' : ''} ago';
+    final months = (diff.inDays / 30).floor();
+    if (months < 12) return '$months month${months > 1 ? 's' : ''} ago';
+    final years = (diff.inDays / 365).floor();
+    return '$years year${years > 1 ? 's' : ''} ago';
   }
 
   String _fmtInt(int? v) => v == null ? 'N/A' : v.toString();

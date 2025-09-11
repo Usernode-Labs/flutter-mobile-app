@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'send_success_screen.dart';
 
 class ReviewSendScreen extends StatefulWidget {
@@ -37,7 +36,9 @@ class _ReviewSendScreenState extends State<ReviewSendScreen> {
             width: 110,
             child: Text(
               label,
-              style: TextStyle(color: Colors.grey[600], fontSize: 13),
+              style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 13),
             ),
           ),
           const SizedBox(width: 8),
@@ -77,21 +78,19 @@ class _ReviewSendScreenState extends State<ReviewSendScreen> {
     final totalVal = (amountVal ?? 0) + (feeVal ?? 0);
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        backgroundColor: Colors.grey[50],
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: Icon(Icons.arrow_back,
+              color: Theme.of(context).colorScheme.onSurface),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text(
+        title: Text(
           'Review',
-          style: TextStyle(
-            color: Colors.black,
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-          ),
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: Theme.of(context).colorScheme.onSurface,
+                fontWeight: FontWeight.w600,
+              ),
         ),
         centerTitle: false,
       ),
@@ -101,9 +100,10 @@ class _ReviewSendScreenState extends State<ReviewSendScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape:
+                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               elevation: 0,
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.surface,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                 child: Column(
@@ -118,7 +118,9 @@ class _ReviewSendScreenState extends State<ReviewSendScreen> {
                     const SizedBox(height: 4),
                     Text(
                       'Amount',
-                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 16),

@@ -1,6 +1,6 @@
+// ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
 import '../../gen_l10n/app_localizations.dart';
-import '../../models/transaction_model.dart';
 import '../../services/wallet_service.dart';
 import '../../widgets/wallet/wallet_widgets.dart';
 import 'send_screen.dart';
@@ -9,8 +9,6 @@ import 'package:crypto_mobile_app/config/feature_flags.dart';
 import 'package:crypto_mobile_app/services/accounts_repository.dart';
 import 'package:crypto_mobile_app/models/account.dart';
 import '../onboarding/account_onboarding_screen.dart';
-import 'package:flutter/services.dart';
-import 'package:bip39/bip39.dart' as bip39;
 import 'package:crypto_mobile_app/services/rust_backend_service.dart';
 import 'import_account_sheets.dart';
 import 'import_account_screens.dart';
@@ -24,12 +22,8 @@ class WalletScreen extends StatefulWidget {
 
 class _WalletScreenState extends State<WalletScreen> {
   late WalletService _walletService;
-  late WalletBalance _balance;
-  late List<TransactionModel> _transactions;
-  bool _isLoading = false;
   AccountMeta? _account;
-  final bool _accountExpanded =
-      false; // no longer used for details; used for selector arrow only
+  // final bool _accountExpanded = false; // unused
 
   Color _accountColor(ThemeData theme, String addr) {
     final palette = [
@@ -38,8 +32,8 @@ class _WalletScreenState extends State<WalletScreen> {
       theme.colorScheme.tertiary,
     ];
     final idx = addr.hashCode.abs() % palette.length;
-    return palette[idx];
-  }
+      return palette[idx];
+    }
 
   String _shortAddr(String addr) {
     if (addr.length <= 12) return addr;
@@ -52,15 +46,7 @@ class _WalletScreenState extends State<WalletScreen> {
   void initState() {
     super.initState();
     _walletService = WalletService.instance;
-    _loadWalletData();
     _loadActiveAccount();
-  }
-
-  void _loadWalletData() {
-    setState(() {
-      _balance = _walletService.getBalance();
-      _transactions = _walletService.getRecentTransactions();
-    });
   }
 
   Future<void> _loadActiveAccount() async {
@@ -91,9 +77,6 @@ class _WalletScreenState extends State<WalletScreen> {
       ),
       builder: (ctx) {
         final theme = Theme.of(ctx);
-        final controller = TextEditingController();
-        final keyCtrl = TextEditingController();
-        final seedCtrl = TextEditingController();
         String? selectedId = _account?.id;
         return StatefulBuilder(builder: (ctx, setStateSheet) {
           Color accountColor(ThemeData theme, String addr) {
@@ -189,7 +172,7 @@ class _WalletScreenState extends State<WalletScreen> {
             }
           }
 
-          final others = items.where((a) => a.id != _account?.id).toList();
+          // final others = items.where((a) => a.id != _account?.id).toList();
 
           // Enhanced UI/UX for account manager with identicons and animations
           final maxHeight = MediaQuery.of(ctx).size.height * (2 / 3);
@@ -229,7 +212,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                   'Tap an account to switch',
                                   style: theme.textTheme.bodyMedium?.copyWith(
                                     color: theme.colorScheme.onPrimaryContainer
-                                        .withOpacity(0.8),
+                                        .withValues(alpha: 0.8),
                                   ),
                                 ),
                               ],
@@ -264,7 +247,7 @@ class _WalletScreenState extends State<WalletScreen> {
                             curve: Curves.easeOutCubic,
                             decoration: BoxDecoration(
                               color: isSelected
-                                  ? theme.colorScheme.primary.withOpacity(0.06)
+                                  ? theme.colorScheme.primary.withValues(alpha: 0.06)
                                   : null,
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -290,7 +273,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                         radius: 20,
                                         backgroundColor:
                                             accountColor(theme, acc.address)
-                                                .withOpacity(0.12),
+                                                .withValues(alpha: 0.12),
                                         foregroundColor:
                                             accountColor(theme, acc.address),
                                         child: const Icon(
@@ -362,7 +345,7 @@ class _WalletScreenState extends State<WalletScreen> {
                           ListTile(
                             leading: CircleAvatar(
                               backgroundColor:
-                                  theme.colorScheme.secondary.withOpacity(0.12),
+                                  theme.colorScheme.secondary.withValues(alpha: 0.12),
                               foregroundColor: theme.colorScheme.secondary,
                               child: const Icon(Icons.add),
                             ),
@@ -379,7 +362,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                 leading: CircleAvatar(
                                   backgroundColor:
                                       theme.colorScheme.onTertiaryContainer
-                                          .withOpacity(0.12),
+                                          .withValues(alpha: 0.12),
                                   foregroundColor:
                                       theme.colorScheme.onTertiaryContainer,
                                   child: const Icon(Icons.key),
@@ -396,7 +379,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: theme
                                         .colorScheme.onTertiaryContainer
-                                        .withOpacity(0.9),
+                                        .withValues(alpha: 0.9),
                                   ),
                                 ),
                                 trailing: Icon(
@@ -416,7 +399,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                 leading: CircleAvatar(
                                   backgroundColor:
                                       theme.colorScheme.onSecondaryContainer
-                                          .withOpacity(0.12),
+                                          .withValues(alpha: 0.12),
                                   foregroundColor:
                                       theme.colorScheme.onSecondaryContainer,
                                   child: const Icon(Icons.vpn_key),
@@ -433,7 +416,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: theme
                                         .colorScheme.onSecondaryContainer
-                                        .withOpacity(0.9),
+                                        .withValues(alpha: 0.9),
                                   ),
                                 ),
                                 trailing: Icon(
@@ -448,7 +431,7 @@ class _WalletScreenState extends State<WalletScreen> {
                             ListTile(
                               leading: CircleAvatar(
                                 backgroundColor:
-                                    theme.colorScheme.error.withOpacity(0.12),
+                                    theme.colorScheme.error.withValues(alpha: 0.12),
                                 foregroundColor: theme.colorScheme.error,
                                 child: const Icon(Icons.delete_forever),
                               ),
@@ -485,7 +468,6 @@ class _WalletScreenState extends State<WalletScreen> {
                                   if (mounted) {
                                     setState(() => _account = null);
                                     Navigator.of(ctx).pop();
-                                    // ignore: use_build_context_synchronously
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
@@ -514,19 +496,10 @@ class _WalletScreenState extends State<WalletScreen> {
   // Removed balance visibility toggle: balances are always visible now.
 
   Future<void> _refreshWallet() async {
-    setState(() {
-      _isLoading = true;
-    });
-
     try {
       await _walletService.refreshWalletData();
-      _loadWalletData();
     } catch (e) {
       _showErrorSnackBar('Failed to refresh wallet data');
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
     }
   }
 
@@ -548,10 +521,7 @@ class _WalletScreenState extends State<WalletScreen> {
     _showComingSoon('Bridge');
   }
 
-  void _handleTransactionTap(TransactionModel transaction) {
-    // TODO: Navigate to transaction details
-    _showComingSoon('Transaction details for ${transaction.title}');
-  }
+  // void _handleTransactionTap(TransactionModel transaction) {}
 
   List<TokenHolding> _topHoldingsFromBalance() {
     // Mock data matching the Gallery design
@@ -583,7 +553,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   CircleAvatar(
                     radius: 20,
                     backgroundColor:
-                        theme.colorScheme.primaryContainer.withOpacity(0.3),
+                        theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
                     child: Icon(
                       token.icon,
                       color: theme.colorScheme.onSurface,
@@ -648,7 +618,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   CircleAvatar(
                     radius: 20,
                     backgroundColor:
-                        (activity['color'] as Color).withOpacity(0.3),
+                        (activity['color'] as Color).withValues(alpha: 0.3),
                     child: Icon(
                       activity['icon'] as IconData,
                       color: activity['type'] == 'receive'
@@ -715,7 +685,6 @@ class _WalletScreenState extends State<WalletScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -724,6 +693,7 @@ class _WalletScreenState extends State<WalletScreen> {
               leading: const BackButton(),
               elevation: 0,
               backgroundColor: Colors.transparent,
+              centerTitle: false,
             )
           : null,
       body: SafeArea(
@@ -745,7 +715,7 @@ class _WalletScreenState extends State<WalletScreen> {
                           radius: 18,
                           backgroundColor:
                               _accountColor(theme, _account!.address)
-                                  .withOpacity(0.12),
+                                  .withValues(alpha: 0.12),
                           foregroundColor:
                               _accountColor(theme, _account!.address),
                           child: const Icon(Icons.account_circle, size: 20),

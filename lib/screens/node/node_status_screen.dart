@@ -18,7 +18,7 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     with SingleTickerProviderStateMixin {
   bool _refreshing = false;
   String? _error;
-  int? _peerCount;
+  // int? _peerCount; // unused
   List<RpcPeerInfo> _peers = const [];
   int? _blockHeight;
   int? _mempoolCount;
@@ -59,7 +59,6 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
       if (!mounted) return;
       setState(() {
         _peers = status?.peers ?? const [];
-        _peerCount = _peers.length;
         // Map actual values to match the design
         _blockHeight = 110;
         _mempoolCount = 127;
@@ -198,7 +197,7 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
                           color: Theme.of(context)
                               .colorScheme
                               .outline
-                              .withOpacity(0.2),
+                              .withValues(alpha: 0.2),
                           width: 1,
                         ),
                       ),
@@ -335,11 +334,11 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12)),
                           tileColor: theme.colorScheme.surfaceContainerHighest
-                              .withOpacity(0.3),
+                              .withValues(alpha: 0.3),
                           contentPadding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 8),
                           leading: CircleAvatar(
-                            backgroundColor: statusColor.withOpacity(0.12),
+                            backgroundColor: statusColor.withValues(alpha: 0.12),
                             foregroundColor: statusColor,
                             child: const Icon(Icons.hub),
                           ),
@@ -362,7 +361,7 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
                                     Chip(
                                       label: Text(status),
                                       backgroundColor:
-                                          statusColor.withOpacity(0.12),
+                                          statusColor.withValues(alpha: 0.12),
                                       labelStyle: theme.textTheme.bodySmall
                                           ?.copyWith(color: statusColor),
                                       visualDensity: const VisualDensity(
@@ -437,77 +436,7 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     }
   }
 
-  String _peersSummaryText() {
-    final total = _peers.length;
-    return 'Total: $total';
-  }
-
-  String _peersBreakdownText() {
-    int connected = 0, connecting = 0, disconnected = 0, disconnecting = 0;
-    for (final p in _peers) {
-      switch (p.connectionStatus) {
-        case PeerConnectionStatus.connected:
-          connected++;
-          break;
-        case PeerConnectionStatus.connecting:
-          connecting++;
-          break;
-        case PeerConnectionStatus.disconnected:
-          disconnected++;
-          break;
-        case PeerConnectionStatus.disconnecting:
-          disconnecting++;
-          break;
-      }
-    }
-    return 'connected $connected · connecting $connecting · disconnected $disconnected · disconnecting $disconnecting';
-  }
-
-  List<Widget> _buildPeersChips(BuildContext context) {
-    int connected = 0, connecting = 0, disconnected = 0, disconnecting = 0;
-    for (final p in _peers) {
-      switch (p.connectionStatus) {
-        case PeerConnectionStatus.connected:
-          connected++;
-          break;
-        case PeerConnectionStatus.connecting:
-          connecting++;
-          break;
-        case PeerConnectionStatus.disconnected:
-          disconnected++;
-          break;
-        case PeerConnectionStatus.disconnecting:
-          disconnecting++;
-          break;
-      }
-    }
-
-    final theme = Theme.of(context);
-    List<Widget> chips = [];
-
-    Widget chip(String tooltip, IconData icon, Color color, int count) {
-      return Tooltip(
-        message: tooltip,
-        child: Chip(
-          avatar: Icon(icon, size: 16, color: color),
-          label: Text('$count'),
-          backgroundColor: color.withOpacity(0.12),
-          labelStyle: theme.textTheme.bodySmall
-              ?.copyWith(color: theme.colorScheme.onSurface),
-          visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
-          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        ),
-      );
-    }
-
-    chips.add(chip('Connected', Icons.check_circle, Colors.green, connected));
-    chips.add(chip('Connecting', Icons.autorenew, Colors.amber, connecting));
-    chips.add(chip('Disconnected', Icons.cancel, Colors.red, disconnected));
-    chips.add(chip('Disconnecting', Icons.power_settings_new, Colors.orange,
-        disconnecting));
-
-    return chips;
-  }
+  // Unused helpers removed: _peersSummaryText, _peersBreakdownText, _buildPeersChips
 
   Widget _buildMinimalPeerStatus(BuildContext context) {
     int connected = 0;
@@ -528,32 +457,7 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     );
   }
 
-  String? _extractPeerId(String raw) {
-    String cleaned = raw.trim();
-    // Slash-form: /ID/Protocol/IP/Port
-    if (cleaned.startsWith('/')) {
-      final parts = cleaned.split('/').where((e) => e.isNotEmpty).toList();
-      if (parts.isNotEmpty) return parts[0];
-    }
-    // Remove wrappers like "PeerId(...)" or braces
-    cleaned = cleaned.replaceAll(RegExp(r'^PeerId\s*[({]'), '');
-    cleaned = cleaned.replaceAll(RegExp(r'[)}]$'), '');
-    // Format like "<id>@..."
-    if (cleaned.contains('@')) {
-      return cleaned.split('@').first;
-    }
-    // key-value style
-    final idKV = RegExp(r'id\s*[:=]\s*([^,\s}]+)').firstMatch(cleaned);
-    if (idKV != null) return idKV.group(1);
-    // fallback: longest token
-    final tokens = cleaned
-        .split(RegExp(r'[^A-Za-z0-9_-]+'))
-        .where((t) => t.isNotEmpty)
-        .toList();
-    tokens.removeWhere((t) => t.toLowerCase() == 'peerid');
-    tokens.sort((a, b) => b.length.compareTo(a.length));
-    return tokens.isNotEmpty ? tokens.first : null;
-  }
+  // Unused _extractPeerId removed
 
   String? _peerIp(RpcPeerInfo p) {
     // Prefer address field, then connectingDetails
@@ -663,43 +567,7 @@ class _StatusItem extends StatelessWidget {
   }
 }
 
-class _IconStatus extends StatelessWidget {
-  final String icon;
-  final int count;
-  final Color color;
-  final ThemeData theme;
-
-  const _IconStatus({
-    required this.icon,
-    required this.count,
-    required this.color,
-    required this.theme,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return RichText(
-      text: TextSpan(
-        children: [
-          TextSpan(
-            text: icon,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          TextSpan(
-            text: count.toString(),
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurface,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+// Removed unused _IconStatus widget
 
 class _SlotItem extends StatelessWidget {
   final IconData icon;
@@ -736,7 +604,7 @@ class _SlotItem extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.1),
+                  color: iconColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8)),
               child: Icon(icon, color: iconColor, size: 20),
             ),
@@ -851,6 +719,7 @@ class SwapPlaceholder extends StatelessWidget {
               leading: const BackButton(),
               elevation: 0,
               backgroundColor: Colors.transparent,
+              centerTitle: false,
             )
           : null,
       body: SafeArea(
@@ -884,6 +753,7 @@ class StatusPlaceholder extends StatelessWidget {
               leading: const BackButton(),
               elevation: 0,
               backgroundColor: Colors.transparent,
+              centerTitle: false,
             )
           : null,
       body: SafeArea(
@@ -917,6 +787,7 @@ class RewardsPlaceholder extends StatelessWidget {
               leading: const BackButton(),
               elevation: 0,
               backgroundColor: Colors.transparent,
+              centerTitle: false,
             )
           : null,
       body: SafeArea(

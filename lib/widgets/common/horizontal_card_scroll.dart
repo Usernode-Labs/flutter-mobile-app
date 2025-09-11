@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../gen_l10n/app_localizations.dart';
-import '../../theme/app_theme.dart';
+ 
 import 'liquidity_bridge_card.dart';
 import 'package:crypto_mobile_app/config/feature_flags.dart';
 
@@ -16,20 +16,21 @@ class HorizontalCardScroll extends StatelessWidget {
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.only(left: 16, right: 8),
-        itemCount: _getCards(l10n).length,
+        itemCount: _getCards(context, l10n).length,
         itemBuilder: (context, index) {
           return Container(
             width: 370,
             margin: const EdgeInsets.only(right: 12),
-            child: _getCards(l10n)[index],
+            child: _getCards(context, l10n)[index],
           );
         },
       ),
     );
   }
 
-  List<Widget> _getCards(AppLocalizations l10n) {
+  List<Widget> _getCards(BuildContext context, AppLocalizations l10n) {
     final cards = <Widget>[];
+    final scheme = Theme.of(context).colorScheme;
 
     // Add the boost card as the first item
     cards.add(
@@ -53,8 +54,8 @@ class HorizontalCardScroll extends StatelessWidget {
           subtitle: l10n.verificationDescription,
           buttonText: l10n.verify,
           bonusText: '+2.0x',
-          buttonColor: AppTheme.successCheckColor,
-          bonusColor: AppTheme.successCheckColor,
+          buttonColor: scheme.secondary,
+          bonusColor: scheme.secondary,
           icon: Icons.verified_user,
           onPressed: () {},
         ),
@@ -67,8 +68,8 @@ class HorizontalCardScroll extends StatelessWidget {
           subtitle: l10n.stakingDescription,
           buttonText: l10n.stake,
           bonusText: '+3.0x',
-          buttonColor: AppTheme.pendingIconColor,
-          bonusColor: AppTheme.pendingIconColor,
+          buttonColor: scheme.tertiary,
+          bonusColor: scheme.tertiary,
           icon: Icons.lock,
           onPressed: () {},
         ),
@@ -89,7 +90,6 @@ class _PromoCard extends StatelessWidget {
   final VoidCallback? onPressed;
 
   const _PromoCard({
-    super.key,
     required this.title,
     required this.subtitle,
     required this.buttonText,
@@ -106,7 +106,7 @@ class _PromoCard extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     // Theme-aware tinted background that works in dark mode as well
     final bg =
-        Color.alphaBlend(buttonColor.withOpacity(0.10), colorScheme.surface);
+        Color.alphaBlend(buttonColor.withValues(alpha: 0.10), colorScheme.surface);
 
     return Card(
       color: bg,
@@ -151,9 +151,9 @@ class _PromoCard extends StatelessWidget {
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     color: Color.alphaBlend(
-                        bonusColor.withOpacity(0.12), colorScheme.surface),
+                        bonusColor.withValues(alpha: 0.12), colorScheme.surface),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: bonusColor.withOpacity(0.28)),
+                    border: Border.all(color: bonusColor.withValues(alpha: 0.28)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -184,7 +184,6 @@ class _BoostTierCard extends StatelessWidget {
   final VoidCallback? onPressed;
 
   const _BoostTierCard({
-    super.key,
     this.onPressed,
   });
 
@@ -194,7 +193,7 @@ class _BoostTierCard extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     final bg = Color.alphaBlend(
-        theme.colorScheme.primaryContainer.withOpacity(0.8),
+        theme.colorScheme.primaryContainer.withValues(alpha: 0.8),
         colorScheme.surface);
 
     return Card(

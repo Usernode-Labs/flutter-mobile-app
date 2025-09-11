@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../gen_l10n/app_localizations.dart';
-import '../../theme/app_theme.dart';
 
 class LiquidityBridgeCard extends StatelessWidget {
   final String? title; // 🔥 CHANGED: Made optional since we'll use i18n
@@ -24,8 +23,9 @@ class LiquidityBridgeCard extends StatelessWidget {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context); // 🔥 NEW: Get localizations
 
+    final scheme = theme.colorScheme;
     return Card(
-      color: AppTheme.multiplierColor.withOpacity(0.1),
+      color: scheme.primary.withValues(alpha: 0.1),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -52,26 +52,26 @@ class LiquidityBridgeCard extends StatelessWidget {
                 FilledButton(
                   onPressed: onBridgePressed,
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppTheme.multiplierColor,
+                    backgroundColor: scheme.primary,
                   ),
                   child: Text(buttonText ??
                       l10n.bridge), // 🔥 NEW: Use i18n with fallback
                 ),
                 const SizedBox(width: 12),
                 Chip(
-                  avatar: const Icon(Icons.star,
-                      size: 14, color: AppTheme.successCheckColor),
+                  avatar:
+                      Icon(Icons.star, size: 14, color: scheme.secondary),
                   label: Text(
                     bonusText, // This remains dynamic
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: AppTheme.successCheckColor,
+                      color: scheme.secondary,
                     ),
                   ),
-                  backgroundColor: AppTheme.successCheckColor.withOpacity(0.1),
-                  side: BorderSide(
-                      color: AppTheme.successCheckColor.withOpacity(0.3)),
+                  backgroundColor: scheme.secondary.withValues(alpha: 0.1),
+                  side:
+                      BorderSide(color: scheme.secondary.withValues(alpha: 0.3)),
                 ),
               ],
             ),

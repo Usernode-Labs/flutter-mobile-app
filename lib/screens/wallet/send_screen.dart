@@ -37,19 +37,25 @@ class _SendScreenState extends State<SendScreen> {
     super.dispose();
   }
 
-  // Allow only digits and a single optional decimal point, no length limits
+  // Allow only digits and a single optional decimal separator (dot or comma).
+  // Normalizes commas to dots so parsing works with double.parse.
   static final TextInputFormatter decimalFormatter = TextInputFormatter.withFunction(
     (oldValue, newValue) {
-      final text = newValue.text;
-      // Empty is allowed
-      if (text.isEmpty) return newValue;
-      // Only digits and at most one dot
-      final valid = RegExp(r'^[0-9]*\.?[0-9]*$').hasMatch(text);
+      final raw = newValue.text;
+      if (raw.isEmpty) return newValue;
+      // Normalize common locale decimal separators to '.'
+      final normalized = raw.replaceAll(RegExp(r'[\,٫，]'), '.');
+      final valid = RegExp(r'^[0-9]*\.?[0-9]*$').hasMatch(normalized);
       if (!valid) return oldValue;
-      // Prevent multiple dots
-      final dotCount = '.'.allMatches(text).length;
+      final dotCount = '.'.allMatches(normalized).length;
       if (dotCount > 1) return oldValue;
-      return newValue;
+      // Keep selection stable
+      final sel = newValue.selection;
+      final adjustedSelection = TextSelection(
+        baseOffset: sel.baseOffset.clamp(0, normalized.length),
+        extentOffset: sel.extentOffset.clamp(0, normalized.length),
+      );
+      return newValue.copyWith(text: normalized, selection: adjustedSelection, composing: TextRange.empty);
     },
   );
 
@@ -79,21 +85,19 @@ class _SendScreenState extends State<SendScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        backgroundColor: Colors.grey[50],
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: Icon(Icons.arrow_back,
+              color: Theme.of(context).colorScheme.onSurface),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text(
+        title: Text(
           'Send',
-          style: TextStyle(
-            color: Colors.black,
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-          ),
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: Theme.of(context).colorScheme.onSurface,
+                fontWeight: FontWeight.w600,
+              ),
         ),
         centerTitle: false,
       ),
@@ -110,23 +114,27 @@ class _SendScreenState extends State<SendScreen> {
                   controller: _recipientController,
                   decoration: InputDecoration(
                     hintText: 'Recipient Address',
-                    hintStyle: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 16,
-                    ),
+                    hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontSize: 16,
+                        ),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: Theme.of(context).colorScheme.surface,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey[300]!),
+                      borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.outlineVariant),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey[300]!),
+                      borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.outlineVariant),
                     ),
-                    focusedBorder: const OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(12)),
-                      borderSide: BorderSide(color: Colors.blue, width: 2),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: const BorderRadius.all(Radius.circular(12)),
+                      borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.primary,
+                          width: 2),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
@@ -147,7 +155,9 @@ class _SendScreenState extends State<SendScreen> {
                   padding: const EdgeInsets.only(bottom: 16.0),
                   child: Text(
                     "Enter the recipient's wallet address.",
-                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                   ),
                 ),
               ),
@@ -167,23 +177,27 @@ class _SendScreenState extends State<SendScreen> {
                   onFieldSubmitted: (_) => _amountFocus.unfocus(),
                   decoration: InputDecoration(
                     hintText: 'Amount',
-                    hintStyle: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 16,
-                    ),
+                    hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontSize: 16,
+                        ),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: Theme.of(context).colorScheme.surface,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey[300]!),
+                      borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.outlineVariant),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey[300]!),
+                      borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.outlineVariant),
                     ),
-                    focusedBorder: const OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(12)),
-                      borderSide: BorderSide(color: Colors.blue, width: 2),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: const BorderRadius.all(Radius.circular(12)),
+                      borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.primary,
+                          width: 2),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
@@ -216,7 +230,9 @@ class _SendScreenState extends State<SendScreen> {
                   padding: const EdgeInsets.only(bottom: 16.0),
                   child: Text(
                     'Amount to send in tokens.',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                   ),
                 ),
               ),
@@ -228,23 +244,27 @@ class _SendScreenState extends State<SendScreen> {
                   controller: _memoController,
                   decoration: InputDecoration(
                     hintText: 'Memo',
-                    hintStyle: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 16,
-                    ),
+                    hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontSize: 16,
+                        ),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: Theme.of(context).colorScheme.surface,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey[300]!),
+                      borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.outlineVariant),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey[300]!),
+                      borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.outlineVariant),
                     ),
-                    focusedBorder: const OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(12)),
-                      borderSide: BorderSide(color: Colors.blue, width: 2),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: const BorderRadius.all(Radius.circular(12)),
+                      borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.primary,
+                          width: 2),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
@@ -259,7 +279,9 @@ class _SendScreenState extends State<SendScreen> {
                   padding: const EdgeInsets.only(bottom: 16.0),
                   child: Text(
                     'Optional note; visible to recipient.',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                   ),
                 ),
               ),
@@ -279,23 +301,27 @@ class _SendScreenState extends State<SendScreen> {
                   onFieldSubmitted: (_) => _feeFocus.unfocus(),
                   decoration: InputDecoration(
                     hintText: 'Network Fee',
-                    hintStyle: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 16,
-                    ),
+                    hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontSize: 16,
+                        ),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: Theme.of(context).colorScheme.surface,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey[300]!),
+                      borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.outlineVariant),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey[300]!),
+                      borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.outlineVariant),
                     ),
-                    focusedBorder: const OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(12)),
-                      borderSide: BorderSide(color: Colors.blue, width: 2),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: const BorderRadius.all(Radius.circular(12)),
+                      borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.primary,
+                          width: 2),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
@@ -319,7 +345,9 @@ class _SendScreenState extends State<SendScreen> {
                   padding: const EdgeInsets.only(bottom: 32.0),
                   child: Text(
                     'Optional custom fee; leave blank to use default.',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                   ),
                 ),
               ),
@@ -337,19 +365,19 @@ class _SendScreenState extends State<SendScreen> {
                     child: ElevatedButton(
                       onPressed: _proceedToReview,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.indigo[700],
+                        backgroundColor: Theme.of(context).colorScheme.primary,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(28),
                         ),
                         elevation: 0,
                       ),
-                      child: const Text(
+                      child: Text(
                         'Send',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              color: Theme.of(context).colorScheme.onPrimary,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 18,
+                            ),
                       ),
                     ),
                   ),

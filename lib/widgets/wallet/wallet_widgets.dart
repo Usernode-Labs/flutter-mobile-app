@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../../models/transaction_model.dart';
-import '../../theme/app_theme.dart';
+ 
 import '../../gen_l10n/app_localizations.dart';
 
 class WalletBalanceCard extends StatefulWidget {
@@ -27,19 +26,6 @@ class WalletBalanceCard extends StatefulWidget {
 }
 
 class _WalletBalanceCardState extends State<WalletBalanceCard> {
-  String _shortAddress(String addr) {
-    if (addr.length <= 12) return addr;
-    final start = addr.substring(0, 6);
-    final end = addr.substring(addr.length - 4);
-    return '$start…$end';
-  }
-
-  void _copy(String value, String label) {
-    Clipboard.setData(ClipboardData(text: value));
-    if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('$label copied')));
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -77,7 +63,7 @@ class _WalletBalanceCardState extends State<WalletBalanceCard> {
                             leading: CircleAvatar(
                               radius: 18,
                               backgroundColor:
-                                  theme.colorScheme.primary.withOpacity(0.08),
+                                  theme.colorScheme.primary.withValues(alpha: 0.08),
                               foregroundColor: theme.colorScheme.primary,
                               child: Icon(h.icon, size: 18),
                             ),
@@ -163,7 +149,7 @@ class QuickActionButton extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -175,10 +161,10 @@ class QuickActionButton extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 label,
-                style: AppTheme.nodeStatusStyle.copyWith(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -221,7 +207,7 @@ class QuickActionsRow extends StatelessWidget {
       addButton(Container(
         height: 56,
         decoration: BoxDecoration(
-          color: theme.colorScheme.primaryContainer.withOpacity(0.3),
+          color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(28),
         ),
         child: InkWell(
@@ -243,7 +229,7 @@ class QuickActionsRow extends StatelessWidget {
       addButton(Container(
         height: 56,
         decoration: BoxDecoration(
-          color: theme.colorScheme.primaryContainer.withOpacity(0.3),
+          color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(28),
         ),
         child: InkWell(
@@ -265,7 +251,7 @@ class QuickActionsRow extends StatelessWidget {
       addButton(Container(
         height: 56,
         decoration: BoxDecoration(
-          color: theme.colorScheme.primaryContainer.withOpacity(0.3),
+          color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(28),
         ),
         child: InkWell(
@@ -310,7 +296,7 @@ class TransactionTile extends StatelessWidget {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: transaction.color.withOpacity(0.1),
+            color: transaction.color.withValues(alpha: 0.1),
             shape: BoxShape.circle,
           ),
           child: Icon(
@@ -321,11 +307,13 @@ class TransactionTile extends StatelessWidget {
         ),
         title: Text(
           transaction.title,
-          style: AppTheme.activityTitleStyle,
+          style: theme.textTheme.titleMedium,
         ),
         subtitle: Text(
           transaction.fullSubtitle,
-          style: AppTheme.activitySubtitleStyle,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ),
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -333,18 +321,16 @@ class TransactionTile extends StatelessWidget {
           children: [
             Text(
               transaction.formattedAmount,
-              style: AppTheme.nodeStatusStyle.copyWith(
+              style: theme.textTheme.titleMedium?.copyWith(
                 color: transaction.isPositive
-                    ? AppTheme.successCheckColor
+                    ? theme.colorScheme.primary
                     : theme.colorScheme.onSurface,
                 fontWeight: FontWeight.w600,
               ),
             ),
             Text(
               transaction.currency,
-              style: AppTheme.nodeSubtitleStyle.copyWith(
-                fontSize: 10,
-              ),
+              style: theme.textTheme.bodySmall?.copyWith(fontSize: 10),
             ),
           ],
         ),
@@ -367,25 +353,25 @@ class TransactionsList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (transactions.isEmpty) {
-      return const Card(
+      return Card(
         child: Padding(
-          padding: EdgeInsets.all(40),
+          padding: const EdgeInsets.all(40),
           child: Column(
             children: [
               Icon(
                 Icons.receipt_long_outlined,
                 size: 48,
-                color: AppTheme.nodeIconColor,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
               Text(
                 'No transactions yet',
-                style: AppTheme.nodeStatusStyle,
+                style: Theme.of(context).textTheme.titleMedium,
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Text(
                 'Your transaction history will appear here',
-                style: AppTheme.nodeSubtitleStyle,
+                style: Theme.of(context).textTheme.bodySmall,
                 textAlign: TextAlign.center,
               ),
             ],

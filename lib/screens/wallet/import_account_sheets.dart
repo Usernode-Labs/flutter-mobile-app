@@ -62,11 +62,7 @@ class _ImportSeedSheetState extends State<ImportSeedSheet> {
     return input.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
   }
 
-  int _wordCount(String input) {
-    final s = input.trim();
-    if (s.isEmpty) return 0;
-    return s.split(RegExp(r'\s+')).length;
-  }
+  // Removed unused _wordCount helper
 
   Future<void> _pasteFromClipboard() async {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
@@ -78,7 +74,7 @@ class _ImportSeedSheetState extends State<ImportSeedSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final wc = _wordCount(_seedCtrl.text);
+    // final wc = _wordCount(_seedCtrl.text); // unused
 
     return SafeArea(
       child: Padding(

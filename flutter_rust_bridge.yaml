@@ -1,4 +1,4 @@
-rust_input: crate
+rust_input: crate, usernode-p2p::PeerId
 rust_root: ../usernode/crates/usernode
 dart_output: lib/src/rust
 # default_rust_opaque_codec: Nom

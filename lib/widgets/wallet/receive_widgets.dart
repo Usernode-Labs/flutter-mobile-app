@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_theme.dart';
+ 
 import 'package:qr_flutter/qr_flutter.dart';
 
 class QRCodeCard extends StatelessWidget {
@@ -14,6 +14,8 @@ class QRCodeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -21,7 +23,7 @@ class QRCodeCard extends StatelessWidget {
           children: [
             Text(
               'Scan QR Code to send me funds',
-              style: AppTheme.nodeStatusStyle.copyWith(
+              style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -32,23 +34,23 @@ class QRCodeCard extends StatelessWidget {
                 width: 220,
                 height: 220,
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: Border.all(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(0),
+                  color: scheme.surface,
+                  border: Border.all(color: scheme.outlineVariant),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Center(
                   child: QrImageView(
                     data: qrData,
                     version: QrVersions.auto,
                     size: 200,
-                    backgroundColor: Colors.white,
-                    eyeStyle: const QrEyeStyle(
+                    backgroundColor: scheme.surface,
+                    eyeStyle: QrEyeStyle(
                       eyeShape: QrEyeShape.square,
-                      color: Colors.black,
+                      color: scheme.onSurface,
                     ),
-                    dataModuleStyle: const QrDataModuleStyle(
+                    dataModuleStyle: QrDataModuleStyle(
                       dataModuleShape: QrDataModuleShape.square,
-                      color: Colors.black,
+                      color: scheme.onSurface,
                     ),
                   ),
                 ),

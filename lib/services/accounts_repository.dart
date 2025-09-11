@@ -176,7 +176,7 @@ class AccountsRepository {
       final ExtendedKey extendedKey = chain.forPath(KeyManagementService.pathForPrivateKey);
       final privateKey = extendedKey.privateKeyHex();
       final EthPrivateKey cryptoPrivateKey = EthPrivateKey.fromHex(privateKey);
-      final EthereumAddress cryptoAddress = await cryptoPrivateKey.extractAddress();
+      final EthereumAddress cryptoAddress = cryptoPrivateKey.address;
       final ExtendedKey extendedKeyPublic = chain.forPath(KeyManagementService.pathForPublicKey);
       final publicKey = extendedKeyPublic.publicKey().toString();
 
@@ -193,7 +193,7 @@ class AccountsRepository {
   }) async {
     try {
       final EthPrivateKey cryptoPrivateKey = EthPrivateKey.fromHex(privateKey);
-      final EthereumAddress cryptoAddress = await cryptoPrivateKey.extractAddress();
+      final EthereumAddress cryptoAddress = cryptoPrivateKey.address;
       // Public key derivation from private key may not be available directly; set to placeholder if needed
       final publicKey = '';
       return await _persistNew(

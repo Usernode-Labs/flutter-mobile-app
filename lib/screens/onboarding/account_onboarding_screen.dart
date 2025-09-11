@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 // import 'package:crypto_mobile_app/theme/app_theme.dart';
 import 'package:bip39/bip39.dart' as bip39;
 import '../../services/accounts_repository.dart';
-import '../../models/account_creation_result.dart';
+// import '../../models/account_creation_result.dart';
 import '../main_app.dart';
 import '../../gen_l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/config/feature_flags.dart';
@@ -21,8 +21,8 @@ class _AccountOnboardingScreenState extends State<AccountOnboardingScreen> {
   String? _mnemonic;
   String? _err;
   final _nameCtrl = TextEditingController(text: 'Account 1');
-  AccountCreationResult? _result;
-  String? _createdAccountId;
+  // AccountCreationResult? _result; // unused
+  // String? _createdAccountId; // unused
   bool _hasExistingAccounts = false;
 
   @override
@@ -73,8 +73,9 @@ class _AccountOnboardingScreenState extends State<AccountOnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return WillPopScope(
-      onWillPop: () async => _hasExistingAccounts,
+    return PopScope(
+      canPop: _hasExistingAccounts,
+      onPopInvokedWithResult: (didPop, result) {},
       child: Scaffold(
         appBar: AppBar(
           title: Text(AppLocalizations.of(context).createAccountTitle),

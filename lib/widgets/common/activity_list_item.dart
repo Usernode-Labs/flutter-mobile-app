@@ -32,7 +32,7 @@ class ActivityListItem extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: (iconColor ?? scheme.primary).withOpacity(0.10),
+              color: (iconColor ?? scheme.primary).withValues(alpha: 0.10),
               shape: BoxShape.circle,
             ),
             child: Icon(

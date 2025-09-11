@@ -68,14 +68,13 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
       appBar: AppBar(
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text(
+        title: Text(
           'Receive',
-          style: TextStyle(
-            color: Colors.black,
-            fontSize: 20,
+          style: theme.textTheme.titleLarge?.copyWith(
+            color: theme.colorScheme.onSurface,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -121,8 +120,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                                     child: Text(
                                       _shortAddr(_address!.address),
                                       style: theme.textTheme.bodyMedium?.copyWith(
-                                        color: Colors.black87,
-                                        fontFeatures: const [],
+                                        color: theme.colorScheme.onSurface,
                                       ),
                                       overflow: TextOverflow.ellipsis,
                                     ),

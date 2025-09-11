@@ -24,8 +24,7 @@ class KeyManagementService {
       privateKey = extendedKey.privateKeyHex();
 
       final EthPrivateKey cryptoPrivateKey = EthPrivateKey.fromHex(privateKey);
-      final EthereumAddress cryptoAddress =
-          await cryptoPrivateKey.extractAddress();
+      final EthereumAddress cryptoAddress = cryptoPrivateKey.address;
 
       final ExtendedKey extendedKeyPublic = chain.forPath(pathForPublicKey);
       publicKey = extendedKeyPublic.publicKey().toString();

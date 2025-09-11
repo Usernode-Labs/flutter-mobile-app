@@ -65,6 +65,7 @@ class _ImportSeedScreenState extends State<ImportSeedScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Import from seed phrase'),
+        centerTitle: false,
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -255,6 +256,7 @@ class _ImportPrivateKeyScreenState extends State<ImportPrivateKeyScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Import from private key'),
+        centerTitle: false,
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -383,4 +385,3 @@ class _ImportPrivateKeyScreenState extends State<ImportPrivateKeyScreen> {
     );
   }
 }
-

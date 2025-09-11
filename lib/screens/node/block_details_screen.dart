@@ -177,7 +177,7 @@ class _TimelineItem extends StatelessWidget {
                 Container(
                   width: 2,
                   height: 60,
-                  color: theme.colorScheme.outline.withOpacity(0.3),
+                  color: theme.colorScheme.outline.withValues(alpha: 0.3),
                 ),
             ],
           ),

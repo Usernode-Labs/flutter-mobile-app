@@ -16,6 +16,7 @@ class HomeScreen extends StatelessWidget {
       appBar: Navigator.of(context).canPop()
           ? AppBar(
               leading: const BackButton(),
+              centerTitle: false,
             )
           : null,
       body: SafeArea(
@@ -61,7 +62,7 @@ class HomeScreen extends StatelessWidget {
                         color: colorScheme.surface,
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                            color: colorScheme.outlineVariant.withOpacity(0.4)),
+                            color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
                       ),
                       child: Text(
                         '0 points',
@@ -86,7 +87,7 @@ class HomeScreen extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHigh.withOpacity(0.8),
+                    color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.8),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Column(

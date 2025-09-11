@@ -10,12 +10,11 @@ class MainApp extends StatefulWidget {
   const MainApp({super.key, this.initialFeature});
 
   @override
-  _MainAppState createState() => _MainAppState();
+  State<MainApp> createState() => _MainAppState();
 }
 
 class _MainAppState extends State<MainApp> {
   int _currentIndex = 0;
-  bool _initialApplied = false;
 
   Widget _screenFor(AppFeature f) {
     switch (f) {
@@ -38,7 +37,6 @@ class _MainAppState extends State<MainApp> {
       if (desired >= 0) {
         _currentIndex = desired;
       }
-      _initialApplied = true;
     }
   }
 

@@ -37,19 +37,25 @@ class _SendScreenState extends State<SendScreen> {
     super.dispose();
   }
 
-  // Allow only digits and a single optional decimal point, no length limits
+  // Allow only digits and a single optional decimal separator (dot or comma).
+  // Normalizes commas to dots so parsing works with double.parse.
   static final TextInputFormatter decimalFormatter = TextInputFormatter.withFunction(
     (oldValue, newValue) {
-      final text = newValue.text;
-      // Empty is allowed
-      if (text.isEmpty) return newValue;
-      // Only digits and at most one dot
-      final valid = RegExp(r'^[0-9]*\.?[0-9]*$').hasMatch(text);
+      final raw = newValue.text;
+      if (raw.isEmpty) return newValue;
+      // Normalize common locale decimal separators to '.'
+      final normalized = raw.replaceAll(RegExp(r'[\,٫，]'), '.');
+      final valid = RegExp(r'^[0-9]*\.?[0-9]*$').hasMatch(normalized);
       if (!valid) return oldValue;
-      // Prevent multiple dots
-      final dotCount = '.'.allMatches(text).length;
+      final dotCount = '.'.allMatches(normalized).length;
       if (dotCount > 1) return oldValue;
-      return newValue;
+      // Keep selection stable
+      final sel = newValue.selection;
+      final adjustedSelection = TextSelection(
+        baseOffset: sel.baseOffset.clamp(0, normalized.length),
+        extentOffset: sel.extentOffset.clamp(0, normalized.length),
+      );
+      return newValue.copyWith(text: normalized, selection: adjustedSelection, composing: TextRange.empty);
     },
   );
 

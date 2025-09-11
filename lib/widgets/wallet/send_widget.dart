@@ -3,6 +3,25 @@ import 'package:flutter/services.dart';
 import '../../models/send_models.dart';
 import '../../theme/app_theme.dart';
 
+// Shared decimal input formatter: allows one decimal separator (dot or comma)
+// and normalizes commas to dots for consistent parsing.
+final TextInputFormatter kDecimalInputFormatter = TextInputFormatter.withFunction(
+  (oldValue, newValue) {
+    final raw = newValue.text;
+    if (raw.isEmpty) return newValue;
+    // Normalize common locale decimal separators to '.'
+    final normalized = raw.replaceAll(RegExp(r'[\,٫，]'), '.');
+    if (!RegExp(r'^[0-9]*\.?[0-9]*$').hasMatch(normalized)) return oldValue;
+    if ('.'.allMatches(normalized).length > 1) return oldValue;
+    final sel = newValue.selection;
+    final adjustedSelection = TextSelection(
+      baseOffset: sel.baseOffset.clamp(0, normalized.length),
+      extentOffset: sel.extentOffset.clamp(0, normalized.length),
+    );
+    return newValue.copyWith(text: normalized, selection: adjustedSelection, composing: TextRange.empty);
+  },
+);
+
 class RecipientInputCard extends StatelessWidget {
   final TextEditingController controller;
   final String? contactName;
@@ -134,10 +153,9 @@ class AmountInputCard extends StatelessWidget {
         const SizedBox(height: 12),
         TextField(
           controller: controller,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          inputFormatters: [
-            FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
-          ],
+          keyboardType:
+              const TextInputType.numberWithOptions(decimal: true, signed: false),
+          inputFormatters: [kDecimalInputFormatter],
           decoration: InputDecoration(
             hintText: '0.00',
             suffixText: 'TOKENS',
@@ -311,11 +329,9 @@ class FeeSelectionCard extends StatelessWidget {
               const SizedBox(height: 12),
               TextField(
                 controller: customFeeController,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
-                ],
+                keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true, signed: false),
+                inputFormatters: [kDecimalInputFormatter],
                 decoration: InputDecoration(
                   hintText: 'Enter custom fee',
                   suffixText: 'TOKENS',

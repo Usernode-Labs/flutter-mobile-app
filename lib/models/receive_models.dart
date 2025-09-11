@@ -88,24 +88,7 @@ class PaymentRequest {
     this.expiresAt,
   });
 
-  String get qrData {
-    final uri = StringBuffer();
-    uri.write('usernode:$address');
-
-    final params = <String>[];
-    if (amount != null) {
-      params.add('amount=${amount!.toStringAsFixed(8)}');
-    }
-    if (memo != null && memo!.isNotEmpty) {
-      params.add('message=${Uri.encodeComponent(memo!)}');
-    }
-
-    if (params.isNotEmpty) {
-      uri.write('?${params.join('&')}');
-    }
-
-    return uri.toString();
-  }
+  String get qrData => address;
 
   bool get hasAmount => amount != null && amount! > 0;
   bool get hasMemo => memo != null && memo!.isNotEmpty;

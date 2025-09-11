@@ -14,6 +14,7 @@ dependencies:
     sdk: flutter
   intl: any
   cupertino_icons: ^1.0.2
+  qr_flutter: ^4.1.0
   rust_lib_crypto_mobile_app:
     path: rust_builder
   flutter_rust_bridge: 
@@ -27,6 +28,7 @@ dependencies:
   shared_preferences: ^2.2.3
   flutter_secure_storage: ^9.2.2
 
+  collection: any
 dev_dependencies:
   flutter_lints: ^6.0.0
   flutter_test:

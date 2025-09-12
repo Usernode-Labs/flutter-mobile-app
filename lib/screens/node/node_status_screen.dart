@@ -6,6 +6,7 @@ import 'package:crypto_mobile_app/utils/logger.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'block_details_screen.dart';
 import 'scheduled_slot_details_screen.dart';
+import 'node_peers_screen.dart';
 
 class NodeStatusScreen extends StatefulWidget {
   const NodeStatusScreen({super.key});
@@ -172,7 +173,15 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
                   IconButton(
                     tooltip: 'Show peer details',
                     icon: const Icon(Icons.people_alt_outlined),
-                    onPressed: _peers.isEmpty ? null : _showPeersSheet,
+                    onPressed: _peers.isEmpty
+                        ? null
+                        : () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => NodePeersScreen(peers: _peers),
+                              ),
+                            );
+                          },
                   ),
                 ],
               ),
@@ -264,164 +273,7 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     );
   }
 
-  void _showPeersSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      clipBehavior: Clip.antiAlias,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      builder: (ctx) {
-        final theme = Theme.of(ctx);
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Header
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.fromLTRB(16, 16, 8, 12),
-                  color: theme.colorScheme.primaryContainer,
-                  child: Row(
-                    children: [
-                      Icon(Icons.people_alt_outlined,
-                          color: theme.colorScheme.onPrimaryContainer),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Connected peers (${_peers.length})',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: theme.colorScheme.onPrimaryContainer,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.close,
-                            color: theme.colorScheme.onPrimaryContainer),
-                        onPressed: () => Navigator.of(ctx).pop(),
-                      ),
-                    ],
-                  ),
-                ),
-                Flexible(
-                  child: ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    shrinkWrap: true,
-                    itemCount: _peers.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (_, i) {
-                      final p = _peers[i];
-                      final status =
-                          p.connectionStatus.toString().split('.').last;
-                      final statusColor =
-                          _statusColor(theme, p.connectionStatus);
-                      final addr = p.address ?? '(no address)';
-                      final details = p.connectingDetails;
-                      final incoming = p.incoming ? 'incoming' : 'outgoing';
-                      final peerIdRaw = p.peerId.toString();
-                      final idShort = _shortenMid(peerIdRaw);
-                      final ipOnly = _peerIpOnly(p);
-                      final timeStr = _formatTimeAgo(p.time);
-                      final titleText = ipOnly ?? '(no address)';
-                      return Material(
-                        color: theme.colorScheme.surface,
-                        child: ListTile(
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                          tileColor: theme.colorScheme.surfaceContainerHighest
-                              .withValues(alpha: 0.3),
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 8),
-                          leading: CircleAvatar(
-                            backgroundColor: statusColor.withValues(alpha: 0.12),
-                            foregroundColor: statusColor,
-                            child: const Icon(Icons.hub),
-                          ),
-                          title: Text(
-                            titleText,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              color: theme.colorScheme.onSurface,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          subtitle: Padding(
-                            padding: const EdgeInsets.only(top: 6),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Chip(
-                                      label: Text(status),
-                                      backgroundColor:
-                                          statusColor.withValues(alpha: 0.12),
-                                      labelStyle: theme.textTheme.bodySmall
-                                          ?.copyWith(color: statusColor),
-                                      visualDensity: const VisualDensity(
-                                          horizontal: -4, vertical: -4),
-                                      padding: EdgeInsets.zero,
-                                      materialTapTargetSize:
-                                          MaterialTapTargetSize.shrinkWrap,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Tooltip(
-                                      message: incoming == 'incoming'
-                                          ? 'Incoming'
-                                          : 'Outgoing',
-                                      child: Icon(
-                                        incoming == 'incoming'
-                                            ? Icons.call_received
-                                            : Icons.call_made,
-                                        size: 16,
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .onSurfaceVariant,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                if (details != null && details.isNotEmpty)
-                                  Text(
-                                    details,
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                Text(
-                                  'id: $idShort',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                                Text(
-                                  'time: $timeStr',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          dense: false,
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
+  
 
   Color _statusColor(ThemeData theme, PeerConnectionStatus s) {
     switch (s) {

@@ -9,6 +9,7 @@ import 'package:crypto_mobile_app/src/rust/frb_generated.dart';
 import 'package:crypto_mobile_app/src/rust/node.dart';
 import 'package:crypto_mobile_app/src/rust/node/builder.dart';
 import 'package:crypto_mobile_app/src/rust/rpc.dart';
+import 'package:crypto_mobile_app/utils/sentry.dart';
 
 /// A small façade around flutter_rust_bridge generated APIs.
 /// Centralizes initialization and access to the Rust node / RPC.
@@ -42,6 +43,7 @@ class RustBackendService {
     );
     _initialized = true;
     Log.i('RUST', 'Init complete');
+    SentryUtil.addBreadcrumb(category: 'backend', message: 'FRB init complete');
   }
 
   /// Build and start the Rust node, then expose an RPC client.
@@ -52,6 +54,11 @@ class RustBackendService {
     }
     if (_nodeRunning) return;
     Log.i('RUST', 'Starting node${httpPort != null ? ' on $httpPort' : ''}');
+    SentryUtil.addBreadcrumb(
+      category: 'backend',
+      message: 'Starting node',
+      data: {'httpPort': httpPort},
+    );
 
     final builder = NodeBuilder();
     if (httpPort != null) {
@@ -65,12 +72,14 @@ class RustBackendService {
     _node!.runForeverInNewThread();
     _nodeRunning = true;
     Log.i('RUST', 'Node started');
+    await SentryUtil.captureMessage('Node started');
   }
 
   Future<void> stopNode() async {
     if (!_initialized && !_nodeRunning) return;
     // Currently frb-generated API does not expose a graceful shutdown; dispose bridge.
     Log.w('RUST', 'Stopping node (dropping references; FRB stays initialized)');
+    SentryUtil.addBreadcrumb(category: 'backend', message: 'Stopping node');
     _nodeRunning = false;
     _node = null;
     _rpc = null;
@@ -79,21 +88,28 @@ class RustBackendService {
   /// Start node if there is an active account; otherwise do nothing.
   Future<bool> startForActiveAccount() async {
     Log.d('RUST', 'startForActiveAccount begin');
+    SentryUtil.addBreadcrumb(category: 'backend', message: 'startForActiveAccount begin');
     final repo = await AccountsRepository.create();
     final hasAny = await repo.hasAny();
-    if (!hasAny) return false;
+    if (!hasAny) {
+      SentryUtil.addBreadcrumb(
+          category: 'backend', message: 'no accounts; skipping start');
+      return false;
+    }
     if (!_initialized) {
       await init();
     }
     if (_nodeRunning) return true;
     await startNode();
     Log.d('RUST', 'startForActiveAccount done');
+    await SentryUtil.captureMessage('Backend started for active account');
     return true;
   }
 
   /// Restart node using current active account context.
   Future<void> restartForActiveAccount() async {
     Log.i('RUST', 'Restarting node for active account');
+    SentryUtil.addBreadcrumb(category: 'backend', message: 'restartForActiveAccount');
     await stopNode();
     await startForActiveAccount();
   }
@@ -104,6 +120,7 @@ class RustBackendService {
   /// Convenience helper to fetch node status via RPC.
   Future<RpcStatusResp?> getStatus() async {
     Log.d('RUST', 'getStatus called');
+    SentryUtil.addBreadcrumb(category: 'rpc', message: 'getStatus called');
     final r = _rpc;
     if (r == null) return null;
     final status = await r.status();
@@ -129,9 +146,18 @@ class RustBackendService {
             .toList();
         final json = jsonEncode({'peers': peers});
         Log.d('RUST', 'getStatus response: $json');
+        SentryUtil.addBreadcrumb(
+          category: 'rpc',
+          message: 'getStatus ok',
+          data: {
+            'peerCount': status.peers.length,
+          },
+        );
       }
     } catch (e, st) {
       Log.w('RUST', 'Failed to encode getStatus to JSON: $e\n$st');
+      // Report handled error to Sentry with context
+      await SentryUtil.captureError(e, st, tag: 'getStatus');
     }
     Log.d('RUST', 'getStatus ok');
     return status;

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:crypto_mobile_app/utils/sentry.dart';
 
 /// Lightweight debug logger.
 ///
@@ -31,6 +32,15 @@ class Log {
       debugPrint('[E ${_ts()}][$tag] $message');
       if (error != null) debugPrint('  error: $error');
       if (st != null) debugPrint('  stack: $st');
+    }
+    // Always try to report handled errors to Sentry when provided
+    if (error != null && st != null) {
+      // Fire-and-forget; ignore failures
+      // ignore: discarded_futures
+      SentryUtil.captureError(error, st, tag: tag);
+    } else {
+      // Record as breadcrumb if no exception provided
+      SentryUtil.addBreadcrumb(category: tag, message: message);
     }
   }
 }

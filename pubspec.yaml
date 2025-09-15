@@ -27,6 +27,7 @@ dependencies:
   bip32_bip44: ^1.0.0
   shared_preferences: ^2.2.3
   flutter_secure_storage: ^9.2.2
+  sentry_flutter: ^8.6.0
 
   collection: any
 dev_dependencies:

@@ -1,3 +1,5 @@
+ENV['CMAKE'] = '/opt/homebrew/bin/cmake'
+
 # Define a global platform for your project
 platform :ios, '13.0'
 
@@ -37,23 +39,48 @@ target 'Runner' do
 end
 
 post_install do |installer|
-  # Exclude x86_64 for iOS Simulator to force arm64-only builds on Apple Silicon.
   installer.pods_project.build_configurations.each do |config|
+    # For simulator builds
     config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'x86_64'
     config.build_settings['ARCHS[sdk=iphonesimulator*]'] = 'arm64'
-    config.build_settings['ONLY_ACTIVE_ARCH'] = 'YES'
+    
+    # For device builds (Release/Archive) - THIS IS THE KEY FIX
+    config.build_settings['ONLY_ACTIVE_ARCH'] = 'NO'  # Changed from YES
+    config.build_settings['ARCHS[sdk=iphoneos*]'] = 'arm64'
+    
+    # CMake and native build settings
+    config.build_settings['CMAKE'] = '/opt/homebrew/bin/cmake'
+    config.build_settings['PATH'] = '/opt/homebrew/bin:$(PATH)'
   end
 
   installer.pods_project.targets.each do |target|
-    # Also apply the exclusion at the target level and keep Flutter additions.
     target.build_configurations.each do |config|
+      # Simulator settings
       config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'x86_64'
       config.build_settings['ARCHS[sdk=iphonesimulator*]'] = 'arm64'
-      config.build_settings['ONLY_ACTIVE_ARCH'] = 'YES'
-      # Align Pods' deployment target with the app to avoid deprecated API
-      # warnings in plugins compiled for newer SDKs (e.g., keyWindow).
+      
+      # Device/Archive settings - CRITICAL FOR RUST DEPENDENCIES
+      if config.name == 'Release'
+        config.build_settings['ONLY_ACTIVE_ARCH'] = 'NO'  # Must be NO for Archive
+        config.build_settings['ARCHS'] = 'arm64'
+      else
+        config.build_settings['ONLY_ACTIVE_ARCH'] = 'YES'  # YES for Debug/Profile
+      end
+      
+      # Deployment target
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
+      
+      # CMake environment for native dependencies
+      config.build_settings['CMAKE'] = '/opt/homebrew/bin/cmake'
+      config.build_settings['PATH'] = '/opt/homebrew/bin:$(PATH)'
+      
+      # Rust/native compilation flags
+      if target.name.include?('rust') || target.name.include?('crypto')
+        config.build_settings['ENABLE_BITCODE'] = 'NO'
+        config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] = '$(inherited) COCOAPODS=1'
+      end
     end
+    
     flutter_additional_ios_build_settings(target)
   end
 end

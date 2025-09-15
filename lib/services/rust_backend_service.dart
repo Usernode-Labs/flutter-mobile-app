@@ -9,6 +9,7 @@ import 'package:crypto_mobile_app/src/rust/frb_generated.dart';
 import 'package:crypto_mobile_app/src/rust/node.dart';
 import 'package:crypto_mobile_app/src/rust/node/builder.dart';
 import 'package:crypto_mobile_app/src/rust/rpc.dart';
+import 'package:flutter/foundation.dart' show kDebugMode, kProfileMode;
 import 'package:crypto_mobile_app/utils/sentry.dart';
 
 /// A small façade around flutter_rust_bridge generated APIs.
@@ -30,6 +31,7 @@ class RustBackendService {
   void setInstanceId(String id) {
     _instanceId = id;
   }
+  int? _lastPeerCount;
 
   /// Initialize flutter_rust_bridge and load the dynamic library.
   /// Call once at app startup (before runApp).
@@ -126,34 +128,98 @@ class RustBackendService {
     final status = await r.status();
     // Log the response for debugging purposes as JSON.
     try {
-      if (status != null) {
-        final peers = status.peers
-            .map((p) => {
-                  'address': p.address,
-                  'connectingDetails': p.connectingDetails,
-                  'connectionStatus': (() {
-                    try {
-                      final dynamic cs = p.connectionStatus;
-                      return (cs as dynamic).name ?? cs.toString().split('.').last;
-                    } catch (_) {
-                      return p.connectionStatus.toString();
-                    }
-                  })(),
-                  'incoming': p.incoming,
-                  'peerId': p.peerId.toString(),
-                  'time': p.time.toString(),
-                })
-            .toList();
-        final json = jsonEncode({'peers': peers});
-        Log.d('RUST', 'getStatus response: $json');
-        SentryUtil.addBreadcrumb(
-          category: 'rpc',
-          message: 'getStatus ok',
-          data: {
-            'peerCount': status.peers.length,
+      final peersList = status?.peers ?? const <RpcPeerInfo>[];
+      final peers = peersList
+          .map((p) => {
+                'address': p.address,
+                'connectingDetails': p.connectingDetails,
+                'connectionStatus': (() {
+                  try {
+                    final dynamic cs = p.connectionStatus;
+                    return (cs as dynamic).name ?? cs.toString().split('.').last;
+                  } catch (_) {
+                    return p.connectionStatus.toString();
+                  }
+                })(),
+                'incoming': p.incoming,
+                'peerId': p.peerId.toString(),
+                'time': p.time.toString(),
+              })
+          .toList();
+      final json = jsonEncode({'peers': peers});
+      Log.d('RUST', 'getStatus response: $json');
+
+      // Build summarized fields
+      int connected = 0, connecting = 0, disconnected = 0, disconnecting = 0;
+      int incoming = 0;
+      for (final p in peersList) {
+        String name;
+        try {
+          final dynamic cs = p.connectionStatus;
+          name = (cs as dynamic).name ?? cs.toString().split('.').last;
+        } catch (_) {
+          name = p.connectionStatus.toString().split('.').last;
+        }
+        switch (name) {
+          case 'connected':
+            connected++;
+            break;
+          case 'connecting':
+            connecting++;
+            break;
+          case 'disconnected':
+            disconnected++;
+            break;
+          case 'disconnecting':
+            disconnecting++;
+            break;
+        }
+        if (p.incoming == true) incoming++;
+      }
+      final peerCount = peersList.length;
+      final outgoing = peerCount - incoming;
+
+      // Always send an event for observability; attach payload when enabled
+      if (SentryUtil.logStatusPayload) {
+        await SentryUtil.captureMessageWithAttachment(
+          'rpc.getStatus',
+          filename: 'getStatus.json',
+          content: json,
+          extras: {
+            'peerCount': peerCount,
+            'connected': connected,
+            'connecting': connecting,
+            'disconnected': disconnected,
+            'disconnecting': disconnecting,
+            'incoming': incoming,
+            'outgoing': outgoing,
+            if (status == null) 'nullStatus': true,
           },
         );
+      } else {
+        await SentryUtil.captureMessageWithData('rpc.getStatus', {
+          'peerCount': peerCount,
+          'connected': connected,
+          'connecting': connecting,
+          'disconnected': disconnected,
+          'disconnecting': disconnecting,
+          'incoming': incoming,
+          'outgoing': outgoing,
+          if (status == null) 'nullStatus': true,
+        });
       }
+
+      SentryUtil.addBreadcrumb(
+        category: 'rpc',
+        message: 'getStatus ok',
+        data: {
+          'peerCount': peerCount,
+          'connected': connected,
+          'connecting': connecting,
+          'disconnected': disconnected,
+          'disconnecting': disconnecting,
+        },
+      );
     } catch (e, st) {
       Log.w('RUST', 'Failed to encode getStatus to JSON: $e\n$st');
       // Report handled error to Sentry with context

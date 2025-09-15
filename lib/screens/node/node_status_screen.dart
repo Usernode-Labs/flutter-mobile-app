@@ -36,8 +36,8 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _refresh();
-    // Periodic auto-refresh every 30 seconds while this screen is alive.
-    _autoTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+    // Periodic auto-refresh every 2 minutes while this screen is alive.
+    _autoTimer = Timer.periodic(const Duration(minutes: 2), (_) {
       if (mounted && !_refreshing) {
         _refresh();
       }

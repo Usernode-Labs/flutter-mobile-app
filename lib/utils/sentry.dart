@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/widgets.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
@@ -45,6 +46,9 @@ class SentrySettings {
 }
 
 class SentryUtil {
+  // Gate for logging large payloads (enable in dev/staging)
+  static const bool logStatusPayload =
+      bool.fromEnvironment('SENTRY_LOG_STATUS_PAYLOAD', defaultValue: true);
   static Future<void> bootstrap(
     FutureOr<void> Function() appRunner, {
     SentrySettings? settings,
@@ -88,6 +92,41 @@ class SentryUtil {
     await Sentry.captureMessage(message, level: level);
   }
 
+  static Future<void> captureMessageWithData(
+    String message,
+    Map<String, Object?> data, {
+    SentryLevel level = SentryLevel.info,
+  }) async {
+    await Sentry.captureMessage(
+      message,
+      level: level,
+      withScope: (scope) {
+        data.forEach((k, v) => scope.setExtra(k, v));
+      },
+    );
+  }
+
+  static Future<void> captureMessageWithAttachment(
+    String message, {
+    required String filename,
+    required String content,
+    String contentType = 'application/json',
+    Map<String, Object?> extras = const {},
+    SentryLevel level = SentryLevel.info,
+  }) async {
+    await Sentry.captureMessage(
+      message,
+      level: level,
+      withScope: (scope) {
+        extras.forEach((k, v) => scope.setExtra(k, v));
+        final bytes = utf8.encode(content);
+        scope.addAttachment(
+          SentryAttachment.fromIntList(bytes, filename, contentType: contentType),
+        );
+      },
+    );
+  }
+
   static void addBreadcrumb({
     required String category,
     String? message,
@@ -108,13 +147,13 @@ class SentryUtil {
     String? email,
   }) async {
     await Sentry.configureScope((scope) {
-      scope.user = SentryUser(id: id, username: username, email: email);
+      scope.setUser(SentryUser(id: id, username: username, email: email));
     });
   }
 
   static Future<void> clearUser() async {
     await Sentry.configureScope((scope) {
-      scope.user = null;
+      scope.setUser(null);
     });
   }
 }

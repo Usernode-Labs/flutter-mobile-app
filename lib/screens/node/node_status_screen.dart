@@ -5,6 +5,7 @@ import 'package:crypto_mobile_app/services/rust_backend_service.dart';
 import 'package:crypto_mobile_app/utils/logger.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'block_details_screen.dart';
+import 'package:crypto_mobile_app/src/rust/lib.dart' as rust;
 import 'scheduled_slot_details_screen.dart';
 import 'node_peers_screen.dart';
 
@@ -147,7 +148,40 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
               _StatusItem(
                   label: 'Current block height', value: _fmtInt(_blockHeight)),
               const SizedBox(height: 20),
-              _StatusItem(label: 'Status', value: _statusText(l10n)),
+              // Status summary with info icon to open build details
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Status',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant)),
+                        const SizedBox(height: 8),
+                        Text(
+                          _statusText(l10n),
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w400),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Show build info',
+                    icon: const Icon(Icons.info_outline),
+                    onPressed: _showBuildInfoDialog,
+                  ),
+                ],
+              ),
               const SizedBox(height: 20),
               // Peers summary with colored/icon chips + icon to open details
               Row(
@@ -270,6 +304,61 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
           ],
         ),
       ),
+    );
+  }
+
+  void _showBuildInfoDialog() {
+    final env = rust.buildEnv();
+    final theme = context.mounted ? Theme.of(context) : null;
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        final textTheme = Theme.of(ctx).textTheme;
+        final shortCommit = env.git.commitHash.length >= 7
+            ? env.git.commitHash.substring(0, 7)
+            : env.git.commitHash;
+        return AlertDialog(
+          title: const Text('Build Info'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Version: ${env.version}', style: textTheme.bodyMedium),
+              const SizedBox(height: 6),
+              Text('Commit: $shortCommit', style: textTheme.bodyMedium),
+              const SizedBox(height: 6),
+              Text('Branch: ${env.git.branch}', style: textTheme.bodyMedium),
+              const SizedBox(height: 6),
+              Text('Commit time: ${env.git.commitTime}',
+                  style: textTheme.bodyMedium),
+              const Divider(height: 16),
+              Text('Rustc: ${env.rustc.version} (${env.rustc.channel})',
+                  style: textTheme.bodyMedium),
+              const SizedBox(height: 6),
+              Text('LLVM: ${env.rustc.llvmVersion}',
+                  style: textTheme.bodyMedium),
+              const Divider(height: 16),
+              Text('Cargo target: ${env.cargo.target}',
+                  style: textTheme.bodyMedium),
+              const SizedBox(height: 6),
+              Text('Features: ${env.cargo.features}',
+                  style: textTheme.bodyMedium),
+              const SizedBox(height: 6),
+              Text('Opt level: ${env.cargo.optLevel}',
+                  style: textTheme.bodyMedium),
+              const SizedBox(height: 6),
+              Text('Debug: ${env.cargo.isDebug}', style: textTheme.bodyMedium),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Close'),
+            )
+          ],
+        );
+      },
     );
   }
 
@@ -464,7 +553,14 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
 class _StatusItem extends StatelessWidget {
   final String label;
   final String value;
-  const _StatusItem({required this.label, required this.value});
+  final IconData? leadingIcon;
+  final VoidCallback? onLeadingTap;
+  const _StatusItem({
+    required this.label,
+    required this.value,
+    this.leadingIcon,
+    this.onLeadingTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -472,9 +568,24 @@ class _StatusItem extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style: theme.textTheme.bodyMedium
-                ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (leadingIcon != null)
+              InkWell(
+                onTap: onLeadingTap,
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: Icon(leadingIcon,
+                      size: 16, color: theme.colorScheme.onSurfaceVariant),
+                ),
+              ),
+            Text(label,
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          ],
+        ),
         const SizedBox(height: 4),
         Text(value,
             style: theme.textTheme.titleMedium

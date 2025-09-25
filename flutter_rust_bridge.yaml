@@ -1,6 +1,7 @@
 rust_input: >
     crate,
     usernode-p2p::PeerId,
+    usernode-core::BlockHash,
     usernode-core::build::BuildEnv,
     usernode-core::build::GitBuildEnv,
     usernode-core::build::CargoBuildEnv,

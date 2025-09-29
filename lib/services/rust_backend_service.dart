@@ -31,6 +31,7 @@ class RustBackendService {
   void setInstanceId(String id) {
     _instanceId = id;
   }
+
   int? _lastPeerCount;
 
   /// Initialize flutter_rust_bridge and load the dynamic library.
@@ -90,7 +91,8 @@ class RustBackendService {
   /// Start node if there is an active account; otherwise do nothing.
   Future<bool> startForActiveAccount() async {
     Log.d('RUST', 'startForActiveAccount begin');
-    SentryUtil.addBreadcrumb(category: 'backend', message: 'startForActiveAccount begin');
+    SentryUtil.addBreadcrumb(
+        category: 'backend', message: 'startForActiveAccount begin');
     final repo = await AccountsRepository.create();
     final hasAny = await repo.hasAny();
     if (!hasAny) {
@@ -111,7 +113,8 @@ class RustBackendService {
   /// Restart node using current active account context.
   Future<void> restartForActiveAccount() async {
     Log.i('RUST', 'Restarting node for active account');
-    SentryUtil.addBreadcrumb(category: 'backend', message: 'restartForActiveAccount');
+    SentryUtil.addBreadcrumb(
+        category: 'backend', message: 'restartForActiveAccount');
     await stopNode();
     await startForActiveAccount();
   }
@@ -136,7 +139,8 @@ class RustBackendService {
                 'connectionStatus': (() {
                   try {
                     final dynamic cs = p.connectionStatus;
-                    return (cs as dynamic).name ?? cs.toString().split('.').last;
+                    return (cs as dynamic).name ??
+                        cs.toString().split('.').last;
                   } catch (_) {
                     return p.connectionStatus.toString();
                   }

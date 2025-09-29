@@ -22,10 +22,14 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
   String? _error;
   // int? _peerCount; // unused
   List<RpcPeerInfo> _peers = const [];
-  int? _blockHeight;
-  int? _mempoolCount;
-  int? _evaluatedSlots;
-  int? _discoveredSlots;
+  int? _currentBlockHeight;
+  int? _networkBestTipHeight;
+  int? _bestTipGlobalSlot;
+  int? _bestTipEpoch;
+  String? _bestTipHash;
+  List<BigInt> _bestTipBatchTransactions = const [];
+  _ProgressData? _fetchProgress;
+  _ProgressData? _applyProgress;
 
   late final TabController _tabController;
   Timer? _autoTimer;
@@ -58,14 +62,36 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     try {
       Log.d('NODE', 'Fetching status');
       final status = await RustBackendService.instance.getStatus();
+      final peers = status?.peers ?? const <RpcPeerInfo>[];
+      final blockchain = status?.blockchain;
+      final syncBlocks = blockchain?.sync.blocks;
+      final RpcStatusBlockInfo? localBestTip = blockchain?.bestTip;
+      final RpcStatusBlockInfo? networkBestTip = syncBlocks?.bestTip;
+      final RpcStatusBlockInfo? displayBestTip = networkBestTip ?? localBestTip;
+      List<BigInt> batchTransactions = const <BigInt>[];
+      if (displayBestTip != null) {
+        batchTransactions = displayBestTip.batches
+            .map((info) => info.transactions)
+            .toList(growable: false);
+      }
+      final fetchProgress = syncBlocks != null
+          ? _ProgressData.fromProgress(syncBlocks.fetchProgress)
+          : null;
+      final applyProgress = syncBlocks != null
+          ? _ProgressData.fromProgress(syncBlocks.applyProgress)
+          : null;
       if (!mounted) return;
       setState(() {
-        _peers = status?.peers ?? const [];
-        // Map actual values to match the design
-        _blockHeight = 110;
-        _mempoolCount = 127;
-        _evaluatedSlots = 120;
-        _discoveredSlots = 20;
+        _peers = peers;
+        _currentBlockHeight = localBestTip?.height;
+        _networkBestTipHeight = networkBestTip?.height;
+        _bestTipGlobalSlot = displayBestTip?.globalSlot;
+        _bestTipEpoch = displayBestTip?.epoch;
+        _bestTipHash =
+            displayBestTip == null ? null : displayBestTip.hash.toString();
+        _bestTipBatchTransactions = batchTransactions;
+        _fetchProgress = fetchProgress;
+        _applyProgress = applyProgress;
         _lastChecked = DateTime.now();
       });
     } catch (e, st) {
@@ -145,9 +171,6 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
                 _StatusItem(label: 'Backend ID', value: backendId),
                 const SizedBox(height: 20),
               ],
-              _StatusItem(
-                  label: 'Current block height', value: _fmtInt(_blockHeight)),
-              const SizedBox(height: 20),
               // Status summary with info icon to open build details
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -166,7 +189,7 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
                                         .onSurfaceVariant)),
                         const SizedBox(height: 8),
                         Text(
-                          _statusText(l10n),
+                          _statusText(),
                           style: Theme.of(context)
                               .textTheme
                               .titleMedium
@@ -181,6 +204,20 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
                     onPressed: _showBuildInfoDialog,
                   ),
                 ],
+              ),
+              const SizedBox(height: 20),
+              _StatusItem(
+                  label: 'Current block height',
+                  value: _fmtInt(_currentBlockHeight)),
+              const SizedBox(height: 20),
+              _StatusItem(
+                label: 'Epoch',
+                value: _formatEpochSummary(),
+              ),
+              const SizedBox(height: 20),
+              _StatusItem(
+                label: 'Best Tip',
+                value: _formatBestTipSummary(),
               ),
               const SizedBox(height: 20),
               // Peers summary with colored/icon chips + icon to open details
@@ -221,12 +258,9 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
               ),
               const SizedBox(height: 20),
               _StatusItem(
-                  label: 'Mempool',
-                  value: '${_mempoolCount ?? 0} Transactions'),
-              const SizedBox(height: 20),
-              _StatusItem(
-                  label: 'Evaluated / Discovered Slots',
-                  value: _evalDiscovered()),
+                label: 'Sync status',
+                value: _formatSyncStatusSummary(),
+              ),
 
               const SizedBox(height: 32),
 
@@ -362,8 +396,6 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     );
   }
 
-  
-
   Color _statusColor(ThemeData theme, PeerConnectionStatus s) {
     switch (s) {
       case PeerConnectionStatus.connected:
@@ -464,7 +496,8 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     final ipv6Br = RegExp(r'\[([0-9a-fA-F:]+)\]').firstMatch(s);
     if (ipv6Br != null) return ipv6Br.group(0);
     final ipv6Raw = RegExp(r'\b[0-9a-fA-F:]{2,}\b').firstMatch(s);
-    if (ipv6Raw != null && ipv6Raw.group(0)!.contains(':')) return ipv6Raw.group(0);
+    if (ipv6Raw != null && ipv6Raw.group(0)!.contains(':'))
+      return ipv6Raw.group(0);
     // IPv4 only
     final ipv4 = RegExp(r'(\d{1,3}(?:\.\d{1,3}){3})').firstMatch(s);
     if (ipv4 != null) return ipv4.group(1);
@@ -528,11 +561,64 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
   }
 
   String _fmtInt(int? v) => v == null ? 'N/A' : v.toString();
-  String _statusText(AppLocalizations l10n) => 'Synced 5m ago';
-  String _evalDiscovered() {
-    final a = _evaluatedSlots ?? 0;
-    final b = _discoveredSlots ?? 0;
-    return '$a / $b';
+
+  String _formatEpochSummary() {
+    final slot = _fmtInt(_bestTipGlobalSlot);
+    final epoch = _fmtInt(_bestTipEpoch);
+    return 'Epoch: $epoch - Global Slot: $slot';
+  }
+
+  String _formatBestTipSummary() {
+    final heightText =
+        'Height: ${_fmtInt(_networkBestTipHeight ?? _currentBlockHeight)}';
+    final hashText = 'Hash: ${_bestTipHashDisplay()}';
+    final batchesText = _formatBatchSummary();
+    return [heightText, hashText, batchesText].join('\n');
+  }
+
+  String _formatBatchSummary() {
+    if (_bestTipBatchTransactions.isEmpty) {
+      return _bestTipHash == null ? 'Batches: N/A' : 'Batches: 0';
+    }
+    final details = _bestTipBatchTransactions.asMap().entries.map((entry) {
+      final idx = entry.key + 1;
+      final txCount = entry.value.toString();
+      return 'Batch $idx: $txCount trx';
+    }).join(', ');
+    return 'Batches: ${_bestTipBatchTransactions.length} ($details)';
+  }
+
+  String _formatSyncStatusSummary() {
+    final fetch = _formatProgress(_fetchProgress);
+    final apply = _formatProgress(_applyProgress);
+    return ['Fetch progress: $fetch', 'Apply progress: $apply'].join('\n');
+  }
+
+  String _bestTipHashDisplay() {
+    final hash = _bestTipHash;
+    if (hash == null || hash.isEmpty) return 'N/A';
+    return _shortenMid(hash, head: 10, tail: 10);
+  }
+
+  String _statusText() {
+    final currentHeight = _currentBlockHeight;
+    final bestTipHeight = _networkBestTipHeight;
+
+    if (currentHeight == null && bestTipHeight == null) {
+      return 'Awaiting status';
+    }
+    if (currentHeight != null && bestTipHeight != null) {
+      return currentHeight >= bestTipHeight ? 'Synced' : 'Synching';
+    }
+    if (currentHeight != null) {
+      return 'Synced';
+    }
+    return 'Synching';
+  }
+
+  String _formatProgress(_ProgressData? data) {
+    if (data == null) return 'N/A';
+    return 'done ${data.done}, pending ${data.pending}, idle ${data.idle}';
   }
 
   int _secondsSinceCheck() {
@@ -547,6 +633,28 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     _secondsTimer?.cancel();
     _tabController.dispose();
     super.dispose();
+  }
+}
+
+class _ProgressData {
+  final BigInt idle;
+  final BigInt pending;
+  final BigInt done;
+
+  const _ProgressData({
+    required this.idle,
+    required this.pending,
+    required this.done,
+  });
+
+  factory _ProgressData.fromProgress(
+    RpcStatusBlockchainSyncBlocksProgress progress,
+  ) {
+    return _ProgressData(
+      idle: progress.idle,
+      pending: progress.pending,
+      done: progress.done,
+    );
   }
 }
 

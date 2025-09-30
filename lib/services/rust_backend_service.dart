@@ -150,7 +150,59 @@ class RustBackendService {
                 'time': p.time.toString(),
               })
           .toList();
-      final json = jsonEncode({'peers': peers});
+      
+      // Build blockchain data for logging
+      Map<String, dynamic>? blockchainData;
+      final blockchain = status?.blockchain;
+      if (blockchain != null) {
+        try {
+          final bestTip = blockchain.bestTip;
+          final syncBlocks = blockchain.sync.blocks;
+          
+          blockchainData = {
+            'best_tip': {
+              'hash': bestTip.hash.toString(),
+              'height': bestTip.height,
+              'global_slot': bestTip.globalSlot,
+              'epoch': bestTip.epoch,
+              'batches': bestTip.batches.map((b) => {
+                'transactions': b.transactions.toString(),
+              }).toList(),
+            },
+            'sync': {
+              'blocks': syncBlocks != null ? {
+                'best_tip': {
+                  'hash': syncBlocks.bestTip.hash.toString(),
+                  'height': syncBlocks.bestTip.height,
+                  'global_slot': syncBlocks.bestTip.globalSlot,
+                  'epoch': syncBlocks.bestTip.epoch,
+                  'batches': syncBlocks.bestTip.batches.map((b) => {
+                    'transactions': b.transactions.toString(),
+                  }).toList(),
+                },
+                'fetch_progress': {
+                  'idle': syncBlocks.fetchProgress.idle.toString(),
+                  'pending': syncBlocks.fetchProgress.pending.toString(),
+                  'done': syncBlocks.fetchProgress.done.toString(),
+                },
+                'apply_progress': {
+                  'idle': syncBlocks.applyProgress.idle.toString(),
+                  'pending': syncBlocks.applyProgress.pending.toString(),
+                  'done': syncBlocks.applyProgress.done.toString(),
+                },
+              } : null,
+            },
+          };
+        } catch (e) {
+          blockchainData = {'error': 'Failed to parse blockchain data: $e'};
+        }
+      }
+      
+      final fullResponse = {
+        'peers': peers,
+        if (blockchainData != null) 'blockchain': blockchainData,
+      };
+      final json = jsonEncode(fullResponse);
       Log.d('RUST', 'getStatus response: $json');
 
       // Build summarized fields

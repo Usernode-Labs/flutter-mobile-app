@@ -65,21 +65,45 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
       final peers = status?.peers ?? const <RpcPeerInfo>[];
       final blockchain = status?.blockchain;
       final syncBlocks = blockchain?.sync.blocks;
-      final RpcStatusBlockInfo? localBestTip = blockchain?.bestTip;
-      final RpcStatusBlockInfo? networkBestTip = syncBlocks?.bestTip;
+      RpcStatusBlockInfo? localBestTip;
+      RpcStatusBlockInfo? networkBestTip;
+      try {
+        localBestTip = blockchain?.bestTip;
+      } catch (e) {
+        localBestTip = null;
+      }
+      try {
+        networkBestTip = syncBlocks?.bestTip;
+      } catch (e) {
+        networkBestTip = null;
+      }
       final RpcStatusBlockInfo? displayBestTip = networkBestTip ?? localBestTip;
       List<BigInt> batchTransactions = const <BigInt>[];
-      if (displayBestTip != null) {
-        batchTransactions = displayBestTip.batches
-            .map((info) => info.transactions)
-            .toList(growable: false);
+      try {
+        if (displayBestTip != null) {
+          batchTransactions = displayBestTip.batches
+              .map((info) => info.transactions)
+              .toList(growable: false);
+        }
+      } catch (e) {
+        batchTransactions = const <BigInt>[];
       }
-      final fetchProgress = syncBlocks != null
-          ? _ProgressData.fromProgress(syncBlocks.fetchProgress)
-          : null;
-      final applyProgress = syncBlocks != null
-          ? _ProgressData.fromProgress(syncBlocks.applyProgress)
-          : null;
+      _ProgressData? fetchProgress;
+      _ProgressData? applyProgress;
+      try {
+        fetchProgress = syncBlocks != null
+            ? _ProgressData.fromProgress(syncBlocks.fetchProgress)
+            : null;
+      } catch (e) {
+        fetchProgress = null;
+      }
+      try {
+        applyProgress = syncBlocks != null
+            ? _ProgressData.fromProgress(syncBlocks.applyProgress)
+            : null;
+      } catch (e) {
+        applyProgress = null;
+      }
       if (!mounted) return;
       setState(() {
         _peers = peers;
@@ -87,8 +111,11 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
         _networkBestTipHeight = networkBestTip?.height;
         _bestTipGlobalSlot = displayBestTip?.globalSlot;
         _bestTipEpoch = displayBestTip?.epoch;
-        _bestTipHash =
-            displayBestTip == null ? null : displayBestTip.hash.toString();
+        try {
+          _bestTipHash = displayBestTip?.hash.toString();
+        } catch (e) {
+          _bestTipHash = null;
+        }
         _bestTipBatchTransactions = batchTransactions;
         _fetchProgress = fetchProgress;
         _applyProgress = applyProgress;
@@ -274,7 +301,7 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
                           color: Theme.of(context)
                               .colorScheme
                               .outline
-                              .withValues(alpha: 0.2),
+                              .withOpacity(0.2),
                           width: 1,
                         ),
                       ),
@@ -594,6 +621,11 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     return ['Fetch progress: $fetch', 'Apply progress: $apply'].join('\n');
   }
 
+  String _formatProgress(_ProgressData? data) {
+    if (data == null) return 'N/A';
+    return 'done ${data.done}, pending ${data.pending}, idle ${data.idle}';
+  }
+
   String _bestTipHashDisplay() {
     final hash = _bestTipHash;
     if (hash == null || hash.isEmpty) return 'N/A';
@@ -616,10 +648,6 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     return 'Synching';
   }
 
-  String _formatProgress(_ProgressData? data) {
-    if (data == null) return 'N/A';
-    return 'done ${data.done}, pending ${data.pending}, idle ${data.idle}';
-  }
 
   int _secondsSinceCheck() {
     if (_lastChecked == null) return 0;
@@ -740,7 +768,7 @@ class _SlotItem extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                  color: iconColor.withValues(alpha: 0.1),
+                  color: iconColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8)),
               child: Icon(icon, color: iconColor, size: 20),
             ),

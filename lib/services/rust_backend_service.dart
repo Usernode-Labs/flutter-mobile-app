@@ -31,6 +31,7 @@ class RustBackendService {
   void setInstanceId(String id) {
     _instanceId = id;
   }
+
   int? _lastPeerCount;
 
   /// Initialize flutter_rust_bridge and load the dynamic library.
@@ -90,7 +91,8 @@ class RustBackendService {
   /// Start node if there is an active account; otherwise do nothing.
   Future<bool> startForActiveAccount() async {
     Log.d('RUST', 'startForActiveAccount begin');
-    SentryUtil.addBreadcrumb(category: 'backend', message: 'startForActiveAccount begin');
+    SentryUtil.addBreadcrumb(
+        category: 'backend', message: 'startForActiveAccount begin');
     final repo = await AccountsRepository.create();
     final hasAny = await repo.hasAny();
     if (!hasAny) {
@@ -111,7 +113,8 @@ class RustBackendService {
   /// Restart node using current active account context.
   Future<void> restartForActiveAccount() async {
     Log.i('RUST', 'Restarting node for active account');
-    SentryUtil.addBreadcrumb(category: 'backend', message: 'restartForActiveAccount');
+    SentryUtil.addBreadcrumb(
+        category: 'backend', message: 'restartForActiveAccount');
     await stopNode();
     await startForActiveAccount();
   }
@@ -136,7 +139,8 @@ class RustBackendService {
                 'connectionStatus': (() {
                   try {
                     final dynamic cs = p.connectionStatus;
-                    return (cs as dynamic).name ?? cs.toString().split('.').last;
+                    return (cs as dynamic).name ??
+                        cs.toString().split('.').last;
                   } catch (_) {
                     return p.connectionStatus.toString();
                   }
@@ -146,7 +150,59 @@ class RustBackendService {
                 'time': p.time.toString(),
               })
           .toList();
-      final json = jsonEncode({'peers': peers});
+      
+      // Build blockchain data for logging
+      Map<String, dynamic>? blockchainData;
+      final blockchain = status?.blockchain;
+      if (blockchain != null) {
+        try {
+          final bestTip = blockchain.bestTip;
+          final syncBlocks = blockchain.sync.blocks;
+          
+          blockchainData = {
+            'best_tip': {
+              'hash': bestTip.hash.toString(),
+              'height': bestTip.height,
+              'global_slot': bestTip.globalSlot,
+              'epoch': bestTip.epoch,
+              'batches': bestTip.batches.map((b) => {
+                'transactions': b.transactions.toString(),
+              }).toList(),
+            },
+            'sync': {
+              'blocks': syncBlocks != null ? {
+                'best_tip': {
+                  'hash': syncBlocks.bestTip.hash.toString(),
+                  'height': syncBlocks.bestTip.height,
+                  'global_slot': syncBlocks.bestTip.globalSlot,
+                  'epoch': syncBlocks.bestTip.epoch,
+                  'batches': syncBlocks.bestTip.batches.map((b) => {
+                    'transactions': b.transactions.toString(),
+                  }).toList(),
+                },
+                'fetch_progress': {
+                  'idle': syncBlocks.fetchProgress.idle.toString(),
+                  'pending': syncBlocks.fetchProgress.pending.toString(),
+                  'done': syncBlocks.fetchProgress.done.toString(),
+                },
+                'apply_progress': {
+                  'idle': syncBlocks.applyProgress.idle.toString(),
+                  'pending': syncBlocks.applyProgress.pending.toString(),
+                  'done': syncBlocks.applyProgress.done.toString(),
+                },
+              } : null,
+            },
+          };
+        } catch (e) {
+          blockchainData = {'error': 'Failed to parse blockchain data: $e'};
+        }
+      }
+      
+      final fullResponse = {
+        'peers': peers,
+        if (blockchainData != null) 'blockchain': blockchainData,
+      };
+      final json = jsonEncode(fullResponse);
       Log.d('RUST', 'getStatus response: $json');
 
       // Build summarized fields

@@ -9,7 +9,6 @@ import 'package:crypto_mobile_app/src/rust/frb_generated.dart';
 import 'package:crypto_mobile_app/src/rust/node.dart';
 import 'package:crypto_mobile_app/src/rust/node/builder.dart';
 import 'package:crypto_mobile_app/src/rust/rpc.dart';
-import 'package:flutter/foundation.dart' show kDebugMode, kProfileMode;
 import 'package:crypto_mobile_app/utils/sentry.dart';
 
 /// A small façade around flutter_rust_bridge generated APIs.
@@ -32,21 +31,39 @@ class RustBackendService {
     _instanceId = id;
   }
 
-  int? _lastPeerCount;
-
   /// Initialize flutter_rust_bridge and load the dynamic library.
   /// Call once at app startup (before runApp).
   Future<void> init() async {
     if (_initialized) return;
     Log.i('RUST', 'Init FRB');
-    await RustLib.init(
-      externalLibrary: Platform.isIOS
-          ? ExternalLibrary.process(iKnowHowToUseIt: true)
-          : null,
-    );
-    _initialized = true;
-    Log.i('RUST', 'Init complete');
-    SentryUtil.addBreadcrumb(category: 'backend', message: 'FRB init complete');
+    try {
+      await RustLib.init(
+        externalLibrary: Platform.isIOS
+            ? ExternalLibrary.process(iKnowHowToUseIt: true)
+            : null,
+      );
+      _initialized = true;
+      Log.i('RUST', 'Init complete');
+      SentryUtil.addBreadcrumb(
+          category: 'backend', message: 'FRB init complete');
+    } on PanicException catch (e, st) {
+      final msg = e.toString();
+      // Handle duplicate tracing subscriber setup from Rust side gracefully
+      if (msg.contains('SetGlobalDefaultError') ||
+          msg.contains(
+              'global default trace dispatcher has already been set')) {
+        Log.w('RUST',
+            'Tracing subscriber already set in Rust; continuing initialization');
+        _initialized = true; // library loaded; only tracing init failed
+        SentryUtil.addBreadcrumb(
+          category: 'backend',
+          message: 'FRB init: tracing already set; ignored',
+        );
+      } else {
+        Log.e('RUST', 'FRB init failed', e, st);
+        rethrow;
+      }
+    }
   }
 
   /// Build and start the Rust node, then expose an RPC client.
@@ -131,7 +148,26 @@ class RustBackendService {
     SentryUtil.addBreadcrumb(category: 'rpc', message: 'getStatus called');
     final r = _rpc;
     if (r == null) return null;
-    final status = await r.status();
+
+    // Call into FRB with defensive handling for panics / transport errors.
+    RpcStatusResp? status;
+    try {
+      status = await r.status();
+    } on PanicException catch (e, st) {
+      // FRB surfaced a Rust-side panic (e.g., stdout transport failure in process mode).
+      Log.e('RUST', 'FRB panic during getStatus', e, st);
+      // Mark backend as not running and drop RPC handle to avoid cascading failures.
+      _nodeRunning = false;
+      _rpc = null;
+      await SentryUtil.captureError(e, st, tag: 'frb_panic_getStatus');
+      // Return null gracefully so UI can keep rendering with an error message.
+      return null;
+    } catch (e, st) {
+      // Any other error from the bridge/RPC call.
+      Log.w('RUST', 'RPC getStatus failed', e, st);
+      await SentryUtil.captureError(e, st, tag: 'rpc_getStatus');
+      return null;
+    }
     // Log the response for debugging purposes as JSON.
     try {
       final peersList = status?.peers ?? const <RpcPeerInfo>[];
@@ -153,7 +189,7 @@ class RustBackendService {
                 'time': p.time.toString(),
               })
           .toList();
-      
+
       // Build blockchain data for logging
       Map<String, dynamic>? blockchainData;
       final blockchain = status?.blockchain;
@@ -161,46 +197,52 @@ class RustBackendService {
         try {
           final bestTip = blockchain.bestTip;
           final syncBlocks = blockchain.sync.blocks;
-          
+
           blockchainData = {
             'best_tip': {
               'hash': bestTip.hash.toString(),
               'height': bestTip.height,
               'global_slot': bestTip.globalSlot,
               'epoch': bestTip.epoch,
-              'batches': bestTip.batches.map((b) => {
-                'transactions': b.transactions.toString(),
-              }).toList(),
+              'batches': bestTip.batches
+                  .map((b) => {
+                        'transactions': b.transactions.toString(),
+                      })
+                  .toList(),
             },
             'sync': {
-              'blocks': syncBlocks != null ? {
-                'best_tip': {
-                  'hash': syncBlocks.bestTip.hash.toString(),
-                  'height': syncBlocks.bestTip.height,
-                  'global_slot': syncBlocks.bestTip.globalSlot,
-                  'epoch': syncBlocks.bestTip.epoch,
-                  'batches': syncBlocks.bestTip.batches.map((b) => {
-                    'transactions': b.transactions.toString(),
-                  }).toList(),
-                },
-                'fetch_progress': {
-                  'idle': syncBlocks.fetchProgress.idle.toString(),
-                  'pending': syncBlocks.fetchProgress.pending.toString(),
-                  'done': syncBlocks.fetchProgress.done.toString(),
-                },
-                'apply_progress': {
-                  'idle': syncBlocks.applyProgress.idle.toString(),
-                  'pending': syncBlocks.applyProgress.pending.toString(),
-                  'done': syncBlocks.applyProgress.done.toString(),
-                },
-              } : null,
+              'blocks': syncBlocks != null
+                  ? {
+                      'best_tip': {
+                        'hash': syncBlocks.bestTip.hash.toString(),
+                        'height': syncBlocks.bestTip.height,
+                        'global_slot': syncBlocks.bestTip.globalSlot,
+                        'epoch': syncBlocks.bestTip.epoch,
+                        'batches': syncBlocks.bestTip.batches
+                            .map((b) => {
+                                  'transactions': b.transactions.toString(),
+                                })
+                            .toList(),
+                      },
+                      'fetch_progress': {
+                        'idle': syncBlocks.fetchProgress.idle.toString(),
+                        'pending': syncBlocks.fetchProgress.pending.toString(),
+                        'done': syncBlocks.fetchProgress.done.toString(),
+                      },
+                      'apply_progress': {
+                        'idle': syncBlocks.applyProgress.idle.toString(),
+                        'pending': syncBlocks.applyProgress.pending.toString(),
+                        'done': syncBlocks.applyProgress.done.toString(),
+                      },
+                    }
+                  : null,
             },
           };
         } catch (e) {
           blockchainData = {'error': 'Failed to parse blockchain data: $e'};
         }
       }
-      
+
       final fullResponse = {
         'peers': peers,
         if (blockchainData != null) 'blockchain': blockchainData,

@@ -164,7 +164,7 @@ class RustBackendService {
       return null;
     } catch (e, st) {
       // Any other error from the bridge/RPC call.
-      Log.w('RUST', 'RPC getStatus failed', e, st);
+      Log.w('RUST', 'RPC getStatus failed: $e\n$st');
       await SentryUtil.captureError(e, st, tag: 'rpc_getStatus');
       return null;
     }

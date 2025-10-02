@@ -68,6 +68,9 @@ class RustBackendService {
       builder.httpServer(port: httpPort);
     }
 
+    builder.enableBlockProducer();
+    builder.mempoolAutoinsertInterval(1);
+
     _node = builder.build();
     _rpc = _node!.rpc();
 

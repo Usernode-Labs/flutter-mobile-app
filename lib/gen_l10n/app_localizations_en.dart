@@ -27,6 +27,77 @@ class AppLocalizationsEn extends AppLocalizations {
   String get node => 'Node';
 
   @override
+  String get nfcReader => 'NFC Reader';
+
+  @override
+  String get nfcEmptyTitle => 'Scan your ID';
+
+  @override
+  String get nfcEmptySubtitle =>
+      'Use your phone to read your ePassport or eID via NFC.';
+
+  @override
+  String get nfcScanAnother => 'Scan another';
+
+  @override
+  String get nfcManualMrz => 'Enter MRZ manually';
+
+  @override
+  String get nfcStartScan => 'Start NFC scan';
+
+  @override
+  String get mrzTitle => 'Enter MRZ';
+
+  @override
+  String get mrzLine1 => 'MRZ line 1';
+
+  @override
+  String get mrzLine2 => 'MRZ line 2';
+
+  @override
+  String get mrzLine3 => 'MRZ line 3 (optional)';
+
+  @override
+  String get mrzContinue => 'Continue';
+
+  @override
+  String get nfcReading => 'Hold document to the phone...';
+
+  @override
+  String get nfcSave => 'Save';
+
+  @override
+  String get nfcRename => 'Rename';
+
+  @override
+  String get nfcDelete => 'Delete';
+
+  @override
+  String get nfcConfirmDelete => 'Delete this document?';
+
+  @override
+  String get unlockToView => 'Unlock to view private data';
+
+  @override
+  String get biometricsNotAvailable => 'Biometrics not available';
+
+  @override
+  String get nfcNotSupported => 'This device does not support NFC.';
+
+  @override
+  String get nfcTurnOn => 'Please enable NFC in settings.';
+
+  @override
+  String get nfcReadFailed =>
+      'Failed to read document. Check MRZ and try again.';
+
+  @override
+  String get nfcUpdated => 'Document updated';
+
+  @override
+  String get nfcSaved => 'Document saved';
+
+  @override
   String nodeStatusSynced(String time) {
     return 'Your Local Node synced in $time';
   }

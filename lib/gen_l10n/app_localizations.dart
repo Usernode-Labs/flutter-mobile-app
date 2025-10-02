@@ -130,6 +130,144 @@ abstract class AppLocalizations {
   /// **'Node'**
   String get node;
 
+  /// NFC Reader tab label
+  ///
+  /// In en, this message translates to:
+  /// **'NFC Reader'**
+  String get nfcReader;
+
+  /// Title for empty NFC state
+  ///
+  /// In en, this message translates to:
+  /// **'Scan your ID'**
+  String get nfcEmptyTitle;
+
+  /// Subtitle for empty NFC state
+  ///
+  /// In en, this message translates to:
+  /// **'Use your phone to read your ePassport or eID via NFC.'**
+  String get nfcEmptySubtitle;
+
+  /// Action to scan another document
+  ///
+  /// In en, this message translates to:
+  /// **'Scan another'**
+  String get nfcScanAnother;
+
+  /// Action to open MRZ manual entry
+  ///
+  /// In en, this message translates to:
+  /// **'Enter MRZ manually'**
+  String get nfcManualMrz;
+
+  /// Start NFC reading
+  ///
+  /// In en, this message translates to:
+  /// **'Start NFC scan'**
+  String get nfcStartScan;
+
+  /// MRZ entry screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Enter MRZ'**
+  String get mrzTitle;
+
+  /// No description provided for @mrzLine1.
+  ///
+  /// In en, this message translates to:
+  /// **'MRZ line 1'**
+  String get mrzLine1;
+
+  /// No description provided for @mrzLine2.
+  ///
+  /// In en, this message translates to:
+  /// **'MRZ line 2'**
+  String get mrzLine2;
+
+  /// No description provided for @mrzLine3.
+  ///
+  /// In en, this message translates to:
+  /// **'MRZ line 3 (optional)'**
+  String get mrzLine3;
+
+  /// Continue from MRZ entry
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get mrzContinue;
+
+  /// NFC reading in progress
+  ///
+  /// In en, this message translates to:
+  /// **'Hold document to the phone...'**
+  String get nfcReading;
+
+  /// Save document
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get nfcSave;
+
+  /// Rename document action
+  ///
+  /// In en, this message translates to:
+  /// **'Rename'**
+  String get nfcRename;
+
+  /// Delete document action
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get nfcDelete;
+
+  /// Confirm deletion
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this document?'**
+  String get nfcConfirmDelete;
+
+  /// Biometric prompt
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock to view private data'**
+  String get unlockToView;
+
+  /// Biometrics unavailable message
+  ///
+  /// In en, this message translates to:
+  /// **'Biometrics not available'**
+  String get biometricsNotAvailable;
+
+  /// No NFC hardware
+  ///
+  /// In en, this message translates to:
+  /// **'This device does not support NFC.'**
+  String get nfcNotSupported;
+
+  /// NFC disabled guidance
+  ///
+  /// In en, this message translates to:
+  /// **'Please enable NFC in settings.'**
+  String get nfcTurnOn;
+
+  /// Generic NFC read error
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to read document. Check MRZ and try again.'**
+  String get nfcReadFailed;
+
+  /// Rescan overwrite confirmation
+  ///
+  /// In en, this message translates to:
+  /// **'Document updated'**
+  String get nfcUpdated;
+
+  /// Saved confirmation
+  ///
+  /// In en, this message translates to:
+  /// **'Document saved'**
+  String get nfcSaved;
+
   /// Node sync status message
   ///
   /// In en, this message translates to:

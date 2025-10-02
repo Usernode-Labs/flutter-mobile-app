@@ -1,7 +1,7 @@
 name: crypto_mobile_app
 description: A comprehensive crypto mobile application
 
-version: 0.1.0+1
+version: 0.1.0+3
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -28,6 +28,19 @@ dependencies:
   shared_preferences: ^2.2.3
   flutter_secure_storage: ^9.2.2
   sentry_flutter: ^8.6.0
+
+  # NFC IDs storage and security
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  local_auth: ^2.1.7
+  flutter_nfc_kit: ^3.4.3
+  camera: ^0.10.5+9
+  google_mlkit_text_recognition: ^0.13.0
+  mrz_parser: ^2.0.0
+  dmrtd:
+    git:
+      url: https://github.com/ZeroPass/dmrtd.git
+      ref: master
 
   collection: any
 dev_dependencies:

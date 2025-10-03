@@ -74,7 +74,6 @@ class _ImportSeedSheetState extends State<ImportSeedSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // final wc = _wordCount(_seedCtrl.text); // unused
 
     return SafeArea(
       child: Padding(

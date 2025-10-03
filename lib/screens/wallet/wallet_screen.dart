@@ -23,7 +23,6 @@ class WalletScreen extends StatefulWidget {
 class _WalletScreenState extends State<WalletScreen> {
   late WalletService _walletService;
   AccountMeta? _account;
-  // final bool _accountExpanded = false; // unused
 
   Color _accountColor(ThemeData theme, String addr) {
     final palette = [
@@ -171,8 +170,6 @@ class _WalletScreenState extends State<WalletScreen> {
               }
             }
           }
-
-          // final others = items.where((a) => a.id != _account?.id).toList();
 
           // Enhanced UI/UX for account manager with identicons and animations
           final maxHeight = MediaQuery.of(ctx).size.height * (2 / 3);
@@ -520,8 +517,6 @@ class _WalletScreenState extends State<WalletScreen> {
   void _handleBridgeTap() {
     _showComingSoon('Bridge');
   }
-
-  // void _handleTransactionTap(TransactionModel transaction) {}
 
   List<TokenHolding> _topHoldingsFromBalance() {
     // Mock data matching the Gallery design

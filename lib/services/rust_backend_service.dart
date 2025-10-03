@@ -86,7 +86,7 @@ class RustBackendService {
     }
 
     builder.enableBlockProducer();
-    builder.mempoolAutoinsertInterval(1);
+    builder.mempoolAutoinsertInterval(secs: BigInt.from(1));
 
     _node = builder.build();
     _rpc = _node!.rpc();

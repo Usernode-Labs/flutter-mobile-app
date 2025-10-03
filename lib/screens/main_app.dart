@@ -4,8 +4,6 @@ import 'package:flutter/material.dart';
 import '../gen_l10n/app_localizations.dart';
 import 'wallet/wallet_screen.dart';
 import 'package:crypto_mobile_app/config/feature_flags.dart';
-import 'nfc/nfc_reader_screen.dart';
-import '../gen_l10n/localization_extensions.dart';
 
 class MainApp extends StatefulWidget {
   final AppFeature? initialFeature;
@@ -24,8 +22,6 @@ class _MainAppState extends State<MainApp> {
         return const HomeScreen();
       case AppFeature.wallet:
         return const WalletScreen();
-      case AppFeature.nfc:
-        return const NfcReaderScreen();
       case AppFeature.node:
         return const NodeStatusScreen();
     }
@@ -36,7 +32,8 @@ class _MainAppState extends State<MainApp> {
     super.initState();
     // Apply initial feature selection once
     if (widget.initialFeature != null) {
-      final active = FeatureFlags.ordered.where(FeatureFlags.isEnabled).toList();
+      final active =
+          FeatureFlags.ordered.where(FeatureFlags.isEnabled).toList();
       final desired = active.indexOf(widget.initialFeature!);
       if (desired >= 0) {
         _currentIndex = desired;
@@ -73,11 +70,6 @@ class _MainAppState extends State<MainApp> {
                   icon: const Icon(Icons.account_balance_wallet_outlined),
                   selectedIcon: const Icon(Icons.account_balance_wallet),
                   label: l10n.wallet,
-                ),
-              AppFeature.nfc => NavigationDestination(
-                  icon: const Icon(Icons.nfc_outlined),
-                  selectedIcon: const Icon(Icons.nfc),
-                  label: l10n.nfcReader,
                 ),
               AppFeature.node => NavigationDestination(
                   icon: const Icon(Icons.hub_outlined),

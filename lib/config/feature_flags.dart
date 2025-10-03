@@ -8,7 +8,7 @@ import 'package:flutter/services.dart' show rootBundle;
 ///   flutter run --dart-define=ENABLED_FEATURES=home,wallet
 /// or
 ///   flutter run --dart-define=ENABLED_FEATURES=all
-enum AppFeature { home, wallet, nfc, node }
+enum AppFeature { home, wallet, node }
 
 class FeatureFlags {
   /// Ordered list used to render navigation and related UI deterministically.
@@ -16,11 +16,12 @@ class FeatureFlags {
     // Default order: Node first (default tab), then Wallet
     AppFeature.node,
     AppFeature.wallet,
-    AppFeature.nfc,
+    AppFeature.home,
   ];
 
   /// Compute enabled set from compile-time env or fallback defaults.
   static Set<AppFeature> _enabled = _loadEnabledFromEnv();
+
   /// Additional granular feature keys, e.g. 'wallet.send', 'home.bridgeCard'.
   static final Set<String> _tagsEnabled = <String>{};
   static final Set<String> _tagsDisabled = <String>{};
@@ -100,11 +101,6 @@ class FeatureFlags {
         return AppFeature.home;
       case 'wallet':
         return AppFeature.wallet;
-      case 'nfc':
-      case 'nfc_reader':
-      case 'nfcreader':
-      case 'ids':
-        return AppFeature.nfc;
       case 'node':
         return AppFeature.node;
       default:
@@ -117,8 +113,7 @@ class FeatureFlags {
     const csvDisabled =
         String.fromEnvironment('DISABLED_FEATURES', defaultValue: '');
     if (csv.trim().isEmpty) {
-      // Default: Wallet, NFC and Node enabled; Home disabled.
-      return {AppFeature.wallet, AppFeature.nfc, AppFeature.node};
+      return {AppFeature.home, AppFeature.wallet, AppFeature.node};
     }
     final value = csv.trim().toLowerCase();
     if (value == 'all') {

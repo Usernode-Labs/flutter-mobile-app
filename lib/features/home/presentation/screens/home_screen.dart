@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:crypto_mobile_app/core/design/design_tokens.dart';
 import 'package:crypto_mobile_app/core/widgets/activity_list_item.dart';
-import 'package:crypto_mobile_app/core/widgets/quick_action_button.dart';
+import 'package:crypto_mobile_app/core/widgets/app_action_button.dart';
 import 'package:crypto_mobile_app/features/rewards/presentation/screens/rewards_breakdown_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/presentation/screens/send_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/presentation/screens/receive_screen.dart';
@@ -96,7 +97,7 @@ class HomeScreen extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         Expanded(
-                          child: QuickActionButton(
+                          child: AppActionButton(
                             icon: Icons.arrow_upward,
                             label: 'Send',
                             color: colorScheme.primary,
@@ -111,7 +112,7 @@ class HomeScreen extends StatelessWidget {
                           ),
                         ),
                         Expanded(
-                          child: QuickActionButton(
+                          child: AppActionButton(
                             icon: Icons.arrow_downward,
                             label: 'Receive',
                             color: colorScheme.tertiary,
@@ -126,12 +127,11 @@ class HomeScreen extends StatelessWidget {
                           ),
                         ),
                         Expanded(
-                          child: QuickActionButton(
+                          child: AppActionButton(
                             icon: Icons.swap_horiz,
                             label: 'Swap',
                             color: colorScheme.secondary,
                             onTap: () {
-                              // TODO: Navigate to swap screen
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(content: Text('Swap coming soon')),
                               );
@@ -140,17 +140,16 @@ class HomeScreen extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: kSpace8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         Expanded(
-                          child: QuickActionButton(
+                          child: AppActionButton(
                             icon: Icons.account_balance,
                             label: 'Bridge',
                             color: colorScheme.primary,
                             onTap: () {
-                              // TODO: Navigate to bridge screen
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(content: Text('Bridge coming soon')),
                               );
@@ -158,12 +157,11 @@ class HomeScreen extends StatelessWidget {
                           ),
                         ),
                         Expanded(
-                          child: QuickActionButton(
+                          child: AppActionButton(
                             icon: Icons.lock,
                             label: 'Stake',
                             color: colorScheme.tertiary,
                             onTap: () {
-                              // TODO: Navigate to staking screen
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(content: Text('Staking coming soon')),
                               );
@@ -171,7 +169,7 @@ class HomeScreen extends StatelessWidget {
                           ),
                         ),
                         Expanded(
-                          child: QuickActionButton(
+                          child: AppActionButton(
                             icon: Icons.card_giftcard,
                             label: 'Rewards',
                             color: colorScheme.secondary,

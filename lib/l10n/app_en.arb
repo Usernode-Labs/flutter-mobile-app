@@ -24,6 +24,14 @@
   "@node": {
     "description": "Node tab label"
   },
+  "dapps": "dApps",
+  "@dapps": {
+    "description": "dApps tab label"
+  },
+  "profile": "Profile",
+  "@profile": {
+    "description": "Profile tab label"
+  },
   "nfcReader": "NFC Reader",
   "@nfcReader": {
     "description": "NFC Reader tab label"

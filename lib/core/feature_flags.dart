@@ -5,18 +5,19 @@ import 'package:flutter/services.dart' show rootBundle;
 /// Central place to manage app feature availability.
 ///
 /// Defaults can be overridden at build time using:
-///   flutter run --dart-define=ENABLED_FEATURES=home,wallet
+///   flutter run --dart-define=ENABLED_FEATURES=home,wallet,dapps,profile
 /// or
 ///   flutter run --dart-define=ENABLED_FEATURES=all
-enum AppFeature { home, wallet, node }
+enum AppFeature { home, wallet, dapps, profile, node }
 
 class FeatureFlags {
   /// Ordered list used to render navigation and related UI deterministically.
   static final List<AppFeature> ordered = [
-    // Default order: Node first (default tab), then Wallet
-    AppFeature.node,
-    AppFeature.wallet,
     AppFeature.home,
+    AppFeature.wallet,
+    AppFeature.dapps,
+    AppFeature.profile,
+    AppFeature.node,
   ];
 
   /// Compute enabled set from compile-time env or fallback defaults.
@@ -101,6 +102,10 @@ class FeatureFlags {
         return AppFeature.home;
       case 'wallet':
         return AppFeature.wallet;
+      case 'dapps':
+        return AppFeature.dapps;
+      case 'profile':
+        return AppFeature.profile;
       case 'node':
         return AppFeature.node;
       default:
@@ -113,7 +118,7 @@ class FeatureFlags {
     const csvDisabled =
         String.fromEnvironment('DISABLED_FEATURES', defaultValue: '');
     if (csv.trim().isEmpty) {
-      return {AppFeature.home, AppFeature.wallet, AppFeature.node};
+      return {AppFeature.home, AppFeature.wallet, AppFeature.dapps, AppFeature.profile, AppFeature.node};
     }
     final value = csv.trim().toLowerCase();
     if (value == 'all') {

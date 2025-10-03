@@ -27,6 +27,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get node => 'Node';
 
   @override
+  String get dapps => 'dApps';
+
+  @override
+  String get profile => 'Profile';
+
+  @override
   String get nfcReader => 'NFC Reader';
 
   @override

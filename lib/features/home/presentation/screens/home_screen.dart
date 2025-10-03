@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/core/widgets/horizontal_card_scroll.dart';
 import 'package:crypto_mobile_app/core/widgets/activity_list_item.dart';
 import 'package:crypto_mobile_app/features/rewards/presentation/screens/rewards_breakdown_screen.dart';
+import 'package:crypto_mobile_app/core/widgets/account_switcher.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -13,12 +14,16 @@ class HomeScreen extends StatelessWidget {
 
     return Scaffold(
       // Use scaffold defaults from theme for proper light/dark support
-      appBar: Navigator.of(context).canPop()
-          ? AppBar(
-              leading: const BackButton(),
-              centerTitle: false,
-            )
-          : null,
+      appBar: AppBar(
+        leading: Navigator.of(context).canPop() ? const BackButton() : null,
+        centerTitle: false,
+        actions: const [
+          Padding(
+            padding: EdgeInsets.only(right: 8),
+            child: AccountSwitcher(),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Column(

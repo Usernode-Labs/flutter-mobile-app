@@ -130,6 +130,18 @@ abstract class AppLocalizations {
   /// **'Node'**
   String get node;
 
+  /// dApps tab label
+  ///
+  /// In en, this message translates to:
+  /// **'dApps'**
+  String get dapps;
+
+  /// Profile tab label
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get profile;
+
   /// NFC Reader tab label
   ///
   /// In en, this message translates to:

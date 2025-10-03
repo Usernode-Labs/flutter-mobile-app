@@ -10,6 +10,7 @@ import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_rep
 import 'package:crypto_mobile_app/features/wallet/data/models/account.dart';
 import 'package:crypto_mobile_app/features/onboarding/presentation/screens/account_onboarding_screen.dart';
 import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
+import 'package:crypto_mobile_app/core/widgets/account_switcher.dart';
 import 'import_account_sheets.dart';
 import 'import_account_screens.dart';
 
@@ -683,14 +684,18 @@ class _WalletScreenState extends State<WalletScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: Navigator.of(context).canPop()
-          ? AppBar(
-              leading: const BackButton(),
-              elevation: 0,
-              backgroundColor: Colors.transparent,
-              centerTitle: false,
-            )
-          : null,
+      appBar: AppBar(
+        leading: Navigator.of(context).canPop() ? const BackButton() : null,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        centerTitle: false,
+        actions: const [
+          Padding(
+            padding: EdgeInsets.only(right: 8),
+            child: AccountSwitcher(),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _refreshWallet,

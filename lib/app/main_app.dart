@@ -3,6 +3,8 @@ import 'package:crypto_mobile_app/features/node/presentation/screens/node_status
 import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/gen_l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/features/wallet/presentation/screens/wallet_screen.dart';
+import 'package:crypto_mobile_app/features/dapps/presentation/screens/dapps_screen.dart';
+import 'package:crypto_mobile_app/features/profile/presentation/screens/profile_screen.dart';
 import 'package:crypto_mobile_app/core/feature_flags.dart';
 
 class MainApp extends StatefulWidget {
@@ -22,6 +24,10 @@ class _MainAppState extends State<MainApp> {
         return const HomeScreen();
       case AppFeature.wallet:
         return const WalletScreen();
+      case AppFeature.dapps:
+        return const DAppsScreen();
+      case AppFeature.profile:
+        return const ProfileScreen();
       case AppFeature.node:
         return const NodeStatusScreen();
     }
@@ -70,6 +76,16 @@ class _MainAppState extends State<MainApp> {
                   icon: const Icon(Icons.account_balance_wallet_outlined),
                   selectedIcon: const Icon(Icons.account_balance_wallet),
                   label: l10n.wallet,
+                ),
+              AppFeature.dapps => NavigationDestination(
+                  icon: const Icon(Icons.apps_outlined),
+                  selectedIcon: const Icon(Icons.apps),
+                  label: l10n.dapps,
+                ),
+              AppFeature.profile => NavigationDestination(
+                  icon: const Icon(Icons.person_outline),
+                  selectedIcon: const Icon(Icons.person),
+                  label: l10n.profile,
                 ),
               AppFeature.node => NavigationDestination(
                   icon: const Icon(Icons.hub_outlined),

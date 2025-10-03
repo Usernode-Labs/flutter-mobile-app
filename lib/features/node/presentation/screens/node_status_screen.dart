@@ -301,7 +301,7 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
                           color: Theme.of(context)
                               .colorScheme
                               .outline
-                              .withOpacity(0.2),
+                              .withValues(alpha: 0.2),
                           width: 1,
                         ),
                       ),
@@ -370,11 +370,9 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
 
   void _showBuildInfoDialog() {
     final env = rust.buildEnv();
-    final theme = context.mounted ? Theme.of(context) : null;
     showDialog(
       context: context,
       builder: (ctx) {
-        final cs = Theme.of(ctx).colorScheme;
         final textTheme = Theme.of(ctx).textTheme;
         final shortCommit = env.git.commitHash.length >= 7
             ? env.git.commitHash.substring(0, 7)
@@ -423,6 +421,7 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     );
   }
 
+  // ignore: unused_element
   Color _statusColor(ThemeData theme, PeerConnectionStatus s) {
     switch (s) {
       case PeerConnectionStatus.connected:
@@ -459,6 +458,7 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
 
   // Unused _extractPeerId removed
 
+  // ignore: unused_element
   String? _peerIp(RpcPeerInfo p) {
     // Prefer address field, then connectingDetails
     final addr = _extractIpPort(p.address);
@@ -467,6 +467,7 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     return det;
   }
 
+  // ignore: unused_element
   String? _peerIpOnly(RpcPeerInfo p) {
     // Prefer address field, then connectingDetails
     final addr = _extractIpOnly(p.address);
@@ -523,8 +524,9 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     final ipv6Br = RegExp(r'\[([0-9a-fA-F:]+)\]').firstMatch(s);
     if (ipv6Br != null) return ipv6Br.group(0);
     final ipv6Raw = RegExp(r'\b[0-9a-fA-F:]{2,}\b').firstMatch(s);
-    if (ipv6Raw != null && ipv6Raw.group(0)!.contains(':'))
+    if (ipv6Raw != null && ipv6Raw.group(0)!.contains(':')) {
       return ipv6Raw.group(0);
+    }
     // IPv4 only
     final ipv4 = RegExp(r'(\d{1,3}(?:\.\d{1,3}){3})').firstMatch(s);
     if (ipv4 != null) return ipv4.group(1);
@@ -561,6 +563,7 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     return dt.toIso8601String();
   }
 
+  // ignore: unused_element
   String _formatTimeAgo(BigInt value) {
     // Convert using the same unit heuristic as _formatUtc
     final iso = _formatUtc(value);
@@ -689,13 +692,9 @@ class _ProgressData {
 class _StatusItem extends StatelessWidget {
   final String label;
   final String value;
-  final IconData? leadingIcon;
-  final VoidCallback? onLeadingTap;
   const _StatusItem({
     required this.label,
     required this.value,
-    this.leadingIcon,
-    this.onLeadingTap,
   });
 
   @override
@@ -704,24 +703,9 @@ class _StatusItem extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (leadingIcon != null)
-              InkWell(
-                onTap: onLeadingTap,
-                borderRadius: BorderRadius.circular(4),
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: Icon(leadingIcon,
-                      size: 16, color: theme.colorScheme.onSurfaceVariant),
-                ),
-              ),
-            Text(label,
-                style: theme.textTheme.bodyMedium
-                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-          ],
-        ),
+        Text(label,
+            style: theme.textTheme.bodyMedium
+                ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
         const SizedBox(height: 4),
         Text(value,
             style: theme.textTheme.titleMedium
@@ -768,7 +752,7 @@ class _SlotItem extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.1),
+                  color: iconColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8)),
               child: Icon(icon, color: iconColor, size: 20),
             ),

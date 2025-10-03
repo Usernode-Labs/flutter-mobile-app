@@ -10,7 +10,6 @@ import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_rep
 import 'package:crypto_mobile_app/features/wallet/data/models/account.dart';
 import 'package:crypto_mobile_app/features/onboarding/presentation/screens/account_onboarding_screen.dart';
 import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
-import 'package:crypto_mobile_app/core/widgets/account_switcher.dart';
 import 'import_account_sheets.dart';
 import 'import_account_screens.dart';
 
@@ -32,8 +31,8 @@ class _WalletScreenState extends State<WalletScreen> {
       theme.colorScheme.tertiary,
     ];
     final idx = addr.hashCode.abs() % palette.length;
-      return palette[idx];
-    }
+    return palette[idx];
+  }
 
   String _shortAddr(String addr) {
     if (addr.length <= 12) return addr;
@@ -65,6 +64,8 @@ class _WalletScreenState extends State<WalletScreen> {
     }
   }
 
+  // Account manager removed - single account mode
+  // ignore: unused_element
   Future<void> _openAccountManager() async {
     final repo = await AccountsRepository.create();
     final items = await repo.list();
@@ -689,12 +690,6 @@ class _WalletScreenState extends State<WalletScreen> {
         elevation: 0,
         backgroundColor: Colors.transparent,
         centerTitle: false,
-        actions: const [
-          Padding(
-            padding: EdgeInsets.only(right: 8),
-            child: AccountSwitcher(),
-          ),
-        ],
       ),
       body: SafeArea(
         child: RefreshIndicator(
@@ -706,9 +701,9 @@ class _WalletScreenState extends State<WalletScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (_account != null) ...[
-                  // Header section matching Gallery-Mobile.png
+                  // Header section - display only (single account mode)
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                     child: Row(
                       children: [
                         CircleAvatar(
@@ -723,7 +718,7 @@ class _WalletScreenState extends State<WalletScreen> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            '${_account!.name} (${_shortAddr(_account!.address)})',
+                            _shortAddr(_account!.address),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.headlineSmall?.copyWith(
@@ -731,16 +726,6 @@ class _WalletScreenState extends State<WalletScreen> {
                               fontSize: 18,
                             ),
                           ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.sync, size: 24),
-                          onPressed: _refreshWallet,
-                          tooltip: 'Refresh',
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.settings_outlined, size: 24),
-                          onPressed: _openAccountManager,
-                          tooltip: AppLocalizations.of(context).manageAccounts,
                         ),
                       ],
                     ),

@@ -101,7 +101,7 @@ class SentryUtil {
       message,
       level: level,
       withScope: (scope) {
-        data.forEach((k, v) => scope.setExtra(k, v));
+        scope.setContexts('extras', data);
       },
     );
   }
@@ -118,7 +118,9 @@ class SentryUtil {
       message,
       level: level,
       withScope: (scope) {
-        extras.forEach((k, v) => scope.setExtra(k, v));
+        if (extras.isNotEmpty) {
+          scope.setContexts('extras', extras);
+        }
         final bytes = utf8.encode(content);
         scope.addAttachment(
           SentryAttachment.fromIntList(bytes, filename, contentType: contentType),

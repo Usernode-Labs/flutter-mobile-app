@@ -1,4 +1,10 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:crypto_mobile_app/features/wallet/data/models/account.dart';
+import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
+import 'package:crypto_mobile_app/features/onboarding/presentation/screens/single_account_onboarding_screen.dart';
 
 /// Profile Screen - User profile, identity, rewards, and settings
 ///
@@ -8,13 +14,60 @@ import 'package:flutter/material.dart';
 /// - Rewards, tier, and points
 /// - Account management
 /// - App preferences and settings
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  AccountMeta? _account;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAccount();
+  }
+
+  Future<void> _loadAccount() async {
+    final repo = await AccountsRepository.create();
+    final account = await repo.getActive();
+    if (!mounted) return;
+    setState(() {
+      _account = account;
+      _isLoading = false;
+    });
+  }
+
+  String _shortAddr(String addr) {
+    if (addr.length <= 12) return addr;
+    final start = addr.substring(0, 6);
+    final end = addr.substring(addr.length - 4);
+    return '$start…$end';
+  }
+
+  Color _accountColor(ThemeData theme, String addr) {
+    final palette = [
+      theme.colorScheme.primary,
+      theme.colorScheme.secondary,
+      theme.colorScheme.tertiary,
+    ];
+    final idx = addr.hashCode.abs() % palette.length;
+    return palette[idx];
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -40,25 +93,59 @@ class ProfileScreen extends StatelessWidget {
                   children: [
                     CircleAvatar(
                       radius: 48,
-                      backgroundColor: colorScheme.primaryContainer,
-                      child: Icon(
-                        Icons.person,
-                        size: 48,
-                        color: colorScheme.onPrimaryContainer,
-                      ),
+                      backgroundColor: _account != null
+                          ? _accountColor(theme, _account!.address).withValues(alpha: 0.2)
+                          : colorScheme.primaryContainer,
+                      child: _account != null
+                          ? Text(
+                              'M',
+                              style: theme.textTheme.displaySmall?.copyWith(
+                                color: _accountColor(theme, _account!.address),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            )
+                          : Icon(
+                              Icons.person,
+                              size: 48,
+                              color: colorScheme.onPrimaryContainer,
+                            ),
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Account 1',
+                      'My Account',
                       style: theme.textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      '0x1234...5678',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurface.withValues(alpha: 0.6),
+                    GestureDetector(
+                      onTap: () {
+                        if (_account != null) {
+                          Clipboard.setData(ClipboardData(text: _account!.address));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Address copied to clipboard'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      },
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _account != null ? _shortAddr(_account!.address) : '—',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurface.withValues(alpha: 0.6),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.copy,
+                            size: 16,
+                            color: colorScheme.onSurface.withValues(alpha: 0.6),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -170,40 +257,6 @@ class ProfileScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
 
-              // Account Management Section
-              _SectionCard(
-                title: 'Account Management',
-                icon: Icons.account_circle,
-                colorScheme: colorScheme,
-                theme: theme,
-                child: Column(
-                  children: [
-                    _ListTileButton(
-                      icon: Icons.key,
-                      title: 'Manage Accounts',
-                      onTap: () {
-                        // TODO: Navigate to account management
-                      },
-                    ),
-                    _ListTileButton(
-                      icon: Icons.file_upload,
-                      title: 'Export Keys',
-                      onTap: () {
-                        // TODO: Export keys
-                      },
-                    ),
-                    _ListTileButton(
-                      icon: Icons.file_download,
-                      title: 'Import Account',
-                      onTap: () {
-                        // TODO: Import account
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
               // Preferences Section
               _SectionCard(
                 title: 'Preferences',
@@ -217,7 +270,33 @@ class ProfileScreen extends StatelessWidget {
                       title: 'Theme',
                       trailing: 'System',
                       onTap: () {
-                        // TODO: Theme selector
+                        showDialog(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Theme'),
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                ListTile(
+                                  leading: const Icon(Icons.brightness_auto),
+                                  title: const Text('System'),
+                                  trailing: const Icon(Icons.check),
+                                  onTap: () => Navigator.pop(ctx),
+                                ),
+                                ListTile(
+                                  leading: const Icon(Icons.light_mode),
+                                  title: const Text('Light'),
+                                  onTap: () => Navigator.pop(ctx),
+                                ),
+                                ListTile(
+                                  leading: const Icon(Icons.dark_mode),
+                                  title: const Text('Dark'),
+                                  onTap: () => Navigator.pop(ctx),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
                       },
                     ),
                     _ListTileButton(
@@ -225,7 +304,40 @@ class ProfileScreen extends StatelessWidget {
                       title: 'Language',
                       trailing: 'English',
                       onTap: () {
-                        // TODO: Language selector
+                        showDialog(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Language'),
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                ListTile(
+                                  title: const Text('English'),
+                                  trailing: const Icon(Icons.check),
+                                  onTap: () => Navigator.pop(ctx),
+                                ),
+                                ListTile(
+                                  title: const Text('Français'),
+                                  onTap: () {
+                                    Navigator.pop(ctx);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Language support coming soon')),
+                                    );
+                                  },
+                                ),
+                                ListTile(
+                                  title: const Text('Español'),
+                                  onTap: () {
+                                    Navigator.pop(ctx);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Language support coming soon')),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
                       },
                     ),
                     _ListTileButton(
@@ -233,8 +345,59 @@ class ProfileScreen extends StatelessWidget {
                       title: 'Currency',
                       trailing: 'USD',
                       onTap: () {
-                        // TODO: Currency selector
+                        showDialog(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Currency'),
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                ListTile(
+                                  title: const Text('USD (\$)'),
+                                  trailing: const Icon(Icons.check),
+                                  onTap: () => Navigator.pop(ctx),
+                                ),
+                                ListTile(
+                                  title: const Text('EUR (€)'),
+                                  onTap: () {
+                                    Navigator.pop(ctx);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Currency support coming soon')),
+                                    );
+                                  },
+                                ),
+                                ListTile(
+                                  title: const Text('GBP (£)'),
+                                  onTap: () {
+                                    Navigator.pop(ctx);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Currency support coming soon')),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
                       },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Developer Section (for testing)
+              _SectionCard(
+                title: 'Developer',
+                icon: Icons.code,
+                colorScheme: colorScheme,
+                theme: theme,
+                child: Column(
+                  children: [
+                    _ListTileButton(
+                      icon: Icons.delete_forever,
+                      title: 'Delete Account',
+                      onTap: _showDeleteAccountDialog,
                     ),
                   ],
                 ),
@@ -244,6 +407,94 @@ class ProfileScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _showDeleteAccountDialog() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: Icon(
+          Icons.warning_amber_rounded,
+          color: Theme.of(ctx).colorScheme.error,
+          size: 48,
+        ),
+        title: const Text('Delete Account'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This will permanently delete your account and all associated data.',
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '⚠️ This action cannot be undone!',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Theme.of(ctx).colorScheme.error,
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Make sure you have backed up your recovery phrase if you want to restore this account later.',
+              style: TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            child: const Text('Delete Account'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _deleteAccount();
+    }
+  }
+
+  Future<void> _deleteAccount() async {
+    try {
+      final repo = await AccountsRepository.create();
+
+      // Delete the active account
+      if (_account != null) {
+        await repo.deleteAccount(_account!.id);
+      }
+
+      if (!mounted) return;
+
+      // Navigate directly to onboarding screen
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) => const SingleAccountOnboardingScreen(),
+        ),
+        (_) => false,
+      );
+
+      // Show success message on the new screen
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Account deleted successfully')),
+          );
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to delete account: $e')),
+      );
+    }
   }
 }
 

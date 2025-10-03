@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:crypto_mobile_app/core/widgets/account_switcher.dart';
+import 'package:crypto_mobile_app/features/dapps/presentation/widgets/dapp_card.dart';
 
 /// dApps Screen - App Store for decentralized applications
 ///
@@ -8,8 +8,23 @@ import 'package:crypto_mobile_app/core/widgets/account_switcher.dart';
 /// - Category filters (DeFi, NFT, Gaming, DAO, etc.)
 /// - First-party dApps (Staking, Liquidity, Bridge, etc.)
 /// - Third-party dApps from lib/dapps/
-class DAppsScreen extends StatelessWidget {
+class DAppsScreen extends StatefulWidget {
   const DAppsScreen({super.key});
+
+  @override
+  State<DAppsScreen> createState() => _DAppsScreenState();
+}
+
+class _DAppsScreenState extends State<DAppsScreen> {
+  String _selectedCategory = 'All';
+
+  final List<String> _categories = [
+    'All',
+    'DeFi',
+    'NFT',
+    'Gaming',
+    'DAO',
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -19,98 +34,152 @@ class DAppsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('dApps'),
-        actions: const [
-          Padding(
-            padding: EdgeInsets.only(right: 8),
-            child: AccountSwitcher(),
-          ),
-        ],
       ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.apps_outlined,
-                size: 80,
-                color: colorScheme.primary.withValues(alpha: 0.5),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'dApps Coming Soon',
-                style: theme.textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Discover and launch decentralized applications.\nStake, swap, provide liquidity, and more.',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: colorScheme.onSurface.withValues(alpha: 0.6),
-                ),
-              ),
-              const SizedBox(height: 32),
-              // Preview of future categories
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                alignment: WrapAlignment.center,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Category filters
+          SizedBox(
+            height: 56,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              itemCount: _categories.length,
+              itemBuilder: (context, index) {
+                final category = _categories[index];
+                final isSelected = category == _selectedCategory;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: FilterChip(
+                    label: Text(category),
+                    selected: isSelected,
+                    onSelected: (selected) {
+                      setState(() {
+                        _selectedCategory = category;
+                      });
+                    },
+                    selectedColor: colorScheme.primaryContainer,
+                    checkmarkColor: colorScheme.onPrimaryContainer,
+                  ),
+                );
+              },
+            ),
+          ),
+
+          // dApps list
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _CategoryChip(
+                  // First-party dApps section
+                  Text(
+                    'First-Party dApps',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  DAppCard(
+                    name: 'Staking',
+                    description: 'Lock tokens to earn rewards and boost your tier',
+                    icon: Icons.lock,
+                    color: colorScheme.tertiary,
+                    badge: 'New',
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Staking coming soon')),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+
+                  DAppCard(
+                    name: 'Swap',
+                    description: 'Exchange tokens instantly at best rates',
+                    icon: Icons.swap_horiz,
+                    color: colorScheme.secondary,
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Swap coming soon')),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+
+                  DAppCard(
+                    name: 'Bridge',
+                    description: 'Transfer assets across different blockchains',
                     icon: Icons.account_balance,
-                    label: 'DeFi',
-                    colorScheme: colorScheme,
+                    color: colorScheme.primary,
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Bridge coming soon')),
+                      );
+                    },
                   ),
-                  _CategoryChip(
-                    icon: Icons.palette,
-                    label: 'NFT',
-                    colorScheme: colorScheme,
+                  const SizedBox(height: 12),
+
+                  DAppCard(
+                    name: 'Liquidity Pool',
+                    description: 'Provide liquidity and earn trading fees',
+                    icon: Icons.water_drop,
+                    color: colorScheme.tertiary,
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Liquidity Pool coming soon')),
+                      );
+                    },
                   ),
-                  _CategoryChip(
-                    icon: Icons.videogame_asset,
-                    label: 'Gaming',
-                    colorScheme: colorScheme,
+
+                  const SizedBox(height: 32),
+
+                  // Third-party dApps section (placeholder)
+                  Text(
+                    'Third-Party dApps',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                  _CategoryChip(
-                    icon: Icons.how_to_vote,
-                    label: 'DAO',
-                    colorScheme: colorScheme,
-                  ),
-                  _CategoryChip(
-                    icon: Icons.analytics,
-                    label: 'Analytics',
-                    colorScheme: colorScheme,
+                  const SizedBox(height: 12),
+
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 32),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.apps_outlined,
+                            size: 64,
+                            color: colorScheme.onSurface.withValues(alpha: 0.3),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No third-party dApps yet',
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              color: colorScheme.onSurface.withValues(alpha: 0.5),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Developers can add their dApps to lib/dapps/',
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurface.withValues(alpha: 0.4),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
-    );
-  }
-}
-
-class _CategoryChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final ColorScheme colorScheme;
-
-  const _CategoryChip({
-    required this.icon,
-    required this.label,
-    required this.colorScheme,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Chip(
-      avatar: Icon(icon, size: 18),
-      label: Text(label),
-      backgroundColor: colorScheme.secondaryContainer.withValues(alpha: 0.5),
     );
   }
 }

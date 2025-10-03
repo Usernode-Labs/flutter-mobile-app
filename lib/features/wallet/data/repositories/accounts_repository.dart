@@ -145,6 +145,28 @@ class AccountsRepository {
     await _saveIndex(updated);
   }
 
+  /// Delete a specific account by ID
+  Future<void> deleteAccount(String id) async {
+    final items = await list();
+    final idx = items.indexWhere((e) => e.id == id);
+    if (idx < 0) return;
+
+    // Remove from secure storage
+    await _secure.delete(key: 'account:$id:privateKey');
+    await _secure.delete(key: 'account:$id:publicKey');
+    await _secure.delete(key: 'account:$id:address');
+    await _secure.delete(key: 'account:$id:hdIndex');
+
+    // Remove from index
+    final updated = [...items]..removeAt(idx);
+    await _saveIndex(updated);
+
+    // Clear active ID if it was the deleted account
+    if (getActiveId() == id) {
+      await _prefs.remove(_kActiveIdKey);
+    }
+  }
+
   /// Danger: Delete all stored accounts (dev-only usage).
   Future<void> deleteAll() async {
     final items = await list();

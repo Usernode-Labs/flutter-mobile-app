@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/core/constants/app_constants.dart';
 import 'package:crypto_mobile_app/app/main_app.dart';
-import 'package:crypto_mobile_app/features/onboarding/presentation/screens/account_onboarding_screen.dart';
+import 'package:crypto_mobile_app/features/onboarding/presentation/screens/single_account_onboarding_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
 import 'package:crypto_mobile_app/gen_l10n/app_localizations.dart';
 
@@ -51,7 +51,7 @@ class _SplashScreenState extends State<SplashScreen>
       if (!hasAny) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const AccountOnboardingScreen()),
+          MaterialPageRoute(builder: (context) => const SingleAccountOnboardingScreen()),
         );
       } else {
         Navigator.pushReplacement(

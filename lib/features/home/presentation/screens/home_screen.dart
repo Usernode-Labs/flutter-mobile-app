@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:crypto_mobile_app/core/widgets/horizontal_card_scroll.dart';
 import 'package:crypto_mobile_app/core/widgets/activity_list_item.dart';
+import 'package:crypto_mobile_app/core/widgets/quick_action_button.dart';
 import 'package:crypto_mobile_app/features/rewards/presentation/screens/rewards_breakdown_screen.dart';
-import 'package:crypto_mobile_app/core/widgets/account_switcher.dart';
+import 'package:crypto_mobile_app/features/wallet/presentation/screens/send_screen.dart';
+import 'package:crypto_mobile_app/features/wallet/presentation/screens/receive_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -14,16 +15,12 @@ class HomeScreen extends StatelessWidget {
 
     return Scaffold(
       // Use scaffold defaults from theme for proper light/dark support
-      appBar: AppBar(
-        leading: Navigator.of(context).canPop() ? const BackButton() : null,
-        centerTitle: false,
-        actions: const [
-          Padding(
-            padding: EdgeInsets.only(right: 8),
-            child: AccountSwitcher(),
-          ),
-        ],
-      ),
+      appBar: Navigator.of(context).canPop()
+          ? AppBar(
+              leading: const BackButton(),
+              centerTitle: false,
+            )
+          : null,
       body: SafeArea(
         child: SingleChildScrollView(
           child: Column(
@@ -80,11 +77,121 @@ class HomeScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 8),
-              // Horizontal action cards (kept as requested)
-              const SizedBox(height: 196, child: HorizontalCardScroll()),
+              const SizedBox(height: 16),
 
-              const SizedBox(height: 20),
+              // Quick Actions Grid
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Quick Actions',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        Expanded(
+                          child: QuickActionButton(
+                            icon: Icons.arrow_upward,
+                            label: 'Send',
+                            color: colorScheme.primary,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const SendScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        Expanded(
+                          child: QuickActionButton(
+                            icon: Icons.arrow_downward,
+                            label: 'Receive',
+                            color: colorScheme.tertiary,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const ReceiveScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        Expanded(
+                          child: QuickActionButton(
+                            icon: Icons.swap_horiz,
+                            label: 'Swap',
+                            color: colorScheme.secondary,
+                            onTap: () {
+                              // TODO: Navigate to swap screen
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Swap coming soon')),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        Expanded(
+                          child: QuickActionButton(
+                            icon: Icons.account_balance,
+                            label: 'Bridge',
+                            color: colorScheme.primary,
+                            onTap: () {
+                              // TODO: Navigate to bridge screen
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Bridge coming soon')),
+                              );
+                            },
+                          ),
+                        ),
+                        Expanded(
+                          child: QuickActionButton(
+                            icon: Icons.lock,
+                            label: 'Stake',
+                            color: colorScheme.tertiary,
+                            onTap: () {
+                              // TODO: Navigate to staking screen
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Staking coming soon')),
+                              );
+                            },
+                          ),
+                        ),
+                        Expanded(
+                          child: QuickActionButton(
+                            icon: Icons.card_giftcard,
+                            label: 'Rewards',
+                            color: colorScheme.secondary,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const RewardsBreakdownScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
 
               // Rewards and projection card
               Padding(

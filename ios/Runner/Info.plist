@@ -34,5 +34,11 @@
 	<string>Main</string>
 	<key>UIRequiresFullScreen</key>
 	<true/>
+    <key>NFCReaderUsageDescription</key>
+    <string>NFC is used to read your ID document.</string>
+    <key>NSCameraUsageDescription</key>
+    <string>Camera is used to scan MRZ on your document.</string>
+    <key>NSFaceIDUsageDescription</key>
+    <string>Biometrics are used to unlock your private data.</string>
 </dict>
 </plist>

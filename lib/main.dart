@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'utils/sentry.dart';
-import 'theme/theme.dart';
-import 'screens/splash/splash_screen.dart';
+import 'package:crypto_mobile_app/core/utils/sentry.dart';
+import 'package:crypto_mobile_app/core/theme/theme.dart';
+import 'package:crypto_mobile_app/features/splash/presentation/screens/splash_screen.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'gen_l10n/app_localizations.dart';
-import 'services/rust_backend_service.dart';
-import 'config/feature_flags.dart';
-import 'utils/logger.dart';
+import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
+import 'package:crypto_mobile_app/core/feature_flags.dart';
+import 'package:crypto_mobile_app/core/utils/logger.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

@@ -1,4 +1,4 @@
 {
-  "enabled": ["wallet", "node", "home"],
-  "order": ["home", "node", "wallet"]
+  "enabled": ["home", "wallet", "dapps", "profile", "node"],
+  "order": ["home", "wallet", "dapps", "profile", "node"]
 }

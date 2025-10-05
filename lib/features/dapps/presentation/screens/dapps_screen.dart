@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/features/dapps/presentation/widgets/dapp_card.dart';
 
 /// dApps Screen - App Store for decentralized applications
@@ -32,16 +33,17 @@ class _DAppsScreenState extends State<DAppsScreen> {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('dApps'),
+      appBar: const AppAppBar(
+        title: 'dApps',
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Category filters
-          SizedBox(
-            height: 56,
-            child: ListView.builder(
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Category filters
+            SizedBox(
+              height: 56,
+              child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               itemCount: _categories.length,
@@ -179,6 +181,7 @@ class _DAppsScreenState extends State<DAppsScreen> {
             ),
           ),
         ],
+        ),
       ),
     );
   }

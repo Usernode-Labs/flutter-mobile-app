@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/core/design/design_tokens.dart';
 import 'package:crypto_mobile_app/core/widgets/activity_list_item.dart';
 import 'package:crypto_mobile_app/core/widgets/app_action_button.dart';
+import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/features/rewards/presentation/screens/rewards_breakdown_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/presentation/screens/send_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/presentation/screens/receive_screen.dart';
@@ -15,13 +16,9 @@ class HomeScreen extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      // Use scaffold defaults from theme for proper light/dark support
-      appBar: Navigator.of(context).canPop()
-          ? AppBar(
-              leading: const BackButton(),
-              centerTitle: false,
-            )
-          : null,
+      appBar: const AppAppBar(
+        title: 'Home',
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Column(

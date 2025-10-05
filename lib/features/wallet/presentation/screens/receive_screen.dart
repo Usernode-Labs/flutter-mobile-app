@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
+import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/features/wallet/data/models/receive_models.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/receive_service.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
@@ -65,20 +65,8 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Text(
-          'Receive',
-          style: theme.textTheme.titleLarge?.copyWith(
-            color: theme.colorScheme.onSurface,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        centerTitle: false,
+      appBar: const AppAppBar(
+        title: 'Receive',
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())

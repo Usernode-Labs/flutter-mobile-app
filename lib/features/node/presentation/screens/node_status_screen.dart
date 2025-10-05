@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/gen_l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -139,8 +140,12 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final backendId = RustBackendService.instance.instanceId;
-    return SafeArea(
-      child: RefreshIndicator(
+    return Scaffold(
+      appBar: const AppAppBar(
+        title: 'Node Status',
+      ),
+      body: SafeArea(
+        child: RefreshIndicator(
         onRefresh: _refresh,
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -363,6 +368,7 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
               ),
             ],
           ],
+        ),
         ),
       ),
     );
@@ -862,14 +868,6 @@ class SwapPlaceholder extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: Navigator.of(context).canPop()
-          ? AppBar(
-              leading: const BackButton(),
-              elevation: 0,
-              backgroundColor: Colors.transparent,
-              centerTitle: false,
-            )
-          : null,
       body: SafeArea(
         child: Center(
           child: Column(
@@ -896,14 +894,6 @@ class StatusPlaceholder extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: Navigator.of(context).canPop()
-          ? AppBar(
-              leading: const BackButton(),
-              elevation: 0,
-              backgroundColor: Colors.transparent,
-              centerTitle: false,
-            )
-          : null,
       body: SafeArea(
         child: Center(
           child: Column(
@@ -930,14 +920,6 @@ class RewardsPlaceholder extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: Navigator.of(context).canPop()
-          ? AppBar(
-              leading: const BackButton(),
-              elevation: 0,
-              backgroundColor: Colors.transparent,
-              centerTitle: false,
-            )
-          : null,
       body: SafeArea(
         child: Center(
           child: Column(

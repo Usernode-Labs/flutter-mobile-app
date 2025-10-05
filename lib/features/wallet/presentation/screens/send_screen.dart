@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'review_send_screen.dart';
 import 'package:flutter/services.dart';
+import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
+import 'review_send_screen.dart';
 
 class SendScreen extends StatefulWidget {
   const SendScreen({super.key});
@@ -39,7 +40,8 @@ class _SendScreenState extends State<SendScreen> {
 
   // Allow only digits and a single optional decimal separator (dot or comma).
   // Normalizes commas to dots so parsing works with double.parse.
-  static final TextInputFormatter decimalFormatter = TextInputFormatter.withFunction(
+  static final TextInputFormatter decimalFormatter =
+      TextInputFormatter.withFunction(
     (oldValue, newValue) {
       final raw = newValue.text;
       if (raw.isEmpty) return newValue;
@@ -55,7 +57,10 @@ class _SendScreenState extends State<SendScreen> {
         baseOffset: sel.baseOffset.clamp(0, normalized.length),
         extentOffset: sel.extentOffset.clamp(0, normalized.length),
       );
-      return newValue.copyWith(text: normalized, selection: adjustedSelection, composing: TextRange.empty);
+      return newValue.copyWith(
+          text: normalized,
+          selection: adjustedSelection,
+          composing: TextRange.empty);
     },
   );
 
@@ -64,7 +69,9 @@ class _SendScreenState extends State<SendScreen> {
 
     final recipient = _recipientController.text.trim();
     final amount = _amountController.text.trim();
-    final memo = _memoController.text.trim().isEmpty ? null : _memoController.text.trim();
+    final memo = _memoController.text.trim().isEmpty
+        ? null
+        : _memoController.text.trim();
     final networkFee = _networkFeeController.text.trim().isEmpty
         ? null
         : _networkFeeController.text.trim();
@@ -85,23 +92,11 @@ class _SendScreenState extends State<SendScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back,
-              color: Theme.of(context).colorScheme.onSurface),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Text(
-          'Send',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface,
-                fontWeight: FontWeight.w600,
-              ),
-        ),
-        centerTitle: false,
+      appBar: const AppAppBar(
+        title: 'Send',
       ),
-      body: Padding(
+      body: SafeArea(
+        child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
@@ -167,7 +162,8 @@ class _SendScreenState extends State<SendScreen> {
                 margin: const EdgeInsets.only(bottom: 4),
                 child: TextFormField(
                   controller: _amountController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: false),
+                  keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true, signed: false),
                   inputFormatters: [decimalFormatter],
                   enableSuggestions: false,
                   autocorrect: false,
@@ -291,7 +287,8 @@ class _SendScreenState extends State<SendScreen> {
                 margin: const EdgeInsets.only(bottom: 4),
                 child: TextFormField(
                   controller: _networkFeeController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: false),
+                  keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true, signed: false),
                   inputFormatters: [decimalFormatter],
                   enableSuggestions: false,
                   autocorrect: false,
@@ -373,7 +370,10 @@ class _SendScreenState extends State<SendScreen> {
                       ),
                       child: Text(
                         'Send',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(
                               color: Theme.of(context).colorScheme.onPrimary,
                               fontWeight: FontWeight.w600,
                               fontSize: 18,
@@ -387,6 +387,6 @@ class _SendScreenState extends State<SendScreen> {
           ),
         ),
       ),
-    );
+    ));
   }
 }

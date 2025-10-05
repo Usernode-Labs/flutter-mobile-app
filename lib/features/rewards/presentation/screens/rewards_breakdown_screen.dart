@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 
 class RewardsBreakdownScreen extends StatelessWidget {
   const RewardsBreakdownScreen({super.key});
@@ -9,17 +10,11 @@ class RewardsBreakdownScreen extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Rewards Breakdown',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        centerTitle: false,
-        leading: const BackButton(),
+      appBar: const AppAppBar(
+        title: 'Rewards Breakdown',
       ),
-      body: SingleChildScrollView(
+      body: SafeArea(
+        child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -101,7 +96,7 @@ class RewardsBreakdownScreen extends StatelessWidget {
           ],
         ),
       ),
-    );
+    ));
   }
 
   Widget _buildCurrentEpochSection(ThemeData theme, ColorScheme colorScheme) {

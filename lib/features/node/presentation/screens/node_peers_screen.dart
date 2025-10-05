@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
-import 'package:crypto_mobile_app/gen_l10n/app_localizations.dart';
 
 class NodePeersScreen extends StatelessWidget {
   final List<RpcPeerInfo> peers;
@@ -9,11 +9,9 @@ class NodePeersScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(
-        title: Text('${l10n.peersLabel} (${peers.length})'),
-        centerTitle: false,
+      appBar: const AppAppBar(
+        title: 'Node Peers',
       ),
       body: SafeArea(
         child: ListView.separated(

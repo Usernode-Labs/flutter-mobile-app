@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 
 class BlockDetailsScreen extends StatelessWidget {
   final int blockNumber;
@@ -13,12 +14,8 @@ class BlockDetailsScreen extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Produced block at $blockNumber'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: theme.colorScheme.onSurface,
-        centerTitle: false,
+      appBar: const AppAppBar(
+        title: 'Block Details',
       ),
       body: SafeArea(
         child: ListView(

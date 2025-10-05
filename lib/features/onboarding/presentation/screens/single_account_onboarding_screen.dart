@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:bip39/bip39.dart' as bip39;
+import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
 import 'package:crypto_mobile_app/app/main_app.dart';
 import 'package:crypto_mobile_app/gen_l10n/app_localizations.dart';
@@ -179,11 +180,8 @@ class _SingleAccountOnboardingScreenState
     return PopScope(
       canPop: false,
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Create Your Account'),
-          elevation: 0,
-          centerTitle: false,
-          backgroundColor: Colors.transparent,
+        appBar: const AppAppBar(
+          title: 'Account Setup',
           automaticallyImplyLeading: false,
         ),
         body: SafeArea(

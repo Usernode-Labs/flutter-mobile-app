@@ -1,8 +1,8 @@
 // ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/core/design/design_tokens.dart';
-import 'package:crypto_mobile_app/core/widgets/wallet_app_bar.dart';
 import 'package:crypto_mobile_app/core/widgets/app_action_button.dart';
+import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/core/widgets/app_card.dart';
 import 'package:crypto_mobile_app/gen_l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/wallet_service.dart';
@@ -103,8 +103,8 @@ class _WalletScreenState extends State<WalletScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: WalletAppBar(
-        automaticallyImplyLeading: Navigator.of(context).canPop(),
+      appBar: const AppAppBar(
+        title: 'Wallet',
       ),
       body: SafeArea(
         child: RefreshIndicator(

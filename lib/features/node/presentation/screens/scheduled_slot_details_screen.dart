@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 
 class ScheduledSlotDetailsScreen extends StatelessWidget {
   final int slotNumber;
@@ -13,12 +14,8 @@ class ScheduledSlotDetailsScreen extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Scheduled at slot $slotNumber'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: theme.colorScheme.onSurface,
-        centerTitle: false,
+      appBar: const AppAppBar(
+        title: 'Scheduled Slot Details',
       ),
       body: SafeArea(
         child: ListView(

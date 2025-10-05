@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'send_success_screen.dart';
 
 class ReviewSendScreen extends StatefulWidget {
@@ -53,6 +54,7 @@ class _ReviewSendScreenState extends State<ReviewSendScreen> {
       ),
     );
   }
+
   Future<void> _processAndNavigate() async {
     // Show modal processing overlay
     showDialog(
@@ -78,30 +80,18 @@ class _ReviewSendScreenState extends State<ReviewSendScreen> {
     final totalVal = (amountVal ?? 0) + (feeVal ?? 0);
 
     return Scaffold(
-      appBar: AppBar(
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back,
-              color: Theme.of(context).colorScheme.onSurface),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Text(
-          'Review',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface,
-                fontWeight: FontWeight.w600,
-              ),
-        ),
-        centerTitle: false,
+      appBar: const AppAppBar(
+        title: 'Review Send',
       ),
-      body: Padding(
+      body: SafeArea(
+        child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Card(
-              shape:
-                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               elevation: 0,
               color: Theme.of(context).colorScheme.surface,
               child: Padding(
@@ -111,33 +101,44 @@ class _ReviewSendScreenState extends State<ReviewSendScreen> {
                   children: [
                     // Amount big and centered
                     Text(
-                      (amountVal != null) ? amountVal.toStringAsFixed(2) : (widget.amount ?? ''),
-                      style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
+                      (amountVal != null)
+                          ? amountVal.toStringAsFixed(2)
+                          : (widget.amount ?? ''),
+                      style: const TextStyle(
+                          fontSize: 28, fontWeight: FontWeight.w700),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Amount',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 16),
                     const Divider(height: 1),
                     _kvRow('To', _shortAddress(widget.recipientAddress)),
-                    if ((widget.memo ?? '').isNotEmpty) _kvRow('Memo', widget.memo!.trim()),
+                    if ((widget.memo ?? '').isNotEmpty)
+                      _kvRow('Memo', widget.memo!.trim()),
                     if ((widget.networkFee ?? '').isNotEmpty)
-                      _kvRow('Network fee', feeVal != null ? feeVal.toStringAsFixed(4) : widget.networkFee!.trim()),
+                      _kvRow(
+                          'Network fee',
+                          feeVal != null
+                              ? feeVal.toStringAsFixed(4)
+                              : widget.networkFee!.trim()),
                     const Divider(height: 24),
-                    _kvRow('Total', (amountVal != null && feeVal != null) ? totalVal.toStringAsFixed(2) : (widget.amount ?? '')),
+                    _kvRow(
+                        'Total',
+                        (amountVal != null && feeVal != null)
+                            ? totalVal.toStringAsFixed(2)
+                            : (widget.amount ?? '')),
                   ],
                 ),
               ),
             ),
-
             const Spacer(),
-
             Row(
               children: [
                 Expanded(
@@ -158,6 +159,6 @@ class _ReviewSendScreenState extends State<ReviewSendScreen> {
           ],
         ),
       ),
-    );
+    ));
   }
 }

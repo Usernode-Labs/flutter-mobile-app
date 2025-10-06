@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
+import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
+import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
+import 'package:crypto_mobile_app/src/rust/frb_types.dart' as rust_types;
+import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'send_success_screen.dart';
 
 class ReviewSendScreen extends StatefulWidget {
@@ -65,11 +69,79 @@ class _ReviewSendScreenState extends State<ReviewSendScreen> {
       ),
     );
 
-    await Future.delayed(const Duration(seconds: 2));
-    if (!mounted) return;
-    Navigator.of(context).pop(); // close dialog
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const SendSuccessScreen()),
+    try {
+      // Get active account
+      final accountsRepo = await AccountsRepository.create();
+      final activeAccount = await accountsRepo.getActive();
+
+      if (activeAccount == null) {
+        if (!mounted) return;
+        Navigator.of(context).pop(); // close loading dialog
+        _showErrorDialog('No active account found. Please create or select an account.');
+        return;
+      }
+
+      // Parse addresses to TreeHash
+      // TODO: Update fromPkHash to use actual account address once wallet integration is complete
+      final fromPkHash = rust_types.treeHashFromString(s: "0x0000000000000000000000000000000000000000000000000000000000000000");
+      final toPkHash = rust_types.treeHashFromString(s: widget.recipientAddress ?? '');
+
+      // Convert amount to BigInt (assuming token has 18 decimals like ETH)
+      final amountDouble = double.tryParse(widget.amount ?? '0') ?? 0.0;
+      final amountWei = BigInt.from(amountDouble * 1e18);
+
+      Log.d('SEND', 'Transferring $amountWei from ${activeAccount.address} to ${widget.recipientAddress}');
+
+      // Call transferFunds RPC
+      final response = await RustBackendService.instance.transferFunds(
+        fromPkHash: fromPkHash,
+        amount: amountWei,
+        toPkHash: toPkHash,
+      );
+
+      if (!mounted) return;
+      Navigator.of(context).pop(); // close loading dialog
+
+      if (response == null) {
+        _showErrorDialog('Failed to connect to node. Please ensure the node is running.');
+        return;
+      }
+
+      if (response.error != null) {
+        _showErrorDialog('Transfer failed: ${response.error}');
+        return;
+      }
+
+      if (!response.queued) {
+        _showErrorDialog('Transfer was not queued. Please try again.');
+        return;
+      }
+
+      // Success - navigate to success screen
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const SendSuccessScreen()),
+      );
+    } catch (e, st) {
+      Log.e('SEND', 'Transfer failed', e, st);
+      if (!mounted) return;
+      Navigator.of(context).pop(); // close loading dialog
+      _showErrorDialog('Transfer failed: ${e.toString()}');
+    }
+  }
+
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Transfer Failed'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
     );
   }
 

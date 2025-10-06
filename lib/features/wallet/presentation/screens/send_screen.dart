@@ -20,6 +20,21 @@ class _SendScreenState extends State<SendScreen> {
   final FocusNode _amountFocus = FocusNode();
   final FocusNode _feeFocus = FocusNode();
 
+  // Preset addresses for quick selection
+  static const List<String> _presetAddresses = [
+    '0x0000000000000000000000000000000000000000000000000000000000000000',
+    '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb4',
+    '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed',
+    '0x8f3CF7ad23Cd3CaDbD9735AFf958023239c6A063',
+    '0xD4a3BebF2E8b1dC4Ea9E2e3F5C8a7B9E4F1A2C3D',
+    '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984',
+    '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
+    '0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD',
+    '0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE',
+    '0x6B175474E89094C44Da98b954EedeAC495271d0F',
+    '0xBE0eB53F46cd790Cd13851d5EFf43D12404d33E8',
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -63,6 +78,85 @@ class _SendScreenState extends State<SendScreen> {
           composing: TextRange.empty);
     },
   );
+
+  void _showAddressPicker() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  children: [
+                    Text(
+                      'Select Address',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _presetAddresses.length,
+                  itemBuilder: (context, index) {
+                    final address = _presetAddresses[index];
+                    final shortAddress = '${address.substring(0, 6)}...${address.substring(address.length - 4)}';
+
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                        child: Icon(
+                          Icons.account_balance_wallet,
+                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          size: 20,
+                        ),
+                      ),
+                      title: Text(
+                        shortAddress,
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      subtitle: Text(
+                        address,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              fontFamily: 'monospace',
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      onTap: () {
+                        setState(() {
+                          _recipientController.text = address;
+                        });
+                        Navigator.pop(context);
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
   void _proceedToReview() {
     if (!_formKey.currentState!.validate()) return;
@@ -134,6 +228,14 @@ class _SendScreenState extends State<SendScreen> {
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 20,
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        Icons.contacts,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      onPressed: _showAddressPicker,
+                      tooltip: 'Select from preset addresses',
                     ),
                   ),
                   validator: (value) {

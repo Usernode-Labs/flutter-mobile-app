@@ -6,6 +6,7 @@ import 'package:crypto_mobile_app/gen_l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_mempool.dart';
 import 'package:crypto_mobile_app/src/rust/lib.dart' as rust;
 import 'node_peers_screen.dart';
 
@@ -30,6 +31,7 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
   List<BigInt> _bestTipBatchTransactions = const [];
   _ProgressData? _fetchProgress;
   _ProgressData? _applyProgress;
+  RpcListMempoolResp? _mempoolData;
 
   Timer? _autoTimer;
   late final TabController _tabController;
@@ -57,6 +59,7 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     try {
       Log.d('NODE', 'Fetching status');
       final status = await RustBackendService.instance.getStatus();
+      final mempool = await RustBackendService.instance.listMempool();
       if (status != null) {
         try {
           final Map<String, dynamic> statusMap = {};
@@ -194,6 +197,7 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
         _bestTipBatchTransactions = batchTransactions;
         _fetchProgress = fetchProgress;
         _applyProgress = applyProgress;
+        _mempoolData = mempool;
         _lastChecked = DateTime.now();
       });
     } catch (e, st) {
@@ -247,6 +251,10 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
 
             // Best Tip Card
             _buildBestTipCard(context),
+            const SizedBox(height: 16),
+
+            // Mempool Transactions Card
+            _buildMempoolCard(context),
             const SizedBox(height: 24),
 
             // Activity Section with Tabs
@@ -772,6 +780,187 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     );
   }
 
+  Widget _buildMempoolCard(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final mempool = _mempoolData;
+
+    return Card(
+      elevation: 0,
+      color: colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.pending_actions, size: 20, color: colorScheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  'Mempool Transactions',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            if (mempool == null)
+              Text(
+                'Loading...',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              )
+            else ...[
+              // Summary row
+              Row(
+                children: [
+                  _MempoolStat(
+                    label: 'Count',
+                    value: mempool.count.toString(),
+                    colorScheme: colorScheme,
+                  ),
+                  const SizedBox(width: 16),
+                  _MempoolStat(
+                    label: 'Orphans',
+                    value: mempool.orphans.toString(),
+                    colorScheme: colorScheme,
+                  ),
+                  const SizedBox(width: 16),
+                  _MempoolStat(
+                    label: 'Total Size',
+                    value: _formatBytes(mempool.totalSize),
+                    colorScheme: colorScheme,
+                  ),
+                ],
+              ),
+
+              if (mempool.entries.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 12),
+
+                // Transaction list
+                ...mempool.entries.take(5).map((tx) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: InkWell(
+                      onTap: () {
+                        // TODO: Navigate to transaction details
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.receipt_long,
+                                  size: 16,
+                                  color: colorScheme.primary,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _formatTxHash(tx.id.toString()),
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: colorScheme.onSurface,
+                                      fontWeight: FontWeight.w500,
+                                      fontFamily: 'monospace',
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                _TxDetailChip(
+                                  icon: Icons.currency_exchange,
+                                  label: 'Fee: ${tx.fee}',
+                                  colorScheme: colorScheme,
+                                ),
+                                const SizedBox(width: 8),
+                                _TxDetailChip(
+                                  icon: Icons.input,
+                                  label: 'In: ${tx.inputs.length}',
+                                  colorScheme: colorScheme,
+                                ),
+                                const SizedBox(width: 8),
+                                _TxDetailChip(
+                                  icon: Icons.output,
+                                  label: 'Out: ${tx.outputs.length}',
+                                  colorScheme: colorScheme,
+                                ),
+                                const SizedBox(width: 8),
+                                _TxDetailChip(
+                                  icon: Icons.data_usage,
+                                  label: '${tx.sizeBytes}B',
+                                  colorScheme: colorScheme,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+
+                if (mempool.entries.length > 5)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Center(
+                      child: Text(
+                        '+${mempool.entries.length - 5} more transactions',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ),
+              ] else ...[
+                const SizedBox(height: 8),
+                Text(
+                  'No transactions in mempool',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatTxHash(String hash) {
+    if (hash.length <= 16) return hash;
+    return '${hash.substring(0, 8)}...${hash.substring(hash.length - 8)}';
+  }
+
+  String _formatBytes(BigInt bytes) {
+    final b = bytes.toInt();
+    if (b < 1024) return '${b}B';
+    if (b < 1024 * 1024) return '${(b / 1024).toStringAsFixed(1)}KB';
+    return '${(b / (1024 * 1024)).toStringAsFixed(1)}MB';
+  }
+
   // ignore: unused_element
   Color _statusColor(ThemeData theme, PeerConnectionStatus s) {
     switch (s) {
@@ -1087,6 +1276,82 @@ class _ProgressData {
       idle: progress.idle,
       pending: progress.pending,
       done: progress.done,
+    );
+  }
+}
+
+class _MempoolStat extends StatelessWidget {
+  final String label;
+  final String value;
+  final ColorScheme colorScheme;
+
+  const _MempoolStat({
+    required this.label,
+    required this.value,
+    required this.colorScheme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: theme.textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: colorScheme.onSurface,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TxDetailChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final ColorScheme colorScheme;
+
+  const _TxDetailChip({
+    required this.icon,
+    required this.label,
+    required this.colorScheme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: colorScheme.onSurfaceVariant),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontSize: 10,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

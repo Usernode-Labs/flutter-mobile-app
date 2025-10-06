@@ -20,19 +20,16 @@ class _SendScreenState extends State<SendScreen> {
   final FocusNode _amountFocus = FocusNode();
   final FocusNode _feeFocus = FocusNode();
 
-  // Preset addresses for quick selection
+  // Preset addresses for quick selection (Base58-compatible)
+  // Includes the requested hard-coded recipient and generated examples.
   static const List<String> _presetAddresses = [
-    '0x0000000000000000000000000000000000000000000000000000000000000000',
-    '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb4',
-    '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed',
-    '0x8f3CF7ad23Cd3CaDbD9735AFf958023239c6A063',
-    '0xD4a3BebF2E8b1dC4Ea9E2e3F5C8a7B9E4F1A2C3D',
-    '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984',
-    '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
-    '0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD',
-    '0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE',
-    '0x6B175474E89094C44Da98b954EedeAC495271d0F',
-    '0xBE0eB53F46cd790Cd13851d5EFf43D12404d33E8',
+    'AiitAFAG8P8g6uXXu6zmbzsaa5bFXDNwCMYDkSUyH2wU8XLpNG',
+    '3N5gV7kQ2xYpR8aBhC4mTZ7sEfUw9dKqLbS6nPJ5rXvE2cMd',
+    '7YbQ3mXv9RgT2sLdP6hNwE4cVZ8aKjF5uSrMdQ2pXyT7nGbC',
+    'F8kT2sQ9mVbR6nLpX3cYwE7aHdG4uN5sJzPrXv2qMbC6tLyW',
+    'QmT7xV2pR9aBhC4mN6sLdE8wYjF5uSrG3zXv2qPcK7nLbD4t',
+    '2aBhC4mN6sLdE8wYjF5uSrG3zXv2qPcK7nLbD4tQmT7xV2pR9',
+    'H7xV2pR9aBhC4mN6sLdE8wYjF5uSrG3zXv2qPcK7nLbD4tQmT',
   ];
 
   @override
@@ -163,12 +160,9 @@ class _SendScreenState extends State<SendScreen> {
 
     final recipient = _recipientController.text.trim();
     final amount = _amountController.text.trim();
-    final memo = _memoController.text.trim().isEmpty
-        ? null
-        : _memoController.text.trim();
-    final networkFee = _networkFeeController.text.trim().isEmpty
-        ? null
-        : _networkFeeController.text.trim();
+    // Memo and fee are disabled; do not send them
+    final String? memo = null;
+    final String? networkFee = null;
 
     Navigator.push(
       context,
@@ -195,7 +189,13 @@ class _SendScreenState extends State<SendScreen> {
         child: Form(
           key: _formKey,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Column(
+                    children: [
               // Recipient Address Field
               Container(
                 margin: const EdgeInsets.only(bottom: 4),
@@ -335,13 +335,13 @@ class _SendScreenState extends State<SendScreen> {
                 ),
               ),
 
-              // Memo Field (optional)
+              // Memo Field (disabled)
               Container(
                 margin: const EdgeInsets.only(bottom: 4),
                 child: TextFormField(
                   controller: _memoController,
                   decoration: InputDecoration(
-                    hintText: 'Memo',
+                    hintText: 'Memo (disabled)',
                     hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 16,
@@ -369,6 +369,8 @@ class _SendScreenState extends State<SendScreen> {
                       vertical: 20,
                     ),
                   ),
+                  enabled: false,
+                  readOnly: true,
                 ),
               ),
               Align(
@@ -376,7 +378,7 @@ class _SendScreenState extends State<SendScreen> {
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 16.0),
                   child: Text(
-                    'Optional note; visible to recipient.',
+                    'Memo is disabled in this build.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
@@ -384,7 +386,7 @@ class _SendScreenState extends State<SendScreen> {
                 ),
               ),
 
-              // Network Fee Field (optional)
+              // Network Fee Field (disabled)
               Container(
                 margin: const EdgeInsets.only(bottom: 4),
                 child: TextFormField(
@@ -399,7 +401,7 @@ class _SendScreenState extends State<SendScreen> {
                   onEditingComplete: () => _feeFocus.unfocus(),
                   onFieldSubmitted: (_) => _feeFocus.unfocus(),
                   decoration: InputDecoration(
-                    hintText: 'Network Fee',
+                    hintText: 'Network Fee (disabled)',
                     hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 16,
@@ -436,6 +438,8 @@ class _SendScreenState extends State<SendScreen> {
                           )
                         : null,
                   ),
+                  enabled: false,
+                  readOnly: true,
                 ),
               ),
               Align(
@@ -443,15 +447,17 @@ class _SendScreenState extends State<SendScreen> {
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 32.0),
                   child: Text(
-                    'Optional custom fee; leave blank to use default.',
+                    'Network fee is disabled in this build.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                   ),
                 ),
               ),
-
-              const Spacer(),
+                    ],
+                  ),
+                ),
+              ),
 
               // Continue Button with extra bottom spacing
               SafeArea(

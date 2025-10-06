@@ -82,20 +82,32 @@ class _ReviewSendScreenState extends State<ReviewSendScreen> {
       }
 
       // Parse addresses to TreeHash
-      // TODO: Update fromPkHash to use actual account address once wallet integration is complete
-      final fromPkHash = rust_types.treeHashFromString(s: "0x0000000000000000000000000000000000000000000000000000000000000000");
+      // Force sender to requested account string
+      const forcedFrom = 'AiitAFAG8P8g6uXXu6zmbzsaa5bFXDNwCMYDkSUyH2wU8XLpNG';
+      final fromPkHash = rust_types.treeHashFromString(s: forcedFrom);
       final toPkHash = rust_types.treeHashFromString(s: widget.recipientAddress ?? '');
 
-      // Convert amount to BigInt (assuming token has 18 decimals like ETH)
-      final amountDouble = double.tryParse(widget.amount ?? '0') ?? 0.0;
-      final amountWei = BigInt.from(amountDouble * 1e18);
+      // Convert amount: send entered amount as-is (integer only)
+      final amountStr = (widget.amount ?? '0').trim();
+      BigInt? amount;
+      try {
+        amount = BigInt.parse(amountStr);
+      } catch (_) {
+        amount = null;
+      }
+      if (amount == null) {
+        if (!mounted) return;
+        Navigator.of(context).pop();
+        _showErrorDialog('Invalid amount. Enter a whole-number amount.');
+        return;
+      }
 
-      Log.d('SEND', 'Transferring $amountWei from ${activeAccount.address} to ${widget.recipientAddress}');
+      Log.d('SEND', 'Transferring $amount from $forcedFrom to ${widget.recipientAddress}');
 
       // Call transferFunds RPC
       final response = await RustBackendService.instance.transferFunds(
         fromPkHash: fromPkHash,
-        amount: amountWei,
+        amount: amount,
         toPkHash: toPkHash,
       );
 

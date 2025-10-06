@@ -466,9 +466,9 @@ class RustBackendService {
 
       Log.d('RUST', 'listUtxosByOwner response: itemsCount=$itemsCount');
 
+      // Avoid calling owner.toString() here since TreeHash may be disposed
       await SentryUtil.captureMessageWithData('rpc.listUtxosByOwner', {
         'itemsCount': itemsCount,
-        'owner': owner.toString(),
         if (limit != null) 'limit': limit,
         if (utxos == null) 'nullUtxos': true,
       });
@@ -478,7 +478,6 @@ class RustBackendService {
         message: 'listUtxosByOwner ok',
         data: {
           'itemsCount': itemsCount,
-          'owner': owner.toString(),
         },
       );
     } catch (e, st) {

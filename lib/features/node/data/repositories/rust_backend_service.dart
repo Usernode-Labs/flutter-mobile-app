@@ -2,6 +2,11 @@ import 'dart:io' show Platform;
 import 'dart:convert';
 
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_mempool.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_utxos_by_owner.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/transfer_funds.dart';
+import 'package:crypto_mobile_app/src/rust/third_party/usernode_core/db/merkle_tree.dart';
+import 'package:crypto_mobile_app/src/rust/third_party/usernode_core/transaction.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
@@ -328,6 +333,228 @@ class RustBackendService {
     }
     Log.d('RUST', 'getStatus ok');
     return status;
+  }
+
+  /// Convenience helper to fetch mempool transactions via RPC.
+  Future<RpcListMempoolResp?> listMempool({
+    TreeHash? owner,
+    int? limit,
+    bool? idsOnly,
+    TransactionHash? cursorAfter,
+  }) async {
+    Log.d('RUST', 'listMempool called');
+    SentryUtil.addBreadcrumb(category: 'rpc', message: 'listMempool called');
+    final r = _rpc;
+    if (r == null) return null;
+
+    // Call into FRB with defensive handling for panics / transport errors.
+    RpcListMempoolResp? mempool;
+    try {
+      mempool = await r.listMempool(
+        owner: owner,
+        limit: limit,
+        idsOnly: idsOnly,
+        cursorAfter: cursorAfter,
+      );
+    } on PanicException catch (e, st) {
+      // FRB surfaced a Rust-side panic.
+      Log.e('RUST', 'FRB panic during listMempool', e, st);
+      // Mark backend as not running and drop RPC handle to avoid cascading failures.
+      _nodeRunning = false;
+      _rpc = null;
+      await SentryUtil.captureError(e, st, tag: 'frb_panic_listMempool');
+      // Return null gracefully so UI can keep rendering with an error message.
+      return null;
+    } catch (e, st) {
+      // Any other error from the bridge/RPC call.
+      Log.w('RUST', 'RPC listMempool failed: $e\n$st');
+      await SentryUtil.captureError(e, st, tag: 'rpc_listMempool');
+      return null;
+    }
+
+    // Log the response for debugging purposes.
+    try {
+      final count = mempool?.count ?? BigInt.zero;
+      final orphans = mempool?.orphans ?? BigInt.zero;
+      final totalSize = mempool?.totalSize ?? BigInt.zero;
+      final entriesCount = mempool?.entries.length ?? 0;
+
+      // Build detailed transaction list
+      final transactions = mempool?.entries.map((tx) => {
+        'id': tx.id.toString(),
+        'fee': tx.fee.toString(),
+        'inputs': tx.inputs.length,
+        'outputs': tx.outputs.length,
+        'sizeBytes': tx.sizeBytes,
+      }).toList() ?? [];
+
+      final fullResponse = {
+        'count': count.toString(),
+        'orphans': orphans.toString(),
+        'totalSize': totalSize.toString(),
+        'entriesCount': entriesCount,
+        'transactions': transactions,
+        if (mempool == null) 'nullMempool': true,
+      };
+
+      final json = jsonEncode(fullResponse);
+      Log.d('RUST', 'listMempool response: $json');
+
+      await SentryUtil.captureMessageWithData('rpc.listMempool', {
+        'count': count.toString(),
+        'orphans': orphans.toString(),
+        'totalSize': totalSize.toString(),
+        'entriesCount': entriesCount,
+        if (mempool == null) 'nullMempool': true,
+      });
+
+      SentryUtil.addBreadcrumb(
+        category: 'rpc',
+        message: 'listMempool ok',
+        data: {
+          'count': count.toString(),
+          'orphans': orphans.toString(),
+          'totalSize': totalSize.toString(),
+          'entriesCount': entriesCount,
+        },
+      );
+    } catch (e, st) {
+      Log.w('RUST', 'Failed to log listMempool response: $e\n$st');
+      await SentryUtil.captureError(e, st, tag: 'listMempool_logging');
+    }
+
+    Log.d('RUST', 'listMempool ok');
+    return mempool;
+  }
+
+  /// Convenience helper to fetch UTXOs by owner via RPC.
+  Future<RpcListUtxosByOwnerResp?> listUtxosByOwner({
+    required TreeHash owner,
+    int? limit,
+  }) async {
+    Log.d('RUST', 'listUtxosByOwner called');
+    SentryUtil.addBreadcrumb(category: 'rpc', message: 'listUtxosByOwner called');
+    final r = _rpc;
+    if (r == null) return null;
+
+    // Call into FRB with defensive handling for panics / transport errors.
+    RpcListUtxosByOwnerResp? utxos;
+    try {
+      utxos = await r.listUtxosByOwner(
+        owner: owner,
+        limit: limit,
+      );
+    } on PanicException catch (e, st) {
+      // FRB surfaced a Rust-side panic.
+      Log.e('RUST', 'FRB panic during listUtxosByOwner', e, st);
+      // Mark backend as not running and drop RPC handle to avoid cascading failures.
+      _nodeRunning = false;
+      _rpc = null;
+      await SentryUtil.captureError(e, st, tag: 'frb_panic_listUtxosByOwner');
+      // Return null gracefully so UI can keep rendering with an error message.
+      return null;
+    } catch (e, st) {
+      // Any other error from the bridge/RPC call.
+      Log.w('RUST', 'RPC listUtxosByOwner failed: $e\n$st');
+      await SentryUtil.captureError(e, st, tag: 'rpc_listUtxosByOwner');
+      return null;
+    }
+
+    // Log the response for debugging purposes.
+    try {
+      final itemsCount = utxos?.items.length ?? 0;
+
+      Log.d('RUST', 'listUtxosByOwner response: itemsCount=$itemsCount');
+
+      // Avoid calling owner.toString() here since TreeHash may be disposed
+      await SentryUtil.captureMessageWithData('rpc.listUtxosByOwner', {
+        'itemsCount': itemsCount,
+        if (limit != null) 'limit': limit,
+        if (utxos == null) 'nullUtxos': true,
+      });
+
+      SentryUtil.addBreadcrumb(
+        category: 'rpc',
+        message: 'listUtxosByOwner ok',
+        data: {
+          'itemsCount': itemsCount,
+        },
+      );
+    } catch (e, st) {
+      Log.w('RUST', 'Failed to log listUtxosByOwner response: $e\n$st');
+      await SentryUtil.captureError(e, st, tag: 'listUtxosByOwner_logging');
+    }
+
+    Log.d('RUST', 'listUtxosByOwner ok');
+    return utxos;
+  }
+
+  /// Convenience helper to transfer funds via RPC.
+  Future<RpcTransferFundsResp?> transferFunds({
+    required TreeHash fromPkHash,
+    required BigInt amount,
+    required TreeHash toPkHash,
+  }) async {
+    Log.d('RUST', 'transferFunds called');
+    SentryUtil.addBreadcrumb(category: 'rpc', message: 'transferFunds called');
+    final r = _rpc;
+    if (r == null) return null;
+
+    // Call into FRB with defensive handling for panics / transport errors.
+    RpcTransferFundsResp? response;
+    try {
+      response = await r.transferFunds(
+        fromPkHash: fromPkHash,
+        amount: amount,
+        toPkHash: toPkHash,
+      );
+    } on PanicException catch (e, st) {
+      // FRB surfaced a Rust-side panic.
+      Log.e('RUST', 'FRB panic during transferFunds', e, st);
+      // Mark backend as not running and drop RPC handle to avoid cascading failures.
+      _nodeRunning = false;
+      _rpc = null;
+      await SentryUtil.captureError(e, st, tag: 'frb_panic_transferFunds');
+      // Return null gracefully so UI can keep rendering with an error message.
+      return null;
+    } catch (e, st) {
+      // Any other error from the bridge/RPC call.
+      Log.w('RUST', 'RPC transferFunds failed: $e\n$st');
+      await SentryUtil.captureError(e, st, tag: 'rpc_transferFunds');
+      return null;
+    }
+
+    // Log the response for debugging purposes.
+    try {
+      final queued = response?.queued ?? false;
+      final error = response?.error;
+
+      Log.d('RUST', 'transferFunds response: queued=$queued, error=$error');
+
+      await SentryUtil.captureMessageWithData('rpc.transferFunds', {
+        'queued': queued,
+        'fromPkHash': fromPkHash.toString(),
+        'toPkHash': toPkHash.toString(),
+        'amount': amount.toString(),
+        if (error != null) 'error': error,
+        if (response == null) 'nullResponse': true,
+      });
+
+      SentryUtil.addBreadcrumb(
+        category: 'rpc',
+        message: 'transferFunds ${queued ? 'queued' : 'failed'}',
+        data: {
+          'queued': queued,
+          if (error != null) 'error': error,
+        },
+      );
+    } catch (e, st) {
+      Log.w('RUST', 'Failed to log transferFunds response: $e\n$st');
+      await SentryUtil.captureError(e, st, tag: 'transferFunds_logging');
+    }
+
+    Log.d('RUST', 'transferFunds ok');
+    return response;
   }
 
   /// Dispose bridge resources when the app is exiting.

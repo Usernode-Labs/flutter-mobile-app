@@ -20,6 +20,18 @@ class _SendScreenState extends State<SendScreen> {
   final FocusNode _amountFocus = FocusNode();
   final FocusNode _feeFocus = FocusNode();
 
+  // Preset addresses for quick selection (Base58-compatible)
+  // Includes the requested hard-coded recipient and generated examples.
+  static const List<String> _presetAddresses = [
+    'AiitAFAG8P8g6uXXu6zmbzsaa5bFXDNwCMYDkSUyH2wU8XLpNG',
+    '3N5gV7kQ2xYpR8aBhC4mTZ7sEfUw9dKqLbS6nPJ5rXvE2cMd',
+    '7YbQ3mXv9RgT2sLdP6hNwE4cVZ8aKjF5uSrMdQ2pXyT7nGbC',
+    'F8kT2sQ9mVbR6nLpX3cYwE7aHdG4uN5sJzPrXv2qMbC6tLyW',
+    'QmT7xV2pR9aBhC4mN6sLdE8wYjF5uSrG3zXv2qPcK7nLbD4t',
+    '2aBhC4mN6sLdE8wYjF5uSrG3zXv2qPcK7nLbD4tQmT7xV2pR9',
+    'H7xV2pR9aBhC4mN6sLdE8wYjF5uSrG3zXv2qPcK7nLbD4tQmT',
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -64,17 +76,93 @@ class _SendScreenState extends State<SendScreen> {
     },
   );
 
+  void _showAddressPicker() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  children: [
+                    Text(
+                      'Select Address',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _presetAddresses.length,
+                  itemBuilder: (context, index) {
+                    final address = _presetAddresses[index];
+                    final shortAddress = '${address.substring(0, 6)}...${address.substring(address.length - 4)}';
+
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                        child: Icon(
+                          Icons.account_balance_wallet,
+                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          size: 20,
+                        ),
+                      ),
+                      title: Text(
+                        shortAddress,
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      subtitle: Text(
+                        address,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              fontFamily: 'monospace',
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      onTap: () {
+                        setState(() {
+                          _recipientController.text = address;
+                        });
+                        Navigator.pop(context);
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   void _proceedToReview() {
     if (!_formKey.currentState!.validate()) return;
 
     final recipient = _recipientController.text.trim();
     final amount = _amountController.text.trim();
-    final memo = _memoController.text.trim().isEmpty
-        ? null
-        : _memoController.text.trim();
-    final networkFee = _networkFeeController.text.trim().isEmpty
-        ? null
-        : _networkFeeController.text.trim();
+    // Memo and fee are disabled; do not send them
+    final String? memo = null;
+    final String? networkFee = null;
 
     Navigator.push(
       context,
@@ -101,7 +189,13 @@ class _SendScreenState extends State<SendScreen> {
         child: Form(
           key: _formKey,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Column(
+                    children: [
               // Recipient Address Field
               Container(
                 margin: const EdgeInsets.only(bottom: 4),
@@ -134,6 +228,14 @@ class _SendScreenState extends State<SendScreen> {
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 20,
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        Icons.contacts,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      onPressed: _showAddressPicker,
+                      tooltip: 'Select from preset addresses',
                     ),
                   ),
                   validator: (value) {
@@ -233,13 +335,13 @@ class _SendScreenState extends State<SendScreen> {
                 ),
               ),
 
-              // Memo Field (optional)
+              // Memo Field (disabled)
               Container(
                 margin: const EdgeInsets.only(bottom: 4),
                 child: TextFormField(
                   controller: _memoController,
                   decoration: InputDecoration(
-                    hintText: 'Memo',
+                    hintText: 'Memo (disabled)',
                     hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 16,
@@ -267,6 +369,8 @@ class _SendScreenState extends State<SendScreen> {
                       vertical: 20,
                     ),
                   ),
+                  enabled: false,
+                  readOnly: true,
                 ),
               ),
               Align(
@@ -274,7 +378,7 @@ class _SendScreenState extends State<SendScreen> {
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 16.0),
                   child: Text(
-                    'Optional note; visible to recipient.',
+                    'Memo is disabled in this build.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
@@ -282,7 +386,7 @@ class _SendScreenState extends State<SendScreen> {
                 ),
               ),
 
-              // Network Fee Field (optional)
+              // Network Fee Field (disabled)
               Container(
                 margin: const EdgeInsets.only(bottom: 4),
                 child: TextFormField(
@@ -297,7 +401,7 @@ class _SendScreenState extends State<SendScreen> {
                   onEditingComplete: () => _feeFocus.unfocus(),
                   onFieldSubmitted: (_) => _feeFocus.unfocus(),
                   decoration: InputDecoration(
-                    hintText: 'Network Fee',
+                    hintText: 'Network Fee (disabled)',
                     hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 16,
@@ -334,6 +438,8 @@ class _SendScreenState extends State<SendScreen> {
                           )
                         : null,
                   ),
+                  enabled: false,
+                  readOnly: true,
                 ),
               ),
               Align(
@@ -341,15 +447,17 @@ class _SendScreenState extends State<SendScreen> {
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 32.0),
                   child: Text(
-                    'Optional custom fee; leave blank to use default.',
+                    'Network fee is disabled in this build.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                   ),
                 ),
               ),
-
-              const Spacer(),
+                    ],
+                  ),
+                ),
+              ),
 
               // Continue Button with extra bottom spacing
               SafeArea(

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/gen_l10n/app_localizations.dart';
@@ -63,6 +64,86 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     try {
       Log.d('NODE', 'Fetching status');
       final status = await RustBackendService.instance.getStatus();
+      if (status != null) {
+        try {
+          final Map<String, dynamic> statusMap = {};
+
+          // Add peers
+          try {
+            statusMap['peers'] = status.peers.map((p) => {
+              'peerId': p.peerId.toString(),
+              'address': p.address,
+              'connectionStatus': p.connectionStatus.toString(),
+              'connectingDetails': p.connectingDetails,
+              'incoming': p.incoming,
+              'time': p.time.toString(),
+            }).toList();
+          } catch (e) {
+            statusMap['peers'] = 'Error: $e';
+          }
+
+          // Add blockchain info
+          try {
+            final blockchain = status.blockchain;
+            final Map<String, dynamic> blockchainMap = {};
+
+            try {
+              final bestTip = blockchain.bestTip;
+              blockchainMap['bestTip'] = {
+                'height': bestTip.height,
+                'epoch': bestTip.epoch,
+                'globalSlot': bestTip.globalSlot,
+                'hash': bestTip.hash.toString(),
+                'batches': bestTip.batches.map((b) => {
+                  'transactions': b.transactions.toString(),
+                }).toList(),
+              };
+            } catch (e) {
+              blockchainMap['bestTip'] = 'Error: $e';
+            }
+
+            try {
+              final sync = blockchain.sync;
+              final blocks = sync.blocks;
+              if (blocks != null) {
+                blockchainMap['sync'] = {
+                  'blocks': {
+                    'bestTip': {
+                      'height': blocks.bestTip.height,
+                      'epoch': blocks.bestTip.epoch,
+                      'globalSlot': blocks.bestTip.globalSlot,
+                      'hash': blocks.bestTip.hash.toString(),
+                    },
+                    'fetchProgress': {
+                      'idle': blocks.fetchProgress.idle.toString(),
+                      'pending': blocks.fetchProgress.pending.toString(),
+                      'done': blocks.fetchProgress.done.toString(),
+                    },
+                    'applyProgress': {
+                      'idle': blocks.applyProgress.idle.toString(),
+                      'pending': blocks.applyProgress.pending.toString(),
+                      'done': blocks.applyProgress.done.toString(),
+                    },
+                  },
+                };
+              } else {
+                blockchainMap['sync'] = {'blocks': null};
+              }
+            } catch (e) {
+              blockchainMap['sync'] = 'Error: $e';
+            }
+
+            statusMap['blockchain'] = blockchainMap;
+          } catch (e) {
+            statusMap['blockchain'] = 'Error: $e';
+          }
+
+          final statusJson = jsonEncode(statusMap);
+          Log.d('NODE', 'getStatus response: $statusJson');
+        } catch (e) {
+          Log.w('NODE', 'Failed to serialize status response: $e');
+        }
+      }
       final peers = status?.peers ?? const <RpcPeerInfo>[];
       final blockchain = status?.blockchain;
       final syncBlocks = blockchain?.sync.blocks;
@@ -138,8 +219,9 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final backendId = RustBackendService.instance.instanceId;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Scaffold(
       appBar: const AppAppBar(
         title: 'Node Status',
@@ -150,214 +232,92 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            Row(
-              children: [
-                Text('Node Status',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        )),
-                const Spacer(),
-                Row(children: [
-                  IconButton(
-                    tooltip: l10n.refresh,
-                    icon: const Icon(Icons.refresh),
-                    onPressed: _refresh,
-                  ),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 200),
-                    child: _refreshing
-                        ? const SizedBox(
-                            key: ValueKey('spin'),
-                            height: 16,
-                            width: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const SizedBox.shrink(key: ValueKey('idle')),
-                  ),
-                ])
-              ],
-            ),
-            const SizedBox(height: 6),
-            if (_lastChecked != null)
-              Text(
-                l10n.checkedAgoSeconds(_secondsSinceCheck().toString()),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-              ),
-            const SizedBox(height: 12),
+            // Status Banner
+            _buildStatusBanner(context),
+            const SizedBox(height: 16),
+
             if (_error != null)
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(l10n.nodeStatusError,
-                      style: TextStyle(
-                          color: Theme.of(context).colorScheme.error)),
+                  Text('Error',
+                      style: TextStyle(color: colorScheme.error)),
                   const SizedBox(height: 6),
-                  Text(_error!, style: Theme.of(context).textTheme.bodySmall),
+                  Text(_error!, style: theme.textTheme.bodySmall),
+                  const SizedBox(height: 16),
                 ],
-              ),
-            // Always keep content visible; show placeholders when data is null
-            ...[
-              if (backendId != null && backendId.isNotEmpty) ...[
-                _StatusItem(label: 'Backend ID', value: backendId),
-                const SizedBox(height: 20),
-              ],
-              // Status summary with info icon to open build details
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Status',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant)),
-                        const SizedBox(height: 8),
-                        Text(
-                          _statusText(),
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w400),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Show build info',
-                    icon: const Icon(Icons.info_outline),
-                    onPressed: _showBuildInfoDialog,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              _StatusItem(
-                  label: 'Current block height',
-                  value: _fmtInt(_currentBlockHeight)),
-              const SizedBox(height: 20),
-              _StatusItem(
-                label: 'Epoch',
-                value: _formatEpochSummary(),
-              ),
-              const SizedBox(height: 20),
-              _StatusItem(
-                label: 'Best Tip',
-                value: _formatBestTipSummary(),
-              ),
-              const SizedBox(height: 20),
-              // Peers summary with colored/icon chips + icon to open details
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Peers',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant)),
-                        const SizedBox(height: 8),
-                        _buildMinimalPeerStatus(context),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Show peer details',
-                    icon: const Icon(Icons.people_alt_outlined),
-                    onPressed: _peers.isEmpty
-                        ? null
-                        : () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => NodePeersScreen(peers: _peers),
-                              ),
-                            );
-                          },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              _StatusItem(
-                label: 'Sync status',
-                value: _formatSyncStatusSummary(),
               ),
 
-              const SizedBox(height: 32),
+            // Node Status Card
+            _buildNodeStatusCard(context),
+            const SizedBox(height: 16),
+
+            // Sync Progress Card
+            _buildSyncProgressCard(context),
+            const SizedBox(height: 16),
+
+            // Best Tip Card
+            _buildBestTipCard(context),
+            const SizedBox(height: 24),
 
               // Tabs + Slots
               Column(
                 children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .outline
-                              .withValues(alpha: 0.2),
-                          width: 1,
-                        ),
+                  // Material 3 Segmented Button
+                  SegmentedButton<int>(
+                    segments: const [
+                      ButtonSegment<int>(
+                        value: 0,
+                        label: Text('Upcoming'),
+                        icon: Icon(Icons.upcoming_outlined),
                       ),
-                    ),
-                    child: TabBar(
-                      controller: _tabController,
-                      labelColor: Theme.of(context).colorScheme.primary,
-                      unselectedLabelColor:
-                          Theme.of(context).colorScheme.onSurfaceVariant,
-                      indicatorColor: Theme.of(context).colorScheme.primary,
-                      indicatorWeight: 2,
-                      dividerHeight: 0,
-                      tabs: const [
-                        Tab(text: 'Upcoming'),
-                        Tab(text: 'Past Slots'),
-                      ],
-                    ),
+                      ButtonSegment<int>(
+                        value: 1,
+                        label: Text('Past Slots'),
+                        icon: Icon(Icons.history),
+                      ),
+                    ],
+                    selected: {_tabController.index},
+                    onSelectionChanged: (Set<int> newSelection) {
+                      setState(() {
+                        _tabController.index = newSelection.first;
+                      });
+                    },
                   ),
+                  const SizedBox(height: 16),
                   SizedBox(
                     height: 280,
                     child: TabBarView(
                       controller: _tabController,
                       children: [
                         ListView(
-                          padding: const EdgeInsets.all(16),
+                          padding: const EdgeInsets.all(0),
                           children: [
                             _SlotItem(
                               icon: Icons.schedule,
                               title: 'Scheduled Slot',
                               subtitle: 'in 1h 5m',
-                              iconColor: Colors.purple,
+                              iconColor: Colors.amber.shade700,
+                              reward: '+100 TKN',
                               slotNumber: 112,
                             ),
                           ],
                         ),
                         ListView(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 0, vertical: 20),
+                          padding: const EdgeInsets.all(0),
                           children: [
                             _ProducedBlockItem(
                               title: 'Produced block at 112',
                               subtitle: '2h 5m ago',
-                              reward: '+100 Tokens',
+                              reward: '+100 TKN',
                               blockNumber: 112,
                             ),
-                            const SizedBox(height: 20),
+                            const SizedBox(height: 12),
                             _ProducedBlockItem(
-                              title: 'Produced block at 112',
-                              subtitle: '2h 5m ago',
-                              reward: '+100 Tokens',
-                              blockNumber: 112,
+                              title: 'Produced block at 113',
+                              subtitle: '3h 15m ago',
+                              reward: '+100 TKN',
+                              blockNumber: 113,
                             ),
                           ],
                         ),
@@ -367,10 +327,487 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
                 ],
               ),
             ],
-          ],
         ),
         ),
       ),
+    );
+  }
+
+  Widget _buildStatusBanner(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isSynced = _isSynced();
+    final statusText = _getSyncStatus();
+
+    // Determine status color based on sync state
+    Color statusColor;
+    Color statusTextColor;
+    if (isSynced) {
+      statusColor = colorScheme.tertiaryContainer;
+      statusTextColor = colorScheme.onTertiaryContainer;
+    } else if (statusText == 'Syncing') {
+      statusColor = colorScheme.secondaryContainer;
+      statusTextColor = colorScheme.onSecondaryContainer;
+    } else {
+      statusColor = colorScheme.errorContainer;
+      statusTextColor = colorScheme.onErrorContainer;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: statusColor,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isSynced ? Icons.check_circle : Icons.sync,
+            color: statusTextColor,
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              statusText,
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: statusTextColor,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          IconButton(
+            icon: Icon(Icons.info_outline, color: statusTextColor),
+            tooltip: 'Build info',
+            onPressed: _showBuildInfoDialog,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: _refreshing
+                ? SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(statusTextColor),
+                    ),
+                  )
+                : Icon(Icons.refresh, color: statusTextColor),
+            tooltip: 'Refresh',
+            onPressed: _refreshing ? null : _refresh,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNodeStatusCard(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Card(
+      elevation: 0,
+      color: colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.router, size: 20, color: colorScheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  'Node Status',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _buildCardRow(
+              context,
+              label: 'Current Block Height',
+              value: _fmtInt(_currentBlockHeight),
+            ),
+            const SizedBox(height: 12),
+            _buildCardRow(
+              context,
+              label: 'Epoch',
+              value: _formatEpochInline(),
+              valueColor: colorScheme.primary,
+            ),
+            const SizedBox(height: 12),
+            _buildCardRowWithIcon(
+              context,
+              label: 'Connected Peers',
+              value: _formatPeersInline(),
+              icon: Icons.people_alt_outlined,
+              onIconTap: _peers.isEmpty
+                  ? null
+                  : () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => NodePeersScreen(peers: _peers),
+                        ),
+                      );
+                    },
+            ),
+            const SizedBox(height: 12),
+            _buildCardRow(
+              context,
+              label: 'Sync Status',
+              value: _formatSyncPercentage(),
+              valueColor: _isSynced() ? colorScheme.tertiary : colorScheme.secondary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSyncProgressCard(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    final fetchProgress = _fetchProgress;
+    final applyProgress = _applyProgress;
+
+    // Calculate percentages
+    double fetchPercentage = 0.0;
+    double applyPercentage = 0.0;
+
+    if (fetchProgress != null) {
+      final total = fetchProgress.idle + fetchProgress.pending + fetchProgress.done;
+      if (total > BigInt.zero) {
+        fetchPercentage = (fetchProgress.done.toDouble() / total.toDouble()) * 100;
+      }
+    }
+
+    if (applyProgress != null) {
+      final total = applyProgress.idle + applyProgress.pending + applyProgress.done;
+      if (total > BigInt.zero) {
+        applyPercentage = (applyProgress.done.toDouble() / total.toDouble()) * 100;
+      }
+    }
+
+    return Card(
+      elevation: 0,
+      color: colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.sync, size: 20, color: colorScheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  'Sync Progress',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Block Fetching
+            Text(
+              'Block Fetching',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 8),
+            LinearProgressIndicator(
+              value: fetchPercentage / 100,
+              backgroundColor: colorScheme.surfaceContainerHighest,
+              valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+              minHeight: 8,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${fetchPercentage.toStringAsFixed(1)}%',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (fetchProgress != null) ...[
+              _buildProgressDetail(context, 'Done', fetchProgress.done.toString()),
+              _buildProgressDetail(context, 'Pending', fetchProgress.pending.toString()),
+              _buildProgressDetail(context, 'Idle', fetchProgress.idle.toString()),
+            ],
+
+            const SizedBox(height: 16),
+
+            // Block Application
+            Text(
+              'Block Application',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 8),
+            LinearProgressIndicator(
+              value: applyPercentage / 100,
+              backgroundColor: colorScheme.surfaceContainerHighest,
+              valueColor: AlwaysStoppedAnimation<Color>(colorScheme.tertiary),
+              minHeight: 8,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${applyPercentage.toStringAsFixed(1)}%',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (applyProgress != null) ...[
+              _buildProgressDetail(context, 'Done', applyProgress.done.toString()),
+              _buildProgressDetail(context, 'Pending', applyProgress.pending.toString()),
+              _buildProgressDetail(context, 'Idle', applyProgress.idle.toString()),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProgressDetail(BuildContext context, String label, String value) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Text(
+            '• ',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          Text(
+            '$label: ',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          Text(
+            value,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBestTipCard(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Card(
+      elevation: 0,
+      color: colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.emoji_events, size: 20, color: colorScheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  'Best Tip',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _buildCardRow(
+              context,
+              label: 'Height',
+              value: _fmtInt(_networkBestTipHeight ?? _currentBlockHeight),
+            ),
+            const SizedBox(height: 12),
+            _buildCardRow(
+              context,
+              label: 'Hash',
+              value: _bestTipHashDisplay(),
+              monoValue: true,
+            ),
+            const SizedBox(height: 16),
+
+            // Batches section with breakdown
+            if (_bestTipBatchTransactions.isNotEmpty) ...[
+              Text(
+                'Batches (${_bestTipBatchTransactions.length} • ${_formatBatchesInline()})',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ..._bestTipBatchTransactions.asMap().entries.map((entry) {
+                final batchIndex = entry.key + 1;
+                final txCount = entry.value;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: colorScheme.outline.withValues(alpha: 0.2),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.inventory_2_outlined,
+                          size: 16,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Batch $batchIndex',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurface,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          '$txCount trans.',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+            ] else ...[
+              _buildCardRow(
+                context,
+                label: 'Batches',
+                value: 'No batches',
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCardRow(
+    BuildContext context, {
+    required String label,
+    required String value,
+    Color? valueColor,
+    bool monoValue = false,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+        Text(
+          value,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: valueColor,
+            fontFamily: monoValue ? 'monospace' : null,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCardRowWithIcon(
+    BuildContext context, {
+    required String label,
+    required String value,
+    required IconData icon,
+    VoidCallback? onIconTap,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              value,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 4),
+            IconButton(
+              icon: Icon(icon, size: 20),
+              tooltip: 'View details',
+              onPressed: onIconTap,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -598,6 +1035,102 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
 
   String _fmtInt(int? v) => v == null ? 'N/A' : v.toString();
 
+  bool _isSynced() {
+    // Check if we're synced based on:
+    // 1. Current block height matches or exceeds network best tip
+    // 2. Fetch and apply progress are complete (no pending blocks)
+    final currentHeight = _currentBlockHeight;
+    final bestTipHeight = _networkBestTipHeight;
+
+    // If we don't have height info, check sync progress
+    if (currentHeight == null || bestTipHeight == null) {
+      // Consider synced if both fetch and apply have no pending work
+      final fetchDone = _fetchProgress?.done ?? BigInt.zero;
+      final fetchPending = _fetchProgress?.pending ?? BigInt.zero;
+      final applyDone = _applyProgress?.done ?? BigInt.zero;
+      final applyPending = _applyProgress?.pending ?? BigInt.zero;
+
+      return fetchPending == BigInt.zero && applyPending == BigInt.zero &&
+             (fetchDone > BigInt.zero || applyDone > BigInt.zero);
+    }
+
+    // Height-based check with sync progress validation
+    final heightSynced = currentHeight >= bestTipHeight;
+    final fetchPending = _fetchProgress?.pending ?? BigInt.zero;
+    final applyPending = _applyProgress?.pending ?? BigInt.zero;
+
+    // Fully synced if height matches AND no pending sync work
+    return heightSynced && fetchPending == BigInt.zero && applyPending == BigInt.zero;
+  }
+
+  String _getSyncStatus() {
+    if (_isSynced()) {
+      return 'Synced & Healthy';
+    }
+
+    // Check if we're actively syncing
+    final fetchPending = _fetchProgress?.pending ?? BigInt.zero;
+    final applyPending = _applyProgress?.pending ?? BigInt.zero;
+
+    if (fetchPending > BigInt.zero || applyPending > BigInt.zero) {
+      return 'Syncing';
+    }
+
+    return 'Awaiting Sync';
+  }
+
+  String _formatEpochInline() {
+    final slot = _bestTipGlobalSlot;
+    final epoch = _bestTipEpoch;
+    if (epoch == null || slot == null) return 'N/A';
+    return 'Epoch $epoch • Slot $slot';
+  }
+
+  String _formatPeersInline() {
+    int connected = 0;
+    for (final p in _peers) {
+      if (p.connectionStatus == PeerConnectionStatus.connected) {
+        connected++;
+      }
+    }
+    final total = _peers.length;
+    return '$connected of $total';
+  }
+
+  String _formatSyncPercentage() {
+    final currentHeight = _currentBlockHeight;
+    final bestTipHeight = _networkBestTipHeight;
+
+    if (currentHeight == null || bestTipHeight == null) {
+      return 'N/A';
+    }
+
+    if (currentHeight >= bestTipHeight) {
+      return '100% Complete';
+    }
+
+    if (bestTipHeight == 0) {
+      return '0%';
+    }
+
+    final percentage = ((currentHeight / bestTipHeight) * 100).toStringAsFixed(1);
+    return '$percentage%';
+  }
+
+  String _formatBatchesInline() {
+    if (_bestTipBatchTransactions.isEmpty) {
+      return _bestTipHash == null ? 'N/A' : '0 batches';
+    }
+
+    final batchCount = _bestTipBatchTransactions.length;
+    final totalTxs = _bestTipBatchTransactions.fold<BigInt>(
+      BigInt.zero,
+      (sum, count) => sum + count,
+    );
+
+    return '$batchCount batches • $totalTxs transactions';
+  }
+
   String _formatEpochSummary() {
     final slot = _fmtInt(_bestTipGlobalSlot);
     final epoch = _fmtInt(_bestTipEpoch);
@@ -721,13 +1254,14 @@ class _StatusItem extends StatelessWidget {
   }
 }
 
-// Removed unused _IconStatus widget
+// Removed unused _TabButton and _IconStatus widgets
 
 class _SlotItem extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
   final Color iconColor;
+  final String reward;
   final int slotNumber;
 
   const _SlotItem({
@@ -735,49 +1269,55 @@ class _SlotItem extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.iconColor,
+    required this.reward,
     required this.slotNumber,
   });
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) =>
-                ScheduledSlotDetailsScreen(slotNumber: slotNumber),
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Card(
+      elevation: 0,
+      color: colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: ListTile(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) =>
+                  ScheduledSlotDetailsScreen(slotNumber: slotNumber),
+            ),
+          );
+        },
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: CircleAvatar(
+          radius: 24,
+          backgroundColor: iconColor.withValues(alpha: 0.2),
+          child: Icon(icon, color: iconColor, size: 24),
+        ),
+        title: Text(
+          title,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w600,
           ),
-        );
-      },
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                  color: iconColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8)),
-              child: Icon(icon, color: iconColor, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 2),
-                  Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
-                ],
-              ),
-            ),
-          ],
+        ),
+        subtitle: Text(
+          subtitle,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+        trailing: Text(
+          reward,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: colorScheme.tertiary,
+          ),
         ),
       ),
     );
@@ -800,61 +1340,51 @@ class _ProducedBlockItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return InkWell(
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => BlockDetailsScreen(blockNumber: blockNumber),
+    final colorScheme = theme.colorScheme;
+
+    return Card(
+      elevation: 0,
+      color: colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: ListTile(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => BlockDetailsScreen(blockNumber: blockNumber),
+            ),
+          );
+        },
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: CircleAvatar(
+          radius: 20,
+          backgroundColor: colorScheme.primaryContainer,
+          child: Icon(
+            Icons.check_circle,
+            color: colorScheme.onPrimaryContainer,
+            size: 20,
           ),
-        );
-      },
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 8),
-        child: Row(
-          children: [
-            Container(
-              width: 35,
-              height: 35,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                Icons.check,
-                color: theme.colorScheme.onPrimaryContainer,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 1),
-                  Text(
-                    subtitle,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Text(
-              reward,
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.w400,
-                color: theme.colorScheme.primary,
-              ),
-            ),
-          ],
+        ),
+        title: Text(
+          title,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+        trailing: Text(
+          reward,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: colorScheme.tertiary,
+          ),
         ),
       ),
     );

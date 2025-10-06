@@ -105,6 +105,7 @@ class _WalletScreenState extends State<WalletScreen> {
     return Scaffold(
       appBar: const AppAppBar(
         title: 'Wallet',
+        showWalletAndProfile: false,
       ),
       body: SafeArea(
         child: RefreshIndicator(

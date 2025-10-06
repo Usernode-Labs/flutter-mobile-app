@@ -51,7 +51,12 @@ class _MainAppState extends State<MainApp> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
-    final active = FeatureFlags.ordered.where(FeatureFlags.isEnabled).toList();
+    // Filter out wallet and profile from bottom navigation
+    final active = FeatureFlags.ordered
+        .where(FeatureFlags.isEnabled)
+        .where((f) => f != AppFeature.wallet && f != AppFeature.profile)
+        .toList();
+
     // Clamp current index to available items without relying on num.clamp casting.
     int index = _currentIndex;
     final maxIndex = active.isEmpty ? 0 : active.length - 1;

@@ -73,6 +73,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       appBar: const AppAppBar(
         title: 'Profile',
+        showWalletAndProfile: false,
       ),
       body: SafeArea(
         child: SingleChildScrollView(

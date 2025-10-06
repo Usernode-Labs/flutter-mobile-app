@@ -37,6 +37,11 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
   late final TabController _tabController;
   DateTime? _lastChecked;
 
+  // Soft tinted surface helper for modern light backgrounds
+  Color _tint(ColorScheme scheme, Color accent, [double opacity = 0.06]) {
+    return Color.alphaBlend(accent.withOpacity(opacity), scheme.surface);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -358,9 +363,10 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     final totalPeers = _peers.length;
     final peerHealthy = connectedPeers > 0 && connectedPeers == totalPeers;
 
+    final bg = _tint(colorScheme, colorScheme.tertiary);
     return Card(
       elevation: 0,
-      color: colorScheme.surface,
+      color: bg,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
@@ -583,9 +589,10 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
       applyPercentage = 100.0;
     }
 
+    final bg = _tint(colorScheme, colorScheme.primary);
     return Card(
       elevation: 0,
-      color: colorScheme.surfaceContainerLow,
+      color: bg,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
@@ -675,9 +682,10 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
+    final bg = _tint(colorScheme, colorScheme.secondary);
     return Card(
       elevation: 0,
-      color: colorScheme.surfaceContainerLow,
+      color: bg,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
@@ -785,9 +793,10 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     final colorScheme = theme.colorScheme;
     final mempool = _mempoolData;
 
+    final bg = _tint(colorScheme, colorScheme.primary, 0.04);
     return Card(
       elevation: 0,
-      color: colorScheme.surfaceContainerLow,
+      color: bg,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),

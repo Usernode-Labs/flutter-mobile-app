@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
-import 'package:crypto_mobile_app/src/rust/frb_types.dart' as rust_types;
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/src/rust/frb_types.dart' as rust_types;
 import 'send_success_screen.dart';
 
 class ReviewSendScreen extends StatefulWidget {
@@ -84,8 +84,8 @@ class _ReviewSendScreenState extends State<ReviewSendScreen> {
       // Parse addresses to TreeHash
       // Force sender to requested account string
       const forcedFrom = 'AiitAFAG8P8g6uXXu6zmbzsaa5bFXDNwCMYDkSUyH2wU8XLpNG';
-      final fromPkHash = rust_types.treeHashFromString(s: forcedFrom);
-      final toPkHash = rust_types.treeHashFromString(s: widget.recipientAddress ?? '');
+      final fromPkHash = rust_types.publicKeyHashFromString(s: forcedFrom);
+      final toPkHash = rust_types.publicKeyHashFromString(s: widget.recipientAddress ?? '');
 
       // Convert amount: send entered amount as-is (integer only)
       final amountStr = (widget.amount ?? '0').trim();

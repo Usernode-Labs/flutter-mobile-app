@@ -12,8 +12,8 @@ import 'package:crypto_mobile_app/core/feature_flags.dart';
 import 'send_screen.dart';
 import 'receive_screen.dart';
 import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
-import 'package:crypto_mobile_app/src/rust/frb_types.dart' as rust_types;
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_utxos_by_owner.dart';
+import 'package:crypto_mobile_app/src/rust/frb_types.dart' as rust_types;
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 
 class WalletScreen extends StatefulWidget {
@@ -78,7 +78,7 @@ class _WalletScreenState extends State<WalletScreen> {
     try {
       // TEMP: Use hard-coded owner address as requested
       const hardcodedOwner = 'AiitAFAG8P8g6uXXu6zmbzsaa5bFXDNwCMYDkSUyH2wU8XLpNG';
-      final owner = rust_types.treeHashFromString(s: hardcodedOwner);
+      final owner = rust_types.publicKeyHashFromString(s: hardcodedOwner);
       Log.i('UTXO', 'GET rpc.listUtxosByOwner endpoint=node.rpc.listUtxosByOwner params={owner: $hardcodedOwner, limit: null}');
       final resp = await RustBackendService.instance.listUtxosByOwner(owner: owner);
       if (resp == null) {

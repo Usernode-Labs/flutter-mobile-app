@@ -20,16 +20,12 @@ class _SendScreenState extends State<SendScreen> {
   final FocusNode _amountFocus = FocusNode();
   final FocusNode _feeFocus = FocusNode();
 
-  // Preset addresses for quick selection (Base58-compatible)
-  // Includes the requested hard-coded recipient and generated examples.
+  // Preset addresses for quick selection (TreeHash with version 5)
   static const List<String> _presetAddresses = [
     'AiitAFAG8P8g6uXXu6zmbzsaa5bFXDNwCMYDkSUyH2wU8XLpNG',
-    '3N5gV7kQ2xYpR8aBhC4mTZ7sEfUw9dKqLbS6nPJ5rXvE2cMd',
-    '7YbQ3mXv9RgT2sLdP6hNwE4cVZ8aKjF5uSrMdQ2pXyT7nGbC',
-    'F8kT2sQ9mVbR6nLpX3cYwE7aHdG4uN5sJzPrXv2qMbC6tLyW',
-    'QmT7xV2pR9aBhC4mN6sLdE8wYjF5uSrG3zXv2qPcK7nLbD4t',
-    '2aBhC4mN6sLdE8wYjF5uSrG3zXv2qPcK7nLbD4tQmT7xV2pR9',
-    'H7xV2pR9aBhC4mN6sLdE8wYjF5uSrG3zXv2qPcK7nLbD4tQmT',
+    'AjAXW5wJbYcUXtJ3g3VtBxjZsPhZBax7cP9VxJT8NeCLmeDrEy',
+    'AjcAqviM4i6Gxs4ZSyzzmvbZAhorqxXJ2QknAARHUFTDMHrK3s',
+    'Ak3pBmVPXsa5Pqq5DvW7MtTYU1vAWL6USSN4N2PSZri5z2gNJA',
   ];
 
   @override

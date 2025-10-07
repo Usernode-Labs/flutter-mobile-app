@@ -5,7 +5,7 @@ import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_mempool.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_utxos_by_owner.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/transfer_funds.dart';
-import 'package:crypto_mobile_app/src/rust/third_party/usernode_core/db/merkle_tree.dart';
+import 'package:crypto_mobile_app/src/rust/third_party/usernode_core/account.dart';
 import 'package:crypto_mobile_app/src/rust/third_party/usernode_core/transaction.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -337,7 +337,7 @@ class RustBackendService {
 
   /// Convenience helper to fetch mempool transactions via RPC.
   Future<RpcListMempoolResp?> listMempool({
-    TreeHash? owner,
+    PublicKeyHash? owner,
     int? limit,
     bool? idsOnly,
     TransactionHash? cursorAfter,
@@ -429,7 +429,7 @@ class RustBackendService {
 
   /// Convenience helper to fetch UTXOs by owner via RPC.
   Future<RpcListUtxosByOwnerResp?> listUtxosByOwner({
-    required TreeHash owner,
+    required PublicKeyHash owner,
     int? limit,
   }) async {
     Log.d('RUST', 'listUtxosByOwner called');
@@ -466,7 +466,7 @@ class RustBackendService {
 
       Log.d('RUST', 'listUtxosByOwner response: itemsCount=$itemsCount');
 
-      // Avoid calling owner.toString() here since TreeHash may be disposed
+      // Avoid calling owner.toString() here since PublicKeyHash may be disposed
       await SentryUtil.captureMessageWithData('rpc.listUtxosByOwner', {
         'itemsCount': itemsCount,
         if (limit != null) 'limit': limit,
@@ -491,9 +491,9 @@ class RustBackendService {
 
   /// Convenience helper to transfer funds via RPC.
   Future<RpcTransferFundsResp?> transferFunds({
-    required TreeHash fromPkHash,
+    required PublicKeyHash fromPkHash,
     required BigInt amount,
-    required TreeHash toPkHash,
+    required PublicKeyHash toPkHash,
   }) async {
     Log.d('RUST', 'transferFunds called');
     SentryUtil.addBreadcrumb(category: 'rpc', message: 'transferFunds called');

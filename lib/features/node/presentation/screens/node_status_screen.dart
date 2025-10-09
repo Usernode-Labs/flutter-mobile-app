@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
+import 'package:crypto_mobile_app/core/widgets/won_slot_item.dart';
+import 'package:crypto_mobile_app/core/widgets/slot_heatmap.dart';
 import 'package:crypto_mobile_app/gen_l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -69,22 +71,31 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
       Log.d('NODE', 'Fetching status');
       final status = await RustBackendService.instance.getStatus();
       final mempool = await RustBackendService.instance.listMempool();
-      final blockchainList = await RustBackendService.instance.listBlockchain(limit: 20, fromTip: true);
-      final epochRewards = await RustBackendService.instance.epochRewards();
+      final blockchainList = await RustBackendService.instance
+          .listBlockchain(limit: 20, fromTip: true);
+
+      // Get current epoch from status to request specific epoch rewards
+      final currentEpoch = status?.blockchain.bestTip.epoch;
+      Log.d('NODE', 'Current epoch from status: $currentEpoch');
+      final epochRewards = await RustBackendService.instance.epochRewards(
+        epoch: currentEpoch,
+      );
       if (status != null) {
         try {
           final Map<String, dynamic> statusMap = {};
 
           // Add peers
           try {
-            statusMap['peers'] = status.peers.map((p) => {
-              'peerId': p.peerId.toString(),
-              'address': p.address,
-              'connectionStatus': p.connectionStatus.toString(),
-              'connectingDetails': p.connectingDetails,
-              'incoming': p.incoming,
-              'time': p.time.toString(),
-            }).toList();
+            statusMap['peers'] = status.peers
+                .map((p) => {
+                      'peerId': p.peerId.toString(),
+                      'address': p.address,
+                      'connectionStatus': p.connectionStatus.toString(),
+                      'connectingDetails': p.connectingDetails,
+                      'incoming': p.incoming,
+                      'time': p.time.toString(),
+                    })
+                .toList();
           } catch (e) {
             statusMap['peers'] = 'Error: $e';
           }
@@ -101,9 +112,11 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
                 'epoch': bestTip.epoch,
                 'globalSlot': bestTip.globalSlot,
                 'hash': bestTip.hash.toString(),
-                'batches': bestTip.batches.map((b) => {
-                  'transactions': b.transactions.toString(),
-                }).toList(),
+                'batches': bestTip.batches
+                    .map((b) => {
+                          'transactions': b.transactions.toString(),
+                        })
+                    .toList(),
               };
             } catch (e) {
               blockchainMap['bestTip'] = 'Error: $e';
@@ -238,62 +251,61 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
       ),
       body: SafeArea(
         child: RefreshIndicator(
-        onRefresh: _refresh,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            if (_error != null)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Error',
-                      style: TextStyle(color: colorScheme.error)),
-                  const SizedBox(height: 6),
-                  Text(_error!, style: theme.textTheme.bodySmall),
-                  const SizedBox(height: 16),
+          onRefresh: _refresh,
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              if (_error != null)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Error', style: TextStyle(color: colorScheme.error)),
+                    const SizedBox(height: 6),
+                    Text(_error!, style: theme.textTheme.bodySmall),
+                    const SizedBox(height: 16),
+                  ],
+                ),
+
+              // Hero Status Card
+              _buildHeroStatusCard(context),
+              const SizedBox(height: 16),
+
+              // Sync Progress Card
+              _buildSyncProgressCard(context),
+              const SizedBox(height: 16),
+
+              // Best Tip Card
+              _buildBestTipCard(context),
+              const SizedBox(height: 16),
+
+              // Mempool Transactions Card
+              _buildMempoolCard(context),
+              const SizedBox(height: 24),
+
+              // Activity Section with Tabs
+              SegmentedButton<int>(
+                segments: const [
+                  ButtonSegment(value: 0, label: Text('Produced Blocks')),
+                  ButtonSegment(value: 1, label: Text('Scheduled Slots')),
                 ],
+                selected: {_tabController.index},
+                onSelectionChanged: (newSelection) {
+                  setState(() {
+                    _tabController.index = newSelection.first;
+                  });
+                },
               ),
+              const SizedBox(height: 16),
 
-            // Hero Status Card
-            _buildHeroStatusCard(context),
-            const SizedBox(height: 16),
-
-            // Sync Progress Card
-            _buildSyncProgressCard(context),
-            const SizedBox(height: 16),
-
-            // Best Tip Card
-            _buildBestTipCard(context),
-            const SizedBox(height: 16),
-
-            // Mempool Transactions Card
-            _buildMempoolCard(context),
-            const SizedBox(height: 24),
-
-            // Activity Section with Tabs
-            SegmentedButton<int>(
-              segments: const [
-                ButtonSegment(value: 0, label: Text('Produced Blocks')),
-                ButtonSegment(value: 1, label: Text('Scheduled Slots')),
-              ],
-              selected: {_tabController.index},
-              onSelectionChanged: (newSelection) {
-                setState(() {
-                  _tabController.index = newSelection.first;
-                });
-              },
-            ),
-            const SizedBox(height: 16),
-
-            // Tab content
-            if (_tabController.index == 0)
-              // Produced Blocks Tab
-              _buildProducedBlocksTab(context)
-            else
-              // Scheduled Slots Tab
-              _buildScheduledSlotsTab(context),
+              // Tab content
+              if (_tabController.index == 0)
+                // Produced Blocks Tab
+                _buildProducedBlocksTab(context)
+              else
+                // Scheduled Slots Tab
+                _buildScheduledSlotsTab(context),
             ],
-        ),
+          ),
         ),
       ),
     );
@@ -323,7 +335,8 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     // Calculate sync percentage
     final currentHeight = _currentBlockHeight ?? 0;
     final networkHeight = _networkBestTipHeight ?? currentHeight;
-    final syncPercentage = networkHeight > 0 ? (currentHeight / networkHeight) : 1.0;
+    final syncPercentage =
+        networkHeight > 0 ? (currentHeight / networkHeight) : 1.0;
 
     // Peer status
     int connectedPeers = 0;
@@ -377,7 +390,8 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
                   const SizedBox(width: 8),
                   // Build info button
                   IconButton(
-                    icon: Icon(Icons.info_outline, color: statusTextColor, size: 16),
+                    icon: Icon(Icons.info_outline,
+                        color: statusTextColor, size: 16),
                     onPressed: _showBuildInfoDialog,
                     tooltip: 'Build Info',
                     padding: EdgeInsets.zero,
@@ -463,7 +477,8 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
                 // Epoch/Slot info (not clickable)
                 Row(
                   children: [
-                    Icon(Icons.access_time, size: 16, color: colorScheme.onSurfaceVariant),
+                    Icon(Icons.access_time,
+                        size: 16, color: colorScheme.onSurfaceVariant),
                     const SizedBox(width: 6),
                     Text(
                       _formatEpochInline(),
@@ -536,9 +551,11 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     double applyPercentage = 0.0;
 
     if (fetchProgress != null) {
-      final total = fetchProgress.idle + fetchProgress.pending + fetchProgress.done;
+      final total =
+          fetchProgress.idle + fetchProgress.pending + fetchProgress.done;
       if (total > BigInt.zero) {
-        fetchPercentage = (fetchProgress.done.toDouble() / total.toDouble()) * 100;
+        fetchPercentage =
+            (fetchProgress.done.toDouble() / total.toDouble()) * 100;
       } else {
         // If total is zero (no work), consider it 100% complete
         fetchPercentage = 100.0;
@@ -549,9 +566,11 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     }
 
     if (applyProgress != null) {
-      final total = applyProgress.idle + applyProgress.pending + applyProgress.done;
+      final total =
+          applyProgress.idle + applyProgress.pending + applyProgress.done;
       if (total > BigInt.zero) {
-        applyPercentage = (applyProgress.done.toDouble() / total.toDouble()) * 100;
+        applyPercentage =
+            (applyProgress.done.toDouble() / total.toDouble()) * 100;
       } else {
         // If total is zero (no work), consider it 100% complete
         applyPercentage = 100.0;
@@ -567,7 +586,8 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
       color: bg,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+        side: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -660,7 +680,8 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
       color: bg,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+        side: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -710,7 +731,8 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
                       color: colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(12),
@@ -771,7 +793,8 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
       color: bg,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+        side: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -780,7 +803,8 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
           children: [
             Row(
               children: [
-                Icon(Icons.pending_actions, size: 20, color: colorScheme.primary),
+                Icon(Icons.pending_actions,
+                    size: 20, color: colorScheme.primary),
                 const SizedBox(width: 8),
                 Text(
                   'Mempool Transactions',
@@ -792,7 +816,6 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
               ],
             ),
             const SizedBox(height: 12),
-
             if (mempool == null)
               Text(
                 'Loading...',
@@ -841,7 +864,8 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
                       child: Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                          color: colorScheme.surfaceContainerHighest
+                              .withValues(alpha: 0.3),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Column(
@@ -1107,11 +1131,11 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
       }
 
       final fetchTotal = (fetchProgress?.idle ?? BigInt.zero) +
-                        (fetchProgress?.pending ?? BigInt.zero) +
-                        (fetchProgress?.done ?? BigInt.zero);
+          (fetchProgress?.pending ?? BigInt.zero) +
+          (fetchProgress?.done ?? BigInt.zero);
       final applyTotal = (applyProgress?.idle ?? BigInt.zero) +
-                         (applyProgress?.pending ?? BigInt.zero) +
-                         (applyProgress?.done ?? BigInt.zero);
+          (applyProgress?.pending ?? BigInt.zero) +
+          (applyProgress?.done ?? BigInt.zero);
 
       return fetchTotal == BigInt.zero && applyTotal == BigInt.zero;
     }
@@ -1159,8 +1183,8 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
 
     // Check if it's today
     final isToday = now.year == checked.year &&
-                    now.month == checked.month &&
-                    now.day == checked.day;
+        now.month == checked.month &&
+        now.day == checked.day;
 
     if (isToday) {
       return 'Last checked at $hour:$minute:$second';
@@ -1197,87 +1221,158 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
       );
     }
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Row(
+    // Get produced block slots from blockchain data
+    final producedSlots = _blockchainData?.items
+            .where((block) => block.epoch == rewards.epoch)
+            .map((block) => block.globalSlot)
+            .toSet() ??
+        <int>{};
+
+    // Get won slots list
+    final wonSlots = rewards.wonSlots ?? [];
+
+    // Producer pubkey
+    final producerPubkey = rewards.producerPubkey;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Epoch header card
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.calendar_today, size: 20, color: colorScheme.primary),
-              const SizedBox(width: 8),
-              Text(
-                'Epoch ${rewards.epoch}',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+              // Header
+              Row(
+                children: [
+                  Icon(Icons.calendar_today,
+                      size: 20, color: colorScheme.primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Epoch ${rewards.epoch}',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 16),
+
+              // Detailed breakdown
+              _buildEpochStat(
+                context,
+                icon: Icons.production_quantity_limits,
+                label: 'Blocks Produced',
+                value: '${rewards.producedInEpoch}',
+                color: colorScheme.primary,
+              ),
+              const SizedBox(height: 12),
+              _buildEpochStat(
+                context,
+                icon: Icons.emoji_events,
+                label: 'Won Slots',
+                value: '${rewards.winsInEpoch}',
+                color: colorScheme.tertiary,
+              ),
+              const SizedBox(height: 12),
+              _buildEpochStat(
+                context,
+                icon: Icons.attach_money,
+                label: 'Reward per Block',
+                value: '${rewards.rewardPerBlock}',
+                color: colorScheme.secondary,
+              ),
+              const SizedBox(height: 12),
+              _buildEpochStat(
+                context,
+                icon: Icons.savings,
+                label: 'Earned So Far',
+                value: '${rewards.earnedSoFar}',
+                color: Colors.green,
+              ),
+              const SizedBox(height: 12),
+              _buildEpochStat(
+                context,
+                icon: Icons.trending_up,
+                label: 'Expected Total',
+                value: '${rewards.expectedTotal}',
+                color: Colors.blue,
               ),
             ],
           ),
-          const SizedBox(height: 16),
+        ),
 
-          // Main stats
+        // Won Slots Heatmap
+        if (wonSlots.isNotEmpty) ...[
+          const SizedBox(height: 24),
           Text(
-            'This Epoch: ${rewards.producedInEpoch} produced / ${rewards.winsInEpoch} won slots / ${rewards.rewardPerBlock} reward per block',
-            style: theme.textTheme.bodyLarge?.copyWith(
-              fontWeight: FontWeight.w500,
+            'Won Slots Timeline',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
               color: colorScheme.onSurface,
             ),
           ),
-          const SizedBox(height: 16),
-          const Divider(),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
-          // Detailed breakdown
-          _buildEpochStat(
-            context,
-            icon: Icons.production_quantity_limits,
-            label: 'Blocks Produced',
-            value: '${rewards.producedInEpoch}',
-            color: colorScheme.primary,
+          // Build heatmap data
+          SlotHeatmap(
+            slots: wonSlots.map((slot) {
+              // Determine if this slot has been produced
+              final isProduced = producedSlots.contains(slot.globalSlot);
+
+              // Determine status
+              SlotHeatmapStatus status;
+              if (isProduced) {
+                status = SlotHeatmapStatus.produced;
+              } else {
+                // Check if slot time has passed
+                final now = DateTime.now().toUtc();
+                final slotTime = DateTime.fromMillisecondsSinceEpoch(
+                  slot.expectedTimeMs.toInt(),
+                  isUtc: true,
+                );
+                if (now.isAfter(slotTime)) {
+                  status = SlotHeatmapStatus.missed;
+                } else {
+                  status = SlotHeatmapStatus.pending;
+                }
+              }
+
+              return SlotHeatmapData(
+                slot: slot,
+                status: status,
+              );
+            }).toList(),
+            slotsPerRow: 10,
+            cellSize: 32,
+            cellSpacing: 6,
           ),
-          const SizedBox(height: 12),
-          _buildEpochStat(
-            context,
-            icon: Icons.emoji_events,
-            label: 'Won Slots',
-            value: '${rewards.winsInEpoch}',
-            color: colorScheme.tertiary,
-          ),
-          const SizedBox(height: 12),
-          _buildEpochStat(
-            context,
-            icon: Icons.attach_money,
-            label: 'Reward per Block',
-            value: '${rewards.rewardPerBlock}',
-            color: colorScheme.secondary,
-          ),
-          const SizedBox(height: 12),
-          _buildEpochStat(
-            context,
-            icon: Icons.savings,
-            label: 'Earned So Far',
-            value: '${rewards.earnedSoFar}',
-            color: Colors.green,
-          ),
-          const SizedBox(height: 12),
-          _buildEpochStat(
-            context,
-            icon: Icons.trending_up,
-            label: 'Expected Total',
-            value: '${rewards.expectedTotal}',
-            color: Colors.blue,
+        ] else ...[
+          const SizedBox(height: 24),
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                'No won slots data available',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
           ),
         ],
-      ),
+      ],
     );
   }
 
@@ -1337,7 +1432,8 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     return Column(
       children: blocks.asMap().entries.map((entry) {
         final block = entry.value;
-        final isBestTip = bestTipSlot != null && block.globalSlot == bestTipSlot;
+        final isBestTip =
+            bestTipSlot != null && block.globalSlot == bestTipSlot;
 
         String blockHash;
         try {
@@ -1346,11 +1442,19 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
           blockHash = 'N/A';
         }
 
+        String producerPubkey;
+        try {
+          producerPubkey = block.producerPubkey;
+        } catch (e) {
+          producerPubkey = '';
+        }
+
         return _ProducedBlockItem(
           blockNumber: block.height,
           epoch: block.epoch,
           globalSlot: block.globalSlot,
           hash: blockHash,
+          producerPubkey: producerPubkey,
           batches: block.batches.length,
           isBestTip: isBestTip,
           reward: rewardPerBlock,
@@ -1523,6 +1627,7 @@ class _ProducedBlockItem extends StatelessWidget {
   final int epoch;
   final int globalSlot;
   final String hash;
+  final String producerPubkey;
   final int batches;
   final bool isBestTip;
   final BigInt reward;
@@ -1532,6 +1637,7 @@ class _ProducedBlockItem extends StatelessWidget {
     required this.epoch,
     required this.globalSlot,
     required this.hash,
+    required this.producerPubkey,
     required this.batches,
     required this.isBestTip,
     required this.reward,
@@ -1552,9 +1658,8 @@ class _ProducedBlockItem extends StatelessWidget {
         color: isBestTip
             ? colorScheme.primaryContainer.withValues(alpha: 0.3)
             : colorScheme.surfaceContainerLow,
-        border: isBestTip
-            ? Border.all(color: colorScheme.primary, width: 2)
-            : null,
+        border:
+            isBestTip ? Border.all(color: colorScheme.primary, width: 2) : null,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -1585,7 +1690,8 @@ class _ProducedBlockItem extends StatelessWidget {
                     if (isBestTip) ...[
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: colorScheme.primary,
                           borderRadius: BorderRadius.circular(4),
@@ -1622,6 +1728,20 @@ class _ProducedBlockItem extends StatelessWidget {
                     fontSize: 11,
                   ),
                 ),
+
+                // Producer pubkey if available
+                if (producerPubkey.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    'Producer: ${_shortenHashStatic(producerPubkey, head: 8, tail: 8)}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color:
+                          colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

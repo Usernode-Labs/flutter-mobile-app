@@ -3,6 +3,7 @@ import 'package:crypto_mobile_app/core/design/design_tokens.dart';
 import 'package:crypto_mobile_app/core/widgets/activity_list_item.dart';
 import 'package:crypto_mobile_app/core/widgets/app_action_button.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
+import 'package:crypto_mobile_app/core/widgets/won_slot_item.dart';
 import 'package:crypto_mobile_app/features/rewards/presentation/screens/rewards_breakdown_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/presentation/screens/send_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/presentation/screens/receive_screen.dart';
@@ -365,6 +366,65 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
 
               const SizedBox(height: 28),
+
+              // Upcoming Won Slots section
+              if (_epochRewards?.wonSlots != null && _epochRewards!.wonSlots!.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Upcoming Slots',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: colorScheme.onSurface,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const RewardsBreakdownScreen(),
+                            ),
+                          );
+                        },
+                        child: Text(
+                          'View All',
+                          style: TextStyle(color: colorScheme.primary),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Display next 3 upcoming slots
+                ...() {
+                  final now = DateTime.now().toUtc();
+                  final upcomingSlots = _epochRewards!.wonSlots!
+                      .where((slot) {
+                        final slotTime = DateTime.fromMillisecondsSinceEpoch(
+                          slot.expectedTimeMs.toInt(),
+                          isUtc: true,
+                        );
+                        return slotTime.isAfter(now);
+                      })
+                      .take(3)
+                      .toList();
+
+                  return upcomingSlots.map((slot) => Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: WonSlotItem(
+                          slot: slot,
+                          status: SlotStatus.pending,
+                          isCompact: true,
+                        ),
+                      ));
+                }(),
+
+                const SizedBox(height: 28),
+              ],
 
               // Recent Activity section
               Padding(

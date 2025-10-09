@@ -1,0 +1,315 @@
+import 'package:flutter/material.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
+
+enum SlotStatus {
+  pending,
+  produced,
+  missed,
+}
+
+class WonSlotItem extends StatelessWidget {
+  final RpcEpochWonSlot slot;
+  final SlotStatus status;
+  final bool isCompact;
+  final int? currentSlot;
+
+  const WonSlotItem({
+    super.key,
+    required this.slot,
+    required this.status,
+    this.isCompact = false,
+    this.currentSlot,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    // Format expected time
+    final expectedTime = _formatExpectedTime(slot.expectedTimeMs);
+    final timeRemaining = _calculateTimeRemaining(slot.expectedTimeMs);
+    final isPast = timeRemaining.isNegative;
+
+    // Determine colors based on status
+    Color statusColor;
+    Color statusBgColor;
+    IconData statusIcon;
+    String statusLabel;
+
+    switch (status) {
+      case SlotStatus.produced:
+        statusColor = Colors.green;
+        statusBgColor = Colors.green.withValues(alpha: 0.1);
+        statusIcon = Icons.check_circle;
+        statusLabel = 'Produced';
+        break;
+      case SlotStatus.missed:
+        statusColor = Colors.red;
+        statusBgColor = Colors.red.withValues(alpha: 0.1);
+        statusIcon = Icons.cancel;
+        statusLabel = 'Missed';
+        break;
+      case SlotStatus.pending:
+        if (isPast) {
+          statusColor = Colors.orange;
+          statusBgColor = Colors.orange.withValues(alpha: 0.1);
+          statusIcon = Icons.schedule;
+          statusLabel = 'Pending';
+        } else {
+          statusColor = colorScheme.primary;
+          statusBgColor = colorScheme.primaryContainer.withValues(alpha: 0.3);
+          statusIcon = Icons.schedule;
+          statusLabel = 'Upcoming';
+        }
+        break;
+    }
+
+    if (isCompact) {
+      return _buildCompactView(
+        theme,
+        colorScheme,
+        expectedTime,
+        timeRemaining,
+        statusColor,
+        statusBgColor,
+        statusIcon,
+        statusLabel,
+      );
+    }
+
+    return _buildFullView(
+      theme,
+      colorScheme,
+      expectedTime,
+      timeRemaining,
+      isPast,
+      statusColor,
+      statusBgColor,
+      statusIcon,
+      statusLabel,
+    );
+  }
+
+  Widget _buildCompactView(
+    ThemeData theme,
+    ColorScheme colorScheme,
+    String expectedTime,
+    Duration timeRemaining,
+    Color statusColor,
+    Color statusBgColor,
+    IconData statusIcon,
+    String statusLabel,
+  ) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: statusBgColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: statusColor.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(statusIcon, size: 16, color: statusColor),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Slot #${slot.globalSlot}',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                Text(
+                  expectedTime,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              statusLabel,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: statusColor,
+                fontWeight: FontWeight.w600,
+                fontSize: 10,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFullView(
+    ThemeData theme,
+    ColorScheme colorScheme,
+    String expectedTime,
+    Duration timeRemaining,
+    bool isPast,
+    Color statusColor,
+    Color statusBgColor,
+    IconData statusIcon,
+    String statusLabel,
+  ) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: statusBgColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: statusColor.withValues(alpha: 0.3), width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header row
+          Row(
+            children: [
+              Icon(statusIcon, color: statusColor, size: 24),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Slot #${slot.globalSlot}',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      expectedTime,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: statusColor,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  statusLabel.toUpperCase(),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 10,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          // Time remaining (only for pending/upcoming slots)
+          if (status == SlotStatus.pending && !isPast) ...[
+            const SizedBox(height: 12),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(Icons.timer_outlined, size: 18, color: colorScheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  _formatTimeRemaining(timeRemaining),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _formatExpectedTime(BigInt expectedTimeMs) {
+    try {
+      final millis = expectedTimeMs.toInt();
+      final dt = DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true).toLocal();
+      final now = DateTime.now();
+
+      // If it's today, show time only
+      if (now.year == dt.year && now.month == dt.month && now.day == dt.day) {
+        final hour = dt.hour.toString().padLeft(2, '0');
+        final minute = dt.minute.toString().padLeft(2, '0');
+        final second = dt.second.toString().padLeft(2, '0');
+        return 'Today at $hour:$minute:$second';
+      }
+
+      // If it's tomorrow
+      final tomorrow = now.add(const Duration(days: 1));
+      if (tomorrow.year == dt.year &&
+          tomorrow.month == dt.month &&
+          tomorrow.day == dt.day) {
+        final hour = dt.hour.toString().padLeft(2, '0');
+        final minute = dt.minute.toString().padLeft(2, '0');
+        return 'Tomorrow at $hour:$minute';
+      }
+
+      // Otherwise show full date
+      final month = dt.month.toString().padLeft(2, '0');
+      final day = dt.day.toString().padLeft(2, '0');
+      final hour = dt.hour.toString().padLeft(2, '0');
+      final minute = dt.minute.toString().padLeft(2, '0');
+      return '${dt.year}-$month-$day $hour:$minute';
+    } catch (e) {
+      return 'Invalid time';
+    }
+  }
+
+  Duration _calculateTimeRemaining(BigInt expectedTimeMs) {
+    try {
+      final millis = expectedTimeMs.toInt();
+      final expectedTime = DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true);
+      final now = DateTime.now().toUtc();
+      return expectedTime.difference(now);
+    } catch (e) {
+      return Duration.zero;
+    }
+  }
+
+  String _formatTimeRemaining(Duration duration) {
+    if (duration.isNegative) return 'In progress';
+
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+    final seconds = duration.inSeconds.remainder(60);
+
+    if (hours > 24) {
+      final days = hours ~/ 24;
+      return 'In $days day${days > 1 ? 's' : ''}';
+    }
+
+    if (hours > 0) {
+      return 'In ${hours}h ${minutes}m';
+    }
+
+    if (minutes > 0) {
+      return 'In ${minutes}m ${seconds}s';
+    }
+
+    return 'In ${seconds}s';
+  }
+}

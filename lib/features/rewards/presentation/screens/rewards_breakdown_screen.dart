@@ -1,8 +1,45 @@
 import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
+import 'package:crypto_mobile_app/core/widgets/won_slot_item.dart';
+import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
+import 'package:crypto_mobile_app/core/utils/logger.dart';
 
-class RewardsBreakdownScreen extends StatelessWidget {
+class RewardsBreakdownScreen extends StatefulWidget {
   const RewardsBreakdownScreen({super.key});
+
+  @override
+  State<RewardsBreakdownScreen> createState() => _RewardsBreakdownScreenState();
+}
+
+class _RewardsBreakdownScreenState extends State<RewardsBreakdownScreen> {
+  RpcEpochRewardsResp? _epochRewards;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEpochRewards();
+  }
+
+  Future<void> _loadEpochRewards() async {
+    try {
+      Log.d('REWARDS', 'Loading epoch rewards');
+      final rewards = await RustBackendService.instance.epochRewards();
+      if (!mounted) return;
+      setState(() {
+        _epochRewards = rewards;
+        _isLoading = false;
+      });
+      Log.d('REWARDS', 'Epoch rewards loaded: ${rewards != null}');
+    } catch (e, st) {
+      Log.e('REWARDS', 'Failed to load epoch rewards', e, st);
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -14,92 +51,106 @@ class RewardsBreakdownScreen extends StatelessWidget {
         title: 'Rewards Breakdown',
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Current epoch section
-            _buildCurrentEpochSection(theme, colorScheme),
-            const SizedBox(height: 20),
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _epochRewards == null
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          size: 64,
+                          color: colorScheme.error,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Failed to load rewards data',
+                          style: theme.textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: _loadEpochRewards,
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  )
+                : RefreshIndicator(
+                    onRefresh: _loadEpochRewards,
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Current epoch section
+                          _buildCurrentEpochSection(theme, colorScheme),
+                          const SizedBox(height: 20),
 
-            // Reward sources
-            _buildRewardSource(
-              theme,
-              colorScheme,
-              'Basic Tier',
-              'Tiers unlock block production rights',
-              '120 Slots',
-              null,
-            ),
-            const SizedBox(height: 8),
-            _buildRewardSource(
-              theme,
-              colorScheme,
-              '100 Blocks Produced',
-              '20 Slots remaining',
-              '1221 TKN',
-              null,
-            ),
-            const SizedBox(height: 8),
-            _buildRewardSource(
-              theme,
-              colorScheme,
-              '1 Missed Block',
-              null,
-              '0 TKN',
-              null,
-            ),
+                          // Reward breakdown
+                          _buildRewardSource(
+                            theme,
+                            colorScheme,
+                            'Blocks Produced',
+                            '${_epochRewards!.producedInEpoch} blocks produced this epoch',
+                            '${_epochRewards!.earnedSoFar} TKN',
+                            Icons.check_circle,
+                          ),
+                          const SizedBox(height: 8),
+                          _buildRewardSource(
+                            theme,
+                            colorScheme,
+                            'Won Slots',
+                            '${_epochRewards!.winsInEpoch} slots won this epoch',
+                            '${_epochRewards!.winsInEpoch - _epochRewards!.producedInEpoch} remaining',
+                            Icons.emoji_events,
+                          ),
+                          const SizedBox(height: 8),
+                          _buildRewardSource(
+                            theme,
+                            colorScheme,
+                            'Reward per Block',
+                            'Each produced block earns',
+                            '${_epochRewards!.rewardPerBlock} TKN',
+                            Icons.attach_money,
+                          ),
 
-            const SizedBox(height: 24),
-            const Divider(height: 1),
-            const SizedBox(height: 16),
+                          const SizedBox(height: 24),
+                          const Divider(height: 1),
+                          const SizedBox(height: 16),
 
-            // Next epoch projections
-            _buildNextEpochSection(theme, colorScheme),
-            const SizedBox(height: 20),
+                          // Expected total section
+                          _buildExpectedTotalSection(theme, colorScheme),
 
-            // Tier options
-            _buildTierOption(
-              theme,
-              colorScheme,
-              'Bronze +2.5% - Your Tier',
-              '~130 Slots Expected',
-              '~3200 TKN',
-              true,
-            ),
-            const SizedBox(height: 8),
-            _buildTierOption(
-              theme,
-              colorScheme,
-              'Gold +5%',
-              '~140 Slots Expected',
-              '~4200 TKN',
-              false,
-            ),
-            const SizedBox(height: 8),
-            _buildTierOption(
-              theme,
-              colorScheme,
-              'Platinum +10%',
-              '~140 Slots Expected',
-              '~5200 TKN',
-              false,
-            ),
+                          // Won slots timeline
+                          if (_epochRewards!.wonSlots != null && _epochRewards!.wonSlots!.isNotEmpty) ...[
+                            const SizedBox(height: 24),
+                            const Divider(height: 1),
+                            const SizedBox(height: 16),
+                            _buildWonSlotsSection(theme, colorScheme),
+                          ],
 
-            const SizedBox(height: 24),
+                          // Explanatory text
+                          const SizedBox(height: 24),
+                          const Divider(height: 1),
+                          const SizedBox(height: 16),
+                          _buildExplanatoryText(theme, colorScheme),
 
-            // Explanatory text
-            _buildExplanatoryText(theme, colorScheme),
-
-            const SizedBox(height: 24),
-          ],
-        ),
+                          const SizedBox(height: 24),
+                        ],
+                      ),
+                    ),
+                  ),
       ),
-    ));
+    );
   }
 
   Widget _buildCurrentEpochSection(ThemeData theme, ColorScheme colorScheme) {
+    final progress = _epochRewards!.expectedTotal > BigInt.zero
+        ? _epochRewards!.earnedSoFar.toDouble() / _epochRewards!.expectedTotal.toDouble()
+        : 0.0;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -107,26 +158,27 @@ class RewardsBreakdownScreen extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'This Epoch\'s Calculation',
+              'Epoch ${_epochRewards!.epoch}',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w400,
                 fontSize: 15,
               ),
             ),
-            Text(
-              '600,000 Tokens staked',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w400,
-                fontSize: 15,
+            if (_epochRewards!.producerPubkey != null)
+              Text(
+                'Producer: ${_shortenMid(_epochRewards!.producerPubkey!, head: 6, tail: 6)}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                ),
               ),
-            ),
           ],
         ),
         const SizedBox(height: 4),
         Text(
-          '2200 TKN',
+          '${_epochRewards!.earnedSoFar} TKN',
           style: TextStyle(
             fontSize: 36,
             fontWeight: FontWeight.w400,
@@ -134,7 +186,15 @@ class RewardsBreakdownScreen extends StatelessWidget {
             height: 1.1,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
+        Text(
+          'Earned so far',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            fontSize: 14,
+          ),
+        ),
+        const SizedBox(height: 16),
 
         // Progress bar
         Container(
@@ -144,7 +204,7 @@ class RewardsBreakdownScreen extends StatelessWidget {
             color: const Color(0xFFE8E8E8),
           ),
           child: FractionallySizedBox(
-            widthFactor: 0.8,
+            widthFactor: progress.clamp(0.0, 1.0),
             alignment: Alignment.centerLeft,
             child: Container(
               decoration: BoxDecoration(
@@ -159,7 +219,7 @@ class RewardsBreakdownScreen extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Epoch 1',
+              '${_epochRewards!.producedInEpoch} / ${_epochRewards!.winsInEpoch} blocks produced',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurface,
                 fontWeight: FontWeight.w500,
@@ -167,7 +227,7 @@ class RewardsBreakdownScreen extends StatelessWidget {
               ),
             ),
             Text(
-              '12h left',
+              '${(progress * 100).toStringAsFixed(0)}%',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w400,
@@ -186,7 +246,7 @@ class RewardsBreakdownScreen extends StatelessWidget {
     String title,
     String? subtitle,
     String amount,
-    String? badge,
+    IconData icon,
   ) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -199,6 +259,7 @@ class RewardsBreakdownScreen extends StatelessWidget {
               color: Color(0xFFD6D9FF),
               shape: BoxShape.circle,
             ),
+            child: Icon(icon, color: const Color(0xFF4A54E2), size: 24),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -220,7 +281,7 @@ class RewardsBreakdownScreen extends StatelessWidget {
                     style: TextStyle(
                       color: colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w400,
-                      fontSize: 15,
+                      fontSize: 14,
                     ),
                   ),
                 ],
@@ -231,7 +292,7 @@ class RewardsBreakdownScreen extends StatelessWidget {
             amount,
             style: TextStyle(
               color: colorScheme.onSurface,
-              fontWeight: FontWeight.w400,
+              fontWeight: FontWeight.w500,
               fontSize: 15,
             ),
           ),
@@ -240,7 +301,7 @@ class RewardsBreakdownScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildNextEpochSection(ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildExpectedTotalSection(ThemeData theme, ColorScheme colorScheme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -248,15 +309,7 @@ class RewardsBreakdownScreen extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Projected to earn in next epoch',
-              style: TextStyle(
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w400,
-                fontSize: 15,
-              ),
-            ),
-            Text(
-              '600,000 Tokens staked',
+              'Expected total for epoch',
               style: TextStyle(
                 color: colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w400,
@@ -267,7 +320,7 @@ class RewardsBreakdownScreen extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          '~3200 TKN',
+          '${_epochRewards!.expectedTotal} TKN',
           style: TextStyle(
             fontSize: 36,
             fontWeight: FontWeight.w400,
@@ -275,65 +328,97 @@ class RewardsBreakdownScreen extends StatelessWidget {
             height: 1.1,
           ),
         ),
+        const SizedBox(height: 8),
+        Text(
+          'Based on ${_epochRewards!.winsInEpoch} won slots at ${_epochRewards!.rewardPerBlock} TKN per block',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            fontSize: 14,
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildTierOption(
-    ThemeData theme,
-    ColorScheme colorScheme,
-    String title,
-    String subtitle,
-    String amount,
-    bool isCurrentTier,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: const BoxDecoration(
-              color: Color(0xFFD6D9FF),
-              shape: BoxShape.circle,
-            ),
+  Widget _buildWonSlotsSection(ThemeData theme, ColorScheme colorScheme) {
+    final wonSlots = _epochRewards!.wonSlots!;
+    final now = DateTime.now().toUtc();
+
+    // Separate into upcoming and past slots
+    final upcomingSlots = wonSlots.where((slot) {
+      final slotTime = DateTime.fromMillisecondsSinceEpoch(
+        slot.expectedTimeMs.toInt(),
+        isUtc: true,
+      );
+      return slotTime.isAfter(now);
+    }).toList();
+
+    final pastSlots = wonSlots.where((slot) {
+      final slotTime = DateTime.fromMillisecondsSinceEpoch(
+        slot.expectedTimeMs.toInt(),
+        isUtc: true,
+      );
+      return !slotTime.isAfter(now);
+    }).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Won Slots Timeline',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: colorScheme.onSurface,
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w400,
-                    fontSize: 17,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w400,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
+        ),
+        const SizedBox(height: 12),
+
+        // Summary
+        Text(
+          '${wonSlots.length} total slots • ${upcomingSlots.length} upcoming • ${pastSlots.length} past',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurfaceVariant,
           ),
+        ),
+        const SizedBox(height: 16),
+
+        // Display upcoming slots first
+        if (upcomingSlots.isNotEmpty) ...[
           Text(
-            amount,
-            style: TextStyle(
+            'Upcoming Slots',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w600,
               color: colorScheme.onSurface,
-              fontWeight: FontWeight.w400,
-              fontSize: 14,
             ),
           ),
+          const SizedBox(height: 8),
+          ...upcomingSlots.map((slot) => WonSlotItem(
+                slot: slot,
+                status: SlotStatus.pending,
+              )),
         ],
-      ),
+
+        // Display past slots
+        if (pastSlots.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Text(
+            'Past Slots',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ...pastSlots.map((slot) {
+            // Determine if produced or missed
+            // For now, assume produced (would need blockchain data to verify)
+            return WonSlotItem(
+              slot: slot,
+              status: SlotStatus.produced,
+            );
+          }),
+        ],
+      ],
     );
   }
 
@@ -342,16 +427,26 @@ class RewardsBreakdownScreen extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'A quick heads-up on these projections',
+          'About These Rewards',
           style: TextStyle(
             color: colorScheme.onSurface,
-            fontWeight: FontWeight.w400,
+            fontWeight: FontWeight.w600,
             fontSize: 17,
           ),
         ),
         const SizedBox(height: 12),
         Text(
-          'Think of these numbers as a close estimate. Since final rewards depend on {VRF EXPLAINED}, the exact total can change a little by the time the next epoch begins. Also, to keep everything running smoothly, your tier for the next epoch gets locked in when the current one is about two-thirds complete. For you, it\'s already set to Bronze—nice work!',
+          'Rewards are earned by producing blocks during your won slots. Each epoch, you are assigned slots based on your stake and VRF selection. The total rewards depend on successfully producing blocks in those slots.',
+          style: TextStyle(
+            color: colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w400,
+            fontSize: 15,
+            height: 1.4,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'The "Expected Total" is calculated based on all your won slots. Your actual earnings may vary if any blocks are missed.',
           style: TextStyle(
             color: colorScheme.onSurfaceVariant,
             fontWeight: FontWeight.w400,
@@ -361,5 +456,10 @@ class RewardsBreakdownScreen extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  String _shortenMid(String s, {int head = 6, int tail = 6}) {
+    if (s.length <= head + tail + 1) return s;
+    return '${s.substring(0, head)}...${s.substring(s.length - tail)}';
   }
 }

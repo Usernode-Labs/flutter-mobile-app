@@ -342,8 +342,13 @@ class RustBackendService {
     int? limit,
     bool? fromTip,
   }) async {
-    Log.d('RUST', 'listBlockchain called');
-    SentryUtil.addBreadcrumb(category: 'rpc', message: 'listBlockchain called');
+    Log.d('RUST',
+        'listBlockchain called with params: limit=$limit, fromTip=$fromTip');
+    SentryUtil.addBreadcrumb(
+      category: 'rpc',
+      message: 'listBlockchain called',
+      data: {'limit': limit, 'fromTip': fromTip},
+    );
     final r = _rpc;
     if (r == null) return null;
 
@@ -377,25 +382,32 @@ class RustBackendService {
 
       // Build detailed block list
       final blocks = blockchain?.items.map((block) {
-        try {
-          return {
-            'height': block.height,
-            'epoch': block.epoch,
-            'globalSlot': block.globalSlot,
-            'hash': block.hash.toString(),
-            'batches': block.batches.length,
-          };
-        } catch (e) {
-          return {'error': 'Failed to parse block: $e'};
-        }
-      }).toList() ?? [];
+            try {
+              return {
+                'height': block.height,
+                'epoch': block.epoch,
+                'globalSlot': block.globalSlot,
+                'hash': block.hash.toString(),
+                'producerPubkey': block.producerPubkey,
+                'batches': block.batches.length,
+                'batchTransactions': block.batches
+                    .map((b) => b.transactions.toString())
+                    .toList(),
+              };
+            } catch (e) {
+              return {'error': 'Failed to parse block: $e'};
+            }
+          }).toList() ??
+          [];
 
       final fullResponse = {
         'totalBlocks': totalBlocks.toString(),
         'itemsCount': itemsCount,
         'blocks': blocks,
-        if (blockchain?.rootHash != null) 'rootHash': blockchain!.rootHash.toString(),
-        if (blockchain?.tipHash != null) 'tipHash': blockchain!.tipHash.toString(),
+        if (blockchain?.rootHash != null)
+          'rootHash': blockchain!.rootHash.toString(),
+        if (blockchain?.tipHash != null)
+          'tipHash': blockchain!.tipHash.toString(),
         if (blockchain == null) 'nullBlockchain': true,
       };
 
@@ -470,13 +482,16 @@ class RustBackendService {
       final entriesCount = mempool?.entries.length ?? 0;
 
       // Build detailed transaction list
-      final transactions = mempool?.entries.map((tx) => {
-        'id': tx.id.toString(),
-        'fee': tx.fee.toString(),
-        'inputs': tx.inputs.length,
-        'outputs': tx.outputs.length,
-        'sizeBytes': tx.sizeBytes,
-      }).toList() ?? [];
+      final transactions = mempool?.entries
+              .map((tx) => {
+                    'id': tx.id.toString(),
+                    'fee': tx.fee.toString(),
+                    'inputs': tx.inputs.length,
+                    'outputs': tx.outputs.length,
+                    'sizeBytes': tx.sizeBytes,
+                  })
+              .toList() ??
+          [];
 
       final fullResponse = {
         'count': count.toString(),
@@ -521,8 +536,12 @@ class RustBackendService {
   Future<RpcEpochRewardsResp?> epochRewards({
     int? epoch,
   }) async {
-    Log.d('RUST', 'epochRewards called');
-    SentryUtil.addBreadcrumb(category: 'rpc', message: 'epochRewards called');
+    Log.d('RUST', 'epochRewards called with params: epoch=$epoch');
+    SentryUtil.addBreadcrumb(
+      category: 'rpc',
+      message: 'epochRewards called',
+      data: {'epoch': epoch},
+    );
     final r = _rpc;
     if (r == null) return null;
 
@@ -531,6 +550,7 @@ class RustBackendService {
     try {
       rewards = await r.epochRewards(
         epoch: epoch,
+        includeWonSlots: true,
       );
     } on PanicException catch (e, st) {
       // FRB surfaced a Rust-side panic.
@@ -557,6 +577,19 @@ class RustBackendService {
       final earnedSoFar = rewards?.earnedSoFar ?? BigInt.zero;
       final expectedTotal = rewards?.expectedTotal ?? BigInt.zero;
       final producerPubkey = rewards?.producerPubkey;
+      final wonSlots = rewards?.wonSlots;
+
+      // Build detailed won slots list
+      final wonSlotsList = wonSlots?.map((slot) {
+        try {
+          return {
+            'globalSlot': slot.globalSlot,
+            'expectedTimeMs': slot.expectedTimeMs.toString(),
+          };
+        } catch (e) {
+          return {'error': 'Failed to parse slot: $e'};
+        }
+      }).toList();
 
       final fullResponse = {
         'epoch': epochNum,
@@ -566,6 +599,9 @@ class RustBackendService {
         'earnedSoFar': earnedSoFar.toString(),
         'expectedTotal': expectedTotal.toString(),
         if (producerPubkey != null) 'producerPubkey': producerPubkey,
+        if (wonSlots != null) 'wonSlots': wonSlotsList,
+        'wonSlotsCount': wonSlots?.length ?? 0,
+        'wonSlotsIsNull': wonSlots == null,
         if (rewards == null) 'nullRewards': true,
       };
 
@@ -606,7 +642,8 @@ class RustBackendService {
     int? limit,
   }) async {
     Log.d('RUST', 'listUtxosByOwner called');
-    SentryUtil.addBreadcrumb(category: 'rpc', message: 'listUtxosByOwner called');
+    SentryUtil.addBreadcrumb(
+        category: 'rpc', message: 'listUtxosByOwner called');
     final r = _rpc;
     if (r == null) return null;
 

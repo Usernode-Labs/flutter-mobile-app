@@ -5,6 +5,8 @@ import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_mempool.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_utxos_by_owner.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/transfer_funds.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_blockchain.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 import 'package:crypto_mobile_app/src/rust/third_party/usernode_core/account.dart';
 import 'package:crypto_mobile_app/src/rust/third_party/usernode_core/transaction.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
@@ -335,6 +337,94 @@ class RustBackendService {
     return status;
   }
 
+  /// Convenience helper to fetch blockchain blocks via RPC.
+  Future<RpcListBlockchainResp?> listBlockchain({
+    int? limit,
+    bool? fromTip,
+  }) async {
+    Log.d('RUST', 'listBlockchain called');
+    SentryUtil.addBreadcrumb(category: 'rpc', message: 'listBlockchain called');
+    final r = _rpc;
+    if (r == null) return null;
+
+    // Call into FRB with defensive handling for panics / transport errors.
+    RpcListBlockchainResp? blockchain;
+    try {
+      blockchain = await r.listBlockchain(
+        limit: limit,
+        fromTip: fromTip,
+      );
+    } on PanicException catch (e, st) {
+      // FRB surfaced a Rust-side panic.
+      Log.e('RUST', 'FRB panic during listBlockchain', e, st);
+      // Mark backend as not running and drop RPC handle to avoid cascading failures.
+      _nodeRunning = false;
+      _rpc = null;
+      await SentryUtil.captureError(e, st, tag: 'frb_panic_listBlockchain');
+      // Return null gracefully so UI can keep rendering with an error message.
+      return null;
+    } catch (e, st) {
+      // Any other error from the bridge/RPC call.
+      Log.w('RUST', 'RPC listBlockchain failed: $e\n$st');
+      await SentryUtil.captureError(e, st, tag: 'rpc_listBlockchain');
+      return null;
+    }
+
+    // Log the response for debugging purposes.
+    try {
+      final totalBlocks = blockchain?.totalBlocks ?? BigInt.zero;
+      final itemsCount = blockchain?.items.length ?? 0;
+
+      // Build detailed block list
+      final blocks = blockchain?.items.map((block) {
+        try {
+          return {
+            'height': block.height,
+            'epoch': block.epoch,
+            'globalSlot': block.globalSlot,
+            'hash': block.hash.toString(),
+            'batches': block.batches.length,
+          };
+        } catch (e) {
+          return {'error': 'Failed to parse block: $e'};
+        }
+      }).toList() ?? [];
+
+      final fullResponse = {
+        'totalBlocks': totalBlocks.toString(),
+        'itemsCount': itemsCount,
+        'blocks': blocks,
+        if (blockchain?.rootHash != null) 'rootHash': blockchain!.rootHash.toString(),
+        if (blockchain?.tipHash != null) 'tipHash': blockchain!.tipHash.toString(),
+        if (blockchain == null) 'nullBlockchain': true,
+      };
+
+      final json = jsonEncode(fullResponse);
+      Log.d('RUST', 'listBlockchain response: $json');
+
+      await SentryUtil.captureMessageWithData('rpc.listBlockchain', {
+        'totalBlocks': totalBlocks.toString(),
+        'itemsCount': itemsCount,
+        if (blockchain == null) 'nullBlockchain': true,
+      });
+
+      SentryUtil.addBreadcrumb(
+        category: 'rpc',
+        message: 'listBlockchain ok',
+        data: {
+          'totalBlocks': totalBlocks.toString(),
+          'itemsCount': itemsCount,
+        },
+      );
+    } catch (e, st) {
+      Log.w('RUST', 'Failed to log listBlockchain response: $e\n$st');
+      await SentryUtil.captureError(e, st, tag: 'listBlockchain_logging');
+    }
+
+    Log.d('RUST', 'listBlockchain ok');
+    return blockchain;
+  }
+
   /// Convenience helper to fetch mempool transactions via RPC.
   Future<RpcListMempoolResp?> listMempool({
     PublicKeyHash? owner,
@@ -425,6 +515,89 @@ class RustBackendService {
 
     Log.d('RUST', 'listMempool ok');
     return mempool;
+  }
+
+  /// Convenience helper to fetch epoch rewards via RPC.
+  Future<RpcEpochRewardsResp?> epochRewards({
+    int? epoch,
+  }) async {
+    Log.d('RUST', 'epochRewards called');
+    SentryUtil.addBreadcrumb(category: 'rpc', message: 'epochRewards called');
+    final r = _rpc;
+    if (r == null) return null;
+
+    // Call into FRB with defensive handling for panics / transport errors.
+    RpcEpochRewardsResp? rewards;
+    try {
+      rewards = await r.epochRewards(
+        epoch: epoch,
+      );
+    } on PanicException catch (e, st) {
+      // FRB surfaced a Rust-side panic.
+      Log.e('RUST', 'FRB panic during epochRewards', e, st);
+      // Mark backend as not running and drop RPC handle to avoid cascading failures.
+      _nodeRunning = false;
+      _rpc = null;
+      await SentryUtil.captureError(e, st, tag: 'frb_panic_epochRewards');
+      // Return null gracefully so UI can keep rendering with an error message.
+      return null;
+    } catch (e, st) {
+      // Any other error from the bridge/RPC call.
+      Log.w('RUST', 'RPC epochRewards failed: $e\n$st');
+      await SentryUtil.captureError(e, st, tag: 'rpc_epochRewards');
+      return null;
+    }
+
+    // Log the response for debugging purposes.
+    try {
+      final epochNum = rewards?.epoch;
+      final rewardPerBlock = rewards?.rewardPerBlock ?? BigInt.zero;
+      final producedInEpoch = rewards?.producedInEpoch ?? 0;
+      final winsInEpoch = rewards?.winsInEpoch ?? 0;
+      final earnedSoFar = rewards?.earnedSoFar ?? BigInt.zero;
+      final expectedTotal = rewards?.expectedTotal ?? BigInt.zero;
+      final producerPubkey = rewards?.producerPubkey;
+
+      final fullResponse = {
+        'epoch': epochNum,
+        'rewardPerBlock': rewardPerBlock.toString(),
+        'producedInEpoch': producedInEpoch,
+        'winsInEpoch': winsInEpoch,
+        'earnedSoFar': earnedSoFar.toString(),
+        'expectedTotal': expectedTotal.toString(),
+        if (producerPubkey != null) 'producerPubkey': producerPubkey,
+        if (rewards == null) 'nullRewards': true,
+      };
+
+      final json = jsonEncode(fullResponse);
+      Log.d('RUST', 'epochRewards response: $json');
+
+      await SentryUtil.captureMessageWithData('rpc.epochRewards', {
+        'epoch': epochNum,
+        'rewardPerBlock': rewardPerBlock.toString(),
+        'producedInEpoch': producedInEpoch,
+        'winsInEpoch': winsInEpoch,
+        'earnedSoFar': earnedSoFar.toString(),
+        'expectedTotal': expectedTotal.toString(),
+        if (rewards == null) 'nullRewards': true,
+      });
+
+      SentryUtil.addBreadcrumb(
+        category: 'rpc',
+        message: 'epochRewards ok',
+        data: {
+          'epoch': epochNum,
+          'producedInEpoch': producedInEpoch,
+          'winsInEpoch': winsInEpoch,
+        },
+      );
+    } catch (e, st) {
+      Log.w('RUST', 'Failed to log epochRewards response: $e\n$st');
+      await SentryUtil.captureError(e, st, tag: 'epochRewards_logging');
+    }
+
+    Log.d('RUST', 'epochRewards ok');
+    return rewards;
   }
 
   /// Convenience helper to fetch UTXOs by owner via RPC.

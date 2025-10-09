@@ -7,6 +7,8 @@ import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_s
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_mempool.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_blockchain.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 import 'package:crypto_mobile_app/src/rust/lib.dart' as rust;
 import 'node_peers_screen.dart';
 
@@ -32,6 +34,8 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
   _ProgressData? _fetchProgress;
   _ProgressData? _applyProgress;
   RpcListMempoolResp? _mempoolData;
+  RpcListBlockchainResp? _blockchainData;
+  RpcEpochRewardsResp? _epochRewards;
 
   Timer? _autoTimer;
   late final TabController _tabController;
@@ -39,7 +43,7 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
 
   // Soft tinted surface helper for modern light backgrounds
   Color _tint(ColorScheme scheme, Color accent, [double opacity = 0.06]) {
-    return Color.alphaBlend(accent.withOpacity(opacity), scheme.surface);
+    return Color.alphaBlend(accent.withValues(alpha: opacity), scheme.surface);
   }
 
   @override
@@ -65,6 +69,8 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
       Log.d('NODE', 'Fetching status');
       final status = await RustBackendService.instance.getStatus();
       final mempool = await RustBackendService.instance.listMempool();
+      final blockchainList = await RustBackendService.instance.listBlockchain(limit: 20, fromTip: true);
+      final epochRewards = await RustBackendService.instance.epochRewards();
       if (status != null) {
         try {
           final Map<String, dynamic> statusMap = {};
@@ -203,6 +209,8 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
         _fetchProgress = fetchProgress;
         _applyProgress = applyProgress;
         _mempoolData = mempool;
+        _blockchainData = blockchainList;
+        _epochRewards = epochRewards;
         _lastChecked = DateTime.now();
       });
     } catch (e, st) {
@@ -265,8 +273,8 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
             // Activity Section with Tabs
             SegmentedButton<int>(
               segments: const [
-                ButtonSegment(value: 0, label: Text('Scheduled Slots')),
-                ButtonSegment(value: 1, label: Text('Produced Blocks')),
+                ButtonSegment(value: 0, label: Text('Produced Blocks')),
+                ButtonSegment(value: 1, label: Text('Scheduled Slots')),
               ],
               selected: {_tabController.index},
               onSelectionChanged: (newSelection) {
@@ -279,47 +287,11 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
 
             // Tab content
             if (_tabController.index == 0)
-              // Scheduled Slots Tab
-              Column(
-                children: [
-                  _SlotItem(
-                    icon: Icons.upcoming,
-                    title: 'Slot in 1h 5m',
-                    subtitle: 'Slot #12345',
-                    iconColor: Colors.orange,
-                    reward: '+0.5 COINS',
-                    slotNumber: 12345,
-                  ),
-                  const SizedBox(height: 8),
-                  _SlotItem(
-                    icon: Icons.schedule,
-                    title: 'Slot in 3h 20m',
-                    subtitle: 'Slot #12350',
-                    iconColor: Colors.blue,
-                    reward: '+0.5 COINS',
-                    slotNumber: 12350,
-                  ),
-                ],
-              )
-            else
               // Produced Blocks Tab
-              Column(
-                children: [
-                  _ProducedBlockItem(
-                    title: 'Block #1234',
-                    subtitle: '2 hours ago',
-                    reward: '+0.5 COINS',
-                    blockNumber: 1234,
-                  ),
-                  const SizedBox(height: 8),
-                  _ProducedBlockItem(
-                    title: 'Block #1233',
-                    subtitle: '4 hours ago',
-                    reward: '+0.5 COINS',
-                    blockNumber: 1233,
-                  ),
-                ],
-              ),
+              _buildProducedBlocksTab(context)
+            else
+              // Scheduled Slots Tab
+              _buildScheduledSlotsTab(context),
             ],
         ),
         ),
@@ -1206,6 +1178,187 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     return _shortenMid(hash, head: 10, tail: 10);
   }
 
+  Widget _buildScheduledSlotsTab(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final rewards = _epochRewards;
+
+    if (rewards == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'Loading epoch rewards...',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            children: [
+              Icon(Icons.calendar_today, size: 20, color: colorScheme.primary),
+              const SizedBox(width: 8),
+              Text(
+                'Epoch ${rewards.epoch}',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Main stats
+          Text(
+            'This Epoch: ${rewards.producedInEpoch} produced / ${rewards.winsInEpoch} won slots / ${rewards.rewardPerBlock} reward per block',
+            style: theme.textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.w500,
+              color: colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Divider(),
+          const SizedBox(height: 16),
+
+          // Detailed breakdown
+          _buildEpochStat(
+            context,
+            icon: Icons.production_quantity_limits,
+            label: 'Blocks Produced',
+            value: '${rewards.producedInEpoch}',
+            color: colorScheme.primary,
+          ),
+          const SizedBox(height: 12),
+          _buildEpochStat(
+            context,
+            icon: Icons.emoji_events,
+            label: 'Won Slots',
+            value: '${rewards.winsInEpoch}',
+            color: colorScheme.tertiary,
+          ),
+          const SizedBox(height: 12),
+          _buildEpochStat(
+            context,
+            icon: Icons.attach_money,
+            label: 'Reward per Block',
+            value: '${rewards.rewardPerBlock}',
+            color: colorScheme.secondary,
+          ),
+          const SizedBox(height: 12),
+          _buildEpochStat(
+            context,
+            icon: Icons.savings,
+            label: 'Earned So Far',
+            value: '${rewards.earnedSoFar}',
+            color: Colors.green,
+          ),
+          const SizedBox(height: 12),
+          _buildEpochStat(
+            context,
+            icon: Icons.trending_up,
+            label: 'Expected Total',
+            value: '${rewards.expectedTotal}',
+            color: Colors.blue,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEpochStat(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            label,
+            style: theme.textTheme.bodyMedium,
+          ),
+        ),
+        Text(
+          value,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildProducedBlocksTab(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final blockchain = _blockchainData;
+
+    if (blockchain == null || blockchain.items.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'No produced blocks available',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Display blocks from the blockchain
+    final blocks = blockchain.items.take(10).toList();
+    final bestTipSlot = _bestTipGlobalSlot;
+    final rewardPerBlock = _epochRewards?.rewardPerBlock ?? BigInt.zero;
+
+    return Column(
+      children: blocks.asMap().entries.map((entry) {
+        final block = entry.value;
+        final isBestTip = bestTipSlot != null && block.globalSlot == bestTipSlot;
+
+        String blockHash;
+        try {
+          blockHash = block.hash.toString();
+        } catch (e) {
+          blockHash = 'N/A';
+        }
+
+        return _ProducedBlockItem(
+          blockNumber: block.height,
+          epoch: block.epoch,
+          globalSlot: block.globalSlot,
+          hash: blockHash,
+          batches: block.batches.length,
+          isBestTip: isBestTip,
+          reward: rewardPerBlock,
+        );
+      }).toList(),
+    );
+  }
+
   void _showBuildInfoDialog() {
     final env = rust.buildEnv();
     showDialog(
@@ -1365,21 +1518,23 @@ class _TxDetailChip extends StatelessWidget {
   }
 }
 
-class _SlotItem extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final Color iconColor;
-  final String reward;
-  final int slotNumber;
+class _ProducedBlockItem extends StatelessWidget {
+  final int blockNumber;
+  final int epoch;
+  final int globalSlot;
+  final String hash;
+  final int batches;
+  final bool isBestTip;
+  final BigInt reward;
 
-  const _SlotItem({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.iconColor,
+  const _ProducedBlockItem({
+    required this.blockNumber,
+    required this.epoch,
+    required this.globalSlot,
+    required this.hash,
+    required this.batches,
+    required this.isBestTip,
     required this.reward,
-    required this.slotNumber,
   });
 
   @override
@@ -1387,101 +1542,108 @@ class _SlotItem extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return Card(
-      elevation: 0,
-      color: colorScheme.surfaceContainerLow,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+    // Shorten the hash
+    final shortHash = _shortenHashStatic(hash);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: isBestTip
+            ? colorScheme.primaryContainer.withValues(alpha: 0.3)
+            : colorScheme.surfaceContainerLow,
+        border: isBestTip
+            ? Border.all(color: colorScheme.primary, width: 2)
+            : null,
+        borderRadius: BorderRadius.circular(8),
       ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: CircleAvatar(
-          radius: 24,
-          backgroundColor: iconColor.withValues(alpha: 0.2),
-          child: Icon(icon, color: iconColor, size: 24),
-        ),
-        title: Text(
-          title,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Icon
+          Icon(
+            Icons.check_circle,
+            color: colorScheme.primary,
+            size: 20,
           ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: colorScheme.onSurfaceVariant,
+          const SizedBox(width: 12),
+
+          // Content
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Title row with best tip badge
+                Row(
+                  children: [
+                    Text(
+                      'Block #$blockNumber',
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (isBestTip) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: colorScheme.primary,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'BEST TIP',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: colorScheme.onPrimary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 9,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 4),
+
+                // Slot and batches info
+                Text(
+                  'Slot #$globalSlot • ${batches == 1 ? '1 batch' : '$batches batches'}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 2),
+
+                // Hash
+                Text(
+                  'Hash: $shortHash',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                    fontFamily: 'monospace',
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        trailing: Text(
-          reward,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: colorScheme.tertiary,
-          ),
-        ),
+
+          // Reward
+          if (reward > BigInt.zero)
+            Text(
+              '+$reward',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: Colors.green,
+              ),
+            ),
+        ],
       ),
     );
   }
-}
 
-class _ProducedBlockItem extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final String reward;
-  final int blockNumber;
-
-  const _ProducedBlockItem({
-    required this.title,
-    required this.subtitle,
-    required this.reward,
-    required this.blockNumber,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return Card(
-      elevation: 0,
-      color: colorScheme.surfaceContainerLow,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: CircleAvatar(
-          radius: 20,
-          backgroundColor: colorScheme.primaryContainer,
-          child: Icon(
-            Icons.check_circle,
-            color: colorScheme.onPrimaryContainer,
-            size: 20,
-          ),
-        ),
-        title: Text(
-          title,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
-        ),
-        trailing: Text(
-          reward,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: colorScheme.tertiary,
-          ),
-        ),
-      ),
-    );
+  static String _shortenHashStatic(String hash, {int head = 6, int tail = 6}) {
+    if (hash == 'N/A' || hash.isEmpty) return hash;
+    if (hash.length <= head + tail + 3) return hash;
+    return '${hash.substring(0, head)}...${hash.substring(hash.length - tail)}';
   }
 }
 

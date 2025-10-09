@@ -6,9 +6,45 @@ import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/features/rewards/presentation/screens/rewards_breakdown_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/presentation/screens/send_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/presentation/screens/receive_screen.dart';
+import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
+import 'package:crypto_mobile_app/core/utils/logger.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  RpcEpochRewardsResp? _epochRewards;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEpochRewards();
+  }
+
+  Future<void> _loadEpochRewards() async {
+    try {
+      Log.d('HOME', 'Loading epoch rewards');
+      final rewards = await RustBackendService.instance.epochRewards();
+      if (!mounted) return;
+      setState(() {
+        _epochRewards = rewards;
+        _isLoading = false;
+      });
+      Log.d('HOME', 'Epoch rewards loaded: ${rewards != null}');
+    } catch (e, st) {
+      Log.e('HOME', 'Failed to load epoch rewards', e, st);
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -197,113 +233,134 @@ class HomeScreen extends StatelessWidget {
                     color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.8),
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // This epoch's rewards section
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'This epoch\'s rewards (Basic Tier)',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              color: colorScheme.onSurface,
-                              fontWeight: FontWeight.w600,
-                            ),
+                  child: _isLoading
+                      ? const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(24.0),
+                            child: CircularProgressIndicator(),
                           ),
-                          IconButton(
-                            tooltip: 'Breakdown',
-                            icon: Icon(Icons.bar_chart_rounded,
-                                color: colorScheme.primary),
-                            onPressed: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      const RewardsBreakdownScreen(),
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // This epoch's rewards section
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'This epoch\'s rewards',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    color: colorScheme.onSurface,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      // Rewards amount
-                      Text(
-                        '2200 TKN',
-                        style: theme.textTheme.headlineMedium?.copyWith(
-                          fontSize: 36,
-                          fontWeight: FontWeight.w700,
-                          color: colorScheme.onSurface,
-                        ),
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      // Progress bar and epoch info
-                      ClipRRect(
-                        borderRadius:
-                            const BorderRadius.all(Radius.circular(3)),
-                        child: LinearProgressIndicator(
-                          value: 0.8,
-                          backgroundColor: colorScheme.surfaceContainerHighest,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                              colorScheme.primary),
-                          minHeight: 6,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Epoch 1',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.onSurface,
-                              fontWeight: FontWeight.w500,
+                                IconButton(
+                                  tooltip: 'Breakdown',
+                                  icon: Icon(Icons.bar_chart_rounded,
+                                      color: colorScheme.primary),
+                                  onPressed: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            const RewardsBreakdownScreen(),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
                             ),
-                          ),
-                          Text(
-                            '12h left',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w500,
+
+                            const SizedBox(height: 8),
+
+                            // Rewards amount
+                            Text(
+                              _epochRewards != null
+                                  ? '${_epochRewards!.earnedSoFar} TKN'
+                                  : '— TKN',
+                              style: theme.textTheme.headlineMedium?.copyWith(
+                                fontSize: 36,
+                                fontWeight: FontWeight.w700,
+                                color: colorScheme.onSurface,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
 
-                      const SizedBox(height: 16),
-                      const Divider(height: 1),
-                      const SizedBox(height: 12),
+                            const SizedBox(height: 12),
 
-                      // Next epoch projection
-                      Text(
-                        'Next epoch projection (Bronze Tier)',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: colorScheme.onSurface,
-                          fontWeight: FontWeight.w600,
+                            // Progress bar and epoch info
+                            ClipRRect(
+                              borderRadius:
+                                  const BorderRadius.all(Radius.circular(3)),
+                              child: LinearProgressIndicator(
+                                value: _epochRewards != null &&
+                                        _epochRewards!.expectedTotal > BigInt.zero
+                                    ? (_epochRewards!.earnedSoFar.toDouble() /
+                                        _epochRewards!.expectedTotal.toDouble())
+                                    : 0.0,
+                                backgroundColor: colorScheme.surfaceContainerHighest,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                    colorScheme.primary),
+                                minHeight: 6,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  _epochRewards != null
+                                      ? 'Epoch ${_epochRewards!.epoch}'
+                                      : 'Epoch —',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: colorScheme.onSurface,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                Text(
+                                  _epochRewards != null
+                                      ? '${_epochRewards!.producedInEpoch} / ${_epochRewards!.winsInEpoch} blocks'
+                                      : '—',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            const SizedBox(height: 16),
+                            const Divider(height: 1),
+                            const SizedBox(height: 12),
+
+                            // Next epoch projection
+                            Text(
+                              'Next epoch projection',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                color: colorScheme.onSurface,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              _epochRewards != null
+                                  ? '~${_epochRewards!.expectedTotal} TKN'
+                                  : '— TKN',
+                              style: theme.textTheme.headlineSmall?.copyWith(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w700,
+                                color: colorScheme.onSurface,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _epochRewards != null
+                                  ? 'Based on ${_epochRewards!.winsInEpoch} won slots at ${_epochRewards!.rewardPerBlock} per block'
+                                  : 'Loading projection...',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '~2450 TKN',
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w700,
-                          color: colorScheme.onSurface,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Your next epoch\'s rate is higher. Well done!',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
               ),
 

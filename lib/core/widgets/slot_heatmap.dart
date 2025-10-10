@@ -19,7 +19,6 @@ class SlotHeatmapData {
 
 class SlotHeatmap extends StatelessWidget {
   final List<SlotHeatmapData> slots;
-  final int slotsPerRow;
   final double cellSize;
   final double cellSpacing;
   final VoidCallback? onSlotTap;
@@ -27,7 +26,6 @@ class SlotHeatmap extends StatelessWidget {
   const SlotHeatmap({
     super.key,
     required this.slots,
-    this.slotsPerRow = 20,
     this.cellSize = 12,
     this.cellSpacing = 6,
     this.onSlotTap,
@@ -51,15 +49,13 @@ class SlotHeatmap extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Summary statistics
-
-        // Heatmap grid
-        _buildHeatmapGrid(context, colorScheme),
-
-        const SizedBox(height: 16),
-
-        // Legend
+        // Legend first
         _buildLegend(context, colorScheme, produced, pending, missed),
+
+        const SizedBox(height: 12),
+
+        // Circles grid (floating)
+        _buildHeatmapGrid(context, colorScheme),
       ],
     );
   }
@@ -67,36 +63,13 @@ class SlotHeatmap extends StatelessWidget {
   // Removed unused _buildStat helper
 
   Widget _buildHeatmapGrid(BuildContext context, ColorScheme colorScheme) {
-    // Split slots into rows
-    final rows = <List<SlotHeatmapData>>[];
-    for (var i = 0; i < slots.length; i += slotsPerRow) {
-      final end =
-          (i + slotsPerRow < slots.length) ? i + slotsPerRow : slots.length;
-      rows.add(slots.sublist(i, end));
-    }
-
-    return Column(
-      children:
-          rows.map((row) => _buildRow(context, colorScheme, row)).toList(),
-    );
-  }
-
-  Widget _buildRow(
-    BuildContext context,
-    ColorScheme colorScheme,
-    List<SlotHeatmapData> rowSlots,
-  ) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: cellSpacing),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: rowSlots.map((slotData) {
-          return Padding(
-            padding: EdgeInsets.only(right: cellSpacing),
-            child: _buildCell(context, colorScheme, slotData),
-          );
-        }).toList(),
-      ),
+    // Floating layout: small circles flow into rows automatically
+    return Wrap(
+      spacing: cellSpacing,
+      runSpacing: cellSpacing,
+      children: slots
+          .map((slotData) => _buildCell(context, colorScheme, slotData))
+          .toList(),
     );
   }
 
@@ -144,8 +117,6 @@ class SlotHeatmap extends StatelessWidget {
     int pending,
     int missed,
   ) {
-    final theme = Theme.of(context);
-
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -154,74 +125,8 @@ class SlotHeatmap extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Legend',
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 16,
-            runSpacing: 8,
-            children: [
-              _buildLegendItem(
-                context,
-                color: Colors.green.shade400,
-                label: 'Produced',
-                count: produced,
-              ),
-              _buildLegendItem(
-                context,
-                color: Colors.blue.shade400,
-                label: 'Pending',
-                count: pending,
-              ),
-              _buildLegendItem(
-                context,
-                color: Colors.red.shade400,
-                label: 'Missed',
-                count: missed,
-              ),
-            ],
-          ),
-        ],
+        children: [],
       ),
-    );
-  }
-
-  Widget _buildLegendItem(
-    BuildContext context, {
-    required Color color,
-    required String label,
-    required int count,
-  }) {
-    final theme = Theme.of(context);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 16,
-          height: 16,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(3),
-            border: Border.all(
-              color: color.withValues(alpha: 0.8),
-              width: 1,
-            ),
-          ),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          '$label ($count)',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurface,
-          ),
-        ),
-      ],
     );
   }
 

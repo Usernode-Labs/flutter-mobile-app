@@ -1474,3 +1474,24 @@ samples, guidance on mobile development, and a full API reference.
 ```
 
 ```
+## Quick Start
+
+See RUNNING.md for how to run the app with optional flags, change theme mode, and run tests.
+
+## Project Overview
+
+This app follows a feature‑first, layered architecture (Presentation → Domain → Data) with Riverpod for DI/state, go_router for navigation, and flutter_rust_bridge (FRB) to talk to the Rust backend.
+
+Highlights implemented:
+- Provider‑driven UI for Node and Wallet
+- go_router with ShellRoute tabs and guards
+- Settings screen with persisted ThemeMode (System/Light/Dark)
+- Quick theme toggles on Node Status, Home, and Profile
+- Optional Result‑based Node providers (toggle via `USE_RESULT_PROVIDERS=true`)
+- Lifecycle breadcrumbs + App config from `--dart-define`
+- CI workflow (format/analyze/tests)
+
+Useful docs:
+- ARCHITECTURE.md — layers, navigation, toggles
+- CONTRIBUTING.md — patterns, examples, and a checklist for adding features
+- RUNNING.md — flags, theme, tests

@@ -45,8 +45,8 @@ class SlotHeatmap extends StatelessWidget {
         slots.where((s) => s.status == SlotHeatmapStatus.pending).length;
     final missed =
         slots.where((s) => s.status == SlotHeatmapStatus.missed).length;
-    final total = slots.length;
-    final successRate = total > 0 ? (produced / total * 100) : 0.0;
+
+    // success rate reserved for future UI
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -64,32 +64,7 @@ class SlotHeatmap extends StatelessWidget {
     );
   }
 
-  Widget _buildStat(
-    BuildContext context, {
-    required String label,
-    required String value,
-    required Color color,
-  }) {
-    final theme = Theme.of(context);
-    return Column(
-      children: [
-        Text(
-          value,
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
-    );
-  }
+  // Removed unused _buildStat helper
 
   Widget _buildHeatmapGrid(BuildContext context, ColorScheme colorScheme) {
     // Split slots into rows

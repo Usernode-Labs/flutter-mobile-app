@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/core/constants/app_constants.dart';
-import 'package:crypto_mobile_app/app/main_app.dart';
-import 'package:crypto_mobile_app/features/onboarding/presentation/screens/single_account_onboarding_screen.dart';
-import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
 import 'package:crypto_mobile_app/gen_l10n/app_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:crypto_mobile_app/core/di/providers.dart';
+import 'package:crypto_mobile_app/core/routing/app_router.dart';
+import 'package:go_router/go_router.dart';
 
-class SplashScreen extends StatefulWidget {
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen>
+class _SplashScreenState extends ConsumerState<SplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
@@ -45,19 +46,14 @@ class _SplashScreenState extends State<SplashScreen>
     _controller.forward();
 
     Future.delayed(AppConstants.splashDuration, () async {
-      final repo = await AccountsRepository.create();
-      final hasAny = await repo.hasAny();
+      final hasAny = await ref.read(hasAnyAccountProvider.future);
       if (!mounted) return;
       if (!hasAny) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const SingleAccountOnboardingScreen()),
-        );
+        if (!mounted) return;
+        context.go(AppRoutes.onboarding);
       } else {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const MainApp()),
-        );
+        if (!mounted) return;
+        context.go(AppRoutes.main);
       }
     });
   }

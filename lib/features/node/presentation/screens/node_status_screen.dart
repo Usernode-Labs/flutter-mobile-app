@@ -1,43 +1,36 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
-import 'package:crypto_mobile_app/core/widgets/won_slot_item.dart';
 import 'package:crypto_mobile_app/core/widgets/slot_heatmap.dart';
 import 'package:crypto_mobile_app/gen_l10n/app_localizations.dart';
-import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_mempool.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_blockchain.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
-import 'package:crypto_mobile_app/src/rust/lib.dart' as rust;
+import 'package:crypto_mobile_app/core/di/providers.dart';
 import 'node_peers_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:crypto_mobile_app/features/node/presentation/controllers/node_status_provider.dart';
+import 'package:crypto_mobile_app/features/node/domain/entities/node_status.dart';
+import 'package:crypto_mobile_app/features/node/presentation/controllers/node_data_providers.dart';
+import 'package:crypto_mobile_app/features/node/presentation/controllers/node_raw_status_provider.dart';
+import 'package:crypto_mobile_app/features/node/presentation/controllers/sync_status_provider.dart';
+import 'package:crypto_mobile_app/core/result.dart';
+import 'package:go_router/go_router.dart';
 
-class NodeStatusScreen extends StatefulWidget {
+class NodeStatusScreen extends ConsumerStatefulWidget {
   const NodeStatusScreen({super.key});
 
   @override
-  State<NodeStatusScreen> createState() => _NodeStatusScreenState();
+  ConsumerState<NodeStatusScreen> createState() => _NodeStatusScreenState();
 }
 
-class _NodeStatusScreenState extends State<NodeStatusScreen>
+class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     with SingleTickerProviderStateMixin {
   bool _refreshing = false;
   String? _error;
-  // int? _peerCount; // unused
-  List<RpcPeerInfo> _peers = const [];
-  int? _currentBlockHeight;
-  int? _networkBestTipHeight;
-  int? _bestTipGlobalSlot;
-  int? _bestTipEpoch;
-  String? _bestTipHash;
-  List<BigInt> _bestTipBatchTransactions = const [];
-  _ProgressData? _fetchProgress;
-  _ProgressData? _applyProgress;
-  RpcListMempoolResp? _mempoolData;
-  RpcListBlockchainResp? _blockchainData;
-  RpcEpochRewardsResp? _epochRewards;
+  // Provider-driven; local state only for UI meta like last-checked timestamp
 
   Timer? _autoTimer;
   late final TabController _tabController;
@@ -52,7 +45,11 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _refresh();
+    // Defer provider modifications until after the first frame to avoid
+    // "modify provider while building" errors.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _refresh();
+    });
     // Periodic auto-refresh every 2 minutes while this screen is alive.
     _autoTimer = Timer.periodic(const Duration(minutes: 2), (_) {
       if (mounted && !_refreshing) {
@@ -68,162 +65,15 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
       _error = null; // keep content visible; show error inline
     });
     try {
-      Log.d('NODE', 'Fetching status');
-      final status = await RustBackendService.instance.getStatus();
-      final mempool = await RustBackendService.instance.listMempool();
-      final blockchainList = await RustBackendService.instance
-          .listBlockchain(limit: 20, fromTip: true);
-
-      // Get current epoch from status to request specific epoch rewards
-      final currentEpoch = status?.blockchain.bestTip.epoch;
-      Log.d('NODE', 'Current epoch from status: $currentEpoch');
-      final epochRewards = await RustBackendService.instance.epochRewards(
-        epoch: currentEpoch,
-      );
-      if (status != null) {
-        try {
-          final Map<String, dynamic> statusMap = {};
-
-          // Add peers
-          try {
-            statusMap['peers'] = status.peers
-                .map((p) => {
-                      'peerId': p.peerId.toString(),
-                      'address': p.address,
-                      'connectionStatus': p.connectionStatus.toString(),
-                      'connectingDetails': p.connectingDetails,
-                      'incoming': p.incoming,
-                      'time': p.time.toString(),
-                    })
-                .toList();
-          } catch (e) {
-            statusMap['peers'] = 'Error: $e';
-          }
-
-          // Add blockchain info
-          try {
-            final blockchain = status.blockchain;
-            final Map<String, dynamic> blockchainMap = {};
-
-            try {
-              final bestTip = blockchain.bestTip;
-              blockchainMap['bestTip'] = {
-                'height': bestTip.height,
-                'epoch': bestTip.epoch,
-                'globalSlot': bestTip.globalSlot,
-                'hash': bestTip.hash.toString(),
-                'batches': bestTip.batches
-                    .map((b) => {
-                          'transactions': b.transactions.toString(),
-                        })
-                    .toList(),
-              };
-            } catch (e) {
-              blockchainMap['bestTip'] = 'Error: $e';
-            }
-
-            try {
-              final sync = blockchain.sync;
-              final blocks = sync.blocks;
-              if (blocks != null) {
-                blockchainMap['sync'] = {
-                  'blocks': {
-                    'bestTip': {
-                      'height': blocks.bestTip.height,
-                      'epoch': blocks.bestTip.epoch,
-                      'globalSlot': blocks.bestTip.globalSlot,
-                      'hash': blocks.bestTip.hash.toString(),
-                    },
-                    'fetchProgress': {
-                      'idle': blocks.fetchProgress.idle.toString(),
-                      'pending': blocks.fetchProgress.pending.toString(),
-                      'done': blocks.fetchProgress.done.toString(),
-                    },
-                    'applyProgress': {
-                      'idle': blocks.applyProgress.idle.toString(),
-                      'pending': blocks.applyProgress.pending.toString(),
-                      'done': blocks.applyProgress.done.toString(),
-                    },
-                  },
-                };
-              } else {
-                blockchainMap['sync'] = {'blocks': null};
-              }
-            } catch (e) {
-              blockchainMap['sync'] = 'Error: $e';
-            }
-
-            statusMap['blockchain'] = blockchainMap;
-          } catch (e) {
-            statusMap['blockchain'] = 'Error: $e';
-          }
-
-          final statusJson = jsonEncode(statusMap);
-          Log.d('NODE', 'getStatus response: $statusJson');
-        } catch (e) {
-          Log.w('NODE', 'Failed to serialize status response: $e');
-        }
-      }
-      final peers = status?.peers ?? const <RpcPeerInfo>[];
-      final blockchain = status?.blockchain;
-      final syncBlocks = blockchain?.sync.blocks;
-      RpcStatusBlockInfo? localBestTip;
-      RpcStatusBlockInfo? networkBestTip;
-      try {
-        localBestTip = blockchain?.bestTip;
-      } catch (e) {
-        localBestTip = null;
-      }
-      try {
-        networkBestTip = syncBlocks?.bestTip;
-      } catch (e) {
-        networkBestTip = null;
-      }
-      final RpcStatusBlockInfo? displayBestTip = networkBestTip ?? localBestTip;
-      List<BigInt> batchTransactions = const <BigInt>[];
-      try {
-        if (displayBestTip != null) {
-          batchTransactions = displayBestTip.batches
-              .map((info) => info.transactions)
-              .toList(growable: false);
-        }
-      } catch (e) {
-        batchTransactions = const <BigInt>[];
-      }
-      _ProgressData? fetchProgress;
-      _ProgressData? applyProgress;
-      try {
-        fetchProgress = syncBlocks != null
-            ? _ProgressData.fromProgress(syncBlocks.fetchProgress)
-            : null;
-      } catch (e) {
-        fetchProgress = null;
-      }
-      try {
-        applyProgress = syncBlocks != null
-            ? _ProgressData.fromProgress(syncBlocks.applyProgress)
-            : null;
-      } catch (e) {
-        applyProgress = null;
-      }
+      Log.d('NODE', 'Refreshing node providers');
+      // Refresh providers only; avoid extra direct FRB calls here
+      await ref.read(nodeStatusProvider.notifier).refresh();
+      await ref.read(nodeMempoolProvider.notifier).refresh();
+      await ref.read(nodeBlockchainProvider.notifier).refresh();
+      await ref.read(nodeEpochRewardsProvider.notifier).refresh();
+      await ref.read(nodeRawStatusProvider.notifier).refresh();
       if (!mounted) return;
       setState(() {
-        _peers = peers;
-        _currentBlockHeight = localBestTip?.height;
-        _networkBestTipHeight = networkBestTip?.height;
-        _bestTipGlobalSlot = displayBestTip?.globalSlot;
-        _bestTipEpoch = displayBestTip?.epoch;
-        try {
-          _bestTipHash = displayBestTip?.hash.toString();
-        } catch (e) {
-          _bestTipHash = null;
-        }
-        _bestTipBatchTransactions = batchTransactions;
-        _fetchProgress = fetchProgress;
-        _applyProgress = applyProgress;
-        _mempoolData = mempool;
-        _blockchainData = blockchainList;
-        _epochRewards = epochRewards;
         _lastChecked = DateTime.now();
       });
     } catch (e, st) {
@@ -246,8 +96,20 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      appBar: const AppAppBar(
+      appBar: AppAppBar(
         title: 'Node Status',
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.brightness_6_outlined),
+            tooltip: 'Cycle Theme',
+            onPressed: () => ref.read(themeModeProvider.notifier).cycle(),
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Settings',
+            onPressed: () => context.push('/settings'),
+          ),
+        ],
       ),
       body: SafeArea(
         child: RefreshIndicator(
@@ -267,7 +129,7 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
                 ),
 
               // Hero Status Card
-              _buildHeroStatusCard(context),
+              _buildHeroStatusCard(context, ref.watch(nodeStatusProvider).value),
               const SizedBox(height: 16),
 
               // Sync Progress Card
@@ -311,11 +173,12 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     );
   }
 
-  Widget _buildHeroStatusCard(BuildContext context) {
+  Widget _buildHeroStatusCard(BuildContext context, NodeStatus? statusFromProvider) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isSynced = _isSynced();
-    final statusText = _getSyncStatus();
+    final sync = ref.watch(syncStatusProvider);
+    final isSynced = sync.isSynced;
+    final statusText = sync.label;
 
     // Determine status color
     Color statusColor;
@@ -333,19 +196,34 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     }
 
     // Calculate sync percentage
-    final currentHeight = _currentBlockHeight ?? 0;
-    final networkHeight = _networkBestTipHeight ?? currentHeight;
-    final syncPercentage =
-        networkHeight > 0 ? (currentHeight / networkHeight) : 1.0;
+    final currentHeight = statusFromProvider?.localBestHeight ??
+        ref.watch(nodeRawStatusProvider).value?.localBestHeight ??
+        0;
+    final networkHeight = statusFromProvider?.networkBestHeight ??
+        ref.watch(nodeRawStatusProvider).value?.networkBestHeight ??
+        currentHeight;
+    final syncPercentage = networkHeight > 0 ? (currentHeight / networkHeight) : sync.progress;
 
     // Peer status
-    int connectedPeers = 0;
-    for (final p in _peers) {
-      if (p.connectionStatus == PeerConnectionStatus.connected) {
-        connectedPeers++;
+    int connectedPeers;
+    int totalPeers;
+    if (statusFromProvider != null) {
+      connectedPeers = statusFromProvider.connectedPeers;
+      totalPeers = statusFromProvider.totalPeers;
+    } else {
+      final raw = ref.watch(nodeRawStatusProvider).value;
+      if (raw != null) {
+        int c = 0;
+        for (final p in raw.peers) {
+          if (p.connectionStatus == PeerConnectionStatus.connected) c++;
+        }
+        connectedPeers = c;
+        totalPeers = raw.peers.length;
+      } else {
+        connectedPeers = 0;
+        totalPeers = 0;
       }
     }
-    final totalPeers = _peers.length;
     final peerHealthy = connectedPeers > 0 && connectedPeers == totalPeers;
 
     final bg = _tint(colorScheme, colorScheme.tertiary);
@@ -463,15 +341,16 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
                   icon: Icons.people,
                   label: '$connectedPeers/$totalPeers Peers',
                   color: peerHealthy ? colorScheme.tertiary : colorScheme.error,
-                  onTap: _peers.isEmpty
-                      ? null
-                      : () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => NodePeersScreen(peers: _peers),
-                            ),
-                          );
-                        },
+                  onTap: () {
+                    final raw = ref.read(nodeRawStatusProvider).value;
+                    final peers = raw?.peers ?? const <RpcPeerInfo>[];
+                    if (peers.isEmpty) return;
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => NodePeersScreen(peers: peers),
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(width: 16),
                 // Epoch/Slot info (not clickable)
@@ -542,9 +421,9 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
   Widget _buildSyncProgressCard(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-
-    final fetchProgress = _fetchProgress;
-    final applyProgress = _applyProgress;
+    final raw = ref.watch(nodeRawStatusProvider).value;
+    final fetchProgress = raw?.fetchProgress;
+    final applyProgress = raw?.applyProgress;
 
     // Calculate percentages
     double fetchPercentage = 0.0;
@@ -555,7 +434,7 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
           fetchProgress.idle + fetchProgress.pending + fetchProgress.done;
       if (total > BigInt.zero) {
         fetchPercentage =
-            (fetchProgress.done.toDouble() / total.toDouble()) * 100;
+            (fetchProgress.done.toInt() / total.toInt()) * 100;
       } else {
         // If total is zero (no work), consider it 100% complete
         fetchPercentage = 100.0;
@@ -570,7 +449,7 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
           applyProgress.idle + applyProgress.pending + applyProgress.done;
       if (total > BigInt.zero) {
         applyPercentage =
-            (applyProgress.done.toDouble() / total.toDouble()) * 100;
+            (applyProgress.done.toInt() / total.toInt()) * 100;
       } else {
         // If total is zero (no work), consider it 100% complete
         applyPercentage = 100.0;
@@ -673,6 +552,7 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
   Widget _buildBestTipCard(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final raw = ref.watch(nodeRawStatusProvider).value;
 
     final bg = _tint(colorScheme, colorScheme.secondary);
     return Card(
@@ -704,28 +584,42 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
             const SizedBox(height: 12),
 
             // Height and Hash on same line
-            Text(
-              'Height: ${_fmtInt(_networkBestTipHeight ?? _currentBlockHeight)} (${_bestTipHashDisplay()})',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
+            Builder(builder: (_) {
+              final height = raw?.networkBestHeight ?? raw?.localBestHeight;
+              final hash = raw?.bestTipHash;
+              final displayHash = () {
+                if (hash == null || hash.isEmpty) return 'N/A';
+                final h = hash;
+                final head = h.length >= 10 ? h.substring(0, 10) : h;
+                final tail = h.length >= 10 ? h.substring(h.length - 10) : '';
+                return '$head…$tail';
+              }();
+              return Text(
+                'Height: ${_fmtInt(height)} ($displayHash)',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              );
+            }),
 
             const SizedBox(height: 16),
             const Divider(),
             const SizedBox(height: 16),
 
             // Batches section with breakdown
-            if (_bestTipBatchTransactions.isNotEmpty) ...[
+            if (raw?.bestTipBatchTransactions.isNotEmpty == true) ...[
               Text(
-                'Batches (${_bestTipBatchTransactions.length} total)',
+                'Batches (${(raw?.bestTipBatchTransactions.length ?? 0)} total)',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                   color: colorScheme.onSurface,
                 ),
               ),
               const SizedBox(height: 12),
-              ..._bestTipBatchTransactions.asMap().entries.map((entry) {
+              ...(raw?.bestTipBatchTransactions ?? const <BigInt>[])
+                  .asMap()
+                  .entries
+                  .map((entry) {
                 final batchIndex = entry.key + 1;
                 final txCount = entry.value;
                 return Padding(
@@ -785,7 +679,10 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
   Widget _buildMempoolCard(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final mempool = _mempoolData;
+    final useResult = ref.watch(useResultProvidersProvider);
+    final mempoolAsync = useResult
+        ? ref.watch(nodeMempoolResultProvider)
+        : ref.watch(nodeMempoolProvider);
 
     final bg = _tint(colorScheme, colorScheme.primary, 0.04);
     return Card(
@@ -816,141 +713,185 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
               ],
             ),
             const SizedBox(height: 12),
-            if (mempool == null)
-              Text(
-                'Loading...',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              )
-            else ...[
-              // Summary row
-              Row(
-                children: [
-                  _MempoolStat(
-                    label: 'Count',
-                    value: mempool.count.toString(),
-                    colorScheme: colorScheme,
-                  ),
-                  const SizedBox(width: 16),
-                  _MempoolStat(
-                    label: 'Orphans',
-                    value: mempool.orphans.toString(),
-                    colorScheme: colorScheme,
-                  ),
-                  const SizedBox(width: 16),
-                  _MempoolStat(
-                    label: 'Total Size',
-                    value: _formatBytes(mempool.totalSize),
-                    colorScheme: colorScheme,
-                  ),
-                ],
-              ),
-
-              if (mempool.entries.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                const Divider(),
-                const SizedBox(height: 12),
-
-                // Transaction list
-                ...mempool.entries.take(5).map((tx) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: InkWell(
-                      onTap: () {
-                        // TODO: Navigate to transaction details
-                      },
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainerHighest
-                              .withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.receipt_long,
-                                  size: 16,
-                                  color: colorScheme.primary,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    _formatTxHash(tx.id.toString()),
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: colorScheme.onSurface,
-                                      fontWeight: FontWeight.w500,
-                                      fontFamily: 'monospace',
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                _TxDetailChip(
-                                  icon: Icons.currency_exchange,
-                                  label: 'Fee: ${tx.fee}',
-                                  colorScheme: colorScheme,
-                                ),
-                                const SizedBox(width: 8),
-                                _TxDetailChip(
-                                  icon: Icons.input,
-                                  label: 'In: ${tx.inputs.length}',
-                                  colorScheme: colorScheme,
-                                ),
-                                const SizedBox(width: 8),
-                                _TxDetailChip(
-                                  icon: Icons.output,
-                                  label: 'Out: ${tx.outputs.length}',
-                                  colorScheme: colorScheme,
-                                ),
-                                const SizedBox(width: 8),
-                                _TxDetailChip(
-                                  icon: Icons.data_usage,
-                                  label: '${tx.sizeBytes}B',
-                                  colorScheme: colorScheme,
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
+            useResult
+                ? (mempoolAsync as AsyncValue<Result<RpcListMempoolResp?>>).when(
+                    loading: () => Text(
+                      'Loading...',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     ),
-                  );
-                }),
-
-                if (mempool.entries.length > 5)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Center(
-                      child: Text(
-                        '+${mempool.entries.length - 5} more transactions',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
+                    error: (e, _) => Text(
+                      'Failed to load mempool',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.error,
                       ),
                     ),
+                    data: (res) {
+                      if (res.isErr) {
+                        return Text(
+                          'Failed to load mempool',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.error,
+                          ),
+                        );
+                      }
+                      final mempool = res.ok;
+                      if (mempool == null) {
+                        return Text(
+                          'No mempool data',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        );
+                      }
+                      return _buildMempoolContent(context, theme, colorScheme, mempool);
+                    },
+                  )
+                : (mempoolAsync as AsyncValue<RpcListMempoolResp?>).when(
+                  loading: () => Text(
+                    'Loading...',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                   ),
-              ] else ...[
-                const SizedBox(height: 8),
-                Text(
-                  'No transactions in mempool',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
+                  error: (e, _) => Text(
+                    'Failed to load mempool',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.error,
+                    ),
                   ),
+                  data: (mempool) => mempool == null
+                      ? Text(
+                          'No mempool data',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        )
+                      : _buildMempoolContent(context, theme, colorScheme, mempool),
                 ),
-              ],
-            ],
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildMempoolContent(BuildContext context, ThemeData theme, ColorScheme colorScheme, RpcListMempoolResp mempool) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            _MempoolStat(
+              label: 'Count',
+              value: mempool.count.toString(),
+              colorScheme: colorScheme,
+            ),
+            const SizedBox(width: 16),
+            _MempoolStat(
+              label: 'Orphans',
+              value: mempool.orphans.toString(),
+              colorScheme: colorScheme,
+            ),
+            const SizedBox(width: 16),
+            _MempoolStat(
+              label: 'Total Size',
+              value: _formatBytes(mempool.totalSize),
+              colorScheme: colorScheme,
+            ),
+          ],
+        ),
+        if (mempool.entries.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          const Divider(),
+          const SizedBox(height: 12),
+          ...mempool.entries.take(5).map((tx) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: InkWell(
+                onTap: () {},
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.receipt_long, size: 16, color: colorScheme.primary),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _formatTxHash(tx.id.toString()),
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: colorScheme.onSurface,
+                                fontWeight: FontWeight.w500,
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          _TxDetailChip(
+                            icon: Icons.currency_exchange,
+                            label: 'Fee: ${tx.fee}',
+                            colorScheme: colorScheme,
+                          ),
+                          const SizedBox(width: 8),
+                          _TxDetailChip(
+                            icon: Icons.input,
+                            label: 'In: ${tx.inputs.length}',
+                            colorScheme: colorScheme,
+                          ),
+                          const SizedBox(width: 8),
+                          _TxDetailChip(
+                            icon: Icons.output,
+                            label: 'Out: ${tx.outputs.length}',
+                            colorScheme: colorScheme,
+                          ),
+                          const SizedBox(width: 8),
+                          _TxDetailChip(
+                            icon: Icons.data_usage,
+                            label: '${tx.sizeBytes}B',
+                            colorScheme: colorScheme,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+          if (mempool.entries.length > 5)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Center(
+                child: Text(
+                  '+${mempool.entries.length - 5} more transactions',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ),
+        ] else ...[
+          const SizedBox(height: 8),
+          Text(
+            'No transactions in mempool',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -1057,10 +998,7 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     return hostOnly;
   }
 
-  String _shortenMid(String s, {int head = 8, int tail = 8}) {
-    if (s.length <= head + tail + 1) return s;
-    return '${s.substring(0, head)}…${s.substring(s.length - tail)}';
-  }
+  // Removed unused _shortenMid helper
 
   String _formatUtc(BigInt value) {
     // Heuristic to interpret epoch unit from digit length
@@ -1114,58 +1052,12 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
 
   String _fmtInt(int? v) => v == null ? 'N/A' : v.toString();
 
-  bool _isSynced() {
-    // Sync status based on current block height vs best tip block height
-    // Also consider synced if heights match and no pending sync work
-    final currentHeight = _currentBlockHeight;
-    final bestTipHeight = _networkBestTipHeight;
-
-    // If we don't have height info, check if sync progress is empty/complete
-    if (currentHeight == null || bestTipHeight == null) {
-      // Consider synced if progress is null or all zeros
-      final fetchProgress = _fetchProgress;
-      final applyProgress = _applyProgress;
-
-      if (fetchProgress == null && applyProgress == null) {
-        return true; // No progress data means likely synced
-      }
-
-      final fetchTotal = (fetchProgress?.idle ?? BigInt.zero) +
-          (fetchProgress?.pending ?? BigInt.zero) +
-          (fetchProgress?.done ?? BigInt.zero);
-      final applyTotal = (applyProgress?.idle ?? BigInt.zero) +
-          (applyProgress?.pending ?? BigInt.zero) +
-          (applyProgress?.done ?? BigInt.zero);
-
-      return fetchTotal == BigInt.zero && applyTotal == BigInt.zero;
-    }
-
-    // Synced if current height matches or exceeds best tip
-    return currentHeight >= bestTipHeight;
-  }
-
-  String _getSyncStatus() {
-    final currentHeight = _currentBlockHeight;
-    final bestTipHeight = _networkBestTipHeight;
-
-    if (currentHeight == null || bestTipHeight == null) {
-      // Check if we're actually synced based on progress data
-      if (_isSynced()) {
-        return 'Synced & Healthy';
-      }
-      return 'Awaiting Sync';
-    }
-
-    if (currentHeight >= bestTipHeight) {
-      return 'Synced & Healthy';
-    }
-
-    return 'Syncing';
-  }
+  // Removed legacy sync helpers; use syncStatusProvider instead
 
   String _formatEpochInline() {
-    final slot = _bestTipGlobalSlot;
-    final epoch = _bestTipEpoch;
+    final raw = ref.read(nodeRawStatusProvider).value;
+    final slot = raw?.globalSlot;
+    final epoch = raw?.epoch;
     if (epoch == null || slot == null) return 'N/A';
     return 'Epoch $epoch • Slot $slot';
   }
@@ -1196,25 +1088,143 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     }
   }
 
-  String _bestTipHashDisplay() {
-    final hash = _bestTipHash;
-    if (hash == null || hash.isEmpty) return 'N/A';
-    return _shortenMid(hash, head: 10, tail: 10);
-  }
+  // Removed _bestTipHashDisplay; best tip hash computed directly from provider
 
   Widget _buildScheduledSlotsTab(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final rewards = _epochRewards;
+    final useResult = ref.watch(useResultProvidersProvider);
+    final rewardsAsync = useResult
+        ? ref.watch(nodeEpochRewardsResultProvider)
+        : ref.watch(nodeEpochRewardsProvider);
+    final blockchainAsync = useResult
+        ? ref.watch(nodeBlockchainResultProvider)
+        : ref.watch(nodeBlockchainProvider);
 
-    if (rewards == null) {
+    if (useResult) {
+      final rewardsRes = rewardsAsync as AsyncValue<Result<RpcEpochRewardsResp?>>;
+      final chainRes = blockchainAsync as AsyncValue<Result<RpcListBlockchainResp?>>;
+
+      final isLoading = rewardsRes.isLoading || chainRes.isLoading;
+      if (isLoading) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              'Loading epoch data...',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        );
+      }
+
+      if (rewardsRes.hasError || chainRes.hasError) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              'Epoch data unavailable',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.error,
+              ),
+            ),
+          ),
+        );
+      }
+
+      final rewardsResult = rewardsRes.value;
+      final chainResult = chainRes.value;
+      if (rewardsResult == null || chainResult == null ||
+          rewardsResult.isErr || chainResult.isErr) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              'Epoch data unavailable',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.error,
+              ),
+            ),
+          ),
+        );
+      }
+
+      final rewards = rewardsResult.ok;
+      final blockchain = chainResult.ok;
+      if (rewards == null || blockchain == null) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              'Epoch data unavailable',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        );
+      }
+
+      // Proceed with rendering using rewards and blockchain below
+      // (fall through to common rendering by reusing variables)
+
+      // Display blocks from the blockchain
+      final blocks = blockchain.items.take(10).toList();
+      final bestTipSlot = ref.watch(nodeRawStatusProvider).value?.globalSlot;
+      final rewardPerBlock = rewards.rewardPerBlock;
+
+      return Column(
+        children: blocks.asMap().entries.map((entry) {
+          final block = entry.value;
+          final isBestTip =
+              bestTipSlot != null && block.globalSlot == bestTipSlot;
+
+          String blockHash;
+          try {
+            blockHash = block.hash.toString();
+          } catch (e) {
+            blockHash = 'N/A';
+          }
+
+          String producerPubkey;
+          try {
+            producerPubkey = block.producerPubkey;
+          } catch (e) {
+            producerPubkey = '';
+          }
+
+          return _ProducedBlockItem(
+            blockNumber: block.height,
+            epoch: block.epoch,
+            globalSlot: block.globalSlot,
+            hash: blockHash,
+            producerPubkey: producerPubkey,
+            batches: block.batches.length,
+            isBestTip: isBestTip,
+            reward: rewardPerBlock,
+          );
+        }).toList(),
+      );
+    }
+
+    // Default (non-result) behavior
+    final rewards = (rewardsAsync as AsyncValue<RpcEpochRewardsResp?>).value;
+    final blockchain = (blockchainAsync as AsyncValue<RpcListBlockchainResp?>).value;
+
+    if (rewards == null || blockchain == null) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            'Loading epoch rewards...',
+            (rewardsAsync.isLoading || blockchainAsync.isLoading)
+                ? 'Loading epoch data...'
+                : 'Epoch data unavailable',
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurfaceVariant,
+              color: (rewardsAsync.isLoading || blockchainAsync.isLoading)
+                  ? colorScheme.onSurfaceVariant
+                  : colorScheme.error,
             ),
           ),
         ),
@@ -1222,17 +1232,16 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
     }
 
     // Get produced block slots from blockchain data
-    final producedSlots = _blockchainData?.items
-            .where((block) => block.epoch == rewards.epoch)
-            .map((block) => block.globalSlot)
-            .toSet() ??
-        <int>{};
+    final producedSlots = blockchain.items
+        .where((block) => block.epoch == rewards.epoch)
+        .map((block) => block.globalSlot)
+        .toSet();
 
     // Get won slots list
     final wonSlots = rewards.wonSlots ?? [];
 
     // Producer pubkey
-    final producerPubkey = rewards.producerPubkey;
+    // final producerPubkey = rewards.producerPubkey; // reserved for future display
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1408,7 +1417,9 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
   Widget _buildProducedBlocksTab(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final blockchain = _blockchainData;
+    final blockchain = ref.watch(nodeBlockchainProvider).value;
+    final raw = ref.watch(nodeRawStatusProvider).value;
+    final rewards = ref.watch(nodeEpochRewardsProvider).value;
 
     if (blockchain == null || blockchain.items.isEmpty) {
       return Center(
@@ -1426,8 +1437,8 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
 
     // Display blocks from the blockchain
     final blocks = blockchain.items.take(10).toList();
-    final bestTipSlot = _bestTipGlobalSlot;
-    final rewardPerBlock = _epochRewards?.rewardPerBlock ?? BigInt.zero;
+    final bestTipSlot = raw?.globalSlot;
+    final rewardPerBlock = rewards?.rewardPerBlock ?? BigInt.zero;
 
     return Column(
       children: blocks.asMap().entries.map((entry) {
@@ -1464,7 +1475,7 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
   }
 
   void _showBuildInfoDialog() {
-    final env = rust.buildEnv();
+    final env = ref.read(buildEnvProvider);
     showDialog(
       context: context,
       builder: (ctx) {
@@ -1524,27 +1535,7 @@ class _NodeStatusScreenState extends State<NodeStatusScreen>
   }
 }
 
-class _ProgressData {
-  final BigInt idle;
-  final BigInt pending;
-  final BigInt done;
-
-  const _ProgressData({
-    required this.idle,
-    required this.pending,
-    required this.done,
-  });
-
-  factory _ProgressData.fromProgress(
-    RpcStatusBlockchainSyncBlocksProgress progress,
-  ) {
-    return _ProgressData(
-      idle: progress.idle,
-      pending: progress.pending,
-      done: progress.done,
-    );
-  }
-}
+// Progress data class removed; use nodeRawStatusProvider.
 
 class _MempoolStat extends StatelessWidget {
   final String label;

@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:crypto_mobile_app/core/di/providers.dart';
 import 'package:crypto_mobile_app/core/design/design_tokens.dart';
 import 'package:crypto_mobile_app/core/widgets/activity_list_item.dart';
 import 'package:crypto_mobile_app/core/widgets/app_action_button.dart';
@@ -53,8 +56,22 @@ class _HomeScreenState extends State<HomeScreen> {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      appBar: const AppAppBar(
+      appBar: AppAppBar(
         title: 'Home',
+        actions: [
+          Consumer(builder: (ctx, ref, _) {
+            return IconButton(
+              icon: const Icon(Icons.brightness_6_outlined),
+              tooltip: 'Cycle Theme',
+              onPressed: () => ref.read(themeModeProvider.notifier).cycle(),
+            );
+          }),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Settings',
+            onPressed: () => context.push('/settings'),
+          ),
+        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(

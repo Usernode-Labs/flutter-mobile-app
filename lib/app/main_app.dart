@@ -6,10 +6,13 @@ import 'package:crypto_mobile_app/features/wallet/presentation/screens/wallet_sc
 import 'package:crypto_mobile_app/features/dapps/presentation/screens/dapps_screen.dart';
 import 'package:crypto_mobile_app/features/profile/presentation/screens/profile_screen.dart';
 import 'package:crypto_mobile_app/core/feature_flags.dart';
+import 'package:go_router/go_router.dart';
 
 class MainApp extends StatefulWidget {
   final AppFeature? initialFeature;
-  const MainApp({super.key, this.initialFeature});
+  final Widget? child; // when using go_router ShellRoute
+  final String? currentLocation; // provided by ShellRoute
+  const MainApp({super.key, this.initialFeature, this.child, this.currentLocation});
 
   @override
   State<MainApp> createState() => _MainAppState();
@@ -50,6 +53,7 @@ class _MainAppState extends State<MainApp> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final location = widget.currentLocation ?? '';
 
     // Filter out wallet and profile from bottom navigation
     final active = FeatureFlags.ordered
@@ -57,18 +61,29 @@ class _MainAppState extends State<MainApp> {
         .where((f) => f != AppFeature.wallet && f != AppFeature.profile)
         .toList();
 
-    // Clamp current index to available items without relying on num.clamp casting.
+    // Clamp current index to available items and align with router location when child provided.
     int index = _currentIndex;
     final maxIndex = active.isEmpty ? 0 : active.length - 1;
     if (index > maxIndex) index = maxIndex;
     if (index < 0) index = 0;
+
+    // If using ShellRoute (child provided), derive index from current location path
+    if (widget.child != null) {
+      final idxFromLoc = active.indexWhere((f) => location.startsWith(_pathFor(f)));
+      if (idxFromLoc >= 0) index = idxFromLoc;
+    }
     final screens = active.map(_screenFor).toList(growable: false);
 
     return Scaffold(
-      body: screens[index],
+      body: widget.child ?? screens[index],
       bottomNavigationBar: NavigationBar(
         selectedIndex: index,
-        onDestinationSelected: (i) => setState(() => _currentIndex = i),
+        onDestinationSelected: (i) {
+          setState(() => _currentIndex = i);
+          final target = active[i];
+          final path = _pathFor(target);
+          if (widget.child != null) context.go(path);
+        },
         destinations: [
           for (final f in active)
             switch (f) {
@@ -101,5 +116,20 @@ class _MainAppState extends State<MainApp> {
         ],
       ),
     );
+  }
+
+  String _pathFor(AppFeature f) {
+    switch (f) {
+      case AppFeature.home:
+        return '/main/home';
+      case AppFeature.node:
+        return '/main/node';
+      case AppFeature.dapps:
+        return '/main/dapps';
+      case AppFeature.wallet:
+        return '/main/wallet';
+      case AppFeature.profile:
+        return '/main/profile';
+    }
   }
 }

@@ -9,6 +9,7 @@ import 'package:crypto_mobile_app/features/node/presentation/controllers/node_da
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_blockchain.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 import 'package:crypto_mobile_app/features/node/domain/entities/node_status.dart' as domain;
+import 'package:crypto_mobile_app/gen_l10n/app_localizations.dart';
 
 void main() {
   testWidgets('Produced Blocks shows unavailable when blockchain is null', (tester) async {
@@ -22,7 +23,11 @@ void main() {
 
     await tester.pumpWidget(UncontrolledProviderScope(
       container: container,
-      child: const MaterialApp(home: NodeStatusScreen()),
+      child: MaterialApp(
+        home: const NodeStatusScreen(),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+      ),
     ));
     await tester.pumpAndSettle();
 

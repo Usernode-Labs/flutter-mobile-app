@@ -6,6 +6,7 @@ import 'package:crypto_mobile_app/core/routing/app_router.dart';
 import 'package:crypto_mobile_app/core/di/providers.dart';
 import 'package:crypto_mobile_app/features/onboarding/presentation/screens/single_account_onboarding_screen.dart';
 import 'package:crypto_mobile_app/app/main_app.dart';
+import 'package:crypto_mobile_app/gen_l10n/app_localizations.dart';
 
 void main() {
   testWidgets('router guard sends user without account to onboarding', (tester) async {
@@ -17,7 +18,11 @@ void main() {
     final router = container.read(appRouterProvider);
     await tester.pumpWidget(UncontrolledProviderScope(
       container: container,
-      child: MaterialApp.router(routerConfig: router),
+      child: MaterialApp.router(
+        routerConfig: router,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+      ),
     ));
     await tester.pumpAndSettle();
 
@@ -33,7 +38,11 @@ void main() {
     final router = container.read(appRouterProvider);
     await tester.pumpWidget(UncontrolledProviderScope(
       container: container,
-      child: MaterialApp.router(routerConfig: router),
+      child: MaterialApp.router(
+        routerConfig: router,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+      ),
     ));
     await tester.pumpAndSettle();
 

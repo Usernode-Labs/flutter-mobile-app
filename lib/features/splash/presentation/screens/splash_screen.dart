@@ -68,7 +68,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    final l10n = AppLocalizations.of(context);
+    final l10n = Localizations.of<AppLocalizations>(context, AppLocalizations);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -100,7 +100,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                     const SizedBox(height: 32),
 
                     Text(
-                      l10n.appName,
+                      (l10n?.appName ?? 'Usernode'),
                       style: theme.textTheme.displayMedium?.copyWith(
                         color: theme.colorScheme.onSurface,
                         fontWeight: FontWeight.w700,
@@ -110,7 +110,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                     const SizedBox(height: 8),
 
                     Text(
-                      l10n.appTagline,
+                      (l10n?.appTagline ?? 'Your Gateway to DeFi'),
                       style: theme.textTheme.bodyLarge?.copyWith(
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                         fontWeight: FontWeight.w400,
@@ -128,7 +128,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                     const SizedBox(height: 16),
 
                     Text(
-                      l10n.initializingNode,
+                      (l10n?.initializingNode ?? 'Initializing node...'),
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                         fontWeight: FontWeight.w500,

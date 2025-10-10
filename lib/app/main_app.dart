@@ -52,7 +52,7 @@ class _MainAppState extends State<MainApp> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
+    final l10n = Localizations.of<AppLocalizations>(context, AppLocalizations);
     final location = widget.currentLocation ?? '';
 
     // Filter out wallet and profile from bottom navigation
@@ -90,27 +90,27 @@ class _MainAppState extends State<MainApp> {
               AppFeature.home => NavigationDestination(
                   icon: const Icon(Icons.home_outlined),
                   selectedIcon: const Icon(Icons.home),
-                  label: l10n.home,
+                  label: l10n?.home ?? 'Home',
                 ),
               AppFeature.wallet => NavigationDestination(
                   icon: const Icon(Icons.account_balance_wallet_outlined),
                   selectedIcon: const Icon(Icons.account_balance_wallet),
-                  label: l10n.wallet,
+                  label: l10n?.wallet ?? 'Wallet',
                 ),
               AppFeature.dapps => NavigationDestination(
                   icon: const Icon(Icons.apps_outlined),
                   selectedIcon: const Icon(Icons.apps),
-                  label: l10n.dapps,
+                  label: l10n?.dapps ?? 'dApps',
                 ),
               AppFeature.profile => NavigationDestination(
                   icon: const Icon(Icons.person_outline),
                   selectedIcon: const Icon(Icons.person),
-                  label: l10n.profile,
+                  label: l10n?.profile ?? 'Profile',
                 ),
               AppFeature.node => NavigationDestination(
                   icon: const Icon(Icons.hub_outlined),
                   selectedIcon: const Icon(Icons.hub),
-                  label: l10n.node,
+                  label: l10n?.node ?? 'Node',
                 ),
             }
         ],

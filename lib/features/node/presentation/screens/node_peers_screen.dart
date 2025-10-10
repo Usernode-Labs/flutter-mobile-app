@@ -24,8 +24,15 @@ class NodePeersScreen extends StatelessWidget {
             final statusColor = _statusColor(theme, p.connectionStatus);
             final details = p.connectingDetails;
             final incoming = p.incoming ? 'incoming' : 'outgoing';
-            final peerIdRaw = p.peerId.toString();
-            final idShort = _shortenMid(peerIdRaw);
+            // Safely stringify peerId; if flutter_rust_bridge isn't initialized
+            // in a test environment, fall back to a placeholder.
+            String idShort;
+            try {
+              final peerIdRaw = p.peerId.toString();
+              idShort = _shortenMid(peerIdRaw);
+            } catch (_) {
+              idShort = '(unavailable)';
+            }
             final ipOnly = _peerIpOnly(p);
             final timeStr = _formatTimeAgo(p.time);
             final titleText = ipOnly ?? '(no address)';

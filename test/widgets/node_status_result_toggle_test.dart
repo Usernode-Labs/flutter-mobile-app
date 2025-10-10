@@ -10,13 +10,19 @@ import 'package:crypto_mobile_app/core/di/providers.dart';
 import 'package:crypto_mobile_app/core/result.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_mempool.dart';
 import 'package:crypto_mobile_app/core/errors/app_error.dart';
-import 'package:crypto_mobile_app/features/node/domain/entities/node_status.dart' as domain;
+import 'package:crypto_mobile_app/gen_l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/features/node/domain/entities/node_status.dart'
+    as domain;
 
 void main() {
   testWidgets('Result toggle: mempool Err shows error', (tester) async {
     final container = ProviderContainer(overrides: [
       useResultProvidersProvider.overrideWithValue(true),
-      nodeMempoolResultProvider.overrideWith((ref) async => Err(BackendError('mempool'))),
+      nodeMempoolResultProvider
+          .overrideWith((ref) async => Err(BackendError('mempool'))),
+      nodeEpochRewardsResultProvider
+          .overrideWith((ref) async => const Ok(null)),
+      nodeBlockchainResultProvider.overrideWith((ref) async => const Ok(null)),
       nodeStatusProvider.overrideWith(() => _OkNodeStatus()),
       nodeRawStatusProvider.overrideWith(() => _OkRawStatus()),
       // Let blockchain/rewards default to null to avoid extra rendering
@@ -25,17 +31,23 @@ void main() {
 
     await tester.pumpWidget(UncontrolledProviderScope(
       container: container,
-      child: const MaterialApp(home: NodeStatusScreen()),
+      child: MaterialApp(
+        home: const NodeStatusScreen(),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+      ),
     ));
     await tester.pumpAndSettle();
 
     expect(find.text('Failed to load mempool'), findsOneWidget);
   });
 
-  testWidgets('Result toggle: epoch data unavailable on Ok(null)', (tester) async {
+  testWidgets('Result toggle: epoch data unavailable on Ok(null)',
+      (tester) async {
     final container = ProviderContainer(overrides: [
       useResultProvidersProvider.overrideWithValue(true),
-      nodeEpochRewardsResultProvider.overrideWith((ref) async => const Ok(null)),
+      nodeEpochRewardsResultProvider
+          .overrideWith((ref) async => const Ok(null)),
       nodeBlockchainResultProvider.overrideWith((ref) async => const Ok(null)),
       nodeStatusProvider.overrideWith(() => _OkNodeStatus()),
       nodeRawStatusProvider.overrideWith(() => _OkRawStatus()),
@@ -44,7 +56,11 @@ void main() {
 
     await tester.pumpWidget(UncontrolledProviderScope(
       container: container,
-      child: const MaterialApp(home: NodeStatusScreen()),
+      child: MaterialApp(
+        home: const NodeStatusScreen(),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+      ),
     ));
     await tester.pumpAndSettle();
 
@@ -64,6 +80,9 @@ void main() {
     final container = ProviderContainer(overrides: [
       useResultProvidersProvider.overrideWithValue(true),
       nodeMempoolResultProvider.overrideWith((ref) async => Ok(mempool)),
+      nodeEpochRewardsResultProvider
+          .overrideWith((ref) async => const Ok(null)),
+      nodeBlockchainResultProvider.overrideWith((ref) async => const Ok(null)),
       nodeStatusProvider.overrideWith(() => _OkNodeStatus()),
       nodeRawStatusProvider.overrideWith(() => _OkRawStatus()),
     ]);
@@ -71,7 +90,11 @@ void main() {
 
     await tester.pumpWidget(UncontrolledProviderScope(
       container: container,
-      child: const MaterialApp(home: NodeStatusScreen()),
+      child: MaterialApp(
+        home: const NodeStatusScreen(),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+      ),
     ));
     await tester.pumpAndSettle();
 

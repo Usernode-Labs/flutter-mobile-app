@@ -5,6 +5,7 @@ import 'package:crypto_mobile_app/features/node/presentation/screens/node_peers_
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'package:crypto_mobile_app/src/rust/third_party/usernode_p2p/identity.dart';
 import 'package:crypto_mobile_app/src/rust/lib.dart';
+import 'package:crypto_mobile_app/gen_l10n/app_localizations.dart';
 
 void main() {
   testWidgets('NodePeersScreen renders a list of peers', (tester) async {
@@ -27,11 +28,14 @@ void main() {
       ),
     ];
 
-    await tester.pumpWidget(MaterialApp(home: NodePeersScreen(peers: peers)));
+    await tester.pumpWidget(MaterialApp(
+      home: NodePeersScreen(peers: peers),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+    ));
     await tester.pumpAndSettle();
 
     expect(find.text('Node Peers'), findsOneWidget);
     expect(find.byType(ListTile), findsNWidgets(2));
   });
 }
-

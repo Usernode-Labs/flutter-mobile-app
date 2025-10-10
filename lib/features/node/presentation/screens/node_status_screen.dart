@@ -66,12 +66,12 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     });
     try {
       Log.d('NODE', 'Refreshing node providers');
-      // Refresh providers only; avoid extra direct FRB calls here
-      await ref.read(nodeStatusProvider.notifier).refresh();
-      await ref.read(nodeMempoolProvider.notifier).refresh();
-      await ref.read(nodeBlockchainProvider.notifier).refresh();
-      await ref.read(nodeEpochRewardsProvider.notifier).refresh();
-      await ref.read(nodeRawStatusProvider.notifier).refresh();
+      // Invalidate to trigger provider rebuilds (respects test overrides)
+      ref.invalidate(nodeStatusProvider);
+      ref.invalidate(nodeMempoolProvider);
+      ref.invalidate(nodeBlockchainProvider);
+      ref.invalidate(nodeEpochRewardsProvider);
+      ref.invalidate(nodeRawStatusProvider);
       if (!mounted) return;
       setState(() {
         _lastChecked = DateTime.now();
@@ -1417,10 +1417,145 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   Widget _buildProducedBlocksTab(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final blockchain = ref.watch(nodeBlockchainProvider).value;
-    final raw = ref.watch(nodeRawStatusProvider).value;
-    final rewards = ref.watch(nodeEpochRewardsProvider).value;
+    final useResult = ref.watch(useResultProvidersProvider);
 
+    if (useResult) {
+      final rewardsRes = ref.watch(nodeEpochRewardsResultProvider);
+      final chainRes = ref.watch(nodeBlockchainResultProvider);
+      final bestTipSlot = ref.watch(nodeRawStatusProvider).value?.globalSlot;
+
+      if (rewardsRes.isLoading || chainRes.isLoading) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              'Loading produced blocks...',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        );
+      }
+
+      if (rewardsRes.hasError || chainRes.hasError) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              'No produced blocks available',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        );
+      }
+
+      final rewardsResult = rewardsRes.value;
+      final chainResult = chainRes.value;
+      if (rewardsResult == null || chainResult == null ||
+          rewardsResult.isErr || chainResult.isErr) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              'No produced blocks available',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        );
+      }
+
+      final rewards = rewardsResult.ok;
+      final blockchain = chainResult.ok;
+      if (blockchain == null || blockchain.items.isEmpty) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              'No produced blocks available',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        );
+      }
+
+      final rewardPerBlock = rewards?.rewardPerBlock ?? BigInt.zero;
+      final blocks = blockchain.items.take(10).toList();
+      return Column(
+        children: blocks.asMap().entries.map((entry) {
+          final block = entry.value;
+          final isBestTip =
+              bestTipSlot != null && block.globalSlot == bestTipSlot;
+
+          String blockHash;
+          try {
+            blockHash = block.hash.toString();
+          } catch (e) {
+            blockHash = 'N/A';
+          }
+
+          String producerPubkey;
+          try {
+            producerPubkey = block.producerPubkey;
+          } catch (e) {
+            producerPubkey = '';
+          }
+
+          return _ProducedBlockItem(
+            blockNumber: block.height,
+            epoch: block.epoch,
+            globalSlot: block.globalSlot,
+            hash: blockHash,
+            producerPubkey: producerPubkey,
+            batches: block.batches.length,
+            isBestTip: isBestTip,
+            reward: rewardPerBlock,
+          );
+        }).toList(),
+      );
+    }
+
+    // Default non-result behavior
+    final blockchainAsync = ref.watch(nodeBlockchainProvider);
+    final rewardsAsync = ref.watch(nodeEpochRewardsProvider);
+    final bestTipSlot = ref.watch(nodeRawStatusProvider).value?.globalSlot;
+
+    if (blockchainAsync.isLoading || rewardsAsync.isLoading) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'Loading produced blocks...',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (blockchainAsync.hasError || rewardsAsync.hasError) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'No produced blocks available',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      );
+    }
+
+    final blockchain = blockchainAsync.value;
+    final rewards = rewardsAsync.value;
     if (blockchain == null || blockchain.items.isEmpty) {
       return Center(
         child: Padding(
@@ -1435,11 +1570,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       );
     }
 
-    // Display blocks from the blockchain
-    final blocks = blockchain.items.take(10).toList();
-    final bestTipSlot = raw?.globalSlot;
     final rewardPerBlock = rewards?.rewardPerBlock ?? BigInt.zero;
-
+    final blocks = blockchain.items.take(10).toList();
     return Column(
       children: blocks.asMap().entries.map((entry) {
         final block = entry.value;

@@ -8,6 +8,9 @@ import 'package:crypto_mobile_app/features/node/presentation/controllers/node_st
 import 'package:crypto_mobile_app/features/node/presentation/controllers/node_raw_status_provider.dart';
 import 'package:crypto_mobile_app/features/node/domain/entities/node_status.dart' as domain;
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_mempool.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_blockchain.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
+import 'package:crypto_mobile_app/gen_l10n/app_localizations.dart';
 
 void main() {
   testWidgets('Mempool summary renders with values', (tester) async {
@@ -24,12 +27,19 @@ void main() {
       nodeMempoolProvider.overrideWith(() => _StaticMempoolController(mempool)),
       nodeStatusProvider.overrideWith(() => _OkNodeStatus()),
       nodeRawStatusProvider.overrideWith(() => _NullRawStatus()),
+      // Prevent unrelated providers from hitting the backend
+      nodeBlockchainProvider.overrideWith(() => _NullBlockchainController()),
+      nodeEpochRewardsProvider.overrideWith(() => _NullEpochRewardsController()),
     ]);
     addTearDown(container.dispose);
 
     await tester.pumpWidget(UncontrolledProviderScope(
       container: container,
-      child: const MaterialApp(home: NodeStatusScreen()),
+      child: MaterialApp(
+        home: const NodeStatusScreen(),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+      ),
     ));
     await tester.pumpAndSettle();
 
@@ -71,3 +81,12 @@ class _NullRawStatus extends NodeRawStatusController {
       );
 }
 
+class _NullBlockchainController extends NodeBlockchainController {
+  @override
+  Future<RpcListBlockchainResp?> build() async => Future.value(null);
+}
+
+class _NullEpochRewardsController extends NodeEpochRewardsController {
+  @override
+  Future<RpcEpochRewardsResp?> build() async => Future.value(null);
+}

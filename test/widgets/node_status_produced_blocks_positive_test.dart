@@ -12,6 +12,7 @@ import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_blockchain.da
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'package:crypto_mobile_app/src/rust/third_party/usernode_core/block.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
+import 'package:crypto_mobile_app/gen_l10n/app_localizations.dart';
 
 void main() {
   testWidgets('Produced Blocks positive path renders block rows and BEST TIP', (tester) async {
@@ -58,7 +59,11 @@ void main() {
 
     await tester.pumpWidget(UncontrolledProviderScope(
       container: container,
-      child: const MaterialApp(home: NodeStatusScreen()),
+      child: MaterialApp(
+        home: const NodeStatusScreen(),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+      ),
     ));
     await tester.pumpAndSettle();
 

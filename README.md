@@ -1,223 +1,142 @@
-# Usernode - Flutter Mobile Application Documentation
+# Usernode Mobile App (Flutter)
 
-## Table of Contents
+Usernode is a feature‑first Flutter app that lets users run/observe a node, view status/peers/blocks, use a crypto wallet, and manage preferences. The app is provider‑driven (Riverpod), uses go_router for navigation, and integrates with a Rust backend via flutter_rust_bridge.
 
-- [Project Overview](#project-overview)
-- [Getting Started](#getting-started)
-- [Architecture & Design Patterns](#architecture--design-patterns)
-- [Code Organization](#code-organization)
-- [Features Documentation](#features-documentation)
-- [API Integration](#api-integration)
-- [State Management](#state-management)
-- [Database & Storage](#database--storage)
-- [UI/UX Guidelines](#uiux-guidelines)
-- [Testing](#testing)
-- [Build & Deployment](#build--deployment)
-- [Security Considerations](#security-considerations)
-- [Performance Optimization](#performance-optimization)
-- [Debugging & Troubleshooting](#debugging--troubleshooting)
-- [Third-Party Dependencies](#third-party-dependencies)
-- [Platform-Specific Considerations](#platform-specific-considerations)
-- [Maintenance & Updates](#maintenance--updates)
-- [Team Guidelines](#team-guidelines)
+• Architecture: Presentation → Domain → Data
+• State/DI: Riverpod (AsyncNotifier/Notifier)
+• Navigation: go_router + ShellRoute
+• Backend: Rust via flutter_rust_bridge
+• Telemetry: Optional Sentry (dsn via dart‑define)
+• Theming: Material 3 + persisted ThemeMode (System/Light/Dark)
 
-## Project Overview
+## Quick Start
 
-### Application Purpose
+See RUNNING.md for commands, flags, and testing. Common flags:
 
-Usernode is a comprehensive decentralized finance (DeFi) mobile application that serves as a gateway for users to interact with blockchain nodes, manage cryptocurrency wallets, and participate in DeFi protocols. The app enables users to:
-
-- Monitor and manage blockchain nodes
-- Track crypto wallet balances and transactions
-- Bridge assets across different blockchain networks
-- Stake tokens and earn rewards
-- Participate in liquidity provision
-- Complete identity verification for enhanced rewards
-
-### Target Platforms
-
-- **Primary Platforms**: iOS 12.0+ and Android API 21+
-- **Secondary Platforms**: Web, macOS, Windows, Linux (Flutter desktop support)
-- **Responsive Design**: Adapts to tablets and larger screens
-
-### Flutter Version
-
-- **Flutter SDK**: 3.10.0+
-- **Dart SDK**: 3.0.0+
-- **Material Design**: Material 3 (Material You)
-
-### Minimum OS Requirements
-
-- **iOS**: 12.0 and later
-- **Android**: API level 21 (Android 5.0) and later
-- **Web**: Modern browsers with WebAssembly support
-- **Desktop**:
-  - macOS 10.14+
-  - Windows 10 1903+
-  - Linux (64-bit Ubuntu 18.04+)
-
-## Getting Started
-
-### Prerequisites
-
-- Flutter SDK 3.10.0 or higher
-- Dart SDK 3.0.0 or higher
-- Android Studio or Xcode (for mobile development)
-- VS Code with Flutter extension (recommended)
-- Git version control
-- Android SDK and NDK (for Android development)
-- Xcode 12+ and iOS Simulator (for iOS development)
-
-### Installing required Dependencies on macOS
-
-To install the required dependencies on macOS, you need to set up the Rust toolchain and required system/lib dependencies. Here's how:
-
-#### 1. Install Rust Toolchain
-
-```bash
-# Install Rust
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-source $HOME/.cargo/env
-
-# Add iOS targets for cross-compilation
-rustup target add aarch64-apple-ios
-rustup target add aarch64-apple-ios-sim
+```
+flutter run \
+  --dart-define=APP_ENV=staging \
+  --dart-define=API_BASE_URL=https://api.example.com \
+  --dart-define=SENTRY_DSN=your_sentry_dsn \
+  --dart-define=USE_RESULT_PROVIDERS=true
 ```
 
-#### 2. Install Required System Dependencies
+## Architecture (at a glance)
 
-```bash
-# Install Homebrew if you don't have it
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-# Install CMake (required for building native libraries)
-brew install cmake
-
-# Install pkg-config (for dependency management)
-brew install pkg-config
-
-# Install OpenSSL (often required for networking libraries)
-brew install openssl
-
-# Install additional build tools
-brew install automake autoconf libtool
+```mermaid
+flowchart LR
+  subgraph Presentation
+    UI[Widgets/Screens]
+    CTRL[Controllers/Providers]
+  end
+  subgraph Domain
+    ENT[Entities]
+    REPOI[Repository Interfaces]
+  end
+  subgraph Data
+    REPO[Repository Impl]
+    DS[Datasources (FRB, Storage, HTTP)]
+  end
+  UI --> CTRL
+  CTRL --> REPOI
+  REPOI <-- REPO
+  REPO --> DS
+  DS --> REPO
+  REPO --> CTRL
 ```
 
-#### 3. Set Environment Variables
+### Data flow (Node example)
 
-Add these to your shell profile (`~/.zshrc` or `~/.bash_profile`):
+```mermaid
+sequenceDiagram
+  participant UI as NodeStatusScreen
+  participant P as nodeStatus/nodeRawStatus providers
+  participant R as NodeRepository
+  participant FRB as Rust (flutter_rust_bridge)
 
-```bash
-export PATH="$HOME/.cargo/bin:$PATH"
-export PKG_CONFIG_PATH="/opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH"
-export OPENSSL_ROOT_DIR="/opt/homebrew/opt/openssl"
-export OPENSSL_LIB_DIR="/opt/homebrew/opt/openssl/lib"
-export OPENSSL_INCLUDE_DIR="/opt/homebrew/opt/openssl/include"
+  UI->>P: ref.watch(...)
+  P->>R: getStatus()/getStatusRaw()
+  R->>FRB: status()
+  FRB-->>R: RpcStatusResp
+  R-->>P: Domain NodeStatus / Raw view
+  P-->>UI: AsyncValue (data/error/loading)
 ```
 
-Reload your shell:
+### Navigation
 
-```bash
-source ~/.zshrc  # or source ~/.bash_profile
+```mermaid
+flowchart LR
+  splash[/splash/] --> cond{has account?}
+  cond -- no --> onboarding[/onboarding/]
+  cond -- yes --> main[/main/home|node|dapps/]
+  settings[/settings/]
+  main --> settings
 ```
 
-#### 4. Verify Rust Installation
+### Startup
 
-```bash
-rustc --version
-cargo --version
-rustup show
+```mermaid
+sequenceDiagram
+  participant Main as main.dart
+  participant Sentry as SentryUtil
+  participant App as MaterialApp.router
+  participant Rust as RustBackendService
+
+  Main->>Sentry: bootstrap(appRunner)
+  Sentry-->>Main: run app
+  Main->>App: ProviderScope + CryptoMobileApp
+  Main->>Rust: _bootstrapAsync (init/start for active account)
 ```
 
-#### 5. Install Cargo Tools (if needed)
+## Project Structure
 
-```bash
-# Install cargo-lipo for iOS fat binary creation
-cargo install cargo-lipo
-
-# Install cbindgen if needed for C bindings
-cargo install cbindgen
+```
+lib/
+  core/        # cross-cutting: routing, theme, DI, errors, config, telemetry
+  features/    # feature-first modules (node, wallet, settings, home, etc)
+  gen_l10n/    # generated localization
+  main.dart    # entrypoint
 ```
 
-#### Common Issues & Solutions
+Key files:
+- core/di/providers.dart — repository + app providers (themeMode, toggles)
+- core/routing/app_router.dart — go_router with ShellRoute and /settings
+- features/node/... — Node UI + providers (raw status, mempool, etc.)
+- features/settings/... — Settings screen with ThemeMode + Build Info
 
-**If you get linking errors with OpenSSL:**
+## Configuration & Flags
 
-```bash
-export LIBRARY_PATH="/opt/homebrew/lib:$LIBRARY_PATH"
-export CPATH="/opt/homebrew/include:$CPATH"
-```
+- APP_ENV, API_BASE_URL, VERBOSE_LOGGING — read by AppConfig
+- SENTRY_DSN — optional; if omitted, Sentry remains disabled
+- USE_RESULT_PROVIDERS — switch NodeStatusScreen to result‑based providers for mempool/slots
 
-**For M2 Macs specifically:**
+## State & Error Handling
 
-Make sure you're using Homebrew for Apple Silicon:
+- Riverpod controllers expose AsyncValue<T> to the UI
+- AppError + Result<T> for typed errors and optional result‑based paths
+- Node repository returns Result<NodeStatus?>; data providers map exceptions to AppError
 
-```bash
-# Check if Homebrew is in the right location
-which brew
-# Should show: /opt/homebrew/bin/brew
-```
+## Theming
 
-### Installation Instructions
+- Material 3 with CardThemeData polish
+- themeModeProvider persists ThemeMode (SharedPreferences)
+- Change theme in /settings or via quick toggle on Node/Home/Profile
 
-#### 1. **Install Flutter SDK**
+## Testing & CI
 
-```bash
-# Download Flutter from https://flutter.dev/docs/get-started/install
-# Add Flutter to your PATH
-export PATH="$PATH:`pwd`/flutter/bin"
-```
+- flutter test runs provider + widget tests (Node, Wallet, Settings, Router)
+- CI: .github/workflows/flutter_ci.yml (format/analyze/tests on PRs)
 
-#### 2. **Verify Installation**
+## Contributing
 
-```bash
-flutter doctor
-```
+See CONTRIBUTING.md for a step‑by‑step checklist and examples:
+- Adding a new feature (Domain/Data/Presentation/Routing/Tests)
+- Converting screens to providers
+- Writing tests with provider overrides
 
-#### 3. **Install Dependencies**
+## Running
 
-```bash
-flutter pub get
-```
-
-### Project Setup
-
-#### 1. **Clone Repository**
-
-```bash
-git clone https://github.com/Usernode-Labs/usernode
-cd flutter-mobile-app
-```
-
-#### 2. **Install Dependencies**
-
-```bash
-flutter pub get
-```
-
-#### 3. **Generate Localization Files**
-
-```bash
-flutter gen-l10n
-```
-
-#### 4. **Install and run flutter_rust_bridge_codegen**
-
-```bash
-cargo install --git https://github.com/Usernode-Labs/flutter_rust_bridge flutter_rust_bridge_codegen
-flutter_rust_bridge_codegen generate
-```
-
-#### 5. **Run the Application**
-
-```bash
-# Debug mode -- This will ask you to select the device / emulator on which you wanted to deploy/test the application
-flutter run
-
-# Specific platform command lines
-flutter run -d android
-flutter run -d ios
-```
+See RUNNING.md for commands, flags, theme tips, and test notes.
 
 ### Environment Configuration
 

@@ -26,8 +26,8 @@ flutter run \
 ```mermaid
 flowchart LR
   subgraph Presentation
-    UI[Widgets/Screens]
-    CTRL[Controllers/Providers]
+    UI[Widgets / Screens]
+    CTRL[Controllers / Providers]
   end
   subgraph Domain
     ENT[Entities]
@@ -35,11 +35,11 @@ flowchart LR
   end
   subgraph Data
     REPO[Repository Impl]
-    DS[Datasources (FRB, Storage, HTTP)]
+    DS[Datasources FRB / Storage / HTTP]
   end
   UI --> CTRL
   CTRL --> REPOI
-  REPOI <-- REPO
+  REPO --> REPOI
   REPO --> DS
   DS --> REPO
   REPO --> CTRL

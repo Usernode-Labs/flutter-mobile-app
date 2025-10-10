@@ -12,25 +12,20 @@ import 'package:crypto_mobile_app/core/feature_flags.dart';
 import 'send_screen.dart';
 import 'receive_screen.dart';
 import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
-import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_utxos_by_owner.dart';
-import 'package:crypto_mobile_app/src/rust/frb_types.dart' as rust_types;
-import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:crypto_mobile_app/features/wallet/presentation/controllers/wallet_controller.dart';
+import 'package:crypto_mobile_app/features/wallet/presentation/controllers/utxo_provider.dart';
 
-class WalletScreen extends StatefulWidget {
+class WalletScreen extends ConsumerStatefulWidget {
   const WalletScreen({super.key});
 
   @override
-  State<WalletScreen> createState() => _WalletScreenState();
+  ConsumerState<WalletScreen> createState() => _WalletScreenState();
 }
 
-class _WalletScreenState extends State<WalletScreen> {
+class _WalletScreenState extends ConsumerState<WalletScreen> {
   late WalletService _walletService;
   AccountMeta? _account;
-
-  // UTXO state
-  bool _utxosLoading = false;
-  String? _utxosError;
-  List<OwnedUtxo> _utxos = const [];
 
   @override
   void initState() {
@@ -53,53 +48,22 @@ class _WalletScreenState extends State<WalletScreen> {
       );
       await RustBackendService.instance.startForActiveAccount();
     }
-
-    // Fetch UTXOs regardless of active account (forced owner)
-    await _fetchUtxos();
+    // Prime UTXO provider
+    // ignore: unused_result
+    ref.read(walletUtxosProvider.future);
   }
 
   Future<void> _refreshWallet() async {
     try {
+      // Refresh domain wallet state and local UTXOs
+      await ref.read(walletProvider.notifier).refresh();
       await _walletService.refreshWalletData();
-      await _fetchUtxos();
+      await ref.read(walletUtxosProvider.notifier).refresh();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Failed to refresh wallet data')),
       );
-    }
-  }
-
-  Future<void> _fetchUtxos() async {
-    setState(() {
-      _utxosLoading = true;
-      _utxosError = null;
-    });
-    try {
-      // TEMP: Use hard-coded owner address as requested
-      const hardcodedOwner = 'AiitAFAG8P8g6uXXu6zmbzsaa5bFXDNwCMYDkSUyH2wU8XLpNG';
-      final owner = rust_types.publicKeyHashFromString(s: hardcodedOwner);
-      Log.i('UTXO', 'GET rpc.listUtxosByOwner endpoint=node.rpc.listUtxosByOwner params={owner: $hardcodedOwner, limit: null}');
-      final resp = await RustBackendService.instance.listUtxosByOwner(owner: owner);
-      if (resp == null) {
-        Log.w('UTXO', 'rpc.listUtxosByOwner response=null');
-      } else {
-        final items = resp.items;
-        final sample = items.take(3).map((o) => _shortHex(_bytesToHex(o.commitment.field0))).toList();
-        Log.i('UTXO', 'rpc.listUtxosByOwner response items=${items.length} sampleCommitments=$sample');
-      }
-      if (!mounted) return;
-      setState(() {
-        _utxos = resp?.items ?? const [];
-        _utxosLoading = false;
-      });
-    } catch (e) {
-      Log.e('UTXO', 'rpc.listUtxosByOwner failed', e, StackTrace.current);
-      if (!mounted) return;
-      setState(() {
-        _utxosLoading = false;
-        _utxosError = 'Failed to load UTXOs';
-      });
     }
   }
 
@@ -161,6 +125,7 @@ class _WalletScreenState extends State<WalletScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final walletAsync = ref.watch(walletProvider);
 
     return Scaffold(
       appBar: const AppAppBar(
@@ -176,6 +141,44 @@ class _WalletScreenState extends State<WalletScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Wallet balance summary (from provider)
+                walletAsync.when(
+                  data: (data) => AppCard.regular(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Total',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          '${data.balance.tokenAmount.toStringAsFixed(2)} ${data.balance.tokenSymbol}',
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  loading: () => const SizedBox.shrink(),
+                  error: (e, _) => AppCard.regular(
+                    child: Row(
+                      children: [
+                        Icon(Icons.error_outline, color: theme.colorScheme.error),
+                        const SizedBox(width: kSpace12),
+                        Expanded(
+                          child: Text(
+                            'Failed to load balance',
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: kSpace16),
                 // Account Header
                 if (_account != null) _buildAccountHeader(theme),
                 if (_account != null) const SizedBox(height: kSpace24),
@@ -337,111 +340,121 @@ class _WalletScreenState extends State<WalletScreen> {
           ),
         ),
         const SizedBox(height: kSpace12),
-        if (_utxosLoading)
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: kSpace16),
-              child: SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  color: theme.colorScheme.primary,
-                ),
+        ...[
+          // UTXOs via provider
+          for (final widget in _buildUtxoSection(theme)) widget,
+        ],
+      ],
+    );
+  }
+
+  List<Widget> _buildUtxoSection(ThemeData theme) {
+    final utxosAsync = ref.watch(walletUtxosProvider);
+    return [
+      utxosAsync.when(
+        loading: () => Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: kSpace16),
+            child: SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: theme.colorScheme.primary,
               ),
             ),
-          )
-        else if (_utxosError != null)
-          AppCard.regular(
-            child: Row(
-              children: [
-                Icon(Icons.error_outline, color: theme.colorScheme.error),
-                const SizedBox(width: kSpace12),
-                Expanded(
-                  child: Text(
-                    _utxosError!,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurface,
-                    ),
+          ),
+        ),
+        error: (e, _) => AppCard.regular(
+          child: Row(
+            children: [
+              Icon(Icons.error_outline, color: theme.colorScheme.error),
+              const SizedBox(width: kSpace12),
+              Expanded(
+                child: Text(
+                  'Failed to load UTXOs',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurface,
                   ),
                 ),
-              ],
-            ),
-          )
-        else if (_utxos.isEmpty)
-          AppCard.regular(
-            child: Row(
-              children: [
-                Icon(Icons.inbox_outlined, color: theme.colorScheme.onSurfaceVariant),
-                const SizedBox(width: kSpace12),
-                Expanded(
-                  child: Text(
-                    'No UTXOs found',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          )
-        else ...[
-          for (int i = 0; i < _utxos.length; i++) ...[
-            if (i > 0) const SizedBox(height: kSpace8),
-            AppCard.regular(
+              ),
+            ],
+          ),
+        ),
+        data: (items) {
+          if (items.isEmpty) {
+            return AppCard.regular(
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 20,
-                    backgroundColor: theme.colorScheme.primaryContainer,
-                    child: Icon(
-                      Icons.data_object,
-                      color: theme.colorScheme.onPrimaryContainer,
-                      size: kIconSmall,
-                    ),
-                  ),
-                  const SizedBox(width: kSpace16),
+                  Icon(Icons.inbox_outlined,
+                      color: theme.colorScheme.onSurfaceVariant),
+                  const SizedBox(width: kSpace12),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Show commitment short hex
-                        Builder(
-                          builder: (_) {
-                            final commitment = _utxos[i].commitment;
-                            final fullHex = _bytesToHex(commitment.field0);
-                            final short = _shortHex(fullHex);
-                            return Text(
-                              'Commitment: $short',
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            );
-                          },
-                        ),
-                        const SizedBox(height: kSpace4),
-                        Text(
-                          'Owned UTXO',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Placeholder for amount when exposed in bindings
-                  Text(
-                    '',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
+                    child: Text(
+                      'No UTXOs found',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ],
               ),
-            ),
-          ],
-        ],
-      ],
-    );
+            );
+          }
+          return Column(
+            children: [
+              for (int i = 0; i < items.length; i++) ...[
+                if (i > 0) const SizedBox(height: kSpace8),
+                AppCard.regular(
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 20,
+                        backgroundColor: theme.colorScheme.primaryContainer,
+                        child: Icon(
+                          Icons.data_object,
+                          color: theme.colorScheme.onPrimaryContainer,
+                          size: kIconSmall,
+                        ),
+                      ),
+                      const SizedBox(width: kSpace16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Builder(
+                              builder: (_) {
+                                final fullHex = _bytesToHex(items[i].commitment.field0);
+                                final short = _shortHex(fullHex);
+                                return Text(
+                                  'Commitment: $short',
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: kSpace4),
+                            Text(
+                              'Owned UTXO',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Text(
+                        '',
+                      ),
+                    ],
+                  ),
+                ),
+              ]
+            ],
+          );
+        },
+      )
+    ];
   }
 }

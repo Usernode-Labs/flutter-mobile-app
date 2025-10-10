@@ -17,10 +17,9 @@ class SentrySettings {
     required this.profilesSampleRate,
   });
 
-  //TODO: switch to secret manager or CI/CD variables. remove hard coded DSN from here
-  static const String _dsn = String.fromEnvironment('SENTRY_DSN',
-      defaultValue:
-          'https://1132c9cc57d02380c5ac2927deba492e@o4510024243412992.ingest.de.sentry.io/4510024245379152');
+  // DSN is read from --dart-define SENTRY_DSN. No hard-coded default.
+  static const String _dsn =
+      String.fromEnvironment('SENTRY_DSN', defaultValue: '');
   static const String _env =
       String.fromEnvironment('SENTRY_ENVIRONMENT', defaultValue: 'development');
   static const String _traces =
@@ -46,6 +45,7 @@ class SentrySettings {
 }
 
 class SentryUtil {
+  static bool _enabled = false;
   // Gate for logging large payloads (enable in dev/staging)
   static const bool logStatusPayload =
       bool.fromEnvironment('SENTRY_LOG_STATUS_PAYLOAD', defaultValue: true);
@@ -54,6 +54,12 @@ class SentryUtil {
     SentrySettings? settings,
   }) async {
     final opts = settings ?? SentrySettings.fromEnvironment();
+    if (opts.dsn.isEmpty) {
+      // Run app without initializing Sentry if DSN is not provided.
+      await Future.sync(appRunner);
+      _enabled = false;
+      return;
+    }
     await SentryFlutter.init((options) {
       if (opts.dsn.isNotEmpty) options.dsn = opts.dsn;
       options.environment = opts.environment;
@@ -64,10 +70,14 @@ class SentryUtil {
       options.enableAutoPerformanceTracing = true;
       options.sendDefaultPii = false;
       options.enableAppLifecycleBreadcrumbs = true;
-    }, appRunner: appRunner);
+    }, appRunner: () async {
+      _enabled = true;
+      await Future.sync(appRunner);
+    });
   }
 
   static List<NavigatorObserver> navigatorObservers() {
+    if (!_enabled) return const <NavigatorObserver>[];
     return [SentryNavigatorObserver()];
   }
 
@@ -76,6 +86,7 @@ class SentryUtil {
     StackTrace stackTrace, {
     String? tag,
   }) async {
+    if (!_enabled) return;
     await Sentry.captureException(
       error,
       stackTrace: stackTrace,
@@ -89,6 +100,7 @@ class SentryUtil {
     String message, {
     SentryLevel level = SentryLevel.info,
   }) async {
+    if (!_enabled) return;
     await Sentry.captureMessage(message, level: level);
   }
 
@@ -97,6 +109,7 @@ class SentryUtil {
     Map<String, Object?> data, {
     SentryLevel level = SentryLevel.info,
   }) async {
+    if (!_enabled) return;
     await Sentry.captureMessage(
       message,
       level: level,
@@ -114,6 +127,7 @@ class SentryUtil {
     Map<String, Object?> extras = const {},
     SentryLevel level = SentryLevel.info,
   }) async {
+    if (!_enabled) return;
     await Sentry.captureMessage(
       message,
       level: level,
@@ -135,6 +149,7 @@ class SentryUtil {
     Map<String, dynamic>? data,
     SentryLevel level = SentryLevel.info,
   }) {
+    // Breadcrumbs are best-effort even if Sentry is disabled.
     Sentry.addBreadcrumb(Breadcrumb(
       category: category,
       message: message,

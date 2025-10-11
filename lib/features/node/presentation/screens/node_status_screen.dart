@@ -45,6 +45,11 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   late final TabController _tabController;
   DateTime? _lastChecked;
 
+  // Sync speed tracking
+  int? _previousBlockHeight;
+  DateTime? _previousHeightCheck;
+  double? _blocksPerSecond;
+
   // Soft tinted surface helper for modern light backgrounds
   Color _tint(ColorScheme scheme, Color accent, [double opacity = 0.06]) {
     return Color.alphaBlend(accent.withValues(alpha: opacity), scheme.surface);
@@ -210,6 +215,22 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       }
       if (!mounted) return;
       setState(() {
+        // Calculate sync speed
+        final currentHeight = localBestTip?.height;
+        final now = DateTime.now();
+        if (_previousBlockHeight != null &&
+            _previousHeightCheck != null &&
+            currentHeight != null &&
+            currentHeight > _previousBlockHeight!) {
+          final timeDiff = now.difference(_previousHeightCheck!).inSeconds;
+          if (timeDiff > 0) {
+            final blockDiff = currentHeight - _previousBlockHeight!;
+            _blocksPerSecond = blockDiff / timeDiff;
+          }
+        }
+        _previousBlockHeight = currentHeight;
+        _previousHeightCheck = now;
+
         _peers = peers;
         _currentBlockHeight = localBestTip?.height;
         _networkBestTipHeight = networkBestTip?.height;
@@ -250,66 +271,65 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       ),
       drawer: const AppDrawer(),
       body: RefreshIndicator(
-          onRefresh: _refresh,
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              if (_error != null)
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Error', style: TextStyle(color: colorScheme.error)),
-                    const SizedBox(height: 6),
-                    Text(_error!, style: theme.textTheme.bodySmall),
-                    const SizedBox(height: 16),
-                  ],
-                ),
-
-              // Hero Status Card
-              _buildHeroStatusCard(
-                  context, ref.watch(nodeStatusProvider).value),
-              const SizedBox(height: 16),
-
-              // Sync Progress Card
-              _buildSyncProgressCard(context),
-              const SizedBox(height: 16),
-
-              // Best Tip Card
-              _buildBestTipCard(context),
-              const SizedBox(height: 16),
-
-              // Mempool Transactions Card
-              _buildMempoolCard(context),
-              const SizedBox(height: 24),
-
-              // Current Epoch Summary (lightweight)
-              _buildEpochSummaryCard(context),
-
-              const SizedBox(height: 16),
-
-              // Produced Blocks (inline preview)
-              Row(
+        onRefresh: _refresh,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            if (_error != null)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Produced Blocks',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const Spacer(),
-                  FilledButton.icon(
-                    onPressed: () => context.push('/main/node/produced-blocks'),
-                    icon: const Icon(Icons.list_alt),
-                    label: const Text('View All'),
-                  ),
+                  Text('Error', style: TextStyle(color: colorScheme.error)),
+                  const SizedBox(height: 6),
+                  Text(_error!, style: theme.textTheme.bodySmall),
+                  const SizedBox(height: 16),
                 ],
               ),
-              const SizedBox(height: 12),
-              _buildProducedBlocksTab(context),
-            ],
-          ),
+
+            // Hero Status Card
+            _buildHeroStatusCard(context, ref.watch(nodeStatusProvider).value),
+            const SizedBox(height: 16),
+
+            // Sync Progress Card
+            _buildSyncProgressCard(context),
+            const SizedBox(height: 16),
+
+            // Best Tip Card
+            _buildBestTipCard(context),
+            const SizedBox(height: 16),
+
+            // Mempool Transactions Card
+            _buildMempoolCard(context),
+            const SizedBox(height: 24),
+
+            // Current Epoch Summary (lightweight)
+            _buildEpochSummaryCard(context),
+
+            const SizedBox(height: 16),
+
+            // Produced Blocks (inline preview)
+            Row(
+              children: [
+                Text(
+                  'Produced Blocks',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const Spacer(),
+                FilledButton.icon(
+                  onPressed: () => context.push('/main/node/produced-blocks'),
+                  icon: const Icon(Icons.list_alt),
+                  label: const Text('View All'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _buildProducedBlocksTab(context),
+          ],
         ),
-      );
+      ),
+    );
   }
 
   Widget _buildHeroStatusCard(
@@ -320,19 +340,27 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     final isSynced = sync.isSynced;
     final statusText = sync.label;
 
-    // Determine status color
+    // Determine status color and icon
     Color statusColor;
     Color statusTextColor;
+    IconData statusIcon;
+    String contextualMessage;
 
     if (isSynced) {
       statusColor = colorScheme.tertiaryContainer;
       statusTextColor = colorScheme.onTertiaryContainer;
+      statusIcon = Icons.check_circle;
+      contextualMessage = 'Your node is performing optimally';
     } else if (statusText == 'Syncing') {
       statusColor = colorScheme.secondaryContainer;
       statusTextColor = colorScheme.onSecondaryContainer;
+      statusIcon = Icons.sync;
+      contextualMessage = 'Downloading and applying blocks...';
     } else {
       statusColor = colorScheme.errorContainer;
       statusTextColor = colorScheme.onErrorContainer;
+      statusIcon = Icons.warning_amber_rounded;
+      contextualMessage = 'Node requires attention';
     }
 
     // Calculate sync percentage
@@ -351,14 +379,26 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       connectedPeers = statusFromProvider.connectedPeers;
       totalPeers = statusFromProvider.totalPeers;
     } else {
-      int c = 0;
-      for (final p in _peers) {
-        if (p.connectionStatus == PeerConnectionStatus.connected) c++;
+      final raw = ref.watch(nodeRawStatusProvider).value;
+      if (raw != null) {
+        int c = 0;
+        for (final p in raw.peers) {
+          if (p.connectionStatus == PeerConnectionStatus.connected) c++;
+        }
+        connectedPeers = c;
+        totalPeers = raw.peers.length;
+      } else {
+        connectedPeers = 0;
+        totalPeers = 0;
       }
-      connectedPeers = c;
-      totalPeers = _peers.length;
     }
     final peerHealthy = connectedPeers > 0 && connectedPeers == totalPeers;
+    final lowPeerCount = totalPeers > 0 && connectedPeers < totalPeers * 0.5;
+
+    // Override contextual message if low peer count
+    if (lowPeerCount && isSynced) {
+      contextualMessage = 'Low peer count detected - check network connection';
+    }
 
     final bg = _tint(colorScheme, colorScheme.tertiary);
     return Card(
@@ -372,170 +412,314 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Status header
+            const SizedBox(height: 10),
+
+            // Block height progress
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: statusColor,
-                borderRadius: BorderRadius.circular(8),
+                color: colorScheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: isSynced
+                      ? Colors.green.withValues(alpha: 0.3)
+                      : colorScheme.outlineVariant.withValues(alpha: 0.3),
+                  width: isSynced ? 1.5 : 1,
+                ),
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Text(
-                      statusText.toUpperCase(),
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: statusTextColor,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.layers,
+                        size: 14,
+                        color: colorScheme.onSurfaceVariant,
                       ),
+                      const SizedBox(width: 5),
+                      Text(
+                        'Block Height',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 11,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (isSynced)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.check_circle,
+                                size: 10,
+                                color: Colors.green[700],
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                'Synced',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: Colors.green[700],
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        Text(
+                          '${(syncPercentage * 100).toStringAsFixed(1)}%',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.primary,
+                            fontSize: 12,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Text(
+                        '$currentHeight',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onSurface,
+                          fontSize: 18,
+                        ),
+                      ),
+                      Text(
+                        ' / $networkHeight',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
+                    child: LinearProgressIndicator(
+                      value: syncPercentage,
+                      backgroundColor: colorScheme.surfaceContainerHighest,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        isSynced ? Colors.green : colorScheme.primary,
+                      ),
+                      minHeight: 6,
                     ),
                   ),
-                  // Refresh button
-                  IconButton(
-                    icon: Icon(Icons.refresh, color: statusTextColor, size: 16),
-                    onPressed: _refreshing ? null : _refresh,
-                    tooltip: 'Refresh',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                  const SizedBox(width: 8),
-                  // Build info button
-                  IconButton(
-                    icon: Icon(Icons.info_outline,
-                        color: statusTextColor, size: 16),
-                    onPressed: _showBuildInfoDialog,
-                    tooltip: 'Build Info',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
+                  // Sync speed and ETA when syncing
+                  if (!isSynced &&
+                      _blocksPerSecond != null &&
+                      _blocksPerSecond! > 0) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color:
+                            colorScheme.primaryContainer.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.speed,
+                                  size: 12,
+                                  color: colorScheme.primary,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${_blocksPerSecond!.toStringAsFixed(1)} blocks/sec',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurface,
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (currentHeight < networkHeight) ...[
+                            const SizedBox(width: 8),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.schedule,
+                                  size: 12,
+                                  color: colorScheme.primary,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'ETA: ${_calculateETA(currentHeight, networkHeight, _blocksPerSecond!)}',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurface,
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
 
-            // Last checked timestamp
-            if (_lastChecked != null) ...[
-              const SizedBox(height: 6),
-              Text(
-                _formatLastChecked(),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                  fontSize: 10,
-                ),
-              ),
-            ],
-
-            const SizedBox(height: 12),
-
-            // Block height progress
-            Text(
-              'Block Height',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '$currentHeight / $networkHeight',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.onSurface,
-                  ),
-                ),
-                Text(
-                  '${(syncPercentage * 100).toStringAsFixed(1)}%',
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.primary,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            LinearProgressIndicator(
-              value: syncPercentage,
-              backgroundColor: colorScheme.surfaceContainerHighest,
-              valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
-              minHeight: 6,
-              borderRadius: BorderRadius.circular(3),
-            ),
-
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
 
             // Quick info section
             Row(
               children: [
-                // Peers chip (clickable)
-                _buildInfoChip(
-                  context,
-                  icon: Icons.people,
-                  label: '$connectedPeers/$totalPeers Peers',
-                  color: peerHealthy ? colorScheme.tertiary : colorScheme.error,
-                  onTap: () {
-                    final raw = ref.read(nodeRawStatusProvider).value;
-                    final peers =
-                        (raw?.peers.isNotEmpty == true) ? raw!.peers : _peers;
-                    if (peers.isEmpty) return;
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => NodePeersScreen(peers: peers),
-                      ),
-                    );
-                  },
+                // Peers chip (clickable) - with subtitle
+                Expanded(
+                  child: _buildCompactInfoCard(
+                    context,
+                    icon: Icons.people,
+                    label: 'Peers',
+                    value: '$connectedPeers/$totalPeers',
+                    subtitle: peerHealthy
+                        ? 'All connected'
+                        : lowPeerCount
+                            ? 'Low count'
+                            : 'Some offline',
+                    color: peerHealthy
+                        ? Colors.green
+                        : lowPeerCount
+                            ? colorScheme.error
+                            : Colors.orange,
+                    colorScheme: colorScheme,
+                    onTap: () {
+                      final raw = ref.read(nodeRawStatusProvider).value;
+                      final peers =
+                          (raw?.peers.isNotEmpty == true) ? raw!.peers : _peers;
+                      if (peers.isEmpty) return;
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => NodePeersScreen(peers: peers),
+                        ),
+                      );
+                    },
+                  ),
                 ),
-                const SizedBox(width: 16),
-                // Epoch/Slot info (not clickable)
-                Row(
-                  children: [
-                    Icon(Icons.access_time,
-                        size: 16, color: colorScheme.onSurfaceVariant),
-                    const SizedBox(width: 6),
-                    Text(
-                      _formatEpochInline(),
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
+                const SizedBox(width: 8),
+                // Epoch/Slot info card - with subtitle
+                Expanded(
+                  child: _buildCompactInfoCard(
+                    context,
+                    icon: Icons.access_time,
+                    label: 'Epoch',
+                    value: '${_bestTipEpoch ?? 'N/A'}',
+                    subtitle: 'Slot ${_bestTipGlobalSlot ?? 'N/A'}',
+                    color: colorScheme.primary,
+                    colorScheme: colorScheme,
+                  ),
                 ),
               ],
             ),
+            // Last checked timestamp
+            if (_lastChecked != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                _formatLastChecked(),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                  fontSize: 9,
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
 
-  Widget _buildInfoChip(
+  Widget _buildCompactInfoCard(
     BuildContext context, {
     required IconData icon,
     required String label,
+    required String value,
+    required String subtitle,
     required Color color,
+    required ColorScheme colorScheme,
     VoidCallback? onTap,
   }) {
     final theme = Theme.of(context);
 
-    final chip = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    final card = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: color.withValues(alpha: 0.3),
+          width: 1,
+        ),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: color),
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(icon, size: 13, color: color),
+          ),
           const SizedBox(width: 6),
-          Text(
-            label,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w600,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      label,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 10,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      value,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: color,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -545,12 +729,12 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     if (onTap != null) {
       return InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: chip,
+        borderRadius: BorderRadius.circular(10),
+        child: card,
       );
     }
 
-    return chip;
+    return card;
   }
 
   Widget _buildSyncProgressCard(BuildContext context) {
@@ -594,88 +778,133 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       applyPercentage = 100.0;
     }
 
-    final bg = _tint(colorScheme, colorScheme.primary);
+    final bg = _tint(colorScheme, colorScheme.primary, 0.04);
     return Card(
       elevation: 0,
       color: bg,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         side: BorderSide(
             color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(Icons.sync, size: 20, color: colorScheme.primary),
+                Icon(Icons.sync, size: 16, color: colorScheme.primary),
                 const SizedBox(width: 8),
                 Text(
-                  'Sync Details',
+                  'Sync Progress',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                     color: colorScheme.onSurface,
+                    fontSize: 13,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
 
             // Block Fetching
-            Text(
-              'Block Fetching (${fetchPercentage.toStringAsFixed(1)}%)',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: colorScheme.onSurface,
-              ),
+            Row(
+              children: [
+                Text(
+                  'Fetch',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurface,
+                    fontSize: 11,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
+                    child: LinearProgressIndicator(
+                      value: fetchPercentage / 100,
+                      backgroundColor: colorScheme.surfaceContainerHighest,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        fetchPercentage >= 100.0 ? Colors.green : colorScheme.primary,
+                      ),
+                      minHeight: 5,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${fetchPercentage.toStringAsFixed(1)}%',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurface,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            LinearProgressIndicator(
-              value: fetchPercentage / 100,
-              backgroundColor: colorScheme.surfaceContainerHighest,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                fetchPercentage >= 100.0 ? Colors.green : Colors.grey[600]!,
-              ),
-              minHeight: 8,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             if (fetchProgress != null)
-              Text(
-                '(done: ${fetchProgress.done}, pending: ${fetchProgress.pending}, idle: ${fetchProgress.idle})',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
+              Padding(
+                padding: const EdgeInsets.only(left: 48),
+                child: Text(
+                  'Done: ${fetchProgress.done}  Pending: ${fetchProgress.pending}  Idle: ${fetchProgress.idle}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontSize: 10,
+                  ),
                 ),
               ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
 
             // Block Application
-            Text(
-              'Block Application (${applyPercentage.toStringAsFixed(1)}%)',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: colorScheme.onSurface,
-              ),
+            Row(
+              children: [
+                Text(
+                  'Apply',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurface,
+                    fontSize: 11,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
+                    child: LinearProgressIndicator(
+                      value: applyPercentage / 100,
+                      backgroundColor: colorScheme.surfaceContainerHighest,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        applyPercentage >= 100.0 ? Colors.green : colorScheme.primary,
+                      ),
+                      minHeight: 5,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${applyPercentage.toStringAsFixed(1)}%',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurface,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            LinearProgressIndicator(
-              value: applyPercentage / 100,
-              backgroundColor: colorScheme.surfaceContainerHighest,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                applyPercentage >= 100.0 ? Colors.green : Colors.grey[600]!,
-              ),
-              minHeight: 8,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             if (applyProgress != null)
-              Text(
-                '(done: ${applyProgress.done}, pending: ${applyProgress.pending}, idle: ${applyProgress.idle})',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
+              Padding(
+                padding: const EdgeInsets.only(left: 48),
+                child: Text(
+                  'Done: ${applyProgress.done}  Pending: ${applyProgress.pending}  Idle: ${applyProgress.idle}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontSize: 10,
+                  ),
                 ),
               ),
           ],
@@ -695,29 +924,30 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       elevation: 0,
       color: bg,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         side: BorderSide(
             color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(Icons.emoji_events, size: 20, color: colorScheme.primary),
+                Icon(Icons.emoji_events, size: 16, color: colorScheme.primary),
                 const SizedBox(width: 8),
                 Text(
                   'Best Tip',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                     color: colorScheme.onSurface,
+                    fontSize: 13,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
 
             // Height and Hash on same line
             Builder(builder: (_) {
@@ -726,106 +956,78 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                   _networkBestTipHeight ??
                   _currentBlockHeight ??
                   bestTipUi?.snapshot?.height;
-              final hash = raw?.bestTipHash ?? _bestTipHash ?? bestTipUi?.snapshot?.hash;
+              final hash =
+                  raw?.bestTipHash ?? _bestTipHash ?? bestTipUi?.snapshot?.hash;
               final displayHash = () {
                 if (hash == null || hash.isEmpty) return 'N/A';
                 final h = hash;
-                final head = h.length >= 10 ? h.substring(0, 10) : h;
-                final tail = h.length >= 10 ? h.substring(h.length - 10) : '';
+                final head = h.length >= 6 ? h.substring(0, 6) : h;
+                final tail = h.length >= 6 ? h.substring(h.length - 6) : '';
                 return '$head…$tail';
               }();
               return Text(
                 'Height: ${_fmtInt(height)} ($displayHash)',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: colorScheme.onSurfaceVariant,
+                  fontSize: 11,
                 ),
               );
             }),
 
-            const SizedBox(height: 16),
-            const Divider(),
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
 
-            // Batches section with breakdown
+            // Batches section - inline summary
             if ((raw?.bestTipBatchTransactions.isNotEmpty ?? false) ||
                 _bestTipBatchTransactions.isNotEmpty ||
-                (bestTipUi?.snapshot?.batchTransactions.isNotEmpty ?? false)) ...[
-              (() {
-                final int totalBatches = (raw?.bestTipBatchTransactions.isNotEmpty == true)
-                    ? raw!.bestTipBatchTransactions.length
-                    : (_bestTipBatchTransactions.isNotEmpty
-                        ? _bestTipBatchTransactions.length
-                        : (bestTipUi?.snapshot?.batchTransactions.length ?? 0));
-                return Text(
-                  'Batches ($totalBatches total)',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.onSurface,
-                  ),
-                );
-              }()),
-              const SizedBox(height: 12),
-              ...(() {
-                if (raw?.bestTipBatchTransactions.isNotEmpty == true) {
-                  return raw!.bestTipBatchTransactions;
-                }
-                if (_bestTipBatchTransactions.isNotEmpty) {
-                  return _bestTipBatchTransactions;
-                }
-                return (bestTipUi?.snapshot?.batchTransactions ?? [])
-                    .map((e) => BigInt.parse(e))
-                    .toList();
-              }())
-                  .asMap()
-                  .entries
-                  .map((entry) {
-                final batchIndex = entry.key + 1;
-                final txCount = entry.value;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: colorScheme.outline.withValues(alpha: 0.2),
+                (bestTipUi?.snapshot?.batchTransactions.isNotEmpty ??
+                    false)) ...[
+              Builder(builder: (_) {
+                final batches = (() {
+                  if (raw?.bestTipBatchTransactions.isNotEmpty == true) {
+                    return raw!.bestTipBatchTransactions;
+                  }
+                  if (_bestTipBatchTransactions.isNotEmpty) {
+                    return _bestTipBatchTransactions;
+                  }
+                  return (bestTipUi?.snapshot?.batchTransactions ?? [])
+                      .map((e) => BigInt.parse(e))
+                      .toList();
+                }());
+
+                final batchSummary = batches
+                    .asMap()
+                    .entries
+                    .map((e) => '${e.key + 1}: ${e.value} tx')
+                    .join('  ');
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Batches (${batches.length})',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.onSurface,
+                        fontSize: 11,
                       ),
                     ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.inventory_2_outlined,
-                          size: 16,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Batch $batchIndex',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurface,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          '$txCount trans.',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
+                    const SizedBox(height: 4),
+                    Text(
+                      batchSummary,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontSize: 10,
+                      ),
                     ),
-                  ),
+                  ],
                 );
               }),
             ] else ...[
               Text(
                 'No batches',
-                style: theme.textTheme.bodyMedium?.copyWith(
+                style: theme.textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
+                  fontSize: 10,
                 ),
               ),
             ],
@@ -846,186 +1048,131 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       elevation: 0,
       color: bg,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         side: BorderSide(
             color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.pending_actions,
-                    size: 20, color: colorScheme.primary),
-                const SizedBox(width: 8),
-                Text(
-                  'Mempool Transactions',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.onSurface,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            mempoolAsync.when(
-              loading: () => Text(
-                'Loading...',
-                style: theme.textTheme.bodyMedium?.copyWith(
+        padding: const EdgeInsets.all(12),
+        child: mempoolAsync.when(
+          loading: () => Row(
+            children: [
+              Icon(Icons.pending_actions, size: 16, color: colorScheme.primary),
+              const SizedBox(width: 8),
+              Text(
+                'Mempool: Loading...',
+                style: theme.textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
+                  fontSize: 12,
                 ),
               ),
-              error: (e, _) => Text(
-                'Failed to load mempool',
-                style: theme.textTheme.bodyMedium?.copyWith(
+            ],
+          ),
+          error: (e, _) => Row(
+            children: [
+              Icon(Icons.error_outline, size: 16, color: colorScheme.error),
+              const SizedBox(width: 8),
+              Text(
+                'Mempool: Failed to load',
+                style: theme.textTheme.bodySmall?.copyWith(
                   color: colorScheme.error,
+                  fontSize: 12,
                 ),
               ),
-              data: (mempool) {
-                if (mempool == null) {
-                  if (mempoolUi?.snapshot != null) {
-                    final snap = mempoolUi!.snapshot!;
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            _MempoolStat(label: 'Count', value: snap.count, colorScheme: colorScheme),
-                            const SizedBox(width: 16),
-                            _MempoolStat(label: 'Orphans', value: snap.orphans, colorScheme: colorScheme),
-                            const SizedBox(width: 16),
-                            _MempoolStat(
-                              label: 'Total Size',
-                              value: _formatBytes(BigInt.parse(snap.totalSize)),
-                              colorScheme: colorScheme,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: colorScheme.surface,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
-                            ),
-                            child: Text(mempoolUi.isStale ? 'Cached (stale)' : 'Cached',
-                                style: theme.textTheme.labelSmall),
-                          ),
-                        ),
-                      ],
-                    );
-                  }
-                  return Text(
-                    'No mempool data',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  );
-                }
+            ],
+          ),
+          data: (mempool) {
+            String count = '0';
+            String orphans = '0';
+            String totalSize = '0B';
+            bool isStale = false;
 
-                // Live content
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            if (mempool != null) {
+              count = mempool.count.toString();
+              orphans = mempool.orphans.toString();
+              totalSize = _formatBytes(mempool.totalSize);
+            } else if (mempoolUi?.snapshot != null) {
+              final snap = mempoolUi!.snapshot!;
+              count = snap.count;
+              orphans = snap.orphans;
+              totalSize = _formatBytes(BigInt.parse(snap.totalSize));
+              isStale = mempoolUi.isStale;
+            }
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        _MempoolStat(label: 'Count', value: mempool.count.toString(), colorScheme: colorScheme),
-                        const SizedBox(width: 16),
-                        _MempoolStat(label: 'Orphans', value: mempool.orphans.toString(), colorScheme: colorScheme),
-                        const SizedBox(width: 16),
-                        _MempoolStat(
-                          label: 'Total Size',
-                          value: _formatBytes(mempool.totalSize),
-                          colorScheme: colorScheme,
+                    Icon(Icons.pending_actions,
+                        size: 16, color: colorScheme.primary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Mempool: $count transaction${count != '1' ? 's' : ''} ($orphans orphan${orphans != '1' ? 's' : ''})',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurface,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
                         ),
-                      ],
+                      ),
                     ),
-                    if (mempool.entries.isNotEmpty) ...[
-                      const SizedBox(height: 16),
-                      const Divider(),
-                      const SizedBox(height: 12),
-                      ...mempool.entries.take(5).map((tx) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: InkWell(
-                            onTap: () {
-                              // TODO: Navigate to transaction details
-                            },
-                            borderRadius: BorderRadius.circular(8),
-                            child: Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Icon(Icons.receipt_long, size: 16, color: colorScheme.primary),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          _formatTxHash(tx.id.toString()),
-                                          style: theme.textTheme.bodyMedium?.copyWith(
-                                            color: colorScheme.onSurface,
-                                            fontWeight: FontWeight.w500,
-                                            fontFamily: 'monospace',
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    children: [
-                                      _TxDetailChip(icon: Icons.currency_exchange, label: 'Fee: ${tx.fee}', colorScheme: colorScheme),
-                                      const SizedBox(width: 8),
-                                      _TxDetailChip(icon: Icons.input, label: 'In: ${tx.inputs.length}', colorScheme: colorScheme),
-                                      const SizedBox(width: 8),
-                                      _TxDetailChip(icon: Icons.output, label: 'Out: ${tx.outputs.length}', colorScheme: colorScheme),
-                                      const SizedBox(width: 8),
-                                      _TxDetailChip(icon: Icons.data_usage, label: '${tx.sizeBytes}B', colorScheme: colorScheme),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      }),
-                      if (mempool.entries.length > 5)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Center(
-                            child: Text(
-                              '+${mempool.entries.length - 5} more transactions',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Text(
+                      'Total Size: $totalSize',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontSize: 11,
+                      ),
+                    ),
+                    if (isStale) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                    ] else ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        'No transactions in mempool',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
+                        child: Text(
+                          'Cached',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            fontSize: 9,
+                          ),
                         ),
                       ),
                     ],
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed: () {
+                        context.push('/main/node/mempool');
+                      },
+                      icon: Icon(Icons.arrow_forward,
+                          size: 14, color: colorScheme.primary),
+                      label: Text(
+                        'View Details',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 11,
+                        ),
+                      ),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        minimumSize: const Size(0, 0),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
                   ],
-                );
-              },
-            ),
-          ],
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -1221,34 +1368,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     return currentHeight >= bestTipHeight;
   }
 
-  // Removed unused _getSyncStatus helper
-  String _getSyncStatus() {
-    final currentHeight = _currentBlockHeight;
-    final bestTipHeight = _networkBestTipHeight;
-
-    if (currentHeight == null || bestTipHeight == null) {
-      // Check if we're actually synced based on progress data
-      if (_isSynced()) {
-        return 'Synced & Healthy';
-      }
-      return 'Awaiting Sync';
-    }
-
-    if (currentHeight >= bestTipHeight) {
-      return 'Synced & Healthy';
-    }
-
-    return 'Syncing';
-  }
-
-  String _formatEpochInline() {
-    final raw = ref.read(nodeRawStatusProvider).value;
-    final slot = raw?.globalSlot ?? _bestTipGlobalSlot;
-    final epoch = raw?.epoch ?? _bestTipEpoch;
-    if (epoch == null || slot == null) return 'N/A';
-    return 'Epoch $epoch • Slot $slot';
-  }
-
   String _formatLastChecked() {
     if (_lastChecked == null) return '';
 
@@ -1275,11 +1394,24 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     }
   }
 
-  // Removed unused _bestTipHashDisplay helper
-  String _bestTipHashDisplay() {
-    final hash = _bestTipHash;
-    if (hash == null || hash.isEmpty) return 'N/A';
-    return _shortenMid(hash, head: 10, tail: 10);
+  String _calculateETA(int current, int target, double blocksPerSec) {
+    if (blocksPerSec <= 0 || current >= target) return 'N/A';
+
+    final blocksRemaining = target - current;
+    final secondsRemaining = (blocksRemaining / blocksPerSec).ceil();
+
+    if (secondsRemaining < 60) {
+      return '~${secondsRemaining}s';
+    } else if (secondsRemaining < 3600) {
+      final minutes = (secondsRemaining / 60).ceil();
+      return '~$minutes min';
+    } else if (secondsRemaining < 86400) {
+      final hours = (secondsRemaining / 3600).ceil();
+      return '~$hours hr';
+    } else {
+      final days = (secondsRemaining / 86400).ceil();
+      return '~$days day${days > 1 ? 's' : ''}';
+    }
   }
 
   Widget _buildEpochSummaryCard(BuildContext context) {

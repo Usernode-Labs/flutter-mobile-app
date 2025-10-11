@@ -49,7 +49,7 @@ class MempoolUiController extends AsyncNotifier<MempoolUiState?> {
     try {
       final ts = DateTime.parse(updatedAtIso).toUtc();
       final age = DateTime.now().toUtc().difference(ts);
-      return age > const Duration(seconds: 10);
+      return age > const Duration(seconds: 5);
     } catch (_) {
       return true;
     }
@@ -59,4 +59,3 @@ class MempoolUiController extends AsyncNotifier<MempoolUiState?> {
 final mempoolUiProvider = AsyncNotifierProvider<MempoolUiController, MempoolUiState?>(
   MempoolUiController.new,
 );
-

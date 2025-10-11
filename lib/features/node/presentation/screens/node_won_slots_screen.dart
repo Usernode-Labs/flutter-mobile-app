@@ -19,8 +19,7 @@ class NodeWonSlotsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: const AppAppBar(title: 'Won Slots'),
-      body: SafeArea(
-        child: Padding(
+      body: Padding(
           padding: const EdgeInsets.all(16),
           child: () {
             if (rewards == null || blockchain == null) {
@@ -91,8 +90,6 @@ class NodeWonSlotsScreen extends ConsumerWidget {
             );
           }(),
         ),
-      ),
     );
   }
 }
-

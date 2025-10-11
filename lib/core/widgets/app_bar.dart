@@ -61,20 +61,28 @@ class AppAppBar extends StatelessWidget implements PreferredSizeWidget {
     ];
 
     return AppBar(
+      shape: ShapeBorder.lerp(
+        RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14.0),
+        ),
+        null,
+        0,
+      ),
       leading: leading,
       automaticallyImplyLeading: automaticallyImplyLeading,
       title: title != null
           ? Text(
               title!,
               style: theme.textTheme.titleLarge?.copyWith(
+                fontSize: 18,
                 fontWeight: FontWeight.w600,
                 color: theme.colorScheme.onSurface,
               ),
             )
           : null,
-      elevation: 0,
-      backgroundColor: Colors.transparent,
+      scrolledUnderElevation: 0,
       centerTitle: centerTitle,
+      elevation: 1,
       actions: combinedActions.isNotEmpty ? combinedActions : null,
       bottom: bottom,
     );

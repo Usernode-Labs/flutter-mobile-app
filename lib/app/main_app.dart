@@ -12,7 +12,8 @@ class MainApp extends StatefulWidget {
   final AppFeature? initialFeature;
   final Widget? child; // when using go_router ShellRoute
   final String? currentLocation; // provided by ShellRoute
-  const MainApp({super.key, this.initialFeature, this.child, this.currentLocation});
+  const MainApp(
+      {super.key, this.initialFeature, this.child, this.currentLocation});
 
   @override
   State<MainApp> createState() => _MainAppState();
@@ -69,7 +70,8 @@ class _MainAppState extends State<MainApp> {
 
     // If using ShellRoute (child provided), derive index from current location path
     if (widget.child != null) {
-      final idxFromLoc = active.indexWhere((f) => location.startsWith(_pathFor(f)));
+      final idxFromLoc =
+          active.indexWhere((f) => location.startsWith(_pathFor(f)));
       if (idxFromLoc >= 0) index = idxFromLoc;
     }
     final screens = active.map(_screenFor).toList(growable: false);
@@ -77,6 +79,8 @@ class _MainAppState extends State<MainApp> {
     return Scaffold(
       body: widget.child ?? screens[index],
       bottomNavigationBar: NavigationBar(
+        elevation: 10,
+        backgroundColor: Colors.white10,
         selectedIndex: index,
         onDestinationSelected: (i) {
           setState(() => _currentIndex = i);

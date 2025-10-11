@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/core/design/design_tokens.dart';
 import 'package:crypto_mobile_app/core/widgets/app_action_button.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
+import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:crypto_mobile_app/core/widgets/app_card.dart';
 import 'package:crypto_mobile_app/gen_l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/wallet_service.dart';
@@ -132,6 +133,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
         title: 'Wallet',
         showWalletAndProfile: false,
       ),
+      drawer: const AppDrawer(),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _refreshWallet,

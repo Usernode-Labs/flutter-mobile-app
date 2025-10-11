@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
+import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:crypto_mobile_app/gen_l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -247,6 +248,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       appBar: const AppAppBar(
         title: 'Node Status',
       ),
+      drawer: const AppDrawer(),
       body: RefreshIndicator(
           onRefresh: _refresh,
           child: ListView(
@@ -911,7 +913,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
                             ),
-                            child: Text(mempoolUi!.isStale ? 'Cached (stale)' : 'Cached',
+                            child: Text(mempoolUi.isStale ? 'Cached (stale)' : 'Cached',
                                 style: theme.textTheme.labelSmall),
                           ),
                         ),
@@ -1219,6 +1221,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     return currentHeight >= bestTipHeight;
   }
 
+  // Removed unused _getSyncStatus helper
   String _getSyncStatus() {
     final currentHeight = _currentBlockHeight;
     final bestTipHeight = _networkBestTipHeight;
@@ -1272,6 +1275,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     }
   }
 
+  // Removed unused _bestTipHashDisplay helper
   String _bestTipHashDisplay() {
     final hash = _bestTipHash;
     if (hash == null || hash.isEmpty) return 'N/A';

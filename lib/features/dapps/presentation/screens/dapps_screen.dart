@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
+import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:crypto_mobile_app/features/dapps/presentation/widgets/dapp_card.dart';
 
 /// dApps Screen - App Store for decentralized applications
@@ -36,6 +37,7 @@ class _DAppsScreenState extends State<DAppsScreen> {
       appBar: const AppAppBar(
         title: 'dApps',
       ),
+      drawer: const AppDrawer(),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

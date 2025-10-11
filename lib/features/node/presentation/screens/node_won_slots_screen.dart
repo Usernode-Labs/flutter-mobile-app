@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
+import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:crypto_mobile_app/core/widgets/slot_heatmap.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/node_data_providers.dart';
 
@@ -19,6 +20,7 @@ class NodeWonSlotsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: const AppAppBar(title: 'Won Slots'),
+      drawer: const AppDrawer(),
       body: Padding(
           padding: const EdgeInsets.all(16),
           child: () {

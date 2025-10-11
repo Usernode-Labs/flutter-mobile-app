@@ -6,6 +6,7 @@ import 'package:crypto_mobile_app/core/design/design_tokens.dart';
 import 'package:crypto_mobile_app/core/widgets/activity_list_item.dart';
 import 'package:crypto_mobile_app/core/widgets/app_action_button.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
+import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:crypto_mobile_app/features/rewards/presentation/screens/rewards_breakdown_screen.dart';
 import 'package:crypto_mobile_app/features/rewards/presentation/controllers/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/core/widgets/won_slot_item.dart';
@@ -25,21 +26,8 @@ class HomeScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppAppBar(
         title: 'Home',
-        actions: [
-          Consumer(builder: (ctx, ref, _) {
-            return IconButton(
-              icon: const Icon(Icons.brightness_6_outlined),
-              tooltip: 'Cycle Theme',
-              onPressed: () => ref.read(themeModeProvider.notifier).cycle(),
-            );
-          }),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            tooltip: 'Settings',
-            onPressed: () => context.push('/settings'),
-          ),
-        ],
       ),
+      drawer: const AppDrawer(),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Column(
@@ -83,7 +71,8 @@ class HomeScreen extends StatelessWidget {
                         color: colorScheme.surface,
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                            color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
+                            color: colorScheme.outlineVariant
+                                .withValues(alpha: 0.4)),
                       ),
                       child: Text(
                         '0 points',
@@ -96,7 +85,74 @@ class HomeScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
+
+              // Rewards and projection card (moved before Quick Actions)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color:
+                        colorScheme.surfaceContainerHigh.withValues(alpha: 0.8),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Consumer(builder: (ctx, ref, _) {
+                    final rewardsAsync = ref.watch(epochRewardsUiProvider);
+                    return rewardsAsync.when(
+                      loading: () => const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(24.0),
+                          child: CircularProgressIndicator(),
+                        ),
+                      ),
+                      error: (e, st) => Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: _buildRewardsSection(
+                          context,
+                          colorScheme,
+                          theme,
+                          null,
+                        ),
+                      ),
+                      data: (ui) => Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ..._buildRewardsSection(
+                            context,
+                            colorScheme,
+                            theme,
+                            ui?.snapshot,
+                          ),
+                          if (ui?.isCached == true)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8.0),
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: colorScheme.surface,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                        color: colorScheme.outlineVariant
+                                            .withValues(alpha: 0.5)),
+                                  ),
+                                  child: Text(
+                                    ui!.isStale ? 'Cached (stale)' : 'Cached',
+                                    style: theme.textTheme.labelSmall,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    );
+                  }),
+                ),
+              ),
+
+              const SizedBox(height: 24),
 
               // Quick Actions Grid
               Padding(
@@ -151,7 +207,8 @@ class HomeScreen extends StatelessWidget {
                             color: colorScheme.secondary,
                             onTap: () {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Swap coming soon')),
+                                const SnackBar(
+                                    content: Text('Swap coming soon')),
                               );
                             },
                           ),
@@ -169,7 +226,8 @@ class HomeScreen extends StatelessWidget {
                             color: colorScheme.primary,
                             onTap: () {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Bridge coming soon')),
+                                const SnackBar(
+                                    content: Text('Bridge coming soon')),
                               );
                             },
                           ),
@@ -181,7 +239,8 @@ class HomeScreen extends StatelessWidget {
                             color: colorScheme.tertiary,
                             onTap: () {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Staking coming soon')),
+                                const SnackBar(
+                                    content: Text('Staking coming soon')),
                               );
                             },
                           ),
@@ -195,7 +254,8 @@ class HomeScreen extends StatelessWidget {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => const RewardsBreakdownScreen(),
+                                  builder: (_) =>
+                                      const RewardsBreakdownScreen(),
                                 ),
                               );
                             },
@@ -204,70 +264,6 @@ class HomeScreen extends StatelessWidget {
                       ],
                     ),
                   ],
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // Rewards and projection card
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.8),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Consumer(builder: (ctx, ref, _) {
-                    final rewardsAsync = ref.watch(epochRewardsUiProvider);
-                    return rewardsAsync.when(
-                      loading: () => const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(24.0),
-                          child: CircularProgressIndicator(),
-                        ),
-                      ),
-                      error: (e, st) => Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: _buildRewardsSection(
-                          context,
-                          colorScheme,
-                          theme,
-                          null,
-                        ),
-                      ),
-                      data: (ui) => Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ..._buildRewardsSection(
-                            context,
-                            colorScheme,
-                            theme,
-                            ui?.snapshot,
-                          ),
-                          if (ui?.isCached == true)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 8.0),
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: colorScheme.surface,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
-                                  ),
-                                  child: Text(
-                                    ui!.isStale ? 'Cached (stale)' : 'Cached',
-                                    style: theme.textTheme.labelSmall,
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    );
-                  }),
                 ),
               ),
 
@@ -280,12 +276,17 @@ class HomeScreen extends StatelessWidget {
                   loading: () => const SizedBox.shrink(),
                   error: (e, st) => const SizedBox.shrink(),
                   data: (rewards) {
-                    if (rewards == null || rewards.wonSlots == null || rewards.wonSlots!.isEmpty) {
+                    if (rewards == null ||
+                        rewards.wonSlots == null ||
+                        rewards.wonSlots!.isEmpty) {
                       return const SizedBox.shrink();
                     }
                     final now = DateTime.now().toUtc();
                     final upcoming = rewards.wonSlots!
-                        .where((slot) => DateTime.fromMillisecondsSinceEpoch(slot.expectedTimeMs.toInt(), isUtc: true).isAfter(now))
+                        .where((slot) => DateTime.fromMillisecondsSinceEpoch(
+                                slot.expectedTimeMs.toInt(),
+                                isUtc: true)
+                            .isAfter(now))
                         .take(3)
                         .toList();
                     if (upcoming.isEmpty) return const SizedBox.shrink();
@@ -308,18 +309,22 @@ class HomeScreen extends StatelessWidget {
                                 onPressed: () {
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
-                                      builder: (context) => const RewardsBreakdownScreen(),
+                                      builder: (context) =>
+                                          const RewardsBreakdownScreen(),
                                     ),
                                   );
                                 },
-                                child: Text('View All', style: TextStyle(color: colorScheme.primary)),
+                                child: Text('View All',
+                                    style:
+                                        TextStyle(color: colorScheme.primary)),
                               ),
                             ],
                           ),
                         ),
                         const SizedBox(height: 12),
                         ...upcoming.map((slot) => Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
                               child: WonSlotItem(
                                 slot: slot,
                                 status: SlotStatus.pending,
@@ -417,7 +422,8 @@ class HomeScreen extends StatelessWidget {
             icon: Icon(Icons.bar_chart_rounded, color: colorScheme.primary),
             onPressed: () {
               Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const RewardsBreakdownScreen()),
+                MaterialPageRoute(
+                    builder: (_) => const RewardsBreakdownScreen()),
               );
             },
           ),
@@ -461,7 +467,9 @@ class HomeScreen extends StatelessWidget {
             ),
           ),
           Text(
-            (produced != null && wins != null) ? '$produced / $wins blocks' : '—',
+            (produced != null && wins != null)
+                ? '$produced / $wins blocks'
+                : '—',
             style: theme.textTheme.bodySmall?.copyWith(
               color: colorScheme.onSurfaceVariant,
               fontWeight: FontWeight.w500,
@@ -503,7 +511,8 @@ class HomeScreen extends StatelessWidget {
 }
 
 // Live-only provider for upcoming slots section
-final _liveEpochRewardsProvider = FutureProvider<RpcEpochRewardsResp?>((ref) async {
+final _liveEpochRewardsProvider =
+    FutureProvider<RpcEpochRewardsResp?>((ref) async {
   try {
     return await RustBackendService.instance.epochRewards();
   } catch (_) {

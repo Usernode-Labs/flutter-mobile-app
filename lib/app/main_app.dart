@@ -12,7 +12,8 @@ class MainApp extends StatefulWidget {
   final AppFeature? initialFeature;
   final Widget? child; // when using go_router ShellRoute
   final String? currentLocation; // provided by ShellRoute
-  const MainApp({super.key, this.initialFeature, this.child, this.currentLocation});
+  const MainApp(
+      {super.key, this.initialFeature, this.child, this.currentLocation});
 
   @override
   State<MainApp> createState() => _MainAppState();
@@ -54,12 +55,10 @@ class _MainAppState extends State<MainApp> {
   Widget build(BuildContext context) {
     final l10n = Localizations.of<AppLocalizations>(context, AppLocalizations);
     final location = widget.currentLocation ?? '';
+    final colorScheme = Theme.of(context).colorScheme;
 
-    // Filter out wallet and profile from bottom navigation
-    final active = FeatureFlags.ordered
-        .where(FeatureFlags.isEnabled)
-        .where((f) => f != AppFeature.wallet && f != AppFeature.profile)
-        .toList();
+    // Include all enabled features in bottom navigation
+    final active = FeatureFlags.ordered.where(FeatureFlags.isEnabled).toList();
 
     // Clamp current index to available items and align with router location when child provided.
     int index = _currentIndex;
@@ -69,51 +68,69 @@ class _MainAppState extends State<MainApp> {
 
     // If using ShellRoute (child provided), derive index from current location path
     if (widget.child != null) {
-      final idxFromLoc = active.indexWhere((f) => location.startsWith(_pathFor(f)));
+      final idxFromLoc =
+          active.indexWhere((f) => location.startsWith(_pathFor(f)));
       if (idxFromLoc >= 0) index = idxFromLoc;
     }
     final screens = active.map(_screenFor).toList(growable: false);
 
     return Scaffold(
       body: widget.child ?? screens[index],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: index,
-        onDestinationSelected: (i) {
-          setState(() => _currentIndex = i);
-          final target = active[i];
-          final path = _pathFor(target);
-          if (widget.child != null) context.go(path);
-        },
-        destinations: [
-          for (final f in active)
-            switch (f) {
-              AppFeature.home => NavigationDestination(
-                  icon: const Icon(Icons.home_outlined),
-                  selectedIcon: const Icon(Icons.home),
-                  label: l10n?.home ?? 'Home',
-                ),
-              AppFeature.wallet => NavigationDestination(
-                  icon: const Icon(Icons.account_balance_wallet_outlined),
-                  selectedIcon: const Icon(Icons.account_balance_wallet),
-                  label: l10n?.wallet ?? 'Wallet',
-                ),
-              AppFeature.dapps => NavigationDestination(
-                  icon: const Icon(Icons.apps_outlined),
-                  selectedIcon: const Icon(Icons.apps),
-                  label: l10n?.dapps ?? 'dApps',
-                ),
-              AppFeature.profile => NavigationDestination(
-                  icon: const Icon(Icons.person_outline),
-                  selectedIcon: const Icon(Icons.person),
-                  label: l10n?.profile ?? 'Profile',
-                ),
-              AppFeature.node => NavigationDestination(
-                  icon: const Icon(Icons.hub_outlined),
-                  selectedIcon: const Icon(Icons.hub),
-                  label: l10n?.node ?? 'Node',
-                ),
-            }
-        ],
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: colorScheme.surface,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.12),
+              offset: const Offset(0, -4),
+              blurRadius: 12,
+              spreadRadius: 0,
+            ),
+          ],
+        ),
+        child: NavigationBar(
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          selectedIndex: index,
+          height: 55,
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
+          onDestinationSelected: (i) {
+            setState(() => _currentIndex = i);
+            final target = active[i];
+            final path = _pathFor(target);
+            if (widget.child != null) context.go(path);
+          },
+          destinations: [
+            for (final f in active)
+              switch (f) {
+                AppFeature.home => NavigationDestination(
+                    icon: const Icon(Icons.home_outlined),
+                    selectedIcon: const Icon(Icons.home),
+                    label: l10n?.home ?? 'Home',
+                  ),
+                AppFeature.wallet => NavigationDestination(
+                    icon: const Icon(Icons.account_balance_wallet_outlined),
+                    selectedIcon: const Icon(Icons.account_balance_wallet),
+                    label: l10n?.wallet ?? 'Wallet',
+                  ),
+                AppFeature.dapps => NavigationDestination(
+                    icon: const Icon(Icons.apps_outlined),
+                    selectedIcon: const Icon(Icons.apps),
+                    label: l10n?.dapps ?? 'dApps',
+                  ),
+                AppFeature.profile => NavigationDestination(
+                    icon: const Icon(Icons.person_outline),
+                    selectedIcon: const Icon(Icons.person),
+                    label: l10n?.profile ?? 'Profile',
+                  ),
+                AppFeature.node => NavigationDestination(
+                    icon: const Icon(Icons.hub_outlined),
+                    selectedIcon: const Icon(Icons.hub),
+                    label: l10n?.node ?? 'Node',
+                  ),
+              }
+          ],
+        ),
       ),
     );
   }

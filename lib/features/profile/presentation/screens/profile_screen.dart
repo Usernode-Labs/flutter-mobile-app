@@ -3,9 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:crypto_mobile_app/core/di/providers.dart';
+import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:crypto_mobile_app/features/wallet/data/models/account.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
 import 'package:crypto_mobile_app/features/onboarding/presentation/screens/single_account_onboarding_screen.dart';
@@ -93,24 +91,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     return Scaffold(
-      appBar: AppAppBar(
+      appBar: const AppAppBar(
         title: 'Profile',
-        showWalletAndProfile: false,
-        actions: [
-          Consumer(builder: (ctx, ref, _) {
-            return IconButton(
-              icon: const Icon(Icons.brightness_6_outlined),
-              tooltip: 'Cycle Theme',
-              onPressed: () => ref.read(themeModeProvider.notifier).cycle(),
-            );
-          }),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            tooltip: 'Settings',
-            onPressed: () => context.push('/settings'),
-          ),
-        ],
+        showNotifications: true,
       ),
+      drawer: const AppDrawer(),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(

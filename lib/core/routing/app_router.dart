@@ -7,6 +7,9 @@ import 'package:crypto_mobile_app/features/onboarding/presentation/screens/singl
 import 'package:crypto_mobile_app/app/main_app.dart';
 import 'package:crypto_mobile_app/features/home/presentation/screens/home_screen.dart';
 import 'package:crypto_mobile_app/features/node/presentation/screens/node_status_screen.dart';
+import 'package:crypto_mobile_app/features/node/presentation/screens/node_won_slots_screen.dart';
+import 'package:crypto_mobile_app/features/node/presentation/screens/produced_blocks_screen.dart';
+import 'package:crypto_mobile_app/features/node/presentation/screens/mempool_details_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/presentation/screens/dapps_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/presentation/screens/wallet_screen.dart';
 import 'package:crypto_mobile_app/features/profile/presentation/screens/profile_screen.dart';
@@ -55,6 +58,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/main/node',
             builder: (context, state) => const NodeStatusScreen(),
+          ),
+          GoRoute(
+            path: '/main/node/won-slots',
+            builder: (context, state) => const NodeWonSlotsScreen(),
+          ),
+          GoRoute(
+            path: '/main/node/produced-blocks',
+            builder: (context, state) => const ProducedBlocksScreen(),
+          ),
+          GoRoute(
+            path: '/main/node/mempool',
+            builder: (context, state) => const MempoolDetailsScreen(),
           ),
           GoRoute(
             path: '/main/dapps',

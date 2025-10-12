@@ -1,53 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:crypto_mobile_app/core/di/providers.dart';
 import 'package:crypto_mobile_app/core/design/design_tokens.dart';
 import 'package:crypto_mobile_app/core/widgets/activity_list_item.dart';
 import 'package:crypto_mobile_app/core/widgets/app_action_button.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
-import 'package:crypto_mobile_app/core/widgets/won_slot_item.dart';
+import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:crypto_mobile_app/features/rewards/presentation/screens/rewards_breakdown_screen.dart';
+import 'package:crypto_mobile_app/features/rewards/presentation/controllers/epoch_rewards_provider.dart';
+import 'package:crypto_mobile_app/core/widgets/won_slot_item.dart';
 import 'package:crypto_mobile_app/features/wallet/presentation/screens/send_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/presentation/screens/receive_screen.dart';
-import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
-import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  RpcEpochRewardsResp? _epochRewards;
-  bool _isLoading = true;
-
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadEpochRewards();
-  }
-
-  Future<void> _loadEpochRewards() async {
-    try {
-      Log.d('HOME', 'Loading epoch rewards');
-      final rewards = await RustBackendService.instance.epochRewards();
-      if (!mounted) return;
-      setState(() {
-        _epochRewards = rewards;
-        _isLoading = false;
-      });
-      Log.d('HOME', 'Epoch rewards loaded: ${rewards != null}');
-    } catch (e, st) {
-      Log.e('HOME', 'Failed to load epoch rewards', e, st);
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-      });
-    }
+    // Refresh epoch rewards when screen loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Log.d('HOME_SCREEN', 'Invalidating epochRewardsUiProvider to trigger refresh');
+      ref.invalidate(epochRewardsUiProvider);
+    });
   }
 
   @override
@@ -58,21 +38,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: AppAppBar(
         title: 'Home',
-        actions: [
-          Consumer(builder: (ctx, ref, _) {
-            return IconButton(
-              icon: const Icon(Icons.brightness_6_outlined),
-              tooltip: 'Cycle Theme',
-              onPressed: () => ref.read(themeModeProvider.notifier).cycle(),
-            );
-          }),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            tooltip: 'Settings',
-            onPressed: () => context.push('/settings'),
-          ),
-        ],
       ),
+      drawer: const AppDrawer(),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Column(
@@ -116,7 +83,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         color: colorScheme.surface,
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                            color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
+                            color: colorScheme.outlineVariant
+                                .withValues(alpha: 0.4)),
                       ),
                       child: Text(
                         '0 points',
@@ -129,7 +97,74 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
+
+              // Rewards and projection card (moved before Quick Actions)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color:
+                        colorScheme.surfaceContainerHigh.withValues(alpha: 0.8),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Consumer(builder: (ctx, ref, _) {
+                    final rewardsAsync = ref.watch(epochRewardsUiProvider);
+                    return rewardsAsync.when(
+                      loading: () => const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(24.0),
+                          child: CircularProgressIndicator(),
+                        ),
+                      ),
+                      error: (e, st) => Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: _buildRewardsSection(
+                          context,
+                          colorScheme,
+                          theme,
+                          null,
+                        ),
+                      ),
+                      data: (ui) => Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ..._buildRewardsSection(
+                            context,
+                            colorScheme,
+                            theme,
+                            ui?.snapshot,
+                          ),
+                          if (ui?.isCached == true)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8.0),
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: colorScheme.surface,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                        color: colorScheme.outlineVariant
+                                            .withValues(alpha: 0.5)),
+                                  ),
+                                  child: Text(
+                                    ui!.isStale ? 'Cached (stale)' : 'Cached',
+                                    style: theme.textTheme.labelSmall,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    );
+                  }),
+                ),
+              ),
+
+              const SizedBox(height: 24),
 
               // Quick Actions Grid
               Padding(
@@ -184,7 +219,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             color: colorScheme.secondary,
                             onTap: () {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Swap coming soon')),
+                                const SnackBar(
+                                    content: Text('Swap coming soon')),
                               );
                             },
                           ),
@@ -202,7 +238,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             color: colorScheme.primary,
                             onTap: () {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Bridge coming soon')),
+                                const SnackBar(
+                                    content: Text('Bridge coming soon')),
                               );
                             },
                           ),
@@ -214,7 +251,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             color: colorScheme.tertiary,
                             onTap: () {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Staking coming soon')),
+                                const SnackBar(
+                                    content: Text('Staking coming soon')),
                               );
                             },
                           ),
@@ -228,7 +266,8 @@ class _HomeScreenState extends State<HomeScreen> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => const RewardsBreakdownScreen(),
+                                  builder: (_) =>
+                                      const RewardsBreakdownScreen(),
                                 ),
                               );
                             },
@@ -240,208 +279,75 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
-              const SizedBox(height: 24),
-
-              // Rewards and projection card
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.8),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: _isLoading
-                      ? const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(24.0),
-                            child: CircularProgressIndicator(),
-                          ),
-                        )
-                      : Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // This epoch's rewards section
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'This epoch\'s rewards',
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    color: colorScheme.onSurface,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                IconButton(
-                                  tooltip: 'Breakdown',
-                                  icon: Icon(Icons.bar_chart_rounded,
-                                      color: colorScheme.primary),
-                                  onPressed: () {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            const RewardsBreakdownScreen(),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ],
-                            ),
-
-                            const SizedBox(height: 8),
-
-                            // Rewards amount
-                            Text(
-                              _epochRewards != null
-                                  ? '${_epochRewards!.earnedSoFar} TKN'
-                                  : '— TKN',
-                              style: theme.textTheme.headlineMedium?.copyWith(
-                                fontSize: 36,
-                                fontWeight: FontWeight.w700,
-                                color: colorScheme.onSurface,
-                              ),
-                            ),
-
-                            const SizedBox(height: 12),
-
-                            // Progress bar and epoch info
-                            ClipRRect(
-                              borderRadius:
-                                  const BorderRadius.all(Radius.circular(3)),
-                              child: LinearProgressIndicator(
-                                value: _epochRewards != null &&
-                                        _epochRewards!.expectedTotal > BigInt.zero
-                                    ? (_epochRewards!.earnedSoFar.toDouble() /
-                                        _epochRewards!.expectedTotal.toDouble())
-                                    : 0.0,
-                                backgroundColor: colorScheme.surfaceContainerHighest,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                    colorScheme.primary),
-                                minHeight: 6,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  _epochRewards != null
-                                      ? 'Epoch ${_epochRewards!.epoch}'
-                                      : 'Epoch —',
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: colorScheme.onSurface,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                Text(
-                                  _epochRewards != null
-                                      ? '${_epochRewards!.producedInEpoch} / ${_epochRewards!.winsInEpoch} blocks'
-                                      : '—',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-
-                            const SizedBox(height: 16),
-                            const Divider(height: 1),
-                            const SizedBox(height: 12),
-
-                            // Next epoch projection
-                            Text(
-                              'Next epoch projection',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                color: colorScheme.onSurface,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              _epochRewards != null
-                                  ? '~${_epochRewards!.expectedTotal} TKN'
-                                  : '— TKN',
-                              style: theme.textTheme.headlineSmall?.copyWith(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w700,
-                                color: colorScheme.onSurface,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _epochRewards != null
-                                  ? 'Based on ${_epochRewards!.winsInEpoch} won slots at ${_epochRewards!.rewardPerBlock} per block'
-                                  : 'Loading projection...',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                ),
-              ),
-
               const SizedBox(height: 28),
 
-              // Upcoming Won Slots section
-              if (_epochRewards?.wonSlots != null && _epochRewards!.wonSlots!.isNotEmpty) ...[
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Upcoming Slots',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: colorScheme.onSurface,
-                          fontWeight: FontWeight.w600,
+              // Upcoming Won Slots (using same provider as rewards card)
+              Consumer(builder: (ctx, ref, _) {
+                final rewardsUiAsync = ref.watch(epochRewardsUiProvider);
+                return rewardsUiAsync.when(
+                  loading: () => const SizedBox.shrink(),
+                  error: (e, st) => const SizedBox.shrink(),
+                  data: (ui) {
+                    final wonSlots = ui?.snapshot?.wonSlots;
+                    if (wonSlots == null || wonSlots.isEmpty) {
+                      return const SizedBox.shrink();
+                    }
+                    final now = DateTime.now().toUtc();
+                    final upcoming = wonSlots
+                        .where((slot) => DateTime.fromMillisecondsSinceEpoch(
+                                slot.expectedTimeMs.toInt(),
+                                isUtc: true)
+                            .isAfter(now))
+                        .take(3)
+                        .toList();
+                    if (upcoming.isEmpty) return const SizedBox.shrink();
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Upcoming Slots',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  color: colorScheme.onSurface,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const RewardsBreakdownScreen(),
+                                    ),
+                                  );
+                                },
+                                child: Text('View All',
+                                    style:
+                                        TextStyle(color: colorScheme.primary)),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => const RewardsBreakdownScreen(),
-                            ),
-                          );
-                        },
-                        child: Text(
-                          'View All',
-                          style: TextStyle(color: colorScheme.primary),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Display next 3 upcoming slots
-                ...() {
-                  final now = DateTime.now().toUtc();
-                  final upcomingSlots = _epochRewards!.wonSlots!
-                      .where((slot) {
-                        final slotTime = DateTime.fromMillisecondsSinceEpoch(
-                          slot.expectedTimeMs.toInt(),
-                          isUtc: true,
-                        );
-                        return slotTime.isAfter(now);
-                      })
-                      .take(3)
-                      .toList();
-
-                  return upcomingSlots.map((slot) => Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: WonSlotItem(
-                          slot: slot,
-                          status: SlotStatus.pending,
-                          isCompact: true,
-                        ),
-                      ));
-                }(),
-
-                const SizedBox(height: 28),
-              ],
+                        const SizedBox(height: 12),
+                        ...upcoming.map((slot) => Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
+                              child: WonSlotItem(
+                                slot: slot,
+                                status: SlotStatus.pending,
+                                isCompact: true,
+                              ),
+                            )),
+                        const SizedBox(height: 28),
+                      ],
+                    );
+                  },
+                );
+              }),
 
               // Recent Activity section
               Padding(
@@ -485,5 +391,140 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+  }
+
+  List<Widget> _buildRewardsSection(
+    BuildContext context,
+    ColorScheme colorScheme,
+    ThemeData theme,
+    dynamic snapshot, // EpochRewardsSnapshot? but avoid import type bleed here
+  ) {
+    Log.d('HOME_SCREEN', 'Building rewards section with snapshot: $snapshot');
+    BigInt? earned;
+    BigInt? expected;
+    int? epoch;
+    int? produced;
+    int? wins;
+    BigInt? rewardPerBlock;
+    if (snapshot != null) {
+      try {
+        Log.d('HOME_SCREEN', 'Snapshot earnedSoFar raw: ${snapshot.earnedSoFar}');
+        Log.d('HOME_SCREEN', 'Snapshot expectedTotal raw: ${snapshot.expectedTotal}');
+        earned = BigInt.parse(snapshot.earnedSoFar as String);
+        expected = BigInt.parse(snapshot.expectedTotal as String);
+        epoch = snapshot.epoch as int;
+        produced = snapshot.producedInEpoch as int;
+        wins = snapshot.winsInEpoch as int;
+        rewardPerBlock = BigInt.parse(snapshot.rewardPerBlock as String);
+        Log.d('HOME_SCREEN', 'Parsed earned: $earned, expected: $expected, epoch: $epoch');
+      } catch (e) {
+        Log.e('HOME_SCREEN', 'Error parsing snapshot', e, StackTrace.current);
+      }
+    } else {
+      Log.d('HOME_SCREEN', 'Snapshot is null');
+    }
+
+    return [
+      // This epoch's rewards section
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'This epoch\'s rewards',
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          IconButton(
+            tooltip: 'Breakdown',
+            icon: Icon(Icons.bar_chart_rounded, color: colorScheme.primary),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                    builder: (_) => const RewardsBreakdownScreen()),
+              );
+            },
+          ),
+        ],
+      ),
+      const SizedBox(height: 8),
+
+      // Rewards amount
+      Text(
+        earned != null ? '$earned TKN' : '— TKN',
+        style: theme.textTheme.headlineMedium?.copyWith(
+          fontSize: 36,
+          fontWeight: FontWeight.w700,
+          color: colorScheme.onSurface,
+        ),
+      ),
+
+      const SizedBox(height: 12),
+
+      // Progress bar and epoch info
+      ClipRRect(
+        borderRadius: const BorderRadius.all(Radius.circular(3)),
+        child: LinearProgressIndicator(
+          value: (earned != null && expected != null && expected > BigInt.zero)
+              ? (earned.toDouble() / expected.toDouble())
+              : 0.0,
+          backgroundColor: colorScheme.surfaceContainerHighest,
+          valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+          minHeight: 6,
+        ),
+      ),
+      const SizedBox(height: 8),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            epoch != null ? 'Epoch $epoch' : 'Epoch —',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          Text(
+            (produced != null && wins != null)
+                ? '$produced / $wins blocks'
+                : '—',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+
+      const SizedBox(height: 16),
+
+      // Next epoch projection
+      Text(
+        'Next epoch projection',
+        style: theme.textTheme.titleMedium?.copyWith(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      const SizedBox(height: 8),
+      Text(
+        expected != null ? '~$expected TKN' : '— TKN',
+        style: theme.textTheme.headlineSmall?.copyWith(
+          fontSize: 28,
+          fontWeight: FontWeight.w700,
+          color: colorScheme.onSurface,
+        ),
+      ),
+      const SizedBox(height: 4),
+      Text(
+        (wins != null && rewardPerBlock != null)
+            ? 'Based on $wins won slots at $rewardPerBlock per block'
+            : 'Loading projection...',
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: colorScheme.onSurfaceVariant,
+        ),
+      ),
+    ];
   }
 }

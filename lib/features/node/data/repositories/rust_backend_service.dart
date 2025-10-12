@@ -536,7 +536,6 @@ class RustBackendService {
   Future<RpcEpochRewardsResp?> epochRewards({
     int? epoch,
   }) async {
-    Log.d('RUST', 'epochRewards called with params: epoch=$epoch');
     SentryUtil.addBreadcrumb(
       category: 'rpc',
       message: 'epochRewards called',
@@ -548,6 +547,8 @@ class RustBackendService {
     // Call into FRB with defensive handling for panics / transport errors.
     RpcEpochRewardsResp? rewards;
     try {
+      Log.d('RUST',
+          'epochRewards called with params: epoch=$epoch, includeWonSlots:true');
       rewards = await r.epochRewards(
         epoch: epoch,
         includeWonSlots: true,

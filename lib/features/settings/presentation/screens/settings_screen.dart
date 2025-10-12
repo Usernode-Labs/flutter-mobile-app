@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/di/providers.dart';
 
@@ -17,6 +18,7 @@ class SettingsScreen extends ConsumerWidget {
         elevation: 0,
         backgroundColor: Colors.transparent,
       ),
+      drawer: const AppDrawer(),
       body: ListView(
         children: [
           const SizedBox(height: 12),

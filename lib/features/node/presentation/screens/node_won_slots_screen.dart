@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
-import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:crypto_mobile_app/core/widgets/slot_heatmap.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/node_data_providers.dart';
+import 'package:crypto_mobile_app/core/utils/logger.dart';
 
 class NodeWonSlotsScreen extends ConsumerWidget {
   const NodeWonSlotsScreen({super.key});
@@ -19,8 +19,10 @@ class NodeWonSlotsScreen extends ConsumerWidget {
     final blockchain = blockchainAsync.value;
 
     return Scaffold(
-      appBar: const AppAppBar(title: 'Won Slots'),
-      drawer: const AppDrawer(),
+      appBar: const AppAppBar(
+        title: 'Won Slots',
+        showNotifications: false,
+      ),
       body: Padding(
           padding: const EdgeInsets.all(16),
           child: () {
@@ -44,6 +46,8 @@ class NodeWonSlotsScreen extends ConsumerWidget {
                 .map((b) => b.globalSlot)
                 .toSet();
             final wonSlots = rewards.wonSlots ?? [];
+
+            Log.d('WON_SLOTS_SCREEN', 'Epoch: ${rewards.epoch}, Won slots count: ${wonSlots.length}, Produced slots count: ${producedSlots.length}');
 
             final data = wonSlots.map((slot) {
               final isProduced = producedSlots.contains(slot.globalSlot);

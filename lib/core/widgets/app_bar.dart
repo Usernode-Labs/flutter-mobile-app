@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:crypto_mobile_app/features/wallet/presentation/screens/wallet_screen.dart';
-import 'package:crypto_mobile_app/features/profile/presentation/screens/profile_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:crypto_mobile_app/features/notifications/presentation/screens/notifications_screen.dart';
+import 'package:crypto_mobile_app/core/providers/notifications_provider.dart';
+import 'package:crypto_mobile_app/core/widgets/notification_badge.dart';
 
 /// Unified AppBar component with consistent styling across the app
 /// Follows Material Design 3 principles with transparent background and no elevation
-class AppAppBar extends StatelessWidget implements PreferredSizeWidget {
+class AppAppBar extends ConsumerWidget implements PreferredSizeWidget {
   final String? title;
   final List<Widget>? actions;
   final bool automaticallyImplyLeading;
   final PreferredSizeWidget? bottom;
   final Widget? leading;
   final bool centerTitle;
-  final bool showWalletAndProfile;
+  final bool showNotifications;
 
   const AppAppBar({
     super.key,
@@ -21,35 +23,35 @@ class AppAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.bottom,
     this.leading,
     this.centerTitle = false,
-    this.showWalletAndProfile = true,
+    this.showNotifications = true,
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final notificationsState = ref.watch(notificationsProvider);
 
-    // Build default actions with wallet and profile icons
-    final defaultActions = showWalletAndProfile
+    // Build default actions with only notifications icon
+    final defaultActions = showNotifications
         ? [
             IconButton(
-              icon: const Icon(Icons.account_balance_wallet_outlined),
+              icon: NotificationBadge(
+                count: notificationsState.unreadCount,
+                child: Icon(
+                  notificationsState.unreadCount > 0
+                      ? Icons.notifications
+                      : Icons.notifications_outlined,
+                ),
+              ),
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const WalletScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const NotificationsScreen(),
+                  ),
                 );
               },
-              tooltip: 'Wallet',
-            ),
-            IconButton(
-              icon: const Icon(Icons.person_outline),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const ProfileScreen()),
-                );
-              },
-              tooltip: 'Profile',
+              tooltip: 'Notifications',
             ),
           ]
         : <Widget>[];

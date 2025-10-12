@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:crypto_mobile_app/core/di/providers.dart';
 import 'package:crypto_mobile_app/core/design/design_tokens.dart';
 import 'package:crypto_mobile_app/core/widgets/activity_list_item.dart';
 import 'package:crypto_mobile_app/core/widgets/app_action_button.dart';
@@ -10,13 +8,27 @@ import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:crypto_mobile_app/features/rewards/presentation/screens/rewards_breakdown_screen.dart';
 import 'package:crypto_mobile_app/features/rewards/presentation/controllers/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/core/widgets/won_slot_item.dart';
-import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
-import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
 import 'package:crypto_mobile_app/features/wallet/presentation/screens/send_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/presentation/screens/receive_screen.dart';
+import 'package:crypto_mobile_app/core/utils/logger.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Refresh epoch rewards when screen loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Log.d('HOME_SCREEN', 'Invalidating epochRewardsUiProvider to trigger refresh');
+      ref.invalidate(epochRewardsUiProvider);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -269,20 +281,19 @@ class HomeScreen extends StatelessWidget {
 
               const SizedBox(height: 28),
 
-              // Upcoming Won Slots (live-only)
+              // Upcoming Won Slots (using same provider as rewards card)
               Consumer(builder: (ctx, ref, _) {
-                final liveAsync = ref.watch(_liveEpochRewardsProvider);
-                return liveAsync.when(
+                final rewardsUiAsync = ref.watch(epochRewardsUiProvider);
+                return rewardsUiAsync.when(
                   loading: () => const SizedBox.shrink(),
                   error: (e, st) => const SizedBox.shrink(),
-                  data: (rewards) {
-                    if (rewards == null ||
-                        rewards.wonSlots == null ||
-                        rewards.wonSlots!.isEmpty) {
+                  data: (ui) {
+                    final wonSlots = ui?.snapshot?.wonSlots;
+                    if (wonSlots == null || wonSlots.isEmpty) {
                       return const SizedBox.shrink();
                     }
                     final now = DateTime.now().toUtc();
-                    final upcoming = rewards.wonSlots!
+                    final upcoming = wonSlots
                         .where((slot) => DateTime.fromMillisecondsSinceEpoch(
                                 slot.expectedTimeMs.toInt(),
                                 isUtc: true)
@@ -388,6 +399,7 @@ class HomeScreen extends StatelessWidget {
     ThemeData theme,
     dynamic snapshot, // EpochRewardsSnapshot? but avoid import type bleed here
   ) {
+    Log.d('HOME_SCREEN', 'Building rewards section with snapshot: $snapshot');
     BigInt? earned;
     BigInt? expected;
     int? epoch;
@@ -396,13 +408,20 @@ class HomeScreen extends StatelessWidget {
     BigInt? rewardPerBlock;
     if (snapshot != null) {
       try {
+        Log.d('HOME_SCREEN', 'Snapshot earnedSoFar raw: ${snapshot.earnedSoFar}');
+        Log.d('HOME_SCREEN', 'Snapshot expectedTotal raw: ${snapshot.expectedTotal}');
         earned = BigInt.parse(snapshot.earnedSoFar as String);
         expected = BigInt.parse(snapshot.expectedTotal as String);
         epoch = snapshot.epoch as int;
         produced = snapshot.producedInEpoch as int;
         wins = snapshot.winsInEpoch as int;
         rewardPerBlock = BigInt.parse(snapshot.rewardPerBlock as String);
-      } catch (_) {}
+        Log.d('HOME_SCREEN', 'Parsed earned: $earned, expected: $expected, epoch: $epoch');
+      } catch (e) {
+        Log.e('HOME_SCREEN', 'Error parsing snapshot', e, StackTrace.current);
+      }
+    } else {
+      Log.d('HOME_SCREEN', 'Snapshot is null');
     }
 
     return [
@@ -509,13 +528,3 @@ class HomeScreen extends StatelessWidget {
     ];
   }
 }
-
-// Live-only provider for upcoming slots section
-final _liveEpochRewardsProvider =
-    FutureProvider<RpcEpochRewardsResp?>((ref) async {
-  try {
-    return await RustBackendService.instance.epochRewards();
-  } catch (_) {
-    return null;
-  }
-});

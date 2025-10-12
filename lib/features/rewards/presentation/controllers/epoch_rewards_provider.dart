@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/features/rewards/data/epoch_rewards_cache_repository.dart';
 import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
-
-final epochRewardsCacheRepoProvider = Provider((ref) => EpochRewardsCacheRepository());
+import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/providers/notifications_provider.dart';
+import 'package:crypto_mobile_app/core/models/app_notification.dart';
 
 class EpochRewardsUiState {
   final EpochRewardsSnapshot? snapshot;
@@ -18,52 +18,68 @@ class EpochRewardsUiState {
 }
 
 class EpochRewardsUiController extends AsyncNotifier<EpochRewardsUiState?> {
+  BigInt? _previousEarnedSoFar;
+
   @override
   Future<EpochRewardsUiState?> build() async {
-    final repo = ref.read(epochRewardsCacheRepoProvider);
-    final envKey = AppConfig.instance.environment;
-
-    // 1) Return cached snapshot immediately if available
-    final cached = await repo.getCached(envKey);
-    EpochRewardsUiState? initial;
-    if (cached != null) {
-      final isStale = _isStale(cached.updatedAt);
-      initial = EpochRewardsUiState(snapshot: cached, isCached: true, isStale: isStale);
+    // Skip cache loading - fetch only live data
+    Log.d('EPOCH_REWARDS_UI', 'Fetching epoch rewards...');
+    final live = await RustBackendService.instance.epochRewards();
+    if (live == null) {
+      Log.w('EPOCH_REWARDS_UI', 'epochRewards returned null');
+      return null;
     }
 
-    // 2) Trigger live fetch in background; update state + cache when ready
-    Future(() async {
-      final live = await RustBackendService.instance.epochRewards();
-      if (live != null) {
-        final snapshot = EpochRewardsSnapshot(
-          epoch: live.epoch,
-          earnedSoFar: live.earnedSoFar.toString(),
-          expectedTotal: live.expectedTotal.toString(),
-          producedInEpoch: live.producedInEpoch,
-          winsInEpoch: live.winsInEpoch,
-          rewardPerBlock: live.rewardPerBlock.toString(),
-          updatedAt: DateTime.now().toUtc().toIso8601String(),
-        );
-        await repo.save(envKey, snapshot);
-        state = AsyncData(EpochRewardsUiState(
-          snapshot: snapshot,
-          isCached: false,
-          isStale: false,
-        ));
-      }
-    });
+    Log.d('EPOCH_REWARDS_UI', 'Received live data: epoch=${live.epoch}, earnedSoFar=${live.earnedSoFar}, expectedTotal=${live.expectedTotal}');
 
-    return initial;
+    final snapshot = EpochRewardsSnapshot(
+      epoch: live.epoch,
+      earnedSoFar: live.earnedSoFar.toString(),
+      expectedTotal: live.expectedTotal.toString(),
+      producedInEpoch: live.producedInEpoch,
+      winsInEpoch: live.winsInEpoch,
+      rewardPerBlock: live.rewardPerBlock.toString(),
+      updatedAt: DateTime.now().toUtc().toIso8601String(),
+      wonSlots: live.wonSlots,
+    );
+
+    Log.d('EPOCH_REWARDS_UI', 'Created snapshot: earnedSoFar=${snapshot.earnedSoFar}, expectedTotal=${snapshot.expectedTotal}');
+
+    // Check if rewards increased and trigger notification
+    _checkAndNotifyRewardIncrease(live.earnedSoFar, live.epoch);
+
+    return EpochRewardsUiState(
+      snapshot: snapshot,
+      isCached: false,
+      isStale: false,
+    );
   }
 
-  bool _isStale(String updatedAtIso) {
-    try {
-      final ts = DateTime.parse(updatedAtIso).toUtc();
-      final age = DateTime.now().toUtc().difference(ts);
-      return age > const Duration(seconds: 5);
-    } catch (_) {
-      return true;
+  void _checkAndNotifyRewardIncrease(BigInt earnedSoFar, int epoch) {
+    if (_previousEarnedSoFar != null && earnedSoFar > _previousEarnedSoFar!) {
+      final diff = earnedSoFar - _previousEarnedSoFar!;
+      Log.d('EPOCH_REWARDS_UI', 'Reward increased by $diff TKN, sending notification');
+
+      // Get notifications controller and add notification
+      try {
+        final notificationsController = ref.read(notificationsProvider.notifier);
+        notificationsController.addNotification(
+          AppNotification.create(
+            title: 'Reward Earned',
+            message: 'Earned $diff TKN in epoch $epoch',
+            type: NotificationType.rewardEarned,
+            data: {
+              'amount': diff.toString(),
+              'epoch': epoch,
+              'totalEarned': earnedSoFar.toString(),
+            },
+          ),
+        );
+      } catch (e, st) {
+        Log.e('EPOCH_REWARDS_UI', 'Failed to send notification', e, st);
+      }
     }
+    _previousEarnedSoFar = earnedSoFar;
   }
 }
 

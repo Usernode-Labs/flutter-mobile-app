@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 
 class EpochRewardsSnapshot {
   final int epoch;
@@ -10,6 +11,7 @@ class EpochRewardsSnapshot {
   final int winsInEpoch;
   final String rewardPerBlock; // BigInt as string
   final String updatedAt; // ISO8601
+  final List<RpcEpochWonSlot>? wonSlots;
 
   const EpochRewardsSnapshot({
     required this.epoch,
@@ -19,6 +21,7 @@ class EpochRewardsSnapshot {
     required this.winsInEpoch,
     required this.rewardPerBlock,
     required this.updatedAt,
+    this.wonSlots,
   });
 
   Map<String, dynamic> toJson() => {
@@ -29,11 +32,24 @@ class EpochRewardsSnapshot {
         'winsInEpoch': winsInEpoch,
         'rewardPerBlock': rewardPerBlock,
         'updatedAt': updatedAt,
+        'wonSlots': wonSlots?.map((slot) => {
+          'globalSlot': slot.globalSlot,
+          'expectedTimeMs': slot.expectedTimeMs.toString(),
+        }).toList(),
       };
 
   static EpochRewardsSnapshot? fromJson(Map<String, dynamic>? json) {
     if (json == null) return null;
     try {
+      List<RpcEpochWonSlot>? wonSlots;
+      if (json['wonSlots'] != null) {
+        wonSlots = (json['wonSlots'] as List)
+            .map((slot) => RpcEpochWonSlot(
+                  globalSlot: (slot['globalSlot'] as num).toInt(),
+                  expectedTimeMs: BigInt.parse(slot['expectedTimeMs'] as String),
+                ))
+            .toList();
+      }
       return EpochRewardsSnapshot(
         epoch: (json['epoch'] as num).toInt(),
         earnedSoFar: json['earnedSoFar'] as String,
@@ -42,6 +58,7 @@ class EpochRewardsSnapshot {
         winsInEpoch: (json['winsInEpoch'] as num).toInt(),
         rewardPerBlock: json['rewardPerBlock'] as String,
         updatedAt: json['updatedAt'] as String,
+        wonSlots: wonSlots,
       );
     } catch (_) {
       return null;

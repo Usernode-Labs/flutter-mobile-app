@@ -77,15 +77,18 @@ class _ReviewSendScreenState extends State<ReviewSendScreen> {
       if (activeAccount == null) {
         if (!mounted) return;
         Navigator.of(context).pop(); // close loading dialog
-        _showErrorDialog('No active account found. Please create or select an account.');
+        _showErrorDialog(
+            'No active account found. Please create or select an account.');
         return;
       }
 
       // Parse addresses to TreeHash
       // Force sender to requested account string
-      const forcedFrom = 'AiitAFAG8P8g6uXXu6zmbzsaa5bFXDNwCMYDkSUyH2wU8XLpNG';
+      const forcedFrom =
+          'ut1na9lq2yny9l2l6axf09g3mhhmhed3vj7tpejs4f28xe2cjd6n5qqg9ww4x';
       final fromPkHash = rust_types.publicKeyHashFromString(s: forcedFrom);
-      final toPkHash = rust_types.publicKeyHashFromString(s: widget.recipientAddress ?? '');
+      final toPkHash =
+          rust_types.publicKeyHashFromString(s: widget.recipientAddress ?? '');
 
       // Convert amount: send entered amount as-is (integer only)
       final amountStr = (widget.amount ?? '0').trim();
@@ -102,7 +105,8 @@ class _ReviewSendScreenState extends State<ReviewSendScreen> {
         return;
       }
 
-      Log.d('SEND', 'Transferring $amount from $forcedFrom to ${widget.recipientAddress}');
+      Log.d('SEND',
+          'Transferring $amount from $forcedFrom to ${widget.recipientAddress}');
 
       // Call transferFunds RPC
       final response = await RustBackendService.instance.transferFunds(
@@ -115,7 +119,8 @@ class _ReviewSendScreenState extends State<ReviewSendScreen> {
       Navigator.of(context).pop(); // close loading dialog
 
       if (response == null) {
-        _showErrorDialog('Failed to connect to node. Please ensure the node is running.');
+        _showErrorDialog(
+            'Failed to connect to node. Please ensure the node is running.');
         return;
       }
 
@@ -164,85 +169,87 @@ class _ReviewSendScreenState extends State<ReviewSendScreen> {
     final totalVal = (amountVal ?? 0) + (feeVal ?? 0);
 
     return Scaffold(
-      appBar: const AppAppBar(
-        title: 'Review Send',
-      ),
-      body: SafeArea(
-        child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Card(
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              elevation: 0,
-              color: Theme.of(context).colorScheme.surface,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Amount big and centered
-                    Text(
-                      (amountVal != null)
-                          ? amountVal.toStringAsFixed(2)
-                          : (widget.amount ?? ''),
-                      style: const TextStyle(
-                          fontSize: 28, fontWeight: FontWeight.w700),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Amount',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-                    const Divider(height: 1),
-                    _kvRow('To', _shortAddress(widget.recipientAddress)),
-                    if ((widget.memo ?? '').isNotEmpty)
-                      _kvRow('Memo', widget.memo!.trim()),
-                    if ((widget.networkFee ?? '').isNotEmpty)
-                      _kvRow(
-                          'Network fee',
-                          feeVal != null
-                              ? feeVal.toStringAsFixed(4)
-                              : widget.networkFee!.trim()),
-                    const Divider(height: 24),
-                    _kvRow(
-                        'Total',
-                        (amountVal != null && feeVal != null)
-                            ? totalVal.toStringAsFixed(2)
-                            : (widget.amount ?? '')),
-                  ],
-                ),
-              ),
-            ),
-            const Spacer(),
-            Row(
+        appBar: const AppAppBar(
+          title: 'Review Send',
+        ),
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Back'),
+                Card(
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                  color: Theme.of(context).colorScheme.surface,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Amount big and centered
+                        Text(
+                          (amountVal != null)
+                              ? amountVal.toStringAsFixed(2)
+                              : (widget.amount ?? ''),
+                          style: const TextStyle(
+                              fontSize: 28, fontWeight: FontWeight.w700),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Amount',
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        const Divider(height: 1),
+                        _kvRow('To', _shortAddress(widget.recipientAddress)),
+                        if ((widget.memo ?? '').isNotEmpty)
+                          _kvRow('Memo', widget.memo!.trim()),
+                        if ((widget.networkFee ?? '').isNotEmpty)
+                          _kvRow(
+                              'Network fee',
+                              feeVal != null
+                                  ? feeVal.toStringAsFixed(4)
+                                  : widget.networkFee!.trim()),
+                        const Divider(height: 24),
+                        _kvRow(
+                            'Total',
+                            (amountVal != null && feeVal != null)
+                                ? totalVal.toStringAsFixed(2)
+                                : (widget.amount ?? '')),
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: _processAndNavigate,
-                    child: const Text('Send'),
-                  ),
+                const Spacer(),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('Back'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: _processAndNavigate,
+                        child: const Text('Send'),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
-        ),
-      ),
-    ));
+          ),
+        ));
   }
 }

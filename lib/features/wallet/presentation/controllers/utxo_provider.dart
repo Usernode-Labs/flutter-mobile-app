@@ -21,7 +21,7 @@ class WalletUtxosController extends AsyncNotifier<List<OwnedUtxo>> {
     try {
       // TEMP: hardcoded owner until account selection is wired
       const hardcodedOwner =
-          'AiitAFAG8P8g6uXXu6zmbzsaa5bFXDNwCMYDkSUyH2wU8XLpNG';
+          'ut1na9lq2yny9l2l6axf09g3mhhmhed3vj7tpejs4f28xe2cjd6n5qqg9ww4x';
       final owner = rust_types.publicKeyHashFromString(s: hardcodedOwner);
       Log.i(
         'UTXO',

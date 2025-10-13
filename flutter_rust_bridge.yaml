@@ -7,7 +7,7 @@ rust_input: >
     usernode-core::build::GitBuildEnv,
     usernode-core::build::CargoBuildEnv,
     usernode-core::build::RustCBuildEnv,
-    usernode-utxo-database::UtxoCommitment
+    usernode-utxo-database::UtxoCommitment,
 rust_root: ../usernode/crates/usernode
 dart_output: lib/src/rust
 # default_rust_opaque_codec: Nom

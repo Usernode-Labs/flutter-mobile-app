@@ -174,6 +174,16 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final media = MediaQuery.of(context);
+    final keyboardOpen = media.viewInsets.bottom > 0;
+    const double _qaBarHeight =
+        88.0; // reserved height for fixed quick actions bar
+    final double _bottomSpacer = keyboardOpen
+        ? 0
+        : (_qaBarHeight +
+            kBottomNavigationBarHeight +
+            kSpace16 +
+            media.padding.bottom);
 
     return Scaffold(
       appBar: const AppAppBar(
@@ -181,74 +191,83 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
         showNotifications: true,
       ),
       drawer: const AppDrawer(),
-      body: RefreshIndicator(
-        onRefresh: _refreshWallet,
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            // Hero Balance Card
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  kSpace16,
-                  kSpace16,
-                  kSpace16,
-                  kSpace12,
+      body: Stack(
+        children: [
+          RefreshIndicator(
+            onRefresh: _refreshWallet,
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                // Hero Balance Card
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      kSpace16,
+                      kSpace16,
+                      kSpace16,
+                      kSpace12,
+                    ),
+                    child: _buildHeroBalanceCard(theme),
+                  ),
                 ),
-                child: _buildHeroBalanceCard(theme),
-              ),
-            ),
 
-            // Assets Section (Moved after Balance)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  kSpace16,
-                  kSpace8,
-                  kSpace16,
-                  kSpace12,
+                // Assets Section (Moved after Balance)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      kSpace16,
+                      kSpace8,
+                      kSpace16,
+                      kSpace4,
+                    ),
+                    child: _buildAssetsSectionHeader(theme),
+                  ),
                 ),
-                child: _buildAssetsSectionHeader(theme),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: kSpace16),
-                child: _buildAssetsSection(theme),
-              ),
-            ),
-
-            // Quick Actions Grid
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(kSpace16),
-                child: _buildQuickActionsGrid(theme),
-              ),
-            ),
-
-            // Recent Activity Section
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  kSpace16,
-                  kSpace24,
-                  kSpace16,
-                  kSpace12,
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: kSpace16),
+                    child: _buildAssetsSection(theme),
+                  ),
                 ),
-                child: _buildActivitySectionHeader(theme),
+
+                // Quick Actions Grid
+
+                // Recent Activity Section
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      kSpace16,
+                      kSpace24,
+                      kSpace16,
+                      kSpace8,
+                    ),
+                    child: _buildActivitySectionHeader(theme),
+                  ),
+                ),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(
+                    kSpace16,
+                    0,
+                    kSpace16,
+                    kSpace24,
+                  ),
+                  sliver: _buildActivitySection(theme),
+                ),
+              ],
+            ),
+          ),
+          // Fixed Quick Actions bar overlay (hidden when keyboard is open)
+          if (!keyboardOpen)
+            Positioned.fill(
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: Padding(
+                  padding: EdgeInsets.all(0),
+                  child: _buildFixedQuickActionsBar(theme),
+                ),
               ),
             ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(
-                kSpace16,
-                0,
-                kSpace16,
-                kSpace24,
-              ),
-              sliver: _buildActivitySection(theme),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -389,80 +408,68 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
     );
   }
 
-  Widget _buildQuickActionsGrid(ThemeData theme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Quick Actions',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: kSpace12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
+  Widget _buildFixedQuickActionsBar(ThemeData theme) {
+    return Material(
+      elevation: 0,
+      color: theme.colorScheme.surface,
+      borderRadius: kBorderRadiusLarge,
+      child: Padding(
+        padding:
+            const EdgeInsets.symmetric(horizontal: kSpace12, vertical: kSpace8),
+        child: Row(
           children: [
-            if (FeatureFlags.on('wallet.send'))
-              Expanded(
-                child: AppActionButton(
-                  icon: Icons.arrow_upward,
-                  label: 'Send',
-                  color: theme.colorScheme.primary,
-                  onTap: _handleSendTap,
-                ),
+            Expanded(
+              child: AppActionButton(
+                icon: Icons.arrow_upward,
+                label: 'Send',
+                color: theme.colorScheme.primary,
+                size: AppActionButtonSize.compact,
+                onTap: _handleSendTap,
               ),
-            if (FeatureFlags.on('wallet.receive'))
-              Expanded(
-                child: AppActionButton(
-                  icon: Icons.arrow_downward,
-                  label: 'Receive',
-                  color: theme.colorScheme.tertiary,
-                  onTap: _handleReceiveTap,
-                ),
+            ),
+            const SizedBox(width: kSpace8),
+            Expanded(
+              child: AppActionButton(
+                icon: Icons.arrow_downward,
+                label: 'Receive',
+                color: theme.colorScheme.tertiary,
+                size: AppActionButtonSize.compact,
+                onTap: _handleReceiveTap,
               ),
+            ),
+            const SizedBox(width: kSpace8),
             Expanded(
               child: AppActionButton(
                 icon: Icons.swap_horiz,
                 label: 'Swap',
                 color: theme.colorScheme.secondary,
+                size: AppActionButtonSize.compact,
                 onTap: () => _showComingSoon('Swap'),
               ),
             ),
-          ],
-        ),
-        const SizedBox(height: kSpace8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            if (FeatureFlags.on('wallet.bridge'))
-              Expanded(
-                child: AppActionButton(
-                  icon: Icons.account_balance,
-                  label: 'Bridge',
-                  color: theme.colorScheme.primary,
-                  onTap: () => _showComingSoon('Bridge'),
-                ),
-              ),
+            const SizedBox(width: kSpace8),
             Expanded(
               child: AppActionButton(
-                icon: Icons.history,
-                label: 'History',
-                color: theme.colorScheme.tertiary,
-                onTap: () => _showComingSoon('History'),
+                icon: Icons.account_balance,
+                label: 'Bridge',
+                color: theme.colorScheme.primary,
+                size: AppActionButtonSize.compact,
+                onTap: () => _showComingSoon('Bridge'),
               ),
             ),
+            const SizedBox(width: kSpace8),
             Expanded(
               child: AppActionButton(
                 icon: Icons.more_horiz,
                 label: 'More',
                 color: theme.colorScheme.secondary,
+                size: AppActionButtonSize.compact,
                 onTap: () => _showComingSoon('More'),
               ),
             ),
           ],
         ),
-      ],
+      ),
     );
   }
 
@@ -510,18 +517,17 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
       },
     ];
 
-    return Column(
-      children: [
-        for (int i = 0; i < assets.length; i++) ...[
-          if (i > 0) const SizedBox(height: kSpace8),
-          _buildAssetCard(theme, assets[i]),
-        ],
-      ],
-    );
+    // Sort by USD value descending for most-relevant-first
+    assets
+        .sort((a, b) => (b['value'] as double).compareTo(a['value'] as double));
+
+    return _buildAssetsGroupCard(theme, assets);
   }
 
-  Widget _buildAssetCard(ThemeData theme, Map<String, dynamic> asset) {
-    final isPositive = (asset['change'] as double) >= 0;
+  Widget _buildAssetsGroupCard(
+      ThemeData theme, List<Map<String, dynamic>> assets) {
+    final totalValue =
+        assets.fold<double>(0.0, (sum, a) => sum + (a['value'] as double));
 
     return Container(
       padding: const EdgeInsets.all(kSpace16),
@@ -533,96 +539,146 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
           width: 1,
         ),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Token icon
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primaryContainer,
-              borderRadius: BorderRadius.circular(kRadiusSmall),
-            ),
-            child: Icon(
-              Icons.monetization_on,
-              color: theme.colorScheme.primary,
-              size: kIconRegular,
-            ),
-          ),
-          const SizedBox(width: kSpace16),
-
-          // Token info
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  asset['name'] as String,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: kSpace4),
-                Text(
-                  '${asset['amount']} ${asset['symbol']}',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Value and change
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          // Group header with total and count
+          Row(
             children: [
               Text(
-                '\$${(asset['value'] as double).toStringAsFixed(2)}',
+                'Total',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                _formatUSD(totalValue),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: kSpace8),
+              Text(
+                '(${assets.length})',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: kSpace12),
+          // Asset rows
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: assets.length,
+            itemBuilder: (context, index) =>
+                _buildAssetRow(theme, assets[index]),
+            separatorBuilder: (context, index) => Divider(
+              height: kSpace16,
+              thickness: 1,
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAssetRow(ThemeData theme, Map<String, dynamic> asset) {
+    final isPositive = (asset['change'] as double) >= 0;
+
+    return Row(
+      children: [
+        // Token icon
+        Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primaryContainer,
+            borderRadius: BorderRadius.circular(kRadiusSmall),
+          ),
+          child: Icon(
+            Icons.monetization_on,
+            color: theme.colorScheme.primary,
+            size: kIconRegular,
+          ),
+        ),
+        const SizedBox(width: kSpace16),
+
+        // Token info
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                asset['name'] as String,
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: kSpace4),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: kSpace8,
-                  vertical: kSpace4,
-                ),
-                decoration: BoxDecoration(
-                  color: (isPositive
-                          ? theme.colorScheme.tertiary
-                          : theme.colorScheme.error)
-                      .withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(kRadiusFull),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      isPositive ? Icons.arrow_upward : Icons.arrow_downward,
-                      size: 12,
-                      color: isPositive
-                          ? theme.colorScheme.tertiary
-                          : theme.colorScheme.error,
-                    ),
-                    const SizedBox(width: kSpace4),
-                    Text(
-                      '${isPositive ? '+' : ''}${(asset['change'] as double).toStringAsFixed(1)}%',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: isPositive
-                            ? theme.colorScheme.tertiary
-                            : theme.colorScheme.error,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+              Text(
+                '${_formatAmount(asset['amount'] as double)} ${asset['symbol']}',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
           ),
-        ],
-      ),
+        ),
+
+        // Value and change
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              _formatUSD(asset['value'] as double),
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: kSpace4),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: kSpace8,
+                vertical: kSpace4,
+              ),
+              decoration: BoxDecoration(
+                color: (isPositive
+                        ? theme.colorScheme.tertiary
+                        : theme.colorScheme.error)
+                    .withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(kRadiusFull),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isPositive ? Icons.arrow_upward : Icons.arrow_downward,
+                    size: 12,
+                    color: isPositive
+                        ? theme.colorScheme.tertiary
+                        : theme.colorScheme.error,
+                  ),
+                  const SizedBox(width: kSpace4),
+                  Text(
+                    '${isPositive ? '+' : ''}${(asset['change'] as double).toStringAsFixed(1)}%',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: isPositive
+                          ? theme.colorScheme.tertiary
+                          : theme.colorScheme.error,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 

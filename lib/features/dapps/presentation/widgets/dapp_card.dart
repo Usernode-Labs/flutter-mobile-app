@@ -28,7 +28,7 @@ class DAppCard extends StatelessWidget {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(10),
         side: BorderSide(
           color: colorScheme.outlineVariant,
           width: 1,

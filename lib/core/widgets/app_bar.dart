@@ -65,7 +65,7 @@ class AppAppBar extends ConsumerWidget implements PreferredSizeWidget {
     return AppBar(
       shape: ShapeBorder.lerp(
         RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14.0),
+          borderRadius: BorderRadius.circular(20.0),
         ),
         null,
         0,
@@ -85,6 +85,7 @@ class AppAppBar extends ConsumerWidget implements PreferredSizeWidget {
       scrolledUnderElevation: 0,
       centerTitle: centerTitle,
       elevation: 1,
+      shadowColor: Colors.black.withAlpha(100),
       actions: combinedActions.isNotEmpty ? combinedActions : null,
       bottom: bottom,
     );

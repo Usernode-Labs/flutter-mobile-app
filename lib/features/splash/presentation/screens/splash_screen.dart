@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/core/constants/app_constants.dart';
 import 'package:crypto_mobile_app/gen_l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:crypto_mobile_app/core/di/providers.dart';
-import 'package:crypto_mobile_app/core/routing/app_router.dart';
-import 'package:go_router/go_router.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -45,17 +42,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
     _controller.forward();
 
-    Future.delayed(AppConstants.splashDuration, () async {
-      final hasAny = await ref.read(hasAnyAccountProvider.future);
-      if (!mounted) return;
-      if (!hasAny) {
-        if (!mounted) return;
-        context.go(AppRoutes.onboarding);
-      } else {
-        if (!mounted) return;
-        context.go(AppRoutes.main);
-      }
-    });
+    // Navigation is now handled by the router's redirect guard
+    // which automatically redirects based on hasAnyAccountProvider state
   }
 
   @override
@@ -96,9 +84,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                         ),
                       ),
                     ),
-
                     const SizedBox(height: 32),
-
                     Text(
                       (l10n?.appName ?? 'Usernode'),
                       style: theme.textTheme.displayMedium?.copyWith(
@@ -106,31 +92,27 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-
                     const SizedBox(height: 8),
-
                     Text(
-                      (l10n?.appTagline ?? 'Your Gateway to DeFi'),
+                      (l10n?.appTagline ?? 'A User Operated L1 Blockchain'),
                       style: theme.textTheme.bodyLarge?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.7),
                         fontWeight: FontWeight.w400,
                       ),
                     ),
-
                     const SizedBox(height: 60),
-
                     SizedBox(
                       width: 32,
                       height: 32,
                       child: const CircularProgressIndicator(strokeWidth: 2.5),
                     ),
-
                     const SizedBox(height: 16),
-
                     Text(
                       (l10n?.initializingNode ?? 'Initializing node...'),
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.6),
                         fontWeight: FontWeight.w500,
                       ),
                     ),

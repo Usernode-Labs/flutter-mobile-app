@@ -7,7 +7,6 @@ import 'package:crypto_mobile_app/gen_l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
-import 'package:crypto_mobile_app/core/di/providers.dart';
 import 'node_peers_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/node_status_provider.dart';
@@ -17,7 +16,7 @@ import 'package:crypto_mobile_app/features/node/presentation/controllers/node_ra
 import 'package:crypto_mobile_app/features/node/presentation/controllers/sync_status_provider.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/mempool_cache_provider.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/best_tip_cache_provider.dart';
-import 'package:crypto_mobile_app/features/node/presentation/theme/node_status_theme.dart';
+import 'package:crypto_mobile_app/core/theme/theme.dart';
 import 'package:go_router/go_router.dart';
 
 class NodeStatusScreen extends ConsumerStatefulWidget {
@@ -39,8 +38,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   int? _bestTipEpoch;
   String? _bestTipHash;
   List<BigInt> _bestTipBatchTransactions = const [];
-  _ProgressData? _fetchProgress;
-  _ProgressData? _applyProgress;
 
   Timer? _autoTimer;
   late final TabController _tabController;
@@ -50,12 +47,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   int? _previousBlockHeight;
   DateTime? _previousHeightCheck;
   double? _blocksPerSecond;
-
-  // Soft tinted surface helper for modern light backgrounds
-  Color _tint(ColorScheme scheme, Color accent, [double opacity = 0.06]) {
-    return Color.alphaBlend(accent.withValues(alpha: opacity), scheme.surface);
-  }
-
   @override
   void initState() {
     super.initState();
@@ -198,22 +189,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       } catch (e) {
         batchTransactions = const <BigInt>[];
       }
-      _ProgressData? fetchProgress;
-      _ProgressData? applyProgress;
-      try {
-        fetchProgress = syncBlocks != null
-            ? _ProgressData.fromProgress(syncBlocks.fetchProgress)
-            : null;
-      } catch (e) {
-        fetchProgress = null;
-      }
-      try {
-        applyProgress = syncBlocks != null
-            ? _ProgressData.fromProgress(syncBlocks.applyProgress)
-            : null;
-      } catch (e) {
-        applyProgress = null;
-      }
       if (!mounted) return;
       setState(() {
         // Calculate sync speed
@@ -243,8 +218,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
           _bestTipHash = null;
         }
         _bestTipBatchTransactions = batchTransactions;
-        _fetchProgress = fetchProgress;
-        _applyProgress = applyProgress;
         _lastChecked = DateTime.now();
       });
     } catch (e, st) {
@@ -266,44 +239,40 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return Container(
-      color: NodeStatusTheme.background,
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: const AppAppBar(
-          title: 'Node Status',
-        ),
-        drawer: const AppDrawer(),
-        body: RefreshIndicator(
-          onRefresh: _refresh,
-          child: ListView(
-            padding: const EdgeInsets.only(
-              left: 12,
-              right: 12,
-              top: 12,
-              bottom: 12,
-            ),
-            children: [
-              if (_error != null)
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Error', style: TextStyle(color: colorScheme.error)),
-                    const SizedBox(height: 6),
-                    Text(_error!, style: theme.textTheme.bodySmall),
-                    const SizedBox(height: 16),
-                  ],
-                ),
-
-              // OVERVIEW Section (includes Synchronization details)
-              _buildOverviewSection(
-                  context, ref.watch(nodeStatusProvider).value),
-              const SizedBox(height: 18),
-
-              // BLOCKCHAIN Section (includes Recent Blocks)
-              _buildBlockchainSection(context),
-            ],
+    return Scaffold(
+      backgroundColor: colorScheme.surface,
+      appBar: const AppAppBar(
+        title: 'Node Status',
+      ),
+      drawer: const AppDrawer(),
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        child: ListView(
+          padding: const EdgeInsets.only(
+            left: 12,
+            right: 12,
+            top: 12,
+            bottom: 12,
           ),
+          children: [
+            if (_error != null)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Error', style: TextStyle(color: colorScheme.error)),
+                  const SizedBox(height: 6),
+                  Text(_error!, style: theme.textTheme.bodySmall),
+                  const SizedBox(height: 16),
+                ],
+              ),
+
+            // OVERVIEW Section (includes Synchronization details)
+            _buildOverviewSection(context, ref.watch(nodeStatusProvider).value),
+            const SizedBox(height: 18),
+
+            // BLOCKCHAIN Section (includes Recent Blocks)
+            _buildBlockchainSection(context),
+          ],
         ),
       ),
     );
@@ -314,10 +283,21 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     required BuildContext context,
     required List<Widget> children,
   }) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(top: 0, bottom: 0),
       child: Container(
-        decoration: NodeStatusTheme.cardDecoration,
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceBright,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: colorScheme.outline.withValues(alpha: 0.2),
+              offset: const Offset(1.1, 1.1),
+              blurRadius: 10.0,
+            ),
+          ],
+        ),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
@@ -331,18 +311,25 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
   // Helper method for section headers (unused - integrated into cards)
   Widget _buildSectionHeader(BuildContext context, String title) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     return Text(
       title,
-      style: NodeStatusTheme.sectionHeader,
+      style: theme.textTheme.titleMedium!.copyWith(
+          fontWeight: FontWeight.w500,
+          fontSize: 18,
+          letterSpacing: 0.5,
+          color: colorScheme.onSurfaceVariant),
     );
   }
 
   // Helper method for horizontal divider
   Widget _buildDivider() {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       height: 2,
       decoration: BoxDecoration(
-        color: NodeStatusTheme.background,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(4.0),
       ),
     );
@@ -404,29 +391,42 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             const SizedBox(width: 8),
             Text(
               isSynced ? 'Synced' : 'Syncing',
-              style: NodeStatusTheme.title.copyWith(
-                color: accentColor,
-              ),
+              style: theme.textTheme.titleMedium!
+                  .copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      letterSpacing: 0.18)
+                  .copyWith(
+                    color: accentColor,
+                  ),
             ),
             const SizedBox(width: 8),
             Text(
               '•',
-              style: NodeStatusTheme.body2.copyWith(
-                color: NodeStatusTheme.lightText,
-              ),
+              style: theme.textTheme.bodyMedium!
+                  .copyWith(fontSize: 14, letterSpacing: 0.2)
+                  .copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 'Block $currentHeight / $networkHeight',
-                style: NodeStatusTheme.body2,
+                style: theme.textTheme.bodyMedium!
+                    .copyWith(fontSize: 14, letterSpacing: 0.2),
               ),
             ),
             Text(
               '${(syncPercentage * 100).toStringAsFixed(1)}%',
-              style: NodeStatusTheme.title.copyWith(
-                color: accentColor,
-              ),
+              style: theme.textTheme.titleMedium!
+                  .copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      letterSpacing: 0.18)
+                  .copyWith(
+                    color: accentColor,
+                  ),
             ),
           ],
         ),
@@ -448,22 +448,33 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
           const SizedBox(height: 12),
           Row(
             children: [
-              Icon(Icons.speed, size: 14, color: NodeStatusTheme.lightText),
+              Icon(Icons.speed, size: 14, color: colorScheme.onSurfaceVariant),
               const SizedBox(width: 6),
               Text(
                 '${_blocksPerSecond!.toStringAsFixed(1)} blocks/sec',
-                style: NodeStatusTheme.caption.copyWith(
-                  fontSize: 11,
-                ),
+                style: theme.textTheme.bodySmall!
+                    .copyWith(
+                        fontSize: 12,
+                        letterSpacing: 0.2,
+                        color: colorScheme.onSurfaceVariant)
+                    .copyWith(
+                      fontSize: 11,
+                    ),
               ),
               const SizedBox(width: 16),
-              Icon(Icons.schedule, size: 14, color: NodeStatusTheme.lightText),
+              Icon(Icons.schedule,
+                  size: 14, color: colorScheme.onSurfaceVariant),
               const SizedBox(width: 6),
               Text(
                 'ETA: ${_calculateETA(currentHeight, networkHeight, _blocksPerSecond!)}',
-                style: NodeStatusTheme.caption.copyWith(
-                  fontSize: 11,
-                ),
+                style: theme.textTheme.bodySmall!
+                    .copyWith(
+                        fontSize: 12,
+                        letterSpacing: 0.2,
+                        color: colorScheme.onSurfaceVariant)
+                    .copyWith(
+                      fontSize: 11,
+                    ),
               ),
             ],
           ),
@@ -530,10 +541,17 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             alignment: Alignment.centerRight,
             child: Text(
               _formatLastChecked(),
-              style: NodeStatusTheme.caption.copyWith(
-                color: NodeStatusTheme.deactivatedText,
-                fontSize: 10,
-              ),
+              style: theme.textTheme.bodySmall!
+                  .copyWith(
+                      fontSize: 12,
+                      letterSpacing: 0.2,
+                      color: colorScheme.onSurfaceVariant)
+                  .copyWith(
+                    color: (colorScheme.brightness == Brightness.light
+                        ? MaterialTheme.deactivatedText
+                        : MaterialTheme.deactivatedTextDark),
+                    fontSize: 10,
+                  ),
             ),
           ),
         ],
@@ -555,7 +573,15 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
     final card = Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: NodeStatusTheme.miniCardDecoration,
+      decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+                color: colorScheme.outline.withValues(alpha: 0.1),
+                offset: const Offset(0.5, 0.5),
+                blurRadius: 4.0)
+          ]),
       child: Row(
         children: [
           Container(
@@ -576,29 +602,41 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                   children: [
                     Text(
                       label,
-                      style: NodeStatusTheme.caption.copyWith(
-                        fontWeight: FontWeight.w500,
-                        fontSize: 10,
-                      ),
+                      style: theme.textTheme.bodySmall!
+                          .copyWith(
+                              fontSize: 12,
+                              letterSpacing: 0.2,
+                              color: colorScheme.onSurfaceVariant)
+                          .copyWith(
+                            fontWeight: FontWeight.w500,
+                            fontSize: 10,
+                          ),
                     ),
                     const SizedBox(width: 4),
                     Text(
                       value,
-                      style: NodeStatusTheme.body2.copyWith(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
+                      style: theme.textTheme.bodyMedium!
+                          .copyWith(fontSize: 14, letterSpacing: 0.2)
+                          .copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: NodeStatusTheme.caption.copyWith(
-                    color: color,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: theme.textTheme.bodySmall!
+                      .copyWith(
+                          fontSize: 12,
+                          letterSpacing: 0.2,
+                          color: colorScheme.onSurfaceVariant)
+                      .copyWith(
+                        color: color,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w500,
+                      ),
                 ),
               ],
             ),
@@ -620,6 +658,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
   // Sync Details subsection - shown within Overview card
   Widget _buildSyncDetailsSubsection(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final raw = ref.watch(nodeRawStatusProvider).value;
     final fetchProgress = raw?.fetchProgress;
     final applyProgress = raw?.applyProgress;
@@ -660,11 +700,16 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
         // Subsection header
         Text(
           'Sync Details',
-          style: NodeStatusTheme.caption.copyWith(
-            fontWeight: FontWeight.w600,
-            fontSize: 13,
-            letterSpacing: 0.3,
-          ),
+          style: theme.textTheme.bodySmall!
+              .copyWith(
+                  fontSize: 12,
+                  letterSpacing: 0.2,
+                  color: colorScheme.onSurfaceVariant)
+              .copyWith(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+                letterSpacing: 0.3,
+              ),
         ),
         const SizedBox(height: 12),
 
@@ -678,8 +723,10 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                 label: 'Fetch Blocks',
                 percentage: fetchPercentage,
                 color: fetchPercentage >= 100.0
-                    ? NodeStatusTheme.success
-                    : NodeStatusTheme.accentBlue,
+                    ? colorScheme.tertiary
+                    : (colorScheme.brightness == Brightness.light
+                        ? colorScheme.primary
+                        : colorScheme.primaryFixed),
                 done: fetchProgress?.done,
                 pending: fetchProgress?.pending,
                 idle: fetchProgress?.idle,
@@ -693,8 +740,10 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                 label: 'Apply Blocks',
                 percentage: applyPercentage,
                 color: applyPercentage >= 100.0
-                    ? NodeStatusTheme.success
-                    : NodeStatusTheme.accentPink,
+                    ? colorScheme.tertiary
+                    : (colorScheme.brightness == Brightness.light
+                        ? MaterialTheme.accentPink
+                        : MaterialTheme.accentPinkDark),
                 done: applyProgress?.done,
                 pending: applyProgress?.pending,
                 idle: applyProgress?.idle,
@@ -716,9 +765,19 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     BigInt? pending,
     BigInt? idle,
   }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     return Container(
       padding: const EdgeInsets.all(10),
-      decoration: NodeStatusTheme.miniCardDecoration,
+      decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+                color: colorScheme.outline.withValues(alpha: 0.1),
+                offset: const Offset(0.5, 0.5),
+                blurRadius: 4.0)
+          ]),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -735,7 +794,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                   strokeWidth: 4,
                   backgroundColor: Colors.transparent,
                   valueColor: AlwaysStoppedAnimation<Color>(
-                    NodeStatusTheme.background,
+                    colorScheme.surface,
                   ),
                 ),
                 // Progress circle
@@ -748,11 +807,16 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                 // Percentage text in center (smaller)
                 Text(
                   '${percentage.toStringAsFixed(0)}%',
-                  style: NodeStatusTheme.title.copyWith(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
+                  style: theme.textTheme.titleMedium!
+                      .copyWith(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          letterSpacing: 0.18)
+                      .copyWith(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: color,
+                      ),
                 ),
               ],
             ),
@@ -768,31 +832,48 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                 // Label
                 Text(
                   label,
-                  style: NodeStatusTheme.body2.copyWith(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
+                  style: theme.textTheme.bodyMedium!
+                      .copyWith(fontSize: 14, letterSpacing: 0.2)
+                      .copyWith(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
                 ),
                 // Stats (if available)
                 if (done != null && pending != null && idle != null) ...[
                   const SizedBox(height: 4),
                   Text(
                     'Done: $done',
-                    style: NodeStatusTheme.caption.copyWith(
-                      fontSize: 10,
-                    ),
+                    style: theme.textTheme.bodySmall!
+                        .copyWith(
+                            fontSize: 12,
+                            letterSpacing: 0.2,
+                            color: colorScheme.onSurfaceVariant)
+                        .copyWith(
+                          fontSize: 10,
+                        ),
                   ),
                   Text(
                     'Pending: $pending',
-                    style: NodeStatusTheme.caption.copyWith(
-                      fontSize: 10,
-                    ),
+                    style: theme.textTheme.bodySmall!
+                        .copyWith(
+                            fontSize: 12,
+                            letterSpacing: 0.2,
+                            color: colorScheme.onSurfaceVariant)
+                        .copyWith(
+                          fontSize: 10,
+                        ),
                   ),
                   Text(
                     'Idle: $idle',
-                    style: NodeStatusTheme.caption.copyWith(
-                      fontSize: 10,
-                    ),
+                    style: theme.textTheme.bodySmall!
+                        .copyWith(
+                            fontSize: 12,
+                            letterSpacing: 0.2,
+                            color: colorScheme.onSurfaceVariant)
+                        .copyWith(
+                          fontSize: 10,
+                        ),
                   ),
                 ],
               ],
@@ -880,13 +961,17 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
               width: 80,
               child: Text(
                 'Best Tip',
-                style: NodeStatusTheme.caption,
+                style: theme.textTheme.bodySmall!.copyWith(
+                    fontSize: 12,
+                    letterSpacing: 0.2,
+                    color: colorScheme.onSurfaceVariant),
               ),
             ),
             Expanded(
               child: Text(
                 '${_fmtInt(height)} ($displayHash)',
-                style: NodeStatusTheme.body2,
+                style: theme.textTheme.bodyMedium!
+                    .copyWith(fontSize: 14, letterSpacing: 0.2),
               ),
             ),
           ],
@@ -901,13 +986,17 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
               width: 80,
               child: Text(
                 'Batches',
-                style: NodeStatusTheme.caption,
+                style: theme.textTheme.bodySmall!.copyWith(
+                    fontSize: 12,
+                    letterSpacing: 0.2,
+                    color: colorScheme.onSurfaceVariant),
               ),
             ),
             Expanded(
               child: Text(
                 batchSummary,
-                style: NodeStatusTheme.body2,
+                style: theme.textTheme.bodyMedium!
+                    .copyWith(fontSize: 14, letterSpacing: 0.2),
               ),
             ),
           ],
@@ -927,13 +1016,17 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
               width: 80,
               child: Text(
                 'Mempool',
-                style: NodeStatusTheme.caption,
+                style: theme.textTheme.bodySmall!.copyWith(
+                    fontSize: 12,
+                    letterSpacing: 0.2,
+                    color: colorScheme.onSurfaceVariant),
               ),
             ),
             Expanded(
               child: Text(
                 '$mempoolCount tx ($mempoolOrphans orphans)  •  $mempoolSize',
-                style: NodeStatusTheme.body2,
+                style: theme.textTheme.bodyMedium!
+                    .copyWith(fontSize: 14, letterSpacing: 0.2),
               ),
             ),
             TextButton(
@@ -948,13 +1041,18 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                 children: [
                   Text(
                     'View',
-                    style: NodeStatusTheme.caption.copyWith(
-                      color: NodeStatusTheme.nearlyDarkBlue,
-                    ),
+                    style: theme.textTheme.bodySmall!
+                        .copyWith(
+                            fontSize: 12,
+                            letterSpacing: 0.2,
+                            color: colorScheme.onSurfaceVariant)
+                        .copyWith(
+                          color: colorScheme.primary,
+                        ),
                   ),
                   const SizedBox(width: 4),
                   Icon(Icons.arrow_forward,
-                      size: 14, color: NodeStatusTheme.nearlyDarkBlue),
+                      size: 14, color: colorScheme.primary),
                 ],
               ),
             ),
@@ -977,19 +1075,24 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                 width: 80,
                 child: Text(
                   'Produced',
-                  style: NodeStatusTheme.caption,
+                  style: theme.textTheme.bodySmall!.copyWith(
+                      fontSize: 12,
+                      letterSpacing: 0.2,
+                      color: colorScheme.onSurfaceVariant),
                 ),
               ),
               Expanded(
                 child: Text(
                   '${rewards.producedInEpoch} blocks',
-                  style: NodeStatusTheme.body2,
+                  style: theme.textTheme.bodyMedium!
+                      .copyWith(fontSize: 14, letterSpacing: 0.2),
                 ),
               ),
               TextButton(
                 onPressed: () => context.push('/main/node/produced-blocks'),
                 style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
@@ -998,13 +1101,18 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                   children: [
                     Text(
                       'View',
-                      style: NodeStatusTheme.caption.copyWith(
-                        color: NodeStatusTheme.nearlyDarkBlue,
-                      ),
+                      style: theme.textTheme.bodySmall!
+                          .copyWith(
+                              fontSize: 12,
+                              letterSpacing: 0.2,
+                              color: colorScheme.onSurfaceVariant)
+                          .copyWith(
+                            color: colorScheme.primary,
+                          ),
                     ),
                     const SizedBox(width: 4),
                     Icon(Icons.arrow_forward,
-                        size: 14, color: NodeStatusTheme.nearlyDarkBlue),
+                        size: 14, color: colorScheme.primary),
                   ],
                 ),
               ),
@@ -1021,19 +1129,24 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                 width: 80,
                 child: Text(
                   'Won Slots',
-                  style: NodeStatusTheme.caption,
+                  style: theme.textTheme.bodySmall!.copyWith(
+                      fontSize: 12,
+                      letterSpacing: 0.2,
+                      color: colorScheme.onSurfaceVariant),
                 ),
               ),
               Expanded(
                 child: Text(
                   '${rewards.winsInEpoch} slots',
-                  style: NodeStatusTheme.body2,
+                  style: theme.textTheme.bodyMedium!
+                      .copyWith(fontSize: 14, letterSpacing: 0.2),
                 ),
               ),
               TextButton(
                 onPressed: () => context.push('/main/node/won-slots'),
                 style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
@@ -1042,13 +1155,18 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                   children: [
                     Text(
                       'View',
-                      style: NodeStatusTheme.caption.copyWith(
-                        color: NodeStatusTheme.nearlyDarkBlue,
-                      ),
+                      style: theme.textTheme.bodySmall!
+                          .copyWith(
+                              fontSize: 12,
+                              letterSpacing: 0.2,
+                              color: colorScheme.onSurfaceVariant)
+                          .copyWith(
+                            color: colorScheme.primary,
+                          ),
                     ),
                     const SizedBox(width: 4),
                     Icon(Icons.arrow_forward,
-                        size: 14, color: NodeStatusTheme.nearlyDarkBlue),
+                        size: 14, color: colorScheme.primary),
                   ],
                 ),
               ),
@@ -1065,13 +1183,17 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                 width: 80,
                 child: Text(
                   'Earned',
-                  style: NodeStatusTheme.caption,
+                  style: theme.textTheme.bodySmall!.copyWith(
+                      fontSize: 12,
+                      letterSpacing: 0.2,
+                      color: colorScheme.onSurfaceVariant),
                 ),
               ),
               Expanded(
                 child: Text(
                   '${rewards.earnedSoFar}  •  Expected: ${rewards.expectedTotal}',
-                  style: NodeStatusTheme.body2,
+                  style: theme.textTheme.bodyMedium!
+                      .copyWith(fontSize: 14, letterSpacing: 0.2),
                 ),
               ),
             ],
@@ -1091,17 +1213,23 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
               Expanded(
                 child: Text(
                   'Recent Blocks',
-                  style: NodeStatusTheme.caption.copyWith(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                    letterSpacing: 0.3,
-                  ),
+                  style: theme.textTheme.bodySmall!
+                      .copyWith(
+                          fontSize: 12,
+                          letterSpacing: 0.2,
+                          color: colorScheme.onSurfaceVariant)
+                      .copyWith(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        letterSpacing: 0.3,
+                      ),
                 ),
               ),
               TextButton(
                 onPressed: () => context.push('/main/node/produced-blocks'),
                 style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
@@ -1110,13 +1238,18 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                   children: [
                     Text(
                       'View All',
-                      style: NodeStatusTheme.caption.copyWith(
-                        color: NodeStatusTheme.nearlyDarkBlue,
-                      ),
+                      style: theme.textTheme.bodySmall!
+                          .copyWith(
+                              fontSize: 12,
+                              letterSpacing: 0.2,
+                              color: colorScheme.onSurfaceVariant)
+                          .copyWith(
+                            color: colorScheme.primary,
+                          ),
                     ),
                     const SizedBox(width: 4),
                     Icon(Icons.arrow_forward,
-                        size: 14, color: NodeStatusTheme.nearlyDarkBlue),
+                        size: 14, color: colorScheme.primary),
                   ],
                 ),
               ),
@@ -1130,152 +1263,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
         ],
       ],
     );
-  }
-
-  Widget _buildMempoolCard(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final mempoolAsync = ref.watch(nodeMempoolProvider);
-    final mempoolUi = ref.watch(mempoolUiProvider).value;
-
-    final bg = _tint(colorScheme, colorScheme.primary, 0.04);
-    return Card(
-      elevation: 0,
-      color: bg,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: mempoolAsync.when(
-          loading: () => Row(
-            children: [
-              Icon(Icons.pending_actions, size: 16, color: colorScheme.primary),
-              const SizedBox(width: 8),
-              Text(
-                'Mempool: Loading...',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-          error: (e, _) => Row(
-            children: [
-              Icon(Icons.error_outline, size: 16, color: colorScheme.error),
-              const SizedBox(width: 8),
-              Text(
-                'Mempool: Failed to load',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.error,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-          data: (mempool) {
-            String count = '0';
-            String orphans = '0';
-            String totalSize = '0B';
-            bool isStale = false;
-
-            if (mempool != null) {
-              count = mempool.count.toString();
-              orphans = mempool.orphans.toString();
-              totalSize = _formatBytes(mempool.totalSize);
-            } else if (mempoolUi?.snapshot != null) {
-              final snap = mempoolUi!.snapshot!;
-              count = snap.count;
-              orphans = snap.orphans;
-              totalSize = _formatBytes(BigInt.parse(snap.totalSize));
-              isStale = mempoolUi.isStale;
-            }
-
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.pending_actions,
-                        size: 16, color: colorScheme.primary),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Mempool: $count transaction${count != '1' ? 's' : ''} ($orphans orphan${orphans != '1' ? 's' : ''})',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurface,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Text(
-                      'Total Size: $totalSize',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontSize: 11,
-                      ),
-                    ),
-                    if (isStale) ...[
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          'Cached',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            fontSize: 9,
-                          ),
-                        ),
-                      ),
-                    ],
-                    const Spacer(),
-                    TextButton.icon(
-                      onPressed: () {
-                        context.push('/main/node/mempool');
-                      },
-                      icon: Icon(Icons.arrow_forward,
-                          size: 14, color: colorScheme.primary),
-                      label: Text(
-                        'View Details',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.primary,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 11,
-                        ),
-                      ),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        minimumSize: const Size(0, 0),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  String _formatTxHash(String hash) {
-    if (hash.length <= 16) return hash;
-    return '${hash.substring(0, 8)}...${hash.substring(hash.length - 8)}';
   }
 
   String _formatBytes(BigInt bytes) {
@@ -1376,11 +1363,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     return hostOnly;
   }
 
-  String _shortenMid(String s, {int head = 8, int tail = 8}) {
-    if (s.length <= head + tail + 1) return s;
-    return '${s.substring(0, head)}…${s.substring(s.length - tail)}';
-  }
-
   String _formatUtc(BigInt value) {
     // Heuristic to interpret epoch unit from digit length
     final digits = value.toString().length;
@@ -1433,36 +1415,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
   String _fmtInt(int? v) => v == null ? 'N/A' : v.toString();
 
-  bool _isSynced() {
-    // Sync status based on current block height vs best tip block height
-    // Also consider synced if heights match and no pending sync work
-    final currentHeight = _currentBlockHeight;
-    final bestTipHeight = _networkBestTipHeight;
-
-    // If we don't have height info, check if sync progress is empty/complete
-    if (currentHeight == null || bestTipHeight == null) {
-      // Consider synced if progress is null or all zeros
-      final fetchProgress = _fetchProgress;
-      final applyProgress = _applyProgress;
-
-      if (fetchProgress == null && applyProgress == null) {
-        return true; // No progress data means likely synced
-      }
-
-      final fetchTotal = (fetchProgress?.idle ?? BigInt.zero) +
-          (fetchProgress?.pending ?? BigInt.zero) +
-          (fetchProgress?.done ?? BigInt.zero);
-      final applyTotal = (applyProgress?.idle ?? BigInt.zero) +
-          (applyProgress?.pending ?? BigInt.zero) +
-          (applyProgress?.done ?? BigInt.zero);
-
-      return fetchTotal == BigInt.zero && applyTotal == BigInt.zero;
-    }
-
-    // Synced if current height matches or exceeds best tip
-    return currentHeight >= bestTipHeight;
-  }
-
   String _formatLastChecked() {
     if (_lastChecked == null) return '';
 
@@ -1507,141 +1459,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       final days = (secondsRemaining / 86400).ceil();
       return '~$days day${days > 1 ? 's' : ''}';
     }
-  }
-
-  Widget _buildRewardsSection(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final rewardsAsync = ref.watch(nodeEpochRewardsProvider);
-    final rewards = rewardsAsync.value;
-
-    if (rewards == null) {
-      return _buildDiaryCard(
-        context: context,
-        children: [
-          _buildSectionHeader(
-              context, 'Rewards - Epoch ${_bestTipEpoch ?? 'N/A'}'),
-          const SizedBox(height: 12),
-          Text(
-            rewardsAsync.isLoading ? 'Loading...' : 'No data available',
-            style: NodeStatusTheme.body2.copyWith(
-              color: NodeStatusTheme.lightText,
-            ),
-          ),
-        ],
-      );
-    }
-
-    return _buildDiaryCard(
-      context: context,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: _buildSectionHeader(
-                  context, 'Rewards - Epoch ${rewards.epoch}'),
-            ),
-            TextButton(
-              onPressed: () => context.push('/main/node/won-slots'),
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Details',
-                    style: NodeStatusTheme.caption.copyWith(
-                      color: NodeStatusTheme.nearlyDarkBlue,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(Icons.arrow_forward,
-                      size: 14, color: NodeStatusTheme.nearlyDarkBlue),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        _buildRewardRow(context, 'Earned',
-            '${rewards.earnedSoFar}  •  Expected: ${rewards.expectedTotal}'),
-      ],
-    );
-  }
-
-  Widget _buildRewardRow(BuildContext context, String label, String value) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 80,
-          child: Text(
-            label,
-            style: NodeStatusTheme.caption,
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: NodeStatusTheme.body2,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRecentBlocksSection(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final blockchain = ref.watch(nodeBlockchainProvider).value;
-
-    return _buildDiaryCard(
-      context: context,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: _buildSectionHeader(context, 'Recent Blocks'),
-            ),
-            TextButton(
-              onPressed: () => context.push('/main/node/produced-blocks'),
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'View All',
-                    style: NodeStatusTheme.caption.copyWith(
-                      color: NodeStatusTheme.nearlyDarkBlue,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(Icons.arrow_forward,
-                      size: 14, color: NodeStatusTheme.nearlyDarkBlue),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        if (blockchain == null || blockchain.items.isEmpty)
-          Text(
-            'No blocks available',
-            style: NodeStatusTheme.body2.copyWith(
-              color: NodeStatusTheme.lightText,
-            ),
-          )
-        else
-          _buildProducedBlocksTab(context),
-      ],
-    );
   }
 
   Widget _buildProducedBlocksTab(BuildContext context) {
@@ -1704,162 +1521,11 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     );
   }
 
-  void _showBuildInfoDialog() {
-    final env = ref.read(buildEnvProvider);
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        final textTheme = Theme.of(ctx).textTheme;
-        final shortCommit = env.git.commitHash.length >= 7
-            ? env.git.commitHash.substring(0, 7)
-            : env.git.commitHash;
-        return AlertDialog(
-          title: const Text('Build Info'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Version: ${env.version}', style: textTheme.bodyMedium),
-              const SizedBox(height: 6),
-              Text('Commit: $shortCommit', style: textTheme.bodyMedium),
-              const SizedBox(height: 6),
-              Text('Branch: ${env.git.branch}', style: textTheme.bodyMedium),
-              const SizedBox(height: 6),
-              Text('Commit time: ${env.git.commitTime}',
-                  style: textTheme.bodyMedium),
-              const Divider(height: 16),
-              Text('Rustc: ${env.rustc.version} (${env.rustc.channel})',
-                  style: textTheme.bodyMedium),
-              const SizedBox(height: 6),
-              Text('LLVM: ${env.rustc.llvmVersion}',
-                  style: textTheme.bodyMedium),
-              const Divider(height: 16),
-              Text('Cargo target: ${env.cargo.target}',
-                  style: textTheme.bodyMedium),
-              const SizedBox(height: 6),
-              Text('Features: ${env.cargo.features}',
-                  style: textTheme.bodyMedium),
-              const SizedBox(height: 6),
-              Text('Opt level: ${env.cargo.optLevel}',
-                  style: textTheme.bodyMedium),
-              const SizedBox(height: 6),
-              Text('Debug: ${env.cargo.isDebug}', style: textTheme.bodyMedium),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Close'),
-            )
-          ],
-        );
-      },
-    );
-  }
-
   @override
   void dispose() {
     _autoTimer?.cancel();
     _tabController.dispose();
     super.dispose();
-  }
-}
-
-class _ProgressData {
-  final BigInt idle;
-  final BigInt pending;
-  final BigInt done;
-
-  const _ProgressData({
-    required this.idle,
-    required this.pending,
-    required this.done,
-  });
-
-  factory _ProgressData.fromProgress(
-    RpcStatusBlockchainSyncBlocksProgress progress,
-  ) {
-    return _ProgressData(
-      idle: progress.idle,
-      pending: progress.pending,
-      done: progress.done,
-    );
-  }
-}
-
-class _MempoolStat extends StatelessWidget {
-  final String label;
-  final String value;
-  final ColorScheme colorScheme;
-
-  const _MempoolStat({
-    required this.label,
-    required this.value,
-    required this.colorScheme,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: theme.textTheme.bodyLarge?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: colorScheme.onSurface,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TxDetailChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final ColorScheme colorScheme;
-
-  const _TxDetailChip({
-    required this.icon,
-    required this.label,
-    required this.colorScheme,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: colorScheme.onSurfaceVariant),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontSize: 10,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 

@@ -5,9 +5,11 @@ import 'package:crypto_mobile_app/features/wallet/data/repositories/wallet_repos
 import 'package:crypto_mobile_app/features/node/domain/repositories/node_repository.dart';
 import 'package:crypto_mobile_app/features/node/data/repositories/node_repository_impl.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
+import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
 import 'package:crypto_mobile_app/src/rust/lib.dart' as rust;
 import 'package:crypto_mobile_app/core/theme/theme_mode.dart';
 import 'package:flutter/material.dart';
+import 'package:crypto_mobile_app/core/utils/logger.dart';
 
 // Repositories
 final walletRepositoryProvider = Provider<WalletRepository>((ref) {
@@ -20,12 +22,41 @@ final nodeRepositoryProvider = Provider<NodeRepository>((ref) {
 
 // Derived async providers
 final hasAnyAccountProvider = FutureProvider<bool>((ref) async {
+  Log.d('PROVIDER', 'hasAnyAccountProvider: evaluating...');
   final repo = await AccountsRepository.create();
-  return repo.hasAny();
+  final result = await repo.hasAny();
+  Log.d('PROVIDER', 'hasAnyAccountProvider: result = $result');
+  return result;
+});
+
+// Backend lifecycle manager - automatically starts/stops based on account state
+final backendLifecycleProvider = Provider<void>((ref) {
+  // Watch for account state changes
+  ref.listen<AsyncValue<bool>>(
+    hasAnyAccountProvider,
+    (previous, next) async {
+      final prevHasAccount = previous?.value ?? false;
+      final nextHasAccount = next.value ?? false;
+
+      // Account created/imported: false → true
+      if (!prevHasAccount && nextHasAccount) {
+        Log.i('BACKEND_LIFECYCLE', 'Account created - starting backend');
+        await RustBackendService.instance.startForActiveAccount();
+      }
+
+      // Account deleted: true → false
+      if (prevHasAccount && !nextHasAccount) {
+        Log.i('BACKEND_LIFECYCLE', 'Account deleted - stopping backend');
+        await RustBackendService.instance.stopNode();
+      }
+    },
+  );
+
+  return;
 });
 
 // Build environment from Rust bindings
-final buildEnvProvider = Provider((ref) => rust.buildEnv());
+final buildEnvProvider = Provider((ref) => rust.buildInfo());
 
 // Feature flag to toggle Result-based providers in UI without breaking defaults.
 final useResultProvidersProvider = Provider<bool>((ref) {

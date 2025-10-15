@@ -10,7 +10,7 @@ import 'package:crypto_mobile_app/features/node/domain/entities/node_status.dart
 
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_blockchain.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
-import 'package:crypto_mobile_app/src/rust/third_party/usernode_core/block.dart';
+import 'package:crypto_mobile_app/src/rust/frb_types.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 import 'package:crypto_mobile_app/gen_l10n/app_localizations.dart';
 

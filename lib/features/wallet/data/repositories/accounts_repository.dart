@@ -2,12 +2,8 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:crypto_mobile_app/features/wallet/data/models/account.dart';
-import 'package:crypto_mobile_app/features/wallet/data/models/account_creation_result.dart';
-import 'package:crypto_mobile_app/features/wallet/data/datasources/key_management_service.dart';
-import 'package:bip39/bip39.dart' as bip39;
-import 'package:bip32_bip44/dart_bip32_bip44.dart';
-import 'package:web3dart/credentials.dart';
-import 'package:web3dart/web3dart.dart';
+import 'package:crypto_mobile_app/src/rust/account.dart';
+import 'package:crypto_mobile_app/core/utils/logger.dart';
 
 class AccountsRepository {
   static const _kIndexKey = 'accounts:index';
@@ -16,31 +12,39 @@ class AccountsRepository {
 
   final FlutterSecureStorage _secure;
   final SharedPreferences _prefs;
-  final KeyManagementService _kms;
 
-  AccountsRepository._(this._secure, this._prefs, this._kms);
+  AccountsRepository._(this._secure, this._prefs);
 
   static Future<AccountsRepository> create() async {
     final prefs = await SharedPreferences.getInstance();
     const secure = FlutterSecureStorage();
-    final kms = KeyManagementService();
-    return AccountsRepository._(secure, prefs, kms);
+    return AccountsRepository._(secure, prefs);
   }
 
   Future<bool> hasAny() async {
+    Log.d('ACCOUNTS_REPO', 'hasAny() called');
     final items = await list();
-    return items.isNotEmpty;
+    final result = items.isNotEmpty;
+    Log.d('ACCOUNTS_REPO', 'hasAny() = $result (found ${items.length} accounts)');
+    return result;
   }
 
   Future<List<AccountMeta>> list() async {
     final raw = _prefs.getString(_kIndexKey);
-    if (raw == null || raw.isEmpty) return [];
+    Log.d('ACCOUNTS_REPO', 'list() - raw from SharedPreferences: ${raw?.substring(0, raw.length > 100 ? 100 : raw.length)}${(raw?.length ?? 0) > 100 ? "..." : ""}');
+    if (raw == null || raw.isEmpty) {
+      Log.d('ACCOUNTS_REPO', 'list() - no accounts found (raw is null or empty)');
+      return [];
+    }
     try {
       final decoded = jsonDecode(raw) as List<dynamic>;
-      return decoded
+      final accounts = decoded
           .map((e) => AccountMeta.fromJson(e as Map<String, dynamic>))
           .toList(growable: false);
-    } catch (_) {
+      Log.d('ACCOUNTS_REPO', 'list() - parsed ${accounts.length} accounts: ${accounts.map((a) => a.id).toList()}');
+      return accounts;
+    } catch (e) {
+      Log.e('ACCOUNTS_REPO', 'list() - failed to parse accounts', e, StackTrace.current);
       return [];
     }
   }
@@ -64,69 +68,6 @@ class AccountsRepository {
     }
   }
 
-  /// Creates a new account using KMS. Returns the full result including mnemonic
-  /// for display. Mnemonic is NOT persisted; only non-sensitive parts are saved.
-  Future<AccountCreationResult> createNew({
-    required String name,
-  }) async {
-    final index = (await list()).length; // next hd index
-    final gen = await _kms.createWallet();
-
-    final success = gen.isNotEmpty && gen.first == true;
-    if (!success) {
-      final err = gen.length > 1 ? gen[1].toString() : 'unknown error';
-      return AccountCreationResult(
-        mnemonic: '',
-        privateKey: '',
-        publicKey: '',
-        address: '',
-        hdIndex: index,
-        success: false,
-        error: err,
-      );
-    }
-
-    final mnemonic = gen[1] as String;
-    final privateKey = gen[2] as String;
-    final publicKey = gen[3] as String;
-    final address = gen[4] as String;
-
-    final id = _makeId(address, index);
-    final meta = AccountMeta(
-      id: id,
-      name: name,
-      createdAt: DateTime.now(),
-      derivationPath: '$_kPathPrefix$index',
-      hdIndex: index,
-      address: address,
-      publicKey: publicKey,
-      backupConfirmed: false,
-    );
-
-    // Persist sensitive (no mnemonic)
-    await _secure.write(key: 'account:$id:privateKey', value: privateKey);
-    await _secure.write(key: 'account:$id:publicKey', value: publicKey);
-    await _secure.write(key: 'account:$id:address', value: address);
-    await _secure.write(key: 'account:$id:hdIndex', value: index.toString());
-
-    // Persist index
-    final items = await list();
-    final next = [...items, meta];
-    await _saveIndex(next);
-    await setActiveId(id);
-
-    // Return full result for immediate display only
-    return AccountCreationResult(
-      mnemonic: mnemonic,
-      privateKey: privateKey,
-      publicKey: publicKey,
-      address: address,
-      hdIndex: index,
-      success: true,
-      error: null,
-    );
-  }
-
   Future<void> markBackupConfirmed(String id) async {
     final items = await list();
     final idx = items.indexWhere((e) => e.id == id);
@@ -134,6 +75,41 @@ class AccountsRepository {
     final updated = [...items];
     updated[idx] = updated[idx].copyWith(backupConfirmed: true);
     await _saveIndex(updated);
+  }
+
+  /// Update identity verification status for an account
+  Future<void> updateIdentityVerification(String accountId, {required bool verified}) async {
+    Log.d('ACCOUNTS_REPO', 'updateIdentityVerification - accountId: $accountId, verified: $verified');
+
+    final items = await list();
+    final idx = items.indexWhere((e) => e.id == accountId);
+    if (idx < 0) {
+      Log.e('ACCOUNTS_REPO', 'Account not found: $accountId');
+      return;
+    }
+
+    final updated = [...items];
+    updated[idx] = updated[idx].copyWith(
+      identityVerified: verified,
+      identityVerifiedAt: verified ? DateTime.now() : null,
+    );
+    await _saveIndex(updated);
+
+    // Store in secure storage
+    await _secure.write(
+      key: 'account:$accountId:identityVerified',
+      value: verified.toString(),
+    );
+    if (verified) {
+      await _secure.write(
+        key: 'account:$accountId:identityVerifiedAt',
+        value: DateTime.now().toIso8601String(),
+      );
+    } else {
+      await _secure.delete(key: 'account:$accountId:identityVerifiedAt');
+    }
+
+    Log.d('ACCOUNTS_REPO', 'Identity verification updated successfully');
   }
 
   Future<void> rename(String id, String name) async {
@@ -186,48 +162,43 @@ class AccountsRepository {
     required String name,
     required String mnemonic,
   }) async {
-    try {
-      // Derive same as KeyManagementService
-      // Reuse KMS logic by calling createWallet? No, we must use provided mnemonic.
-      // Duplicate minimal logic here to avoid storing mnemonic anywhere.
-      // ignore: depend_on_referenced_packages
-      final String seed = bip39.mnemonicToSeedHex(mnemonic);
-      // ignore: depend_on_referenced_packages
-      final Chain chain = Chain.seed(seed);
-      // Use fixed 0 index for imported seed by default
-      final ExtendedKey extendedKey = chain.forPath(KeyManagementService.pathForPrivateKey);
-      final privateKey = extendedKey.privateKeyHex();
-      final EthPrivateKey cryptoPrivateKey = EthPrivateKey.fromHex(privateKey);
-      final EthereumAddress cryptoAddress = cryptoPrivateKey.address;
-      final ExtendedKey extendedKeyPublic = chain.forPath(KeyManagementService.pathForPublicKey);
-      final publicKey = extendedKeyPublic.publicKey().toString();
+    final wordCount = mnemonic.trim().split(RegExp(r'\s+')).length;
+    Log.d('ACCOUNTS_REPO', 'importFromMnemonic - start (name: $name, mnemonic word count: $wordCount)');
 
-      return await _persistNew(name: name, address: cryptoAddress.hex, publicKey: publicKey, privateKey: privateKey);
-    } catch (_) {
-      return null;
-    }
-  }
-
-  /// Import an account from a raw private key (hex). Mnemonic is not applicable.
-  Future<AccountMeta?> importFromPrivateKey({
-    required String name,
-    required String privateKey,
-  }) async {
     try {
-      final EthPrivateKey cryptoPrivateKey = EthPrivateKey.fromHex(privateKey);
-      final EthereumAddress cryptoAddress = cryptoPrivateKey.address;
-      // Public key derivation from private key may not be available directly; set to placeholder if needed
-      final publicKey = '';
-      return await _persistNew(
+      // Use Rust backend to derive keys from mnemonic
+      Log.d('ACCOUNTS_REPO', 'Calling Rust backend accountFromSeed...');
+      final accountExport = accountFromSeed(
+        phrase: mnemonic.trim(),
+        passphrase: null,
+        index: 0, // Use index 0 for imported accounts
+      );
+      Log.d('ACCOUNTS_REPO', 'Account derived successfully from backend');
+
+      // Extract keys from AccountExport
+      final privateKey = accountExport.secretKeyHex;
+      final publicKey = accountExport.publicKeyHex;
+      final address = accountExport.publicKeyHashHex; // Use hex format for consistency
+
+      Log.d('ACCOUNTS_REPO', 'Private key length: ${privateKey.length}');
+      Log.d('ACCOUNTS_REPO', 'Public key length: ${publicKey.length}');
+      Log.d('ACCOUNTS_REPO', 'Address: $address');
+
+      Log.d('ACCOUNTS_REPO', 'Calling _persistNew...');
+      final result = await _persistNew(
         name: name,
-        address: cryptoAddress.hex,
+        address: address,
         publicKey: publicKey,
         privateKey: privateKey,
       );
-    } catch (_) {
+      Log.d('ACCOUNTS_REPO', 'importFromMnemonic - success (account id: ${result.id})');
+      return result;
+    } catch (e, stackTrace) {
+      Log.e('ACCOUNTS_REPO', 'importFromMnemonic - FAILED with exception', e, stackTrace);
       return null;
     }
   }
+
 
   Future<AccountMeta> _persistNew({
     required String name,
@@ -235,9 +206,16 @@ class AccountsRepository {
     required String publicKey,
     required String privateKey,
   }) async {
+    Log.d('ACCOUNTS_REPO', '_persistNew - start (name: $name, address: $address)');
+
+    Log.d('ACCOUNTS_REPO', 'Retrieving current account list...');
     final current = await list();
+    Log.d('ACCOUNTS_REPO', 'Current account count: ${current.length}');
+
     final index = current.length;
     final id = _makeId(address, index);
+    Log.d('ACCOUNTS_REPO', 'Generated account ID: $id (index: $index)');
+
     final meta = AccountMeta(
       id: id,
       name: name,
@@ -248,15 +226,24 @@ class AccountsRepository {
       publicKey: publicKey,
       backupConfirmed: true, // Imported accounts assumed backed up by user
     );
+    Log.d('ACCOUNTS_REPO', 'AccountMeta created');
 
+    Log.d('ACCOUNTS_REPO', 'Writing to secure storage (4 keys)...');
     await _secure.write(key: 'account:$id:privateKey', value: privateKey);
     await _secure.write(key: 'account:$id:publicKey', value: publicKey);
     await _secure.write(key: 'account:$id:address', value: address);
     await _secure.write(key: 'account:$id:hdIndex', value: index.toString());
+    Log.d('ACCOUNTS_REPO', 'Secure storage writes complete');
 
     final next = [...current, meta];
+    Log.d('ACCOUNTS_REPO', 'Saving account index (total accounts: ${next.length})...');
     await _saveIndex(next);
+    Log.d('ACCOUNTS_REPO', 'Index saved successfully');
+
+    Log.d('ACCOUNTS_REPO', 'Setting active account ID to: $id');
     await setActiveId(id);
+    Log.d('ACCOUNTS_REPO', '_persistNew - complete (id: $id)');
+
     return meta;
   }
 

@@ -2,14 +2,17 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:crypto_mobile_app/features/wallet/data/models/account.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
-import 'package:crypto_mobile_app/features/onboarding/presentation/screens/single_account_onboarding_screen.dart';
 import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/routing/app_router.dart';
+import 'package:crypto_mobile_app/core/di/providers.dart';
 
 /// Profile Screen - User profile, identity, rewards, and settings
 ///
@@ -19,14 +22,14 @@ import 'package:crypto_mobile_app/core/utils/logger.dart';
 /// - Rewards, tier, and points
 /// - Account management
 /// - App preferences and settings
-class ProfileScreen extends StatefulWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   AccountMeta? _account;
   bool _isLoading = true;
   RpcEpochRewardsResp? _rewards;
@@ -69,6 +72,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return '$start…$end';
   }
 
+  String _formatDateTime(DateTime dateTime) {
+    return '${dateTime.day}/${dateTime.month}/${dateTime.year} at ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+  }
+
   Color _accountColor(ThemeData theme, String addr) {
     final palette = [
       theme.colorScheme.primary,
@@ -108,398 +115,480 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: Column(
                     children: [
                       CircleAvatar(
-                      radius: 48,
-                      backgroundColor: _account != null
-                          ? _accountColor(theme, _account!.address).withValues(alpha: 0.2)
-                          : colorScheme.primaryContainer,
-                      child: _account != null
-                          ? Text(
-                              'M',
-                              style: theme.textTheme.displaySmall?.copyWith(
-                                color: _accountColor(theme, _account!.address),
-                                fontWeight: FontWeight.bold,
+                        radius: 48,
+                        backgroundColor: _account != null
+                            ? _accountColor(theme, _account!.address)
+                                .withValues(alpha: 0.2)
+                            : colorScheme.primaryContainer,
+                        child: _account != null
+                            ? Text(
+                                'M',
+                                style: theme.textTheme.displaySmall?.copyWith(
+                                  color:
+                                      _accountColor(theme, _account!.address),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              )
+                            : Icon(
+                                Icons.person,
+                                size: 48,
+                                color: colorScheme.onPrimaryContainer,
                               ),
-                            )
-                          : Icon(
-                              Icons.person,
-                              size: 48,
-                              color: colorScheme.onPrimaryContainer,
-                            ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'My Account',
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    GestureDetector(
-                      onTap: () {
-                        if (_account != null) {
-                          Clipboard.setData(ClipboardData(text: _account!.address));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Address copied to clipboard'),
-                              duration: Duration(seconds: 2),
-                            ),
-                          );
-                        }
-                      },
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            _account != null ? _shortAddr(_account!.address) : '—',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.onSurface.withValues(alpha: 0.6),
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Icon(
-                            Icons.copy,
-                            size: 16,
-                            color: colorScheme.onSurface.withValues(alpha: 0.6),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 32),
-
-              // Identity & Verification Section
-              _SectionCard(
-                title: 'Identity & Verification',
-                icon: Icons.verified_user,
-                colorScheme: colorScheme,
-                theme: theme,
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.check_circle,
-                            color: colorScheme.primary,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Identity Verified',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 16),
                       Text(
-                        'Your identity has been successfully verified',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurface.withValues(alpha: 0.6),
+                        'My Account',
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      GestureDetector(
+                        onTap: () {
+                          if (_account != null) {
+                            Clipboard.setData(
+                                ClipboardData(text: _account!.address));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Address copied to clipboard'),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          }
+                        },
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              _account != null
+                                  ? _shortAddr(_account!.address)
+                                  : '—',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: colorScheme.onSurface
+                                    .withValues(alpha: 0.6),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.copy,
+                              size: 16,
+                              color:
+                                  colorScheme.onSurface.withValues(alpha: 0.6),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
+                const SizedBox(height: 32),
 
-              // Rewards Section
-              _SectionCard(
-                title: 'Rewards & Tier',
-                icon: Icons.card_giftcard,
-                colorScheme: colorScheme,
-                theme: theme,
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
+                // Identity & Verification Section
+                _SectionCard(
+                  title: 'Identity & Verification',
+                  icon: Icons.verified_user,
+                  colorScheme: colorScheme,
+                  theme: theme,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: _account != null && _account!.identityVerified
+                        ? Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.check_circle,
+                                    color: colorScheme.primary,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Identity Verified',
+                                    style: theme.textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
                               Text(
-                                'Epoch',
+                                _account!.identityVerifiedAt != null
+                                    ? 'Verified on ${_formatDateTime(_account!.identityVerifiedAt!)}'
+                                    : 'Your identity has been successfully verified',
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurface
-                                      .withValues(alpha: 0.6),
+                                  color: colorScheme.onSurface.withValues(alpha: 0.6),
                                 ),
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                _rewards != null ? '${_rewards!.epoch}' : '—',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
+                              const SizedBox(height: 16),
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton.icon(
+                                  onPressed: () {
+                                    if (_account != null) {
+                                      context.go('/identity-verification?accountId=${_account!.id}');
+                                    }
+                                  },
+                                  icon: const Icon(Icons.refresh, size: 18),
+                                  label: const Text('Update Verification'),
                                 ),
                               ),
                             ],
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                'Blocks Produced',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurface
-                                      .withValues(alpha: 0.6),
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                _rewards != null ? '${_rewards!.producedInEpoch}' : '—',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      const Divider(),
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
+                          )
+                        : Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.warning_amber_rounded,
+                                    color: colorScheme.error,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Not Verified',
+                                    style: theme.textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
                               Text(
-                                'Earned So Far',
+                                'Verify your identity to unlock additional features',
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurface
-                                      .withValues(alpha: 0.6),
+                                  color: colorScheme.onSurface.withValues(alpha: 0.6),
                                 ),
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                _rewards != null ? '${_rewards!.earnedSoFar}' : '—',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: colorScheme.tertiary,
+                              const SizedBox(height: 16),
+                              SizedBox(
+                                width: double.infinity,
+                                child: FilledButton.icon(
+                                  onPressed: () {
+                                    if (_account != null) {
+                                      context.go('/identity-verification?accountId=${_account!.id}');
+                                    }
+                                  },
+                                  icon: const Icon(Icons.verified_user, size: 18),
+                                  label: const Text('Verify Identity'),
                                 ),
                               ),
                             ],
                           ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                'Expected Total',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurface
-                                      .withValues(alpha: 0.6),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Rewards Section
+                _SectionCard(
+                  title: 'Rewards & Tier',
+                  icon: Icons.card_giftcard,
+                  colorScheme: colorScheme,
+                  theme: theme,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Epoch',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurface
+                                        .withValues(alpha: 0.6),
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                _rewards != null ? '${_rewards!.expectedTotal}' : '—',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: colorScheme.primary,
+                                const SizedBox(height: 4),
+                                Text(
+                                  _rewards != null ? '${_rewards!.epoch}' : '—',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      if (_rewards != null) ...[
+                              ],
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  'Blocks Produced',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurface
+                                        .withValues(alpha: 0.6),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _rewards != null
+                                      ? '${_rewards!.producedInEpoch}'
+                                      : '—',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 16),
                         const Divider(),
                         const SizedBox(height: 16),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              'Reward per Block:',
-                              style: theme.textTheme.bodyMedium,
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Earned So Far',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurface
+                                        .withValues(alpha: 0.6),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _rewards != null
+                                      ? '${_rewards!.earnedSoFar}'
+                                      : '—',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: colorScheme.tertiary,
+                                  ),
+                                ),
+                              ],
                             ),
-                            Text(
-                              '${_rewards!.rewardPerBlock}',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  'Expected Total',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurface
+                                        .withValues(alpha: 0.6),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _rewards != null
+                                      ? '${_rewards!.expectedTotal}'
+                                      : '—',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: colorScheme.primary,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Slot Wins in Epoch:',
-                              style: theme.textTheme.bodyMedium,
-                            ),
-                            Text(
-                              '${_rewards!.winsInEpoch}',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
+                        if (_rewards != null) ...[
+                          const SizedBox(height: 16),
+                          const Divider(),
+                          const SizedBox(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Reward per Block:',
+                                style: theme.textTheme.bodyMedium,
                               ),
-                            ),
-                          ],
-                        ),
+                              Text(
+                                '${_rewards!.rewardPerBlock}',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Slot Wins in Epoch:',
+                                style: theme.textTheme.bodyMedium,
+                              ),
+                              Text(
+                                '${_rewards!.winsInEpoch}',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Preferences Section
+                _SectionCard(
+                  title: 'Preferences',
+                  icon: Icons.tune,
+                  colorScheme: colorScheme,
+                  theme: theme,
+                  child: Column(
+                    children: [
+                      _ListTileButton(
+                        icon: Icons.dark_mode,
+                        title: 'Theme',
+                        trailing: 'System',
+                        onTap: () {
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Theme'),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  ListTile(
+                                    leading: const Icon(Icons.brightness_auto),
+                                    title: const Text('System'),
+                                    trailing: const Icon(Icons.check),
+                                    onTap: () => Navigator.pop(ctx),
+                                  ),
+                                  ListTile(
+                                    leading: const Icon(Icons.light_mode),
+                                    title: const Text('Light'),
+                                    onTap: () => Navigator.pop(ctx),
+                                  ),
+                                  ListTile(
+                                    leading: const Icon(Icons.dark_mode),
+                                    title: const Text('Dark'),
+                                    onTap: () => Navigator.pop(ctx),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      _ListTileButton(
+                        icon: Icons.language,
+                        title: 'Language',
+                        trailing: 'English',
+                        onTap: () {
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Language'),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  ListTile(
+                                    title: const Text('English'),
+                                    trailing: const Icon(Icons.check),
+                                    onTap: () => Navigator.pop(ctx),
+                                  ),
+                                  ListTile(
+                                    title: const Text('Français'),
+                                    onTap: () {
+                                      Navigator.pop(ctx);
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                            content: Text(
+                                                'Language support coming soon')),
+                                      );
+                                    },
+                                  ),
+                                  ListTile(
+                                    title: const Text('Español'),
+                                    onTap: () {
+                                      Navigator.pop(ctx);
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                            content: Text(
+                                                'Language support coming soon')),
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      _ListTileButton(
+                        icon: Icons.attach_money,
+                        title: 'Currency',
+                        trailing: 'USD',
+                        onTap: () {
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Currency'),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  ListTile(
+                                    title: const Text('USD (\$)'),
+                                    trailing: const Icon(Icons.check),
+                                    onTap: () => Navigator.pop(ctx),
+                                  ),
+                                  ListTile(
+                                    title: const Text('EUR (€)'),
+                                    onTap: () {
+                                      Navigator.pop(ctx);
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                            content: Text(
+                                                'Currency support coming soon')),
+                                      );
+                                    },
+                                  ),
+                                  ListTile(
+                                    title: const Text('GBP (£)'),
+                                    onTap: () {
+                                      Navigator.pop(ctx);
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                            content: Text(
+                                                'Currency support coming soon')),
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                     ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
+                const SizedBox(height: 16),
 
-              // Preferences Section
-              _SectionCard(
-                title: 'Preferences',
-                icon: Icons.tune,
-                colorScheme: colorScheme,
-                theme: theme,
-                child: Column(
-                  children: [
-                    _ListTileButton(
-                      icon: Icons.dark_mode,
-                      title: 'Theme',
-                      trailing: 'System',
-                      onTap: () {
-                        showDialog(
-                          context: context,
-                          builder: (ctx) => AlertDialog(
-                            title: const Text('Theme'),
-                            content: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                ListTile(
-                                  leading: const Icon(Icons.brightness_auto),
-                                  title: const Text('System'),
-                                  trailing: const Icon(Icons.check),
-                                  onTap: () => Navigator.pop(ctx),
-                                ),
-                                ListTile(
-                                  leading: const Icon(Icons.light_mode),
-                                  title: const Text('Light'),
-                                  onTap: () => Navigator.pop(ctx),
-                                ),
-                                ListTile(
-                                  leading: const Icon(Icons.dark_mode),
-                                  title: const Text('Dark'),
-                                  onTap: () => Navigator.pop(ctx),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    _ListTileButton(
-                      icon: Icons.language,
-                      title: 'Language',
-                      trailing: 'English',
-                      onTap: () {
-                        showDialog(
-                          context: context,
-                          builder: (ctx) => AlertDialog(
-                            title: const Text('Language'),
-                            content: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                ListTile(
-                                  title: const Text('English'),
-                                  trailing: const Icon(Icons.check),
-                                  onTap: () => Navigator.pop(ctx),
-                                ),
-                                ListTile(
-                                  title: const Text('Français'),
-                                  onTap: () {
-                                    Navigator.pop(ctx);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Language support coming soon')),
-                                    );
-                                  },
-                                ),
-                                ListTile(
-                                  title: const Text('Español'),
-                                  onTap: () {
-                                    Navigator.pop(ctx);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Language support coming soon')),
-                                    );
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    _ListTileButton(
-                      icon: Icons.attach_money,
-                      title: 'Currency',
-                      trailing: 'USD',
-                      onTap: () {
-                        showDialog(
-                          context: context,
-                          builder: (ctx) => AlertDialog(
-                            title: const Text('Currency'),
-                            content: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                ListTile(
-                                  title: const Text('USD (\$)'),
-                                  trailing: const Icon(Icons.check),
-                                  onTap: () => Navigator.pop(ctx),
-                                ),
-                                ListTile(
-                                  title: const Text('EUR (€)'),
-                                  onTap: () {
-                                    Navigator.pop(ctx);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Currency support coming soon')),
-                                    );
-                                  },
-                                ),
-                                ListTile(
-                                  title: const Text('GBP (£)'),
-                                  onTap: () {
-                                    Navigator.pop(ctx);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Currency support coming soon')),
-                                    );
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
+                // Developer Section (for testing)
+                _SectionCard(
+                  title: 'Developer',
+                  icon: Icons.code,
+                  colorScheme: colorScheme,
+                  theme: theme,
+                  child: Column(
+                    children: [
+                      _ListTileButton(
+                        icon: Icons.delete_forever,
+                        title: 'Delete Account',
+                        onTap: _showDeleteAccountDialog,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-
-              // Developer Section (for testing)
-              _SectionCard(
-                title: 'Developer',
-                icon: Icons.code,
-                colorScheme: colorScheme,
-                theme: theme,
-                child: Column(
-                  children: [
-                    _ListTileButton(
-                      icon: Icons.delete_forever,
-                      title: 'Delete Account',
-                      onTap: _showDeleteAccountDialog,
-                    ),
-                  ],
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
         ),
       ),
     );
@@ -514,13 +603,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           color: Theme.of(ctx).colorScheme.error,
           size: 48,
         ),
-        title: const Text('Delete Account'),
+        title: const Text('Delete All Accounts'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'This will permanently delete your account and all associated data.',
+              'This will permanently delete ALL accounts and app data. This is a complete reset.',
             ),
             const SizedBox(height: 12),
             Text(
@@ -532,7 +621,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 12),
             const Text(
-              'Make sure you have backed up your recovery phrase if you want to restore this account later.',
+              'Make sure you have backed up all recovery phrases if you want to restore your accounts later.',
               style: TextStyle(fontSize: 12),
             ),
           ],
@@ -547,7 +636,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(ctx).colorScheme.error,
             ),
-            child: const Text('Delete Account'),
+            child: const Text('Delete All Accounts'),
           ),
         ],
       ),
@@ -560,35 +649,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _deleteAccount() async {
     try {
+      // Delete ALL accounts from storage (complete reset)
       final repo = await AccountsRepository.create();
+      Log.d('PROFILE', 'Deleting ALL accounts');
+      await repo.deleteAll();
 
-      // Delete the active account
-      if (_account != null) {
-        await repo.deleteAccount(_account!.id);
+      if (!mounted) return;
+
+      // Invalidate the provider (backend will stop automatically via backendLifecycleProvider)
+      Log.d('PROFILE', 'Invalidating hasAnyAccountProvider');
+      ref.invalidate(hasAnyAccountProvider);
+
+      // Wait for next frame before navigating to avoid race condition
+      Log.d('PROFILE', 'Waiting for next frame...');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Log.d('PROFILE', 'Navigating to onboarding screen');
+        context.go(AppRoutes.onboarding);
+
+        // Show success message after navigation
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('All accounts deleted successfully')),
+            );
+          }
+        });
+      });
+    } catch (e, st) {
+      Log.e('PROFILE', 'Failed to delete account', e, st);
+      if (!mounted) return;
+
+      // Provide more specific error message
+      String errorMessage = 'Failed to delete account';
+      if (e.toString().contains('storage')) {
+        errorMessage = 'Failed to delete account: Storage error';
+      } else if (e.toString().contains('backend')) {
+        errorMessage = 'Failed to delete account: Backend error';
+      } else {
+        errorMessage = 'Failed to delete account: ${e.toString()}';
       }
 
-      if (!mounted) return;
-
-      // Navigate directly to onboarding screen
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (_) => const SingleAccountOnboardingScreen(),
-        ),
-        (_) => false,
-      );
-
-      // Show success message on the new screen
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Account deleted successfully')),
-          );
-        }
-      });
-    } catch (e) {
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to delete account: $e')),
+        SnackBar(
+          content: Text(errorMessage),
+          duration: const Duration(seconds: 4),
+        ),
       );
     }
   }

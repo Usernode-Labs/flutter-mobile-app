@@ -7,15 +7,13 @@ import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_utxos_by_owne
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/transfer_funds.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_blockchain.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
-import 'package:crypto_mobile_app/src/rust/third_party/usernode_core/account.dart';
-import 'package:crypto_mobile_app/src/rust/third_party/usernode_core/transaction.dart';
+import 'package:crypto_mobile_app/src/rust/rpc.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:crypto_mobile_app/src/rust/frb_generated.dart';
 import 'package:crypto_mobile_app/src/rust/node.dart';
 import 'package:crypto_mobile_app/src/rust/node/builder.dart';
-import 'package:crypto_mobile_app/src/rust/rpc.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 
 /// A small façade around flutter_rust_bridge generated APIs.
@@ -121,16 +119,23 @@ class RustBackendService {
     SentryUtil.addBreadcrumb(
         category: 'backend', message: 'startForActiveAccount begin');
     final repo = await AccountsRepository.create();
+    Log.d('RUST', 'Checking if any accounts exist...');
     final hasAny = await repo.hasAny();
+    Log.d('RUST', 'Account check result: hasAny = $hasAny');
     if (!hasAny) {
+      Log.d('RUST', 'No accounts found - skipping node start');
       SentryUtil.addBreadcrumb(
           category: 'backend', message: 'no accounts; skipping start');
       return false;
     }
+    Log.d('RUST', 'Account exists - proceeding with node start');
     if (!_initialized) {
       await init();
     }
-    if (_nodeRunning) return true;
+    if (_nodeRunning) {
+      Log.d('RUST', 'Node already running');
+      return true;
+    }
     await startNode();
     Log.d('RUST', 'startForActiveAccount done');
     await SentryUtil.captureMessage('Backend started for active account');

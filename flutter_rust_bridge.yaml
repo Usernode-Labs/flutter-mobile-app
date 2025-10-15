@@ -1,17 +1,7 @@
-rust_input: >
-    crate,
-    usernode-p2p::PeerId,
-    usernode-core::BlockHash,
-    usernode-core::TransactionHash,
-    usernode-core::build::BuildEnv,
-    usernode-core::build::GitBuildEnv,
-    usernode-core::build::CargoBuildEnv,
-    usernode-core::build::RustCBuildEnv,
-    usernode-utxo-database::UtxoCommitment
+rust_input: crate
 rust_root: ../usernode/crates/usernode
 dart_output: lib/src/rust
-# default_rust_opaque_codec: Nom
-enable_lifetime: true
 default_dart_async: false
+enable_lifetime: false
 auto_upgrade_dependency: false
-stop_on_error: false
+stop_on_error: true

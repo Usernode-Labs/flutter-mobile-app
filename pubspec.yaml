@@ -22,14 +22,11 @@ dependencies:
   qr_flutter: ^4.1.0
   rust_lib_crypto_mobile_app:
     path: rust_builder
-  flutter_rust_bridge: 
+  flutter_rust_bridge:
     git:
       url: https://github.com/Usernode-Labs/flutter_rust_bridge
       ref: 1a911e6435156487cb73929f652dd983ce3fabf6
       path: frb_dart
-  web3dart: ^2.7.3
-  bip39: ^1.0.6
-  bip32_bip44: ^1.0.0
   shared_preferences: ^2.2.3
   flutter_secure_storage: ^9.2.2
   sentry_flutter: ^8.6.0

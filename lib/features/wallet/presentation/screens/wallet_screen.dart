@@ -1,21 +1,22 @@
 // ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:crypto_mobile_app/core/design/design_tokens.dart';
-import 'package:crypto_mobile_app/core/widgets/app_action_button.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
-import 'package:crypto_mobile_app/core/widgets/app_card.dart';
+import 'package:crypto_mobile_app/core/widgets/app_action_button.dart';
 import 'package:crypto_mobile_app/gen_l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/wallet_service.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
 import 'package:crypto_mobile_app/features/wallet/data/models/account.dart';
-import 'package:crypto_mobile_app/core/feature_flags.dart';
-import 'send_screen.dart';
-import 'receive_screen.dart';
 import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/features/wallet/presentation/controllers/wallet_controller.dart';
 import 'package:crypto_mobile_app/features/wallet/presentation/controllers/utxo_provider.dart';
+import 'package:crypto_mobile_app/features/wallet/presentation/controllers/assets_provider.dart';
+import 'package:crypto_mobile_app/features/wallet/presentation/controllers/transaction_activity_provider.dart';
+import 'package:crypto_mobile_app/features/wallet/data/models/transaction_item.dart';
 
 class WalletScreen extends ConsumerStatefulWidget {
   const WalletScreen({super.key});
@@ -24,15 +25,34 @@ class WalletScreen extends ConsumerStatefulWidget {
   ConsumerState<WalletScreen> createState() => _WalletScreenState();
 }
 
-class _WalletScreenState extends ConsumerState<WalletScreen> {
+class _WalletScreenState extends ConsumerState<WalletScreen>
+    with SingleTickerProviderStateMixin {
   late WalletService _walletService;
   AccountMeta? _account;
+  bool _balanceHidden = false;
+  late AnimationController _balanceAnimationController;
+  late Animation<double> _balanceAnimation;
 
   @override
   void initState() {
     super.initState();
     _walletService = WalletService.instance;
+    _balanceAnimationController = AnimationController(
+      duration: kAnimationNormal,
+      vsync: this,
+    );
+    _balanceAnimation = CurvedAnimation(
+      parent: _balanceAnimationController,
+      curve: Curves.easeInOut,
+    );
+    _balanceAnimationController.forward();
     _loadActiveAccount();
+  }
+
+  @override
+  void dispose() {
+    _balanceAnimationController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadActiveAccount() async {
@@ -56,45 +76,51 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
 
   Future<void> _refreshWallet() async {
     try {
-      // Refresh domain wallet state and local UTXOs
       await ref.read(walletProvider.notifier).refresh();
       await _walletService.refreshWalletData();
       await ref.read(walletUtxosProvider.notifier).refresh();
+      await ref.read(walletAssetsProvider.notifier).refresh();
+      await ref.read(transactionActivityProvider.notifier).refresh();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Wallet refreshed'),
+            duration: const Duration(seconds: 1),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(kRadiusSmall),
+            ),
+          ),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to refresh wallet data')),
+        SnackBar(
+          content: const Text('Failed to refresh wallet'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(kRadiusSmall),
+          ),
+        ),
       );
     }
   }
 
-  // Hex helpers
-  String _bytesToHex(Iterable<int> bytes, {bool withPrefix = true}) {
-    final sb = StringBuffer(withPrefix ? '0x' : '');
-    for (final b in bytes) {
-      sb.write(b.toRadixString(16).padLeft(2, '0'));
-    }
-    return sb.toString();
-  }
-
-  String _shortHex(String hex, {int head = 8, int tail = 6}) {
-    final h = hex.startsWith('0x') ? hex.substring(2) : hex;
-    if (h.length <= head + tail) return '0x$h';
-    return '0x${h.substring(0, head)}…${h.substring(h.length - tail)}';
+  void _toggleBalanceVisibility() {
+    setState(() {
+      _balanceHidden = !_balanceHidden;
+    });
   }
 
   void _handleSendTap() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const SendScreen()),
-    );
+    context.push('/send');
   }
 
   void _handleReceiveTap() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const ReceiveScreen()),
-    );
+    context.push('/receive');
   }
 
   void _showComingSoon(String feature) {
@@ -102,18 +128,12 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       SnackBar(
         content: Text('$feature coming soon!'),
         duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(kRadiusSmall),
+        ),
       ),
     );
-  }
-
-  Color _accountColor(ThemeData theme, String addr) {
-    final palette = [
-      theme.colorScheme.primary,
-      theme.colorScheme.secondary,
-      theme.colorScheme.tertiary,
-    ];
-    final idx = addr.hashCode.abs() % palette.length;
-    return palette[idx];
   }
 
   String _shortAddr(String addr) {
@@ -123,10 +143,34 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     return '$start…$end';
   }
 
+  String _shortHex(String hex, {int head = 8, int tail = 6}) {
+    final h = hex.startsWith('0x') ? hex.substring(2) : hex;
+    if (h.length <= head + tail) return '0x$h';
+    return '0x${h.substring(0, head)}…${h.substring(h.length - tail)}';
+  }
+
+  String _shortPk(String pk, {int head = 6, int tail = 4}) {
+    final p = pk;
+    if (p.length <= head + tail) return p;
+    return '${p.substring(0, head)}…${p.substring(p.length - tail)}';
+  }
+
+  // Number formatting helpers
+  String _formatAmount(double amount) {
+    final formatter = NumberFormat('#,##0.##', 'en_US');
+    return formatter.format(amount);
+  }
+
+  String _formatUSD(double usd) {
+    final formatter = NumberFormat('\$#,##0.00', 'en_US');
+    return formatter.format(usd);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final walletAsync = ref.watch(walletProvider);
+    final media = MediaQuery.of(context);
+    final keyboardOpen = media.viewInsets.bottom > 0;
 
     return Scaffold(
       appBar: const AppAppBar(
@@ -134,197 +178,679 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
         showNotifications: true,
       ),
       drawer: const AppDrawer(),
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _refreshWallet,
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(kSpace16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Wallet balance summary (from provider)
-                walletAsync.when(
-                  data: (data) => AppCard.regular(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Total',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Text(
-                          '${data.balance.tokenAmount.toStringAsFixed(2)} ${data.balance.tokenSymbol}',
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
+      body: Stack(
+        children: [
+          RefreshIndicator(
+            onRefresh: _refreshWallet,
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                // Hero Balance Card
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      kSpace16,
+                      kSpace16,
+                      kSpace16,
+                      kSpace12,
                     ),
-                  ),
-                  loading: () => const SizedBox.shrink(),
-                  error: (e, _) => AppCard.regular(
-                    child: Row(
-                      children: [
-                        Icon(Icons.error_outline, color: theme.colorScheme.error),
-                        const SizedBox(width: kSpace12),
-                        Expanded(
-                          child: Text(
-                            'Failed to load balance',
-                            style: theme.textTheme.bodyMedium,
-                          ),
-                        ),
-                      ],
-                    ),
+                    child: _buildHeroBalanceCard(theme),
                   ),
                 ),
-                const SizedBox(height: kSpace16),
-                // Account Header
-                if (_account != null) _buildAccountHeader(theme),
-                if (_account != null) const SizedBox(height: kSpace24),
 
-                // Quick Actions
-                _buildQuickActions(theme),
-                const SizedBox(height: kSpace32),
+                // Assets Section (Moved after Balance)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      kSpace16,
+                      kSpace8,
+                      kSpace16,
+                      kSpace4,
+                    ),
+                    child: _buildAssetsSectionHeader(theme),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: kSpace16),
+                    child: _buildAssetsSection(theme),
+                  ),
+                ),
 
-                // Balances Section
-                _buildBalancesSection(theme),
-                const SizedBox(height: kSpace24),
+                // Quick Actions Grid
 
-                // Activity Section
-                _buildActivitySection(theme),
+                // Recent Activity Section
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      kSpace16,
+                      kSpace24,
+                      kSpace16,
+                      kSpace8,
+                    ),
+                    child: _buildActivitySectionHeader(theme),
+                  ),
+                ),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(
+                    kSpace16,
+                    0,
+                    kSpace16,
+                    kSpace24,
+                  ),
+                  sliver: _buildActivitySection(theme),
+                ),
+                SliverToBoxAdapter(
+                  child: SizedBox(height: 40),
+                ),
               ],
             ),
+          ),
+          // Fixed Quick Actions bar overlay (hidden when keyboard is open)
+          if (!keyboardOpen)
+            Positioned.fill(
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: Padding(
+                  padding: EdgeInsets.all(kSpace8),
+                  child: _buildFixedQuickActionsBar(theme),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeroBalanceCard(ThemeData theme) {
+    final walletAsync = ref.watch(walletProvider);
+
+    return FadeTransition(
+      opacity: _balanceAnimation,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              theme.colorScheme.primaryContainer,
+              theme.colorScheme.secondaryContainer,
+            ],
+          ),
+          borderRadius: BorderRadius.circular(kRadiusLarge),
+          boxShadow: [
+            BoxShadow(
+              color: theme.colorScheme.primary.withValues(alpha: 0.3),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(kSpace12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header row with "Total Balance" and hide button
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    _account != null
+                        ? 'Total Balance (${_shortAddr(_account!.address)})'
+                        : 'Total Balance',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: theme.colorScheme.onPrimaryContainer
+                          .withValues(alpha: 0.8),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      _balanceHidden ? Icons.visibility_off : Icons.visibility,
+                      size: kIconSmall,
+                    ),
+                    color: theme.colorScheme.onPrimaryContainer
+                        .withValues(alpha: 0.8),
+                    onPressed: _toggleBalanceVisibility,
+                    tooltip: _balanceHidden ? 'Show balance' : 'Hide balance',
+                  ),
+                ],
+              ),
+              const SizedBox(height: kSpace4),
+
+              // Balance amount
+              walletAsync.when(
+                data: (data) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Token balance
+                    Text(
+                      _balanceHidden
+                          ? '••••••'
+                          : '${_formatAmount(data.balance.tokenAmount)} ${data.balance.tokenSymbol}',
+                      style: theme.textTheme.headlineMedium?.copyWith(
+                        color: theme.colorScheme.onPrimaryContainer,
+                        fontWeight: FontWeight.w700,
+                        height: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: kSpace8),
+                    // USD value
+                    if (!_balanceHidden)
+                      Text(
+                        '≈ ${_formatUSD(data.balance.usdValue)}',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: theme.colorScheme.onPrimaryContainer
+                              .withValues(alpha: 0.7),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                  ],
+                ),
+                loading: () => Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Balance skeleton
+                    Container(
+                      width: 200,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.onPrimaryContainer
+                            .withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(kRadiusSmall),
+                      ),
+                    ),
+                    const SizedBox(height: kSpace8),
+                    // USD skeleton
+                    Container(
+                      width: 140,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.onPrimaryContainer
+                            .withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(kRadiusSmall),
+                      ),
+                    ),
+                  ],
+                ),
+                error: (e, _) => Row(
+                  children: [
+                    Icon(
+                      Icons.error_outline,
+                      color: theme.colorScheme.error,
+                      size: kIconSmall,
+                    ),
+                    const SizedBox(width: kSpace8),
+                    Text(
+                      'Failed to load balance',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.error,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildAccountHeader(ThemeData theme) {
-    return Row(
-      children: [
-        CircleAvatar(
-          radius: 18,
-          backgroundColor: _accountColor(theme, _account!.address)
-              .withValues(alpha: kAlphaMedium),
-          foregroundColor: _accountColor(theme, _account!.address),
-          child: const Icon(Icons.account_circle, size: kIconSmall),
-        ),
-        const SizedBox(width: kSpace12),
-        Expanded(
-          child: Text(
-            _shortAddr(_account!.address),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-              fontSize: 18,
+  Widget _buildFixedQuickActionsBar(ThemeData theme) {
+    return Material(
+      elevation: 1,
+      color: theme.colorScheme.surface,
+      borderRadius: kBorderRadiusLarge,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 0, vertical: kSpace12),
+        child: Row(
+          children: [
+            Expanded(
+              child: AppActionButton(
+                icon: Icons.arrow_upward,
+                label: 'Send',
+                color: theme.colorScheme.primary,
+                size: AppActionButtonSize.compact,
+                onTap: _handleSendTap,
+              ),
             ),
-          ),
+            const SizedBox(width: kSpace8),
+            Expanded(
+              child: AppActionButton(
+                icon: Icons.arrow_downward,
+                label: 'Receive',
+                color: theme.colorScheme.tertiary,
+                size: AppActionButtonSize.compact,
+                onTap: _handleReceiveTap,
+              ),
+            ),
+            const SizedBox(width: kSpace8),
+            Expanded(
+              child: AppActionButton(
+                icon: Icons.swap_horiz,
+                label: 'Swap',
+                color: theme.colorScheme.secondary,
+                size: AppActionButtonSize.compact,
+                onTap: () => _showComingSoon('Swap'),
+              ),
+            ),
+            const SizedBox(width: kSpace8),
+            Expanded(
+              child: AppActionButton(
+                icon: Icons.account_balance,
+                label: 'Bridge',
+                color: theme.colorScheme.primary,
+                size: AppActionButtonSize.compact,
+                onTap: () => _showComingSoon('Bridge'),
+              ),
+            ),
+            const SizedBox(width: kSpace8),
+            Expanded(
+              child: AppActionButton(
+                icon: Icons.more_horiz,
+                label: 'More',
+                color: theme.colorScheme.secondary,
+                size: AppActionButtonSize.compact,
+                onTap: () => _showComingSoon('More'),
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
-  Widget _buildQuickActions(ThemeData theme) {
+  Widget _buildAssetsSectionHeader(ThemeData theme) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: [
-        if (FeatureFlags.on('wallet.send'))
-          Expanded(
-            child: AppActionButton(
-              icon: Icons.arrow_upward,
-              label: 'Send',
-              color: theme.colorScheme.primary,
-              onTap: _handleSendTap,
-            ),
-          ),
-        if (FeatureFlags.on('wallet.receive'))
-          Expanded(
-            child: AppActionButton(
-              icon: Icons.arrow_downward,
-              label: 'Receive',
-              color: theme.colorScheme.tertiary,
-              onTap: _handleReceiveTap,
-            ),
-          ),
-        Expanded(
-          child: AppActionButton(
-            icon: Icons.swap_horiz,
-            label: 'Swap',
-            color: theme.colorScheme.secondary,
-            onTap: () => _showComingSoon('Swap'),
-          ),
-        ),
-        if (FeatureFlags.on('wallet.bridge'))
-          Expanded(
-            child: AppActionButton(
-              icon: Icons.account_balance,
-              label: 'Bridge',
-              color: theme.colorScheme.primary,
-              onTap: () => _showComingSoon('Bridge'),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildBalancesSection(ThemeData theme) {
-    // Mock data
-    final holdings = [
-      {'name': 'Token1', 'symbol': 'TKN', 'amount': 1221},
-      {'name': 'Token2', 'symbol': 'TKN', 'amount': 2002},
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
-          'Balances',
+          'Assets',
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: kSpace12),
-        AppCard.regular(
-          child: Column(
+        TextButton.icon(
+          onPressed: () => _showComingSoon('View all assets'),
+          icon: const Icon(Icons.arrow_forward, size: 18),
+          label: const Text('View all'),
+          style: TextButton.styleFrom(
+            padding: const EdgeInsets.symmetric(
+              horizontal: kSpace12,
+              vertical: kSpace8,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAssetsSection(ThemeData theme) {
+    final assetsAsync = ref.watch(walletAssetsProvider);
+
+    return assetsAsync.when(
+      loading: () => _buildAssetsLoadingSkeleton(theme),
+      error: (e, st) => _buildAssetsError(theme, e),
+      data: (assets) {
+        if (assets.isEmpty) {
+          return _buildNoAssetsPlaceholder(theme);
+        }
+        return _buildAssetsGroupCard(theme, assets);
+      },
+    );
+  }
+
+  Widget _buildAssetsLoadingSkeleton(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(kSpace16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(kRadiusMedium),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          // Total skeleton
+          Row(
             children: [
-              for (int i = 0; i < holdings.length; i++) ...[
-                if (i > 0) const SizedBox(height: kSpace12),
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 20,
-                      backgroundColor: theme.colorScheme.primaryContainer
-                          .withValues(alpha: kAlphaStrong),
-                      child: Icon(
-                        Icons.monetization_on_outlined,
-                        color: theme.colorScheme.onSurface,
-                        size: kIconSmall,
-                      ),
-                    ),
-                    const SizedBox(width: kSpace16),
-                    Expanded(
-                      child: Text(
-                        holdings[i]['name'] as String,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      '${holdings[i]['amount']} ${holdings[i]['symbol']}',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                  ],
+              Container(
+                width: 60,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(kRadiusSmall),
                 ),
-              ],
+              ),
+              const Spacer(),
+              Container(
+                width: 100,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(kRadiusSmall),
+                ),
+              ),
             ],
+          ),
+          const SizedBox(height: kSpace16),
+          // Asset row skeletons
+          ...List.generate(2, (index) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: kSpace12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(kRadiusSmall),
+                    ),
+                  ),
+                  const SizedBox(width: kSpace16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 100,
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(kRadiusSmall),
+                          ),
+                        ),
+                        const SizedBox(height: kSpace8),
+                        Container(
+                          width: 80,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(kRadiusSmall),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    width: 80,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(kRadiusSmall),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAssetsError(ThemeData theme, Object error) {
+    return Container(
+      padding: const EdgeInsets.all(kSpace16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.errorContainer.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(kRadiusMedium),
+        border: Border.all(
+          color: theme.colorScheme.error.withValues(alpha: 0.5),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.error_outline,
+            color: theme.colorScheme.error,
+            size: kIconRegular,
+          ),
+          const SizedBox(height: kSpace8),
+          Text(
+            'Failed to load assets',
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: theme.colorScheme.error,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: kSpace8),
+          OutlinedButton.icon(
+            onPressed: () => ref.invalidate(walletAssetsProvider),
+            icon: const Icon(Icons.refresh, size: 18),
+            label: const Text('Retry'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: theme.colorScheme.error,
+              side: BorderSide(color: theme.colorScheme.error),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNoAssetsPlaceholder(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(kSpace24),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(kRadiusMedium),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.account_balance_wallet_outlined,
+            size: 48,
+            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+          ),
+          const SizedBox(height: kSpace12),
+          Text(
+            'No assets yet',
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: kSpace8),
+          Text(
+            'Receive tokens to see them here',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAssetsGroupCard(ThemeData theme, List<AssetSummary> assets) {
+    final totalValue = assets.fold<double>(0.0, (sum, a) => sum + a.usdValue);
+
+    return Container(
+      padding: const EdgeInsets.all(kSpace16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(kRadiusMedium),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Group header with total and count
+          Row(
+            children: [
+              Text(
+                'Total',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                _formatUSD(totalValue),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: kSpace8),
+              Text(
+                '(${assets.length})',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: kSpace12),
+          // Asset rows
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: assets.length,
+            itemBuilder: (context, index) =>
+                _buildAssetRow(theme, assets[index]),
+            separatorBuilder: (context, index) => Divider(
+              height: kSpace16,
+              thickness: 1,
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAssetRow(ThemeData theme, AssetSummary asset) {
+    final isPositive = asset.change24h >= 0;
+
+    return Row(
+      children: [
+        // Token icon
+        Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primaryContainer,
+            borderRadius: BorderRadius.circular(kRadiusSmall),
+          ),
+          child: Icon(
+            Icons.monetization_on,
+            color: theme.colorScheme.primary,
+            size: kIconRegular,
+          ),
+        ),
+        const SizedBox(width: kSpace16),
+
+        // Token info
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                asset.tokenName,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: kSpace4),
+              Text(
+                '${_formatAmount(asset.totalBalance.toDouble())} ${asset.tokenSymbol}',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Value and change
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              _formatUSD(asset.usdValue),
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: kSpace4),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: kSpace8,
+                vertical: kSpace4,
+              ),
+              decoration: BoxDecoration(
+                color: (isPositive
+                        ? theme.colorScheme.tertiary
+                        : theme.colorScheme.error)
+                    .withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(kRadiusFull),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isPositive ? Icons.arrow_upward : Icons.arrow_downward,
+                    size: 12,
+                    color: isPositive
+                        ? theme.colorScheme.tertiary
+                        : theme.colorScheme.error,
+                  ),
+                  const SizedBox(width: kSpace4),
+                  Text(
+                    '${isPositive ? '+' : ''}${asset.change24h.toStringAsFixed(1)}%',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: isPositive
+                          ? theme.colorScheme.tertiary
+                          : theme.colorScheme.error,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActivitySectionHeader(ThemeData theme) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          'Recent Activity',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        TextButton.icon(
+          onPressed: () => _showComingSoon('View all transactions'),
+          icon: const Icon(Icons.arrow_forward, size: 18),
+          label: const Text('View all'),
+          style: TextButton.styleFrom(
+            padding: const EdgeInsets.symmetric(
+              horizontal: kSpace12,
+              vertical: kSpace8,
+            ),
           ),
         ),
       ],
@@ -332,131 +858,278 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   }
 
   Widget _buildActivitySection(ThemeData theme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Activity',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: kSpace12),
-        ...[
-          // UTXOs via provider
-          for (final widget in _buildUtxoSection(theme)) widget,
-        ],
-      ],
-    );
-  }
+    final activityAsync = ref.watch(transactionActivityProvider);
 
-  List<Widget> _buildUtxoSection(ThemeData theme) {
-    final utxosAsync = ref.watch(walletUtxosProvider);
-    return [
-      utxosAsync.when(
-        loading: () => Center(
+    return activityAsync.when(
+      loading: () => SliverToBoxAdapter(
+        child: Center(
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: kSpace16),
-            child: SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.5,
-                color: theme.colorScheme.primary,
-              ),
+            padding: const EdgeInsets.all(kSpace32),
+            child: Column(
+              children: [
+                SizedBox(
+                  width: 32,
+                  height: 32,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(height: kSpace16),
+                Text(
+                  'Loading activity...',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
-        error: (e, _) => AppCard.regular(
-          child: Row(
+      ),
+      error: (e, _) => SliverToBoxAdapter(
+        child: Container(
+          padding: const EdgeInsets.all(kSpace24),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.errorContainer.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(kRadiusMedium),
+            border: Border.all(
+              color: theme.colorScheme.error.withValues(alpha: 0.5),
+              width: 1,
+            ),
+          ),
+          child: Column(
             children: [
-              Icon(Icons.error_outline, color: theme.colorScheme.error),
-              const SizedBox(width: kSpace12),
-              Expanded(
-                child: Text(
-                  'Failed to load UTXOs',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurface,
-                  ),
+              Icon(
+                Icons.error_outline,
+                color: theme.colorScheme.error,
+                size: kIconLarge,
+              ),
+              const SizedBox(height: kSpace12),
+              Text(
+                'Failed to load activity',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: theme.colorScheme.error,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: kSpace8),
+              Text(
+                e.toString(),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onErrorContainer,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: kSpace16),
+              OutlinedButton.icon(
+                onPressed: () => ref.invalidate(transactionActivityProvider),
+                icon: const Icon(Icons.refresh, size: 18),
+                label: const Text('Retry'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: theme.colorScheme.error,
+                  side: BorderSide(color: theme.colorScheme.error),
                 ),
               ),
             ],
           ),
         ),
-        data: (items) {
-          if (items.isEmpty) {
-            return AppCard.regular(
-              child: Row(
+      ),
+      data: (items) {
+        if (items.isEmpty) {
+          return SliverToBoxAdapter(
+            child: Container(
+              padding: const EdgeInsets.all(kSpace32),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(kRadiusMedium),
+                border: Border.all(
+                  color:
+                      theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                  width: 1,
+                ),
+              ),
+              child: Column(
                 children: [
-                  Icon(Icons.inbox_outlined,
-                      color: theme.colorScheme.onSurfaceVariant),
-                  const SizedBox(width: kSpace12),
-                  Expanded(
-                    child: Text(
-                      'No UTXOs found',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+                  Icon(
+                    Icons.receipt_long_outlined,
+                    size: 64,
+                    color: theme.colorScheme.onSurfaceVariant
+                        .withValues(alpha: 0.5),
+                  ),
+                  const SizedBox(height: kSpace16),
+                  Text(
+                    'No activity yet',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
                     ),
+                  ),
+                  const SizedBox(height: kSpace8),
+                  Text(
+                    'Your transactions will appear here',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant
+                          .withValues(alpha: 0.8),
+                    ),
+                    textAlign: TextAlign.center,
                   ),
                 ],
               ),
-            );
-          }
-          return Column(
+            ),
+          );
+        }
+
+        return SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
+              final item = items[index];
+              final isLast = index == items.length - 1;
+
+              return Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: kSpace8),
+                    child: _buildActivityRow(theme, item, index),
+                  ),
+                  if (!isLast)
+                    Divider(
+                      height: 0,
+                      thickness: 0.5,
+                      color: theme.colorScheme.outlineVariant
+                          .withValues(alpha: 0.5),
+                    ),
+                ],
+              );
+            },
+            childCount: items.length,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildActivityRow(
+      ThemeData theme, TransactionItem transaction, int index) {
+    // Determine icon and color based on type
+    final isSent = transaction.type == TransactionType.sent;
+    final isPending = transaction.status == TransactionStatus.pending;
+
+    final iconColor =
+        isSent ? theme.colorScheme.primary : theme.colorScheme.tertiary;
+    final iconBgColor = isSent
+        ? theme.colorScheme.primaryContainer
+        : theme.colorScheme.tertiaryContainer;
+
+    // Format amounts
+    String amountStr = '';
+    if (transaction.amounts.isNotEmpty) {
+      final firstAmount = transaction.amounts.first;
+      amountStr = firstAmount.amount.toString();
+      if (firstAmount.tokenId.isNotEmpty) {
+        amountStr += ' ${_shortPk(firstAmount.tokenId)}';
+      }
+    }
+
+    final shortId = _shortHex(transaction.id);
+
+    return Row(
+      children: [
+        // Leading icon
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: iconBgColor,
+            borderRadius: BorderRadius.circular(kRadiusSmall),
+          ),
+          child: Icon(
+            isSent ? Icons.arrow_upward : Icons.arrow_downward,
+            color: iconColor,
+            size: kIconSmall,
+          ),
+        ),
+        const SizedBox(width: kSpace12),
+
+        // Main content
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              for (int i = 0; i < items.length; i++) ...[
-                if (i > 0) const SizedBox(height: kSpace8),
-                AppCard.regular(
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 20,
-                        backgroundColor: theme.colorScheme.primaryContainer,
-                        child: Icon(
-                          Icons.data_object,
-                          color: theme.colorScheme.onPrimaryContainer,
-                          size: kIconSmall,
-                        ),
-                      ),
-                      const SizedBox(width: kSpace16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Builder(
-                              builder: (_) {
-                                final fullHex = _bytesToHex(items[i].commitment.field0);
-                                final short = _shortHex(fullHex);
-                                return Text(
-                                  'Commitment: $short',
-                                  style: theme.textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                );
-                              },
-                            ),
-                            const SizedBox(height: kSpace4),
-                            Text(
-                              'Owned UTXO',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Text(
-                        '',
-                      ),
-                    ],
+              Text(
+                isSent ? 'Sent' : 'Received',
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: kSpace4),
+              if (transaction.recipientAddress != null)
+                Text(
+                  '${isSent ? 'to' : 'from'} ${_shortPk(transaction.recipientAddress!)}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
-              ]
+              if (transaction.recipientAddress == null && _account != null)
+                Text(
+                  isSent
+                      ? 'from your wallet'
+                      : 'to ${_shortAddr(_account!.address)}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              const SizedBox(height: kSpace4),
+              if (amountStr.isNotEmpty)
+                Text(
+                  amountStr,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              if (amountStr.isNotEmpty) const SizedBox(height: kSpace4),
+              if (transaction.fee != null)
+                Text(
+                  'Fee: ${transaction.fee}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              if (transaction.fee != null) const SizedBox(height: kSpace4),
+              Text(
+                'ID: $shortId',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontFamily: 'monospace',
+                ),
+              ),
             ],
-          );
-        },
-      )
-    ];
+          ),
+        ),
+
+        // Trailing state
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: kSpace8,
+            vertical: kSpace4,
+          ),
+          decoration: BoxDecoration(
+            color: isPending
+                ? theme.colorScheme.secondary.withValues(alpha: 0.15)
+                : theme.colorScheme.tertiary.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(kRadiusFull),
+          ),
+          child: Text(
+            isPending ? 'Pending' : 'Confirmed',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: isPending
+                  ? theme.colorScheme.secondary
+                  : theme.colorScheme.tertiary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }

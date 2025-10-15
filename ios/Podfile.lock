@@ -58,7 +58,7 @@ SPEC CHECKSUMS:
   integration_test: 252f60fa39af5e17c3aa9899d35d908a0721b573
   package_info_plus: c0502532a26c7662a62a356cebe2692ec5fe4ec4
   path_provider_foundation: 2b6b4c569c0fb62ec74538f866245ac84301af46
-  rust_lib_crypto_mobile_app: b9e1b48a821e0bab0d49df1a9ef0c5f4b280dc09
+  rust_lib_crypto_mobile_app: fcb6fa5488142b4b505f21ab30f4e06da0d0615e
   Sentry: da60d980b197a46db0b35ea12cb8f39af48d8854
   sentry_flutter: 2df8b0aab7e4aba81261c230cbea31c82a62dd1b
   shared_preferences_foundation: fcdcbc04712aee1108ac7fda236f363274528f78

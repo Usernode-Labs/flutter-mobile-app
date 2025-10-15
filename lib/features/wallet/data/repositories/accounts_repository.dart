@@ -4,8 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:crypto_mobile_app/features/wallet/data/models/account.dart';
 import 'package:crypto_mobile_app/features/wallet/data/models/account_creation_result.dart';
 import 'package:crypto_mobile_app/features/wallet/data/datasources/key_management_service.dart';
-import 'package:bip39/bip39.dart' as bip39;
-import 'package:bip32_bip44/dart_bip32_bip44.dart';
+import 'package:crypto_mobile_app/src/rust/account.dart';
 import 'package:web3dart/credentials.dart';
 import 'package:web3dart/web3dart.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -201,37 +200,31 @@ class AccountsRepository {
     Log.d('ACCOUNTS_REPO', 'importFromMnemonic - start (name: $name, mnemonic word count: $wordCount)');
 
     try {
-      // Derive same as KeyManagementService
-      // Reuse KMS logic by calling createWallet? No, we must use provided mnemonic.
-      // Duplicate minimal logic here to avoid storing mnemonic anywhere.
-      Log.d('ACCOUNTS_REPO', 'Converting mnemonic to seed...');
-      // ignore: depend_on_referenced_packages
-      final String seed = bip39.mnemonicToSeedHex(mnemonic);
-      Log.d('ACCOUNTS_REPO', 'Seed generated successfully (length: ${seed.length})');
+      // Use Rust backend to derive keys from mnemonic
+      Log.d('ACCOUNTS_REPO', 'Calling Rust backend accountFromSeed...');
+      final accountExport = accountFromSeed(
+        phrase: mnemonic.trim(),
+        passphrase: null,
+        index: 0, // Use index 0 for imported accounts
+      );
+      Log.d('ACCOUNTS_REPO', 'Account derived successfully from backend');
 
-      // ignore: depend_on_referenced_packages
-      Log.d('ACCOUNTS_REPO', 'Creating chain from seed...');
-      final Chain chain = Chain.seed(seed);
-      Log.d('ACCOUNTS_REPO', 'Chain created successfully');
+      // Extract keys from AccountExport
+      final privateKey = accountExport.secretKeyHex;
+      final publicKey = accountExport.publicKeyHex;
+      final address = accountExport.publicKeyHashHex; // Use hex format for consistency
 
-      // Use fixed 0 index for imported seed by default
-      Log.d('ACCOUNTS_REPO', 'Deriving private key from path: ${KeyManagementService.pathForPrivateKey}');
-      final ExtendedKey extendedKey = chain.forPath(KeyManagementService.pathForPrivateKey);
-      final privateKey = extendedKey.privateKeyHex();
-      Log.d('ACCOUNTS_REPO', 'Private key derived successfully (length: ${privateKey.length})');
-
-      Log.d('ACCOUNTS_REPO', 'Creating EthPrivateKey and address...');
-      final EthPrivateKey cryptoPrivateKey = EthPrivateKey.fromHex(privateKey);
-      final EthereumAddress cryptoAddress = cryptoPrivateKey.address;
-      Log.d('ACCOUNTS_REPO', 'Address generated: ${cryptoAddress.hex}');
-
-      Log.d('ACCOUNTS_REPO', 'Deriving public key from path: ${KeyManagementService.pathForPublicKey}');
-      final ExtendedKey extendedKeyPublic = chain.forPath(KeyManagementService.pathForPublicKey);
-      final publicKey = extendedKeyPublic.publicKey().toString();
-      Log.d('ACCOUNTS_REPO', 'Public key derived successfully (length: ${publicKey.length})');
+      Log.d('ACCOUNTS_REPO', 'Private key length: ${privateKey.length}');
+      Log.d('ACCOUNTS_REPO', 'Public key length: ${publicKey.length}');
+      Log.d('ACCOUNTS_REPO', 'Address: $address');
 
       Log.d('ACCOUNTS_REPO', 'Calling _persistNew...');
-      final result = await _persistNew(name: name, address: cryptoAddress.hex, publicKey: publicKey, privateKey: privateKey);
+      final result = await _persistNew(
+        name: name,
+        address: address,
+        publicKey: publicKey,
+        privateKey: privateKey,
+      );
       Log.d('ACCOUNTS_REPO', 'importFromMnemonic - success (account id: ${result.id})');
       return result;
     } catch (e, stackTrace) {

@@ -5,6 +5,8 @@ import 'package:bip39/bip39.dart' as bip39;
 import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
+import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
+import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/di/providers.dart';
 
 class ImportSeedPhraseScreen extends ConsumerStatefulWidget {
@@ -87,6 +89,13 @@ class _ImportSeedPhraseScreenState extends ConsumerState<ImportSeedPhraseScreen>
       await Future.delayed(const Duration(milliseconds: 150));
 
       // Check if widget is still mounted before navigation
+      if (!mounted) return;
+
+      // Start backend for newly imported account
+      Log.d('IMPORT_SEED', 'Starting backend for imported account...');
+      final backendStarted = await RustBackendService.instance.startForActiveAccount();
+      Log.d('IMPORT_SEED', 'Backend start result: $backendStarted');
+
       if (!mounted) return;
 
       // Navigate to home - router will handle redirect

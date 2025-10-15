@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:bip39/bip39.dart' as bip39;
+import 'package:crypto_mobile_app/src/rust/account.dart';
+import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/features/onboarding/presentation/screens/create_new_account_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/presentation/screens/import_seed_phrase_screen.dart';
@@ -20,8 +21,11 @@ class _AccountModeSelectionScreenState
   Future<void> _navigateToCreateNew() async {
     setState(() => _generatingMnemonic = true);
     try {
-      // Generate mnemonic before navigating
-      final mnemonic = bip39.generateMnemonic();
+      // Generate mnemonic before navigating using Rust backend
+      Log.d('ONBOARDING', 'Generating seed phrase via Rust backend...');
+      final words = seedPhraseGenerate();
+      final mnemonic = words.join(' ');
+      Log.d('ONBOARDING', 'Seed phrase generated successfully (${words.length} words)');
       if (!mounted) return;
       setState(() => _generatingMnemonic = false);
 
@@ -180,7 +184,7 @@ class _ModeCard extends StatelessWidget {
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                         color: colorScheme.onSurface,
-                      ),
+                      ), 
                     ),
                     const SizedBox(height: 4),
                     Text(

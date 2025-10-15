@@ -74,6 +74,7 @@ Common flags
 - `accountGenerateRandom()` → `AccountExport` - Generate a random account
 - `accountFromSeed({phrase, passphrase?, index?})` → `AccountExport` - Create account from seed phrase
 - `accountSecretFromSeed({phrase, passphrase?, index?})` → `String` - Get secret key from seed phrase
+- `seedPhraseGenerate({wordCount?})` → `List<String>` - Generate BIP39 seed phrase (returns list of words)
 
 **Node Builder** (`lib/src/rust/node/builder.dart`)
 - `NodeBuilder({customRngSeed?})` - Create a new node builder

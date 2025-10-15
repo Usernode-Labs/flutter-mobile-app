@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
+import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
+import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/di/providers.dart';
 
 class ImportPrivateKeyScreen extends ConsumerStatefulWidget {
@@ -84,6 +86,13 @@ class _ImportPrivateKeyScreenState extends ConsumerState<ImportPrivateKeyScreen>
       await Future.delayed(const Duration(milliseconds: 150));
 
       // Check if widget is still mounted before navigation
+      if (!mounted) return;
+
+      // Start backend for newly imported account
+      Log.d('IMPORT_KEY', 'Starting backend for imported account...');
+      final backendStarted = await RustBackendService.instance.startForActiveAccount();
+      Log.d('IMPORT_KEY', 'Backend start result: $backendStarted');
+
       if (!mounted) return;
 
       // Navigate to home - router will handle redirect

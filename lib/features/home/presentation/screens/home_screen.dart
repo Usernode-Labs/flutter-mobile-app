@@ -6,9 +6,11 @@ import 'package:crypto_mobile_app/core/widgets/activity_list_item.dart';
 import 'package:crypto_mobile_app/core/widgets/app_action_button.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
+import 'package:crypto_mobile_app/core/widgets/hero_action_card.dart';
 import 'package:crypto_mobile_app/features/rewards/presentation/controllers/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/core/widgets/won_slot_item.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -23,7 +25,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     super.initState();
     // Refresh epoch rewards when screen loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Log.d('HOME_SCREEN', 'Invalidating epochRewardsUiProvider to trigger refresh');
+      Log.d('HOME_SCREEN',
+          'Invalidating epochRewardsUiProvider to trigger refresh');
       ref.invalidate(epochRewardsUiProvider);
     });
   }
@@ -96,7 +99,103 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
 
-              // Rewards and projection card (moved before Quick Actions)
+              // Hero action cards - horizontal scroll
+              SizedBox(
+                height: 140,
+                child: FutureBuilder<List<dynamic>>(
+                  future:
+                      AccountsRepository.create().then((repo) => repo.list()),
+                  builder: (context, snapshot) {
+                    final accounts = snapshot.data ?? [];
+                    final activeAccount =
+                        accounts.isNotEmpty ? accounts.first : null;
+                    final isIdentityVerified =
+                        activeAccount?.identityVerified ?? false;
+                    final cardWidth = MediaQuery.of(context).size.width * 0.8;
+
+                    return ListView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
+                      children: [
+                        // Identity verification card - dynamic based on status
+                        HeroActionCard(
+                          width: cardWidth,
+                          icon: isIdentityVerified
+                              ? Icons.verified_user
+                              : Icons.badge,
+                          title: isIdentityVerified
+                              ? 'Identity Verified ✓'
+                              : 'Boost Your Tier',
+                          subtitle: isIdentityVerified
+                              ? 'Update your verification to maintain benefits'
+                              : 'Verify your identity to unlock premium features',
+                          gradientColors: isIdentityVerified
+                              ? [
+                                  const Color(0xFF6EE7B7), // Much lighter green
+                                  const Color(0xFF34D399),
+                                ]
+                              : [
+                                  Color.lerp(
+                                      colorScheme.primary, Colors.white, 0.4)!,
+                                  Color.lerp(
+                                      colorScheme.primary, Colors.white, 0.1)!,
+                                ],
+                          onTap: () {
+                            if (activeAccount != null) {
+                              context.go(
+                                  '/identity-verification?accountId=${activeAccount.id}');
+                            }
+                          },
+                        ),
+
+                        // Lock tokens for yield card
+                        HeroActionCard(
+                          width: cardWidth,
+                          icon: Icons.lock,
+                          title: 'Lock for Rewards',
+                          subtitle:
+                              'Lock USDC and tokens for yield and participation bonuses',
+                          gradientColors: const [
+                            Color(0xFFC4B5FD), // Much lighter purple
+                            Color(0xFFA78BFA),
+                          ],
+                          onTap: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text('Token locking coming soon')),
+                            );
+                          },
+                        ),
+
+                        // Invite friends card
+                        HeroActionCard(
+                          width: cardWidth,
+                          icon: Icons.people,
+                          title: 'Invite Friends',
+                          subtitle:
+                              'Share the app and earn rewards for each referral',
+                          gradientColors: const [
+                            Color(0xFFFCD34D), // Much lighter orange/yellow
+                            Color(0xFFFBBF24),
+                          ],
+                          onTap: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content:
+                                      Text('Referral program coming soon')),
+                            );
+                          },
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+
+              const SizedBox(height: 6),
+
+              // Rewards and projection card
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Container(
@@ -163,6 +262,105 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
 
               const SizedBox(height: 24),
+
+              // Recent Activity section
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  'Recent Activity',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // Activity item
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: ActivityListItem(
+                  icon: Icons.verified_user,
+                  title: 'Identity verified',
+                  trailing: '+50 points',
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Second activity item for visual balance
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: ActivityListItem(
+                  key: const ValueKey('activity-bridge'),
+                  icon: Icons.swap_horiz,
+                  title: 'Bridge deposit completed',
+                  trailing: '+1.5x bonus',
+                ),
+              ),
+
+              const SizedBox(height: 28),
+
+              // Upcoming Won Slots (using same provider as rewards card)
+              Consumer(builder: (ctx, ref, _) {
+                final rewardsUiAsync = ref.watch(epochRewardsUiProvider);
+                return rewardsUiAsync.when(
+                  loading: () => const SizedBox.shrink(),
+                  error: (e, st) => const SizedBox.shrink(),
+                  data: (ui) {
+                    final wonSlots = ui?.snapshot?.wonSlots;
+                    if (wonSlots == null || wonSlots.isEmpty) {
+                      return const SizedBox.shrink();
+                    }
+                    final now = DateTime.now().toUtc();
+                    final upcoming = wonSlots
+                        .where((slot) => DateTime.fromMillisecondsSinceEpoch(
+                                slot.expectedTimeMs.toInt(),
+                                isUtc: true)
+                            .isAfter(now))
+                        .take(3)
+                        .toList();
+                    if (upcoming.isEmpty) return const SizedBox.shrink();
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Upcoming Slots',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  color: colorScheme.onSurface,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () => context.push('/rewards'),
+                                child: Text('View All',
+                                    style:
+                                        TextStyle(color: colorScheme.primary)),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        ...upcoming.map((slot) => Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
+                              child: WonSlotItem(
+                                slot: slot,
+                                status: SlotStatus.pending,
+                                isCompact: true,
+                              ),
+                            )),
+                        const SizedBox(height: 28),
+                      ],
+                    );
+                  },
+                );
+              }),
 
               // Quick Actions Grid
               Padding(
@@ -255,105 +453,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
 
-              const SizedBox(height: 28),
-
-              // Upcoming Won Slots (using same provider as rewards card)
-              Consumer(builder: (ctx, ref, _) {
-                final rewardsUiAsync = ref.watch(epochRewardsUiProvider);
-                return rewardsUiAsync.when(
-                  loading: () => const SizedBox.shrink(),
-                  error: (e, st) => const SizedBox.shrink(),
-                  data: (ui) {
-                    final wonSlots = ui?.snapshot?.wonSlots;
-                    if (wonSlots == null || wonSlots.isEmpty) {
-                      return const SizedBox.shrink();
-                    }
-                    final now = DateTime.now().toUtc();
-                    final upcoming = wonSlots
-                        .where((slot) => DateTime.fromMillisecondsSinceEpoch(
-                                slot.expectedTimeMs.toInt(),
-                                isUtc: true)
-                            .isAfter(now))
-                        .take(3)
-                        .toList();
-                    if (upcoming.isEmpty) return const SizedBox.shrink();
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Upcoming Slots',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  color: colorScheme.onSurface,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              TextButton(
-                                onPressed: () => context.push('/rewards'),
-                                child: Text('View All',
-                                    style:
-                                        TextStyle(color: colorScheme.primary)),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        ...upcoming.map((slot) => Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 16),
-                              child: WonSlotItem(
-                                slot: slot,
-                                status: SlotStatus.pending,
-                                isCompact: true,
-                              ),
-                            )),
-                        const SizedBox(height: 28),
-                      ],
-                    );
-                  },
-                );
-              }),
-
-              // Recent Activity section
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  'Recent Activity',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              // Activity item
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: ActivityListItem(
-                  icon: Icons.verified_user,
-                  title: 'Identity verified',
-                  trailing: '+50 points',
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // Second activity item for visual balance
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: ActivityListItem(
-                  key: const ValueKey('activity-bridge'),
-                  icon: Icons.swap_horiz,
-                  title: 'Bridge deposit completed',
-                  trailing: '+1.5x bonus',
-                ),
-              ),
-
               const SizedBox(height: 32),
             ],
           ),
@@ -377,15 +476,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     BigInt? rewardPerBlock;
     if (snapshot != null) {
       try {
-        Log.d('HOME_SCREEN', 'Snapshot earnedSoFar raw: ${snapshot.earnedSoFar}');
-        Log.d('HOME_SCREEN', 'Snapshot expectedTotal raw: ${snapshot.expectedTotal}');
+        Log.d(
+            'HOME_SCREEN', 'Snapshot earnedSoFar raw: ${snapshot.earnedSoFar}');
+        Log.d('HOME_SCREEN',
+            'Snapshot expectedTotal raw: ${snapshot.expectedTotal}');
         earned = BigInt.parse(snapshot.earnedSoFar as String);
         expected = BigInt.parse(snapshot.expectedTotal as String);
         epoch = snapshot.epoch as int;
         produced = snapshot.producedInEpoch as int;
         wins = snapshot.winsInEpoch as int;
         rewardPerBlock = BigInt.parse(snapshot.rewardPerBlock as String);
-        Log.d('HOME_SCREEN', 'Parsed earned: $earned, expected: $expected, epoch: $epoch');
+        Log.d('HOME_SCREEN',
+            'Parsed earned: $earned, expected: $expected, epoch: $epoch');
       } catch (e) {
         Log.e('HOME_SCREEN', 'Error parsing snapshot', e, StackTrace.current);
       }

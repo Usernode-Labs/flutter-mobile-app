@@ -2,11 +2,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:crypto_mobile_app/features/wallet/data/models/account.dart';
-import 'package:crypto_mobile_app/features/wallet/data/models/account_creation_result.dart';
-import 'package:crypto_mobile_app/features/wallet/data/datasources/key_management_service.dart';
 import 'package:crypto_mobile_app/src/rust/account.dart';
-import 'package:web3dart/credentials.dart';
-import 'package:web3dart/web3dart.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 
 class AccountsRepository {
@@ -16,15 +12,13 @@ class AccountsRepository {
 
   final FlutterSecureStorage _secure;
   final SharedPreferences _prefs;
-  final KeyManagementService _kms;
 
-  AccountsRepository._(this._secure, this._prefs, this._kms);
+  AccountsRepository._(this._secure, this._prefs);
 
   static Future<AccountsRepository> create() async {
     final prefs = await SharedPreferences.getInstance();
     const secure = FlutterSecureStorage();
-    final kms = KeyManagementService();
-    return AccountsRepository._(secure, prefs, kms);
+    return AccountsRepository._(secure, prefs);
   }
 
   Future<bool> hasAny() async {
@@ -74,69 +68,6 @@ class AccountsRepository {
     }
   }
 
-  /// Creates a new account using KMS. Returns the full result including mnemonic
-  /// for display. Mnemonic is NOT persisted; only non-sensitive parts are saved.
-  Future<AccountCreationResult> createNew({
-    required String name,
-  }) async {
-    final index = (await list()).length; // next hd index
-    final gen = await _kms.createWallet();
-
-    final success = gen.isNotEmpty && gen.first == true;
-    if (!success) {
-      final err = gen.length > 1 ? gen[1].toString() : 'unknown error';
-      return AccountCreationResult(
-        mnemonic: '',
-        privateKey: '',
-        publicKey: '',
-        address: '',
-        hdIndex: index,
-        success: false,
-        error: err,
-      );
-    }
-
-    final mnemonic = gen[1] as String;
-    final privateKey = gen[2] as String;
-    final publicKey = gen[3] as String;
-    final address = gen[4] as String;
-
-    final id = _makeId(address, index);
-    final meta = AccountMeta(
-      id: id,
-      name: name,
-      createdAt: DateTime.now(),
-      derivationPath: '$_kPathPrefix$index',
-      hdIndex: index,
-      address: address,
-      publicKey: publicKey,
-      backupConfirmed: false,
-    );
-
-    // Persist sensitive (no mnemonic)
-    await _secure.write(key: 'account:$id:privateKey', value: privateKey);
-    await _secure.write(key: 'account:$id:publicKey', value: publicKey);
-    await _secure.write(key: 'account:$id:address', value: address);
-    await _secure.write(key: 'account:$id:hdIndex', value: index.toString());
-
-    // Persist index
-    final items = await list();
-    final next = [...items, meta];
-    await _saveIndex(next);
-    await setActiveId(id);
-
-    // Return full result for immediate display only
-    return AccountCreationResult(
-      mnemonic: mnemonic,
-      privateKey: privateKey,
-      publicKey: publicKey,
-      address: address,
-      hdIndex: index,
-      success: true,
-      error: null,
-    );
-  }
-
   Future<void> markBackupConfirmed(String id) async {
     final items = await list();
     final idx = items.indexWhere((e) => e.id == id);
@@ -144,6 +75,41 @@ class AccountsRepository {
     final updated = [...items];
     updated[idx] = updated[idx].copyWith(backupConfirmed: true);
     await _saveIndex(updated);
+  }
+
+  /// Update identity verification status for an account
+  Future<void> updateIdentityVerification(String accountId, {required bool verified}) async {
+    Log.d('ACCOUNTS_REPO', 'updateIdentityVerification - accountId: $accountId, verified: $verified');
+
+    final items = await list();
+    final idx = items.indexWhere((e) => e.id == accountId);
+    if (idx < 0) {
+      Log.e('ACCOUNTS_REPO', 'Account not found: $accountId');
+      return;
+    }
+
+    final updated = [...items];
+    updated[idx] = updated[idx].copyWith(
+      identityVerified: verified,
+      identityVerifiedAt: verified ? DateTime.now() : null,
+    );
+    await _saveIndex(updated);
+
+    // Store in secure storage
+    await _secure.write(
+      key: 'account:$accountId:identityVerified',
+      value: verified.toString(),
+    );
+    if (verified) {
+      await _secure.write(
+        key: 'account:$accountId:identityVerifiedAt',
+        value: DateTime.now().toIso8601String(),
+      );
+    } else {
+      await _secure.delete(key: 'account:$accountId:identityVerifiedAt');
+    }
+
+    Log.d('ACCOUNTS_REPO', 'Identity verification updated successfully');
   }
 
   Future<void> rename(String id, String name) async {
@@ -233,26 +199,6 @@ class AccountsRepository {
     }
   }
 
-  /// Import an account from a raw private key (hex). Mnemonic is not applicable.
-  Future<AccountMeta?> importFromPrivateKey({
-    required String name,
-    required String privateKey,
-  }) async {
-    try {
-      final EthPrivateKey cryptoPrivateKey = EthPrivateKey.fromHex(privateKey);
-      final EthereumAddress cryptoAddress = cryptoPrivateKey.address;
-      // Public key derivation from private key may not be available directly; set to placeholder if needed
-      final publicKey = '';
-      return await _persistNew(
-        name: name,
-        address: cryptoAddress.hex,
-        publicKey: publicKey,
-        privateKey: privateKey,
-      );
-    } catch (_) {
-      return null;
-    }
-  }
 
   Future<AccountMeta> _persistNew({
     required String name,

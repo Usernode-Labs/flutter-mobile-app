@@ -72,6 +72,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return '$start…$end';
   }
 
+  String _formatDateTime(DateTime dateTime) {
+    return '${dateTime.day}/${dateTime.month}/${dateTime.year} at ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+  }
+
   Color _accountColor(ThemeData theme, String addr) {
     final palette = [
       theme.colorScheme.primary,
@@ -187,34 +191,91 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   theme: theme,
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.check_circle,
-                              color: colorScheme.primary,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Identity Verified',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
+                    child: _account != null && _account!.identityVerified
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.check_circle,
+                                    color: colorScheme.primary,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Identity Verified',
+                                    style: theme.textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Your identity has been successfully verified',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurface.withValues(alpha: 0.6),
+                              const SizedBox(height: 8),
+                              Text(
+                                _account!.identityVerifiedAt != null
+                                    ? 'Verified on ${_formatDateTime(_account!.identityVerifiedAt!)}'
+                                    : 'Your identity has been successfully verified',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurface.withValues(alpha: 0.6),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton.icon(
+                                  onPressed: () {
+                                    if (_account != null) {
+                                      context.go('/identity-verification?accountId=${_account!.id}');
+                                    }
+                                  },
+                                  icon: const Icon(Icons.refresh, size: 18),
+                                  label: const Text('Update Verification'),
+                                ),
+                              ),
+                            ],
+                          )
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.warning_amber_rounded,
+                                    color: colorScheme.error,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Not Verified',
+                                    style: theme.textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Verify your identity to unlock additional features',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurface.withValues(alpha: 0.6),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              SizedBox(
+                                width: double.infinity,
+                                child: FilledButton.icon(
+                                  onPressed: () {
+                                    if (_account != null) {
+                                      context.go('/identity-verification?accountId=${_account!.id}');
+                                    }
+                                  },
+                                  icon: const Icon(Icons.verified_user, size: 18),
+                                  label: const Text('Verify Identity'),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
-                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -588,26 +649,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Future<void> _deleteAccount() async {
     try {
-      // Step 1: Stop the Rust backend node to release all account references
-      Log.d('PROFILE', 'Stopping backend node before account deletion');
-      await RustBackendService.instance.stopNode();
-
-      // Step 2: Clear any instance-specific data
-      RustBackendService.instance.setInstanceId('');
-
-      // Step 3: Delete ALL accounts from storage (complete reset)
+      // Delete ALL accounts from storage (complete reset)
       final repo = await AccountsRepository.create();
       Log.d('PROFILE', 'Deleting ALL accounts');
       await repo.deleteAll();
 
       if (!mounted) return;
 
-      // Step 4: Invalidate the provider
+      // Invalidate the provider (backend will stop automatically via backendLifecycleProvider)
       Log.d('PROFILE', 'Invalidating hasAnyAccountProvider');
       ref.invalidate(hasAnyAccountProvider);
 
-      // Step 5: Wait for next frame before navigating to avoid race condition
-      // with GoRouterRefreshStream listener
+      // Wait for next frame before navigating to avoid race condition
       Log.d('PROFILE', 'Waiting for next frame...');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;

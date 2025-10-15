@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bip39/bip39.dart' as bip39;
 import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
-import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
-import 'package:crypto_mobile_app/core/di/providers.dart';
+import 'package:crypto_mobile_app/src/rust/account.dart';
+import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
 
 class ImportSeedPhraseScreen extends ConsumerStatefulWidget {
   const ImportSeedPhraseScreen({super.key});
@@ -37,11 +36,19 @@ class _ImportSeedPhraseScreenState extends ConsumerState<ImportSeedPhraseScreen>
 
   void _validateSeed() {
     final phrase = _normalizeMnemonic(_seedCtrl.text);
-    bool valid = phrase.isNotEmpty && bip39.validateMnemonic(phrase);
+    bool valid = false;
     String? error;
-    if (_seedCtrl.text.trim().isNotEmpty && !valid) {
-      error = 'Invalid BIP39 seed phrase';
+
+    if (phrase.isNotEmpty) {
+      try {
+        // Validate by attempting to derive account from seed using Rust backend
+        accountFromSeed(phrase: phrase, passphrase: null, index: 0);
+        valid = true;
+      } catch (e) {
+        error = 'Invalid BIP39 seed phrase';
+      }
     }
+
     setState(() {
       _seedValid = valid;
       _seedError = error;
@@ -82,22 +89,21 @@ class _ImportSeedPhraseScreenState extends ConsumerState<ImportSeedPhraseScreen>
         return;
       }
 
-      // Invalidate the account provider so router sees the new account
-      ref.invalidate(hasAnyAccountProvider);
+      Log.d('IMPORT_SEED', 'Import successful, starting backend');
 
-      // Start backend immediately (doesn't require widget to be mounted)
-      Log.d('IMPORT_SEED', 'Starting backend for imported account...');
-      final backendStarted = await RustBackendService.instance.startForActiveAccount();
-      Log.d('IMPORT_SEED', 'Backend start result: $backendStarted');
+      // Start backend for new account
+      try {
+        await RustBackendService.instance.startForActiveAccount();
+        Log.d('IMPORT_SEED', 'Backend started successfully');
+      } catch (e) {
+        Log.e('IMPORT_SEED', 'Failed to start backend', e);
+      }
 
-      // Small delay to ensure provider refreshes before navigation
-      await Future.delayed(const Duration(milliseconds: 150));
-
-      // Check if widget is still mounted before navigation
+      // Navigate to identity verification screen
+      // Provider will be invalidated when user proceeds/skips verification
+      // This prevents router redirect race condition
       if (!mounted) return;
-
-      // Navigate to home - router will handle redirect
-      context.go('/main/home');
+      context.go('/identity-verification?accountId=${result.id}');
     } catch (e) {
       if (!mounted) return;
       setState(() => _processing = false);

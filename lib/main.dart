@@ -78,6 +78,10 @@ class CryptoMobileApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
     final themeMode = ref.watch(themeModeProvider);
+
+    // Initialize backend lifecycle manager
+    ref.watch(backendLifecycleProvider);
+
     return MaterialApp.router(
       onGenerateTitle: (ctx) => AppLocalizations.of(ctx).appName,
       theme: MaterialTheme(ThemeData.light().textTheme).light(),

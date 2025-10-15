@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import 'package:crypto_mobile_app/features/splash/presentation/screens/splash_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/presentation/screens/account_mode_selection_screen.dart';
+import 'package:crypto_mobile_app/features/onboarding/presentation/screens/create_new_account_screen.dart';
+import 'package:crypto_mobile_app/features/onboarding/presentation/screens/import_seed_phrase_screen.dart';
+import 'package:crypto_mobile_app/features/onboarding/presentation/screens/identity_verification_screen.dart';
 import 'package:crypto_mobile_app/app/main_app.dart';
 import 'package:crypto_mobile_app/features/home/presentation/screens/home_screen.dart';
 import 'package:crypto_mobile_app/features/node/presentation/screens/node_status_screen.dart';
@@ -70,6 +73,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.onboarding,
         builder: (context, state) => const AccountModeSelectionScreen(),
+      ),
+      GoRoute(
+        path: '/create-new-account',
+        builder: (context, state) {
+          final mnemonic = state.uri.queryParameters['mnemonic'] ?? '';
+          return CreateNewAccountScreen(mnemonic: mnemonic);
+        },
+      ),
+      GoRoute(
+        path: '/import-seed-phrase',
+        builder: (context, state) => const ImportSeedPhraseScreen(),
+      ),
+      GoRoute(
+        path: '/identity-verification',
+        builder: (context, state) {
+          final accountId = state.uri.queryParameters['accountId'];
+          return IdentityVerificationScreen(accountId: accountId);
+        },
       ),
       GoRoute(
         path: '/settings',
@@ -167,8 +188,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           Log.d('ROUTER', 'Redirecting splash to onboarding');
           return AppRoutes.onboarding;
         }
-        // Allow onboarding
-        if (currentLocation == AppRoutes.onboarding) {
+        // Allow onboarding and account setup routes
+        if (currentLocation == AppRoutes.onboarding ||
+            currentLocation == '/create-new-account' ||
+            currentLocation == '/import-seed-phrase' ||
+            currentLocation == '/identity-verification') {
           Log.d('ROUTER', 'Allowing onboarding route');
           return null;
         }
@@ -179,6 +203,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       // Account exists
       Log.d('ROUTER', 'Account exists');
+
+      // Allow identity verification and account setup during onboarding flow
+      if (currentLocation == '/identity-verification' ||
+          currentLocation == '/create-new-account' ||
+          currentLocation == '/import-seed-phrase') {
+        Log.d('ROUTER', 'Allowing onboarding flow route');
+        return null;
+      }
+
       // Redirect from splash and onboarding to home if user already has an account
       if (currentLocation == AppRoutes.splash ||
           currentLocation == AppRoutes.onboarding) {

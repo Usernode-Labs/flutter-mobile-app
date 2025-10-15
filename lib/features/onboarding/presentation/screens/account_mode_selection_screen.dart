@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/src/rust/account.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
-import 'package:crypto_mobile_app/features/onboarding/presentation/screens/create_new_account_screen.dart';
-import 'package:crypto_mobile_app/features/onboarding/presentation/screens/import_seed_phrase_screen.dart';
-import 'package:crypto_mobile_app/features/onboarding/presentation/screens/import_private_key_screen.dart';
 
 class AccountModeSelectionScreen extends StatefulWidget {
   const AccountModeSelectionScreen({super.key});
@@ -29,11 +27,9 @@ class _AccountModeSelectionScreenState
       if (!mounted) return;
       setState(() => _generatingMnemonic = false);
 
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => CreateNewAccountScreen(mnemonic: mnemonic),
-        ),
-      );
+      // Navigate using GoRouter with mnemonic as URL parameter
+      final encodedMnemonic = Uri.encodeComponent(mnemonic);
+      context.go('/create-new-account?mnemonic=$encodedMnemonic');
     } catch (e) {
       if (!mounted) return;
       setState(() => _generatingMnemonic = false);
@@ -44,19 +40,7 @@ class _AccountModeSelectionScreenState
   }
 
   void _navigateToImportSeed() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const ImportSeedPhraseScreen(),
-      ),
-    );
-  }
-
-  void _navigateToImportKey() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const ImportPrivateKeyScreen(),
-      ),
-    );
+    context.go('/import-seed-phrase');
   }
 
   @override
@@ -112,14 +96,6 @@ class _AccountModeSelectionScreenState
                   title: 'Import from Seed Phrase',
                   subtitle: 'Restore your wallet using your existing 12 or 24-word recovery phrase.',
                   onTap: _navigateToImportSeed,
-                ),
-                const SizedBox(height: 12),
-
-                _ModeCard(
-                  icon: Icons.vpn_key_outlined,
-                  title: 'Import from Private Key',
-                  subtitle: 'Restore your wallet using your private key.',
-                  onTap: _navigateToImportKey,
                 ),
               ],
             ),

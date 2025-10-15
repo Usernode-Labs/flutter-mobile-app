@@ -95,7 +95,8 @@ class WalletAssetsController extends AsyncNotifier<List<AssetSummary>> {
             final tokenId = assetJson['token_id'] as String;
             final balance = BigInt.from(assetJson['balance'] as int);
 
-            balancesByToken[tokenId] = (balancesByToken[tokenId] ?? BigInt.zero) + balance;
+            balancesByToken[tokenId] =
+                (balancesByToken[tokenId] ?? BigInt.zero) + balance;
             Log.d('ASSETS', '    Asset: tokenId=$tokenId, balance=$balance');
           }
         } catch (e) {
@@ -148,12 +149,12 @@ class WalletAssetsController extends AsyncNotifier<List<AssetSummary>> {
     // Mock price data for now
     // TODO: Replace with actual price feed integration
     final mockPrices = {
-      'default': 1.50,
+      'default': 0.001,
       '0x0000000000000000000000000000000000000000000000000000000000000000':
-          1.50,
+          0.001,
     };
 
-    final pricePerToken = mockPrices[tokenId] ?? 0.0;
+    final pricePerToken = mockPrices[tokenId] ?? 0.001;
     final balanceAsDouble = balance.toDouble();
 
     return balanceAsDouble * pricePerToken;

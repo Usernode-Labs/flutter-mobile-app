@@ -3,9 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
-import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
-import 'package:crypto_mobile_app/core/di/providers.dart';
+import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
 
 class CreateNewAccountScreen extends ConsumerStatefulWidget {
   final String mnemonic;
@@ -66,30 +65,21 @@ class _CreateNewAccountScreenState
         return;
       }
 
-      Log.d('CREATE_ACCOUNT',
-          'Import successful, invalidating hasAnyAccountProvider...');
-      // Invalidate the account provider so router sees the new account
-      ref.invalidate(hasAnyAccountProvider);
+      Log.d('CREATE_ACCOUNT', 'Import successful, starting backend');
 
-      // Start backend immediately (doesn't require widget to be mounted)
-      Log.d('CREATE_ACCOUNT', 'Starting backend for new account...');
-      final backendStarted =
-          await RustBackendService.instance.startForActiveAccount();
-      Log.d('CREATE_ACCOUNT', 'Backend start result: $backendStarted');
-
-      // Small delay to ensure provider refreshes before navigation
-      await Future.delayed(const Duration(milliseconds: 150));
-
-      // Check if widget is still mounted before navigation
-      if (!mounted) {
-        Log.d('CREATE_ACCOUNT',
-            'Widget unmounted during delay, router likely already redirected');
-        return;
+      // Start backend for new account
+      try {
+        await RustBackendService.instance.startForActiveAccount();
+        Log.d('CREATE_ACCOUNT', 'Backend started successfully');
+      } catch (e) {
+        Log.e('CREATE_ACCOUNT', 'Failed to start backend', e);
       }
 
-      Log.d('CREATE_ACCOUNT', 'Provider invalidated, navigating to /main/home');
-      // Navigate to home - router will handle redirect
-      context.go('/main/home');
+      // Navigate to identity verification screen
+      // Provider will be invalidated when user proceeds/skips verification
+      // This prevents router redirect race condition
+      if (!mounted) return;
+      context.go('/identity-verification?accountId=${result.id}');
       Log.d('CREATE_ACCOUNT', 'Navigation triggered');
     } catch (e, stackTrace) {
       Log.e(

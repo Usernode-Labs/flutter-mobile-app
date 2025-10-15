@@ -8,6 +8,7 @@ import 'package:bip39/bip39.dart' as bip39;
 import 'package:bip32_bip44/dart_bip32_bip44.dart';
 import 'package:web3dart/credentials.dart';
 import 'package:web3dart/web3dart.dart';
+import 'package:crypto_mobile_app/core/utils/logger.dart';
 
 class AccountsRepository {
   static const _kIndexKey = 'accounts:index';
@@ -28,19 +29,29 @@ class AccountsRepository {
   }
 
   Future<bool> hasAny() async {
+    Log.d('ACCOUNTS_REPO', 'hasAny() called');
     final items = await list();
-    return items.isNotEmpty;
+    final result = items.isNotEmpty;
+    Log.d('ACCOUNTS_REPO', 'hasAny() = $result (found ${items.length} accounts)');
+    return result;
   }
 
   Future<List<AccountMeta>> list() async {
     final raw = _prefs.getString(_kIndexKey);
-    if (raw == null || raw.isEmpty) return [];
+    Log.d('ACCOUNTS_REPO', 'list() - raw from SharedPreferences: ${raw?.substring(0, raw.length > 100 ? 100 : raw.length)}${(raw?.length ?? 0) > 100 ? "..." : ""}');
+    if (raw == null || raw.isEmpty) {
+      Log.d('ACCOUNTS_REPO', 'list() - no accounts found (raw is null or empty)');
+      return [];
+    }
     try {
       final decoded = jsonDecode(raw) as List<dynamic>;
-      return decoded
+      final accounts = decoded
           .map((e) => AccountMeta.fromJson(e as Map<String, dynamic>))
           .toList(growable: false);
-    } catch (_) {
+      Log.d('ACCOUNTS_REPO', 'list() - parsed ${accounts.length} accounts: ${accounts.map((a) => a.id).toList()}');
+      return accounts;
+    } catch (e) {
+      Log.e('ACCOUNTS_REPO', 'list() - failed to parse accounts', e, StackTrace.current);
       return [];
     }
   }
@@ -186,24 +197,45 @@ class AccountsRepository {
     required String name,
     required String mnemonic,
   }) async {
+    final wordCount = mnemonic.trim().split(RegExp(r'\s+')).length;
+    Log.d('ACCOUNTS_REPO', 'importFromMnemonic - start (name: $name, mnemonic word count: $wordCount)');
+
     try {
       // Derive same as KeyManagementService
       // Reuse KMS logic by calling createWallet? No, we must use provided mnemonic.
       // Duplicate minimal logic here to avoid storing mnemonic anywhere.
+      Log.d('ACCOUNTS_REPO', 'Converting mnemonic to seed...');
       // ignore: depend_on_referenced_packages
       final String seed = bip39.mnemonicToSeedHex(mnemonic);
+      Log.d('ACCOUNTS_REPO', 'Seed generated successfully (length: ${seed.length})');
+
       // ignore: depend_on_referenced_packages
+      Log.d('ACCOUNTS_REPO', 'Creating chain from seed...');
       final Chain chain = Chain.seed(seed);
+      Log.d('ACCOUNTS_REPO', 'Chain created successfully');
+
       // Use fixed 0 index for imported seed by default
+      Log.d('ACCOUNTS_REPO', 'Deriving private key from path: ${KeyManagementService.pathForPrivateKey}');
       final ExtendedKey extendedKey = chain.forPath(KeyManagementService.pathForPrivateKey);
       final privateKey = extendedKey.privateKeyHex();
+      Log.d('ACCOUNTS_REPO', 'Private key derived successfully (length: ${privateKey.length})');
+
+      Log.d('ACCOUNTS_REPO', 'Creating EthPrivateKey and address...');
       final EthPrivateKey cryptoPrivateKey = EthPrivateKey.fromHex(privateKey);
       final EthereumAddress cryptoAddress = cryptoPrivateKey.address;
+      Log.d('ACCOUNTS_REPO', 'Address generated: ${cryptoAddress.hex}');
+
+      Log.d('ACCOUNTS_REPO', 'Deriving public key from path: ${KeyManagementService.pathForPublicKey}');
       final ExtendedKey extendedKeyPublic = chain.forPath(KeyManagementService.pathForPublicKey);
       final publicKey = extendedKeyPublic.publicKey().toString();
+      Log.d('ACCOUNTS_REPO', 'Public key derived successfully (length: ${publicKey.length})');
 
-      return await _persistNew(name: name, address: cryptoAddress.hex, publicKey: publicKey, privateKey: privateKey);
-    } catch (_) {
+      Log.d('ACCOUNTS_REPO', 'Calling _persistNew...');
+      final result = await _persistNew(name: name, address: cryptoAddress.hex, publicKey: publicKey, privateKey: privateKey);
+      Log.d('ACCOUNTS_REPO', 'importFromMnemonic - success (account id: ${result.id})');
+      return result;
+    } catch (e, stackTrace) {
+      Log.e('ACCOUNTS_REPO', 'importFromMnemonic - FAILED with exception', e, stackTrace);
       return null;
     }
   }
@@ -235,9 +267,16 @@ class AccountsRepository {
     required String publicKey,
     required String privateKey,
   }) async {
+    Log.d('ACCOUNTS_REPO', '_persistNew - start (name: $name, address: $address)');
+
+    Log.d('ACCOUNTS_REPO', 'Retrieving current account list...');
     final current = await list();
+    Log.d('ACCOUNTS_REPO', 'Current account count: ${current.length}');
+
     final index = current.length;
     final id = _makeId(address, index);
+    Log.d('ACCOUNTS_REPO', 'Generated account ID: $id (index: $index)');
+
     final meta = AccountMeta(
       id: id,
       name: name,
@@ -248,15 +287,24 @@ class AccountsRepository {
       publicKey: publicKey,
       backupConfirmed: true, // Imported accounts assumed backed up by user
     );
+    Log.d('ACCOUNTS_REPO', 'AccountMeta created');
 
+    Log.d('ACCOUNTS_REPO', 'Writing to secure storage (4 keys)...');
     await _secure.write(key: 'account:$id:privateKey', value: privateKey);
     await _secure.write(key: 'account:$id:publicKey', value: publicKey);
     await _secure.write(key: 'account:$id:address', value: address);
     await _secure.write(key: 'account:$id:hdIndex', value: index.toString());
+    Log.d('ACCOUNTS_REPO', 'Secure storage writes complete');
 
     final next = [...current, meta];
+    Log.d('ACCOUNTS_REPO', 'Saving account index (total accounts: ${next.length})...');
     await _saveIndex(next);
+    Log.d('ACCOUNTS_REPO', 'Index saved successfully');
+
+    Log.d('ACCOUNTS_REPO', 'Setting active account ID to: $id');
     await setActiveId(id);
+    Log.d('ACCOUNTS_REPO', '_persistNew - complete (id: $id)');
+
     return meta;
   }
 

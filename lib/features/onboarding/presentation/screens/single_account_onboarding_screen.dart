@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:bip39/bip39.dart' as bip39;
+import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
-import 'package:crypto_mobile_app/app/main_app.dart';
 import 'package:crypto_mobile_app/gen_l10n/app_localizations.dart';
-import 'package:crypto_mobile_app/core/feature_flags.dart';
 
 enum AccountCreationMode {
   createNew,
@@ -24,6 +23,7 @@ class SingleAccountOnboardingScreen extends StatefulWidget {
 class _SingleAccountOnboardingScreenState
     extends State<SingleAccountOnboardingScreen> {
   AccountCreationMode _mode = AccountCreationMode.createNew;
+  bool _modeSelected = false;
 
   // Create new mode
   bool _generating = false;
@@ -157,12 +157,10 @@ class _SingleAccountOnboardingScreenState
       }
 
       if (!mounted) return;
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (_) => const MainApp(initialFeature: AppFeature.wallet),
-        ),
-        (_) => false,
-      );
+
+      // Use GoRouter for navigation - router will automatically redirect to home
+      // because hasAnyAccountProvider will now return true
+      context.go('/main/home');
     } catch (e) {
       if (!mounted) return;
       setState(() => _processing = false);
@@ -183,6 +181,7 @@ class _SingleAccountOnboardingScreenState
         appBar: const AppAppBar(
           title: 'Account Setup',
           automaticallyImplyLeading: false,
+          showNotifications: false,
         ),
         body: SafeArea(
           child: SingleChildScrollView(
@@ -205,7 +204,10 @@ class _SingleAccountOnboardingScreenState
                   subtitle: 'Generate a new recovery phrase',
                   isSelected: _mode == AccountCreationMode.createNew,
                   recommended: true,
-                  onTap: () => setState(() => _mode = AccountCreationMode.createNew),
+                  onTap: () => setState(() {
+                    _mode = AccountCreationMode.createNew;
+                    _modeSelected = true;
+                  }),
                 ),
                 const SizedBox(height: 12),
 
@@ -214,7 +216,10 @@ class _SingleAccountOnboardingScreenState
                   title: 'Import from Seed Phrase',
                   subtitle: 'Use existing 12/24-word recovery phrase',
                   isSelected: _mode == AccountCreationMode.importSeed,
-                  onTap: () => setState(() => _mode = AccountCreationMode.importSeed),
+                  onTap: () => setState(() {
+                    _mode = AccountCreationMode.importSeed;
+                    _modeSelected = true;
+                  }),
                 ),
                 const SizedBox(height: 12),
 
@@ -223,20 +228,26 @@ class _SingleAccountOnboardingScreenState
                   title: 'Import from Private Key',
                   subtitle: 'Use existing private key',
                   isSelected: _mode == AccountCreationMode.importPrivateKey,
-                  onTap: () => setState(() => _mode = AccountCreationMode.importPrivateKey),
+                  onTap: () => setState(() {
+                    _mode = AccountCreationMode.importPrivateKey;
+                    _modeSelected = true;
+                  }),
                 ),
 
-                const SizedBox(height: 24),
-                const Divider(),
-                const SizedBox(height: 24),
+                // Only show content after a mode has been selected
+                if (_modeSelected) ...[
+                  const SizedBox(height: 24),
+                  const Divider(),
+                  const SizedBox(height: 24),
 
-                // Content based on mode
-                if (_mode == AccountCreationMode.createNew)
-                  _buildCreateNewContent(theme, l10n)
-                else if (_mode == AccountCreationMode.importSeed)
-                  _buildImportSeedContent(theme)
-                else
-                  _buildImportKeyContent(theme),
+                  // Content based on mode
+                  if (_mode == AccountCreationMode.createNew)
+                    _buildCreateNewContent(theme, l10n)
+                  else if (_mode == AccountCreationMode.importSeed)
+                    _buildImportSeedContent(theme)
+                  else
+                    _buildImportKeyContent(theme),
+                ],
               ],
             ),
           ),

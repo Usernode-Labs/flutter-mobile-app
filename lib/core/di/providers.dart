@@ -8,6 +8,7 @@ import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_rep
 import 'package:crypto_mobile_app/src/rust/lib.dart' as rust;
 import 'package:crypto_mobile_app/core/theme/theme_mode.dart';
 import 'package:flutter/material.dart';
+import 'package:crypto_mobile_app/core/utils/logger.dart';
 
 // Repositories
 final walletRepositoryProvider = Provider<WalletRepository>((ref) {
@@ -20,12 +21,15 @@ final nodeRepositoryProvider = Provider<NodeRepository>((ref) {
 
 // Derived async providers
 final hasAnyAccountProvider = FutureProvider<bool>((ref) async {
+  Log.d('PROVIDER', 'hasAnyAccountProvider: evaluating...');
   final repo = await AccountsRepository.create();
-  return repo.hasAny();
+  final result = await repo.hasAny();
+  Log.d('PROVIDER', 'hasAnyAccountProvider: result = $result');
+  return result;
 });
 
 // Build environment from Rust bindings
-final buildEnvProvider = Provider((ref) => rust.buildEnv());
+final buildEnvProvider = Provider((ref) => rust.buildInfo());
 
 // Feature flag to toggle Result-based providers in UI without breaking defaults.
 final useResultProvidersProvider = Provider<bool>((ref) {

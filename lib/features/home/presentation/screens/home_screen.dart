@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/design/design_tokens.dart';
 import 'package:crypto_mobile_app/core/widgets/activity_list_item.dart';
 import 'package:crypto_mobile_app/core/widgets/app_action_button.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
-import 'package:crypto_mobile_app/features/rewards/presentation/screens/rewards_breakdown_screen.dart';
 import 'package:crypto_mobile_app/features/rewards/presentation/controllers/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/core/widgets/won_slot_item.dart';
-import 'package:crypto_mobile_app/features/wallet/presentation/screens/send_screen.dart';
-import 'package:crypto_mobile_app/features/wallet/presentation/screens/receive_screen.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -187,14 +185,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             icon: Icons.arrow_upward,
                             label: 'Send',
                             color: colorScheme.primary,
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const SendScreen(),
-                                ),
-                              );
-                            },
+                            onTap: () => context.push('/send'),
                           ),
                         ),
                         Expanded(
@@ -202,14 +193,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             icon: Icons.arrow_downward,
                             label: 'Receive',
                             color: colorScheme.tertiary,
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const ReceiveScreen(),
-                                ),
-                              );
-                            },
+                            onTap: () => context.push('/receive'),
                           ),
                         ),
                         Expanded(
@@ -262,15 +246,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             icon: Icons.card_giftcard,
                             label: 'Rewards',
                             color: colorScheme.secondary,
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      const RewardsBreakdownScreen(),
-                                ),
-                              );
-                            },
+                            onTap: () => context.push('/rewards'),
                           ),
                         ),
                       ],
@@ -317,14 +293,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 ),
                               ),
                               TextButton(
-                                onPressed: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          const RewardsBreakdownScreen(),
-                                    ),
-                                  );
-                                },
+                                onPressed: () => context.push('/rewards'),
                                 child: Text('View All',
                                     style:
                                         TextStyle(color: colorScheme.primary)),
@@ -439,12 +408,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           IconButton(
             tooltip: 'Breakdown',
             icon: Icon(Icons.bar_chart_rounded, color: colorScheme.primary),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                    builder: (_) => const RewardsBreakdownScreen()),
-              );
-            },
+            onPressed: () => context.push('/rewards'),
           ),
         ],
       ),

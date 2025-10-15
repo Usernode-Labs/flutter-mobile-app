@@ -5,28 +5,28 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:crypto_mobile_app/features/settings/presentation/screens/settings_screen.dart';
 import 'package:crypto_mobile_app/core/di/providers.dart';
-import 'package:crypto_mobile_app/src/rust/third_party/usernode_core/build.dart';
+import 'package:crypto_mobile_app/src/rust/frb_types.dart';
 
 void main() {
   testWidgets('SettingsScreen toggles theme mode and persists', (tester) async {
     SharedPreferences.setMockInitialValues({});
 
-    // Provide a fake BuildEnv to avoid touching flutter_rust_bridge in tests
-    final fakeEnv = BuildEnv(
+    // Provide a fake BuildInfo to avoid touching flutter_rust_bridge in tests
+    const fakeEnv = BuildInfo(
       time: 'now',
       version: '0.0.0-test',
-      git: const GitBuildEnv(
+      git: GitInfo(
         commitTime: 'now',
         commitHash: 'deadbeef',
         branch: 'test',
       ),
-      cargo: const CargoBuildEnv(
+      cargo: CargoInfo(
         features: 'none',
         optLevel: 0,
         target: 'test',
         isDebug: true,
       ),
-      rustc: const RustCBuildEnv(
+      rustc: RustcInfo(
         channel: 'stable',
         commitDate: 'now',
         commitHash: 'deadbeef',

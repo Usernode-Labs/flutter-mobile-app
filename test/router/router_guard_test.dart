@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:crypto_mobile_app/core/routing/app_router.dart';
 import 'package:crypto_mobile_app/core/di/providers.dart';
-import 'package:crypto_mobile_app/features/onboarding/presentation/screens/single_account_onboarding_screen.dart';
+import 'package:crypto_mobile_app/features/onboarding/presentation/screens/account_mode_selection_screen.dart';
 import 'package:crypto_mobile_app/app/main_app.dart';
 import 'package:crypto_mobile_app/gen_l10n/app_localizations.dart';
 
@@ -26,7 +26,7 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    expect(find.byType(SingleAccountOnboardingScreen), findsOneWidget);
+    expect(find.byType(AccountModeSelectionScreen), findsOneWidget);
   });
 
   testWidgets('router guard sends user with account to main', (tester) async {

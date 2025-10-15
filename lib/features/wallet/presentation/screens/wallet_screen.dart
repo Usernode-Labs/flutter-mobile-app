@@ -1,6 +1,7 @@
 // ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:crypto_mobile_app/core/design/design_tokens.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
@@ -10,12 +11,12 @@ import 'package:crypto_mobile_app/gen_l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/wallet_service.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
 import 'package:crypto_mobile_app/features/wallet/data/models/account.dart';
-import 'package:crypto_mobile_app/core/feature_flags.dart';
-import 'send_screen.dart';
-import 'receive_screen.dart';
 import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
 import 'package:crypto_mobile_app/features/wallet/presentation/controllers/wallet_controller.dart';
 import 'package:crypto_mobile_app/features/wallet/presentation/controllers/utxo_provider.dart';
+import 'package:crypto_mobile_app/features/wallet/presentation/controllers/assets_provider.dart';
+import 'package:crypto_mobile_app/features/wallet/presentation/controllers/transaction_activity_provider.dart';
+import 'package:crypto_mobile_app/features/wallet/data/models/transaction_item.dart';
 
 class WalletScreen extends ConsumerStatefulWidget {
   const WalletScreen({super.key});
@@ -78,6 +79,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
       await ref.read(walletProvider.notifier).refresh();
       await _walletService.refreshWalletData();
       await ref.read(walletUtxosProvider.notifier).refresh();
+      await ref.read(walletAssetsProvider.notifier).refresh();
+      await ref.read(transactionActivityProvider.notifier).refresh();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -113,17 +116,11 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
   }
 
   void _handleSendTap() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const SendScreen()),
-    );
+    context.push('/send');
   }
 
   void _handleReceiveTap() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const ReceiveScreen()),
-    );
+    context.push('/receive');
   }
 
   void _showComingSoon(String feature) {
@@ -146,18 +143,16 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
     return '$start…$end';
   }
 
-  String _bytesToHex(Iterable<int> bytes, {bool withPrefix = true}) {
-    final sb = StringBuffer(withPrefix ? '0x' : '');
-    for (final b in bytes) {
-      sb.write(b.toRadixString(16).padLeft(2, '0'));
-    }
-    return sb.toString();
-  }
-
   String _shortHex(String hex, {int head = 8, int tail = 6}) {
     final h = hex.startsWith('0x') ? hex.substring(2) : hex;
     if (h.length <= head + tail) return '0x$h';
     return '0x${h.substring(0, head)}…${h.substring(h.length - tail)}';
+  }
+
+  String _shortPk(String pk, {int head = 6, int tail = 4}) {
+    final p = pk;
+    if (p.length <= head + tail) return p;
+    return '${p.substring(0, head)}…${p.substring(p.length - tail)}';
   }
 
   // Number formatting helpers
@@ -176,14 +171,6 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
     final theme = Theme.of(context);
     final media = MediaQuery.of(context);
     final keyboardOpen = media.viewInsets.bottom > 0;
-    const double _qaBarHeight =
-        88.0; // reserved height for fixed quick actions bar
-    final double _bottomSpacer = keyboardOpen
-        ? 0
-        : (_qaBarHeight +
-            kBottomNavigationBarHeight +
-            kSpace16 +
-            media.padding.bottom);
 
     return Scaffold(
       appBar: const AppAppBar(
@@ -253,6 +240,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                   ),
                   sliver: _buildActivitySection(theme),
                 ),
+                SliverToBoxAdapter(
+                  child: SizedBox(height: 40),
+                ),
               ],
             ),
           ),
@@ -262,7 +252,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
               child: Align(
                 alignment: Alignment.bottomCenter,
                 child: Padding(
-                  padding: EdgeInsets.all(0),
+                  padding: EdgeInsets.all(kSpace8),
                   child: _buildFixedQuickActionsBar(theme),
                 ),
               ),
@@ -410,12 +400,11 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
 
   Widget _buildFixedQuickActionsBar(ThemeData theme) {
     return Material(
-      elevation: 0,
+      elevation: 1,
       color: theme.colorScheme.surface,
       borderRadius: kBorderRadiusLarge,
       child: Padding(
-        padding:
-            const EdgeInsets.symmetric(horizontal: kSpace12, vertical: kSpace8),
+        padding: const EdgeInsets.symmetric(horizontal: 0, vertical: kSpace12),
         child: Row(
           children: [
             Expanded(
@@ -499,35 +488,196 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
   }
 
   Widget _buildAssetsSection(ThemeData theme) {
-    // Mock asset data
-    final assets = [
-      {
-        'name': 'Token1',
-        'symbol': 'TKN1',
-        'amount': 1221.50,
-        'value': 1834.25,
-        'change': 2.5
-      },
-      {
-        'name': 'Token2',
-        'symbol': 'TKN2',
-        'amount': 2002.00,
-        'value': 3003.00,
-        'change': -1.2
-      },
-    ];
+    final assetsAsync = ref.watch(walletAssetsProvider);
 
-    // Sort by USD value descending for most-relevant-first
-    assets
-        .sort((a, b) => (b['value'] as double).compareTo(a['value'] as double));
-
-    return _buildAssetsGroupCard(theme, assets);
+    return assetsAsync.when(
+      loading: () => _buildAssetsLoadingSkeleton(theme),
+      error: (e, st) => _buildAssetsError(theme, e),
+      data: (assets) {
+        if (assets.isEmpty) {
+          return _buildNoAssetsPlaceholder(theme);
+        }
+        return _buildAssetsGroupCard(theme, assets);
+      },
+    );
   }
 
-  Widget _buildAssetsGroupCard(
-      ThemeData theme, List<Map<String, dynamic>> assets) {
-    final totalValue =
-        assets.fold<double>(0.0, (sum, a) => sum + (a['value'] as double));
+  Widget _buildAssetsLoadingSkeleton(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(kSpace16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(kRadiusMedium),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          // Total skeleton
+          Row(
+            children: [
+              Container(
+                width: 60,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(kRadiusSmall),
+                ),
+              ),
+              const Spacer(),
+              Container(
+                width: 100,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(kRadiusSmall),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: kSpace16),
+          // Asset row skeletons
+          ...List.generate(2, (index) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: kSpace12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(kRadiusSmall),
+                    ),
+                  ),
+                  const SizedBox(width: kSpace16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 100,
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(kRadiusSmall),
+                          ),
+                        ),
+                        const SizedBox(height: kSpace8),
+                        Container(
+                          width: 80,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(kRadiusSmall),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    width: 80,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(kRadiusSmall),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAssetsError(ThemeData theme, Object error) {
+    return Container(
+      padding: const EdgeInsets.all(kSpace16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.errorContainer.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(kRadiusMedium),
+        border: Border.all(
+          color: theme.colorScheme.error.withValues(alpha: 0.5),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.error_outline,
+            color: theme.colorScheme.error,
+            size: kIconRegular,
+          ),
+          const SizedBox(height: kSpace8),
+          Text(
+            'Failed to load assets',
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: theme.colorScheme.error,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: kSpace8),
+          OutlinedButton.icon(
+            onPressed: () => ref.invalidate(walletAssetsProvider),
+            icon: const Icon(Icons.refresh, size: 18),
+            label: const Text('Retry'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: theme.colorScheme.error,
+              side: BorderSide(color: theme.colorScheme.error),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNoAssetsPlaceholder(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(kSpace24),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(kRadiusMedium),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.account_balance_wallet_outlined,
+            size: 48,
+            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+          ),
+          const SizedBox(height: kSpace12),
+          Text(
+            'No assets yet',
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: kSpace8),
+          Text(
+            'Receive tokens to see them here',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAssetsGroupCard(ThemeData theme, List<AssetSummary> assets) {
+    final totalValue = assets.fold<double>(0.0, (sum, a) => sum + a.usdValue);
 
     return Container(
       padding: const EdgeInsets.all(kSpace16),
@@ -587,8 +737,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
     );
   }
 
-  Widget _buildAssetRow(ThemeData theme, Map<String, dynamic> asset) {
-    final isPositive = (asset['change'] as double) >= 0;
+  Widget _buildAssetRow(ThemeData theme, AssetSummary asset) {
+    final isPositive = asset.change24h >= 0;
 
     return Row(
       children: [
@@ -614,14 +764,14 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                asset['name'] as String,
+                asset.tokenName,
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: kSpace4),
               Text(
-                '${_formatAmount(asset['amount'] as double)} ${asset['symbol']}',
+                '${_formatAmount(asset.totalBalance.toDouble())} ${asset.tokenSymbol}',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -635,7 +785,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Text(
-              _formatUSD(asset['value'] as double),
+              _formatUSD(asset.usdValue),
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
@@ -665,7 +815,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                   ),
                   const SizedBox(width: kSpace4),
                   Text(
-                    '${isPositive ? '+' : ''}${(asset['change'] as double).toStringAsFixed(1)}%',
+                    '${isPositive ? '+' : ''}${asset.change24h.toStringAsFixed(1)}%',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: isPositive
                           ? theme.colorScheme.tertiary
@@ -708,9 +858,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
   }
 
   Widget _buildActivitySection(ThemeData theme) {
-    final utxosAsync = ref.watch(walletUtxosProvider);
+    final activityAsync = ref.watch(transactionActivityProvider);
 
-    return utxosAsync.when(
+    return activityAsync.when(
       loading: () => SliverToBoxAdapter(
         child: Center(
           child: Padding(
@@ -773,7 +923,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
               ),
               const SizedBox(height: kSpace16),
               OutlinedButton.icon(
-                onPressed: () => ref.invalidate(walletUtxosProvider),
+                onPressed: () => ref.invalidate(transactionActivityProvider),
                 icon: const Icon(Icons.refresh, size: 18),
                 label: const Text('Retry'),
                 style: OutlinedButton.styleFrom(
@@ -836,9 +986,20 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
               final item = items[index];
               final isLast = index == items.length - 1;
 
-              return Padding(
-                padding: EdgeInsets.only(bottom: isLast ? 0 : kSpace8),
-                child: _buildActivityCard(theme, item, index),
+              return Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: kSpace8),
+                    child: _buildActivityRow(theme, item, index),
+                  ),
+                  if (!isLast)
+                    Divider(
+                      height: 0,
+                      thickness: 0.5,
+                      color: theme.colorScheme.outlineVariant
+                          .withValues(alpha: 0.5),
+                    ),
+                ],
               );
             },
             childCount: items.length,
@@ -848,81 +1009,127 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
     );
   }
 
-  Widget _buildActivityCard(ThemeData theme, dynamic utxo, int index) {
-    final fullHex = _bytesToHex(utxo.commitment.field0);
-    final shortHex = _shortHex(fullHex);
+  Widget _buildActivityRow(
+      ThemeData theme, TransactionItem transaction, int index) {
+    // Determine icon and color based on type
+    final isSent = transaction.type == TransactionType.sent;
+    final isPending = transaction.status == TransactionStatus.pending;
 
-    return Container(
-      padding: const EdgeInsets.all(kSpace16),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(kRadiusMedium),
-        border: Border.all(
-          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        children: [
-          // Transaction icon
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.tertiaryContainer,
-              borderRadius: BorderRadius.circular(kRadiusSmall),
-            ),
-            child: Icon(
-              Icons.check_circle,
-              color: theme.colorScheme.tertiary,
-              size: kIconRegular,
-            ),
+    final iconColor =
+        isSent ? theme.colorScheme.primary : theme.colorScheme.tertiary;
+    final iconBgColor = isSent
+        ? theme.colorScheme.primaryContainer
+        : theme.colorScheme.tertiaryContainer;
+
+    // Format amounts
+    String amountStr = '';
+    if (transaction.amounts.isNotEmpty) {
+      final firstAmount = transaction.amounts.first;
+      amountStr = firstAmount.amount.toString();
+      if (firstAmount.tokenId.isNotEmpty) {
+        amountStr += ' ${_shortPk(firstAmount.tokenId)}';
+      }
+    }
+
+    final shortId = _shortHex(transaction.id);
+
+    return Row(
+      children: [
+        // Leading icon
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: iconBgColor,
+            borderRadius: BorderRadius.circular(kRadiusSmall),
           ),
-          const SizedBox(width: kSpace16),
+          child: Icon(
+            isSent ? Icons.arrow_upward : Icons.arrow_downward,
+            color: iconColor,
+            size: kIconSmall,
+          ),
+        ),
+        const SizedBox(width: kSpace12),
 
-          // Transaction info
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'UTXO #${index + 1}',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+        // Main content
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isSent ? 'Sent' : 'Received',
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
                 ),
-                const SizedBox(height: kSpace4),
+              ),
+              const SizedBox(height: kSpace4),
+              if (transaction.recipientAddress != null)
                 Text(
-                  shortHex,
+                  '${isSent ? 'to' : 'from'} ${_shortPk(transaction.recipientAddress!)}',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
-                    fontFamily: 'monospace',
                   ),
                 ),
-              ],
-            ),
-          ),
-
-          // Status badge
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: kSpace8,
-              vertical: kSpace4,
-            ),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.tertiary.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(kRadiusFull),
-            ),
-            child: Text(
-              'Owned',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.tertiary,
-                fontWeight: FontWeight.w600,
+              if (transaction.recipientAddress == null && _account != null)
+                Text(
+                  isSent
+                      ? 'from your wallet'
+                      : 'to ${_shortAddr(_account!.address)}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              const SizedBox(height: kSpace4),
+              if (amountStr.isNotEmpty)
+                Text(
+                  amountStr,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              if (amountStr.isNotEmpty) const SizedBox(height: kSpace4),
+              if (transaction.fee != null)
+                Text(
+                  'Fee: ${transaction.fee}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              if (transaction.fee != null) const SizedBox(height: kSpace4),
+              Text(
+                'ID: $shortId',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontFamily: 'monospace',
+                ),
               ),
+            ],
+          ),
+        ),
+
+        // Trailing state
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: kSpace8,
+            vertical: kSpace4,
+          ),
+          decoration: BoxDecoration(
+            color: isPending
+                ? theme.colorScheme.secondary.withValues(alpha: 0.15)
+                : theme.colorScheme.tertiary.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(kRadiusFull),
+          ),
+          child: Text(
+            isPending ? 'Pending' : 'Confirmed',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: isPending
+                  ? theme.colorScheme.secondary
+                  : theme.colorScheme.tertiary,
+              fontWeight: FontWeight.w600,
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

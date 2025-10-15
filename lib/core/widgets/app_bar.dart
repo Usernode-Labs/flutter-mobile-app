@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:crypto_mobile_app/features/notifications/presentation/screens/notifications_screen.dart';
+import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/providers/notifications_provider.dart';
 import 'package:crypto_mobile_app/core/widgets/notification_badge.dart';
 
@@ -43,14 +43,7 @@ class AppAppBar extends ConsumerWidget implements PreferredSizeWidget {
                       : Icons.notifications_outlined,
                 ),
               ),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const NotificationsScreen(),
-                  ),
-                );
-              },
+              onPressed: () => context.push('/notifications'),
               tooltip: 'Notifications',
             ),
           ]

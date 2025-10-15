@@ -8,8 +8,8 @@ class AppDrawer extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final location =
-        GoRouter.of(context).routeInformationProvider.value.location ?? '';
+    final routeInfo = GoRouter.of(context).routeInformationProvider.value;
+    final location = routeInfo.uri.toString();
 
     Widget item({
       required IconData icon,

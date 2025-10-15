@@ -9,22 +9,21 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:crypto_mobile_app/src/rust/lib.dart';
-import 'package:crypto_mobile_app/src/rust/third_party/usernode_p2p/identity.dart';
-import 'package:crypto_mobile_app/src/rust/third_party/usernode_core/build.dart';
+import 'package:crypto_mobile_app/src/rust/rpc.dart';
+import 'package:crypto_mobile_app/src/rust/frb_types.dart';
 
 void main() {
   group('FRB compile contract (no-load)', () {
-    test('buildEnv has expected signature', () {
-      // Ensure the buildEnv symbol still returns BuildEnv and takes no args.
-      BuildEnv Function() f = buildEnv;
+    test('buildInfo has expected signature', () {
+      // Ensure the buildInfo symbol still returns BuildInfo and takes no args.
+      BuildInfo Function() f = buildInfo;
       expect(f, isNotNull);
     });
 
-    test('PeerId constructor shape compiles', () {
-      // Do not call methods that would touch the bridge (e.g., toString).
-      // Just ensure constructor & field types still match.
-      void accept(PeerId Function({required U64Array4 field0}) ctor) {}
-      accept(({required U64Array4 field0}) => PeerId(field0: field0));
+    test('PeerId method shape compiles', () {
+      // Ensure we can refer to PeerId in signatures and call toString on it
+      void accept(String Function(PeerId) f) {}
+      accept((p) => p.toString());
     });
   });
 }

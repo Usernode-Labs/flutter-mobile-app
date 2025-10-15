@@ -16,16 +16,16 @@ import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_mempool.dart'
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_blockchain.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
-import 'package:crypto_mobile_app/src/rust/third_party/usernode_core/build.dart';
+import 'package:crypto_mobile_app/src/rust/frb_types.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_utxos_by_owner.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/transfer_funds.dart';
-import 'package:crypto_mobile_app/src/rust/third_party/usernode_core/account.dart';
+import 'package:crypto_mobile_app/src/rust/rpc.dart';
 
 typedef ListBlockchainFn = Future<RpcListBlockchainResp?> Function({int? limit, bool? fromTip});
 typedef ListMempoolFn = Future<RpcListMempoolResp?> Function();
 typedef EpochRewardsFn = Future<RpcEpochRewardsResp?> Function({int? epoch});
 typedef GetStatusFn = Future<RpcStatusResp?> Function();
-typedef BuildEnvFn = BuildEnv Function();
+typedef BuildEnvFn = BuildInfo Function();
 typedef ListUtxosByOwnerFn = Future<RpcListUtxosByOwnerResp?> Function({required PublicKeyHash owner, int? limit});
 typedef TransferFundsFn = Future<RpcTransferFundsResp?> Function({required PublicKeyHash fromPkHash, required BigInt amount, required PublicKeyHash toPkHash});
 

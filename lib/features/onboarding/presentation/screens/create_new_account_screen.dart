@@ -71,6 +71,12 @@ class _CreateNewAccountScreenState
       // Invalidate the account provider so router sees the new account
       ref.invalidate(hasAnyAccountProvider);
 
+      // Start backend immediately (doesn't require widget to be mounted)
+      Log.d('CREATE_ACCOUNT', 'Starting backend for new account...');
+      final backendStarted =
+          await RustBackendService.instance.startForActiveAccount();
+      Log.d('CREATE_ACCOUNT', 'Backend start result: $backendStarted');
+
       // Small delay to ensure provider refreshes before navigation
       await Future.delayed(const Duration(milliseconds: 150));
 
@@ -80,14 +86,6 @@ class _CreateNewAccountScreenState
             'Widget unmounted during delay, router likely already redirected');
         return;
       }
-
-      // Start backend for newly created account
-      Log.d('CREATE_ACCOUNT', 'Starting backend for new account...');
-      final backendStarted =
-          await RustBackendService.instance.startForActiveAccount();
-      Log.d('CREATE_ACCOUNT', 'Backend start result: $backendStarted');
-
-      if (!mounted) return;
 
       Log.d('CREATE_ACCOUNT', 'Provider invalidated, navigating to /main/home');
       // Navigate to home - router will handle redirect

@@ -82,17 +82,15 @@ class _ImportPrivateKeyScreenState extends ConsumerState<ImportPrivateKeyScreen>
       // Invalidate the account provider so router sees the new account
       ref.invalidate(hasAnyAccountProvider);
 
-      // Small delay to ensure provider refreshes before navigation
-      await Future.delayed(const Duration(milliseconds: 150));
-
-      // Check if widget is still mounted before navigation
-      if (!mounted) return;
-
-      // Start backend for newly imported account
+      // Start backend immediately (doesn't require widget to be mounted)
       Log.d('IMPORT_KEY', 'Starting backend for imported account...');
       final backendStarted = await RustBackendService.instance.startForActiveAccount();
       Log.d('IMPORT_KEY', 'Backend start result: $backendStarted');
 
+      // Small delay to ensure provider refreshes before navigation
+      await Future.delayed(const Duration(milliseconds: 150));
+
+      // Check if widget is still mounted before navigation
       if (!mounted) return;
 
       // Navigate to home - router will handle redirect

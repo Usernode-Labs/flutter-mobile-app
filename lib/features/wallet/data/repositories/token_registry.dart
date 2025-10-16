@@ -29,6 +29,13 @@ class TokenRegistry {
       decimals: 0,
       icon: null,
     ),
+    'AiitAFAG8P8g6uXXu6zmbzsaa5bFXDNwCMYDkSUyH2wU8XLpNG': TokenMetadata(
+      tokenId: 'AiitAFAG8P8g6uXXu6zmbzsaa5bFXDNwCMYDkSUyH2wU8XLpNG',
+      name: 'Native Token',
+      symbol: 'TKN',
+      decimals: 0,
+      icon: null,
+    ),
     // Add more known tokens here as needed
   };
 

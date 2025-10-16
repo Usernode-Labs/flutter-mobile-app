@@ -17,6 +17,7 @@ import 'package:crypto_mobile_app/features/wallet/presentation/controllers/utxo_
 import 'package:crypto_mobile_app/features/wallet/presentation/controllers/assets_provider.dart';
 import 'package:crypto_mobile_app/features/wallet/presentation/controllers/transaction_activity_provider.dart';
 import 'package:crypto_mobile_app/features/wallet/data/models/transaction_item.dart';
+import 'package:crypto_mobile_app/core/utils/token_formatter.dart';
 
 class WalletScreen extends ConsumerStatefulWidget {
   const WalletScreen({super.key});
@@ -263,7 +264,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
   }
 
   Widget _buildHeroBalanceCard(ThemeData theme) {
-    final walletAsync = ref.watch(walletProvider);
+    final assetsAsync = ref.watch(walletAssetsProvider);
 
     return FadeTransition(
       opacity: _balanceAnimation,
@@ -320,34 +321,35 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
               const SizedBox(height: kSpace4),
 
               // Balance amount
-              walletAsync.when(
-                data: (data) => Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Token balance
-                    Text(
-                      _balanceHidden
-                          ? '••••••'
-                          : '${_formatAmount(data.balance.tokenAmount)} ${data.balance.tokenSymbol}',
-                      style: theme.textTheme.headlineMedium?.copyWith(
-                        color: theme.colorScheme.onPrimaryContainer,
-                        fontWeight: FontWeight.w700,
-                        height: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: kSpace8),
-                    // USD value
-                    if (!_balanceHidden)
+              assetsAsync.when(
+                data: (assets) {
+                  final totalValue = assets.fold<double>(0.0, (sum, a) => sum + a.usdValue);
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // USD value (primary)
                       Text(
-                        '≈ ${_formatUSD(data.balance.usdValue)}',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: theme.colorScheme.onPrimaryContainer
-                              .withValues(alpha: 0.7),
-                          fontWeight: FontWeight.w500,
+                        _balanceHidden ? '••••••' : _formatUSD(totalValue),
+                        style: theme.textTheme.headlineMedium?.copyWith(
+                          color: theme.colorScheme.onPrimaryContainer,
+                          fontWeight: FontWeight.w700,
+                          height: 1.2,
                         ),
                       ),
-                  ],
-                ),
+                      const SizedBox(height: kSpace8),
+                      // Asset count (secondary)
+                      if (!_balanceHidden)
+                        Text(
+                          '${assets.length} ${assets.length == 1 ? 'asset' : 'assets'}',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: theme.colorScheme.onPrimaryContainer
+                                .withValues(alpha: 0.7),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                    ],
+                  );
+                },
                 loading: () => Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -362,7 +364,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                       ),
                     ),
                     const SizedBox(height: kSpace8),
-                    // USD skeleton
+                    // Asset count skeleton
                     Container(
                       width: 140,
                       height: 20,
@@ -515,29 +517,6 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
       ),
       child: Column(
         children: [
-          // Total skeleton
-          Row(
-            children: [
-              Container(
-                width: 60,
-                height: 16,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(kRadiusSmall),
-                ),
-              ),
-              const Spacer(),
-              Container(
-                width: 100,
-                height: 20,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(kRadiusSmall),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: kSpace16),
           // Asset row skeletons
           ...List.generate(2, (index) {
             return Padding(
@@ -677,8 +656,6 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
   }
 
   Widget _buildAssetsGroupCard(ThemeData theme, List<AssetSummary> assets) {
-    final totalValue = assets.fold<double>(0.0, (sum, a) => sum + a.usdValue);
-
     return Container(
       padding: const EdgeInsets.all(kSpace16),
       decoration: BoxDecoration(
@@ -689,50 +666,17 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
           width: 1,
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Group header with total and count
-          Row(
-            children: [
-              Text(
-                'Total',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                _formatUSD(totalValue),
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(width: kSpace8),
-              Text(
-                '(${assets.length})',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: kSpace12),
-          // Asset rows
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: assets.length,
-            itemBuilder: (context, index) =>
-                _buildAssetRow(theme, assets[index]),
-            separatorBuilder: (context, index) => Divider(
-              height: kSpace16,
-              thickness: 1,
-              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
-            ),
-          ),
-        ],
+      child: ListView.separated(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: assets.length,
+        itemBuilder: (context, index) =>
+            _buildAssetRow(theme, assets[index]),
+        separatorBuilder: (context, index) => Divider(
+          height: kSpace16,
+          thickness: 1,
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
       ),
     );
   }
@@ -1027,7 +971,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
       final firstAmount = transaction.amounts.first;
       amountStr = firstAmount.amount.toString();
       if (firstAmount.tokenId.isNotEmpty) {
-        amountStr += ' ${_shortPk(firstAmount.tokenId)}';
+        amountStr += ' ${TokenFormatter.formatTokenDisplay(firstAmount.tokenId)}';
       }
     }
 
@@ -1056,16 +1000,22 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // For received: "Received <amount>", for sent: "Sent"
               Text(
-                isSent ? 'Sent' : 'Received',
-                style: theme.textTheme.bodyLarge?.copyWith(
+                isSent
+                    ? 'Sent'
+                    : amountStr.isNotEmpty
+                        ? 'Received $amountStr'
+                        : 'Received',
+                style: theme.textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: kSpace4),
+              // Address line with "from:" or "to" prefix
               if (transaction.recipientAddress != null)
                 Text(
-                  '${isSent ? 'to' : 'from'} ${_shortPk(transaction.recipientAddress!)}',
+                  '${isSent ? 'to' : 'from:'} ${_shortPk(transaction.recipientAddress!)}',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -1080,22 +1030,25 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                   ),
                 ),
               const SizedBox(height: kSpace4),
-              if (amountStr.isNotEmpty)
+              // For sent transactions, show amount separately if not already in title
+              if (isSent && amountStr.isNotEmpty)
                 Text(
                   amountStr,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
-              if (amountStr.isNotEmpty) const SizedBox(height: kSpace4),
-              if (transaction.fee != null)
+              if (isSent && amountStr.isNotEmpty) const SizedBox(height: kSpace4),
+              // Show fee only for sent transactions
+              if (isSent && transaction.fee != null)
                 Text(
                   'Fee: ${transaction.fee}',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
-              if (transaction.fee != null) const SizedBox(height: kSpace4),
+              if (isSent && transaction.fee != null) const SizedBox(height: kSpace4),
+              // Transaction ID
               Text(
                 'ID: $shortId',
                 style: theme.textTheme.bodySmall?.copyWith(

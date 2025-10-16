@@ -35,7 +35,7 @@ class NodePeersScreen extends StatelessWidget {
             }
             final ipOnly = _peerIpOnly(p);
             final timeStr = _formatTimeAgo(p.time);
-            final titleText = ipOnly ?? '(no address)';
+            final titleText = ipOnly ?? '(Hidden address)';
 
             return Material(
               color: theme.colorScheme.surface,

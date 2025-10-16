@@ -1,7 +1,7 @@
 name: crypto_mobile_app
 description: A New Layer 1 Operated & Secured by users from their phones.
 
-version: 0.1.0+4
+version: 0.1.0+5
 publish_to: none
 
 environment:
@@ -29,7 +29,7 @@ dependencies:
       path: frb_dart
   shared_preferences: ^2.2.3
   flutter_secure_storage: ^9.2.2
-  sentry_flutter: ^8.6.0
+  sentry_flutter: ^9.0.0
   uuid: ^4.5.1
   timeago: ^3.7.0
 

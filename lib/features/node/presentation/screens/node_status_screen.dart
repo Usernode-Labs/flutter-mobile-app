@@ -372,7 +372,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       }
     }
     final peerHealthy = connectedPeers > 0 && connectedPeers == totalPeers;
-    final accentColor = isSynced ? Colors.green : colorScheme.primary;
+    final accentColor = isSynced ? colorScheme.tertiary : colorScheme.primary;
 
     return _buildDiaryCard(
       context: context,
@@ -505,7 +505,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                 label: 'Peers',
                 value: '$connectedPeers/$totalPeers',
                 subtitle: peerHealthy ? 'All connected' : 'Some offline',
-                color: peerHealthy ? Colors.green : Colors.orange,
+                color: peerHealthy ? colorScheme.tertiary : colorScheme.error.withValues(alpha: 0.7),
                 colorScheme: colorScheme,
                 onTap: () {
                   final raw = ref.read(nodeRawStatusProvider).value;
@@ -547,9 +547,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                       letterSpacing: 0.2,
                       color: colorScheme.onSurfaceVariant)
                   .copyWith(
-                    color: (colorScheme.brightness == Brightness.light
-                        ? MaterialTheme.deactivatedText
-                        : MaterialTheme.deactivatedTextDark),
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                     fontSize: 10,
                   ),
             ),
@@ -741,9 +739,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                 percentage: applyPercentage,
                 color: applyPercentage >= 100.0
                     ? colorScheme.tertiary
-                    : (colorScheme.brightness == Brightness.light
-                        ? MaterialTheme.accentPink
-                        : MaterialTheme.accentPinkDark),
+                    : colorScheme.secondary,
                 done: applyProgress?.done,
                 pending: applyProgress?.pending,
                 idle: applyProgress?.idle,
@@ -1274,15 +1270,16 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
   // ignore: unused_element
   Color _statusColor(ThemeData theme, PeerConnectionStatus s) {
+    final colorScheme = theme.colorScheme;
     switch (s) {
       case PeerConnectionStatus.connected:
-        return Colors.green;
+        return colorScheme.tertiary;
       case PeerConnectionStatus.connecting:
-        return Colors.amber;
+        return colorScheme.primary;
       case PeerConnectionStatus.disconnected:
-        return Colors.red;
+        return colorScheme.error;
       case PeerConnectionStatus.disconnecting:
-        return Colors.orange;
+        return colorScheme.error.withValues(alpha: 0.7);
     }
   }
 
@@ -1659,7 +1656,7 @@ class _ProducedBlockItem extends StatelessWidget {
               '+$reward',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: Colors.green,
+                color: colorScheme.tertiary,
               ),
             ),
         ],

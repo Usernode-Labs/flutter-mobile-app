@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/core/widgets/won_slot_item.dart';
 import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
@@ -80,7 +81,8 @@ class _RewardsBreakdownScreenState extends State<RewardsBreakdownScreen> {
                     onRefresh: _loadEpochRewards,
                     child: SingleChildScrollView(
                       physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -94,7 +96,7 @@ class _RewardsBreakdownScreenState extends State<RewardsBreakdownScreen> {
                             colorScheme,
                             'Blocks Produced',
                             '${_epochRewards!.producedInEpoch} blocks produced this epoch',
-                            '${_epochRewards!.earnedSoFar} TKN',
+                            '${_formatTokenAmount(_epochRewards!.earnedSoFar)} TKN',
                             Icons.check_circle,
                           ),
                           const SizedBox(height: 8),
@@ -112,7 +114,7 @@ class _RewardsBreakdownScreenState extends State<RewardsBreakdownScreen> {
                             colorScheme,
                             'Reward per Block',
                             'Each produced block earns',
-                            '${_epochRewards!.rewardPerBlock} TKN',
+                            '${_formatTokenAmount(_epochRewards!.rewardPerBlock)} TKN',
                             Icons.attach_money,
                           ),
 
@@ -124,7 +126,8 @@ class _RewardsBreakdownScreenState extends State<RewardsBreakdownScreen> {
                           _buildExpectedTotalSection(theme, colorScheme),
 
                           // Won slots timeline
-                          if (_epochRewards!.wonSlots != null && _epochRewards!.wonSlots!.isNotEmpty) ...[
+                          if (_epochRewards!.wonSlots != null &&
+                              _epochRewards!.wonSlots!.isNotEmpty) ...[
                             const SizedBox(height: 24),
                             const Divider(height: 1),
                             const SizedBox(height: 16),
@@ -148,7 +151,8 @@ class _RewardsBreakdownScreenState extends State<RewardsBreakdownScreen> {
 
   Widget _buildCurrentEpochSection(ThemeData theme, ColorScheme colorScheme) {
     final progress = _epochRewards!.expectedTotal > BigInt.zero
-        ? _epochRewards!.earnedSoFar.toDouble() / _epochRewards!.expectedTotal.toDouble()
+        ? _epochRewards!.earnedSoFar.toDouble() /
+            _epochRewards!.expectedTotal.toDouble()
         : 0.0;
 
     return Column(
@@ -178,7 +182,7 @@ class _RewardsBreakdownScreenState extends State<RewardsBreakdownScreen> {
         ),
         const SizedBox(height: 4),
         Text(
-          '${_epochRewards!.earnedSoFar} TKN',
+          '${_formatTokenAmount(_epochRewards!.earnedSoFar)} TKN',
           style: TextStyle(
             fontSize: 36,
             fontWeight: FontWeight.w400,
@@ -320,7 +324,7 @@ class _RewardsBreakdownScreenState extends State<RewardsBreakdownScreen> {
         ),
         const SizedBox(height: 4),
         Text(
-          '${_epochRewards!.expectedTotal} TKN',
+          '${_formatTokenAmount(_epochRewards!.expectedTotal)} TKN',
           style: TextStyle(
             fontSize: 36,
             fontWeight: FontWeight.w400,
@@ -330,7 +334,7 @@ class _RewardsBreakdownScreenState extends State<RewardsBreakdownScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Based on ${_epochRewards!.winsInEpoch} won slots at ${_epochRewards!.rewardPerBlock} TKN per block',
+          'Based on ${_epochRewards!.winsInEpoch} won slots at ${_formatTokenAmount(_epochRewards!.rewardPerBlock)} TKN per block',
           style: theme.textTheme.bodyMedium?.copyWith(
             color: colorScheme.onSurfaceVariant,
             fontSize: 14,
@@ -351,7 +355,9 @@ class _RewardsBreakdownScreenState extends State<RewardsBreakdownScreen> {
         isUtc: true,
       );
       return slotTime.isAfter(now);
-    }).toList();
+    }).toList()
+      ..sort((a, b) => a.expectedTimeMs
+          .compareTo(b.expectedTimeMs)); // Sort by time (earliest first)
 
     final pastSlots = wonSlots.where((slot) {
       final slotTime = DateTime.fromMillisecondsSinceEpoch(
@@ -359,7 +365,15 @@ class _RewardsBreakdownScreenState extends State<RewardsBreakdownScreen> {
         isUtc: true,
       );
       return !slotTime.isAfter(now);
-    }).toList();
+    }).toList()
+      ..sort((a, b) => b.expectedTimeMs
+          .compareTo(a.expectedTimeMs)); // Sort by time (most recent first)
+
+    // Limit upcoming slots to next 10
+    final displayedUpcomingSlots = upcomingSlots.take(10).toList();
+
+    // Limit past slots to 10 most recent
+    final displayedPastSlots = pastSlots.take(10).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -382,17 +396,30 @@ class _RewardsBreakdownScreenState extends State<RewardsBreakdownScreen> {
         ),
         const SizedBox(height: 16),
 
-        // Display upcoming slots first
+        // Display upcoming slots first (limited to next 10)
         if (upcomingSlots.isNotEmpty) ...[
-          Text(
-            'Upcoming Slots',
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: colorScheme.onSurface,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Upcoming Slots',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              if (upcomingSlots.length > 10)
+                Text(
+                  'Showing next 10 of ${upcomingSlots.length}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 8),
-          ...upcomingSlots.map((slot) => WonSlotItem(
+          ...displayedUpcomingSlots.map((slot) => WonSlotItem(
                 slot: slot,
                 status: SlotStatus.pending,
               )),
@@ -401,15 +428,28 @@ class _RewardsBreakdownScreenState extends State<RewardsBreakdownScreen> {
         // Display past slots
         if (pastSlots.isNotEmpty) ...[
           const SizedBox(height: 16),
-          Text(
-            'Past Slots',
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: colorScheme.onSurface,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Past Slots',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              if (pastSlots.length > 10)
+                Text(
+                  'Showing 10 of ${pastSlots.length}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 8),
-          ...pastSlots.map((slot) {
+          ...displayedPastSlots.map((slot) {
             // Determine if produced or missed
             // For now, assume produced (would need blockchain data to verify)
             return WonSlotItem(
@@ -461,5 +501,10 @@ class _RewardsBreakdownScreenState extends State<RewardsBreakdownScreen> {
   String _shortenMid(String s, {int head = 6, int tail = 6}) {
     if (s.length <= head + tail + 1) return s;
     return '${s.substring(0, head)}...${s.substring(s.length - tail)}';
+  }
+
+  String _formatTokenAmount(BigInt amount) {
+    final formatter = NumberFormat('#,##0', 'en_US');
+    return formatter.format(amount.toInt());
   }
 }

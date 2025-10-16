@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:crypto_mobile_app/core/design/design_tokens.dart';
 import 'package:crypto_mobile_app/core/widgets/activity_list_item.dart';
 import 'package:crypto_mobile_app/core/widgets/app_action_button.dart';
@@ -131,10 +132,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               ? 'Update your verification to maintain benefits'
                               : 'Verify your identity to unlock premium features',
                           gradientColors: [
-                            Color.lerp(
-                                colorScheme.primary, Colors.white, 0.4)!,
-                            Color.lerp(
-                                colorScheme.primary, Colors.white, 0.1)!,
+                            Color.lerp(colorScheme.primary, Colors.white, 0.4)!,
+                            Color.lerp(colorScheme.primary, Colors.white, 0.1)!,
                           ],
                           onTap: () {
                             if (activeAccount != null) {
@@ -282,7 +281,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: ActivityListItem(
                   icon: Icons.verified_user,
                   title: 'Identity verified',
-                  trailing: '+50 points',
+                  trailing: '+1x bonus',
                 ),
               ),
               const SizedBox(height: 12),
@@ -460,6 +459,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  String _formatTokenAmount(BigInt amount) {
+    final formatter = NumberFormat('#,##0', 'en_US');
+    return formatter.format(amount.toInt());
+  }
+
   List<Widget> _buildRewardsSection(
     BuildContext context,
     ColorScheme colorScheme,
@@ -517,7 +521,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
       // Rewards amount
       Text(
-        earned != null ? '$earned TKN' : '— TKN',
+        earned != null ? '${_formatTokenAmount(earned)} TKN' : '— TKN',
         style: theme.textTheme.headlineMedium?.copyWith(
           fontSize: 36,
           fontWeight: FontWeight.w700,
@@ -574,7 +578,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       const SizedBox(height: 8),
       Text(
-        expected != null ? '~$expected TKN' : '— TKN',
+        expected != null ? '~${_formatTokenAmount(expected)} TKN' : '— TKN',
         style: theme.textTheme.headlineSmall?.copyWith(
           fontSize: 28,
           fontWeight: FontWeight.w700,
@@ -584,7 +588,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       const SizedBox(height: 4),
       Text(
         (wins != null && rewardPerBlock != null)
-            ? 'Based on $wins won slots at $rewardPerBlock per block'
+            ? 'Based on $wins won slots at ${_formatTokenAmount(rewardPerBlock)} per block'
             : 'Loading projection...',
         style: theme.textTheme.bodyMedium?.copyWith(
           color: colorScheme.onSurfaceVariant,

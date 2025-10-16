@@ -68,6 +68,17 @@ class AccountsRepository {
     }
   }
 
+  /// Get the private key for a specific account from secure storage
+  Future<String?> getPrivateKey(String accountId) async {
+    try {
+      final privateKey = await _secure.read(key: 'account:$accountId:privateKey');
+      return privateKey;
+    } catch (e, st) {
+      Log.e('ACCOUNTS_REPO', 'Failed to read private key for account $accountId', e, st);
+      return null;
+    }
+  }
+
   Future<void> markBackupConfirmed(String id) async {
     final items = await list();
     final idx = items.indexWhere((e) => e.id == id);

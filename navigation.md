@@ -19,6 +19,7 @@
 ## Overview
 
 This Flutter application uses:
+
 - **GoRouter** for declarative routing with deep linking support
 - **Riverpod** for reactive state management
 - **ShellRoute** for persistent bottom navigation
@@ -144,8 +145,8 @@ graph TD
         Home
         Node[Node Status<br/>/main/node]
         DApps[DApps<br/>/main/dapps]
-        Wallet[Wallet<br/>/main/wallet<br/>(optional)]
-        Profile[Profile<br/>/main/profile<br/>(optional)]
+        Wallet["Wallet<br/>/main/wallet<br/>(optional)"]
+        Profile["Profile<br/>/main/profile<br/>(optional)"]
     end
 
     Node --> WonSlots[Won Slots<br/>/main/node/won-slots]
@@ -623,24 +624,25 @@ stateDiagram-v2
 
 **Location:** `lib/core/di/providers.dart`
 
-| Provider | Type | Purpose |
-|----------|------|---------|
-| `hasAnyAccountProvider` | `FutureProvider<bool>` | Drives routing logic - determines if user sees onboarding or main app |
-| `themeModeProvider` | `StateNotifierProvider<ThemeMode>` | Theme persistence with light/dark/system modes |
-| `backendLifecycleProvider` | `Provider<void>` | Manages Rust backend start/stop based on account state changes |
-| `notificationsProvider` | `StateNotifier<List<AppNotification>>` | Manages in-app notifications |
+| Provider                   | Type                                   | Purpose                                                               |
+| -------------------------- | -------------------------------------- | --------------------------------------------------------------------- |
+| `hasAnyAccountProvider`    | `FutureProvider<bool>`                 | Drives routing logic - determines if user sees onboarding or main app |
+| `themeModeProvider`        | `StateNotifierProvider<ThemeMode>`     | Theme persistence with light/dark/system modes                        |
+| `backendLifecycleProvider` | `Provider<void>`                       | Manages Rust backend start/stop based on account state changes        |
+| `notificationsProvider`    | `StateNotifier<List<AppNotification>>` | Manages in-app notifications                                          |
 
 #### 2. Wallet State
 
 **Location:** `lib/features/wallet/presentation/controllers/`
 
-| Provider | Type | Purpose |
-|----------|------|---------|
-| `walletAssetsProvider` | `AsyncNotifier<List<AssetSummary>>` | Aggregated token balances by token_id |
-| `walletUtxosProvider` | `AsyncNotifier<List<OwnedUtxo>>` | UTXO management |
-| `transactionActivityProvider` | `AsyncNotifier<List<Transaction>>` | Recent transaction history |
+| Provider                      | Type                                | Purpose                               |
+| ----------------------------- | ----------------------------------- | ------------------------------------- |
+| `walletAssetsProvider`        | `AsyncNotifier<List<AssetSummary>>` | Aggregated token balances by token_id |
+| `walletUtxosProvider`         | `AsyncNotifier<List<OwnedUtxo>>`    | UTXO management                       |
+| `transactionActivityProvider` | `AsyncNotifier<List<Transaction>>`  | Recent transaction history            |
 
 **AssetSummary Model:**
+
 ```dart
 class AssetSummary {
   final String tokenId;
@@ -656,14 +658,15 @@ class AssetSummary {
 
 **Location:** `lib/features/node/presentation/controllers/`
 
-| Provider | Type | Purpose | Auto-Refresh |
-|----------|------|---------|--------------|
-| `nodeStatusProvider` | `AsyncNotifier<NodeStatus?>` | Node sync status, peer info | Every 2 min |
-| `syncStatusProvider` | `Provider<SyncStatus>` | Blockchain sync progress | On dependency |
-| `mempoolProvider` | `AsyncNotifier<Mempool>` | Mempool transaction data | Manual |
-| `blockchainProvider` | `AsyncNotifier<Blockchain>` | Recent blocks | Manual |
+| Provider             | Type                         | Purpose                     | Auto-Refresh  |
+| -------------------- | ---------------------------- | --------------------------- | ------------- |
+| `nodeStatusProvider` | `AsyncNotifier<NodeStatus?>` | Node sync status, peer info | Every 2 min   |
+| `syncStatusProvider` | `Provider<SyncStatus>`       | Blockchain sync progress    | On dependency |
+| `mempoolProvider`    | `AsyncNotifier<Mempool>`     | Mempool transaction data    | Manual        |
+| `blockchainProvider` | `AsyncNotifier<Blockchain>`  | Recent blocks               | Manual        |
 
 **NodeStatus Model:**
+
 ```dart
 class NodeStatus {
   final int localBestHeight;
@@ -677,11 +680,12 @@ class NodeStatus {
 
 **Location:** `lib/features/rewards/presentation/controllers/epoch_rewards_provider.dart`
 
-| Provider | Type | Purpose |
-|----------|------|---------|
+| Provider                 | Type                                  | Purpose                                   |
+| ------------------------ | ------------------------------------- | ----------------------------------------- |
 | `epochRewardsUiProvider` | `AsyncNotifier<EpochRewardsUiState?>` | Epoch rewards tracking with notifications |
 
 **EpochRewardsUiState Model:**
+
 ```dart
 class EpochRewardsUiState {
   final EpochRewardsSnapshot? snapshot;
@@ -701,6 +705,7 @@ class EpochRewardsSnapshot {
 ```
 
 **Side Effects:**
+
 - Monitors `earnedSoFar` changes
 - Triggers in-app notification when rewards increase
 - Calculates reward differential
@@ -789,6 +794,7 @@ redirect: (context, state) {
 ### Route Classifications
 
 #### Public Routes (No Account Required)
+
 - `/splash` - Splash screen
 - `/onboarding` - Account mode selection
 - `/create-new-account` - Account creation flow
@@ -796,10 +802,12 @@ redirect: (context, state) {
 - `/identity-verification` - Identity verification (accessible during onboarding)
 
 #### Protected Routes (Account Required)
+
 - All `/main/*` routes require an account
 - Automatically redirected to `/onboarding` if no account exists
 
 #### Overlay Routes (Account Required)
+
 - `/send` - Send tokens
 - `/receive` - Receive tokens
 - `/rewards` - Rewards breakdown
@@ -812,30 +820,30 @@ redirect: (context, state) {
 
 ### All Routes
 
-| Route | Path | Protected | Notes |
-|-------|------|-----------|-------|
-| **Authentication** | | | |
-| Splash | `/splash` | No | Transient - redirects based on account state |
-| Onboarding | `/onboarding` | No | Account mode selection |
-| Create Account | `/create-new-account?mnemonic=` | No | Displays mnemonic, creates account |
-| Import Seed | `/import-seed-phrase` | No | Import existing account |
-| Identity Verification | `/identity-verification?accountId=` | No | Can be accessed post-account for updates |
-| **Main App (Shell Route)** | | | |
-| Home | `/main/home` | Yes | Default landing page |
-| Node Status | `/main/node` | Yes | Node sync and blockchain info |
-| DApps | `/main/dapps` | Yes | Decentralized applications |
-| Wallet | `/main/wallet` | Yes | Optional - controlled by feature flags |
-| Profile | `/main/profile` | Yes | Optional - controlled by feature flags |
-| **Node Sub-Routes** | | | |
-| Won Slots | `/main/node/won-slots` | Yes | View won slot details |
-| Produced Blocks | `/main/node/produced-blocks` | Yes | View produced blocks |
-| Mempool Details | `/main/node/mempool` | Yes | View mempool transactions |
-| **Overlay Routes** | | | |
-| Send | `/send` | Yes | Send tokens |
-| Receive | `/receive` | Yes | Receive tokens (address + QR) |
-| Rewards | `/rewards` | Yes | Rewards breakdown |
-| Settings | `/settings` | Yes | App settings |
-| Notifications | `/notifications` | Yes | Notifications center |
+| Route                      | Path                                | Protected | Notes                                        |
+| -------------------------- | ----------------------------------- | --------- | -------------------------------------------- |
+| **Authentication**         |                                     |           |                                              |
+| Splash                     | `/splash`                           | No        | Transient - redirects based on account state |
+| Onboarding                 | `/onboarding`                       | No        | Account mode selection                       |
+| Create Account             | `/create-new-account?mnemonic=`     | No        | Displays mnemonic, creates account           |
+| Import Seed                | `/import-seed-phrase`               | No        | Import existing account                      |
+| Identity Verification      | `/identity-verification?accountId=` | No        | Can be accessed post-account for updates     |
+| **Main App (Shell Route)** |                                     |           |                                              |
+| Home                       | `/main/home`                        | Yes       | Default landing page                         |
+| Node Status                | `/main/node`                        | Yes       | Node sync and blockchain info                |
+| DApps                      | `/main/dapps`                       | Yes       | Decentralized applications                   |
+| Wallet                     | `/main/wallet`                      | Yes       | Optional - controlled by feature flags       |
+| Profile                    | `/main/profile`                     | Yes       | Optional - controlled by feature flags       |
+| **Node Sub-Routes**        |                                     |           |                                              |
+| Won Slots                  | `/main/node/won-slots`              | Yes       | View won slot details                        |
+| Produced Blocks            | `/main/node/produced-blocks`        | Yes       | View produced blocks                         |
+| Mempool Details            | `/main/node/mempool`                | Yes       | View mempool transactions                    |
+| **Overlay Routes**         |                                     |           |                                              |
+| Send                       | `/send`                             | Yes       | Send tokens                                  |
+| Receive                    | `/receive`                          | Yes       | Receive tokens (address + QR)                |
+| Rewards                    | `/rewards`                          | Yes       | Rewards breakdown                            |
+| Settings                   | `/settings`                         | Yes       | App settings                                 |
+| Notifications              | `/notifications`                    | Yes       | Notifications center                         |
 
 ### Bottom Navigation Tabs
 
@@ -847,32 +855,36 @@ redirect: (context, state) {
 
 ### State Provider Locations
 
-| Feature | Provider Location |
-|---------|-------------------|
-| Global State | `lib/core/di/providers.dart` |
-| Wallet State | `lib/features/wallet/presentation/controllers/` |
-| Node State | `lib/features/node/presentation/controllers/` |
+| Feature       | Provider Location                                |
+| ------------- | ------------------------------------------------ |
+| Global State  | `lib/core/di/providers.dart`                     |
+| Wallet State  | `lib/features/wallet/presentation/controllers/`  |
+| Node State    | `lib/features/node/presentation/controllers/`    |
 | Rewards State | `lib/features/rewards/presentation/controllers/` |
 | Notifications | `lib/core/providers/notifications_provider.dart` |
 
 ### Key Navigation Patterns
 
 #### 1. Account Creation Flow
+
 ```
 Onboarding → Create/Import → Identity Verification → Home
 ```
 
 #### 2. Quick Actions from Home
+
 ```
 Home → Send/Receive/Rewards (overlay routes)
 ```
 
 #### 3. Node Exploration
+
 ```
 Node → Won Slots/Produced Blocks/Mempool (sub-routes)
 ```
 
 #### 4. Settings & Notifications
+
 ```
 Any Screen (via drawer) → Settings → Notifications
 ```
@@ -908,6 +920,7 @@ ShellRoute(
 ```
 
 Benefits:
+
 - Bottom navigation persists across tab changes
 - Efficient state preservation
 - Smooth tab transitions
@@ -943,22 +956,26 @@ This ensures the Rust backend starts/stops automatically based on account existe
 ## Best Practices
 
 ### 1. Navigation
+
 - Use `context.go()` for navigation within the app
 - Use `context.push()` for overlay screens that should allow back navigation
 - Always use named routes from the router configuration
 
 ### 2. State Management
+
 - Use `ref.watch()` in build methods for reactive updates
 - Use `ref.read()` in event handlers
 - Call `.refresh()` on providers to manually trigger updates
 - Handle all `AsyncValue` states (loading, data, error)
 
 ### 3. Route Protection
+
 - Don't manually check auth state - let the router guard handle it
 - Use query parameters for passing IDs: `?accountId=123`
 - Clean up timers and listeners in provider `onDispose`
 
 ### 4. Performance
+
 - Use `const` constructors where possible
 - Leverage provider auto-dispose for inactive screens
 - Implement pagination for large lists
@@ -971,18 +988,22 @@ This ensures the Rust backend starts/stops automatically based on account existe
 ### Common Issues
 
 **Issue:** Navigation not updating after account creation
+
 - **Cause:** Provider not invalidated
 - **Solution:** Ensure `ref.invalidate(hasAnyAccountProvider)` is called after account operations
 
 **Issue:** State not updating in UI
+
 - **Cause:** Using `ref.read()` instead of `ref.watch()`
 - **Solution:** Use `ref.watch()` in build methods for reactive updates
 
 **Issue:** Back button behavior inconsistent
+
 - **Cause:** Mixing `context.go()` and `context.push()`
 - **Solution:** Use `context.go()` for tab navigation, `context.push()` for overlays
 
 **Issue:** Multiple refreshes on screen load
+
 - **Cause:** Multiple providers watching same dependency
 - **Solution:** Debounce refresh calls or consolidate provider dependencies
 

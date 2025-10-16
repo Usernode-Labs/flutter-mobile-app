@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
+import 'package:crypto_mobile_app/core/theme/theme.dart';
 
 class NodePeersScreen extends StatelessWidget {
   final List<RpcPeerInfo> peers;
@@ -9,134 +10,238 @@ class NodePeersScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    // Calculate peer statistics
+    int connected = 0;
+    int connecting = 0;
+    int disconnected = 0;
+
+    for (final peer in peers) {
+      switch (peer.connectionStatus) {
+        case PeerConnectionStatus.connected:
+          connected++;
+          break;
+        case PeerConnectionStatus.connecting:
+        case PeerConnectionStatus.disconnecting:
+          connecting++;
+          break;
+        case PeerConnectionStatus.disconnected:
+          disconnected++;
+          break;
+      }
+    }
+
+    // Sort peers: Connected first, then Connecting, then Disconnected
+    // Within each group, sort by time (most recent first)
+    final sortedPeers = List<RpcPeerInfo>.from(peers)..sort((a, b) {
+      // Assign priority to each status
+      int getPriority(PeerConnectionStatus status) {
+        switch (status) {
+          case PeerConnectionStatus.connected:
+            return 0;
+          case PeerConnectionStatus.connecting:
+          case PeerConnectionStatus.disconnecting:
+            return 1;
+          case PeerConnectionStatus.disconnected:
+            return 2;
+        }
+      }
+
+      final priorityA = getPriority(a.connectionStatus);
+      final priorityB = getPriority(b.connectionStatus);
+
+      // First compare by status priority
+      if (priorityA != priorityB) {
+        return priorityA.compareTo(priorityB);
+      }
+
+      // If same status, sort by time (most recent first)
+      return b.time.compareTo(a.time);
+    });
+
     return Scaffold(
       appBar: const AppAppBar(
         title: 'Node Peers',
       ),
       body: SafeArea(
-        child: ListView.separated(
-          padding: const EdgeInsets.all(16),
-          itemCount: peers.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 8),
-          itemBuilder: (_, i) {
-            final p = peers[i];
-            final status = p.connectionStatus.toString().split('.').last;
-            final statusColor = _statusColor(theme, p.connectionStatus);
-            final details = p.connectingDetails;
-            final incoming = p.incoming ? 'incoming' : 'outgoing';
-            // Safely stringify peerId; if flutter_rust_bridge isn't initialized
-            // in a test environment, fall back to a placeholder.
-            String idShort;
-            try {
-              final peerIdRaw = p.peerId.toString();
-              idShort = _shortenMid(peerIdRaw);
-            } catch (_) {
-              idShort = '(unavailable)';
-            }
-            final ipOnly = _peerIpOnly(p);
-            final timeStr = _formatTimeAgo(p.time);
-            final titleText = ipOnly ?? '(Hidden address)';
-
-            return Material(
-              color: theme.colorScheme.surface,
-              child: ListTile(
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                tileColor: theme.colorScheme.surfaceContainerHighest
-                    .withValues(alpha: 0.3),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                leading: CircleAvatar(
-                  backgroundColor: statusColor.withValues(alpha: 0.12),
-                  foregroundColor: statusColor,
-                  child: const Icon(Icons.hub),
-                ),
-                title: Text(
-                  titleText,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: theme.colorScheme.onSurface,
-                    fontWeight: FontWeight.w600,
+        child: Column(
+          children: [
+            // Summary header
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer.withValues(alpha: 0.3),
+                border: Border(
+                  bottom: BorderSide(
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.5),
                   ),
                 ),
-                subtitle: Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+              ),
+              child: Text(
+                '${peers.length} Peers  •  $connected Connected  •  $connecting Connecting',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onSurface,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+
+            // Peer list
+            Expanded(
+              child: ListView.separated(
+                padding: EdgeInsets.zero,
+                itemCount: sortedPeers.length,
+                separatorBuilder: (_, __) => Divider(
+                  height: 8,
+                  thickness: 1,
+                  indent: 16,
+                  endIndent: 16,
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                ),
+                itemBuilder: (_, i) {
+                  final p = sortedPeers[i];
+                  final status = p.connectionStatus.toString().split('.').last;
+                  final statusColor = _statusColor(theme, p.connectionStatus);
+                  final details = p.connectingDetails;
+                  final incoming = p.incoming ? 'incoming' : 'outgoing';
+
+                  // Safely stringify peerId
+                  String idShort;
+                  try {
+                    final peerIdRaw = p.peerId.toString();
+                    idShort = _shortenMid(peerIdRaw);
+                  } catch (_) {
+                    idShort = '(unavailable)';
+                  }
+
+                  final ipOnly = _peerIpOnly(p);
+                  final timeStr = _formatTimeAgo(p.time);
+                  final titleText = ipOnly ?? '(Hidden address)';
+
+                  // Direction badge colors
+                  final directionColor = p.incoming
+                      ? colorScheme.tertiary
+                      : colorScheme.secondary;
+                  final directionIcon = p.incoming
+                      ? Icons.arrow_downward
+                      : Icons.arrow_upward;
+
+                  return ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    leading: CircleAvatar(
+                      backgroundColor: statusColor.withValues(alpha: 0.12),
+                      foregroundColor: statusColor,
+                      radius: 16,
+                      child: Icon(
+                        Icons.hub,
+                        size: 16,
+                      ),
+                    ),
+                    title: Text(
+                      titleText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Chip(
-                            label: Text(status),
-                            backgroundColor:
-                                statusColor.withValues(alpha: 0.12),
-                            labelStyle: theme.textTheme.bodySmall
-                                ?.copyWith(color: statusColor),
-                            visualDensity:
-                                const VisualDensity(horizontal: -4, vertical: -4),
-                            padding: EdgeInsets.zero,
-                            materialTapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap,
+                          Row(
+                            children: [
+                              // Direction icon badge
+                              Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  color: directionColor.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(
+                                    color: directionColor.withValues(alpha: 0.3),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Icon(
+                                  directionIcon,
+                                  size: 10,
+                                  color: directionColor,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              // Peer ID or details
+                              Expanded(
+                                child: Text(
+                                  details != null && details.isNotEmpty
+                                      ? details
+                                      : 'id: $idShort',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                    fontSize: 11,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 8),
-                          Tooltip(
-                            message: incoming == 'incoming'
-                                ? 'Incoming'
-                                : 'Outgoing',
-                            child: Icon(
-                              incoming == 'incoming'
-                                  ? Icons.call_received
-                                  : Icons.call_made,
-                              size: 16,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant,
+                          const SizedBox(height: 2),
+                          Text(
+                            timeStr,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                              fontSize: 10,
                             ),
                           ),
                         ],
                       ),
-                      if (details != null && details.isNotEmpty)
-                        Text(
-                          details,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      Text(
-                        'id: $idShort',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    trailing: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: statusColor.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: statusColor, width: 1.5),
+                      ),
+                      child: Text(
+                        status.toUpperCase(),
+                        style: TextStyle(
+                          color: statusColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                          letterSpacing: 0.5,
                         ),
                       ),
-                      Text(
-                        'time: $timeStr',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                dense: false,
+                    ),
+                    dense: true,
+                    visualDensity: VisualDensity.compact,
+                  );
+                },
               ),
-            );
-          },
+            ),
+          ],
         ),
       ),
     );
   }
 
   Color _statusColor(ThemeData theme, PeerConnectionStatus s) {
+    final colorScheme = theme.colorScheme;
     switch (s) {
       case PeerConnectionStatus.connected:
-        return Colors.green;
+        return colorScheme.tertiary; // Green
       case PeerConnectionStatus.connecting:
-        return Colors.amber;
+        return MaterialTheme.warningColor; // Orange
       case PeerConnectionStatus.disconnected:
-        return Colors.red;
+        return colorScheme.error; // Red
       case PeerConnectionStatus.disconnecting:
-        return Colors.orange;
+        return MaterialTheme.accentYellow; // Amber
     }
   }
 

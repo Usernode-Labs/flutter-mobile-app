@@ -924,11 +924,14 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
           );
         }
 
+        // Limit to 10 most recent transactions
+        final displayedItems = items.take(10).toList();
+
         return SliverList(
           delegate: SliverChildBuilderDelegate(
             (context, index) {
-              final item = items[index];
-              final isLast = index == items.length - 1;
+              final item = displayedItems[index];
+              final isLast = index == displayedItems.length - 1;
 
               return Column(
                 children: [
@@ -946,7 +949,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                 ],
               );
             },
-            childCount: items.length,
+            childCount: displayedItems.length,
           ),
         );
       },

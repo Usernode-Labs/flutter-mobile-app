@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:crypto_mobile_app/gen_l10n/app_localizations.dart';
@@ -505,7 +506,9 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                 label: 'Peers',
                 value: '$connectedPeers/$totalPeers',
                 subtitle: peerHealthy ? 'All connected' : 'Some offline',
-                color: peerHealthy ? colorScheme.tertiary : colorScheme.error.withValues(alpha: 0.7),
+                color: peerHealthy
+                    ? colorScheme.tertiary
+                    : colorScheme.error.withValues(alpha: 0.7),
                 colorScheme: colorScheme,
                 onTap: () {
                   final raw = ref.read(nodeRawStatusProvider).value;
@@ -1187,7 +1190,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
               ),
               Expanded(
                 child: Text(
-                  '${rewards.earnedSoFar}  •  Expected: ${rewards.expectedTotal}',
+                  '${_formatTokenAmount(rewards.earnedSoFar)}  •  Expected: ${_formatTokenAmount(rewards.expectedTotal)}',
                   style: theme.textTheme.bodyMedium!
                       .copyWith(fontSize: 14, letterSpacing: 0.2),
                 ),
@@ -1412,6 +1415,11 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
   String _fmtInt(int? v) => v == null ? 'N/A' : v.toString();
 
+  String _formatTokenAmount(BigInt amount) {
+    final formatter = NumberFormat('#,##0', 'en_US');
+    return formatter.format(amount.toInt());
+  }
+
   String _formatLastChecked() {
     if (_lastChecked == null) return '';
 
@@ -1587,7 +1595,7 @@ class _ProducedBlockItem extends StatelessWidget {
                   children: [
                     Text(
                       'Block #$blockNumber',
-                      style: theme.textTheme.bodyLarge?.copyWith(
+                      style: theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -1653,8 +1661,8 @@ class _ProducedBlockItem extends StatelessWidget {
           // Reward
           if (reward > BigInt.zero)
             Text(
-              '+$reward',
-              style: theme.textTheme.titleMedium?.copyWith(
+              '+${_formatTokenAmountStatic(reward)} TKN',
+              style: theme.textTheme.bodySmall?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: colorScheme.tertiary,
               ),
@@ -1668,6 +1676,11 @@ class _ProducedBlockItem extends StatelessWidget {
     if (hash == 'N/A' || hash.isEmpty) return hash;
     if (hash.length <= head + tail + 3) return hash;
     return '${hash.substring(0, head)}...${hash.substring(hash.length - tail)}';
+  }
+
+  static String _formatTokenAmountStatic(BigInt amount) {
+    final formatter = NumberFormat('#,##0', 'en_US');
+    return formatter.format(amount.toInt());
   }
 }
 

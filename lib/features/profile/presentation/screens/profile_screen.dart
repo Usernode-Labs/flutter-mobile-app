@@ -1,9 +1,11 @@
 // ignore_for_file: use_build_context_synchronously
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:crypto_mobile_app/features/wallet/data/models/account.dart';
@@ -33,12 +35,25 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   AccountMeta? _account;
   bool _isLoading = true;
   RpcEpochRewardsResp? _rewards;
+  String? _privateKey;
+  bool _showPrivateKey = false;
+
+  // Tap detection for revealing crypto keys
+  int _tapCount = 0;
+  Timer? _tapTimer;
+  bool _showCryptoKeys = false;
 
   @override
   void initState() {
     super.initState();
     _loadAccount();
     _loadRewards();
+  }
+
+  @override
+  void dispose() {
+    _tapTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadAccount() async {
@@ -49,6 +64,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       _account = account;
       _isLoading = false;
     });
+    // Load private key after account is loaded
+    if (account != null) {
+      _loadPrivateKey(account.id);
+    }
+  }
+
+  Future<void> _loadPrivateKey(String accountId) async {
+    try {
+      final repo = await AccountsRepository.create();
+      final privateKey = await repo.getPrivateKey(accountId);
+      if (!mounted) return;
+      setState(() {
+        _privateKey = privateKey;
+      });
+    } catch (e, st) {
+      Log.e('PROFILE', 'Failed to load private key', e, st);
+    }
   }
 
   Future<void> _loadRewards() async {
@@ -84,6 +116,39 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     ];
     final idx = addr.hashCode.abs() % palette.length;
     return palette[idx];
+  }
+
+  String _formatTokenAmount(BigInt amount) {
+    final formatter = NumberFormat('#,##0', 'en_US');
+    return formatter.format(amount.toInt());
+  }
+
+  void _handleBottomTap() {
+    _tapTimer?.cancel();
+
+    setState(() {
+      _tapCount++;
+
+      if (_tapCount >= 3) {
+        _showCryptoKeys = true;
+        _tapCount = 0;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Developer keys revealed'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      } else {
+        // Reset tap count after 3 seconds of inactivity
+        _tapTimer = Timer(const Duration(seconds: 3), () {
+          if (mounted) {
+            setState(() {
+              _tapCount = 0;
+            });
+          }
+        });
+      }
+    });
   }
 
   @override
@@ -205,7 +270,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                   const SizedBox(width: 8),
                                   Text(
                                     'Identity Verified',
-                                    style: theme.textTheme.titleMedium?.copyWith(
+                                    style:
+                                        theme.textTheme.titleMedium?.copyWith(
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -217,7 +283,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                     ? 'Verified on ${_formatDateTime(_account!.identityVerifiedAt!)}'
                                     : 'Your identity has been successfully verified',
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurface.withValues(alpha: 0.6),
+                                  color: colorScheme.onSurface
+                                      .withValues(alpha: 0.6),
                                 ),
                               ),
                               const SizedBox(height: 16),
@@ -226,7 +293,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 child: OutlinedButton.icon(
                                   onPressed: () {
                                     if (_account != null) {
-                                      context.go('/identity-verification?accountId=${_account!.id}');
+                                      context.go(
+                                          '/identity-verification?accountId=${_account!.id}');
                                     }
                                   },
                                   icon: const Icon(Icons.refresh, size: 18),
@@ -248,7 +316,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                   const SizedBox(width: 8),
                                   Text(
                                     'Not Verified',
-                                    style: theme.textTheme.titleMedium?.copyWith(
+                                    style:
+                                        theme.textTheme.titleMedium?.copyWith(
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -258,7 +327,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               Text(
                                 'Verify your identity to unlock additional features',
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurface.withValues(alpha: 0.6),
+                                  color: colorScheme.onSurface
+                                      .withValues(alpha: 0.6),
                                 ),
                               ),
                               const SizedBox(height: 16),
@@ -267,10 +337,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 child: FilledButton.icon(
                                   onPressed: () {
                                     if (_account != null) {
-                                      context.go('/identity-verification?accountId=${_account!.id}');
+                                      context.go(
+                                          '/identity-verification?accountId=${_account!.id}');
                                     }
                                   },
-                                  icon: const Icon(Icons.verified_user, size: 18),
+                                  icon:
+                                      const Icon(Icons.verified_user, size: 18),
                                   label: const Text('Verify Identity'),
                                 ),
                               ),
@@ -354,7 +426,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 const SizedBox(height: 4),
                                 Text(
                                   _rewards != null
-                                      ? '${_rewards!.earnedSoFar}'
+                                      ? _formatTokenAmount(
+                                          _rewards!.earnedSoFar)
                                       : '—',
                                   style: theme.textTheme.titleMedium?.copyWith(
                                     fontWeight: FontWeight.bold,
@@ -376,7 +449,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 const SizedBox(height: 4),
                                 Text(
                                   _rewards != null
-                                      ? '${_rewards!.expectedTotal}'
+                                      ? _formatTokenAmount(
+                                          _rewards!.expectedTotal)
                                       : '—',
                                   style: theme.textTheme.titleMedium?.copyWith(
                                     fontWeight: FontWeight.bold,
@@ -399,7 +473,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 style: theme.textTheme.bodyMedium,
                               ),
                               Text(
-                                '${_rewards!.rewardPerBlock}',
+                                _formatTokenAmount(_rewards!.rewardPerBlock),
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -586,6 +660,85 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ],
                   ),
                 ),
+
+                // Cryptographic Keys Card (hidden by default, revealed with 3 taps)
+                if (_showCryptoKeys) ...[
+                  const SizedBox(height: 16),
+                  _SectionCard(
+                    title: 'Cryptographic Keys',
+                    icon: Icons.key,
+                    colorScheme: colorScheme,
+                    theme: theme,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Private Key
+                          _KeyField(
+                            label: 'Private Key',
+                            value: _privateKey ?? 'Loading...',
+                            isPrivate: true,
+                            showValue: _showPrivateKey,
+                            onToggleVisibility: () {
+                              setState(() {
+                                _showPrivateKey = !_showPrivateKey;
+                              });
+                            },
+                            colorScheme: colorScheme,
+                            theme: theme,
+                          ),
+                          const SizedBox(height: 12),
+
+                          // Public Key
+                          _KeyField(
+                            label: 'Public Key',
+                            value: _account?.publicKey ?? '—',
+                            colorScheme: colorScheme,
+                            theme: theme,
+                          ),
+                          const SizedBox(height: 12),
+
+                          // Address
+                          _KeyField(
+                            label: 'Address',
+                            value: _account?.address ?? '—',
+                            colorScheme: colorScheme,
+                            theme: theme,
+                          ),
+
+                          const SizedBox(height: 12),
+
+                          // Hide button
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton.icon(
+                              onPressed: () {
+                                setState(() {
+                                  _showCryptoKeys = false;
+                                  _showPrivateKey = false;
+                                  _tapCount = 0;
+                                });
+                              },
+                              icon: const Icon(Icons.visibility_off, size: 16),
+                              label: const Text('Hide Keys'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+
+                // Tap detection area (transparent, at bottom)
+                GestureDetector(
+                  onTap: _handleBottomTap,
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    height: 100,
+                    color: Colors.transparent,
+                  ),
+                ),
               ],
             ),
           ),
@@ -671,7 +824,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         Future.delayed(const Duration(milliseconds: 500), () {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('All accounts deleted successfully')),
+              const SnackBar(
+                  content: Text('All accounts deleted successfully')),
             );
           }
         });
@@ -788,6 +942,122 @@ class _ListTileButton extends StatelessWidget {
             )
           : const Icon(Icons.chevron_right),
       onTap: onTap,
+    );
+  }
+}
+
+class _KeyField extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool isPrivate;
+  final bool showValue;
+  final VoidCallback? onToggleVisibility;
+  final ColorScheme colorScheme;
+  final ThemeData theme;
+
+  const _KeyField({
+    required this.label,
+    required this.value,
+    this.isPrivate = false,
+    this.showValue = true,
+    this.onToggleVisibility,
+    required this.colorScheme,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final displayValue = isPrivate && !showValue ? '•' * 64 : value;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Label
+        Text(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurface.withValues(alpha: 0.6),
+            fontWeight: FontWeight.w600,
+            fontSize: 12,
+          ),
+        ),
+        const SizedBox(height: 6),
+
+        // Value container
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: colorScheme.outlineVariant,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SelectableText(
+                displayValue,
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 11,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 6),
+
+              // Buttons
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  if (isPrivate && onToggleVisibility != null)
+                    TextButton.icon(
+                      onPressed: onToggleVisibility,
+                      icon: Icon(
+                        showValue ? Icons.visibility_off : Icons.visibility,
+                        size: 14,
+                      ),
+                      label: Text(
+                        showValue ? 'Hide' : 'Show',
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
+                  if (isPrivate && onToggleVisibility != null)
+                    const SizedBox(width: 6),
+                  TextButton.icon(
+                    onPressed: () {
+                      if (value != 'Loading...' && value != '—') {
+                        Clipboard.setData(ClipboardData(text: value));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('$label copied to clipboard'),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.copy, size: 14),
+                    label: const Text(
+                      'Copy',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

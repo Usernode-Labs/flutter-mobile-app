@@ -6,9 +6,22 @@ allprojects {
 }
 
 rootProject.buildDir = '../build'
+
+// Force all subprojects to use Kotlin language version 1.8
+// This ensures compatibility with Kotlin 2.2.0
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
+
+    // Configure Kotlin language version for all Kotlin Android projects
+    pluginManager.withPlugin("org.jetbrains.kotlin.android") {
+        tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+            kotlinOptions {
+                languageVersion = '1.8'
+            }
+        }
+    }
 }
+
 subprojects {
     project.evaluationDependsOn(':app')
 }

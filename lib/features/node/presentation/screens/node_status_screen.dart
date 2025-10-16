@@ -1587,7 +1587,7 @@ class _ProducedBlockItem extends StatelessWidget {
                   children: [
                     Text(
                       'Block #$blockNumber',
-                      style: theme.textTheme.bodyLarge?.copyWith(
+                      style: theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -1653,8 +1653,8 @@ class _ProducedBlockItem extends StatelessWidget {
           // Reward
           if (reward > BigInt.zero)
             Text(
-              '+$reward',
-              style: theme.textTheme.titleMedium?.copyWith(
+              '+$reward TKN',
+              style: theme.textTheme.bodySmall?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: colorScheme.tertiary,
               ),

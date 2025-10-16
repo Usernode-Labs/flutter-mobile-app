@@ -138,12 +138,15 @@ class MempoolDetailsScreen extends ConsumerWidget {
                 // Transaction list
                 Expanded(
                   child: ListView.separated(
-                    padding: const EdgeInsets.all(16),
+                    padding: EdgeInsets.zero,
                     itemCount: mempool.entries.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    separatorBuilder: (_, __) => Divider(
+                      height: 1,
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+                    ),
                     itemBuilder: (context, index) {
                       final tx = mempool.entries[index];
-                      return _buildTransactionCard(
+                      return _buildTransactionListItem(
                         context,
                         tx,
                         colorScheme,
@@ -191,137 +194,117 @@ class MempoolDetailsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildTransactionCard(
+  Widget _buildTransactionListItem(
     BuildContext context,
     MempoolTxSummary tx,
     ColorScheme colorScheme,
     ThemeData theme,
   ) {
     final txHash = _formatTxHash(tx.id.toString());
+    final fee = tx.fee.toString();
 
-    return Card(
-      elevation: 0,
-      color: colorScheme.surfaceContainerLow,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+    // Optional: Add priority indicator emoji based on fee amount
+    String feeDisplay = fee;
+    if (tx.fee > BigInt.from(400)) {
+      feeDisplay = '$fee ⚡';
+    }
+
+    return ListTile(
+      leading: CircleAvatar(
+        backgroundColor: colorScheme.primaryContainer.withValues(alpha: 0.5),
+        radius: 16,
+        child: Icon(
+          Icons.receipt_long,
+          size: 14,
+          color: colorScheme.primary,
         ),
       ),
-      child: InkWell(
-        onTap: () {
-          // TODO: Navigate to transaction details
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Transaction details: $txHash'),
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Transaction hash
-              Row(
-                children: [
-                  Icon(
-                    Icons.receipt_long,
-                    size: 16,
-                    color: colorScheme.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      txHash,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurface,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: 'monospace',
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // Transaction details
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _buildDetailChip(
-                    context,
-                    Icons.currency_exchange,
-                    'Fee: ${tx.fee}',
-                    colorScheme.tertiary,
-                    colorScheme,
-                  ),
-                  _buildDetailChip(
-                    context,
-                    Icons.input,
-                    'In: ${tx.inputs.length}',
-                    Colors.blue,
-                    colorScheme,
-                  ),
-                  _buildDetailChip(
-                    context,
-                    Icons.output,
-                    'Out: ${tx.outputs.length}',
-                    Colors.green,
-                    colorScheme,
-                  ),
-                  _buildDetailChip(
-                    context,
-                    Icons.data_usage,
-                    '${tx.sizeBytes}B',
-                    colorScheme.secondary,
-                    colorScheme,
-                  ),
-                ],
-              ),
-            ],
+      title: Text(
+        txHash,
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w600,
+          fontFamily: 'monospace',
+          fontSize: 12,
+        ),
+      ),
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 2),
+        child: Text(
+          'Fee: $feeDisplay  •  In: ${tx.inputs.length}  Out: ${tx.outputs.length}  •  ${tx.sizeBytes}B',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            fontSize: 11,
           ),
         ),
       ),
+      trailing: TextButton(
+        onPressed: () => _showComingSoonModal(context),
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'View',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.primary,
+                fontWeight: FontWeight.w500,
+                fontSize: 11,
+              ),
+            ),
+            const SizedBox(width: 2),
+            Icon(
+              Icons.arrow_forward,
+              size: 12,
+              color: colorScheme.primary,
+            ),
+          ],
+        ),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      dense: true,
+      visualDensity: VisualDensity.compact,
     );
   }
 
-  Widget _buildDetailChip(
-    BuildContext context,
-    IconData icon,
-    String label,
-    Color color,
-    ColorScheme colorScheme,
-  ) {
+  void _showComingSoonModal(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: color.withValues(alpha: 0.3),
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: color),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurface,
-              fontWeight: FontWeight.w500,
-              fontSize: 11,
+    final colorScheme = theme.colorScheme;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          icon: Icon(
+            Icons.schedule,
+            size: 48,
+            color: colorScheme.primary,
+          ),
+          title: Text(
+            'Coming Soon',
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
             ),
           ),
-        ],
-      ),
+          content: Text(
+            'Transaction details will be available in a future update.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
     );
   }
 

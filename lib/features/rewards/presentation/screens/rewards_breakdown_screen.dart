@@ -201,7 +201,7 @@ class _RewardsBreakdownScreenState extends State<RewardsBreakdownScreen> {
           height: 6,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(3),
-            color: const Color(0xFFE8E8E8),
+            color: colorScheme.surfaceContainerHighest,
           ),
           child: FractionallySizedBox(
             widthFactor: progress.clamp(0.0, 1.0),
@@ -209,7 +209,7 @@ class _RewardsBreakdownScreenState extends State<RewardsBreakdownScreen> {
             child: Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(3),
-                color: const Color(0xFF4A90E2),
+                color: colorScheme.primary,
               ),
             ),
           ),
@@ -255,11 +255,11 @@ class _RewardsBreakdownScreenState extends State<RewardsBreakdownScreen> {
           Container(
             width: 48,
             height: 48,
-            decoration: const BoxDecoration(
-              color: Color(0xFFD6D9FF),
+            decoration: BoxDecoration(
+              color: colorScheme.primaryContainer,
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: const Color(0xFF4A54E2), size: 24),
+            child: Icon(icon, color: colorScheme.onPrimaryContainer, size: 24),
           ),
           const SizedBox(width: 16),
           Expanded(

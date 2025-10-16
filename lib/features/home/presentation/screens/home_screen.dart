@@ -130,17 +130,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           subtitle: isIdentityVerified
                               ? 'Update your verification to maintain benefits'
                               : 'Verify your identity to unlock premium features',
-                          gradientColors: isIdentityVerified
-                              ? [
-                                  const Color(0xFF6EE7B7), // Much lighter green
-                                  const Color(0xFF34D399),
-                                ]
-                              : [
-                                  Color.lerp(
-                                      colorScheme.primary, Colors.white, 0.4)!,
-                                  Color.lerp(
-                                      colorScheme.primary, Colors.white, 0.1)!,
-                                ],
+                          gradientColors: [
+                            Color.lerp(
+                                colorScheme.primary, Colors.white, 0.4)!,
+                            Color.lerp(
+                                colorScheme.primary, Colors.white, 0.1)!,
+                          ],
                           onTap: () {
                             if (activeAccount != null) {
                               context.go(
@@ -156,9 +151,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           title: 'Lock for Rewards',
                           subtitle:
                               'Lock USDC and tokens for yield and participation bonuses',
-                          gradientColors: const [
-                            Color(0xFFC4B5FD), // Much lighter purple
-                            Color(0xFFA78BFA),
+                          gradientColors: [
+                            Color.lerp(
+                                colorScheme.tertiary, Colors.white, 0.4)!,
+                            Color.lerp(
+                                colorScheme.tertiary, Colors.white, 0.1)!,
                           ],
                           onTap: () {
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -175,9 +172,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           title: 'Invite Friends',
                           subtitle:
                               'Share the app and earn rewards for each referral',
-                          gradientColors: const [
-                            Color(0xFFFCD34D), // Much lighter orange/yellow
-                            Color(0xFFFBBF24),
+                          gradientColors: [
+                            Color.lerp(
+                                colorScheme.secondary, Colors.white, 0.4)!,
+                            Color.lerp(
+                                colorScheme.secondary, Colors.white, 0.1)!,
                           ],
                           onTap: () {
                             ScaffoldMessenger.of(context).showSnackBar(

@@ -26,8 +26,8 @@ class SendSuccessScreen extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 36,
-              backgroundColor: Colors.green[100],
-              child: const Icon(Icons.check, color: Colors.green, size: 36),
+              backgroundColor: theme.colorScheme.tertiaryContainer,
+              child: Icon(Icons.check, color: theme.colorScheme.tertiary, size: 36),
             ),
             const SizedBox(height: 24),
             Text(

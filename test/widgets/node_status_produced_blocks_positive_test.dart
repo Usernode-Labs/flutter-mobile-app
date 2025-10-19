@@ -50,7 +50,15 @@ void main() {
     );
 
     final container = ProviderContainer(overrides: [
-      nodeStatusProvider.overrideWith(() => _OkNodeStatus()),
+      nodeStatusProvider.overrideWith((ref) => const AsyncData(domain.NodeStatus(
+            connectedPeers: 0,
+            totalPeers: 0,
+            localBestHeight: null,
+            networkBestHeight: null,
+            epoch: null,
+            globalSlot: null,
+            bestTipHash: null,
+          ))),
       nodeRawStatusProvider.overrideWith(() => _RawBestTipSlot(globalSlot: 21)),
       nodeBlockchainProvider.overrideWith(() => _StaticBlockchainController(blockchain)),
       nodeEpochRewardsProvider.overrideWith(() => _StaticRewardsController(rewards)),
@@ -173,19 +181,6 @@ class _StaticRewardsController extends NodeEpochRewardsController {
   _StaticRewardsController(this.value);
   @override
   Future<RpcEpochRewardsResp?> build() async => value;
-}
-
-class _OkNodeStatus extends NodeStatusController {
-  @override
-  Future<domain.NodeStatus?> build() async => const domain.NodeStatus(
-        connectedPeers: 0,
-        totalPeers: 0,
-        localBestHeight: null,
-        networkBestHeight: null,
-        epoch: null,
-        globalSlot: null,
-        bestTipHash: null,
-      );
 }
 
 class _RawBestTipSlot extends NodeRawStatusController {

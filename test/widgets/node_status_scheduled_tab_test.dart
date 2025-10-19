@@ -14,7 +14,15 @@ import 'package:crypto_mobile_app/gen_l10n/app_localizations.dart';
 void main() {
   testWidgets('Scheduled Slots tab shows unavailable when providers are null', (tester) async {
     final container = ProviderContainer(overrides: [
-      nodeStatusProvider.overrideWith(() => _OkNodeStatus()),
+      nodeStatusProvider.overrideWith((ref) => const AsyncData(domain.NodeStatus(
+            connectedPeers: 0,
+            totalPeers: 0,
+            localBestHeight: null,
+            networkBestHeight: null,
+            epoch: null,
+            globalSlot: null,
+            bestTipHash: null,
+          ))),
       nodeRawStatusProvider.overrideWith(() => _NullRawStatus()),
       nodeBlockchainProvider.overrideWith(() => _NullBlockchainController()),
       nodeEpochRewardsProvider.overrideWith(() => _NullEpochRewardsController()),
@@ -37,19 +45,6 @@ void main() {
 
     expect(find.textContaining('Epoch data unavailable'), findsOneWidget);
   });
-}
-
-class _OkNodeStatus extends NodeStatusController {
-  @override
-  Future<domain.NodeStatus?> build() async => const domain.NodeStatus(
-        connectedPeers: 0,
-        totalPeers: 0,
-        localBestHeight: null,
-        networkBestHeight: null,
-        epoch: null,
-        globalSlot: null,
-        bestTipHash: null,
-      );
 }
 
 class _NullRawStatus extends NodeRawStatusController {

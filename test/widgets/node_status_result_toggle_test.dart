@@ -23,7 +23,15 @@ void main() {
       nodeEpochRewardsResultProvider
           .overrideWith((ref) async => const Ok(null)),
       nodeBlockchainResultProvider.overrideWith((ref) async => const Ok(null)),
-      nodeStatusProvider.overrideWith(() => _OkNodeStatus()),
+      nodeStatusProvider.overrideWith((ref) => const AsyncData(domain.NodeStatus(
+            connectedPeers: 0,
+            totalPeers: 0,
+            localBestHeight: null,
+            networkBestHeight: null,
+            epoch: null,
+            globalSlot: null,
+            bestTipHash: null,
+          ))),
       nodeRawStatusProvider.overrideWith(() => _OkRawStatus()),
       // Let blockchain/rewards default to null to avoid extra rendering
     ]);
@@ -49,7 +57,15 @@ void main() {
       nodeEpochRewardsResultProvider
           .overrideWith((ref) async => const Ok(null)),
       nodeBlockchainResultProvider.overrideWith((ref) async => const Ok(null)),
-      nodeStatusProvider.overrideWith(() => _OkNodeStatus()),
+      nodeStatusProvider.overrideWith((ref) => const AsyncData(domain.NodeStatus(
+            connectedPeers: 0,
+            totalPeers: 0,
+            localBestHeight: null,
+            networkBestHeight: null,
+            epoch: null,
+            globalSlot: null,
+            bestTipHash: null,
+          ))),
       nodeRawStatusProvider.overrideWith(() => _OkRawStatus()),
     ]);
     addTearDown(container.dispose);
@@ -83,7 +99,15 @@ void main() {
       nodeEpochRewardsResultProvider
           .overrideWith((ref) async => const Ok(null)),
       nodeBlockchainResultProvider.overrideWith((ref) async => const Ok(null)),
-      nodeStatusProvider.overrideWith(() => _OkNodeStatus()),
+      nodeStatusProvider.overrideWith((ref) => const AsyncData(domain.NodeStatus(
+            connectedPeers: 0,
+            totalPeers: 0,
+            localBestHeight: null,
+            networkBestHeight: null,
+            epoch: null,
+            globalSlot: null,
+            bestTipHash: null,
+          ))),
       nodeRawStatusProvider.overrideWith(() => _OkRawStatus()),
     ]);
     addTearDown(container.dispose);
@@ -103,19 +127,6 @@ void main() {
     expect(find.textContaining('Orphans'), findsOneWidget);
     expect(find.textContaining('Total Size'), findsOneWidget);
   });
-}
-
-class _OkNodeStatus extends NodeStatusController {
-  @override
-  Future<domain.NodeStatus?> build() async => const domain.NodeStatus(
-        connectedPeers: 0,
-        totalPeers: 0,
-        localBestHeight: null,
-        networkBestHeight: null,
-        epoch: null,
-        globalSlot: null,
-        bestTipHash: null,
-      );
 }
 
 class _OkRawStatus extends NodeRawStatusController {

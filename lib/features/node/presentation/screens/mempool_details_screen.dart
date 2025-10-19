@@ -1,14 +1,52 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/node_data_providers.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_mempool.dart';
 
-class MempoolDetailsScreen extends ConsumerWidget {
+class MempoolDetailsScreen extends ConsumerStatefulWidget {
   const MempoolDetailsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MempoolDetailsScreen> createState() => _MempoolDetailsScreenState();
+}
+
+class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
+  Timer? _autoTimer;
+  bool _refreshing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _autoTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (mounted && !_refreshing) {
+        _refresh();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _autoTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refresh() async {
+    if (_refreshing) return;
+    _refreshing = true;
+    try {
+      await ref.read(nodeMempoolProvider.notifier).refresh();
+    } finally {
+      if (mounted) {
+        _refreshing = false;
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final mempoolAsync = ref.watch(nodeMempoolProvider);
@@ -18,9 +56,7 @@ class MempoolDetailsScreen extends ConsumerWidget {
         title: 'Mempool Transactions',
       ),
       body: RefreshIndicator(
-        onRefresh: () async {
-          await ref.read(nodeMempoolProvider.notifier).refresh();
-        },
+        onRefresh: _refresh,
         child: mempoolAsync.when(
           loading: () => const Center(
             child: CircularProgressIndicator(),
@@ -53,9 +89,7 @@ class MempoolDetailsScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 16),
                   FilledButton.icon(
-                    onPressed: () {
-                      ref.read(nodeMempoolProvider.notifier).refresh();
-                    },
+                    onPressed: _refresh,
                     icon: const Icon(Icons.refresh),
                     label: const Text('Retry'),
                   ),

@@ -25,7 +25,15 @@ void main() {
 
     final container = ProviderContainer(overrides: [
       nodeMempoolProvider.overrideWith(() => _StaticMempoolController(mempool)),
-      nodeStatusProvider.overrideWith(() => _OkNodeStatus()),
+      nodeStatusProvider.overrideWith((ref) => const AsyncData(domain.NodeStatus(
+            connectedPeers: 0,
+            totalPeers: 0,
+            localBestHeight: null,
+            networkBestHeight: null,
+            epoch: null,
+            globalSlot: null,
+            bestTipHash: null,
+          ))),
       nodeRawStatusProvider.overrideWith(() => _NullRawStatus()),
       // Prevent unrelated providers from hitting the backend
       nodeBlockchainProvider.overrideWith(() => _NullBlockchainController()),
@@ -55,19 +63,6 @@ class _StaticMempoolController extends NodeMempoolController {
   _StaticMempoolController(this.value);
   @override
   Future<RpcListMempoolResp?> build() async => value;
-}
-
-class _OkNodeStatus extends NodeStatusController {
-  @override
-  Future<domain.NodeStatus?> build() async => const domain.NodeStatus(
-        connectedPeers: 0,
-        totalPeers: 0,
-        localBestHeight: null,
-        networkBestHeight: null,
-        epoch: null,
-        globalSlot: null,
-        bestTipHash: null,
-      );
 }
 
 class _NullRawStatus extends NodeRawStatusController {

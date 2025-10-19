@@ -14,7 +14,15 @@ void main() {
     SharedPreferences.setMockInitialValues({});
 
     final container = ProviderContainer(overrides: [
-      nodeStatusProvider.overrideWith(() => _OkNodeStatus()),
+      nodeStatusProvider.overrideWith((ref) => const AsyncData(domain.NodeStatus(
+            connectedPeers: 0,
+            totalPeers: 0,
+            localBestHeight: null,
+            networkBestHeight: null,
+            epoch: null,
+            globalSlot: null,
+            bestTipHash: null,
+          ))),
       nodeRawStatusProvider.overrideWith(() => _NullRawStatus()),
     ]);
     addTearDown(container.dispose);
@@ -31,19 +39,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(container.read(themeModeProvider), ThemeMode.light);
   });
-}
-
-class _OkNodeStatus extends NodeStatusController {
-  @override
-  Future<domain.NodeStatus?> build() async => const domain.NodeStatus(
-        connectedPeers: 0,
-        totalPeers: 0,
-        localBestHeight: null,
-        networkBestHeight: null,
-        epoch: null,
-        globalSlot: null,
-        bestTipHash: null,
-      );
 }
 
 class _NullRawStatus extends NodeRawStatusController {

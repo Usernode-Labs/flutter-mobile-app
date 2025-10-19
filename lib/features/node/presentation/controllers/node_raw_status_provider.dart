@@ -48,12 +48,24 @@ class NodeRawStatusView {
       return const [];
     }
   }
+
+  int get connectedPeers {
+    int connected = 0;
+    for (final p in peers) {
+      if (p.connectionStatus == PeerConnectionStatus.connected) {
+        connected++;
+      }
+    }
+    return connected;
+  }
+
+  int get totalPeers => peers.length;
 }
 
 class NodeRawStatusController extends AsyncNotifier<NodeRawStatusView?> {
   @override
   Future<NodeRawStatusView?> build() async {
-    return _load();
+    return await _load();
   }
 
   Future<void> refresh() async {

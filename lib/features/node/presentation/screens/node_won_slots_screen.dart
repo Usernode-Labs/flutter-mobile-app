@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
@@ -31,11 +33,50 @@ class TimeBucketStats {
   });
 }
 
-class NodeWonSlotsScreen extends ConsumerWidget {
+class NodeWonSlotsScreen extends ConsumerStatefulWidget {
   const NodeWonSlotsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<NodeWonSlotsScreen> createState() => _NodeWonSlotsScreenState();
+}
+
+class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
+  Timer? _autoTimer;
+  bool _refreshing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _autoTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (mounted && !_refreshing) {
+        _refresh();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _autoTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refresh() async {
+    if (_refreshing) return;
+    _refreshing = true;
+    try {
+      await Future.wait([
+        ref.read(nodeEpochRewardsProvider.notifier).refresh(),
+        ref.read(nodeBlockchainProvider.notifier).refresh(),
+      ]);
+    } finally {
+      if (mounted) {
+        _refreshing = false;
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final rewardsAsync = ref.watch(nodeEpochRewardsProvider);

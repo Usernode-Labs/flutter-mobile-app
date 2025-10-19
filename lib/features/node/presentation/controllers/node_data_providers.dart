@@ -11,7 +11,7 @@ import 'node_status_provider.dart';
 class NodeMempoolController extends AsyncNotifier<RpcListMempoolResp?> {
   @override
   Future<RpcListMempoolResp?> build() async {
-    return _load();
+    return await _load();
   }
 
   Future<void> refresh() async {
@@ -50,7 +50,7 @@ final nodeMempoolResultProvider = FutureProvider<Result<RpcListMempoolResp?>>(
 class NodeBlockchainController extends AsyncNotifier<RpcListBlockchainResp?> {
   @override
   Future<RpcListBlockchainResp?> build() async {
-    return _load();
+    return await _load();
   }
 
   Future<void> refresh() async {
@@ -90,15 +90,16 @@ class NodeEpochRewardsController extends AsyncNotifier<RpcEpochRewardsResp?> {
   @override
   Future<RpcEpochRewardsResp?> build() async {
     // Depend on status to get epoch value
-    final status = await ref.watch(nodeStatusProvider.future);
-    final epoch = status?.epoch;
+    final statusAsync = ref.watch(nodeStatusProvider);
+    final epoch = statusAsync.value?.epoch;
     if (epoch == null) return null;
-    return _load(epoch);
+
+    return await _load(epoch);
   }
 
   Future<void> refresh() async {
-    final status = await ref.read(nodeStatusProvider.future);
-    final epoch = status?.epoch;
+    final statusAsync = ref.read(nodeStatusProvider);
+    final epoch = statusAsync.value?.epoch;
     state = const AsyncLoading();
     if (epoch == null) {
       state = const AsyncData(null);
@@ -126,8 +127,8 @@ final nodeEpochRewardsProvider =
 final nodeEpochRewardsResultProvider =
     FutureProvider<Result<RpcEpochRewardsResp?>>((ref) async {
   try {
-    final status = await ref.watch(nodeStatusProvider.future);
-    final epoch = status?.epoch;
+    final statusAsync = ref.watch(nodeStatusProvider);
+    final epoch = statusAsync.value?.epoch;
     if (epoch == null) return const Ok(null);
     final resp = await RustBackendService.instance.epochRewards(epoch: epoch);
     return Ok(resp);

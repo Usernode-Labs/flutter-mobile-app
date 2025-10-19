@@ -16,7 +16,15 @@ import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart
 void main() {
   testWidgets('NodeStatusScreen shows mempool error text', (tester) async {
     final container = ProviderContainer(overrides: [
-      nodeStatusProvider.overrideWith(() => _OkNodeStatus()),
+      nodeStatusProvider.overrideWith((ref) => const AsyncData(domain.NodeStatus(
+            connectedPeers: 0,
+            totalPeers: 0,
+            localBestHeight: null,
+            networkBestHeight: null,
+            epoch: null,
+            globalSlot: null,
+            bestTipHash: null,
+          ))),
       nodeRawStatusProvider.overrideWith(() => _OkRawStatus()),
       nodeMempoolProvider.overrideWith(() => _ErrorMempoolController()),
       nodeBlockchainProvider.overrideWith(() => _OkNullBlockchainController()),
@@ -40,7 +48,15 @@ void main() {
 
   testWidgets('NodeStatusScreen shows epoch data unavailable on errors', (tester) async {
     final container = ProviderContainer(overrides: [
-      nodeStatusProvider.overrideWith(() => _OkNodeStatus()),
+      nodeStatusProvider.overrideWith((ref) => const AsyncData(domain.NodeStatus(
+            connectedPeers: 0,
+            totalPeers: 0,
+            localBestHeight: null,
+            networkBestHeight: null,
+            epoch: null,
+            globalSlot: null,
+            bestTipHash: null,
+          ))),
       nodeRawStatusProvider.overrideWith(() => _OkRawStatus()),
       nodeMempoolProvider.overrideWith(() => _OkNullMempoolController()),
       nodeBlockchainProvider.overrideWith(() => _ErrorBlockchainController()),
@@ -63,19 +79,6 @@ void main() {
   });
 }
 
-class _OkNodeStatus extends NodeStatusController {
-  @override
-  Future<domain.NodeStatus?> build() async => const domain.NodeStatus(
-        connectedPeers: 0,
-        totalPeers: 0,
-        localBestHeight: null,
-        networkBestHeight: null,
-        epoch: null,
-        globalSlot: null,
-        bestTipHash: null,
-      );
-}
-
 class _OkRawStatus extends NodeRawStatusController {
   @override
   Future<NodeRawStatusView?> build() async => const NodeRawStatusView(
@@ -85,37 +88,78 @@ class _OkRawStatus extends NodeRawStatusController {
         fetchProgress: null,
         applyProgress: null,
       );
+
+  @override
+  Future<void> refresh() async {
+    state = const AsyncData(NodeRawStatusView(
+      peers: [],
+      localBest: null,
+      networkBest: null,
+      fetchProgress: null,
+      applyProgress: null,
+    ));
+  }
 }
 
 class _ErrorMempoolController extends NodeMempoolController {
   @override
   Future<RpcListMempoolResp?> build() async =>
       throw const BackendError('Failed to load mempool');
+
+  @override
+  Future<void> refresh() async {
+    state = AsyncError(const BackendError('Failed to load mempool'), StackTrace.empty);
+  }
 }
 
 class _OkNullMempoolController extends NodeMempoolController {
   @override
   Future<RpcListMempoolResp?> build() => Future.value(null);
+
+  @override
+  Future<void> refresh() async {
+    state = const AsyncData(null);
+  }
 }
 
 class _ErrorBlockchainController extends NodeBlockchainController {
   @override
   Future<RpcListBlockchainResp?> build() async =>
       throw const BackendError('Failed to load blockchain');
+
+  @override
+  Future<void> refresh() async {
+    state = AsyncError(const BackendError('Failed to load blockchain'), StackTrace.empty);
+  }
 }
 
 class _OkNullBlockchainController extends NodeBlockchainController {
   @override
   Future<RpcListBlockchainResp?> build() => Future.value(null);
+
+  @override
+  Future<void> refresh() async {
+    state = const AsyncData(null);
+  }
 }
 
 class _ErrorEpochRewardsController extends NodeEpochRewardsController {
   @override
   Future<RpcEpochRewardsResp?> build() async =>
       throw const BackendError('Failed to load epoch rewards');
+
+  @override
+  Future<void> refresh() async {
+    state = AsyncError(const BackendError('Failed to load epoch rewards'), StackTrace.empty);
+  }
 }
 
 class _OkNullEpochRewardsController extends NodeEpochRewardsController {
   @override
   Future<RpcEpochRewardsResp?> build() => Future.value(null);
+
+  @override
+  Future<void> refresh() async {
+    state = const AsyncData(null);
+  }
 }

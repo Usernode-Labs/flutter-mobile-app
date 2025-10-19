@@ -14,7 +14,15 @@ import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart
 void main() {
   testWidgets('NodeStatusScreen renders with provider overrides', (tester) async {
     final container = ProviderContainer(overrides: [
-      nodeStatusProvider.overrideWith(() => _FakeNodeStatusController()),
+      nodeStatusProvider.overrideWith((ref) => const AsyncData(domain.NodeStatus(
+            connectedPeers: 0,
+            totalPeers: 0,
+            localBestHeight: null,
+            networkBestHeight: null,
+            epoch: null,
+            globalSlot: null,
+            bestTipHash: null,
+          ))),
       nodeRawStatusProvider.overrideWith(() => _FakeRawStatusController()),
       nodeMempoolProvider.overrideWith(() => _FakeNullMempoolController()),
       nodeBlockchainProvider.overrideWith(() => _FakeNullBlockchainController()),
@@ -33,21 +41,6 @@ void main() {
     // Best Tip section header should appear
     expect(find.text('Best Tip'), findsOneWidget);
   });
-}
-
-class _FakeNodeStatusController extends NodeStatusController {
-  @override
-  Future<domain.NodeStatus?> build() async {
-    return const domain.NodeStatus(
-      connectedPeers: 0,
-      totalPeers: 0,
-      localBestHeight: null,
-      networkBestHeight: null,
-      epoch: null,
-      globalSlot: null,
-      bestTipHash: null,
-    );
-  }
 }
 
 class _FakeRawStatusController extends NodeRawStatusController {

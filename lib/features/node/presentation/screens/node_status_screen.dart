@@ -1,11 +1,9 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:crypto_mobile_app/gen_l10n/app_localizations.dart';
-import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'node_peers_screen.dart';
@@ -40,6 +38,13 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   String? _bestTipHash;
   List<BigInt> _bestTipBatchTransactions = const [];
 
+  // Cached rewards data
+  int? _producedInEpoch;
+  int? _winsInEpoch;
+  BigInt? _earnedSoFar;
+  BigInt? _expectedTotal;
+  BigInt? _rewardPerBlock;
+
   Timer? _autoTimer;
   late final TabController _tabController;
   DateTime? _lastChecked;
@@ -55,8 +60,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     // Defer provider modifications until after first frame to avoid
     // "modify provider while building" errors when navigating.
     WidgetsBinding.instance.addPostFrameCallback((_) => _refresh());
-    // Periodic auto-refresh every 2 minutes while this screen is alive.
-    _autoTimer = Timer.periodic(const Duration(minutes: 2), (_) {
+    // Periodic auto-refresh every 5 seconds while this screen is alive.
+    _autoTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (mounted && !_refreshing) {
         _refresh();
       }
@@ -70,159 +75,66 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       _error = null; // keep content visible; show error inline
     });
     try {
-      Log.d('NODE', 'Refreshing providers and status');
+      Log.d('NODE', 'Refreshing providers');
       // Refresh providers
-      await ref.read(nodeStatusProvider.notifier).refresh();
+      // Note: nodeStatusProvider is now derived from nodeRawStatusProvider,
+      // so we only need to refresh nodeRawStatusProvider
+      await ref.read(nodeRawStatusProvider.notifier).refresh();
       await ref.read(nodeMempoolProvider.notifier).refresh();
       await ref.read(nodeBlockchainProvider.notifier).refresh();
       await ref.read(nodeEpochRewardsProvider.notifier).refresh();
-      await ref.read(nodeRawStatusProvider.notifier).refresh();
 
-      // Also fetch raw status to derive detailed progress and local fields
-      final status = await RustBackendService.instance.getStatus();
-      if (status != null) {
-        try {
-          final Map<String, dynamic> statusMap = {};
+      // Get the raw status for UI state
+      final raw = ref.read(nodeRawStatusProvider).value;
+      if (raw != null) {
+        final localBestTip = raw.localBest;
+        final networkBestTip = raw.networkBest;
+        final displayBestTip = networkBestTip ?? localBestTip;
 
-          // Add peers
-          try {
-            statusMap['peers'] = status.peers
-                .map((p) => {
-                      'peerId': p.peerId.toString(),
-                      'address': p.address,
-                      'connectionStatus': p.connectionStatus.toString(),
-                      'connectingDetails': p.connectingDetails,
-                      'incoming': p.incoming,
-                      'time': p.time.toString(),
-                    })
-                .toList();
-          } catch (e) {
-            statusMap['peers'] = 'Error: $e';
-          }
-
-          // Add blockchain info
-          try {
-            final blockchain = status.blockchain;
-            final Map<String, dynamic> blockchainMap = {};
-
-            try {
-              final bestTip = blockchain.bestTip;
-              blockchainMap['bestTip'] = {
-                'height': bestTip.height,
-                'epoch': bestTip.epoch,
-                'globalSlot': bestTip.globalSlot,
-                'hash': bestTip.hash.toString(),
-                'batches': bestTip.batches
-                    .map((b) => {
-                          'transactions': b.transactions.toString(),
-                        })
-                    .toList(),
-              };
-            } catch (e) {
-              blockchainMap['bestTip'] = 'Error: $e';
+        if (!mounted) return;
+        setState(() {
+          // Calculate sync speed
+          final currentHeight = localBestTip?.height;
+          final now = DateTime.now();
+          if (_previousBlockHeight != null &&
+              _previousHeightCheck != null &&
+              currentHeight != null &&
+              currentHeight > _previousBlockHeight!) {
+            final timeDiff = now.difference(_previousHeightCheck!).inSeconds;
+            if (timeDiff > 0) {
+              final blockDiff = currentHeight - _previousBlockHeight!;
+              _blocksPerSecond = blockDiff / timeDiff;
             }
+          }
+          _previousBlockHeight = currentHeight;
+          _previousHeightCheck = now;
 
-            try {
-              final sync = blockchain.sync;
-              final blocks = sync.blocks;
-              if (blocks != null) {
-                blockchainMap['sync'] = {
-                  'blocks': {
-                    'bestTip': {
-                      'height': blocks.bestTip.height,
-                      'epoch': blocks.bestTip.epoch,
-                      'globalSlot': blocks.bestTip.globalSlot,
-                      'hash': blocks.bestTip.hash.toString(),
-                    },
-                    'fetchProgress': {
-                      'idle': blocks.fetchProgress.idle.toString(),
-                      'pending': blocks.fetchProgress.pending.toString(),
-                      'done': blocks.fetchProgress.done.toString(),
-                    },
-                    'applyProgress': {
-                      'idle': blocks.applyProgress.idle.toString(),
-                      'pending': blocks.applyProgress.pending.toString(),
-                      'done': blocks.applyProgress.done.toString(),
-                    },
-                  },
-                };
-              } else {
-                blockchainMap['sync'] = {'blocks': null};
-              }
-            } catch (e) {
-              blockchainMap['sync'] = 'Error: $e';
-            }
-
-            statusMap['blockchain'] = blockchainMap;
+          _peers = raw.peers;
+          _currentBlockHeight = localBestTip?.height;
+          _networkBestTipHeight = networkBestTip?.height;
+          _bestTipGlobalSlot = displayBestTip?.globalSlot;
+          _bestTipEpoch = displayBestTip?.epoch;
+          try {
+            _bestTipHash = displayBestTip?.hash.toString();
           } catch (e) {
-            statusMap['blockchain'] = 'Error: $e';
+            _bestTipHash = null;
           }
+          _bestTipBatchTransactions = raw.bestTipBatchTransactions;
+          _lastChecked = DateTime.now();
 
-          final statusJson = jsonEncode(statusMap);
-          Log.d('NODE', 'getStatus response: $statusJson');
-        } catch (e) {
-          Log.w('NODE', 'Failed to serialize status response: $e');
-        }
-      }
-      final peers = status?.peers ?? const <RpcPeerInfo>[];
-      final blockchain = status?.blockchain;
-      final syncBlocks = blockchain?.sync.blocks;
-      RpcStatusBlockInfo? localBestTip;
-      RpcStatusBlockInfo? networkBestTip;
-      try {
-        localBestTip = blockchain?.bestTip;
-      } catch (e) {
-        localBestTip = null;
-      }
-      try {
-        networkBestTip = syncBlocks?.bestTip;
-      } catch (e) {
-        networkBestTip = null;
-      }
-      final RpcStatusBlockInfo? displayBestTip = networkBestTip ?? localBestTip;
-      List<BigInt> batchTransactions = const <BigInt>[];
-      try {
-        if (displayBestTip != null) {
-          batchTransactions = displayBestTip.batches
-              .map((info) => info.transactions)
-              .toList(growable: false);
-        }
-      } catch (e) {
-        batchTransactions = const <BigInt>[];
-      }
-      if (!mounted) return;
-      setState(() {
-        // Calculate sync speed
-        final currentHeight = localBestTip?.height;
-        final now = DateTime.now();
-        if (_previousBlockHeight != null &&
-            _previousHeightCheck != null &&
-            currentHeight != null &&
-            currentHeight > _previousBlockHeight!) {
-          final timeDiff = now.difference(_previousHeightCheck!).inSeconds;
-          if (timeDiff > 0) {
-            final blockDiff = currentHeight - _previousBlockHeight!;
-            _blocksPerSecond = blockDiff / timeDiff;
+          // Cache rewards data
+          final rewardsData = ref.read(nodeEpochRewardsProvider).value;
+          if (rewardsData != null) {
+            _producedInEpoch = rewardsData.producedInEpoch;
+            _winsInEpoch = rewardsData.winsInEpoch;
+            _earnedSoFar = rewardsData.earnedSoFar;
+            _expectedTotal = rewardsData.expectedTotal;
+            _rewardPerBlock = rewardsData.rewardPerBlock;
           }
-        }
-        _previousBlockHeight = currentHeight;
-        _previousHeightCheck = now;
-
-        _peers = peers;
-        _currentBlockHeight = localBestTip?.height;
-        _networkBestTipHeight = networkBestTip?.height;
-        _bestTipGlobalSlot = displayBestTip?.globalSlot;
-        _bestTipEpoch = displayBestTip?.epoch;
-        try {
-          _bestTipHash = displayBestTip?.hash.toString();
-        } catch (e) {
-          _bestTipHash = null;
-        }
-        _bestTipBatchTransactions = batchTransactions;
-        _lastChecked = DateTime.now();
-      });
+        });
+      }
     } catch (e, st) {
-      Log.e('NODE', 'getStatus failed', e, st);
+      Log.e('NODE', 'Refresh failed', e, st);
       if (mounted) {
         setState(() {
           _error = e.toString();
@@ -1059,144 +971,140 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
         ),
 
         // Horizontal divider before rewards data
-        if (rewards != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: _buildDivider(),
-          ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: _buildDivider(),
+        ),
 
         // Produced blocks row
-        if (rewards != null)
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 80,
-                child: Text(
-                  'Produced',
-                  style: theme.textTheme.bodySmall!.copyWith(
-                      fontSize: 12,
-                      letterSpacing: 0.2,
-                      color: colorScheme.onSurfaceVariant),
-                ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 80,
+              child: Text(
+                'Produced',
+                style: theme.textTheme.bodySmall!.copyWith(
+                    fontSize: 12,
+                    letterSpacing: 0.2,
+                    color: colorScheme.onSurfaceVariant),
               ),
-              Expanded(
-                child: Text(
-                  '${rewards.producedInEpoch} blocks',
-                  style: theme.textTheme.bodyMedium!
-                      .copyWith(fontSize: 14, letterSpacing: 0.2),
-                ),
+            ),
+            Expanded(
+              child: Text(
+                '${rewards?.producedInEpoch ?? _producedInEpoch ?? 0} blocks',
+                style: theme.textTheme.bodyMedium!
+                    .copyWith(fontSize: 14, letterSpacing: 0.2),
               ),
-              TextButton(
-                onPressed: () => context.push('/main/node/produced-blocks'),
-                style: TextButton.styleFrom(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'View',
-                      style: theme.textTheme.bodySmall!
-                          .copyWith(
-                              fontSize: 12,
-                              letterSpacing: 0.2,
-                              color: colorScheme.onSurfaceVariant)
-                          .copyWith(
-                            color: colorScheme.primary,
-                          ),
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(Icons.arrow_forward,
-                        size: 14, color: colorScheme.primary),
-                  ],
-                ),
+            ),
+            TextButton(
+              onPressed: () => context.push('/main/node/produced-blocks'),
+              style: TextButton.styleFrom(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-            ],
-          ),
-        if (rewards != null) const SizedBox(height: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'View',
+                    style: theme.textTheme.bodySmall!
+                        .copyWith(
+                            fontSize: 12,
+                            letterSpacing: 0.2,
+                            color: colorScheme.onSurfaceVariant)
+                        .copyWith(
+                          color: colorScheme.primary,
+                        ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.arrow_forward,
+                      size: 14, color: colorScheme.primary),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
 
         // Won Slots row
-        if (rewards != null)
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 80,
-                child: Text(
-                  'Won Slots',
-                  style: theme.textTheme.bodySmall!.copyWith(
-                      fontSize: 12,
-                      letterSpacing: 0.2,
-                      color: colorScheme.onSurfaceVariant),
-                ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 80,
+              child: Text(
+                'Won Slots',
+                style: theme.textTheme.bodySmall!.copyWith(
+                    fontSize: 12,
+                    letterSpacing: 0.2,
+                    color: colorScheme.onSurfaceVariant),
               ),
-              Expanded(
-                child: Text(
-                  '${rewards.winsInEpoch} slots',
-                  style: theme.textTheme.bodyMedium!
-                      .copyWith(fontSize: 14, letterSpacing: 0.2),
-                ),
+            ),
+            Expanded(
+              child: Text(
+                '${rewards?.winsInEpoch ?? _winsInEpoch ?? 0} slots',
+                style: theme.textTheme.bodyMedium!
+                    .copyWith(fontSize: 14, letterSpacing: 0.2),
               ),
-              TextButton(
-                onPressed: () => context.push('/main/node/won-slots'),
-                style: TextButton.styleFrom(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'View',
-                      style: theme.textTheme.bodySmall!
-                          .copyWith(
-                              fontSize: 12,
-                              letterSpacing: 0.2,
-                              color: colorScheme.onSurfaceVariant)
-                          .copyWith(
-                            color: colorScheme.primary,
-                          ),
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(Icons.arrow_forward,
-                        size: 14, color: colorScheme.primary),
-                  ],
-                ),
+            ),
+            TextButton(
+              onPressed: () => context.push('/main/node/won-slots'),
+              style: TextButton.styleFrom(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-            ],
-          ),
-        if (rewards != null) const SizedBox(height: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'View',
+                    style: theme.textTheme.bodySmall!
+                        .copyWith(
+                            fontSize: 12,
+                            letterSpacing: 0.2,
+                            color: colorScheme.onSurfaceVariant)
+                        .copyWith(
+                          color: colorScheme.primary,
+                        ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.arrow_forward,
+                      size: 14, color: colorScheme.primary),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
 
         // Earned row
-        if (rewards != null)
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 80,
-                child: Text(
-                  'Earned',
-                  style: theme.textTheme.bodySmall!.copyWith(
-                      fontSize: 12,
-                      letterSpacing: 0.2,
-                      color: colorScheme.onSurfaceVariant),
-                ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 80,
+              child: Text(
+                'Earned',
+                style: theme.textTheme.bodySmall!.copyWith(
+                    fontSize: 12,
+                    letterSpacing: 0.2,
+                    color: colorScheme.onSurfaceVariant),
               ),
-              Expanded(
-                child: Text(
-                  '${_formatTokenAmount(rewards.earnedSoFar)}  •  Expected: ${_formatTokenAmount(rewards.expectedTotal)}',
-                  style: theme.textTheme.bodyMedium!
-                      .copyWith(fontSize: 14, letterSpacing: 0.2),
-                ),
+            ),
+            Expanded(
+              child: Text(
+                '${_formatTokenAmount(rewards?.earnedSoFar ?? _earnedSoFar ?? BigInt.zero)}  •  Expected: ${_formatTokenAmount(rewards?.expectedTotal ?? _expectedTotal ?? BigInt.zero)}',
+                style: theme.textTheme.bodyMedium!
+                    .copyWith(fontSize: 14, letterSpacing: 0.2),
               ),
-            ],
-          ),
+            ),
+          ],
+        ),
 
         // Horizontal divider before Recent Blocks
         if (blockchain != null && blockchain.items.isNotEmpty)
@@ -1490,7 +1398,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     // Display blocks from the blockchain
     final blocks = blockchain.items.take(10).toList();
     final bestTipSlot = raw?.globalSlot ?? _bestTipGlobalSlot;
-    final rewardPerBlock = rewards?.rewardPerBlock ?? BigInt.zero;
+    final rewardPerBlock = rewards?.rewardPerBlock ?? _rewardPerBlock ?? BigInt.zero;
 
     return Column(
       children: blocks.asMap().entries.map((entry) {

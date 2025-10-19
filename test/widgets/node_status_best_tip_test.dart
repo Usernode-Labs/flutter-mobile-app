@@ -10,7 +10,15 @@ import 'package:crypto_mobile_app/features/node/domain/entities/node_status.dart
 void main() {
   testWidgets('Best Tip shows Height: N/A when data missing', (tester) async {
     final container = ProviderContainer(overrides: [
-      nodeStatusProvider.overrideWith(() => _OkNodeStatus()),
+      nodeStatusProvider.overrideWith((ref) => const AsyncData(domain.NodeStatus(
+            connectedPeers: 0,
+            totalPeers: 0,
+            localBestHeight: null,
+            networkBestHeight: null,
+            epoch: null,
+            globalSlot: null,
+            bestTipHash: null,
+          ))),
       nodeRawStatusProvider.overrideWith(() => _NullRawStatus()),
     ]);
     addTearDown(container.dispose);
@@ -25,19 +33,6 @@ void main() {
     expect(find.textContaining('Height:'), findsOneWidget);
     expect(find.textContaining('N/A'), findsWidgets);
   });
-}
-
-class _OkNodeStatus extends NodeStatusController {
-  @override
-  Future<domain.NodeStatus?> build() async => const domain.NodeStatus(
-        connectedPeers: 0,
-        totalPeers: 0,
-        localBestHeight: null,
-        networkBestHeight: null,
-        epoch: null,
-        globalSlot: null,
-        bestTipHash: null,
-      );
 }
 
 class _NullRawStatus extends NodeRawStatusController {

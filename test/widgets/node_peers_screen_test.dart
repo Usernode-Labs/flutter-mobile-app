@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:crypto_mobile_app/features/node/presentation/screens/node_peers_screen.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
+import 'package:crypto_mobile_app/src/rust/frb_types.dart';
 import 'package:crypto_mobile_app/src/rust/rpc.dart';
 import 'package:crypto_mobile_app/gen_l10n/app_localizations.dart';
 
@@ -62,12 +63,20 @@ class _FakeRpcPeerInfo implements RpcPeerInfo {
     required String? connectingDetails,
     required bool incoming,
     required BigInt time,
+    BlockHash? bestTip,
+    int? bestTipGlobalSlot,
+    int? bestTipHeight,
+    BigInt? bestTipTimestamp,
   })  : _peerId = peerId,
         _address = address,
         _connectionStatus = connectionStatus,
         _connectingDetails = connectingDetails,
         _incoming = incoming,
-        _time = time;
+        _time = time,
+        _bestTip = bestTip,
+        _bestTipGlobalSlot = bestTipGlobalSlot,
+        _bestTipHeight = bestTipHeight,
+        _bestTipTimestamp = bestTipTimestamp;
 
   String? _address;
   String? _connectingDetails;
@@ -76,6 +85,10 @@ class _FakeRpcPeerInfo implements RpcPeerInfo {
   PeerId _peerId;
   BigInt _time;
   bool _disposed = false;
+  BlockHash? _bestTip;
+  int? _bestTipGlobalSlot;
+  int? _bestTipHeight;
+  BigInt? _bestTipTimestamp;
 
   @override
   void dispose() {
@@ -116,4 +129,26 @@ class _FakeRpcPeerInfo implements RpcPeerInfo {
   BigInt get time => _time;
   @override
   set time(BigInt time) => _time = time;
+
+  @override
+  BlockHash? get bestTip => _bestTip;
+  @override
+  set bestTip(BlockHash? bestTip) => _bestTip = bestTip;
+
+  @override
+  int? get bestTipGlobalSlot => _bestTipGlobalSlot;
+  @override
+  set bestTipGlobalSlot(int? bestTipGlobalSlot) =>
+      _bestTipGlobalSlot = bestTipGlobalSlot;
+
+  @override
+  int? get bestTipHeight => _bestTipHeight;
+  @override
+  set bestTipHeight(int? bestTipHeight) => _bestTipHeight = bestTipHeight;
+
+  @override
+  BigInt? get bestTipTimestamp => _bestTipTimestamp;
+  @override
+  set bestTipTimestamp(BigInt? bestTipTimestamp) =>
+      _bestTipTimestamp = bestTipTimestamp;
 }

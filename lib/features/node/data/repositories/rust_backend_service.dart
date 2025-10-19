@@ -43,7 +43,7 @@ class RustBackendService {
     Log.i('RUST', 'Init FRB');
     try {
       await RustLib.init(
-        externalLibrary: Platform.isIOS
+        externalLibrary: Platform.isIOS || Platform.isMacOS
             ? ExternalLibrary.process(iKnowHowToUseIt: true)
             : null,
       );

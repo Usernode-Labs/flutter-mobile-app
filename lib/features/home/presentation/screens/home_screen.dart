@@ -27,8 +27,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     super.initState();
     // Refresh epoch rewards when screen loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Log.d('HOME_SCREEN',
-          'Invalidating epochRewardsUiProvider to trigger refresh');
+      LoggingService.instance.debug(
+          'Invalidating epochRewardsUiProvider to trigger refresh',
+          tag: 'HOME_SCREEN');
       ref.invalidate(epochRewardsUiProvider);
     });
   }
@@ -138,10 +139,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             width: cardWidth,
                             icon: Icons.badge,
                             title: 'Boost Your Tier',
-                            subtitle: 'Verify your identity to unlock premium features',
+                            subtitle:
+                                'Verify your identity to unlock premium features',
                             gradientColors: [
-                              Color.lerp(colorScheme.primary, Colors.white, 0.4)!,
-                              Color.lerp(colorScheme.primary, Colors.white, 0.1)!,
+                              Color.lerp(
+                                  colorScheme.primary, Colors.white, 0.4)!,
+                              Color.lerp(
+                                  colorScheme.primary, Colors.white, 0.1)!,
                             ],
                             onTap: () {
                               if (activeAccount != null) {
@@ -451,7 +455,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     dynamic snapshot, // EpochRewardsSnapshot? but avoid import type bleed here
     bool isLoading,
   ) {
-    Log.d('HOME_SCREEN', 'Building rewards section with snapshot: $snapshot');
+    LoggingService.instance.debug(
+        'Building rewards section with snapshot: $snapshot',
+        tag: 'HOME_SCREEN');
     BigInt? earned;
     BigInt? expected;
     int? epoch;
@@ -460,23 +466,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     BigInt? rewardPerBlock;
     if (snapshot != null) {
       try {
-        Log.d(
-            'HOME_SCREEN', 'Snapshot earnedSoFar raw: ${snapshot.earnedSoFar}');
-        Log.d('HOME_SCREEN',
-            'Snapshot expectedTotal raw: ${snapshot.expectedTotal}');
+        LoggingService.instance.debug(
+            'Snapshot earnedSoFar raw: ${snapshot.earnedSoFar}',
+            tag: 'HOME_SCREEN');
+        LoggingService.instance.debug(
+            'Snapshot expectedTotal raw: ${snapshot.expectedTotal}',
+            tag: 'HOME_SCREEN');
         earned = BigInt.parse(snapshot.earnedSoFar as String);
         expected = BigInt.parse(snapshot.expectedTotal as String);
         epoch = snapshot.epoch as int;
         produced = snapshot.producedInEpoch as int;
         wins = snapshot.winsInEpoch as int;
         rewardPerBlock = BigInt.parse(snapshot.rewardPerBlock as String);
-        Log.d('HOME_SCREEN',
-            'Parsed earned: $earned, expected: $expected, epoch: $epoch');
+        LoggingService.instance.debug(
+            'Parsed earned: $earned, expected: $expected, epoch: $epoch',
+            tag: 'HOME_SCREEN');
       } catch (e) {
-        Log.e('HOME_SCREEN', 'Error parsing snapshot', e, StackTrace.current);
+        LoggingService.instance.error('Error parsing snapshot',
+            tag: 'HOME_SCREEN', error: e, stackTrace: StackTrace.current);
       }
     } else {
-      Log.d('HOME_SCREEN', 'Snapshot is null');
+      LoggingService.instance.debug('Snapshot is null', tag: 'HOME_SCREEN');
     }
 
     return [

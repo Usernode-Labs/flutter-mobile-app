@@ -22,10 +22,12 @@ final nodeRepositoryProvider = Provider<NodeRepository>((ref) {
 
 // Derived async providers
 final hasAnyAccountProvider = FutureProvider<bool>((ref) async {
-  Log.d('PROVIDER', 'hasAnyAccountProvider: evaluating...');
+  LoggingService.instance
+      .debug('hasAnyAccountProvider: evaluating...', tag: 'PROVIDER');
   final repo = await AccountsRepository.create();
   final result = await repo.hasAny();
-  Log.d('PROVIDER', 'hasAnyAccountProvider: result = $result');
+  LoggingService.instance
+      .debug('hasAnyAccountProvider: result = $result', tag: 'PROVIDER');
   return result;
 });
 
@@ -40,13 +42,15 @@ final backendLifecycleProvider = Provider<void>((ref) {
 
       // Account created/imported: false → true
       if (!prevHasAccount && nextHasAccount) {
-        Log.i('BACKEND_LIFECYCLE', 'Account created - starting backend');
+        LoggingService.instance.info('Account created - starting backend',
+            tag: 'BACKEND_LIFECYCLE');
         await RustBackendService.instance.startForActiveAccount();
       }
 
       // Account deleted: true → false
       if (prevHasAccount && !nextHasAccount) {
-        Log.i('BACKEND_LIFECYCLE', 'Account deleted - stopping backend');
+        LoggingService.instance.info('Account deleted - stopping backend',
+            tag: 'BACKEND_LIFECYCLE');
         await RustBackendService.instance.stopNode();
       }
     },

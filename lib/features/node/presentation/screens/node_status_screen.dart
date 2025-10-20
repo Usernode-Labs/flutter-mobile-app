@@ -80,7 +80,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       _error = null; // keep content visible; show error inline
     });
     try {
-      Log.d('NODE', 'Refreshing providers');
+      LoggingService.instance.debug('Refreshing providers', tag: 'NODE');
       // Refresh providers
       // Note: nodeStatusProvider is now derived from nodeRawStatusProvider,
       // so we only need to refresh nodeRawStatusProvider
@@ -142,7 +142,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
         });
       }
     } catch (e, st) {
-      Log.e('NODE', 'Refresh failed', e, st);
+      LoggingService.instance
+          .error('Refresh failed', tag: 'NODE', error: e, stackTrace: st);
       if (mounted) {
         setState(() {
           _error = e.toString();
@@ -506,7 +507,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                           0;
                   return wonSlots == 1 ? '1 slot' : '$wonSlots slots';
                 }()}',
-                color: const Color(0xFFF9A825), // Darker golden yellow for better readability
+                color: const Color(
+                    0xFFF9A825), // Darker golden yellow for better readability
                 colorScheme: colorScheme,
                 onTap: () => context.push('/main/node/won-slots'),
                 useGradient: false,
@@ -986,9 +988,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             children: [
               Expanded(child: _buildSectionHeader(context, 'Blockchain')),
               Icon(
-                _isBlockchainExpanded
-                    ? Icons.expand_less
-                    : Icons.expand_more,
+                _isBlockchainExpanded ? Icons.expand_less : Icons.expand_more,
                 color: colorScheme.onSurfaceVariant,
               ),
             ],
@@ -1078,7 +1078,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
               TextButton(
                 onPressed: () => context.push('/main/node/mempool'),
                 style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
@@ -1202,9 +1203,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                   ),
                 ),
               Icon(
-                _isRecentBlocksExpanded
-                    ? Icons.expand_less
-                    : Icons.expand_more,
+                _isRecentBlocksExpanded ? Icons.expand_less : Icons.expand_more,
                 color: colorScheme.onSurfaceVariant,
               ),
             ],

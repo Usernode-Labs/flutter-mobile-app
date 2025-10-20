@@ -67,7 +67,9 @@ class WalletAssetsController extends AsyncNotifier<List<AssetSummary>> {
     try {
       // Get UTXOs from existing provider
       final utxos = await ref.watch(walletUtxosProvider.future);
-      Log.d('ASSETS', 'Aggregating assets from ${utxos.length} UTXOs');
+      LoggingService.instance.debug(
+          'Aggregating assets from ${utxos.length} UTXOs',
+          tag: 'ASSETS');
 
       // Aggregate assets by token_id
       final Map<String, BigInt> balancesByToken = {};
@@ -84,11 +86,13 @@ class WalletAssetsController extends AsyncNotifier<List<AssetSummary>> {
           // Extract assets array
           final assetsJson = utxoData['assets'] as List<dynamic>?;
           if (assetsJson == null || assetsJson.isEmpty) {
-            Log.d('ASSETS', '  UTXO[$i]: No assets');
+            LoggingService.instance
+                .debug('  UTXO[$i]: No assets', tag: 'ASSETS');
             continue;
           }
 
-          Log.d('ASSETS', '  UTXO[$i]: ${assetsJson.length} assets');
+          LoggingService.instance
+              .debug('  UTXO[$i]: ${assetsJson.length} assets', tag: 'ASSETS');
 
           // Aggregate balances by token_id
           for (final assetJson in assetsJson) {
@@ -97,14 +101,19 @@ class WalletAssetsController extends AsyncNotifier<List<AssetSummary>> {
 
             balancesByToken[tokenId] =
                 (balancesByToken[tokenId] ?? BigInt.zero) + balance;
-            Log.d('ASSETS', '    Asset: tokenId=$tokenId, balance=$balance');
+            LoggingService.instance.debug(
+                '    Asset: tokenId=$tokenId, balance=$balance',
+                tag: 'ASSETS');
           }
         } catch (e) {
-          Log.w('ASSETS', 'Failed to parse UTXO[$i]: $e');
+          LoggingService.instance
+              .warn('Failed to parse UTXO[$i]: $e', tag: 'ASSETS');
         }
       }
 
-      Log.d('ASSETS', 'Aggregated ${balancesByToken.length} unique tokens');
+      LoggingService.instance.debug(
+          'Aggregated ${balancesByToken.length} unique tokens',
+          tag: 'ASSETS');
 
       // Convert to AssetSummary list
       final assetSummaries = balancesByToken.entries.map((entry) {
@@ -129,7 +138,8 @@ class WalletAssetsController extends AsyncNotifier<List<AssetSummary>> {
 
       return assetSummaries;
     } catch (e, st) {
-      Log.e('ASSETS', 'Failed to aggregate assets', e, st);
+      LoggingService.instance.error('Failed to aggregate assets',
+          tag: 'ASSETS', error: e, stackTrace: st);
       rethrow;
     }
   }

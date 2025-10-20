@@ -12,10 +12,12 @@ class ImportSeedPhraseScreen extends ConsumerStatefulWidget {
   const ImportSeedPhraseScreen({super.key});
 
   @override
-  ConsumerState<ImportSeedPhraseScreen> createState() => _ImportSeedPhraseScreenState();
+  ConsumerState<ImportSeedPhraseScreen> createState() =>
+      _ImportSeedPhraseScreenState();
 }
 
-class _ImportSeedPhraseScreenState extends ConsumerState<ImportSeedPhraseScreen> {
+class _ImportSeedPhraseScreenState
+    extends ConsumerState<ImportSeedPhraseScreen> {
   final _seedCtrl = TextEditingController();
   String? _seedError;
   bool _seedValid = false;
@@ -84,19 +86,24 @@ class _ImportSeedPhraseScreenState extends ConsumerState<ImportSeedPhraseScreen>
       if (result == null) {
         setState(() => _processing = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to import account: Invalid seed phrase or derivation error')),
+          const SnackBar(
+              content: Text(
+                  'Failed to import account: Invalid seed phrase or derivation error')),
         );
         return;
       }
 
-      Log.d('IMPORT_SEED', 'Import successful, starting backend');
+      LoggingService.instance
+          .debug('Import successful, starting backend', tag: 'IMPORT_SEED');
 
       // Start backend for new account
       try {
         await RustBackendService.instance.startForActiveAccount();
-        Log.d('IMPORT_SEED', 'Backend started successfully');
+        LoggingService.instance
+            .debug('Backend started successfully', tag: 'IMPORT_SEED');
       } catch (e) {
-        Log.e('IMPORT_SEED', 'Failed to start backend', e);
+        LoggingService.instance
+            .error('Failed to start backend', tag: 'IMPORT_SEED', error: e);
       }
 
       // Navigate to identity verification screen
@@ -137,14 +144,13 @@ class _ImportSeedPhraseScreenState extends ConsumerState<ImportSeedPhraseScreen>
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  'Enter your existing 12 or 24-word recovery phrase to import your account.',
+                  'Enter your existing 12-word recovery phrase to import your account.',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
               ),
               const SizedBox(height: 16),
-
               TextField(
                 controller: _seedCtrl,
                 decoration: InputDecoration(
@@ -163,13 +169,12 @@ class _ImportSeedPhraseScreenState extends ConsumerState<ImportSeedPhraseScreen>
                 textInputAction: TextInputAction.done,
                 autofocus: true,
               ),
-
               const SizedBox(height: 24),
-
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  onPressed: (_seedValid && !_processing) ? _importAccount : null,
+                  onPressed:
+                      (_seedValid && !_processing) ? _importAccount : null,
                   child: _processing
                       ? const SizedBox(
                           height: 20,

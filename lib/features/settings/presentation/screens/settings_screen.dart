@@ -193,8 +193,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Text(
               'About',
-              style:
-                  theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+              style: theme.textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
           ListTile(
@@ -220,7 +220,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       const SizedBox(height: 6),
                       Text('Commit time: ${env.git.commitTime}'),
                       const Divider(height: 16),
-                      Text('Rustc: ${env.rustc.version} (${env.rustc.channel})'),
+                      Text(
+                          'Rustc: ${env.rustc.version} (${env.rustc.channel})'),
                       const SizedBox(height: 6),
                       Text('LLVM: ${env.rustc.llvmVersion}'),
                       const Divider(height: 16),
@@ -305,20 +306,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     try {
       // Delete ALL accounts from storage (complete reset)
       final repo = await AccountsRepository.create();
-      Log.d('SETTINGS', 'Deleting ALL accounts');
+      LoggingService.instance.debug('Deleting ALL accounts', tag: 'SETTINGS');
       await repo.deleteAll();
 
       if (!mounted) return;
 
       // Invalidate the provider (backend will stop automatically via backendLifecycleProvider)
-      Log.d('SETTINGS', 'Invalidating hasAnyAccountProvider');
+      LoggingService.instance
+          .debug('Invalidating hasAnyAccountProvider', tag: 'SETTINGS');
       ref.invalidate(hasAnyAccountProvider);
 
       // Wait for next frame before navigating to avoid race condition
-      Log.d('SETTINGS', 'Waiting for next frame...');
+      LoggingService.instance
+          .debug('Waiting for next frame...', tag: 'SETTINGS');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        Log.d('SETTINGS', 'Navigating to onboarding screen');
+        LoggingService.instance
+            .debug('Navigating to onboarding screen', tag: 'SETTINGS');
         context.go(AppRoutes.onboarding);
 
         // Show success message after navigation
@@ -332,7 +336,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         });
       });
     } catch (e, st) {
-      Log.e('SETTINGS', 'Failed to delete account', e, st);
+      LoggingService.instance.error('Failed to delete account',
+          tag: 'SETTINGS', error: e, stackTrace: st);
       if (!mounted) return;
 
       // Provide more specific error message

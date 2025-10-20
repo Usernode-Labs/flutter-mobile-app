@@ -114,8 +114,9 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
               .toSet();
           final wonSlots = rewards.wonSlots ?? [];
 
-          Log.d('WON_SLOTS_SCREEN',
-              'Epoch: ${rewards.epoch}, Won slots count: ${wonSlots.length}, Produced slots count: ${producedSlots.length}');
+          LoggingService.instance.debug(
+              'Epoch: ${rewards.epoch}, Won slots count: ${wonSlots.length}, Produced slots count: ${producedSlots.length}',
+              tag: 'WON_SLOTS_SCREEN');
 
           if (wonSlots.isEmpty) {
             return Center(
@@ -145,9 +146,12 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
           }).toList();
 
           // Determine epoch duration
-          final times = wonSlots.map((s) => DateTime.fromMillisecondsSinceEpoch(
-              s.expectedTimeMs.toInt(),
-              isUtc: true).toLocal()).toList();
+          final times = wonSlots
+              .map((s) => DateTime.fromMillisecondsSinceEpoch(
+                      s.expectedTimeMs.toInt(),
+                      isUtc: true)
+                  .toLocal())
+              .toList();
           times.sort();
           final epochDuration = times.isNotEmpty && times.length > 1
               ? times.last.difference(times.first)
@@ -331,8 +335,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
     final String timeLabel;
     if (useHourly) {
       if (isToday) {
-        timeLabel =
-            'Today ${bucket.time.hour.toString().padLeft(2, '0')}:00';
+        timeLabel = 'Today ${bucket.time.hour.toString().padLeft(2, '0')}:00';
       } else {
         timeLabel = DateFormat('MMM d, HH:00').format(bucket.time);
       }

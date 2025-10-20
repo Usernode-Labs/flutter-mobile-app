@@ -1,46 +1,93 @@
 import 'package:flutter/foundation.dart';
+import 'package:logger/logger.dart';
+
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 
-/// Lightweight debug logger.
+/// Application-wide logging facade backed by the `logger` package.
 ///
-/// - Only prints in debug/profile (kDebugMode || kProfileMode)
-/// - Prefixes messages with a short tag and timestamp
-class Log {
-  static bool get _enabled => kDebugMode || kProfileMode;
-
-  static String _ts() {
-    final now = DateTime.now();
-    String two(int n) => n.toString().padLeft(2, '0');
-    final ms = now.millisecond.toString().padLeft(3, '0');
-    return '${two(now.hour)}:${two(now.minute)}:${two(now.second)}.$ms';
-  }
-
-  static void d(String tag, String message) {
-    if (_enabled) debugPrint('[D ${_ts()}][$tag] $message');
-  }
-
-  static void i(String tag, String message) {
-    if (_enabled) debugPrint('[I ${_ts()}][$tag] $message');
-  }
-
-  static void w(String tag, String message) {
-    if (_enabled) debugPrint('[W ${_ts()}][$tag] $message');
-  }
-
-  static void e(String tag, String message, [Object? error, StackTrace? st]) {
-    if (_enabled) {
-      debugPrint('[E ${_ts()}][$tag] $message');
-      if (error != null) debugPrint('  error: $error');
-      if (st != null) debugPrint('  stack: $st');
+/// - Prints to console in debug/profile builds.
+/// - In release builds, only `error` logs emit console output.
+/// - Errors automatically forward to Sentry when an [error] and [stackTrace]
+///   are supplied; otherwise a breadcrumb is recorded.
+class LoggingService {
+  factory LoggingService({Logger? logger}) {
+    if (logger != null) {
+      return LoggingService._(logger);
     }
-    // Always try to report handled errors to Sentry when provided
-    if (error != null && st != null) {
-      // Fire-and-forget; ignore failures
+    return _shared;
+  }
+
+  LoggingService._(Logger logger) : _logger = logger;
+
+  static final LoggingService _shared = LoggingService._(
+    Logger(
+      filter: _AppLogFilter(),
+      printer: PrettyPrinter(
+        methodCount: 0,
+        errorMethodCount: 8,
+        lineLength: 120,
+        colors: true,
+        printEmojis: true,
+        printTime: true,
+        noBoxingByDefault: true,
+      ),
+    ),
+  );
+
+  static LoggingService get instance => _shared;
+
+  final Logger _logger;
+
+  void trace(String message, {String? tag}) {
+    _logger.t(_decorate(message, tag));
+  }
+
+  void debug(String message, {String? tag}) {
+    _logger.d(_decorate(message, tag));
+  }
+
+  void info(String message, {String? tag}) {
+    _logger.i(_decorate(message, tag));
+  }
+
+  void warn(String message, {String? tag}) {
+    _logger.w(_decorate(message, tag));
+  }
+
+  void error(
+    String message, {
+    String? tag,
+    Object? error,
+    StackTrace? stackTrace,
+  }) {
+    final formatted = _decorate(message, tag);
+    _logger.e(formatted, error: error, stackTrace: stackTrace);
+
+    if (error != null && stackTrace != null) {
+      // Fire-and-forget; ignore failures.
       // ignore: discarded_futures
-      SentryUtil.captureError(error, st, tag: tag);
+      SentryUtil.captureError(error, stackTrace, tag: tag ?? 'logging');
     } else {
-      // Record as breadcrumb if no exception provided
-      SentryUtil.addBreadcrumb(category: tag, message: message);
+      SentryUtil.addBreadcrumb(
+        category: tag ?? 'logging',
+        message: message,
+      );
     }
+  }
+
+  String _decorate(String message, String? tag) {
+    if (tag == null || tag.isEmpty) return message;
+    return '[$tag] $message';
+  }
+}
+
+class _AppLogFilter extends LogFilter {
+  @override
+  bool shouldLog(LogEvent event) {
+    if (kDebugMode || kProfileMode) {
+      return true;
+    }
+    // In release builds, suppress lower-severity logs.
+    return event.level.index >= Level.error.index;
   }
 }

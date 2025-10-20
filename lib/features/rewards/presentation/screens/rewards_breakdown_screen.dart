@@ -25,16 +25,18 @@ class _RewardsBreakdownScreenState extends State<RewardsBreakdownScreen> {
 
   Future<void> _loadEpochRewards() async {
     try {
-      Log.d('REWARDS', 'Loading epoch rewards');
+      LoggingService.instance.debug('Loading epoch rewards', tag: 'REWARDS');
       final rewards = await RustBackendService.instance.epochRewards();
       if (!mounted) return;
       setState(() {
         _epochRewards = rewards;
         _isLoading = false;
       });
-      Log.d('REWARDS', 'Epoch rewards loaded: ${rewards != null}');
+      LoggingService.instance
+          .debug('Epoch rewards loaded: ${rewards != null}', tag: 'REWARDS');
     } catch (e, st) {
-      Log.e('REWARDS', 'Failed to load epoch rewards', e, st);
+      LoggingService.instance.error('Failed to load epoch rewards',
+          tag: 'REWARDS', error: e, stackTrace: st);
       if (!mounted) return;
       setState(() {
         _isLoading = false;

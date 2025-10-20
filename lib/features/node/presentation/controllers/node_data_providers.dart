@@ -23,7 +23,8 @@ class NodeMempoolController extends AsyncNotifier<RpcListMempoolResp?> {
     try {
       return await RustBackendService.instance.listMempool();
     } catch (e, st) {
-      Log.e('NODE', 'mempool load failed', e, st);
+      LoggingService.instance
+          .error('mempool load failed', tag: 'NODE', error: e, stackTrace: st);
       throw BackendError('Failed to load mempool', cause: e, stackTrace: st);
     }
   }
@@ -41,8 +42,10 @@ final nodeMempoolResultProvider = FutureProvider<Result<RpcListMempoolResp?>>(
       final resp = await RustBackendService.instance.listMempool();
       return Ok(resp);
     } catch (e, st) {
-      Log.e('NODE', 'mempool result failed', e, st);
-      return Err(BackendError('Failed to load mempool', cause: e, stackTrace: st));
+      LoggingService.instance.error('mempool result failed',
+          tag: 'NODE', error: e, stackTrace: st);
+      return Err(
+          BackendError('Failed to load mempool', cause: e, stackTrace: st));
     }
   },
 );
@@ -63,7 +66,8 @@ class NodeBlockchainController extends AsyncNotifier<RpcListBlockchainResp?> {
       return await RustBackendService.instance
           .listBlockchain(limit: 20, fromTip: true);
     } catch (e, st) {
-      Log.e('NODE', 'blockchain load failed', e, st);
+      LoggingService.instance.error('blockchain load failed',
+          tag: 'NODE', error: e, stackTrace: st);
       throw BackendError('Failed to load blockchain', cause: e, stackTrace: st);
     }
   }
@@ -81,8 +85,10 @@ final nodeBlockchainResultProvider =
         .listBlockchain(limit: 20, fromTip: true);
     return Ok(resp);
   } catch (e, st) {
-    Log.e('NODE', 'blockchain result failed', e, st);
-    return Err(BackendError('Failed to load blockchain', cause: e, stackTrace: st));
+    LoggingService.instance.error('blockchain result failed',
+        tag: 'NODE', error: e, stackTrace: st);
+    return Err(
+        BackendError('Failed to load blockchain', cause: e, stackTrace: st));
   }
 });
 
@@ -112,7 +118,8 @@ class NodeEpochRewardsController extends AsyncNotifier<RpcEpochRewardsResp?> {
     try {
       return await RustBackendService.instance.epochRewards(epoch: epoch);
     } catch (e, st) {
-      Log.e('NODE', 'epochRewards load failed', e, st);
+      LoggingService.instance.error('epochRewards load failed',
+          tag: 'NODE', error: e, stackTrace: st);
       throw BackendError('Failed to load epoch rewards',
           cause: e, stackTrace: st);
     }
@@ -133,7 +140,9 @@ final nodeEpochRewardsResultProvider =
     final resp = await RustBackendService.instance.epochRewards(epoch: epoch);
     return Ok(resp);
   } catch (e, st) {
-    Log.e('NODE', 'epoch rewards result failed', e, st);
-    return Err(BackendError('Failed to load epoch rewards', cause: e, stackTrace: st));
+    LoggingService.instance.error('epoch rewards result failed',
+        tag: 'NODE', error: e, stackTrace: st);
+    return Err(
+        BackendError('Failed to load epoch rewards', cause: e, stackTrace: st));
   }
 });

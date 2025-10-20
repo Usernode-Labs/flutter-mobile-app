@@ -118,7 +118,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         redirect: (context, state) => '/main/home',
       ),
       ShellRoute(
-        builder: (context, state, child) => MainApp(currentLocation: state.matchedLocation, child: child),
+        builder: (context, state, child) =>
+            MainApp(currentLocation: state.matchedLocation, child: child),
         routes: [
           GoRoute(
             path: '/main/home',
@@ -163,11 +164,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       final currentLocation = state.matchedLocation;
 
-      Log.d('ROUTER', 'Redirect guard called - location: $currentLocation, hasAny: $hasAny');
+      LoggingService.instance.debug(
+          'Redirect guard called - location: $currentLocation, hasAny: $hasAny',
+          tag: 'ROUTER');
 
       // Still loading account state
       if (hasAny == null) {
-        Log.d('ROUTER', 'Account state loading - allowing navigation');
+        LoggingService.instance.debug(
+            'Account state loading - allowing navigation',
+            tag: 'ROUTER');
         return null;
       }
 
@@ -178,14 +183,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ];
 
       final isPublicRoute = publicRoutes.contains(currentLocation);
-      Log.d('ROUTER', 'Route $currentLocation is ${isPublicRoute ? "public" : "private"}');
+      LoggingService.instance.debug(
+          'Route $currentLocation is ${isPublicRoute ? "public" : "private"}',
+          tag: 'ROUTER');
 
       // No account exists
       if (!hasAny) {
-        Log.d('ROUTER', 'No account exists');
+        LoggingService.instance.debug('No account exists', tag: 'ROUTER');
         // Splash should redirect to onboarding (transient route)
         if (currentLocation == AppRoutes.splash) {
-          Log.d('ROUTER', 'Redirecting splash to onboarding');
+          LoggingService.instance
+              .debug('Redirecting splash to onboarding', tag: 'ROUTER');
           return AppRoutes.onboarding;
         }
         // Allow onboarding and account setup routes
@@ -193,34 +201,39 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             currentLocation == '/create-new-account' ||
             currentLocation == '/import-seed-phrase' ||
             currentLocation == '/identity-verification') {
-          Log.d('ROUTER', 'Allowing onboarding route');
+          LoggingService.instance
+              .debug('Allowing onboarding route', tag: 'ROUTER');
           return null;
         }
         // Redirect all other routes to onboarding
-        Log.d('ROUTER', 'Redirecting private route to onboarding');
+        LoggingService.instance
+            .debug('Redirecting private route to onboarding', tag: 'ROUTER');
         return AppRoutes.onboarding;
       }
 
       // Account exists
-      Log.d('ROUTER', 'Account exists');
+      LoggingService.instance.debug('Account exists', tag: 'ROUTER');
 
       // Allow identity verification and account setup during onboarding flow
       if (currentLocation == '/identity-verification' ||
           currentLocation == '/create-new-account' ||
           currentLocation == '/import-seed-phrase') {
-        Log.d('ROUTER', 'Allowing onboarding flow route');
+        LoggingService.instance
+            .debug('Allowing onboarding flow route', tag: 'ROUTER');
         return null;
       }
 
       // Redirect from splash and onboarding to home if user already has an account
       if (currentLocation == AppRoutes.splash ||
           currentLocation == AppRoutes.onboarding) {
-        Log.d('ROUTER', 'Redirecting $currentLocation to /main/home');
+        LoggingService.instance
+            .debug('Redirecting $currentLocation to /main/home', tag: 'ROUTER');
         return '/main/home';
       }
 
       // Allow all other routes when account exists
-      Log.d('ROUTER', 'Allowing route: $currentLocation');
+      LoggingService.instance
+          .debug('Allowing route: $currentLocation', tag: 'ROUTER');
       return null;
     },
   );

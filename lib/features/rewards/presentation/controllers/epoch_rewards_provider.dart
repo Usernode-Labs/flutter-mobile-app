@@ -23,14 +23,18 @@ class EpochRewardsUiController extends AsyncNotifier<EpochRewardsUiState?> {
   @override
   Future<EpochRewardsUiState?> build() async {
     // Skip cache loading - fetch only live data
-    Log.d('EPOCH_REWARDS_UI', 'Fetching epoch rewards...');
+    LoggingService.instance
+        .debug('Fetching epoch rewards...', tag: 'EPOCH_REWARDS_UI');
     final live = await RustBackendService.instance.epochRewards();
     if (live == null) {
-      Log.w('EPOCH_REWARDS_UI', 'epochRewards returned null');
+      LoggingService.instance
+          .warn('epochRewards returned null', tag: 'EPOCH_REWARDS_UI');
       return null;
     }
 
-    Log.d('EPOCH_REWARDS_UI', 'Received live data: epoch=${live.epoch}, earnedSoFar=${live.earnedSoFar}, expectedTotal=${live.expectedTotal}');
+    LoggingService.instance.debug(
+        'Received live data: epoch=${live.epoch}, earnedSoFar=${live.earnedSoFar}, expectedTotal=${live.expectedTotal}',
+        tag: 'EPOCH_REWARDS_UI');
 
     final snapshot = EpochRewardsSnapshot(
       epoch: live.epoch,
@@ -43,7 +47,9 @@ class EpochRewardsUiController extends AsyncNotifier<EpochRewardsUiState?> {
       wonSlots: live.wonSlots,
     );
 
-    Log.d('EPOCH_REWARDS_UI', 'Created snapshot: earnedSoFar=${snapshot.earnedSoFar}, expectedTotal=${snapshot.expectedTotal}');
+    LoggingService.instance.debug(
+        'Created snapshot: earnedSoFar=${snapshot.earnedSoFar}, expectedTotal=${snapshot.expectedTotal}',
+        tag: 'EPOCH_REWARDS_UI');
 
     // Check if rewards increased and trigger notification
     _checkAndNotifyRewardIncrease(live.earnedSoFar, live.epoch);
@@ -58,11 +64,14 @@ class EpochRewardsUiController extends AsyncNotifier<EpochRewardsUiState?> {
   void _checkAndNotifyRewardIncrease(BigInt earnedSoFar, int epoch) {
     if (_previousEarnedSoFar != null && earnedSoFar > _previousEarnedSoFar!) {
       final diff = earnedSoFar - _previousEarnedSoFar!;
-      Log.d('EPOCH_REWARDS_UI', 'Reward increased by $diff TKN, sending notification');
+      LoggingService.instance.debug(
+          'Reward increased by $diff TKN, sending notification',
+          tag: 'EPOCH_REWARDS_UI');
 
       // Get notifications controller and add notification
       try {
-        final notificationsController = ref.read(notificationsProvider.notifier);
+        final notificationsController =
+            ref.read(notificationsProvider.notifier);
         notificationsController.addNotification(
           AppNotification.create(
             title: 'Reward Earned',
@@ -76,13 +85,15 @@ class EpochRewardsUiController extends AsyncNotifier<EpochRewardsUiState?> {
           ),
         );
       } catch (e, st) {
-        Log.e('EPOCH_REWARDS_UI', 'Failed to send notification', e, st);
+        LoggingService.instance.error('Failed to send notification',
+            tag: 'EPOCH_REWARDS_UI', error: e, stackTrace: st);
       }
     }
     _previousEarnedSoFar = earnedSoFar;
   }
 }
 
-final epochRewardsUiProvider = AsyncNotifierProvider<EpochRewardsUiController, EpochRewardsUiState?>(
+final epochRewardsUiProvider =
+    AsyncNotifierProvider<EpochRewardsUiController, EpochRewardsUiState?>(
   EpochRewardsUiController.new,
 );

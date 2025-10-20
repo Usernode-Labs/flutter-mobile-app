@@ -75,21 +75,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         _privateKey = privateKey;
       });
     } catch (e, st) {
-      Log.e('PROFILE', 'Failed to load private key', e, st);
+      LoggingService.instance.error('Failed to load private key',
+          tag: 'PROFILE', error: e, stackTrace: st);
     }
   }
 
   Future<void> _loadRewards() async {
     try {
-      Log.d('PROFILE', 'Loading epoch rewards');
+      LoggingService.instance.debug('Loading epoch rewards', tag: 'PROFILE');
       final rewards = await RustBackendService.instance.epochRewards();
       if (!mounted) return;
       setState(() {
         _rewards = rewards;
       });
-      Log.d('PROFILE', 'Epoch rewards loaded: ${rewards != null}');
+      LoggingService.instance
+          .debug('Epoch rewards loaded: ${rewards != null}', tag: 'PROFILE');
     } catch (e, st) {
-      Log.e('PROFILE', 'Failed to load epoch rewards', e, st);
+      LoggingService.instance.error('Failed to load epoch rewards',
+          tag: 'PROFILE', error: e, stackTrace: st);
     }
   }
 
@@ -712,7 +715,8 @@ class _KeyField extends StatelessWidget {
                         style: const TextStyle(fontSize: 11),
                       ),
                       style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
                         minimumSize: Size.zero,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
@@ -737,7 +741,8 @@ class _KeyField extends StatelessWidget {
                       style: TextStyle(fontSize: 11),
                     ),
                     style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),

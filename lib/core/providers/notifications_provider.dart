@@ -33,7 +33,8 @@ class NotificationsState {
   }
 
   /// Create state from list of notifications
-  factory NotificationsState.fromNotifications(List<AppNotification> notifications) {
+  factory NotificationsState.fromNotifications(
+      List<AppNotification> notifications) {
     final unreadCount = notifications.where((n) => !n.isRead).length;
     return NotificationsState(
       notifications: notifications,
@@ -57,16 +58,20 @@ class NotificationsController extends Notifier<NotificationsState> {
   /// Load notifications from persistent storage
   Future<void> _loadNotifications() async {
     try {
-      Log.d('NOTIFICATIONS', 'Loading notifications from storage');
+      LoggingService.instance
+          .debug('Loading notifications from storage', tag: 'NOTIFICATIONS');
       final notifications = await _repository.load();
 
       // Sort by timestamp (most recent first)
       notifications.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
       state = NotificationsState.fromNotifications(notifications);
-      Log.d('NOTIFICATIONS', 'Loaded ${notifications.length} notifications, ${state.unreadCount} unread');
+      LoggingService.instance.debug(
+          'Loaded ${notifications.length} notifications, ${state.unreadCount} unread',
+          tag: 'NOTIFICATIONS');
     } catch (e, st) {
-      Log.e('NOTIFICATIONS', 'Failed to load notifications', e, st);
+      LoggingService.instance.error('Failed to load notifications',
+          tag: 'NOTIFICATIONS', error: e, stackTrace: st);
       state = const NotificationsState(
         notifications: [],
         unreadCount: 0,
@@ -78,7 +83,9 @@ class NotificationsController extends Notifier<NotificationsState> {
   /// Add a new notification
   Future<void> addNotification(AppNotification notification) async {
     try {
-      Log.d('NOTIFICATIONS', 'Adding notification: ${notification.title}');
+      LoggingService.instance.debug(
+          'Adding notification: ${notification.title}',
+          tag: 'NOTIFICATIONS');
 
       // Add to the beginning of the list (most recent first)
       final updatedNotifications = [notification, ...state.notifications];
@@ -89,16 +96,20 @@ class NotificationsController extends Notifier<NotificationsState> {
       // Persist to storage
       await _repository.save(updatedNotifications);
 
-      Log.d('NOTIFICATIONS', 'Notification added successfully. Total: ${updatedNotifications.length}');
+      LoggingService.instance.debug(
+          'Notification added successfully. Total: ${updatedNotifications.length}',
+          tag: 'NOTIFICATIONS');
     } catch (e, st) {
-      Log.e('NOTIFICATIONS', 'Failed to add notification', e, st);
+      LoggingService.instance.error('Failed to add notification',
+          tag: 'NOTIFICATIONS', error: e, stackTrace: st);
     }
   }
 
   /// Mark a notification as read
   Future<void> markAsRead(String id) async {
     try {
-      Log.d('NOTIFICATIONS', 'Marking notification as read: $id');
+      LoggingService.instance
+          .debug('Marking notification as read: $id', tag: 'NOTIFICATIONS');
 
       final updatedNotifications = state.notifications.map((n) {
         return n.id == id ? n.copyWith(isRead: true) : n;
@@ -107,52 +118,60 @@ class NotificationsController extends Notifier<NotificationsState> {
       state = NotificationsState.fromNotifications(updatedNotifications);
       await _repository.save(updatedNotifications);
 
-      Log.d('NOTIFICATIONS', 'Notification marked as read');
+      LoggingService.instance
+          .debug('Notification marked as read', tag: 'NOTIFICATIONS');
     } catch (e, st) {
-      Log.e('NOTIFICATIONS', 'Failed to mark notification as read', e, st);
+      LoggingService.instance.error('Failed to mark notification as read',
+          tag: 'NOTIFICATIONS', error: e, stackTrace: st);
     }
   }
 
   /// Mark all notifications as read
   Future<void> markAllAsRead() async {
     try {
-      Log.d('NOTIFICATIONS', 'Marking all notifications as read');
+      LoggingService.instance
+          .debug('Marking all notifications as read', tag: 'NOTIFICATIONS');
 
-      final updatedNotifications = state.notifications
-          .map((n) => n.copyWith(isRead: true))
-          .toList();
+      final updatedNotifications =
+          state.notifications.map((n) => n.copyWith(isRead: true)).toList();
 
       state = NotificationsState.fromNotifications(updatedNotifications);
       await _repository.save(updatedNotifications);
 
-      Log.d('NOTIFICATIONS', 'All notifications marked as read');
+      LoggingService.instance
+          .debug('All notifications marked as read', tag: 'NOTIFICATIONS');
     } catch (e, st) {
-      Log.e('NOTIFICATIONS', 'Failed to mark all notifications as read', e, st);
+      LoggingService.instance.error('Failed to mark all notifications as read',
+          tag: 'NOTIFICATIONS', error: e, stackTrace: st);
     }
   }
 
   /// Delete a notification
   Future<void> deleteNotification(String id) async {
     try {
-      Log.d('NOTIFICATIONS', 'Deleting notification: $id');
+      LoggingService.instance
+          .debug('Deleting notification: $id', tag: 'NOTIFICATIONS');
 
-      final updatedNotifications = state.notifications
-          .where((n) => n.id != id)
-          .toList();
+      final updatedNotifications =
+          state.notifications.where((n) => n.id != id).toList();
 
       state = NotificationsState.fromNotifications(updatedNotifications);
       await _repository.save(updatedNotifications);
 
-      Log.d('NOTIFICATIONS', 'Notification deleted. Remaining: ${updatedNotifications.length}');
+      LoggingService.instance.debug(
+          'Notification deleted. Remaining: ${updatedNotifications.length}',
+          tag: 'NOTIFICATIONS');
     } catch (e, st) {
-      Log.e('NOTIFICATIONS', 'Failed to delete notification', e, st);
+      LoggingService.instance.error('Failed to delete notification',
+          tag: 'NOTIFICATIONS', error: e, stackTrace: st);
     }
   }
 
   /// Clear all notifications
   Future<void> clearAll() async {
     try {
-      Log.d('NOTIFICATIONS', 'Clearing all notifications');
+      LoggingService.instance
+          .debug('Clearing all notifications', tag: 'NOTIFICATIONS');
 
       state = const NotificationsState(
         notifications: [],
@@ -162,9 +181,11 @@ class NotificationsController extends Notifier<NotificationsState> {
 
       await _repository.clear();
 
-      Log.d('NOTIFICATIONS', 'All notifications cleared');
+      LoggingService.instance
+          .debug('All notifications cleared', tag: 'NOTIFICATIONS');
     } catch (e, st) {
-      Log.e('NOTIFICATIONS', 'Failed to clear all notifications', e, st);
+      LoggingService.instance.error('Failed to clear all notifications',
+          tag: 'NOTIFICATIONS', error: e, stackTrace: st);
     }
   }
 

@@ -105,8 +105,9 @@ class _ReviewSendScreenState extends State<ReviewSendScreen> {
         return;
       }
 
-      Log.d('SEND',
-          'Transferring $amount from $forcedFrom to ${widget.recipientAddress}');
+      LoggingService.instance.debug(
+          'Transferring $amount from $forcedFrom to ${widget.recipientAddress}',
+          tag: 'SEND');
 
       // Call transferFunds RPC
       final response = await RustBackendService.instance.transferFunds(
@@ -139,7 +140,8 @@ class _ReviewSendScreenState extends State<ReviewSendScreen> {
         MaterialPageRoute(builder: (_) => const SendSuccessScreen()),
       );
     } catch (e, st) {
-      Log.e('SEND', 'Transfer failed', e, st);
+      LoggingService.instance
+          .error('Transfer failed', tag: 'SEND', error: e, stackTrace: st);
       if (!mounted) return;
       Navigator.of(context).pop(); // close loading dialog
       _showErrorDialog('Transfer failed: ${e.toString()}');

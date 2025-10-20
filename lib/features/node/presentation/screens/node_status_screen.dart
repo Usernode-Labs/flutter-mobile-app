@@ -53,6 +53,11 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   int? _previousBlockHeight;
   DateTime? _previousHeightCheck;
   double? _blocksPerSecond;
+
+  // Collapsible section states
+  bool _isBlockchainExpanded = false;
+  bool _isRecentBlocksExpanded = false;
+
   @override
   void initState() {
     super.initState();
@@ -186,8 +191,12 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             _buildOverviewSection(context, ref.watch(nodeStatusProvider).value),
             const SizedBox(height: 18),
 
-            // BLOCKCHAIN Section (includes Recent Blocks)
+            // BLOCKCHAIN Section (collapsible, without Recent Blocks)
             _buildBlockchainSection(context),
+            const SizedBox(height: 18),
+
+            // RECENT BLOCKS Section (collapsible, separate card)
+            _buildRecentBlocksSection(context),
           ],
         ),
       ),
@@ -909,7 +918,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     final mempoolAsync = ref.watch(nodeMempoolProvider);
     final mempoolUi = ref.watch(mempoolUiProvider).value;
     final rewards = ref.watch(nodeEpochRewardsProvider).value;
-    final blockchain = ref.watch(nodeBlockchainProvider).value;
 
     // Best Tip data
     final height = raw?.networkBestHeight ??
@@ -967,176 +975,110 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     return _buildDiaryCard(
       context: context,
       children: [
-        _buildSectionHeader(context, 'Blockchain'),
-        const SizedBox(height: 12),
-
-        // Best Tip row
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 80,
-              child: Text(
-                'Best Tip',
-                style: theme.textTheme.bodySmall!.copyWith(
-                    fontSize: 12,
-                    letterSpacing: 0.2,
-                    color: colorScheme.onSurfaceVariant),
+        // Header row with expand/collapse icon
+        InkWell(
+          onTap: () {
+            setState(() {
+              _isBlockchainExpanded = !_isBlockchainExpanded;
+            });
+          },
+          child: Row(
+            children: [
+              Expanded(child: _buildSectionHeader(context, 'Blockchain')),
+              Icon(
+                _isBlockchainExpanded
+                    ? Icons.expand_less
+                    : Icons.expand_more,
+                color: colorScheme.onSurfaceVariant,
               ),
-            ),
-            Expanded(
-              child: Text(
-                '${_fmtInt(height)} ($displayHash)',
-                style: theme.textTheme.bodyMedium!
-                    .copyWith(fontSize: 14, letterSpacing: 0.2),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-
-        // Batches row
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 80,
-              child: Text(
-                'Batches',
-                style: theme.textTheme.bodySmall!.copyWith(
-                    fontSize: 12,
-                    letterSpacing: 0.2,
-                    color: colorScheme.onSurfaceVariant),
-              ),
-            ),
-            Expanded(
-              child: Text(
-                batchSummary,
-                style: theme.textTheme.bodyMedium!
-                    .copyWith(fontSize: 14, letterSpacing: 0.2),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
 
-        // Horizontal divider
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: _buildDivider(),
-        ),
+        // Collapsible content
+        if (_isBlockchainExpanded) ...[
+          const SizedBox(height: 12),
 
-        // Mempool row
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 80,
-              child: Text(
-                'Mempool',
-                style: theme.textTheme.bodySmall!.copyWith(
-                    fontSize: 12,
-                    letterSpacing: 0.2,
-                    color: colorScheme.onSurfaceVariant),
+          // Best Tip row
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 80,
+                child: Text(
+                  'Best Tip',
+                  style: theme.textTheme.bodySmall!.copyWith(
+                      fontSize: 12,
+                      letterSpacing: 0.2,
+                      color: colorScheme.onSurfaceVariant),
+                ),
               ),
-            ),
-            Expanded(
-              child: Text(
-                '$mempoolCount tx ($mempoolOrphans orphans)  •  $mempoolSize',
-                style: theme.textTheme.bodyMedium!
-                    .copyWith(fontSize: 14, letterSpacing: 0.2),
+              Expanded(
+                child: Text(
+                  '${_fmtInt(height)} ($displayHash)',
+                  style: theme.textTheme.bodyMedium!
+                      .copyWith(fontSize: 14, letterSpacing: 0.2),
+                ),
               ),
-            ),
-            TextButton(
-              onPressed: () => context.push('/main/node/mempool'),
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'View',
-                    style: theme.textTheme.bodySmall!
-                        .copyWith(
-                            fontSize: 12,
-                            letterSpacing: 0.2,
-                            color: colorScheme.onSurfaceVariant)
-                        .copyWith(
-                          color: colorScheme.primary,
-                        ),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(Icons.arrow_forward,
-                      size: 14, color: colorScheme.primary),
-                ],
-              ),
-            ),
-          ],
-        ),
+            ],
+          ),
+          const SizedBox(height: 8),
 
-        // Horizontal divider before Earned row
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: _buildDivider(),
-        ),
-
-        // Earned row
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 80,
-              child: Text(
-                'Earned',
-                style: theme.textTheme.bodySmall!.copyWith(
-                    fontSize: 12,
-                    letterSpacing: 0.2,
-                    color: colorScheme.onSurfaceVariant),
+          // Batches row
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 80,
+                child: Text(
+                  'Batches',
+                  style: theme.textTheme.bodySmall!.copyWith(
+                      fontSize: 12,
+                      letterSpacing: 0.2,
+                      color: colorScheme.onSurfaceVariant),
+                ),
               ),
-            ),
-            Expanded(
-              child: Text(
-                '${_formatTokenAmount(rewards?.earnedSoFar ?? _earnedSoFar ?? BigInt.zero)}  •  Expected: ${_formatTokenAmount(rewards?.expectedTotal ?? _expectedTotal ?? BigInt.zero)}',
-                style: theme.textTheme.bodyMedium!
-                    .copyWith(fontSize: 14, letterSpacing: 0.2),
+              Expanded(
+                child: Text(
+                  batchSummary,
+                  style: theme.textTheme.bodyMedium!
+                      .copyWith(fontSize: 14, letterSpacing: 0.2),
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
 
-        // Horizontal divider before Recent Blocks
-        if (blockchain != null && blockchain.items.isNotEmpty)
+          // Horizontal divider
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: _buildDivider(),
           ),
 
-        // Recent Blocks header with View All button
-        if (blockchain != null && blockchain.items.isNotEmpty)
+          // Mempool row
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              SizedBox(
+                width: 80,
+                child: Text(
+                  'Mempool',
+                  style: theme.textTheme.bodySmall!.copyWith(
+                      fontSize: 12,
+                      letterSpacing: 0.2,
+                      color: colorScheme.onSurfaceVariant),
+                ),
+              ),
               Expanded(
                 child: Text(
-                  'Recent Blocks',
-                  style: theme.textTheme.bodySmall!
-                      .copyWith(
-                          fontSize: 12,
-                          letterSpacing: 0.2,
-                          color: colorScheme.onSurfaceVariant)
-                      .copyWith(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                        letterSpacing: 0.3,
-                      ),
+                  '$mempoolCount tx ($mempoolOrphans orphans)  •  $mempoolSize',
+                  style: theme.textTheme.bodyMedium!
+                      .copyWith(fontSize: 14, letterSpacing: 0.2),
                 ),
               ),
               TextButton(
-                onPressed: () => context.push('/main/node/produced-blocks'),
+                onPressed: () => context.push('/main/node/mempool'),
                 style: TextButton.styleFrom(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
@@ -1144,7 +1086,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'View All',
+                      'View',
                       style: theme.textTheme.bodySmall!
                           .copyWith(
                               fontSize: 12,
@@ -1163,8 +1105,114 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             ],
           ),
 
-        // Recent Blocks list
-        if (blockchain != null && blockchain.items.isNotEmpty) ...[
+          // Horizontal divider before Earned row
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: _buildDivider(),
+          ),
+
+          // Earned row
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 80,
+                child: Text(
+                  'Earned',
+                  style: theme.textTheme.bodySmall!.copyWith(
+                      fontSize: 12,
+                      letterSpacing: 0.2,
+                      color: colorScheme.onSurfaceVariant),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  '${_formatTokenAmount(rewards?.earnedSoFar ?? _earnedSoFar ?? BigInt.zero)}  •  Expected: ${_formatTokenAmount(rewards?.expectedTotal ?? _expectedTotal ?? BigInt.zero)}',
+                  style: theme.textTheme.bodyMedium!
+                      .copyWith(fontSize: 14, letterSpacing: 0.2),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  // NEW method: Separate Recent Blocks section
+  Widget _buildRecentBlocksSection(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final blockchain = ref.watch(nodeBlockchainProvider).value;
+
+    // Don't show section if no blocks available
+    if (blockchain == null || blockchain.items.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return _buildDiaryCard(
+      context: context,
+      children: [
+        // Header row with expand/collapse icon
+        InkWell(
+          onTap: () {
+            setState(() {
+              _isRecentBlocksExpanded = !_isRecentBlocksExpanded;
+            });
+          },
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Recent Blocks',
+                  style: theme.textTheme.titleMedium!.copyWith(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 18,
+                      letterSpacing: 0.5,
+                      color: colorScheme.onSurfaceVariant),
+                ),
+              ),
+              if (!_isRecentBlocksExpanded)
+                TextButton(
+                  onPressed: () => context.push('/main/node/produced-blocks'),
+                  style: TextButton.styleFrom(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'View All',
+                        style: theme.textTheme.bodySmall!
+                            .copyWith(
+                                fontSize: 12,
+                                letterSpacing: 0.2,
+                                color: colorScheme.onSurfaceVariant)
+                            .copyWith(
+                              color: colorScheme.primary,
+                            ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(Icons.arrow_forward,
+                          size: 14, color: colorScheme.primary),
+                    ],
+                  ),
+                ),
+              Icon(
+                _isRecentBlocksExpanded
+                    ? Icons.expand_less
+                    : Icons.expand_more,
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
+
+        // Collapsible content
+        if (_isRecentBlocksExpanded) ...[
           const SizedBox(height: 12),
           _buildProducedBlocksTab(context),
         ],

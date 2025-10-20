@@ -7,6 +7,7 @@ import 'package:crypto_mobile_app/core/widgets/activity_list_item.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:crypto_mobile_app/core/widgets/hero_action_card.dart';
+import 'package:crypto_mobile_app/core/widgets/tier_dialog.dart';
 import 'package:crypto_mobile_app/features/rewards/presentation/controllers/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/sync_status_provider.dart';
 import 'package:crypto_mobile_app/core/widgets/won_slot_item.dart';
@@ -50,53 +51,65 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               // Header section with tier and points
               Padding(
                 padding: const EdgeInsets.all(16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
+                child: InkWell(
+                  onTap: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => const TierDialog(),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: colorScheme.secondaryContainer,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.star_outline,
-                            color: colorScheme.onSecondaryContainer,
-                            size: 22,
-                          ),
+                        Row(
+                          children: [
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: colorScheme.secondaryContainer,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.star_outline,
+                                color: colorScheme.onSecondaryContainer,
+                                size: 22,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              'Basic Tier',
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                color: colorScheme.onSurface,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 12),
-                        Text(
-                          'Basic Tier',
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            color: colorScheme.onSurface,
-                            fontWeight: FontWeight.w700,
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: colorScheme.surface,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                                color: colorScheme.outlineVariant
+                                    .withValues(alpha: 0.4)),
+                          ),
+                          child: Text(
+                            '0 points',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurface,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ],
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: colorScheme.surface,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                            color: colorScheme.outlineVariant
-                                .withValues(alpha: 0.4)),
-                      ),
-                      child: Text(
-                        '0 points',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurface,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
 
@@ -119,29 +132,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 10),
                       children: [
-                        // Identity verification card - dynamic based on status
-                        HeroActionCard(
-                          width: cardWidth,
-                          icon: isIdentityVerified
-                              ? Icons.verified_user
-                              : Icons.badge,
-                          title: isIdentityVerified
-                              ? 'Identity Verified ✓'
-                              : 'Boost Your Tier',
-                          subtitle: isIdentityVerified
-                              ? 'Update your verification to maintain benefits'
-                              : 'Verify your identity to unlock premium features',
-                          gradientColors: [
-                            Color.lerp(colorScheme.primary, Colors.white, 0.4)!,
-                            Color.lerp(colorScheme.primary, Colors.white, 0.1)!,
-                          ],
-                          onTap: () {
-                            if (activeAccount != null) {
-                              context.go(
-                                  '/identity-verification?accountId=${activeAccount.id}');
-                            }
-                          },
-                        ),
+                        // Identity verification card - only show if NOT verified
+                        if (!isIdentityVerified)
+                          HeroActionCard(
+                            width: cardWidth,
+                            icon: Icons.badge,
+                            title: 'Boost Your Tier',
+                            subtitle: 'Verify your identity to unlock premium features',
+                            gradientColors: [
+                              Color.lerp(colorScheme.primary, Colors.white, 0.4)!,
+                              Color.lerp(colorScheme.primary, Colors.white, 0.1)!,
+                            ],
+                            onTap: () {
+                              if (activeAccount != null) {
+                                context.go(
+                                    '/identity-verification?accountId=${activeAccount.id}');
+                              }
+                            },
+                          ),
 
                         // Lock tokens for yield card
                         HeroActionCard(

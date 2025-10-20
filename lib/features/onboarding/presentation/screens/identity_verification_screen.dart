@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
-import 'package:crypto_mobile_app/core/di/providers.dart';
+import 'package:crypto_mobile_app/core/providers/providers.dart';
 
 class IdentityVerificationScreen extends ConsumerStatefulWidget {
   final String? accountId;

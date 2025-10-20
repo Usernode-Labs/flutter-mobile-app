@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:crypto_mobile_app/core/design/design_tokens.dart';
 import 'package:crypto_mobile_app/core/widgets/activity_list_item.dart';
-import 'package:crypto_mobile_app/core/widgets/app_action_button.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:crypto_mobile_app/core/widgets/hero_action_card.dart';
@@ -359,97 +357,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   },
                 );
               }),
-
-              // Quick Actions Grid
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Quick Actions',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        Expanded(
-                          child: AppActionButton(
-                            icon: Icons.arrow_upward,
-                            label: 'Send',
-                            color: colorScheme.primary,
-                            onTap: () => context.push('/send'),
-                          ),
-                        ),
-                        Expanded(
-                          child: AppActionButton(
-                            icon: Icons.arrow_downward,
-                            label: 'Receive',
-                            color: colorScheme.tertiary,
-                            onTap: () => context.push('/receive'),
-                          ),
-                        ),
-                        Expanded(
-                          child: AppActionButton(
-                            icon: Icons.swap_horiz,
-                            label: 'Swap',
-                            color: colorScheme.secondary,
-                            onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text('Swap coming soon')),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: kSpace8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        Expanded(
-                          child: AppActionButton(
-                            icon: Icons.account_balance,
-                            label: 'Bridge',
-                            color: colorScheme.primary,
-                            onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text('Bridge coming soon')),
-                              );
-                            },
-                          ),
-                        ),
-                        Expanded(
-                          child: AppActionButton(
-                            icon: Icons.lock,
-                            label: 'Stake',
-                            color: colorScheme.tertiary,
-                            onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text('Staking coming soon')),
-                              );
-                            },
-                          ),
-                        ),
-                        Expanded(
-                          child: AppActionButton(
-                            icon: Icons.card_giftcard,
-                            label: 'Rewards',
-                            color: colorScheme.secondary,
-                            onTap: () => context.push('/rewards'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
 
               const SizedBox(height: 32),
             ],

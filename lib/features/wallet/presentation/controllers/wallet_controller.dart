@@ -4,7 +4,7 @@ import 'package:crypto_mobile_app/features/wallet/domain/entities/wallet_balance
 import 'package:crypto_mobile_app/features/wallet/domain/entities/transaction.dart'
     as domain;
 import 'package:crypto_mobile_app/features/wallet/domain/repositories/wallet_repository.dart';
-import 'package:crypto_mobile_app/core/di/providers.dart';
+import 'package:crypto_mobile_app/core/providers/providers.dart';
 
 class WalletState {
   final WalletBalanceEntity balance;

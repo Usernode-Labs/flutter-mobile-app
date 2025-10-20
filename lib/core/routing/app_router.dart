@@ -21,7 +21,7 @@ import 'package:crypto_mobile_app/features/profile/presentation/screens/profile_
 import 'package:crypto_mobile_app/features/settings/presentation/screens/settings_screen.dart';
 import 'package:crypto_mobile_app/features/notifications/presentation/screens/notifications_screen.dart';
 import 'package:crypto_mobile_app/features/rewards/presentation/screens/rewards_breakdown_screen.dart';
-import 'package:crypto_mobile_app/core/di/providers.dart';
+import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 

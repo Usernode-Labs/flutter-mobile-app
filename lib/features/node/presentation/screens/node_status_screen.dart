@@ -450,6 +450,57 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
           ],
         ),
 
+        // Horizontal divider before Produced blocks and Won slots
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: _buildDivider(),
+        ),
+
+        // Produced blocks and Won Slots row
+        Row(
+          children: [
+            Expanded(
+              child: _buildCompactInfoCard(
+                context,
+                icon: Icons.check_circle_outline,
+                label: 'Produced Blocks',
+                value: '', // Value shown only in subtitle to avoid repetition
+                subtitle: '${() {
+                  final produced = ref
+                          .watch(nodeEpochRewardsProvider)
+                          .value
+                          ?.producedInEpoch ??
+                      _producedInEpoch ??
+                      0;
+                  return produced == 1 ? '1 block' : '$produced blocks';
+                }()}',
+                color: colorScheme.tertiary,
+                colorScheme: colorScheme,
+                onTap: () => context.push('/main/node/produced-blocks'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildCompactInfoCard(
+                context,
+                icon: Icons.schedule,
+                label: 'Won Slots',
+                value: '', // Value shown only in subtitle to avoid repetition
+                subtitle: '${() {
+                  final wonSlots =
+                      ref.watch(nodeEpochRewardsProvider).value?.winsInEpoch ??
+                          _winsInEpoch ??
+                          0;
+                  return wonSlots == 1 ? '1 slot' : '$wonSlots slots';
+                }()}',
+                color: colorScheme.primary,
+                colorScheme: colorScheme,
+                onTap: () => context.push('/main/node/won-slots'),
+              ),
+            ),
+          ],
+        ),
+
         if (_lastChecked != null) ...[
           const SizedBox(height: 12),
           Align(
@@ -970,117 +1021,11 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
           ],
         ),
 
-        // Horizontal divider before rewards data
+        // Horizontal divider before Earned row
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 12),
           child: _buildDivider(),
         ),
-
-        // Produced blocks row
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 80,
-              child: Text(
-                'Produced',
-                style: theme.textTheme.bodySmall!.copyWith(
-                    fontSize: 12,
-                    letterSpacing: 0.2,
-                    color: colorScheme.onSurfaceVariant),
-              ),
-            ),
-            Expanded(
-              child: Text(
-                '${rewards?.producedInEpoch ?? _producedInEpoch ?? 0} blocks',
-                style: theme.textTheme.bodyMedium!
-                    .copyWith(fontSize: 14, letterSpacing: 0.2),
-              ),
-            ),
-            TextButton(
-              onPressed: () => context.push('/main/node/produced-blocks'),
-              style: TextButton.styleFrom(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'View',
-                    style: theme.textTheme.bodySmall!
-                        .copyWith(
-                            fontSize: 12,
-                            letterSpacing: 0.2,
-                            color: colorScheme.onSurfaceVariant)
-                        .copyWith(
-                          color: colorScheme.primary,
-                        ),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(Icons.arrow_forward,
-                      size: 14, color: colorScheme.primary),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-
-        // Won Slots row
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 80,
-              child: Text(
-                'Won Slots',
-                style: theme.textTheme.bodySmall!.copyWith(
-                    fontSize: 12,
-                    letterSpacing: 0.2,
-                    color: colorScheme.onSurfaceVariant),
-              ),
-            ),
-            Expanded(
-              child: Text(
-                '${rewards?.winsInEpoch ?? _winsInEpoch ?? 0} slots',
-                style: theme.textTheme.bodyMedium!
-                    .copyWith(fontSize: 14, letterSpacing: 0.2),
-              ),
-            ),
-            TextButton(
-              onPressed: () => context.push('/main/node/won-slots'),
-              style: TextButton.styleFrom(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'View',
-                    style: theme.textTheme.bodySmall!
-                        .copyWith(
-                            fontSize: 12,
-                            letterSpacing: 0.2,
-                            color: colorScheme.onSurfaceVariant)
-                        .copyWith(
-                          color: colorScheme.primary,
-                        ),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(Icons.arrow_forward,
-                      size: 14, color: colorScheme.primary),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
 
         // Earned row
         Row(
@@ -1398,7 +1343,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     // Display blocks from the blockchain
     final blocks = blockchain.items.take(10).toList();
     final bestTipSlot = raw?.globalSlot ?? _bestTipGlobalSlot;
-    final rewardPerBlock = rewards?.rewardPerBlock ?? _rewardPerBlock ?? BigInt.zero;
+    final rewardPerBlock =
+        rewards?.rewardPerBlock ?? _rewardPerBlock ?? BigInt.zero;
 
     return Column(
       children: blocks.asMap().entries.map((entry) {

@@ -84,6 +84,9 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       await ref.read(nodeBlockchainProvider.notifier).refresh();
       await ref.read(nodeEpochRewardsProvider.notifier).refresh();
 
+      // Check if still mounted after async operations
+      if (!mounted) return;
+
       // Get the raw status for UI state
       final raw = ref.read(nodeRawStatusProvider).value;
       if (raw != null) {
@@ -477,13 +480,14 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                 color: colorScheme.tertiary,
                 colorScheme: colorScheme,
                 onTap: () => context.push('/main/node/produced-blocks'),
+                useGradient: true,
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _buildCompactInfoCard(
                 context,
-                icon: Icons.schedule,
+                icon: Icons.emoji_events,
                 label: 'Won Slots',
                 value: '', // Value shown only in subtitle to avoid repetition
                 subtitle: '${() {
@@ -496,6 +500,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                 color: colorScheme.primary,
                 colorScheme: colorScheme,
                 onTap: () => context.push('/main/node/won-slots'),
+                useGradient: true,
               ),
             ),
           ],
@@ -532,26 +537,69 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     required Color color,
     required ColorScheme colorScheme,
     VoidCallback? onTap,
+    bool useGradient = false,
   }) {
     final theme = Theme.of(context);
 
     final card = Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerLow,
+          color: useGradient ? null : colorScheme.surfaceContainerLow,
+          gradient: useGradient
+              ? LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    // Glassmorphism: white overlay blended with color
+                    Color.alphaBlend(
+                      Colors.white.withValues(alpha: 0.04),
+                      color.withValues(alpha: 0.08),
+                    ),
+                    Color.alphaBlend(
+                      Colors.white.withValues(alpha: 0.02),
+                      color.withValues(alpha: 0.04),
+                    ),
+                  ],
+                )
+              : null,
+          border: useGradient
+              ? Border.all(
+                  color:
+                      color.withValues(alpha: 0.15), // Semi-transparent border
+                  width: 1.0,
+                )
+              : null,
           borderRadius: BorderRadius.circular(8),
-          boxShadow: [
-            BoxShadow(
-                color: colorScheme.outline.withValues(alpha: 0.1),
-                offset: const Offset(0.5, 0.5),
-                blurRadius: 4.0)
-          ]),
+          boxShadow: useGradient
+              ? [
+                  // Soft glow with color tint
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.15),
+                    offset: const Offset(0, 2),
+                    blurRadius: 8.0,
+                    spreadRadius: 0,
+                  ),
+                  // Subtle depth shadow
+                  BoxShadow(
+                    color: colorScheme.outline.withValues(alpha: 0.08),
+                    offset: const Offset(0, 1),
+                    blurRadius: 3.0,
+                  ),
+                ]
+              : [
+                  BoxShadow(
+                    color: colorScheme.outline.withValues(alpha: 0.1),
+                    offset: const Offset(0.5, 0.5),
+                    blurRadius: 4.0,
+                  )
+                ]),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
+              color: color.withValues(
+                  alpha: 0.20), // Icon background for glassmorphism
               borderRadius: BorderRadius.circular(6),
             ),
             child: Icon(icon, size: 13, color: color),
@@ -605,6 +653,13 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
               ],
             ),
           ),
+          // Show chevron arrow for clickable cards
+          if (onTap != null)
+            Icon(
+              Icons.chevron_right,
+              size: 20,
+              color: color.withValues(alpha: 0.5),
+            ),
         ],
       ),
     );

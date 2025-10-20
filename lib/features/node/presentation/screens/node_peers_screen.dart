@@ -34,31 +34,32 @@ class NodePeersScreen extends StatelessWidget {
 
     // Sort peers: Connected first, then Connecting, then Disconnected
     // Within each group, sort by time (most recent first)
-    final sortedPeers = List<RpcPeerInfo>.from(peers)..sort((a, b) {
-      // Assign priority to each status
-      int getPriority(PeerConnectionStatus status) {
-        switch (status) {
-          case PeerConnectionStatus.connected:
-            return 0;
-          case PeerConnectionStatus.connecting:
-          case PeerConnectionStatus.disconnecting:
-            return 1;
-          case PeerConnectionStatus.disconnected:
-            return 2;
+    final sortedPeers = List<RpcPeerInfo>.from(peers)
+      ..sort((a, b) {
+        // Assign priority to each status
+        int getPriority(PeerConnectionStatus status) {
+          switch (status) {
+            case PeerConnectionStatus.connected:
+              return 0;
+            case PeerConnectionStatus.connecting:
+            case PeerConnectionStatus.disconnecting:
+              return 1;
+            case PeerConnectionStatus.disconnected:
+              return 2;
+          }
         }
-      }
 
-      final priorityA = getPriority(a.connectionStatus);
-      final priorityB = getPriority(b.connectionStatus);
+        final priorityA = getPriority(a.connectionStatus);
+        final priorityB = getPriority(b.connectionStatus);
 
-      // First compare by status priority
-      if (priorityA != priorityB) {
-        return priorityA.compareTo(priorityB);
-      }
+        // First compare by status priority
+        if (priorityA != priorityB) {
+          return priorityA.compareTo(priorityB);
+        }
 
-      // If same status, sort by time (most recent first)
-      return b.time.compareTo(a.time);
-    });
+        // If same status, sort by time (most recent first)
+        return b.time.compareTo(a.time);
+      });
 
     return Scaffold(
       appBar: const AppAppBar(
@@ -122,15 +123,14 @@ class NodePeersScreen extends StatelessWidget {
                   final titleText = ipOnly ?? '(Hidden address)';
 
                   // Direction badge colors
-                  final directionColor = p.incoming
-                      ? colorScheme.tertiary
-                      : colorScheme.secondary;
-                  final directionIcon = p.incoming
-                      ? Icons.arrow_downward
-                      : Icons.arrow_upward;
+                  final directionColor =
+                      p.incoming ? colorScheme.tertiary : colorScheme.secondary;
+                  final directionIcon =
+                      p.incoming ? Icons.arrow_downward : Icons.arrow_upward;
 
                   return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                     leading: CircleAvatar(
                       backgroundColor: statusColor.withValues(alpha: 0.12),
                       foregroundColor: statusColor,
@@ -164,7 +164,8 @@ class NodePeersScreen extends StatelessWidget {
                                   color: directionColor.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(4),
                                   border: Border.all(
-                                    color: directionColor.withValues(alpha: 0.3),
+                                    color:
+                                        directionColor.withValues(alpha: 0.3),
                                     width: 1,
                                   ),
                                 ),
@@ -195,7 +196,8 @@ class NodePeersScreen extends StatelessWidget {
                           Text(
                             timeStr,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                              color: colorScheme.onSurfaceVariant
+                                  .withValues(alpha: 0.7),
                               fontSize: 10,
                             ),
                           ),
@@ -203,7 +205,8 @@ class NodePeersScreen extends StatelessWidget {
                       ),
                     ),
                     trailing: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: statusColor.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(6),
@@ -267,7 +270,8 @@ class NodePeersScreen extends StatelessWidget {
     final ipv6Br = RegExp(r'\[([0-9a-fA-F:]+)\]').firstMatch(s);
     if (ipv6Br != null) return ipv6Br.group(0);
     final ipv6Raw = RegExp(r'\b[0-9a-fA-F:]{2,}\b').firstMatch(s);
-    if (ipv6Raw != null && ipv6Raw.group(0)!.contains(':')) return ipv6Raw.group(0);
+    if (ipv6Raw != null && ipv6Raw.group(0)!.contains(':'))
+      return ipv6Raw.group(0);
     final ipv4 = RegExp(r'(\d{1,3}(?:\.\d{1,3}){3})').firstMatch(s);
     if (ipv4 != null) return ipv4.group(1);
     final hostOnly = RegExp(r'^([A-Za-z0-9.-]+)').firstMatch(s)?.group(1);

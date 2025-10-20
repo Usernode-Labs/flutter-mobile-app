@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 import 'package:crypto_mobile_app/core/widgets/activity_list_item.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:crypto_mobile_app/core/widgets/hero_action_card.dart';
 import 'package:crypto_mobile_app/features/rewards/presentation/controllers/epoch_rewards_provider.dart';
+import 'package:crypto_mobile_app/features/node/presentation/controllers/sync_status_provider.dart';
 import 'package:crypto_mobile_app/core/widgets/won_slot_item.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
@@ -202,21 +204,87 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Consumer(builder: (ctx, ref, _) {
+                    final syncStatus = ref.watch(syncStatusProvider);
                     final rewardsAsync = ref.watch(epochRewardsUiProvider);
+
+                    // If node is not synced, show skeleton with sync message
+                    if (!syncStatus.isSynced) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Info banner
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: colorScheme.primaryContainer
+                                  .withValues(alpha: 0.3),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                  color: colorScheme.primary
+                                      .withValues(alpha: 0.3)),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.sync,
+                                    size: 16, color: colorScheme.primary),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Node syncing... Rewards data will display when fully synced',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: colorScheme.onSurface,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          // Skeleton placeholders
+                          Skeletonizer(
+                            enabled: true,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: _buildRewardsSection(
+                                context,
+                                colorScheme,
+                                theme,
+                                null,
+                                true,
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }
+
+                    // Node is synced, show actual data
                     return rewardsAsync.when(
-                      loading: () => const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(24.0),
-                          child: CircularProgressIndicator(),
+                      loading: () => Skeletonizer(
+                        enabled: true,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: _buildRewardsSection(
+                            context,
+                            colorScheme,
+                            theme,
+                            null,
+                            true,
+                          ),
                         ),
                       ),
-                      error: (e, st) => Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: _buildRewardsSection(
-                          context,
-                          colorScheme,
-                          theme,
-                          null,
+                      error: (e, st) => Skeletonizer(
+                        enabled: true,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: _buildRewardsSection(
+                            context,
+                            colorScheme,
+                            theme,
+                            null,
+                            true,
+                          ),
                         ),
                       ),
                       data: (ui) => Column(
@@ -227,6 +295,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             colorScheme,
                             theme,
                             ui?.snapshot,
+                            false,
                           ),
                           if (ui?.isCached == true)
                             Padding(
@@ -258,6 +327,65 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
 
               const SizedBox(height: 24),
+
+              // Scheduled Activity (Upcoming Won Slots)
+              Consumer(builder: (ctx, ref, _) {
+                final rewardsUiAsync = ref.watch(epochRewardsUiProvider);
+                return rewardsUiAsync.when(
+                  loading: () =>
+                      _buildSkeletonSlots(context, theme, colorScheme),
+                  error: (e, st) =>
+                      _buildSkeletonSlots(context, theme, colorScheme),
+                  data: (ui) {
+                    final wonSlots = ui?.snapshot?.wonSlots;
+                    if (wonSlots == null || wonSlots.isEmpty) {
+                      return _buildSkeletonSlots(context, theme, colorScheme);
+                    }
+                    final now = DateTime.now().toUtc();
+                    final upcoming = wonSlots
+                        .where((slot) => DateTime.fromMillisecondsSinceEpoch(
+                                slot.expectedTimeMs.toInt(),
+                                isUtc: true)
+                            .isAfter(now))
+                        .take(1)
+                        .toList();
+                    if (upcoming.isEmpty) {
+                      return _buildSkeletonSlots(context, theme, colorScheme);
+                    }
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Scheduled Activity',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  color: colorScheme.onSurface,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        ...upcoming.map((slot) => Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
+                              child: WonSlotItem(
+                                slot: slot,
+                                status: SlotStatus.pending,
+                                isCompact: true,
+                              ),
+                            )),
+                        const SizedBox(height: 28),
+                      ],
+                    );
+                  },
+                );
+              }),
 
               // Recent Activity section
               Padding(
@@ -295,69 +423,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
 
-              const SizedBox(height: 28),
-
-              // Upcoming Won Slots (using same provider as rewards card)
-              Consumer(builder: (ctx, ref, _) {
-                final rewardsUiAsync = ref.watch(epochRewardsUiProvider);
-                return rewardsUiAsync.when(
-                  loading: () => const SizedBox.shrink(),
-                  error: (e, st) => const SizedBox.shrink(),
-                  data: (ui) {
-                    final wonSlots = ui?.snapshot?.wonSlots;
-                    if (wonSlots == null || wonSlots.isEmpty) {
-                      return const SizedBox.shrink();
-                    }
-                    final now = DateTime.now().toUtc();
-                    final upcoming = wonSlots
-                        .where((slot) => DateTime.fromMillisecondsSinceEpoch(
-                                slot.expectedTimeMs.toInt(),
-                                isUtc: true)
-                            .isAfter(now))
-                        .take(3)
-                        .toList();
-                    if (upcoming.isEmpty) return const SizedBox.shrink();
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Upcoming Slots',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  color: colorScheme.onSurface,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              TextButton(
-                                onPressed: () => context.push('/rewards'),
-                                child: Text('View All',
-                                    style:
-                                        TextStyle(color: colorScheme.primary)),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        ...upcoming.map((slot) => Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 16),
-                              child: WonSlotItem(
-                                slot: slot,
-                                status: SlotStatus.pending,
-                                isCompact: true,
-                              ),
-                            )),
-                        const SizedBox(height: 28),
-                      ],
-                    );
-                  },
-                );
-              }),
-
               const SizedBox(height: 32),
             ],
           ),
@@ -376,6 +441,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ColorScheme colorScheme,
     ThemeData theme,
     dynamic snapshot, // EpochRewardsSnapshot? but avoid import type bleed here
+    bool isLoading,
   ) {
     Log.d('HOME_SCREEN', 'Building rewards section with snapshot: $snapshot');
     BigInt? earned;
@@ -427,14 +493,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       const SizedBox(height: 8),
 
       // Rewards amount
-      Text(
-        earned != null ? '${_formatTokenAmount(earned)} TKN' : '— TKN',
-        style: theme.textTheme.headlineMedium?.copyWith(
-          fontSize: 36,
-          fontWeight: FontWeight.w700,
-          color: colorScheme.onSurface,
-        ),
-      ),
+      earned != null
+          ? Text(
+              '${_formatTokenAmount(earned)} TKN',
+              style: theme.textTheme.headlineMedium?.copyWith(
+                fontSize: 36,
+                fontWeight: FontWeight.w700,
+                color: colorScheme.onSurface,
+              ),
+            )
+          : Bone.text(
+              words: 2,
+              style: theme.textTheme.headlineMedium?.copyWith(
+                fontSize: 36,
+                fontWeight: FontWeight.w700,
+                color: colorScheme.onSurface,
+              ),
+            ),
 
       const SizedBox(height: 12),
 
@@ -454,21 +529,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            epoch != null ? 'Epoch $epoch' : 'Epoch —',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurface,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          Text(
-            (produced != null && wins != null)
-                ? '$produced / $wins blocks'
-                : '—',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w500,
-            ),
+          epoch != null
+              ? Text(
+                  'Epoch $epoch',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w500,
+                  ),
+                )
+              : Bone.text(
+                  words: 2,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+          Flexible(
+            child: (produced != null && wins != null)
+                ? Text(
+                    '$produced / $wins blocks',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  )
+                : Bone.text(
+                    words: 3,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
           ),
         ],
       ),
@@ -484,23 +576,138 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       ),
       const SizedBox(height: 8),
-      Text(
-        expected != null ? '~${_formatTokenAmount(expected)} TKN' : '— TKN',
-        style: theme.textTheme.headlineSmall?.copyWith(
-          fontSize: 28,
-          fontWeight: FontWeight.w700,
-          color: colorScheme.onSurface,
-        ),
-      ),
+      expected != null
+          ? Text(
+              '~${_formatTokenAmount(expected)} TKN',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontSize: 28,
+                fontWeight: FontWeight.w700,
+                color: colorScheme.onSurface,
+              ),
+            )
+          : Bone.text(
+              words: 2,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontSize: 28,
+                fontWeight: FontWeight.w700,
+                color: colorScheme.onSurface,
+              ),
+            ),
       const SizedBox(height: 4),
-      Text(
-        (wins != null && rewardPerBlock != null)
-            ? 'Based on $wins won slots at ${_formatTokenAmount(rewardPerBlock)} per block'
-            : 'Loading projection...',
-        style: theme.textTheme.bodyMedium?.copyWith(
-          color: colorScheme.onSurfaceVariant,
-        ),
-      ),
+      (wins != null && rewardPerBlock != null)
+          ? Text(
+              'Based on $wins won slots at ${_formatTokenAmount(rewardPerBlock)} per block',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            )
+          : Bone.text(
+              words: 8,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
     ];
+  }
+
+  Widget _buildSkeletonSlots(
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Scheduled Activity',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              TextButton(
+                onPressed: null,
+                child: Text('View All',
+                    style: TextStyle(color: colorScheme.primary)),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Skeletonizer(
+          enabled: true,
+          child: Column(
+            children: List.generate(
+              3,
+              (index) => Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                        color: colorScheme.primary.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.schedule,
+                          size: 16, color: colorScheme.primary),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Bone.text(
+                              words: 2,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.onSurface,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Bone.text(
+                              words: 3,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: colorScheme.primary.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Bone.text(
+                          words: 1,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: colorScheme.primary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 28),
+      ],
+    );
   }
 }

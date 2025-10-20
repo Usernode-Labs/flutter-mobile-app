@@ -18,16 +18,6 @@ class DAppsScreen extends StatefulWidget {
 }
 
 class _DAppsScreenState extends State<DAppsScreen> {
-  String _selectedCategory = 'All';
-
-  final List<String> _categories = [
-    'All',
-    'DeFi',
-    'NFT',
-    'Gaming',
-    'DAO',
-  ];
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -122,8 +112,7 @@ class _DAppsScreenState extends State<DAppsScreen> {
                       color: colorScheme.secondary,
                       onTap: () {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text('Trade coming soon')),
+                          const SnackBar(content: Text('Trade coming soon')),
                         );
                       },
                     ),

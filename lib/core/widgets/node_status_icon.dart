@@ -32,13 +32,13 @@ class NodeStatusIcon extends ConsumerWidget {
 
     if (hasError) {
       icon = Icons.error;
-      color = colorScheme.onSurfaceVariant;
+      color = colorScheme.error;
     } else if (syncStatus.isSynced) {
       icon = Icons.check_circle;
-      color = colorScheme.onSurfaceVariant;
+      color = colorScheme.tertiary;
     } else {
       icon = Icons.sync;
-      color = colorScheme.onSurfaceVariant;
+      color = colorScheme.primary;
     }
 
     return IconButton(

@@ -129,13 +129,13 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
           }
 
           // Create slot data with status
-          final now = DateTime.now().toUtc();
+          final now = DateTime.now();
           final slotDataList = wonSlots.map((slot) {
             final isProduced = producedSlots.contains(slot.globalSlot);
             final slotTime = DateTime.fromMillisecondsSinceEpoch(
               slot.expectedTimeMs.toInt(),
               isUtc: true,
-            );
+            ).toLocal();
             final status = isProduced
                 ? SlotStatus.produced
                 : (now.isAfter(slotTime)
@@ -147,7 +147,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
           // Determine epoch duration
           final times = wonSlots.map((s) => DateTime.fromMillisecondsSinceEpoch(
               s.expectedTimeMs.toInt(),
-              isUtc: true)).toList();
+              isUtc: true).toLocal()).toList();
           times.sort();
           final epochDuration = times.isNotEmpty && times.length > 1
               ? times.last.difference(times.first)
@@ -249,7 +249,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
       final time = DateTime.fromMillisecondsSinceEpoch(
         slotData.slot.expectedTimeMs.toInt(),
         isUtc: true,
-      );
+      ).toLocal();
 
       final String key;
       if (useHourly) {
@@ -273,7 +273,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
       final time = DateTime.fromMillisecondsSinceEpoch(
         firstSlot.slot.expectedTimeMs.toInt(),
         isUtc: true,
-      );
+      ).toLocal();
 
       return TimeBucketStats(
         time: useHourly
@@ -334,13 +334,13 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
         timeLabel =
             'Today ${bucket.time.hour.toString().padLeft(2, '0')}:00';
       } else {
-        timeLabel = DateFormat('MMM d, HH:00').format(bucket.time.toLocal());
+        timeLabel = DateFormat('MMM d, HH:00').format(bucket.time);
       }
     } else {
       if (isToday) {
         timeLabel = 'Today';
       } else {
-        timeLabel = DateFormat('MMM d, yyyy').format(bucket.time.toLocal());
+        timeLabel = DateFormat('MMM d, yyyy').format(bucket.time);
       }
     }
 

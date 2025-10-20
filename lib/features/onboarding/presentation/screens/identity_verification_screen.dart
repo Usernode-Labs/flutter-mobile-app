@@ -98,6 +98,7 @@ class _IdentityVerificationScreenState
           title: 'Identity Verification',
           automaticallyImplyLeading: false,
           showNotifications: false,
+          showNodeStatus: false,
         ),
         body: SafeArea(
           child: SingleChildScrollView(

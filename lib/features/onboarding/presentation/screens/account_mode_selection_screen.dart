@@ -54,6 +54,7 @@ class _AccountModeSelectionScreenState
           title: 'Account Setup',
           automaticallyImplyLeading: false,
           showNotifications: false,
+          showNodeStatus: false,
         ),
         body: SafeArea(
           child: SingleChildScrollView(

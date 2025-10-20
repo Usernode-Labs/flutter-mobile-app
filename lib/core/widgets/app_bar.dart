@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/providers/notifications_provider.dart';
 import 'package:crypto_mobile_app/core/widgets/notification_badge.dart';
+import 'package:crypto_mobile_app/core/widgets/node_status_icon.dart';
 
 /// Unified AppBar component with consistent styling across the app
 /// Follows Material Design 3 principles with transparent background and no elevation
@@ -14,6 +15,7 @@ class AppAppBar extends ConsumerWidget implements PreferredSizeWidget {
   final Widget? leading;
   final bool centerTitle;
   final bool showNotifications;
+  final bool showNodeStatus;
 
   const AppAppBar({
     super.key,
@@ -24,6 +26,7 @@ class AppAppBar extends ConsumerWidget implements PreferredSizeWidget {
     this.leading,
     this.centerTitle = false,
     this.showNotifications = true,
+    this.showNodeStatus = true,
   });
 
   @override
@@ -31,23 +34,23 @@ class AppAppBar extends ConsumerWidget implements PreferredSizeWidget {
     final theme = Theme.of(context);
     final notificationsState = ref.watch(notificationsProvider);
 
-    // Build default actions with only notifications icon
-    final defaultActions = showNotifications
-        ? [
-            IconButton(
-              icon: NotificationBadge(
-                count: notificationsState.unreadCount,
-                child: Icon(
-                  notificationsState.unreadCount > 0
-                      ? Icons.notifications
-                      : Icons.notifications_outlined,
-                ),
-              ),
-              onPressed: () => context.push('/notifications'),
-              tooltip: 'Notifications',
+    // Build default actions with node status icon and notifications icon
+    final defaultActions = <Widget>[
+      if (showNodeStatus) const NodeStatusIcon(),
+      if (showNotifications)
+        IconButton(
+          icon: NotificationBadge(
+            count: notificationsState.unreadCount,
+            child: Icon(
+              notificationsState.unreadCount > 0
+                  ? Icons.notifications
+                  : Icons.notifications_outlined,
             ),
-          ]
-        : <Widget>[];
+          ),
+          onPressed: () => context.push('/notifications'),
+          tooltip: 'Notifications',
+        ),
+    ];
 
     // Combine custom actions with default actions
     final combinedActions = [

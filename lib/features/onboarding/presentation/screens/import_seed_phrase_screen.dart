@@ -121,6 +121,7 @@ class _ImportSeedPhraseScreenState extends ConsumerState<ImportSeedPhraseScreen>
       appBar: const AppAppBar(
         title: 'Import from Seed Phrase',
         showNotifications: false,
+        showNodeStatus: false,
       ),
       body: SafeArea(
         child: SingleChildScrollView(

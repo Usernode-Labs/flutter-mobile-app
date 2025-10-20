@@ -69,7 +69,7 @@ class NodeRawStatusController extends AsyncNotifier<NodeRawStatusView?> {
   }
 
   Future<void> refresh() async {
-    state = const AsyncLoading();
+    // Skip loading state during refresh to keep previous values visible
     state = await AsyncValue.guard(_load);
   }
 

@@ -100,6 +100,7 @@ class _CreateNewAccountScreenState
       appBar: const AppAppBar(
         title: 'Create New Account',
         showNotifications: false,
+        showNodeStatus: false,
       ),
       body: SafeArea(
         child: SingleChildScrollView(

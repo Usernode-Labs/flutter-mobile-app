@@ -477,10 +477,10 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                       0;
                   return produced == 1 ? '1 block' : '$produced blocks';
                 }()}',
-                color: colorScheme.tertiary,
+                color: colorScheme.tertiary, // Match Peers icon color
                 colorScheme: colorScheme,
                 onTap: () => context.push('/main/node/produced-blocks'),
-                useGradient: true,
+                useGradient: false,
               ),
             ),
             const SizedBox(width: 12),
@@ -497,10 +497,10 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                           0;
                   return wonSlots == 1 ? '1 slot' : '$wonSlots slots';
                 }()}',
-                color: colorScheme.primary,
+                color: const Color(0xFFF9A825), // Darker golden yellow for better readability
                 colorScheme: colorScheme,
                 onTap: () => context.push('/main/node/won-slots'),
-                useGradient: true,
+                useGradient: false,
               ),
             ),
           ],

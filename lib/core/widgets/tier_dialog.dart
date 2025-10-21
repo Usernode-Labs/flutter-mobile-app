@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:crypto_mobile_app/features/profile/presentation/controllers/user_tier_provider.dart';
+import 'package:crypto_mobile_app/features/profile/domain/entities/user_tier.dart';
 
 /// Dialog that displays all available tiers and their benefits
-/// Shows Basic, Bronze, Gold, and Platinum tiers with expected slots and rewards
-class TierDialog extends StatelessWidget {
+/// Shows Basic, Bronze, Gold, and Platinum tiers with slot multipliers
+class TierDialog extends ConsumerWidget {
   const TierDialog({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final tierState = ref.watch(userTierProvider);
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -33,46 +37,38 @@ class TierDialog extends StatelessWidget {
             const SizedBox(height: 20),
             _buildTierItem(
               context: context,
+              tier: TierLevel.basic,
+              currentTier: tierState.currentTier,
               icon: Icons.star_outline,
               iconColor: const Color(0xFF4FC3F7),
               iconBackgroundColor: const Color(0xFFE1F5FE),
-              title: 'Basic - Your Tier',
-              subtitle: '~100 Slots Expected',
-              reward: 'Reward ~2000 TKN',
-              isCurrentTier: true,
             ),
             const SizedBox(height: 16),
             _buildTierItem(
               context: context,
+              tier: TierLevel.bronze,
+              currentTier: tierState.currentTier,
               icon: Icons.emoji_events,
               iconColor: const Color(0xFFFFB74D),
               iconBackgroundColor: const Color(0xFFFFF3E0),
-              title: 'Bronze',
-              subtitle: '~130 Slots Expected',
-              reward: '~2200 TKN',
-              isCurrentTier: false,
             ),
             const SizedBox(height: 16),
             _buildTierItem(
               context: context,
+              tier: TierLevel.gold,
+              currentTier: tierState.currentTier,
               icon: Icons.star,
               iconColor: const Color(0xFFFFD54F),
               iconBackgroundColor: const Color(0xFFFFFDE7),
-              title: 'Gold',
-              subtitle: '~140 Slots Expected',
-              reward: '~2600 TKN',
-              isCurrentTier: false,
             ),
             const SizedBox(height: 16),
             _buildTierItem(
               context: context,
+              tier: TierLevel.platinum,
+              currentTier: tierState.currentTier,
               icon: Icons.diamond,
               iconColor: const Color(0xFF9575CD),
               iconBackgroundColor: const Color(0xFFF3E5F5),
-              title: 'Platinum',
-              subtitle: '~140 Slots Expected',
-              reward: '~3200 TKN',
-              isCurrentTier: false,
               hasEliteTag: true,
             ),
           ],
@@ -83,17 +79,21 @@ class TierDialog extends StatelessWidget {
 
   Widget _buildTierItem({
     required BuildContext context,
+    required TierLevel tier,
+    required TierLevel currentTier,
     required IconData icon,
     required Color iconColor,
     required Color iconBackgroundColor,
-    required String title,
-    required String subtitle,
-    required String reward,
-    required bool isCurrentTier,
     bool hasEliteTag = false,
   }) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isCurrentTier = tier == currentTier;
+
+    // Calculate point range text
+    final pointRange = tier.maxPoints != null
+        ? '${tier.minPoints}-${tier.maxPoints} points'
+        : '${tier.minPoints}+ points';
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -120,7 +120,7 @@ class TierDialog extends StatelessWidget {
                 children: [
                   Flexible(
                     child: Text(
-                      title,
+                      isCurrentTier ? '${tier.name} - Your Tier' : tier.name,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                         color: colorScheme.onSurface,
@@ -151,7 +151,7 @@ class TierDialog extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                subtitle,
+                pointRange,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
@@ -159,11 +159,18 @@ class TierDialog extends StatelessWidget {
             ],
           ),
         ),
-        Text(
-          reward,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: colorScheme.onSurface,
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: colorScheme.primaryContainer.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            '${tier.slotMultiplier}x slots',
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: colorScheme.onSurface,
+            ),
           ),
         ),
       ],

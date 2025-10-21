@@ -19,17 +19,50 @@ class EpochRewardsUiState {
 
 class EpochRewardsUiController extends AsyncNotifier<EpochRewardsUiState?> {
   BigInt? _previousEarnedSoFar;
+  static const String _cacheKey = 'default';
 
   @override
   Future<EpochRewardsUiState?> build() async {
-    // Skip cache loading - fetch only live data
+    final cache = EpochRewardsCacheRepository();
+
+    // Step 1: Load cache immediately to show previous data (only on initial build)
     LoggingService.instance
-        .debug('Fetching epoch rewards...', tag: 'EPOCH_REWARDS_UI');
+        .debug('Loading cached epoch rewards...', tag: 'EPOCH_REWARDS_UI');
+    final cached = await cache.getCached(_cacheKey);
+
+    // Step 2: Return cache if available (avoids empty UI while loading)
+    if (cached != null) {
+      LoggingService.instance.trace(
+          'Loaded cached data: epoch=${cached.epoch}, earnedSoFar=${cached.earnedSoFar}',
+          tag: 'EPOCH_REWARDS_UI');
+
+      // Immediately return cached data
+      state = AsyncData(EpochRewardsUiState(
+        snapshot: cached,
+        isCached: true,
+        isStale: false,
+      ));
+    }
+
+    // Step 3: Fetch live data in background
+    return await _fetchAndSave();
+  }
+
+  /// Refresh method for periodic updates (doesn't reload cache, avoids blinking)
+  Future<void> refresh() async {
+    state = await AsyncValue.guard(() => _fetchAndSave());
+  }
+
+  /// Fetches live data and saves to cache
+  Future<EpochRewardsUiState?> _fetchAndSave() async {
+    LoggingService.instance
+        .debug('Fetching live epoch rewards...', tag: 'EPOCH_REWARDS_UI');
     final live = await RustBackendService.instance.epochRewards();
     if (live == null) {
       LoggingService.instance
           .warn('epochRewards returned null', tag: 'EPOCH_REWARDS_UI');
-      return null;
+      // Return current state if live fetch failed
+      return state.value;
     }
 
     LoggingService.instance.trace(
@@ -51,9 +84,25 @@ class EpochRewardsUiController extends AsyncNotifier<EpochRewardsUiState?> {
         'Created snapshot: earnedSoFar=${snapshot.earnedSoFar}, expectedTotal=${snapshot.expectedTotal}',
         tag: 'EPOCH_REWARDS_UI');
 
+    // Save to cache
+    try {
+      final cache = EpochRewardsCacheRepository();
+      await cache.save(_cacheKey, snapshot);
+      LoggingService.instance.trace(
+          'Saved epoch rewards to cache',
+          tag: 'EPOCH_REWARDS_UI');
+    } catch (e, st) {
+      LoggingService.instance.error(
+          'Failed to save epoch rewards to cache',
+          tag: 'EPOCH_REWARDS_UI',
+          error: e,
+          stackTrace: st);
+    }
+
     // Check if rewards increased and trigger notification
     _checkAndNotifyRewardIncrease(live.earnedSoFar, live.epoch);
 
+    // Return fresh data
     return EpochRewardsUiState(
       snapshot: snapshot,
       isCached: false,

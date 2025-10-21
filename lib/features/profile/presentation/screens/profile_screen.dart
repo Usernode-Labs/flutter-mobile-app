@@ -11,6 +11,9 @@ import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_rep
 import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/features/profile/presentation/controllers/user_tier_provider.dart';
+import 'package:crypto_mobile_app/features/profile/domain/services/points_calculator.dart';
+import 'package:crypto_mobile_app/features/node/presentation/controllers/sync_status_provider.dart';
 
 /// Profile Screen - User profile, identity, rewards, and settings
 ///
@@ -247,6 +250,266 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
                 const SizedBox(height: 32),
 
+                // Tier & Points Section
+                Consumer(
+                  builder: (context, ref, _) {
+                    final tierState = ref.watch(userTierProvider);
+
+                    return Column(
+                      children: [
+                        // Current Epoch Card
+                        _SectionCard(
+                          title: 'Current Epoch',
+                          icon: Icons.star,
+                          colorScheme: colorScheme,
+                          theme: theme,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '${tierState.currentTier.name} Tier',
+                                          style: theme.textTheme.titleLarge
+                                              ?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '${tierState.currentPoints} points',
+                                          style: theme.textTheme.bodyMedium
+                                              ?.copyWith(
+                                            color: colorScheme.onSurface
+                                                .withValues(alpha: 0.6),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: colorScheme.primaryContainer,
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Text(
+                                        '${tierState.currentMultiplier}x slots',
+                                        style:
+                                            theme.textTheme.labelMedium?.copyWith(
+                                          color:
+                                              colorScheme.onPrimaryContainer,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (tierState.pointsToNextTier != null) ...[
+                                  const SizedBox(height: 16),
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            'Progress to ${tierState.currentTier.nextTier?.name}',
+                                            style: theme.textTheme.bodySmall
+                                                ?.copyWith(
+                                              color: colorScheme.onSurface
+                                                  .withValues(alpha: 0.6),
+                                            ),
+                                          ),
+                                          Text(
+                                            '${tierState.pointsToNextTier} points needed',
+                                            style: theme.textTheme.bodySmall
+                                                ?.copyWith(
+                                              color: colorScheme.onSurface
+                                                  .withValues(alpha: 0.6),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      LinearProgressIndicator(
+                                        value: tierState.progressToNextTier,
+                                        backgroundColor: colorScheme
+                                            .surfaceContainerHighest,
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                          colorScheme.primary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Next Epoch Projection Card
+                        _SectionCard(
+                          title: 'Next Epoch Projection',
+                          icon: Icons.trending_up,
+                          colorScheme: colorScheme,
+                          theme: theme,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Text(
+                                              '${tierState.nextEpochTier.name} Tier',
+                                              style: theme.textTheme.titleLarge
+                                                  ?.copyWith(
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            if (tierState.willTierUp) ...[
+                                              const SizedBox(width: 8),
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                  horizontal: 8,
+                                                  vertical: 2,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: colorScheme.tertiary
+                                                      .withValues(alpha: 0.2),
+                                                  borderRadius:
+                                                      BorderRadius.circular(4),
+                                                ),
+                                                child: Row(
+                                                  children: [
+                                                    Icon(
+                                                      Icons.arrow_upward,
+                                                      size: 12,
+                                                      color:
+                                                          colorScheme.tertiary,
+                                                    ),
+                                                    const SizedBox(width: 2),
+                                                    Text(
+                                                      'Upgrade!',
+                                                      style: theme.textTheme
+                                                          .labelSmall
+                                                          ?.copyWith(
+                                                        color: colorScheme
+                                                            .tertiary,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '~${tierState.nextEpochPoints} points',
+                                          style: theme.textTheme.bodyMedium
+                                              ?.copyWith(
+                                            color: colorScheme.onSurface
+                                                .withValues(alpha: 0.6),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: colorScheme.secondaryContainer,
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Text(
+                                        '${tierState.nextEpochMultiplier}x slots',
+                                        style:
+                                            theme.textTheme.labelMedium?.copyWith(
+                                          color: colorScheme
+                                              .onSecondaryContainer,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Points Breakdown Expansion
+                        _SectionCard(
+                          title: 'How Points Are Earned',
+                          icon: Icons.info_outline,
+                          colorScheme: colorScheme,
+                          theme: theme,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              children: PointsCalculator.pointsRules.entries
+                                  .map((entry) => Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 6.0),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(
+                                              entry.key,
+                                              style: theme.textTheme.bodyMedium,
+                                            ),
+                                            Text(
+                                              entry.value,
+                                              style: theme.textTheme.bodySmall
+                                                  ?.copyWith(
+                                                color: colorScheme.onSurface
+                                                    .withValues(alpha: 0.6),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ))
+                                  .toList(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 32),
+
                 // Identity & Verification Section
                 _SectionCard(
                   title: 'Identity & Verification',
@@ -361,6 +624,56 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
                       children: [
+                        // Sync status banner
+                        Consumer(
+                          builder: (context, ref, _) {
+                            final syncStatus = ref.watch(syncStatusProvider);
+                            if (!syncStatus.isSynced && _rewards != null) {
+                              return Column(
+                                children: [
+                                  Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: colorScheme.primaryContainer
+                                          .withValues(alpha: 0.3),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: colorScheme.primary
+                                            .withValues(alpha: 0.3),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.info_outline,
+                                          size: 16,
+                                          color: colorScheme.primary,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            'Node syncing... Final data will be shown after full sync',
+                                            style:
+                                                theme.textTheme.bodySmall?.copyWith(
+                                              color: colorScheme.onSurface,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                ],
+                              );
+                            }
+                            return const SizedBox.shrink();
+                          },
+                        ),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [

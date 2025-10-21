@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/core/widgets/won_slot_item.dart';
 import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/features/node/presentation/controllers/sync_status_provider.dart';
 
-class RewardsBreakdownScreen extends StatefulWidget {
+class RewardsBreakdownScreen extends ConsumerStatefulWidget {
   const RewardsBreakdownScreen({super.key});
 
   @override
-  State<RewardsBreakdownScreen> createState() => _RewardsBreakdownScreenState();
+  ConsumerState<RewardsBreakdownScreen> createState() => _RewardsBreakdownScreenState();
 }
 
-class _RewardsBreakdownScreenState extends State<RewardsBreakdownScreen> {
+class _RewardsBreakdownScreenState extends ConsumerState<RewardsBreakdownScreen> {
   RpcEpochRewardsResp? _epochRewards;
   bool _isLoading = true;
 
@@ -87,6 +89,57 @@ class _RewardsBreakdownScreenState extends State<RewardsBreakdownScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // Sync status banner
+                          Consumer(
+                            builder: (context, ref, _) {
+                              final syncStatus = ref.watch(syncStatusProvider);
+                              if (!syncStatus.isSynced) {
+                                return Column(
+                                  children: [
+                                    Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 10,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: colorScheme.primaryContainer
+                                            .withValues(alpha: 0.3),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: colorScheme.primary
+                                              .withValues(alpha: 0.3),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.info_outline,
+                                            size: 18,
+                                            color: colorScheme.primary,
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: Text(
+                                              'Node syncing... Final data will be shown after full sync',
+                                              style: theme.textTheme.bodyMedium
+                                                  ?.copyWith(
+                                                color: colorScheme.onSurface,
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                  ],
+                                );
+                              }
+                              return const SizedBox.shrink();
+                            },
+                          ),
+
                           // Current epoch section
                           _buildCurrentEpochSection(theme, colorScheme),
                           const SizedBox(height: 20),

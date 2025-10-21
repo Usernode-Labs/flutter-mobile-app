@@ -15,6 +15,7 @@ import 'package:crypto_mobile_app/core/widgets/won_slot_item.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
+import 'package:crypto_mobile_app/features/profile/presentation/controllers/user_tier_provider.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -48,7 +49,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     try {
       LoggingService.instance
           .trace('Refreshing epoch rewards', tag: LogTag.rewards);
-      ref.invalidate(epochRewardsUiProvider);
+      // Use refresh() instead of invalidate() to avoid blinking
+      await ref.read(epochRewardsUiProvider.notifier).refresh();
     } catch (e, st) {
       LoggingService.instance.error('Failed to refresh epoch rewards',
           tag: LogTag.rewards, error: e, stackTrace: st);
@@ -83,68 +85,74 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Header section with tier and points
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: InkWell(
-                    onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => const TierDialog(),
-                      );
-                    },
-                    borderRadius: BorderRadius.circular(12),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
+                Consumer(
+                  builder: (context, ref, _) {
+                    final tierState = ref.watch(userTierProvider);
+
+                    return Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: InkWell(
+                        onTap: () {
+                          showDialog(
+                            context: context,
+                            builder: (context) => const TierDialog(),
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Container(
-                                width: 44,
-                                height: 44,
-                                decoration: BoxDecoration(
-                                  color: colorScheme.secondaryContainer,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  Icons.star_outline,
-                                  color: colorScheme.onSecondaryContainer,
-                                  size: 22,
-                                ),
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 44,
+                                    height: 44,
+                                    decoration: BoxDecoration(
+                                      color: colorScheme.secondaryContainer,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      Icons.star_outline,
+                                      color: colorScheme.onSecondaryContainer,
+                                      size: 22,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    '${tierState.currentTier.name} Tier',
+                                    style: theme.textTheme.titleLarge?.copyWith(
+                                      color: colorScheme.onSurface,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(width: 12),
-                              Text(
-                                'Basic Tier',
-                                style: theme.textTheme.titleLarge?.copyWith(
-                                  color: colorScheme.onSurface,
-                                  fontWeight: FontWeight.w700,
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.surface,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                      color: colorScheme.outlineVariant
+                                          .withValues(alpha: 0.4)),
+                                ),
+                                child: Text(
+                                  '${tierState.currentPoints} points',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurface,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
                             ],
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: colorScheme.surface,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                  color: colorScheme.outlineVariant
-                                      .withValues(alpha: 0.4)),
-                            ),
-                            child: Text(
-                              '0 points',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onSurface,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
 
                 // Hero action cards - horizontal scroll
@@ -252,60 +260,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       final syncStatus = ref.watch(syncStatusProvider);
                       final rewardsAsync = ref.watch(epochRewardsUiProvider);
 
-                      // If node is not synced, show skeleton with sync message
-                      if (!syncStatus.isSynced) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Info banner
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: colorScheme.primaryContainer
-                                    .withValues(alpha: 0.3),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                    color: colorScheme.primary
-                                        .withValues(alpha: 0.3)),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.sync,
-                                      size: 16, color: colorScheme.primary),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      'Node syncing... Rewards data will display when fully synced',
-                                      style:
-                                          theme.textTheme.bodySmall?.copyWith(
-                                        color: colorScheme.onSurface,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            // Skeleton placeholders
-                            Skeletonizer(
-                              enabled: true,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: _buildRewardsSection(
-                                  context,
-                                  colorScheme,
-                                  theme,
-                                  null,
-                                  true,
-                                ),
-                              ),
-                            ),
-                          ],
-                        );
-                      }
-
-                      // Node is synced, show actual data
+                      // Always show data (cached or live)
                       return rewardsAsync.when(
                         loading: () => Skeletonizer(
                           enabled: true,
@@ -336,6 +291,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         data: (ui) => Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            // Show sync banner if node is syncing
+                            if (!syncStatus.isSynced && ui != null)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: colorScheme.primaryContainer
+                                        .withValues(alpha: 0.3),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                        color: colorScheme.primary
+                                            .withValues(alpha: 0.3)),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.info_outline,
+                                          size: 16, color: colorScheme.primary),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'Node syncing... Final data will be shown after full sync',
+                                          style:
+                                              theme.textTheme.bodySmall?.copyWith(
+                                            color: colorScheme.onSurface,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ..._buildRewardsSection(
                               context,
                               colorScheme,
@@ -343,7 +332,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               ui?.snapshot,
                               false,
                             ),
-                            if (ui?.isCached == true)
+                            if (ui?.isCached == true && syncStatus.isSynced)
                               Padding(
                                 padding: const EdgeInsets.only(top: 8.0),
                                 child: Align(

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -12,6 +13,7 @@ import 'package:crypto_mobile_app/features/rewards/presentation/controllers/epoc
 import 'package:crypto_mobile_app/features/node/presentation/controllers/sync_status_provider.dart';
 import 'package:crypto_mobile_app/core/widgets/won_slot_item.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -22,16 +24,49 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
+  Timer? _autoTimer;
+  bool _refreshing = false;
+
   @override
   void initState() {
     super.initState();
     // Refresh epoch rewards when screen loads
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      LoggingService.instance.debug(
-          'Invalidating epochRewardsUiProvider to trigger refresh',
-          tag: 'HOME_SCREEN');
-      ref.invalidate(epochRewardsUiProvider);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _refresh());
+    // Periodic auto-refresh every 5 seconds while this screen is alive
+    _autoTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (mounted && !_refreshing) {
+        _refresh();
+      }
     });
+  }
+
+  Future<void> _refresh() async {
+    if (!mounted) return;
+    setState(() {
+      _refreshing = true;
+    });
+    try {
+      LoggingService.instance.debug(
+          'Refreshing epoch rewards',
+          tag: LogTag.rewards);
+      ref.invalidate(epochRewardsUiProvider);
+    } catch (e, st) {
+      LoggingService.instance.error(
+          'Failed to refresh epoch rewards',
+          tag: LogTag.rewards,
+          error: e,
+          stackTrace: st);
+    } finally {
+      if (mounted) {
+        setState(() => _refreshing = false);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _autoTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -45,10 +80,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       drawer: const AppDrawer(),
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        child: RefreshIndicator(
+          onRefresh: _refresh,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               // Header section with tier and points
               Padding(
                 padding: const EdgeInsets.all(16),
@@ -439,6 +476,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ],
           ),
         ),
+          ),
       ),
     );
   }

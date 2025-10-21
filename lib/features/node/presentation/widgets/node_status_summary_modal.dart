@@ -86,20 +86,38 @@ class _NodeStatusSummaryModalState
           // Sync Status Card
           nodeStatusAsync.when(
             data: (nodeStatus) {
-              final currentHeight = nodeStatus?.localBestHeight ?? 0;
-              final networkHeight = nodeStatus?.networkBestHeight ?? currentHeight;
-              final syncPercentage =
-                  networkHeight > 0 ? (currentHeight / networkHeight) : 1.0;
+              final currentHeight = syncStatus.localHeight ?? 0;
+              final networkHeight = syncStatus.networkHeight ?? currentHeight;
+              final syncPercentage = syncStatus.progress;
 
               // Calculate sync speed
               _updateSyncSpeed(currentHeight);
 
-              final accentColor = syncStatus.isSynced
-                  ? colorScheme.tertiary
-                  : colorScheme.primary;
+              // Determine icon and color based on state
+              final IconData icon;
+              final Color accentColor;
+              final String statusLabel;
+
+              if (syncStatus.isConnecting) {
+                icon = Icons.hourglass_empty;
+                accentColor = colorScheme.outline;
+                statusLabel = 'Connecting';
+              } else if (syncStatus.isSynced) {
+                icon = Icons.check_circle;
+                accentColor = colorScheme.tertiary;
+                statusLabel = 'Synced';
+              } else if (syncStatus.isSyncing) {
+                icon = Icons.sync;
+                accentColor = colorScheme.primary;
+                statusLabel = 'Syncing';
+              } else {
+                icon = Icons.error;
+                accentColor = colorScheme.error;
+                statusLabel = 'Error';
+              }
 
               return _StatusCard(
-                icon: syncStatus.isSynced ? Icons.check_circle : Icons.sync,
+                icon: icon,
                 iconColor: accentColor,
                 title: 'Sync Status',
                 child: Column(
@@ -109,7 +127,7 @@ class _NodeStatusSummaryModalState
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          syncStatus.isSynced ? 'Synced' : 'Syncing',
+                          statusLabel,
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: accentColor,
@@ -135,13 +153,37 @@ class _NodeStatusSummaryModalState
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      'Block $currentHeight / $networkHeight',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
+                    // Show appropriate message based on state
+                    if (syncStatus.isConnecting) ...[
+                      Text(
+                        'Waiting for peer connections...',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                       ),
-                    ),
-                    if (!syncStatus.isSynced &&
+                      Text(
+                        '${syncStatus.connectedPeers} peers connected',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ] else ...[
+                      Text(
+                        'Block $currentHeight / $networkHeight',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      if (syncStatus.blocksRemaining != null) ...[
+                        Text(
+                          '${syncStatus.blocksRemaining} blocks remaining',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ],
+                    if (syncStatus.isSyncing &&
                         _blocksPerSecond != null &&
                         _blocksPerSecond! > 0) ...[
                       const SizedBox(height: 4),

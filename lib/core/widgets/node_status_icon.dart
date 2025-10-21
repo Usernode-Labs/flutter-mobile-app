@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/sync_status_provider.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/node_raw_status_provider.dart';
 import 'package:crypto_mobile_app/features/node/presentation/widgets/node_status_summary_modal.dart';
+import 'package:crypto_mobile_app/features/node/domain/entities/sync_status.dart';
 
 /// Icon button that displays current node sync status in the app bar
 /// Shows different icons and colors based on sync state:
-/// - Synced: Green check circle (check_circle)
-/// - Syncing: Blue rotating sync icon (sync)
-/// - Error/Disconnected: Red error icon (error)
+/// - Connecting: Grey hourglass (hourglass_empty) - no peers
+/// - Syncing: Blue rotating sync icon (sync) - syncing with peers
+/// - Synced: Green check circle (check_circle) - fully synced
+/// - Error: Red error icon (error) - backend error
 class NodeStatusIcon extends ConsumerWidget {
   const NodeStatusIcon({super.key});
 
@@ -19,33 +21,45 @@ class NodeStatusIcon extends ConsumerWidget {
     final syncStatus = ref.watch(syncStatusProvider);
     final nodeRawAsync = ref.watch(nodeRawStatusProvider);
 
-    // Determine if there's an error (no peers or provider error)
-    final hasError = nodeRawAsync.when(
-      data: (raw) => raw == null || raw.connectedPeers == 0,
+    // Determine if there's a provider-level error
+    final providerHasError = nodeRawAsync.when(
+      data: (raw) => raw == null,
       loading: () => false,
       error: (_, __) => true,
     );
 
-    // Determine icon and color based on status
+    // Determine icon, color, and rotation based on status
     final IconData icon;
     final Color color;
+    final bool shouldRotate;
 
-    if (hasError) {
+    if (providerHasError || syncStatus.hasError) {
+      // Error state
       icon = Icons.error;
       color = colorScheme.error;
+      shouldRotate = false;
+    } else if (syncStatus.isConnecting) {
+      // Connecting state (no peers)
+      icon = Icons.hourglass_empty;
+      color = colorScheme.outline;
+      shouldRotate = false;
     } else if (syncStatus.isSynced) {
+      // Synced state
       icon = Icons.check_circle;
       color = colorScheme.tertiary;
+      shouldRotate = false;
     } else {
+      // Syncing state
       icon = Icons.sync;
       color = colorScheme.primary;
+      shouldRotate = true;
     }
 
     return IconButton(
       constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-      icon: syncStatus.isSynced || hasError
-          ? Icon(icon, color: color, size: 20)
-          : _RotatingIcon(icon: icon, color: color),
+      icon: shouldRotate
+          ? _RotatingIcon(icon: icon, color: color)
+          : Icon(icon, color: color, size: 20),
       onPressed: () {
         showNodeStatusSummaryModal(context);
       },

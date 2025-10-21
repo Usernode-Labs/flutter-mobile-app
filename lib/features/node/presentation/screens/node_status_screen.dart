@@ -585,17 +585,12 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
               ? [
                   // Soft glow with color tint
                   BoxShadow(
-                    color: color.withValues(alpha: 0.15),
+                    color: color.withValues(alpha: 0.2),
                     offset: const Offset(0, 2),
                     blurRadius: 8.0,
                     spreadRadius: 0,
                   ),
                   // Subtle depth shadow
-                  BoxShadow(
-                    color: colorScheme.outline.withValues(alpha: 0.08),
-                    offset: const Offset(0, 1),
-                    blurRadius: 3.0,
-                  ),
                 ]
               : [
                   BoxShadow(
@@ -762,7 +757,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                 idle: fetchProgress?.idle,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 6),
             // Apply progress card
             Expanded(
               child: _buildCircularProgressCard(
@@ -796,13 +791,13 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
           color: colorScheme.surfaceContainerLow,
           borderRadius: BorderRadius.circular(8),
           boxShadow: [
             BoxShadow(
-                color: colorScheme.outline.withValues(alpha: 0.1),
+                color: colorScheme.outline.withValues(alpha: 0.8),
                 offset: const Offset(0.5, 0.5),
                 blurRadius: 4.0)
           ]),
@@ -811,8 +806,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
         children: [
           // Circular progress indicator (left side)
           SizedBox(
-            width: 40,
-            height: 40,
+            width: 50,
+            height: 50,
             child: Stack(
               alignment: Alignment.center,
               children: [
@@ -828,23 +823,15 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                 // Progress circle
                 CircularProgressIndicator(
                   value: percentage / 100,
-                  strokeWidth: 4,
+                  strokeWidth: 3,
                   backgroundColor: Colors.transparent,
                   valueColor: AlwaysStoppedAnimation<Color>(color),
                 ),
                 // Percentage text in center (smaller)
                 Text(
                   '${percentage.toStringAsFixed(0)}%',
-                  style: theme.textTheme.titleMedium!
-                      .copyWith(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          letterSpacing: 0.18)
-                      .copyWith(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: color,
-                      ),
+                  style: theme.textTheme.titleMedium!.copyWith(
+                      fontSize: 8, fontWeight: FontWeight.w900, color: color),
                 ),
               ],
             ),
@@ -860,12 +847,11 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                 // Label
                 Text(
                   label,
-                  style: theme.textTheme.bodyMedium!
-                      .copyWith(fontSize: 14, letterSpacing: 0.2)
-                      .copyWith(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
+                  style: theme.textTheme.bodyMedium!.copyWith(
+                    letterSpacing: 0.2,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
                 ),
                 // Stats (if available)
                 if (done != null && pending != null && idle != null) ...[

@@ -211,6 +211,10 @@ class RustBackendService {
                 'incoming': p.incoming,
                 'peerId': p.peerId.toString(),
                 'time': p.time.toString(),
+                'bestTip': p.bestTip?.toString(),
+                'bestTipHeight': p.bestTipHeight,
+                'bestTipGlobalSlot': p.bestTipGlobalSlot,
+                'bestTipTimestamp': p.bestTipTimestamp?.toString(),
               })
           .toList();
 
@@ -228,6 +232,8 @@ class RustBackendService {
               'height': bestTip.height,
               'global_slot': bestTip.globalSlot,
               'epoch': bestTip.epoch,
+              'producer_pubkey': bestTip.producerPubkey,
+              'transactions': bestTip.transactions.toString(),
               'batches': bestTip.batches
                   .map((b) => {
                         'transactions': b.transactions.toString(),
@@ -242,6 +248,8 @@ class RustBackendService {
                         'height': syncBlocks.bestTip.height,
                         'global_slot': syncBlocks.bestTip.globalSlot,
                         'epoch': syncBlocks.bestTip.epoch,
+                        'producer_pubkey': syncBlocks.bestTip.producerPubkey,
+                        'transactions': syncBlocks.bestTip.transactions.toString(),
                         'batches': syncBlocks.bestTip.batches
                             .map((b) => {
                                   'transactions': b.transactions.toString(),
@@ -267,9 +275,142 @@ class RustBackendService {
         }
       }
 
+      // Build batcher data for logging
+      Map<String, dynamic>? batcherData;
+      final batcher = status?.batcher;
+      if (batcher != null) {
+        try {
+          batcherData = {
+            'pending_leaves': batcher.pendingLeaves.toString(),
+            'pending_batches': batcher.pendingBatches.toString(),
+            'pending_batches_txs': batcher.pendingBatchesTxs.toString(),
+            'inflight_jobs': batcher.inflightJobs.toString(),
+            'total_issued_batches': batcher.totalIssuedBatches.toString(),
+            'total_issued_txs': batcher.totalIssuedTxs.toString(),
+            'total_confirmed_txs': batcher.totalConfirmedTxs.toString(),
+            'total_confirmed_batches': batcher.totalConfirmedBatches.toString(),
+            'last_update_ms': batcher.lastUpdateMs.toString(),
+            'jobs_per_tick': batcher.jobsPerTick.toString(),
+            'lease_ttl_ms': batcher.leaseTtlMs.toString(),
+          };
+        } catch (e) {
+          batcherData = {'error': 'Failed to parse batcher data: $e'};
+        }
+      }
+
+      // Build block producer data for logging
+      Map<String, dynamic>? blockProducerData;
+      final blockProducer = status?.blockProducer;
+      if (blockProducer != null) {
+        try {
+          final statusData = blockProducer.status;
+          Map<String, dynamic> statusMap = {
+            'type': statusData.toString().split('(').first.split('.').last,
+          };
+
+          // Extract won slot info if available
+          statusData.whenOrNull(
+            wonSlotDiscarded: (wonSlot) => statusMap['won_slot'] = {
+              'global_slot': wonSlot.globalSlot,
+              'slot_timestamp': wonSlot.slotTimestamp.toString(),
+            },
+            wonSlot: (wonSlot) => statusMap['won_slot'] = {
+              'global_slot': wonSlot.globalSlot,
+              'slot_timestamp': wonSlot.slotTimestamp.toString(),
+            },
+            wonSlotWait: (wonSlot) => statusMap['won_slot'] = {
+              'global_slot': wonSlot.globalSlot,
+              'slot_timestamp': wonSlot.slotTimestamp.toString(),
+            },
+            wonSlotProduceInit: (wonSlot) => statusMap['won_slot'] = {
+              'global_slot': wonSlot.globalSlot,
+              'slot_timestamp': wonSlot.slotTimestamp.toString(),
+            },
+            batchesAssemblePending: (wonSlot) => statusMap['won_slot'] = {
+              'global_slot': wonSlot.globalSlot,
+              'slot_timestamp': wonSlot.slotTimestamp.toString(),
+            },
+            batchesAssembleSuccess: (wonSlot) => statusMap['won_slot'] = {
+              'global_slot': wonSlot.globalSlot,
+              'slot_timestamp': wonSlot.slotTimestamp.toString(),
+            },
+            dbDiffPending: (wonSlot) => statusMap['won_slot'] = {
+              'global_slot': wonSlot.globalSlot,
+              'slot_timestamp': wonSlot.slotTimestamp.toString(),
+            },
+            dbDiffSuccess: (wonSlot) => statusMap['won_slot'] = {
+              'global_slot': wonSlot.globalSlot,
+              'slot_timestamp': wonSlot.slotTimestamp.toString(),
+            },
+            stakeProofWait: (wonSlot) => statusMap['won_slot'] = {
+              'global_slot': wonSlot.globalSlot,
+              'slot_timestamp': wonSlot.slotTimestamp.toString(),
+            },
+            signingPending: (wonSlot) => statusMap['won_slot'] = {
+              'global_slot': wonSlot.globalSlot,
+              'slot_timestamp': wonSlot.slotTimestamp.toString(),
+            },
+            produced: (wonSlot) => statusMap['won_slot'] = {
+              'global_slot': wonSlot.globalSlot,
+              'slot_timestamp': wonSlot.slotTimestamp.toString(),
+            },
+            injected: (wonSlot) => statusMap['won_slot'] = {
+              'global_slot': wonSlot.globalSlot,
+              'slot_timestamp': wonSlot.slotTimestamp.toString(),
+            },
+          );
+
+          blockProducerData = {
+            'pub_key': blockProducer.pubKey.toString(),
+            'status': statusMap,
+          };
+        } catch (e) {
+          blockProducerData = {'error': 'Failed to parse block producer data: $e'};
+        }
+      }
+
+      // Build mempool data for logging
+      Map<String, dynamic>? mempoolData;
+      final mempool = status?.mempool;
+      if (mempool != null) {
+        try {
+          Map<String, dynamic>? lastReorgData;
+          final lastReorg = mempool.lastReorg;
+          if (lastReorg != null) {
+            lastReorgData = {
+              'root': lastReorg.root,
+              'blocks_disconnected': lastReorg.blocksDisconnected,
+              'blocks_connected': lastReorg.blocksConnected,
+              'txs_readmitted_ok': lastReorg.txsReadmittedOk,
+              'txs_readmitted_orphaned': lastReorg.txsReadmittedOrphaned,
+              'txs_readmitted_conflict': lastReorg.txsReadmittedConflict,
+              'connected_removed': lastReorg.connectedRemoved,
+              'prepared_count': lastReorg.preparedCount,
+              'plan_elapsed_ms': lastReorg.planElapsedMs?.toString(),
+              'when': lastReorg.when.toString(),
+              'in_progress': lastReorg.inProgress,
+            };
+          }
+
+          mempoolData = {
+            'entries': mempool.entries.toString(),
+            'orphans': mempool.orphans.toString(),
+            'total_size': mempool.totalSize.toString(),
+            'unleased': mempool.unleased?.toString(),
+            'leased_for_batcher': mempool.leasedForBatcher?.toString(),
+            if (lastReorgData != null) 'last_reorg': lastReorgData,
+          };
+        } catch (e) {
+          mempoolData = {'error': 'Failed to parse mempool data: $e'};
+        }
+      }
+
       final fullResponse = {
         'peers': peers,
         if (blockchainData != null) 'blockchain': blockchainData,
+        if (batcherData != null) 'batcher': batcherData,
+        if (blockProducerData != null) 'block_producer': blockProducerData,
+        if (mempoolData != null) 'mempool': mempoolData,
       };
       final json = jsonEncode(fullResponse);
       LoggingService.instance.debug('getStatus response: $json', tag: 'RUST');

@@ -32,7 +32,7 @@ class EpochRewardsUiController extends AsyncNotifier<EpochRewardsUiState?> {
       return null;
     }
 
-    LoggingService.instance.debug(
+    LoggingService.instance.trace(
         'Received live data: epoch=${live.epoch}, earnedSoFar=${live.earnedSoFar}, expectedTotal=${live.expectedTotal}',
         tag: 'EPOCH_REWARDS_UI');
 
@@ -47,7 +47,7 @@ class EpochRewardsUiController extends AsyncNotifier<EpochRewardsUiState?> {
       wonSlots: live.wonSlots,
     );
 
-    LoggingService.instance.debug(
+    LoggingService.instance.trace(
         'Created snapshot: earnedSoFar=${snapshot.earnedSoFar}, expectedTotal=${snapshot.expectedTotal}',
         tag: 'EPOCH_REWARDS_UI');
 
@@ -64,7 +64,7 @@ class EpochRewardsUiController extends AsyncNotifier<EpochRewardsUiState?> {
   void _checkAndNotifyRewardIncrease(BigInt earnedSoFar, int epoch) {
     if (_previousEarnedSoFar != null && earnedSoFar > _previousEarnedSoFar!) {
       final diff = earnedSoFar - _previousEarnedSoFar!;
-      LoggingService.instance.debug(
+      LoggingService.instance.trace(
           'Reward increased by $diff TKN, sending notification',
           tag: 'EPOCH_REWARDS_UI');
 

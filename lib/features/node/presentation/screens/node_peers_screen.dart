@@ -192,6 +192,52 @@ class NodePeersScreen extends StatelessWidget {
                               ),
                             ],
                           ),
+                          const SizedBox(height: 4),
+                          // Best tip info
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.bar_chart,
+                                size: 10,
+                                color: colorScheme.onSurfaceVariant
+                                    .withValues(alpha: 0.7),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Height: ${p.bestTipHeight?.toString() ?? 'N/A'}',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant
+                                      .withValues(alpha: 0.7),
+                                  fontSize: 10,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '•',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant
+                                      .withValues(alpha: 0.5),
+                                  fontSize: 10,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Icon(
+                                Icons.schedule,
+                                size: 10,
+                                color: colorScheme.onSurfaceVariant
+                                    .withValues(alpha: 0.7),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Slot: ${p.bestTipGlobalSlot?.toString() ?? 'N/A'}',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant
+                                      .withValues(alpha: 0.7),
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
+                          ),
                           const SizedBox(height: 2),
                           Text(
                             timeStr,

@@ -20,12 +20,12 @@ class _AccountModeSelectionScreenState
     setState(() => _generatingMnemonic = true);
     try {
       // Generate 12-word mnemonic before navigating using Rust backend
-      LoggingService.instance.debug(
+      LoggingService.instance.trace(
           'Generating seed phrase via Rust backend...',
           tag: 'ONBOARDING');
       final words = seedPhraseGenerate(wordCount: 12);
       final mnemonic = words.join(' ');
-      LoggingService.instance.debug(
+      LoggingService.instance.trace(
           'Seed phrase generated successfully (${words.length} words)',
           tag: 'ONBOARDING');
       if (!mounted) return;

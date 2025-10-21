@@ -42,14 +42,14 @@ final backendLifecycleProvider = Provider<void>((ref) {
 
       // Account created/imported: false → true
       if (!prevHasAccount && nextHasAccount) {
-        LoggingService.instance.info('Account created - starting backend',
+        LoggingService.instance.trace('Account created - starting backend',
             tag: 'BACKEND_LIFECYCLE');
         await RustBackendService.instance.startForActiveAccount();
       }
 
       // Account deleted: true → false
       if (prevHasAccount && !nextHasAccount) {
-        LoggingService.instance.info('Account deleted - stopping backend',
+        LoggingService.instance.trace('Account deleted - stopping backend',
             tag: 'BACKEND_LIFECYCLE');
         await RustBackendService.instance.stopNode();
       }

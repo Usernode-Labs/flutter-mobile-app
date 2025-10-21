@@ -47,7 +47,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
   @override
   void initState() {
     super.initState();
-    _autoTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+    _autoTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       if (mounted && !_refreshing) {
         _refresh();
       }
@@ -114,7 +114,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
               .toSet();
           final wonSlots = rewards.wonSlots ?? [];
 
-          LoggingService.instance.debug(
+          LoggingService.instance.trace(
               'Epoch: ${rewards.epoch}, Won slots count: ${wonSlots.length}, Produced slots count: ${producedSlots.length}',
               tag: 'WON_SLOTS_SCREEN');
 

@@ -2,7 +2,7 @@
 ///
 /// Usage:
 /// ```dart
-/// LoggingService.instance.debug('Message', tag: LogTag.rust);
+/// LoggingService.instance.trace('Message', tag: LogTag.rust);
 /// ```
 ///
 /// Backward compatibility: String tags are still supported.

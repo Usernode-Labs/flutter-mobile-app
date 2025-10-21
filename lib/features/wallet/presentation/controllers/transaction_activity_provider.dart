@@ -42,9 +42,6 @@ class TransactionActivityController
       // Fetch pending transactions from mempool
       try {
         final mempoolTxs = await ref.watch(walletMempoolProvider.future);
-        LoggingService.instance.debug(
-            'Mempool transactions: ${mempoolTxs.length}',
-            tag: 'ACTIVITY');
 
         for (var i = 0; i < mempoolTxs.length; i++) {
           final tx = mempoolTxs[i];
@@ -53,13 +50,10 @@ class TransactionActivityController
             ownerAddress: ownerAddress ?? '',
           );
           transactions.add(item);
-          LoggingService.instance.debug(
-              '  Mempool[$i]: ${item.type.name} - ${item.status.name} - ${item.amounts.length} assets',
-              tag: 'ACTIVITY');
         }
       } catch (e, st) {
         LoggingService.instance.warn(
-            'Failed to load mempool transactions: $e\$st',
+            'Failed to load mempool transactions: $e $st',
             tag: 'ACTIVITY');
         // Continue even if mempool fails
       }
@@ -82,9 +76,6 @@ class TransactionActivityController
               commitmentHex: commitmentHex,
             );
             transactions.add(item);
-            LoggingService.instance.debug(
-                '  UTXO[$i]: ${item.type.name} - ${item.status.name} - ${item.amounts.length} assets - ID: ${commitmentHex.substring(0, 16)}...',
-                tag: 'ACTIVITY');
           } catch (e) {
             LoggingService.instance
                 .warn('Failed to parse UTXO[$i]: $e', tag: 'ACTIVITY');
@@ -92,7 +83,7 @@ class TransactionActivityController
         }
       } catch (e, st) {
         LoggingService.instance
-            .warn('Failed to load UTXOs: $e\$st', tag: 'ACTIVITY');
+            .warn('Failed to load UTXOs: $e $st', tag: 'ACTIVITY');
         // Continue even if UTXOs fail
       }
 
@@ -111,22 +102,6 @@ class TransactionActivityController
 
       LoggingService.instance
           .debug('Total transactions: ${transactions.length}', tag: 'ACTIVITY');
-
-      // Log final summary
-      final pendingCount = transactions
-          .where((t) => t.status == TransactionStatus.pending)
-          .length;
-      final confirmedCount = transactions
-          .where((t) => t.status == TransactionStatus.confirmed)
-          .length;
-      final sentCount =
-          transactions.where((t) => t.type == TransactionType.sent).length;
-      final receivedCount =
-          transactions.where((t) => t.type == TransactionType.received).length;
-
-      LoggingService.instance.debug(
-          'Summary: $pendingCount pending, $confirmedCount confirmed, $sentCount sent, $receivedCount received',
-          tag: 'ACTIVITY');
 
       return transactions;
     } catch (e, st) {

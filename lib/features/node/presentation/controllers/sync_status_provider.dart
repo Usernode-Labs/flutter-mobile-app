@@ -14,7 +14,7 @@ final syncStatusProvider = Provider<SyncStatus>((ref) {
   // Step 1: Check peer connectivity
   final connectedPeers = raw.connectedPeers;
   if (connectedPeers == 0) {
-    LoggingService.instance.debug(
+    LoggingService.instance.trace(
       'No peers connected - status: CONNECTING',
       tag: 'SYNC_STATUS',
     );
@@ -68,10 +68,25 @@ final syncStatusProvider = Provider<SyncStatus>((ref) {
     networkHeight = highestPeerHeight;
   }
 
-  // Step 5: Compare heights and determine status
+  // Step 5: Special case - genesis block
+  // If both local and network are at height 1 or less, we're not truly synced yet
+  if (localHeight <= 1 && networkHeight <= 1) {
+    LoggingService.instance.trace(
+      'At genesis block (height <= 1) - status: SYNCING',
+      tag: 'SYNC_STATUS',
+    );
+    return SyncStatus.syncing(
+      localHeight: localHeight,
+      networkHeight: networkHeight,
+      connectedPeers: connectedPeers,
+      highestPeerHeight: highestPeerHeight,
+    );
+  }
+
+  // Step 6: Compare heights and determine status
   final synced = localHeight >= networkHeight;
 
-  LoggingService.instance.debug(
+  LoggingService.instance.trace(
     'Sync status calculated: '
     'local=$localHeight, '
     'networkSync=$networkSyncHeight, '

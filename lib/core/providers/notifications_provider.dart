@@ -66,7 +66,7 @@ class NotificationsController extends Notifier<NotificationsState> {
       notifications.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
       state = NotificationsState.fromNotifications(notifications);
-      LoggingService.instance.debug(
+      LoggingService.instance.trace(
           'Loaded ${notifications.length} notifications, ${state.unreadCount} unread',
           tag: 'NOTIFICATIONS');
     } catch (e, st) {
@@ -83,7 +83,7 @@ class NotificationsController extends Notifier<NotificationsState> {
   /// Add a new notification
   Future<void> addNotification(AppNotification notification) async {
     try {
-      LoggingService.instance.debug(
+      LoggingService.instance.trace(
           'Adding notification: ${notification.title}',
           tag: 'NOTIFICATIONS');
 
@@ -96,7 +96,7 @@ class NotificationsController extends Notifier<NotificationsState> {
       // Persist to storage
       await _repository.save(updatedNotifications);
 
-      LoggingService.instance.debug(
+      LoggingService.instance.trace(
           'Notification added successfully. Total: ${updatedNotifications.length}',
           tag: 'NOTIFICATIONS');
     } catch (e, st) {
@@ -158,7 +158,7 @@ class NotificationsController extends Notifier<NotificationsState> {
       state = NotificationsState.fromNotifications(updatedNotifications);
       await _repository.save(updatedNotifications);
 
-      LoggingService.instance.debug(
+      LoggingService.instance.trace(
           'Notification deleted. Remaining: ${updatedNotifications.length}',
           tag: 'NOTIFICATIONS');
     } catch (e, st) {

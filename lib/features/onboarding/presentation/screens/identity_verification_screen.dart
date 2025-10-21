@@ -29,9 +29,6 @@ class _IdentityVerificationScreenState
     setState(() => _processing = true);
 
     try {
-      LoggingService.instance.debug('Starting zkPassport verification...',
-          tag: 'IDENTITY_VERIFICATION');
-
       // TODO: Integrate with zkPassport SDK
       // For now, simulate verification process
       await Future.delayed(const Duration(seconds: 2));
@@ -45,9 +42,6 @@ class _IdentityVerificationScreenState
           widget.accountId!,
           verified: true,
         );
-        LoggingService.instance.debug(
-            'Identity verification completed successfully',
-            tag: 'IDENTITY_VERIFICATION');
       }
 
       if (!mounted) return;
@@ -80,9 +74,6 @@ class _IdentityVerificationScreenState
   }
 
   Future<void> _skipForLater() async {
-    LoggingService.instance.debug('User skipped identity verification',
-        tag: 'IDENTITY_VERIFICATION');
-
     // Invalidate provider to update router state before navigation
     ref.invalidate(hasAnyAccountProvider);
     await Future.delayed(const Duration(milliseconds: 100));

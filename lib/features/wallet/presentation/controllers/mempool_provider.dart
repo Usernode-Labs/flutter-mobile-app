@@ -43,9 +43,6 @@ class WalletMempoolController extends AsyncNotifier<List<MempoolTxSummary>> {
       }
 
       final owner = rust_types.publicKeyHashFromString(s: ownerStr);
-      LoggingService.instance.info(
-          'GET rpc.listMempool params={owner: $ownerStr, limit: null}',
-          tag: 'MEMPOOL');
 
       final resp = await RustBackendService.instance.listMempool(
         owner: owner,
@@ -54,23 +51,6 @@ class WalletMempoolController extends AsyncNotifier<List<MempoolTxSummary>> {
       );
 
       final items = resp?.entries ?? const <MempoolTxSummary>[];
-      LoggingService.instance
-          .debug('loaded items=${items.length}', tag: 'MEMPOOL');
-
-      // Log detailed response
-      if (resp != null) {
-        LoggingService.instance.debug(
-            'Response: count=${resp.count}, orphans=${resp.orphans}, totalSize=${resp.totalSize}',
-            tag: 'MEMPOOL');
-      }
-
-      // Log each transaction
-      for (var i = 0; i < items.length; i++) {
-        final tx = items[i];
-        LoggingService.instance.debug(
-            '  [$i] id=${tx.id}, fee=${tx.fee}, inputs=${tx.inputs.length}, outputs=${tx.outputs.length}',
-            tag: 'MEMPOOL');
-      }
 
       return items;
     } catch (e, st) {

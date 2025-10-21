@@ -22,10 +22,9 @@ class AccountsRepository {
   }
 
   Future<bool> hasAny() async {
-    LoggingService.instance.debug('hasAny() called', tag: 'ACCOUNTS_REPO');
     final items = await list();
     final result = items.isNotEmpty;
-    LoggingService.instance.debug(
+    LoggingService.instance.trace(
         'hasAny() = $result (found ${items.length} accounts)',
         tag: 'ACCOUNTS_REPO');
     return result;
@@ -33,13 +32,7 @@ class AccountsRepository {
 
   Future<List<AccountMeta>> list() async {
     final raw = _prefs.getString(_kIndexKey);
-    LoggingService.instance.debug(
-        'list() - raw from SharedPreferences: ${raw?.substring(0, raw.length > 100 ? 100 : raw.length)}${(raw?.length ?? 0) > 100 ? "..." : ""}',
-        tag: 'ACCOUNTS_REPO');
     if (raw == null || raw.isEmpty) {
-      LoggingService.instance.debug(
-          'list() - no accounts found (raw is null or empty)',
-          tag: 'ACCOUNTS_REPO');
       return [];
     }
     try {
@@ -47,13 +40,8 @@ class AccountsRepository {
       final accounts = decoded
           .map((e) => AccountMeta.fromJson(e as Map<String, dynamic>))
           .toList(growable: false);
-      LoggingService.instance.debug(
-          'list() - parsed ${accounts.length} accounts: ${accounts.map((a) => a.id).toList()}',
-          tag: 'ACCOUNTS_REPO');
       return accounts;
     } catch (e) {
-      LoggingService.instance.error('list() - failed to parse accounts',
-          tag: 'ACCOUNTS_REPO', error: e, stackTrace: StackTrace.current);
       return [];
     }
   }
@@ -105,10 +93,6 @@ class AccountsRepository {
   /// Update identity verification status for an account
   Future<void> updateIdentityVerification(String accountId,
       {required bool verified}) async {
-    LoggingService.instance.debug(
-        'updateIdentityVerification - accountId: $accountId, verified: $verified',
-        tag: 'ACCOUNTS_REPO');
-
     final items = await list();
     final idx = items.indexWhere((e) => e.id == accountId);
     if (idx < 0) {
@@ -137,9 +121,6 @@ class AccountsRepository {
     } else {
       await _secure.delete(key: 'account:$accountId:identityVerifiedAt');
     }
-
-    LoggingService.instance.debug('Identity verification updated successfully',
-        tag: 'ACCOUNTS_REPO');
   }
 
   Future<void> rename(String id, String name) async {
@@ -193,21 +174,17 @@ class AccountsRepository {
     required String mnemonic,
   }) async {
     final wordCount = mnemonic.trim().split(RegExp(r'\s+')).length;
-    LoggingService.instance.debug(
+    LoggingService.instance.trace(
         'importFromMnemonic - start (name: $name, mnemonic word count: $wordCount)',
         tag: 'ACCOUNTS_REPO');
 
     try {
       // Use Rust backend to derive keys from mnemonic
-      LoggingService.instance.debug('Calling Rust backend accountFromSeed...',
-          tag: 'ACCOUNTS_REPO');
       final accountExport = accountFromSeed(
         phrase: mnemonic.trim(),
         passphrase: null,
         index: 0, // Use index 0 for imported accounts
       );
-      LoggingService.instance.debug('Account derived successfully from backend',
-          tag: 'ACCOUNTS_REPO');
 
       // Extract keys from AccountExport
       final privateKey = accountExport.secretKeyHex;
@@ -215,21 +192,19 @@ class AccountsRepository {
       final address =
           accountExport.publicKeyHashHex; // Use hex format for consistency
 
-      LoggingService.instance.debug('Private key length: ${privateKey.length}',
+      LoggingService.instance.trace('Private key length: ${privateKey.length}',
           tag: 'ACCOUNTS_REPO');
-      LoggingService.instance.debug('Public key length: ${publicKey.length}',
+      LoggingService.instance.trace('Public key length: ${publicKey.length}',
           tag: 'ACCOUNTS_REPO');
-      LoggingService.instance.debug('Address: $address', tag: 'ACCOUNTS_REPO');
+      LoggingService.instance.trace('Address: $address', tag: 'ACCOUNTS_REPO');
 
-      LoggingService.instance
-          .debug('Calling _persistNew...', tag: 'ACCOUNTS_REPO');
       final result = await _persistNew(
         name: name,
         address: address,
         publicKey: publicKey,
         privateKey: privateKey,
       );
-      LoggingService.instance.debug(
+      LoggingService.instance.trace(
           'importFromMnemonic - success (account id: ${result.id})',
           tag: 'ACCOUNTS_REPO');
       return result;
@@ -249,19 +224,15 @@ class AccountsRepository {
     required String publicKey,
     required String privateKey,
   }) async {
-    LoggingService.instance.debug(
+    LoggingService.instance.trace(
         '_persistNew - start (name: $name, address: $address)',
         tag: 'ACCOUNTS_REPO');
 
-    LoggingService.instance
-        .debug('Retrieving current account list...', tag: 'ACCOUNTS_REPO');
     final current = await list();
-    LoggingService.instance.debug('Current account count: ${current.length}',
-        tag: 'ACCOUNTS_REPO');
 
     final index = current.length;
     final id = _makeId(address, index);
-    LoggingService.instance.debug('Generated account ID: $id (index: $index)',
+    LoggingService.instance.trace('Generated account ID: $id (index: $index)',
         tag: 'ACCOUNTS_REPO');
 
     final meta = AccountMeta(
@@ -274,7 +245,6 @@ class AccountsRepository {
       publicKey: publicKey,
       backupConfirmed: true, // Imported accounts assumed backed up by user
     );
-    LoggingService.instance.debug('AccountMeta created', tag: 'ACCOUNTS_REPO');
 
     LoggingService.instance
         .debug('Writing to secure storage (4 keys)...', tag: 'ACCOUNTS_REPO');
@@ -286,9 +256,6 @@ class AccountsRepository {
         .debug('Secure storage writes complete', tag: 'ACCOUNTS_REPO');
 
     final next = [...current, meta];
-    LoggingService.instance.debug(
-        'Saving account index (total accounts: ${next.length})...',
-        tag: 'ACCOUNTS_REPO');
     await _saveIndex(next);
     LoggingService.instance
         .debug('Index saved successfully', tag: 'ACCOUNTS_REPO');

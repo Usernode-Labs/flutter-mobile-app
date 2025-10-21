@@ -164,13 +164,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       final currentLocation = state.matchedLocation;
 
-      LoggingService.instance.debug(
+      LoggingService.instance.trace(
           'Redirect guard called - location: $currentLocation, hasAny: $hasAny',
           tag: 'ROUTER');
 
       // Still loading account state
       if (hasAny == null) {
-        LoggingService.instance.debug(
+        LoggingService.instance.trace(
             'Account state loading - allowing navigation',
             tag: 'ROUTER');
         return null;
@@ -183,13 +183,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ];
 
       final isPublicRoute = publicRoutes.contains(currentLocation);
-      LoggingService.instance.debug(
+      LoggingService.instance.trace(
           'Route $currentLocation is ${isPublicRoute ? "public" : "private"}',
           tag: 'ROUTER');
 
       // No account exists
       if (!hasAny) {
-        LoggingService.instance.debug('No account exists', tag: 'ROUTER');
+        LoggingService.instance.trace('No account exists', tag: 'ROUTER');
         // Splash should redirect to onboarding (transient route)
         if (currentLocation == AppRoutes.splash) {
           LoggingService.instance
@@ -212,7 +212,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       // Account exists
-      LoggingService.instance.debug('Account exists', tag: 'ROUTER');
+      LoggingService.instance.trace('Account exists', tag: 'ROUTER');
 
       // Allow identity verification and account setup during onboarding flow
       if (currentLocation == '/identity-verification' ||

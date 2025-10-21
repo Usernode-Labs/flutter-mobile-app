@@ -37,8 +37,8 @@ class _NodeStatusSummaryModalState
   @override
   void initState() {
     super.initState();
-    // Auto-refresh every 5 seconds while modal is open
-    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+    // Auto-refresh every 3 seconds while modal is open
+    _refreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       if (mounted) {
         ref.read(nodeRawStatusProvider.notifier).refresh();
       }

@@ -22,7 +22,7 @@ class NotificationsRepository {
       final jsonString = jsonEncode(jsonList);
 
       await prefs.setString(_keyNotifications, jsonString);
-      LoggingService.instance.debug('Saved ${toSave.length} notifications',
+      LoggingService.instance.trace('Saved ${toSave.length} notifications',
           tag: 'NOTIFICATIONS_REPO');
     } catch (e, st) {
       LoggingService.instance.error('Failed to save notifications',
@@ -47,7 +47,7 @@ class NotificationsRepository {
           .map((json) => AppNotification.fromJson(json as Map<String, dynamic>))
           .toList();
 
-      LoggingService.instance.debug(
+      LoggingService.instance.trace(
           'Loaded ${notifications.length} notifications',
           tag: 'NOTIFICATIONS_REPO');
       return notifications;

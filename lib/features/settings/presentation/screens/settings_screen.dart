@@ -306,7 +306,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     try {
       // Delete ALL accounts from storage (complete reset)
       final repo = await AccountsRepository.create();
-      LoggingService.instance.debug('Deleting ALL accounts', tag: 'SETTINGS');
       await repo.deleteAll();
 
       if (!mounted) return;

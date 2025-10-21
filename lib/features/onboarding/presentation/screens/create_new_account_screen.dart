@@ -26,14 +26,12 @@ class _CreateNewAccountScreenState
 
   Future<void> _createAccount() async {
     if (!_ackSaved || _processing) {
-      LoggingService.instance.debug(
+      LoggingService.instance.trace(
           'Cannot proceed - ackSaved: $_ackSaved, processing: $_processing',
           tag: 'CREATE_ACCOUNT');
       return;
     }
 
-    LoggingService.instance.debug('Button pressed, starting account creation',
-        tag: 'CREATE_ACCOUNT');
     setState(() => _processing = true);
 
     try {
@@ -43,20 +41,12 @@ class _CreateNewAccountScreenState
       LoggingService.instance
           .debug('Repository created successfully', tag: 'CREATE_ACCOUNT');
 
-      LoggingService.instance.debug(
-          'Calling importFromMnemonic with mnemonic length: ${widget.mnemonic.split(' ').length} words',
-          tag: 'CREATE_ACCOUNT');
       final result = await repo.importFromMnemonic(
         name: 'My Account',
         mnemonic: widget.mnemonic,
       );
-      LoggingService.instance.debug(
-          'importFromMnemonic returned: ${result != null ? "success (id: ${result.id})" : "null"}',
-          tag: 'CREATE_ACCOUNT');
 
       if (!mounted) {
-        LoggingService.instance.debug('Widget unmounted after import, aborting',
-            tag: 'CREATE_ACCOUNT');
         return;
       }
 

@@ -17,7 +17,7 @@ import 'package:crypto_mobile_app/core/config/app_config.dart';
 ///
 /// ## Basic Usage:
 /// ```dart
-/// LoggingService.instance.debug('Message', tag: LogTag.rust);
+/// LoggingService.instance.trace('Message', tag: LogTag.rust);
 /// LoggingService.instance.info('User action', tag: LogTag.ui, context: {'screen': 'home'});
 /// ```
 ///
@@ -205,9 +205,8 @@ class LoggingService {
 
     // Add context if provided
     if (context != null && context.isNotEmpty) {
-      final contextStr = context.entries
-          .map((e) => '${e.key}: ${e.value}')
-          .join(', ');
+      final contextStr =
+          context.entries.map((e) => '${e.key}: ${e.value}').join(', ');
       message = '$message {$contextStr}';
     }
 
@@ -247,8 +246,7 @@ class LoggingService {
 ///
 /// Created by [LoggingService.startTimer] and stopped by calling [stop()].
 class LogTimer {
-  LogTimer._(this._name, this._tag, this._logger)
-      : _startTime = DateTime.now();
+  LogTimer._(this._name, this._tag, this._logger) : _startTime = DateTime.now();
 
   final String _name;
   final dynamic _tag;
@@ -276,7 +274,8 @@ class LogTimer {
 
     // Choose log level based on duration (slow operations = warning)
     if (ms > 1000) {
-      _logger.warn('$_name took ${ms}ms (SLOW)', tag: _tag, context: enrichedContext);
+      _logger.warn('$_name took ${ms}ms (SLOW)',
+          tag: _tag, context: enrichedContext);
     } else if (ms > 500) {
       _logger.info('$_name took ${ms}ms', tag: _tag, context: enrichedContext);
     } else {
@@ -344,7 +343,9 @@ class _CustomLogPrinter extends LogPrinter {
         '${time.millisecond.toString().padLeft(3, '0')}';
 
     final emoji = kReleaseMode ? '' : (_levelEmojis[level] ?? '');
-    final prefix = kReleaseMode ? '$timeStr [${level.name.toUpperCase()}]' : '$timeStr $emoji';
+    final prefix = kReleaseMode
+        ? '$timeStr [${level.name.toUpperCase()}]'
+        : '$timeStr $emoji';
 
     lines.add('$prefix $message');
 

@@ -105,10 +105,6 @@ class _ReviewSendScreenState extends State<ReviewSendScreen> {
         return;
       }
 
-      LoggingService.instance.debug(
-          'Transferring $amount from $forcedFrom to ${widget.recipientAddress}',
-          tag: 'SEND');
-
       // Call transferFunds RPC
       final response = await RustBackendService.instance.transferFunds(
         fromPkHash: fromPkHash,

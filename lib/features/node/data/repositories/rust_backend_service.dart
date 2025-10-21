@@ -40,7 +40,6 @@ class RustBackendService {
   /// Call once at app startup (before runApp).
   Future<void> init() async {
     if (_initialized) return;
-    LoggingService.instance.debug('Init FRB', tag: 'RUST');
     try {
       await RustLib.init(
         externalLibrary: Platform.isIOS || Platform.isMacOS
@@ -48,9 +47,6 @@ class RustBackendService {
             : null,
       );
       _initialized = true;
-      LoggingService.instance.info('Init complete', tag: 'RUST');
-      SentryUtil.addBreadcrumb(
-          category: 'backend', message: 'FRB init complete');
     } on PanicException catch (e, st) {
       final msg = e.toString();
       // Handle duplicate tracing subscriber setup from Rust side gracefully
@@ -61,10 +57,6 @@ class RustBackendService {
             'Tracing subscriber already set in Rust; continuing initialization',
             tag: 'RUST');
         _initialized = true; // library loaded; only tracing init failed
-        SentryUtil.addBreadcrumb(
-          category: 'backend',
-          message: 'FRB init: tracing already set; ignored',
-        );
       } else {
         LoggingService.instance
             .error('FRB init failed', tag: 'RUST', error: e, stackTrace: st);
@@ -80,7 +72,7 @@ class RustBackendService {
       await init();
     }
     if (_nodeRunning) return;
-    LoggingService.instance.info(
+    LoggingService.instance.trace(
         'Starting node${httpPort != null ? ' on $httpPort' : ''}',
         tag: 'RUST');
     SentryUtil.addBreadcrumb(
@@ -103,8 +95,6 @@ class RustBackendService {
     // Run the node in a background thread.
     _node!.runForeverInNewThread();
     _nodeRunning = true;
-    LoggingService.instance.info('Node started', tag: 'RUST');
-    await SentryUtil.captureMessage('Node started');
   }
 
   Future<void> stopNode() async {
@@ -121,18 +111,15 @@ class RustBackendService {
 
   /// Start node if there is an active account; otherwise do nothing.
   Future<bool> startForActiveAccount() async {
-    LoggingService.instance.debug('startForActiveAccount begin', tag: 'RUST');
-    SentryUtil.addBreadcrumb(
-        category: 'backend', message: 'startForActiveAccount begin');
     final repo = await AccountsRepository.create();
     LoggingService.instance
-        .debug('Checking if any accounts exist...', tag: 'RUST');
+        .trace('Checking if any accounts exist...', tag: 'RUST');
     final hasAny = await repo.hasAny();
     LoggingService.instance
-        .debug('Account check result: hasAny = $hasAny', tag: 'RUST');
+        .trace('Account check result: hasAny = $hasAny', tag: 'RUST');
     if (!hasAny) {
       LoggingService.instance
-          .debug('No accounts found - skipping node start', tag: 'RUST');
+          .trace('No accounts found - skipping node start', tag: 'RUST');
       SentryUtil.addBreadcrumb(
           category: 'backend', message: 'no accounts; skipping start');
       return false;
@@ -143,11 +130,11 @@ class RustBackendService {
       await init();
     }
     if (_nodeRunning) {
-      LoggingService.instance.debug('Node already running', tag: 'RUST');
+      LoggingService.instance.trace('Node already running', tag: 'RUST');
       return true;
     }
     await startNode();
-    LoggingService.instance.debug('startForActiveAccount done', tag: 'RUST');
+    LoggingService.instance.trace('startForActiveAccount done', tag: 'RUST');
     await SentryUtil.captureMessage('Backend started for active account');
     return true;
   }
@@ -167,8 +154,6 @@ class RustBackendService {
 
   /// Convenience helper to fetch node status via RPC.
   Future<RpcStatusResp?> getStatus() async {
-    LoggingService.instance.debug('getStatus called', tag: 'RUST');
-    SentryUtil.addBreadcrumb(category: 'rpc', message: 'getStatus called');
     final r = _rpc;
     if (r == null) return null;
 
@@ -249,7 +234,8 @@ class RustBackendService {
                         'global_slot': syncBlocks.bestTip.globalSlot,
                         'epoch': syncBlocks.bestTip.epoch,
                         'producer_pubkey': syncBlocks.bestTip.producerPubkey,
-                        'transactions': syncBlocks.bestTip.transactions.toString(),
+                        'transactions':
+                            syncBlocks.bestTip.transactions.toString(),
                         'batches': syncBlocks.bestTip.batches
                             .map((b) => {
                                   'transactions': b.transactions.toString(),
@@ -365,7 +351,9 @@ class RustBackendService {
             'status': statusMap,
           };
         } catch (e) {
-          blockProducerData = {'error': 'Failed to parse block producer data: $e'};
+          blockProducerData = {
+            'error': 'Failed to parse block producer data: $e'
+          };
         }
       }
 
@@ -413,7 +401,7 @@ class RustBackendService {
         if (mempoolData != null) 'mempool': mempoolData,
       };
       final json = jsonEncode(fullResponse);
-      LoggingService.instance.debug('getStatus response: $json', tag: 'RUST');
+      LoggingService.instance.trace('getStatus response: $json', tag: 'RUST');
 
       // Build summarized fields
       int connected = 0, connecting = 0, disconnected = 0, disconnecting = 0;
@@ -492,7 +480,6 @@ class RustBackendService {
       // Report handled error to Sentry with context
       await SentryUtil.captureError(e, st, tag: 'getStatus');
     }
-    LoggingService.instance.debug('getStatus ok', tag: 'RUST');
     return status;
   }
 
@@ -501,14 +488,9 @@ class RustBackendService {
     int? limit,
     bool? fromTip,
   }) async {
-    LoggingService.instance.debug(
+    LoggingService.instance.trace(
         'listBlockchain called with params: limit=$limit, fromTip=$fromTip',
         tag: 'RUST');
-    SentryUtil.addBreadcrumb(
-      category: 'rpc',
-      message: 'listBlockchain called',
-      data: {'limit': limit, 'fromTip': fromTip},
-    );
     final r = _rpc;
     if (r == null) return null;
 
@@ -596,8 +578,6 @@ class RustBackendService {
           .warn('Failed to log listBlockchain response: $e\$st', tag: 'RUST');
       await SentryUtil.captureError(e, st, tag: 'listBlockchain_logging');
     }
-
-    LoggingService.instance.debug('listBlockchain ok', tag: 'RUST');
     return blockchain;
   }
 
@@ -608,8 +588,6 @@ class RustBackendService {
     bool? idsOnly,
     TransactionHash? cursorAfter,
   }) async {
-    LoggingService.instance.debug('listMempool called', tag: 'RUST');
-    SentryUtil.addBreadcrumb(category: 'rpc', message: 'listMempool called');
     final r = _rpc;
     if (r == null) return null;
 
@@ -629,7 +607,6 @@ class RustBackendService {
       // Mark backend as not running and drop RPC handle to avoid cascading failures.
       _nodeRunning = false;
       _rpc = null;
-      await SentryUtil.captureError(e, st, tag: 'frb_panic_listMempool');
       // Return null gracefully so UI can keep rendering with an error message.
       return null;
     } catch (e, st) {
@@ -669,7 +646,7 @@ class RustBackendService {
       };
 
       final json = jsonEncode(fullResponse);
-      LoggingService.instance.debug('listMempool response: $json', tag: 'RUST');
+      LoggingService.instance.trace('listMempool response: $json', tag: 'RUST');
 
       await SentryUtil.captureMessageWithData('rpc.listMempool', {
         'count': count.toString(),
@@ -694,8 +671,6 @@ class RustBackendService {
           .warn('Failed to log listMempool response: $e\$st', tag: 'RUST');
       await SentryUtil.captureError(e, st, tag: 'listMempool_logging');
     }
-
-    LoggingService.instance.debug('listMempool ok', tag: 'RUST');
     return mempool;
   }
 
@@ -714,9 +689,6 @@ class RustBackendService {
     // Call into FRB with defensive handling for panics / transport errors.
     RpcEpochRewardsResp? rewards;
     try {
-      LoggingService.instance.debug(
-          'epochRewards called with params: epoch=$epoch, includeWonSlots:true',
-          tag: 'RUST');
       rewards = await r.epochRewards(
         epoch: epoch,
         includeWonSlots: true,
@@ -804,8 +776,6 @@ class RustBackendService {
           .warn('Failed to log epochRewards response: $e\$st', tag: 'RUST');
       await SentryUtil.captureError(e, st, tag: 'epochRewards_logging');
     }
-
-    LoggingService.instance.debug('epochRewards ok', tag: 'RUST');
     return rewards;
   }
 
@@ -814,9 +784,6 @@ class RustBackendService {
     required PublicKeyHash owner,
     int? limit,
   }) async {
-    LoggingService.instance.debug('listUtxosByOwner called', tag: 'RUST');
-    SentryUtil.addBreadcrumb(
-        category: 'rpc', message: 'listUtxosByOwner called');
     final r = _rpc;
     if (r == null) return null;
 
@@ -849,7 +816,7 @@ class RustBackendService {
     try {
       final itemsCount = utxos?.items.length ?? 0;
 
-      LoggingService.instance.debug(
+      LoggingService.instance.trace(
           'listUtxosByOwner response: itemsCount=$itemsCount',
           tag: 'RUST');
 
@@ -872,8 +839,6 @@ class RustBackendService {
           .warn('Failed to log listUtxosByOwner response: $e\$st', tag: 'RUST');
       await SentryUtil.captureError(e, st, tag: 'listUtxosByOwner_logging');
     }
-
-    LoggingService.instance.debug('listUtxosByOwner ok', tag: 'RUST');
     return utxos;
   }
 
@@ -883,8 +848,6 @@ class RustBackendService {
     required BigInt amount,
     required PublicKeyHash toPkHash,
   }) async {
-    LoggingService.instance.debug('transferFunds called', tag: 'RUST');
-    SentryUtil.addBreadcrumb(category: 'rpc', message: 'transferFunds called');
     final r = _rpc;
     if (r == null) return null;
 
@@ -919,7 +882,7 @@ class RustBackendService {
       final queued = response?.queued ?? false;
       final error = response?.error;
 
-      LoggingService.instance.debug(
+      LoggingService.instance.trace(
           'transferFunds response: queued=$queued, error=$error',
           tag: 'RUST');
 
@@ -946,7 +909,6 @@ class RustBackendService {
       await SentryUtil.captureError(e, st, tag: 'transferFunds_logging');
     }
 
-    LoggingService.instance.debug('transferFunds ok', tag: 'RUST');
     return response;
   }
 

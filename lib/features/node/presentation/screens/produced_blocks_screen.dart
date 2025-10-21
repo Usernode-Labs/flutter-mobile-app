@@ -21,7 +21,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen> {
   @override
   void initState() {
     super.initState();
-    _autoTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+    _autoTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       if (mounted && !_refreshing) {
         _refresh();
       }

@@ -40,9 +40,7 @@ class WalletUtxosController extends AsyncNotifier<List<OwnedUtxo>> {
       }
 
       final owner = rust_types.publicKeyHashFromString(s: ownerStr);
-      LoggingService.instance.info(
-          'GET rpc.listUtxosByOwner params={owner: $ownerStr, limit: null}',
-          tag: 'UTXO');
+
       final resp = await RustBackendService.instance.listUtxosByOwner(
         owner: owner,
       );

@@ -15,7 +15,6 @@ import 'package:crypto_mobile_app/features/node/presentation/controllers/node_ra
 import 'package:crypto_mobile_app/features/node/presentation/controllers/sync_status_provider.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/mempool_cache_provider.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/best_tip_cache_provider.dart';
-import 'package:crypto_mobile_app/core/theme/theme.dart';
 import 'package:go_router/go_router.dart';
 
 class NodeStatusScreen extends ConsumerStatefulWidget {
@@ -65,8 +64,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     // Defer provider modifications until after first frame to avoid
     // "modify provider while building" errors when navigating.
     WidgetsBinding.instance.addPostFrameCallback((_) => _refresh());
-    // Periodic auto-refresh every 5 seconds while this screen is alive.
-    _autoTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+    // Periodic auto-refresh every 3 seconds while this screen is alive.
+    _autoTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       if (mounted && !_refreshing) {
         _refresh();
       }
@@ -80,7 +79,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       _error = null; // keep content visible; show error inline
     });
     try {
-      LoggingService.instance.debug('Refreshing providers', tag: 'NODE');
       // Refresh providers
       // Note: nodeStatusProvider is now derived from nodeRawStatusProvider,
       // so we only need to refresh nodeRawStatusProvider
@@ -253,7 +251,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   Widget _buildDivider() {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      height: 2,
+      height: 1,
       decoration: BoxDecoration(
         color: colorScheme.surface,
         borderRadius: BorderRadius.circular(4.0),
@@ -448,7 +446,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                 },
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 6),
             Expanded(
               child: _buildCompactInfoCard(
                 context,
@@ -476,7 +474,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
               child: _buildCompactInfoCard(
                 context,
                 icon: Icons.check_circle_outline,
-                label: 'Produced Blocks',
+                label: 'Produced',
                 value: '', // Value shown only in subtitle to avoid repetition
                 subtitle: '${() {
                   final produced = ref
@@ -493,12 +491,12 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                 useGradient: false,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 6),
             Expanded(
               child: _buildCompactInfoCard(
                 context,
                 icon: Icons.emoji_events,
-                label: 'Won Slots',
+                label: 'Won',
                 value: '', // Value shown only in subtitle to avoid repetition
                 subtitle: '${() {
                   final wonSlots =
@@ -553,7 +551,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     final theme = Theme.of(context);
 
     final card = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
       decoration: BoxDecoration(
           color: useGradient ? null : colorScheme.surfaceContainerLow,
           gradient: useGradient
@@ -576,7 +574,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
           border: useGradient
               ? Border.all(
                   color:
-                      color.withValues(alpha: 0.15), // Semi-transparent border
+                      color.withValues(alpha: 0.8), // Semi-transparent border
                   width: 1.0,
                 )
               : null,
@@ -588,16 +586,15 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                     color: color.withValues(alpha: 0.2),
                     offset: const Offset(0, 2),
                     blurRadius: 8.0,
-                    spreadRadius: 0,
+                    spreadRadius: 2,
                   ),
                   // Subtle depth shadow
                 ]
               : [
                   BoxShadow(
-                    color: colorScheme.outline.withValues(alpha: 0.1),
-                    offset: const Offset(0.5, 0.5),
-                    blurRadius: 4.0,
-                  )
+                      color: colorScheme.outline.withValues(alpha: 0.8),
+                      offset: const Offset(0.5, 0.5),
+                      blurRadius: 4.0)
                 ]),
       child: Row(
         children: [
@@ -608,7 +605,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                   alpha: 0.20), // Icon background for glassmorphism
               borderRadius: BorderRadius.circular(6),
             ),
-            child: Icon(icon, size: 13, color: color),
+            child: Icon(icon, size: 12, color: color),
           ),
           const SizedBox(width: 6),
           Expanded(
@@ -620,41 +617,32 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                   children: [
                     Text(
                       label,
-                      style: theme.textTheme.bodySmall!
-                          .copyWith(
-                              fontSize: 12,
-                              letterSpacing: 0.2,
-                              color: colorScheme.onSurfaceVariant)
-                          .copyWith(
-                            fontWeight: FontWeight.w500,
-                            fontSize: 10,
-                          ),
+                      style: theme.textTheme.bodySmall!.copyWith(
+                          fontWeight: FontWeight.w500,
+                          fontSize: 12,
+                          letterSpacing: 0.2,
+                          color: colorScheme.onSurfaceVariant),
                     ),
                     const SizedBox(width: 4),
                     Text(
                       value,
-                      style: theme.textTheme.bodyMedium!
-                          .copyWith(fontSize: 14, letterSpacing: 0.2)
-                          .copyWith(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
+                      style: theme.textTheme.bodyMedium!.copyWith(
+                        letterSpacing: 0.2,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: theme.textTheme.bodySmall!
-                      .copyWith(
-                          fontSize: 12,
-                          letterSpacing: 0.2,
-                          color: colorScheme.onSurfaceVariant)
-                      .copyWith(
-                        color: color,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w500,
-                      ),
+                  style: theme.textTheme.bodySmall!.copyWith(
+                    color: color,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.2,
+                  ),
                 ),
               ],
             ),

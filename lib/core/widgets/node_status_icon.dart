@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/sync_status_provider.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/node_raw_status_provider.dart';
 import 'package:crypto_mobile_app/features/node/presentation/widgets/node_status_summary_modal.dart';
-import 'package:crypto_mobile_app/features/node/domain/entities/sync_status.dart';
 
 /// Icon button that displays current node sync status in the app bar
 /// Shows different icons and colors based on sync state:

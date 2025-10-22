@@ -54,14 +54,15 @@ class GoRouterRefreshStream extends ChangeNotifier {
   }
 }
 
-final appRouterProvider = Provider<GoRouter>((ref) {
-  final key = GlobalKey<NavigatorState>();
+// Create a stable navigator key outside the provider
+final _navigatorKey = GlobalKey<NavigatorState>(debugLabel: 'mainNavigator');
 
+final appRouterProvider = Provider<GoRouter>((ref) {
   // Watch the provider to make router reactive
   ref.watch(hasAnyAccountProvider);
 
   return GoRouter(
-    navigatorKey: key,
+    navigatorKey: _navigatorKey,
     observers: SentryUtil.navigatorObservers(),
     initialLocation: AppRoutes.splash,
     refreshListenable: GoRouterRefreshStream(ref),

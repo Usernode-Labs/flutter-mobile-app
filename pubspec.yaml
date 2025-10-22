@@ -1,7 +1,7 @@
 name: crypto_mobile_app
 description: A New Layer 1 Operated & Secured by users from their phones.
 
-version: 0.1.0+7
+version: 0.1.0+8
 publish_to: none
 
 environment:

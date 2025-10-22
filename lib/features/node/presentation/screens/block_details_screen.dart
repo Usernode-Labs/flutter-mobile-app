@@ -17,6 +17,8 @@ class BlockDetailsScreen extends StatelessWidget {
     return Scaffold(
       appBar: const AppAppBar(
         title: 'Block Details',
+        showNotifications: false,
+        showNodeStatus: false,
       ),
       body: SafeArea(
         child: ListView(

@@ -37,6 +37,7 @@ class ScheduledSlotDetailsScreen extends StatelessWidget {
     return Scaffold(
       appBar: const AppAppBar(
         title: 'Scheduled Slot Details',
+        showNotifications: false,
       ),
       body: SafeArea(
         child: ListView(

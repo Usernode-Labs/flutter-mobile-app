@@ -168,6 +168,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       appBar: const AppAppBar(
         title: 'Profile',
         showNotifications: true,
+        showNodeStatus: false,
       ),
       drawer: const AppDrawer(),
       body: SafeArea(

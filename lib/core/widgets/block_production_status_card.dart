@@ -32,7 +32,8 @@ class BlockProductionStatusCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: backgroundColor ?? colorScheme.surface,
         border: Border.all(
-          color: borderColor ?? colorScheme.outlineVariant.withValues(alpha: 0.5),
+          color:
+              borderColor ?? colorScheme.outlineVariant.withValues(alpha: 0.5),
           width: 1,
         ),
         borderRadius: BorderRadius.circular(12),
@@ -41,8 +42,8 @@ class BlockProductionStatusCard extends StatelessWidget {
         children: [
           // Block icon
           Icon(
-            Icons.widgets_outlined,
-            size: 20,
+            Icons.auto_awesome_motion,
+            size: 16,
             color: blockIconColor ?? colorScheme.tertiary,
           ),
           const SizedBox(width: 12),
@@ -76,7 +77,8 @@ class BlockProductionStatusCard extends StatelessWidget {
                     Text(
                       '• ',
                       style: TextStyle(
-                        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                        color:
+                            colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                       ),
                     ),
                     const SizedBox(width: 8),

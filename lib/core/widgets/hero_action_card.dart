@@ -22,10 +22,26 @@ class HeroActionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    // Responsive sizing based on card width
+    final cardWidth = width ?? 220;
+    final isSmall = cardWidth < 280;
+    final isLarge = cardWidth > 400;
+
+    // Scale sizes
+    final iconContainerSize = isSmall ? 24.0 : 28.0;
+    final iconSize = isSmall ? 14.0 : 16.0;
+    final titleSize = isSmall ? 14.0 : (isLarge ? 16.0 : 15.0);
+    final subtitleSize = isSmall ? 11.0 : 12.0;
+    final actionSize = isSmall ? 10.0 : 11.0;
+    final actionIconSize = isSmall ? 11.0 : 12.0;
+
+    // Scale padding
+    final cardPadding = isSmall ? 10.0 : (isLarge ? 14.0 : 12.0);
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: width ?? 220,
+        width: cardWidth,
         margin: const EdgeInsets.only(right: 12),
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -43,7 +59,7 @@ class HeroActionCard extends StatelessWidget {
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: EdgeInsets.all(cardPadding),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -53,8 +69,8 @@ class HeroActionCard extends StatelessWidget {
                 children: [
                   // Icon container
                   Container(
-                    width: 28,
-                    height: 28,
+                    width: iconContainerSize,
+                    height: iconContainerSize,
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(7),
@@ -62,7 +78,7 @@ class HeroActionCard extends StatelessWidget {
                     child: Icon(
                       icon,
                       color: Colors.white,
-                      size: 16,
+                      size: iconSize,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -74,7 +90,7 @@ class HeroActionCard extends StatelessWidget {
                       style: theme.textTheme.titleMedium?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
-                        fontSize: 15,
+                        fontSize: titleSize,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -89,7 +105,7 @@ class HeroActionCard extends StatelessWidget {
                 subtitle,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: Colors.white.withValues(alpha: 0.9),
-                  fontSize: 12,
+                  fontSize: subtitleSize,
                   height: 1.3,
                 ),
                 maxLines: 2,
@@ -105,14 +121,14 @@ class HeroActionCard extends StatelessWidget {
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.w600,
-                      fontSize: 11,
+                      fontSize: actionSize,
                     ),
                   ),
                   const SizedBox(width: 3),
-                  const Icon(
+                  Icon(
                     Icons.arrow_forward,
                     color: Colors.white,
-                    size: 12,
+                    size: actionIconSize,
                   ),
                 ],
               ),

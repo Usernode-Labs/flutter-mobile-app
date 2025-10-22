@@ -64,6 +64,7 @@ class NodePeersScreen extends StatelessWidget {
     return Scaffold(
       appBar: const AppAppBar(
         title: 'Node Peers',
+        showNotifications: false,
       ),
       body: SafeArea(
         child: Column(

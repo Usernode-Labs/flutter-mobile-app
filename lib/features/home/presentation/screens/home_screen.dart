@@ -8,6 +8,9 @@ import 'package:crypto_mobile_app/core/widgets/activity_list_item.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:crypto_mobile_app/core/widgets/hero_action_card.dart';
+import 'package:crypto_mobile_app/core/widgets/earn_yield_hero_card.dart';
+import 'package:crypto_mobile_app/core/widgets/boost_tier_hero_card.dart';
+import 'package:crypto_mobile_app/core/widgets/invite_friends_hero_card.dart';
 import 'package:crypto_mobile_app/core/widgets/tier_dialog.dart';
 import 'package:crypto_mobile_app/core/widgets/block_production_status_card.dart';
 import 'package:crypto_mobile_app/features/rewards/presentation/controllers/epoch_rewards_provider.dart';
@@ -116,7 +119,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                     return Padding(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
+                          horizontal: 16, vertical: 2),
                       child: InkWell(
                         onTap: () {
                           showDialog(
@@ -185,7 +188,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                 // Hero action cards - horizontal scroll
                 SizedBox(
-                  height: 140,
+                  height: 170,
                   child: FutureBuilder<List<dynamic>>(
                     future:
                         AccountsRepository.create().then((repo) => repo.list()),
@@ -195,78 +198,103 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           accounts.isNotEmpty ? accounts.first : null;
                       final isIdentityVerified =
                           activeAccount?.identityVerified ?? false;
-                      final cardWidth = MediaQuery.of(context).size.width * 0.8;
 
-                      return ListView(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 10),
-                        children: [
-                          // Identity verification card - only show if NOT verified
-                          if (!isIdentityVerified)
-                            HeroActionCard(
-                              width: cardWidth,
-                              icon: Icons.badge,
-                              title: 'Boost Your Tier',
-                              subtitle:
-                                  'Verify your identity to unlock premium features',
-                              gradientColors: [
-                                Color.lerp(
-                                    colorScheme.primary, Colors.white, 0.4)!,
-                                Color.lerp(
-                                    colorScheme.primary, Colors.white, 0.1)!,
-                              ],
-                              onTap: () {
-                                if (activeAccount != null) {
-                                  context.go(
-                                      '/identity-verification?accountId=${activeAccount.id}');
-                                }
-                              },
+                      // Responsive card width based on screen size
+                      final screenWidth = MediaQuery.of(context).size.width;
+                      final double cardWidth;
+                      if (screenWidth < 360) {
+                        // Small screens: 90% width, min 280px
+                        cardWidth =
+                            (screenWidth * 0.9).clamp(280.0, double.infinity);
+                      } else if (screenWidth < 600) {
+                        // Medium screens: 85% width
+                        cardWidth = screenWidth * 0.85;
+                      } else {
+                        // Large screens/tablets: cap at 450px
+                        cardWidth = (screenWidth * 0.7).clamp(0.0, 450.0);
+                      }
+
+                      // Build list of cards
+                      final cards = <Widget>[
+                        // Identity verification card - only show if NOT verified
+                        if (!isIdentityVerified)
+                          BoostTierHeroCard(
+                            width: cardWidth,
+                            onVerifyTap: () {
+                              if (activeAccount != null) {
+                                context.go(
+                                    '/identity-verification?accountId=${activeAccount.id}');
+                              }
+                            },
+                            onInfoTap: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text(
+                                        'Verify your identity to get a rewards multiplier')),
+                              );
+                            },
+                          ),
+
+                        // Earn Yield & Points card
+                        GestureDetector(
+                          onTap: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Coming soon')),
+                            );
+                          },
+                          child: EarnYieldHeroCard(
+                            width: cardWidth,
+                            onLockTap: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Coming soon')),
+                              );
+                            },
+                            onSettingsTap: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Coming soon')),
+                              );
+                            },
+                          ),
+                        ),
+
+                        // Invite friends card
+                        GestureDetector(
+                          onTap: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Coming soon')),
+                            );
+                          },
+                          child: InviteFriendsHeroCard(
+                            width: cardWidth,
+                            onInviteTap: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Coming soon')),
+                              );
+                            },
+                            onInfoTap: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Coming soon')),
+                              );
+                            },
+                          ),
+                        ),
+                      ];
+
+                      return PageView.builder(
+                        controller: PageController(
+                          viewportFraction: 0.92,
+                        ),
+                        padEnds: true,
+                        itemCount: cards.length,
+                        itemBuilder: (context, index) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 10,
                             ),
-
-                          // Lock tokens for yield card
-                          HeroActionCard(
-                            width: cardWidth,
-                            icon: Icons.lock,
-                            title: 'Lock for Rewards',
-                            subtitle:
-                                'Lock USDC and tokens for yield and participation bonuses',
-                            gradientColors: [
-                              Color.lerp(
-                                  colorScheme.tertiary, Colors.white, 0.4)!,
-                              Color.lerp(
-                                  colorScheme.tertiary, Colors.white, 0.1)!,
-                            ],
-                            onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text('Token locking coming soon')),
-                              );
-                            },
-                          ),
-
-                          // Invite friends card
-                          HeroActionCard(
-                            width: cardWidth,
-                            icon: Icons.people,
-                            title: 'Invite Friends',
-                            subtitle:
-                                'Share the app and earn rewards for each referral',
-                            gradientColors: [
-                              Color.lerp(
-                                  colorScheme.secondary, Colors.white, 0.4)!,
-                              Color.lerp(
-                                  colorScheme.secondary, Colors.white, 0.1)!,
-                            ],
-                            onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content:
-                                        Text('Referral program coming soon')),
-                              );
-                            },
-                          ),
-                        ],
+                            child: cards[index],
+                          );
+                        },
                       );
                     },
                   ),

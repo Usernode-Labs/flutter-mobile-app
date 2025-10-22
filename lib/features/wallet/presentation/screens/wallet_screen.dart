@@ -431,26 +431,6 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
             const SizedBox(width: kSpace8),
             Expanded(
               child: AppActionButton(
-                icon: Icons.swap_horiz,
-                label: 'Swap',
-                color: theme.colorScheme.secondary,
-                size: AppActionButtonSize.compact,
-                onTap: () => _showComingSoon('Swap'),
-              ),
-            ),
-            const SizedBox(width: kSpace8),
-            Expanded(
-              child: AppActionButton(
-                icon: Icons.account_balance,
-                label: 'Bridge',
-                color: theme.colorScheme.primary,
-                size: AppActionButtonSize.compact,
-                onTap: () => _showComingSoon('Bridge'),
-              ),
-            ),
-            const SizedBox(width: kSpace8),
-            Expanded(
-              child: AppActionButton(
                 icon: Icons.more_horiz,
                 label: 'More',
                 color: theme.colorScheme.secondary,

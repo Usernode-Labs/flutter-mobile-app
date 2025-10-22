@@ -654,7 +654,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Our of ${_formatTokenAmount(expected)} TKN potential rewards',
+                  'Out of ${_formatTokenAmount(expected)} TKN potential rewards',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                     fontSize: 12,

@@ -302,6 +302,47 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                 const SizedBox(height: 6),
 
+                // Sync disclaimer banner - shown before rewards card
+                Consumer(builder: (ctx, ref, _) {
+                  final syncStatus = ref.watch(syncStatusProvider);
+                  final rewardsAsync = ref.watch(epochRewardsUiProvider);
+                  final ui = rewardsAsync.value;
+
+                  if (!syncStatus.isSynced && ui != null) {
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                              color: Colors.orange.shade700, width: 0.5),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.warning_amber_rounded,
+                                size: 18, color: Colors.orange.shade700),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'Node syncing... Final data will be shown after full sync',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: Colors.orange.shade900,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+                  return const SizedBox.shrink();
+                }),
+
                 // Rewards and projection card
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -347,40 +388,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         data: (ui) => Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Show sync banner if node is syncing
-                            if (!syncStatus.isSynced && ui != null)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: colorScheme.primaryContainer
-                                        .withValues(alpha: 0.3),
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                        color: colorScheme.primary
-                                            .withValues(alpha: 0.3)),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.info_outline,
-                                          size: 16, color: colorScheme.primary),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          'Node syncing... Final data will be shown after full sync',
-                                          style: theme.textTheme.bodySmall
-                                              ?.copyWith(
-                                            color: colorScheme.onSurface,
-                                            fontSize: 11,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
                             ..._buildRewardsSection(
                               context,
                               colorScheme,

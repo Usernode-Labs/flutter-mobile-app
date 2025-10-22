@@ -68,6 +68,21 @@ final syncStatusProvider = Provider<SyncStatus>((ref) {
     networkHeight = highestPeerHeight;
   }
 
+  // Step 4.5: If connected but network height is unknown, we're syncing
+  // This prevents false "synced" status when we have no network data
+  if (connectedPeers > 0 && networkSyncHeight == null && highestPeerHeight == null) {
+    LoggingService.instance.trace(
+      'Connected to peers but network height unknown - status: SYNCING',
+      tag: 'SYNC_STATUS',
+    );
+    return SyncStatus.syncing(
+      localHeight: localHeight,
+      networkHeight: localHeight, // Use local as placeholder
+      connectedPeers: connectedPeers,
+      highestPeerHeight: null,
+    );
+  }
+
   // Step 5: Special case - genesis block
   // If both local and network are at height 1 or less, we're not truly synced yet
   if (localHeight <= 1 && networkHeight <= 1) {

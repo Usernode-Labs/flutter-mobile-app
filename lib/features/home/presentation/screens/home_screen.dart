@@ -314,8 +314,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       Expanded(
                                         child: Text(
                                           'Node syncing... Final data will be shown after full sync',
-                                          style:
-                                              theme.textTheme.bodySmall?.copyWith(
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
                                             color: colorScheme.onSurface,
                                             fontSize: 11,
                                           ),
@@ -535,19 +535,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       const SizedBox(height: 8),
 
       // Rewards amount
-      earned != null
-          ? Text(
-              '${_formatTokenAmount(earned)} TKN',
-              style: theme.textTheme.headlineMedium?.copyWith(
-                fontSize: 36,
-                fontWeight: FontWeight.w700,
-                color: colorScheme.onSurface,
-              ),
+      (earned != null && expected != null)
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${_formatTokenAmount(earned)} TKN',
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Our of ${_formatTokenAmount(expected)} TKN potential rewards',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
             )
           : Bone.text(
               words: 2,
               style: theme.textTheme.headlineMedium?.copyWith(
-                fontSize: 36,
+                fontSize: 28,
                 fontWeight: FontWeight.w700,
                 color: colorScheme.onSurface,
               ),
@@ -574,14 +587,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           epoch != null
               ? Text(
                   'Epoch $epoch',
-                  style: theme.textTheme.bodyMedium?.copyWith(
+                  style: theme.textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurface,
                     fontWeight: FontWeight.w500,
                   ),
                 )
               : Bone.text(
                   words: 2,
-                  style: theme.textTheme.bodyMedium?.copyWith(
+                  style: theme.textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurface,
                     fontWeight: FontWeight.w500,
                   ),
@@ -589,10 +602,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Flexible(
             child: (produced != null && wins != null)
                 ? Text(
-                    '$produced / $wins blocks',
+                    'Produced $produced / $wins won slots',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w400,
+                      fontSize: 12,
                     ),
                     overflow: TextOverflow.ellipsis,
                   )
@@ -607,8 +621,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
 
-      const SizedBox(height: 16),
-
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Container(
+          height: 1,
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            borderRadius: BorderRadius.circular(4.0),
+          ),
+        ),
+      ),
       // Next epoch projection
       Text(
         'Next epoch projection',
@@ -622,7 +644,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ? Text(
               '~${_formatTokenAmount(expected)} TKN',
               style: theme.textTheme.headlineSmall?.copyWith(
-                fontSize: 28,
+                fontSize: 22,
                 fontWeight: FontWeight.w700,
                 color: colorScheme.onSurface,
               ),
@@ -638,9 +660,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       const SizedBox(height: 4),
       (wins != null && rewardPerBlock != null)
           ? Text(
-              'Based on $wins won slots at ${_formatTokenAmount(rewardPerBlock)} per block',
-              style: theme.textTheme.bodyMedium?.copyWith(
+              'Based on $wins won slots at ${_formatTokenAmount(rewardPerBlock)} TKN per block',
+              style: theme.textTheme.bodySmall?.copyWith(
                 color: colorScheme.onSurfaceVariant,
+                fontSize: 12,
               ),
             )
           : Bone.text(

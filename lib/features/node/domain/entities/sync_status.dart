@@ -36,6 +36,12 @@ class SyncStatus {
   /// Highest best tip height reported by connected peers
   final int? highestPeerHeight;
 
+  /// Number of blocks that have been applied (from applyProgress.done)
+  final BigInt? appliedBlocks;
+
+  /// Total number of blocks to apply (from applyProgress total)
+  final BigInt? targetBlocks;
+
   const SyncStatus({
     required this.state,
     required this.label,
@@ -44,6 +50,8 @@ class SyncStatus {
     this.networkHeight,
     required this.connectedPeers,
     this.highestPeerHeight,
+    this.appliedBlocks,
+    this.targetBlocks,
   });
 
   /// Check if node is synchronized
@@ -82,8 +90,18 @@ class SyncStatus {
     required int networkHeight,
     required int connectedPeers,
     int? highestPeerHeight,
+    BigInt? appliedBlocks,
+    BigInt? targetBlocks,
   }) {
-    final progress = networkHeight > 0 ? (localHeight / networkHeight).clamp(0.0, 1.0) : 0.0;
+    // Calculate progress based on applied blocks if available
+    double progress;
+    if (appliedBlocks != null && targetBlocks != null && targetBlocks > BigInt.zero) {
+      progress = (appliedBlocks.toDouble() / targetBlocks.toDouble()).clamp(0.0, 1.0);
+    } else {
+      // Fallback to height-based calculation
+      progress = networkHeight > 0 ? (localHeight / networkHeight).clamp(0.0, 1.0) : 0.0;
+    }
+
     final percentage = (progress * 100).toStringAsFixed(1);
 
     return SyncStatus(
@@ -94,6 +112,8 @@ class SyncStatus {
       networkHeight: networkHeight,
       connectedPeers: connectedPeers,
       highestPeerHeight: highestPeerHeight,
+      appliedBlocks: appliedBlocks,
+      targetBlocks: targetBlocks,
     );
   }
 
@@ -103,6 +123,8 @@ class SyncStatus {
     required int networkHeight,
     required int connectedPeers,
     int? highestPeerHeight,
+    BigInt? appliedBlocks,
+    BigInt? targetBlocks,
   }) {
     return SyncStatus(
       state: NodeConnectionState.synced,
@@ -112,6 +134,8 @@ class SyncStatus {
       networkHeight: networkHeight,
       connectedPeers: connectedPeers,
       highestPeerHeight: highestPeerHeight,
+      appliedBlocks: appliedBlocks,
+      targetBlocks: targetBlocks,
     );
   }
 

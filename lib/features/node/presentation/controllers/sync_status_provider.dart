@@ -98,8 +98,20 @@ final syncStatusProvider = Provider<SyncStatus>((ref) {
     );
   }
 
-  // Step 6: Compare heights and determine status
-  final synced = localHeight >= networkHeight;
+  // Step 6: Extract applied blocks data
+  final appliedBlocks = raw.appliedBlocksCount;
+  final targetBlocks = raw.totalBlocksToApply;
+
+  // Step 7: Determine sync status
+  // If no applyProgress data AND localHeight == networkHeight, consider it synced
+  bool synced;
+  if (appliedBlocks == null || targetBlocks == null) {
+    // No apply progress data - fallback to height comparison
+    synced = localHeight >= networkHeight;
+  } else {
+    // Use apply progress: synced if all blocks are applied
+    synced = appliedBlocks >= targetBlocks;
+  }
 
   LoggingService.instance.trace(
     'Sync status calculated: '
@@ -107,6 +119,8 @@ final syncStatusProvider = Provider<SyncStatus>((ref) {
     'networkSync=$networkSyncHeight, '
     'highestPeer=$highestPeerHeight, '
     'network=$networkHeight, '
+    'appliedBlocks=$appliedBlocks, '
+    'targetBlocks=$targetBlocks, '
     'synced=$synced, '
     'peers=$connectedPeers',
     tag: 'SYNC_STATUS',
@@ -118,6 +132,8 @@ final syncStatusProvider = Provider<SyncStatus>((ref) {
       networkHeight: networkHeight,
       connectedPeers: connectedPeers,
       highestPeerHeight: highestPeerHeight,
+      appliedBlocks: appliedBlocks,
+      targetBlocks: targetBlocks,
     );
   } else {
     return SyncStatus.syncing(
@@ -125,6 +141,8 @@ final syncStatusProvider = Provider<SyncStatus>((ref) {
       networkHeight: networkHeight,
       connectedPeers: connectedPeers,
       highestPeerHeight: highestPeerHeight,
+      appliedBlocks: appliedBlocks,
+      targetBlocks: targetBlocks,
     );
   }
 });

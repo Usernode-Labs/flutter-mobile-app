@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/node_data_providers.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/node_raw_status_provider.dart';
@@ -55,8 +56,12 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen> {
     final colorScheme = theme.colorScheme;
     final blockchainAsync = ref.watch(nodeBlockchainProvider);
     final raw = ref.watch(nodeRawStatusProvider).value;
+    final rewardsAsync = ref.watch(nodeEpochRewardsProvider);
 
     final blockchain = blockchainAsync.value;
+    final rewards = rewardsAsync.value;
+    final rewardPerBlock = rewards?.rewardPerBlock ?? BigInt.zero;
+
     return Scaffold(
       appBar: const AppAppBar(
         title: 'Produced Blocks',
@@ -100,6 +105,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen> {
                 block: block,
                 isBestTip: isBestTip,
                 hash: blockHash,
+                rewardPerBlock: rewardPerBlock,
               );
             },
           );
@@ -113,10 +119,12 @@ class _ProducedBlockTile extends StatelessWidget {
   final RpcStatusBlockInfo block;
   final bool isBestTip;
   final String hash;
+  final BigInt rewardPerBlock;
   const _ProducedBlockTile({
     required this.block,
     required this.isBestTip,
     required this.hash,
+    required this.rewardPerBlock,
   });
 
   @override
@@ -134,7 +142,7 @@ class _ProducedBlockTile extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.auto_awesome, color: colorScheme.primary),
+          Icon(Icons.auto_awesome_motion, color: colorScheme.primary, size: 16),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -143,7 +151,10 @@ class _ProducedBlockTile extends StatelessWidget {
                 Row(
                   children: [
                     Text('Block #${block.height}',
-                        style: theme.textTheme.titleMedium),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurface,
+                          fontWeight: FontWeight.w500,
+                        )),
                     if (isBestTip) ...[
                       const SizedBox(width: 8),
                       Container(
@@ -156,22 +167,38 @@ class _ProducedBlockTile extends StatelessWidget {
                         child: Text('BEST TIP',
                             style: theme.textTheme.labelSmall?.copyWith(
                                 color: colorScheme.onTertiaryContainer,
-                                fontWeight: FontWeight.bold)),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 9)),
                       ),
                     ]
                   ],
                 ),
                 const SizedBox(height: 4),
                 Text('Epoch ${block.epoch} • Slot ${block.globalSlot}',
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: colorScheme.onSurfaceVariant)),
-                const SizedBox(height: 4),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w400,
+                      fontSize: 12,
+                    )),
+                const SizedBox(height: 2),
                 Text('Hash: ${_shorten(hash)}',
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: colorScheme.onSurfaceVariant)),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w400,
+                      fontSize: 12,
+                    )),
               ],
             ),
-          )
+          ),
+
+          // TKN amount
+          Text(
+            '+${_formatTokenAmount(rewardPerBlock)} TKN',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: colorScheme.tertiary,
+            ),
+          ),
         ],
       ),
     );
@@ -180,5 +207,10 @@ class _ProducedBlockTile extends StatelessWidget {
   String _shorten(String s, {int head = 6, int tail = 6}) {
     if (s == 'N/A' || s.length <= head + tail + 3) return s;
     return '${s.substring(0, head)}...${s.substring(s.length - tail)}';
+  }
+
+  String _formatTokenAmount(BigInt amount) {
+    final formatter = NumberFormat('#,##0', 'en_US');
+    return formatter.format(amount.toInt());
   }
 }

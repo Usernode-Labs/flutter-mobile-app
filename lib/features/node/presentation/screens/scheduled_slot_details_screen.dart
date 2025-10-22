@@ -1,17 +1,38 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 
 class ScheduledSlotDetailsScreen extends StatelessWidget {
-  final int slotNumber;
+  final RpcEpochWonSlot slot;
 
   const ScheduledSlotDetailsScreen({
     super.key,
-    required this.slotNumber,
+    required this.slot,
   });
+
+  String _formatDateTime(BigInt timestampMs) {
+    final dateTime = DateTime.fromMillisecondsSinceEpoch(
+      timestampMs.toInt(),
+      isUtc: true,
+    ).toLocal();
+    final dateFormat = DateFormat('HH:mm:ss.S, dd MMM');
+    return dateFormat.format(dateTime);
+  }
+
+  bool _isPast(BigInt timestampMs) {
+    final dateTime = DateTime.fromMillisecondsSinceEpoch(
+      timestampMs.toInt(),
+      isUtc: true,
+    );
+    return DateTime.now().toUtc().isAfter(dateTime);
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final formattedTime = _formatDateTime(slot.expectedTimeMs);
+    final isPast = _isPast(slot.expectedTimeMs);
 
     return Scaffold(
       appBar: const AppAppBar(
@@ -43,14 +64,14 @@ class ScheduledSlotDetailsScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Scheduled Slot at $slotNumber',
+                        'Scheduled Slot at ${slot.globalSlot}',
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'on 17:45:04.1, 08 Sep',
+                        'on $formattedTime',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -63,12 +84,12 @@ class ScheduledSlotDetailsScreen extends StatelessWidget {
 
             const SizedBox(height: 32),
 
-            // Timeline - first two completed, rest pending
+            // Timeline - VRF discovered and scheduled always completed for won slots
             _ScheduledTimelineItem(
               icon: Icons.check,
               title: 'VRF Slot Discovered',
-              subtitle: '0.0012/0.0013',
-              timing: '5ms',
+              subtitle: 'Slot ${slot.globalSlot} won',
+              timing: null,
               isCompleted: true,
               isLast: false,
             ),
@@ -76,7 +97,7 @@ class ScheduledSlotDetailsScreen extends StatelessWidget {
             _ScheduledTimelineItem(
               icon: Icons.check,
               title: 'Block Production Scheduled',
-              subtitle: 'on 17:45:04.1, 08 Sep',
+              subtitle: 'on $formattedTime',
               timing: null,
               isCompleted: true,
               isLast: false,
@@ -103,7 +124,7 @@ class ScheduledSlotDetailsScreen extends StatelessWidget {
             _ScheduledTimelineItem(
               icon: Icons.circle_outlined,
               title: 'Applied Locally',
-              subtitle: '+543 New UTXOs, -210 Spent UTXOs',
+              subtitle: 'Update and Apply UTXOs',
               timing: '-',
               isCompleted: false,
               isLast: false,
@@ -112,7 +133,7 @@ class ScheduledSlotDetailsScreen extends StatelessWidget {
             _ScheduledTimelineItem(
               icon: Icons.circle_outlined,
               title: 'Block Committed',
-              subtitle: 'on 17:45:04.1, 08 Sep',
+              subtitle: 'Commit block time',
               timing: null,
               isCompleted: false,
               isLast: false,
@@ -121,7 +142,7 @@ class ScheduledSlotDetailsScreen extends StatelessWidget {
             _ScheduledTimelineItem(
               icon: Icons.circle_outlined,
               title: 'Block Confirmed',
-              subtitle: 'as Canonical (3 Confirmations)',
+              subtitle: 'Confirm block as Canonical',
               timing: '-',
               isCompleted: false,
               isLast: true,
@@ -155,85 +176,88 @@ class _ScheduledTimelineItem extends StatelessWidget {
     final theme = Theme.of(context);
 
     return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Timeline indicator
-          Column(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: isCompleted
-                      ? theme.colorScheme.onSurface
-                      : Colors.transparent,
-                  border: isCompleted
-                      ? null
-                      : Border.all(
-                          color: theme.colorScheme.outline,
-                          width: 2,
-                        ),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Icon(
-                  icon,
-                  color: isCompleted
-                      ? theme.colorScheme.surface
-                      : theme.colorScheme.outline,
-                  size: 14,
-                ),
-              ),
-              if (!isLast)
-                Container(
-                  width: 2,
-                  height: 60,
-                  color: theme.colorScheme.outline.withValues(alpha: 0.3),
-                ),
-            ],
-          ),
-
-          const SizedBox(width: 16),
-
-          // Content
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: Padding(
+        padding: const EdgeInsets.only(left: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Timeline indicator
+            Column(
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: isCompleted
-                              ? theme.colorScheme.onSurface
-                              : theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                    if (timing != null)
-                      Text(
-                        timing!,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: isCompleted
+                        ? theme.colorScheme.onSurface
+                        : Colors.transparent,
+                    border: isCompleted
+                        ? null
+                        : Border.all(
+                            color: theme.colorScheme.outline,
+                            width: 2,
+                          ),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: isCompleted
+                        ? theme.colorScheme.surface
+                        : theme.colorScheme.outline,
+                    size: 14,
                   ),
                 ),
-                const SizedBox(height: 16),
+                if (!isLast)
+                  Container(
+                    width: 2,
+                    height: 60,
+                    color: theme.colorScheme.outline.withValues(alpha: 0.3),
+                  ),
               ],
             ),
-          ),
-        ],
+
+            const SizedBox(width: 16),
+
+            // Content
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: isCompleted
+                                ? theme.colorScheme.onSurface
+                                : theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                      if (timing != null)
+                        Text(
+                          timing!,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

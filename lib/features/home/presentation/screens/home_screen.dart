@@ -13,6 +13,7 @@ import 'package:crypto_mobile_app/core/widgets/block_production_status_card.dart
 import 'package:crypto_mobile_app/features/rewards/presentation/controllers/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/sync_status_provider.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/node_data_providers.dart';
+import 'package:crypto_mobile_app/features/node/presentation/screens/scheduled_slot_details_screen.dart';
 import 'package:crypto_mobile_app/core/widgets/won_slot_item.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/log_tag.dart';
@@ -435,10 +436,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           ...upcoming.map((slot) => Padding(
                                 padding:
                                     const EdgeInsets.symmetric(horizontal: 16),
-                                child: WonSlotItem(
-                                  slot: slot,
-                                  status: SlotStatus.pending,
-                                  isCompact: true,
+                                child: GestureDetector(
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            ScheduledSlotDetailsScreen(
+                                          slot: slot,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  child: WonSlotItem(
+                                    slot: slot,
+                                    status: SlotStatus.pending,
+                                    isCompact: true,
+                                  ),
                                 ),
                               )),
                           const SizedBox(height: 28),

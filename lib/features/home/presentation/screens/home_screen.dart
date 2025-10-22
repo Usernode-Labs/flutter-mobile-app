@@ -14,6 +14,7 @@ import 'package:crypto_mobile_app/features/rewards/presentation/controllers/epoc
 import 'package:crypto_mobile_app/features/node/presentation/controllers/sync_status_provider.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/node_data_providers.dart';
 import 'package:crypto_mobile_app/features/node/presentation/screens/scheduled_slot_details_screen.dart';
+import 'package:crypto_mobile_app/features/node/presentation/screens/block_details_screen.dart';
 import 'package:crypto_mobile_app/core/widgets/won_slot_item.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/log_tag.dart';
@@ -515,15 +516,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             left: 16,
                             right: 16,
                           ),
-                          child: BlockProductionStatusCard(
-                            blockNumber: block.height,
-                            timeAgo: _formatTimeAgo(index),
-                            timestamp: _formatTimestamp(),
-                            tknAmount: tknAmount,
-                            backgroundColor: colorScheme.surface,
-                            borderColor: colorScheme.outlineVariant,
-                            blockIconColor: colorScheme.tertiary,
-                            tknColor: colorScheme.tertiary,
+                          child: GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => BlockDetailsScreen(
+                                    block: block,
+                                  ),
+                                ),
+                              );
+                            },
+                            child: BlockProductionStatusCard(
+                              blockNumber: block.height,
+                              timeAgo: _formatTimeAgo(index),
+                              timestamp: _formatTimestamp(),
+                              tknAmount: tknAmount,
+                              backgroundColor: colorScheme.surface,
+                              borderColor: colorScheme.outlineVariant,
+                              blockIconColor: colorScheme.tertiary,
+                              tknColor: colorScheme.tertiary,
+                            ),
                           ),
                         );
                       }).toList(),

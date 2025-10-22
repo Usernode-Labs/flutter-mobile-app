@@ -9,13 +9,17 @@ import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:crypto_mobile_app/core/widgets/hero_action_card.dart';
 import 'package:crypto_mobile_app/core/widgets/tier_dialog.dart';
+import 'package:crypto_mobile_app/core/widgets/block_production_status_card.dart';
 import 'package:crypto_mobile_app/features/rewards/presentation/controllers/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/sync_status_provider.dart';
+import 'package:crypto_mobile_app/features/node/presentation/controllers/node_data_providers.dart';
 import 'package:crypto_mobile_app/core/widgets/won_slot_item.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
+import 'package:crypto_mobile_app/features/wallet/data/models/account.dart';
 import 'package:crypto_mobile_app/features/profile/presentation/controllers/user_tier_provider.dart';
+import 'package:crypto_mobile_app/features/profile/domain/entities/user_tier.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -27,10 +31,12 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   Timer? _autoTimer;
   bool _refreshing = false;
+  AccountMeta? _account;
 
   @override
   void initState() {
     super.initState();
+    _loadAccount();
     // Refresh epoch rewards when screen loads
     WidgetsBinding.instance.addPostFrameCallback((_) => _refresh());
     // Periodic auto-refresh every 3 seconds while this screen is alive
@@ -41,18 +47,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     });
   }
 
+  Future<void> _loadAccount() async {
+    try {
+      final repo = await AccountsRepository.create();
+      final account = await repo.getActive();
+      if (!mounted) return;
+      setState(() {
+        _account = account;
+      });
+    } catch (e, st) {
+      LoggingService.instance.error('Failed to load account',
+          tag: LogTag.ui, error: e, stackTrace: st);
+    }
+  }
+
   Future<void> _refresh() async {
     if (!mounted) return;
     setState(() {
       _refreshing = true;
     });
     try {
-      LoggingService.instance
-          .trace('Refreshing epoch rewards', tag: LogTag.rewards);
+      LoggingService.instance.trace('Refreshing epoch rewards and blockchain',
+          tag: LogTag.rewards);
       // Use refresh() instead of invalidate() to avoid blinking
-      await ref.read(epochRewardsUiProvider.notifier).refresh();
+      await Future.wait([
+        ref.read(epochRewardsUiProvider.notifier).refresh(),
+        ref.read(nodeBlockchainProvider.notifier).refresh(),
+      ]);
     } catch (e, st) {
-      LoggingService.instance.error('Failed to refresh epoch rewards',
+      LoggingService.instance.error('Failed to refresh data',
           tag: LogTag.rewards, error: e, stackTrace: st);
     } finally {
       if (mounted) {
@@ -90,7 +113,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     final tierState = ref.watch(userTierProvider);
 
                     return Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
                       child: InkWell(
                         onTap: () {
                           showDialog(
@@ -110,12 +134,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     width: 44,
                                     height: 44,
                                     decoration: BoxDecoration(
-                                      color: colorScheme.secondaryContainer,
+                                      color: _getTierBackgroundColor(
+                                          tierState.currentTier),
                                       shape: BoxShape.circle,
                                     ),
                                     child: Icon(
-                                      Icons.star_outline,
-                                      color: colorScheme.onSecondaryContainer,
+                                      _getTierIcon(tierState.currentTier),
+                                      color: _getTierIconColor(
+                                          tierState.currentTier),
                                       size: 22,
                                     ),
                                   ),
@@ -434,28 +460,61 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ),
 
-                const SizedBox(height: 12),
-
-                // Activity item
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: ActivityListItem(
-                    icon: Icons.verified_user,
-                    title: 'Identity verified',
-                    trailing: '+1x bonus',
+                // Activity item - only show if identity is verified
+                if (_account?.identityVerified == true) ...[
+                  const SizedBox(height: 12),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: ActivityListItem(
+                      icon: Icons.verified_user,
+                      title: 'Identity verified',
+                      trailing: '+1x bonus',
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
+                ],
 
-                // Second activity item for visual balance
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: ActivityListItem(
-                    key: const ValueKey('activity-bridge'),
-                    icon: Icons.swap_horiz,
-                    title: 'Bridge deposit completed',
-                    trailing: '+1.5x bonus',
-                  ),
+                // Recent produced blocks
+                Consumer(
+                  builder: (context, ref, _) {
+                    final blockchainAsync = ref.watch(nodeBlockchainProvider);
+                    final rewardsAsync = ref.watch(epochRewardsUiProvider);
+                    final blockchain = blockchainAsync.value;
+                    final rewards = rewardsAsync.value?.snapshot;
+
+                    if (blockchain == null || blockchain.items.isEmpty) {
+                      return const SizedBox.shrink();
+                    }
+
+                    final recentBlocks = blockchain.items.take(5).toList();
+                    final rewardPerBlock = rewards?.rewardPerBlock;
+                    final tknAmount = rewardPerBlock != null
+                        ? BigInt.parse(rewardPerBlock).toInt()
+                        : 0;
+
+                    return Column(
+                      children: recentBlocks.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final block = entry.value;
+                        return Padding(
+                          padding: const EdgeInsets.only(
+                            top: 12,
+                            left: 16,
+                            right: 16,
+                          ),
+                          child: BlockProductionStatusCard(
+                            blockNumber: block.height,
+                            timeAgo: _formatTimeAgo(index),
+                            timestamp: _formatTimestamp(),
+                            tknAmount: tknAmount,
+                            backgroundColor: colorScheme.surface,
+                            borderColor: colorScheme.outlineVariant,
+                            blockIconColor: colorScheme.tertiary,
+                            tknColor: colorScheme.tertiary,
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  },
                 ),
 
                 const SizedBox(height: 32),
@@ -470,6 +529,52 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   String _formatTokenAmount(BigInt amount) {
     final formatter = NumberFormat('#,##0', 'en_US');
     return formatter.format(amount.toInt());
+  }
+
+  IconData _getTierIcon(TierLevel tier) {
+    return switch (tier) {
+      TierLevel.basic => Icons.star_outline,
+      TierLevel.bronze => Icons.emoji_events,
+      TierLevel.gold => Icons.star,
+      TierLevel.platinum => Icons.diamond,
+    };
+  }
+
+  Color _getTierIconColor(TierLevel tier) {
+    return switch (tier) {
+      TierLevel.basic => const Color(0xFF4FC3F7),
+      TierLevel.bronze => const Color(0xFFFFB74D),
+      TierLevel.gold => const Color(0xFFFFD54F),
+      TierLevel.platinum => const Color(0xFF9575CD),
+    };
+  }
+
+  Color _getTierBackgroundColor(TierLevel tier) {
+    return switch (tier) {
+      TierLevel.basic => const Color(0xFFE1F5FE),
+      TierLevel.bronze => const Color(0xFFFFF3E0),
+      TierLevel.gold => const Color(0xFFFFFDE7),
+      TierLevel.platinum => const Color(0xFFF3E5F5),
+    };
+  }
+
+  String _formatTimeAgo(int blockIndex) {
+    // Simple placeholder based on block position (most recent = 0)
+    // In reality, would calculate from actual block timestamp
+    if (blockIndex == 0) return '0s';
+    if (blockIndex == 1) return '1m';
+    if (blockIndex == 2) return '3m';
+    if (blockIndex == 3) return '5m';
+    return '10m';
+  }
+
+  String _formatTimestamp() {
+    // Return current time as placeholder
+    // In reality, would use actual block timestamp
+    final now = DateTime.now();
+    return '${now.hour.toString().padLeft(2, '0')}:'
+        '${now.minute.toString().padLeft(2, '0')}:'
+        '${now.second.toString().padLeft(2, '0')}';
   }
 
   List<Widget> _buildRewardsSection(

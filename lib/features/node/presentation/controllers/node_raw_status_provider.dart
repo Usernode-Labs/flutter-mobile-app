@@ -8,7 +8,8 @@ class BlockProgressData {
   final BigInt idle;
   final BigInt pending;
   final BigInt done;
-  const BlockProgressData({required this.idle, required this.pending, required this.done});
+  const BlockProgressData(
+      {required this.idle, required this.pending, required this.done});
 }
 
 class NodeRawStatusView {
@@ -48,16 +49,28 @@ class NodeRawStatusView {
       return const [];
     }
   }
+
+  int get connectedPeers {
+    int connected = 0;
+    for (final p in peers) {
+      if (p.connectionStatus == PeerConnectionStatus.connected) {
+        connected++;
+      }
+    }
+    return connected;
+  }
+
+  int get totalPeers => peers.length;
 }
 
 class NodeRawStatusController extends AsyncNotifier<NodeRawStatusView?> {
   @override
   Future<NodeRawStatusView?> build() async {
-    return _load();
+    return await _load();
   }
 
   Future<void> refresh() async {
-    state = const AsyncLoading();
+    // Skip loading state during refresh to keep previous values visible
     state = await AsyncValue.guard(_load);
   }
 
@@ -107,8 +120,10 @@ class NodeRawStatusController extends AsyncNotifier<NodeRawStatusView?> {
         applyProgress: applyProgress,
       );
     } catch (e, st) {
-      Log.e('NODE', 'raw status load failed', e, st);
-      throw BackendError('Failed to load node status', cause: e, stackTrace: st);
+      LoggingService.instance.error('raw status load failed',
+          tag: 'NODE', error: e, stackTrace: st);
+      throw BackendError('Failed to load node status',
+          cause: e, stackTrace: st);
     }
   }
 }
@@ -117,4 +132,3 @@ final nodeRawStatusProvider =
     AsyncNotifierProvider<NodeRawStatusController, NodeRawStatusView?>(
   NodeRawStatusController.new,
 );
-

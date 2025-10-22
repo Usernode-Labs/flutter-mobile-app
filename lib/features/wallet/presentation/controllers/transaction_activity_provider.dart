@@ -33,7 +33,8 @@ class TransactionActivityController
           ownerAddress = acc.address;
         }
       } catch (e) {
-        Log.w('ACTIVITY', 'Failed to get active account: $e');
+        LoggingService.instance
+            .warn('Failed to get active account: $e', tag: 'ACTIVITY');
       }
 
       final transactions = <TransactionItem>[];
@@ -41,7 +42,6 @@ class TransactionActivityController
       // Fetch pending transactions from mempool
       try {
         final mempoolTxs = await ref.watch(walletMempoolProvider.future);
-        Log.d('ACTIVITY', 'Mempool transactions: ${mempoolTxs.length}');
 
         for (var i = 0; i < mempoolTxs.length; i++) {
           final tx = mempoolTxs[i];
@@ -50,18 +50,19 @@ class TransactionActivityController
             ownerAddress: ownerAddress ?? '',
           );
           transactions.add(item);
-          Log.d('ACTIVITY',
-              '  Mempool[$i]: ${item.type.name} - ${item.status.name} - ${item.amounts.length} assets');
         }
       } catch (e, st) {
-        Log.w('ACTIVITY', 'Failed to load mempool transactions: $e\n$st');
+        LoggingService.instance.warn(
+            'Failed to load mempool transactions: $e $st',
+            tag: 'ACTIVITY');
         // Continue even if mempool fails
       }
 
       // Fetch confirmed UTXOs
       try {
         final utxos = await ref.watch(walletUtxosProvider.future);
-        Log.d('ACTIVITY', 'Confirmed UTXOs: ${utxos.length}');
+        LoggingService.instance
+            .debug('Confirmed UTXOs: ${utxos.length}', tag: 'ACTIVITY');
 
         for (var i = 0; i < utxos.length; i++) {
           final utxo = utxos[i];
@@ -75,14 +76,14 @@ class TransactionActivityController
               commitmentHex: commitmentHex,
             );
             transactions.add(item);
-            Log.d('ACTIVITY',
-                '  UTXO[$i]: ${item.type.name} - ${item.status.name} - ${item.amounts.length} assets - ID: ${commitmentHex.substring(0, 16)}...');
           } catch (e) {
-            Log.w('ACTIVITY', 'Failed to parse UTXO[$i]: $e');
+            LoggingService.instance
+                .warn('Failed to parse UTXO[$i]: $e', tag: 'ACTIVITY');
           }
         }
       } catch (e, st) {
-        Log.w('ACTIVITY', 'Failed to load UTXOs: $e\n$st');
+        LoggingService.instance
+            .warn('Failed to load UTXOs: $e $st', tag: 'ACTIVITY');
         // Continue even if UTXOs fail
       }
 
@@ -99,26 +100,13 @@ class TransactionActivityController
         return 0;
       });
 
-      Log.d('ACTIVITY', 'Total transactions: ${transactions.length}');
-
-      // Log final summary
-      final pendingCount = transactions
-          .where((t) => t.status == TransactionStatus.pending)
-          .length;
-      final confirmedCount = transactions
-          .where((t) => t.status == TransactionStatus.confirmed)
-          .length;
-      final sentCount =
-          transactions.where((t) => t.type == TransactionType.sent).length;
-      final receivedCount =
-          transactions.where((t) => t.type == TransactionType.received).length;
-
-      Log.d('ACTIVITY',
-          'Summary: $pendingCount pending, $confirmedCount confirmed, $sentCount sent, $receivedCount received');
+      LoggingService.instance
+          .debug('Total transactions: ${transactions.length}', tag: 'ACTIVITY');
 
       return transactions;
     } catch (e, st) {
-      Log.e('ACTIVITY', 'Failed to fetch transaction activity', e, st);
+      LoggingService.instance.error('Failed to fetch transaction activity',
+          tag: 'ACTIVITY', error: e, stackTrace: st);
       rethrow;
     }
   }

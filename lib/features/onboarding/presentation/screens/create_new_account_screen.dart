@@ -26,36 +26,34 @@ class _CreateNewAccountScreenState
 
   Future<void> _createAccount() async {
     if (!_ackSaved || _processing) {
-      Log.d('CREATE_ACCOUNT',
-          'Cannot proceed - ackSaved: $_ackSaved, processing: $_processing');
+      LoggingService.instance.trace(
+          'Cannot proceed - ackSaved: $_ackSaved, processing: $_processing',
+          tag: 'CREATE_ACCOUNT');
       return;
     }
 
-    Log.d('CREATE_ACCOUNT', 'Button pressed, starting account creation');
     setState(() => _processing = true);
 
     try {
-      Log.d('CREATE_ACCOUNT', 'Creating AccountsRepository...');
+      LoggingService.instance
+          .debug('Creating AccountsRepository...', tag: 'CREATE_ACCOUNT');
       final repo = await AccountsRepository.create();
-      Log.d('CREATE_ACCOUNT', 'Repository created successfully');
+      LoggingService.instance
+          .debug('Repository created successfully', tag: 'CREATE_ACCOUNT');
 
-      Log.d('CREATE_ACCOUNT',
-          'Calling importFromMnemonic with mnemonic length: ${widget.mnemonic.split(' ').length} words');
       final result = await repo.importFromMnemonic(
         name: 'My Account',
         mnemonic: widget.mnemonic,
       );
-      Log.d('CREATE_ACCOUNT',
-          'importFromMnemonic returned: ${result != null ? "success (id: ${result.id})" : "null"}');
 
       if (!mounted) {
-        Log.d('CREATE_ACCOUNT', 'Widget unmounted after import, aborting');
         return;
       }
 
       // Check if import succeeded
       if (result == null) {
-        Log.e('CREATE_ACCOUNT', 'Import failed - result is null');
+        LoggingService.instance
+            .error('Import failed - result is null', tag: 'CREATE_ACCOUNT');
         setState(() => _processing = false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -65,14 +63,17 @@ class _CreateNewAccountScreenState
         return;
       }
 
-      Log.d('CREATE_ACCOUNT', 'Import successful, starting backend');
+      LoggingService.instance
+          .debug('Import successful, starting backend', tag: 'CREATE_ACCOUNT');
 
       // Start backend for new account
       try {
         await RustBackendService.instance.startForActiveAccount();
-        Log.d('CREATE_ACCOUNT', 'Backend started successfully');
+        LoggingService.instance
+            .debug('Backend started successfully', tag: 'CREATE_ACCOUNT');
       } catch (e) {
-        Log.e('CREATE_ACCOUNT', 'Failed to start backend', e);
+        LoggingService.instance
+            .error('Failed to start backend', tag: 'CREATE_ACCOUNT', error: e);
       }
 
       // Navigate to identity verification screen
@@ -80,10 +81,11 @@ class _CreateNewAccountScreenState
       // This prevents router redirect race condition
       if (!mounted) return;
       context.go('/identity-verification?accountId=${result.id}');
-      Log.d('CREATE_ACCOUNT', 'Navigation triggered');
+      LoggingService.instance
+          .debug('Navigation triggered', tag: 'CREATE_ACCOUNT');
     } catch (e, stackTrace) {
-      Log.e(
-          'CREATE_ACCOUNT', 'Exception during account creation', e, stackTrace);
+      LoggingService.instance.error('Exception during account creation',
+          tag: 'CREATE_ACCOUNT', error: e, stackTrace: stackTrace);
       if (!mounted) return;
       setState(() => _processing = false);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -100,6 +102,7 @@ class _CreateNewAccountScreenState
       appBar: const AppAppBar(
         title: 'Create New Account',
         showNotifications: false,
+        showNodeStatus: false,
       ),
       body: SafeArea(
         child: SingleChildScrollView(

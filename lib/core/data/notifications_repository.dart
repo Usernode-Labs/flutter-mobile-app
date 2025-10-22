@@ -22,9 +22,11 @@ class NotificationsRepository {
       final jsonString = jsonEncode(jsonList);
 
       await prefs.setString(_keyNotifications, jsonString);
-      Log.d('NOTIFICATIONS_REPO', 'Saved ${toSave.length} notifications');
+      LoggingService.instance.trace('Saved ${toSave.length} notifications',
+          tag: 'NOTIFICATIONS_REPO');
     } catch (e, st) {
-      Log.e('NOTIFICATIONS_REPO', 'Failed to save notifications', e, st);
+      LoggingService.instance.error('Failed to save notifications',
+          tag: 'NOTIFICATIONS_REPO', error: e, stackTrace: st);
     }
   }
 
@@ -35,7 +37,8 @@ class NotificationsRepository {
       final jsonString = prefs.getString(_keyNotifications);
 
       if (jsonString == null || jsonString.isEmpty) {
-        Log.d('NOTIFICATIONS_REPO', 'No saved notifications found');
+        LoggingService.instance
+            .debug('No saved notifications found', tag: 'NOTIFICATIONS_REPO');
         return [];
       }
 
@@ -44,10 +47,13 @@ class NotificationsRepository {
           .map((json) => AppNotification.fromJson(json as Map<String, dynamic>))
           .toList();
 
-      Log.d('NOTIFICATIONS_REPO', 'Loaded ${notifications.length} notifications');
+      LoggingService.instance.trace(
+          'Loaded ${notifications.length} notifications',
+          tag: 'NOTIFICATIONS_REPO');
       return notifications;
     } catch (e, st) {
-      Log.e('NOTIFICATIONS_REPO', 'Failed to load notifications', e, st);
+      LoggingService.instance.error('Failed to load notifications',
+          tag: 'NOTIFICATIONS_REPO', error: e, stackTrace: st);
       return [];
     }
   }
@@ -57,9 +63,11 @@ class NotificationsRepository {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_keyNotifications);
-      Log.d('NOTIFICATIONS_REPO', 'Cleared all notifications');
+      LoggingService.instance
+          .debug('Cleared all notifications', tag: 'NOTIFICATIONS_REPO');
     } catch (e, st) {
-      Log.e('NOTIFICATIONS_REPO', 'Failed to clear notifications', e, st);
+      LoggingService.instance.error('Failed to clear notifications',
+          tag: 'NOTIFICATIONS_REPO', error: e, stackTrace: st);
     }
   }
 }

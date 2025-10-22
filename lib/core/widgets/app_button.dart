@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:crypto_mobile_app/core/design/design_tokens.dart';
+import 'package:crypto_mobile_app/core/theme/design_tokens.dart';
 
 /// Unified primary button component
 class AppButton extends StatelessWidget {

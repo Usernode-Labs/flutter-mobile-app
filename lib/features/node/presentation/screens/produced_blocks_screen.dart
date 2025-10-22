@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
@@ -5,11 +7,50 @@ import 'package:crypto_mobile_app/features/node/presentation/controllers/node_da
 import 'package:crypto_mobile_app/features/node/presentation/controllers/node_raw_status_provider.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 
-class ProducedBlocksScreen extends ConsumerWidget {
+class ProducedBlocksScreen extends ConsumerStatefulWidget {
   const ProducedBlocksScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProducedBlocksScreen> createState() => _ProducedBlocksScreenState();
+}
+
+class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen> {
+  Timer? _autoTimer;
+  bool _refreshing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _autoTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (mounted && !_refreshing) {
+        _refresh();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _autoTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refresh() async {
+    if (_refreshing) return;
+    _refreshing = true;
+    try {
+      await Future.wait([
+        ref.read(nodeBlockchainProvider.notifier).refresh(),
+        ref.read(nodeRawStatusProvider.notifier).refresh(),
+      ]);
+    } finally {
+      if (mounted) {
+        _refreshing = false;
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final blockchainAsync = ref.watch(nodeBlockchainProvider);

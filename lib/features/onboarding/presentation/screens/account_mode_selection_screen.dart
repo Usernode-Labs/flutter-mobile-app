@@ -19,11 +19,15 @@ class _AccountModeSelectionScreenState
   Future<void> _navigateToCreateNew() async {
     setState(() => _generatingMnemonic = true);
     try {
-      // Generate mnemonic before navigating using Rust backend
-      Log.d('ONBOARDING', 'Generating seed phrase via Rust backend...');
-      final words = seedPhraseGenerate();
+      // Generate 12-word mnemonic before navigating using Rust backend
+      LoggingService.instance.trace(
+          'Generating seed phrase via Rust backend...',
+          tag: 'ONBOARDING');
+      final words = seedPhraseGenerate(wordCount: 12);
       final mnemonic = words.join(' ');
-      Log.d('ONBOARDING', 'Seed phrase generated successfully (${words.length} words)');
+      LoggingService.instance.trace(
+          'Seed phrase generated successfully (${words.length} words)',
+          tag: 'ONBOARDING');
       if (!mounted) return;
       setState(() => _generatingMnemonic = false);
 
@@ -54,6 +58,7 @@ class _AccountModeSelectionScreenState
           title: 'Account Setup',
           automaticallyImplyLeading: false,
           showNotifications: false,
+          showNodeStatus: false,
         ),
         body: SafeArea(
           child: SingleChildScrollView(
@@ -81,20 +86,20 @@ class _AccountModeSelectionScreenState
                   ],
                 ),
                 const SizedBox(height: 24),
-
                 _ModeCard(
                   icon: Icons.add_circle_outline,
                   title: 'Create New Account',
-                  subtitle: 'Creates a new wallet with a secure recovery phrase you\'ll need to save.',
+                  subtitle:
+                      'Creates a new wallet with a secure recovery phrase you\'ll need to save.',
                   loading: _generatingMnemonic,
                   onTap: _generatingMnemonic ? null : _navigateToCreateNew,
                 ),
                 const SizedBox(height: 12),
-
                 _ModeCard(
                   icon: Icons.file_download_outlined,
                   title: 'Import from Seed Phrase',
-                  subtitle: 'Restore your wallet using your existing 12 or 24-word recovery phrase.',
+                  subtitle:
+                      'Restore your wallet using your existing 12-word recovery phrase.',
                   onTap: _navigateToImportSeed,
                 ),
               ],
@@ -160,7 +165,7 @@ class _ModeCard extends StatelessWidget {
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                         color: colorScheme.onSurface,
-                      ), 
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(

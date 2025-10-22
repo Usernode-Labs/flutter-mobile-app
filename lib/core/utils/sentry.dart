@@ -85,6 +85,7 @@ class SentryUtil {
     Object error,
     StackTrace stackTrace, {
     String? tag,
+    Map<String, dynamic>? context,
   }) async {
     if (!_enabled) return;
     await Sentry.captureException(
@@ -92,6 +93,11 @@ class SentryUtil {
       stackTrace: stackTrace,
       withScope: (scope) {
         if (tag != null) scope.setTag('source', tag);
+        if (context != null) {
+          for (final entry in context.entries) {
+            scope.setContexts(entry.key, entry.value);
+          }
+        }
       },
     );
   }

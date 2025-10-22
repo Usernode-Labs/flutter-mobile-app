@@ -18,16 +18,6 @@ class DAppsScreen extends StatefulWidget {
 }
 
 class _DAppsScreenState extends State<DAppsScreen> {
-  String _selectedCategory = 'All';
-
-  final List<String> _categories = [
-    'All',
-    'DeFi',
-    'NFT',
-    'Gaming',
-    'DAO',
-  ];
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -42,35 +32,6 @@ class _DAppsScreenState extends State<DAppsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Category filters
-            SizedBox(
-              height: 56,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                itemCount: _categories.length,
-                itemBuilder: (context, index) {
-                  final category = _categories[index];
-                  final isSelected = category == _selectedCategory;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: FilterChip(
-                      label: Text(category),
-                      selected: isSelected,
-                      onSelected: (selected) {
-                        setState(() {
-                          _selectedCategory = category;
-                        });
-                      },
-                      selectedColor: colorScheme.primaryContainer,
-                      checkmarkColor: colorScheme.onPrimaryContainer,
-                    ),
-                  );
-                },
-              ),
-            ),
-
             // dApps list
             Expanded(
               child: SingleChildScrollView(
@@ -78,45 +39,8 @@ class _DAppsScreenState extends State<DAppsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // First-party dApps section
-                    Text(
-                      'First-Party dApps',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
                     DAppCard(
-                      name: 'Staking',
-                      description:
-                          'Lock tokens to earn rewards and boost your tier',
-                      icon: Icons.lock,
-                      color: colorScheme.tertiary,
-                      badge: 'New',
-                      onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Staking coming soon')),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 12),
-
-                    DAppCard(
-                      name: 'Swap',
-                      description: 'Exchange tokens instantly at best rates',
-                      icon: Icons.swap_horiz,
-                      color: colorScheme.secondary,
-                      onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Swap coming soon')),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 12),
-
-                    DAppCard(
-                      name: 'Bridge',
+                      name: 'Bridge [coming soon]',
                       description:
                           'Transfer assets across different blockchains',
                       icon: Icons.account_balance,
@@ -130,14 +54,65 @@ class _DAppsScreenState extends State<DAppsScreen> {
                     const SizedBox(height: 12),
 
                     DAppCard(
-                      name: 'Liquidity Pool',
-                      description: 'Provide liquidity and earn trading fees',
-                      icon: Icons.water_drop,
+                      name: 'Yield [coming soon]',
+                      description: 'Earn rewards on your crypto holdings',
+                      icon: Icons.trending_up,
                       color: colorScheme.tertiary,
                       onTap: () {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text('Liquidity Pool coming soon')),
+                          const SnackBar(content: Text('Yield coming soon')),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
+
+                    DAppCard(
+                      name: 'Lend [coming soon]',
+                      description: 'Lend your assets and earn interest',
+                      icon: Icons.attach_money,
+                      color: colorScheme.secondary,
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Lend coming soon')),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
+
+                    DAppCard(
+                      name: 'Borrow [coming soon]',
+                      description: 'Borrow assets against your collateral',
+                      icon: Icons.account_balance_wallet,
+                      color: colorScheme.tertiary,
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Borrow coming soon')),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
+
+                    DAppCard(
+                      name: 'Trade (swap) [coming soon]',
+                      description: 'Exchange tokens instantly at best rates',
+                      icon: Icons.swap_horiz,
+                      color: colorScheme.primary,
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Trade coming soon')),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
+
+                    DAppCard(
+                      name: 'Trade (provide liquidity) [coming soon]',
+                      description: 'Provide liquidity and earn trading fees',
+                      icon: Icons.water_drop,
+                      color: colorScheme.secondary,
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Trade coming soon')),
                         );
                       },
                     ),
@@ -146,7 +121,7 @@ class _DAppsScreenState extends State<DAppsScreen> {
 
                     // Third-party dApps section (placeholder)
                     Text(
-                      'Third-Party dApps',
+                      '3rd-Party dApps (will come later)',
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),

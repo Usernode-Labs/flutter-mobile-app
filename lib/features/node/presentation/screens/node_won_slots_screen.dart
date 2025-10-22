@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
@@ -31,11 +33,50 @@ class TimeBucketStats {
   });
 }
 
-class NodeWonSlotsScreen extends ConsumerWidget {
+class NodeWonSlotsScreen extends ConsumerStatefulWidget {
   const NodeWonSlotsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<NodeWonSlotsScreen> createState() => _NodeWonSlotsScreenState();
+}
+
+class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
+  Timer? _autoTimer;
+  bool _refreshing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _autoTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (mounted && !_refreshing) {
+        _refresh();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _autoTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refresh() async {
+    if (_refreshing) return;
+    _refreshing = true;
+    try {
+      await Future.wait([
+        ref.read(nodeEpochRewardsProvider.notifier).refresh(),
+        ref.read(nodeBlockchainProvider.notifier).refresh(),
+      ]);
+    } finally {
+      if (mounted) {
+        _refreshing = false;
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final rewardsAsync = ref.watch(nodeEpochRewardsProvider);
@@ -73,8 +114,9 @@ class NodeWonSlotsScreen extends ConsumerWidget {
               .toSet();
           final wonSlots = rewards.wonSlots ?? [];
 
-          Log.d('WON_SLOTS_SCREEN',
-              'Epoch: ${rewards.epoch}, Won slots count: ${wonSlots.length}, Produced slots count: ${producedSlots.length}');
+          LoggingService.instance.trace(
+              'Epoch: ${rewards.epoch}, Won slots count: ${wonSlots.length}, Produced slots count: ${producedSlots.length}',
+              tag: 'WON_SLOTS_SCREEN');
 
           if (wonSlots.isEmpty) {
             return Center(
@@ -88,13 +130,13 @@ class NodeWonSlotsScreen extends ConsumerWidget {
           }
 
           // Create slot data with status
-          final now = DateTime.now().toUtc();
+          final now = DateTime.now();
           final slotDataList = wonSlots.map((slot) {
             final isProduced = producedSlots.contains(slot.globalSlot);
             final slotTime = DateTime.fromMillisecondsSinceEpoch(
               slot.expectedTimeMs.toInt(),
               isUtc: true,
-            );
+            ).toLocal();
             final status = isProduced
                 ? SlotStatus.produced
                 : (now.isAfter(slotTime)
@@ -104,9 +146,12 @@ class NodeWonSlotsScreen extends ConsumerWidget {
           }).toList();
 
           // Determine epoch duration
-          final times = wonSlots.map((s) => DateTime.fromMillisecondsSinceEpoch(
-              s.expectedTimeMs.toInt(),
-              isUtc: true)).toList();
+          final times = wonSlots
+              .map((s) => DateTime.fromMillisecondsSinceEpoch(
+                      s.expectedTimeMs.toInt(),
+                      isUtc: true)
+                  .toLocal())
+              .toList();
           times.sort();
           final epochDuration = times.isNotEmpty && times.length > 1
               ? times.last.difference(times.first)
@@ -208,7 +253,7 @@ class NodeWonSlotsScreen extends ConsumerWidget {
       final time = DateTime.fromMillisecondsSinceEpoch(
         slotData.slot.expectedTimeMs.toInt(),
         isUtc: true,
-      );
+      ).toLocal();
 
       final String key;
       if (useHourly) {
@@ -232,7 +277,7 @@ class NodeWonSlotsScreen extends ConsumerWidget {
       final time = DateTime.fromMillisecondsSinceEpoch(
         firstSlot.slot.expectedTimeMs.toInt(),
         isUtc: true,
-      );
+      ).toLocal();
 
       return TimeBucketStats(
         time: useHourly
@@ -290,16 +335,15 @@ class NodeWonSlotsScreen extends ConsumerWidget {
     final String timeLabel;
     if (useHourly) {
       if (isToday) {
-        timeLabel =
-            'Today ${bucket.time.hour.toString().padLeft(2, '0')}:00';
+        timeLabel = 'Today ${bucket.time.hour.toString().padLeft(2, '0')}:00';
       } else {
-        timeLabel = DateFormat('MMM d, HH:00').format(bucket.time.toLocal());
+        timeLabel = DateFormat('MMM d, HH:00').format(bucket.time);
       }
     } else {
       if (isToday) {
         timeLabel = 'Today';
       } else {
-        timeLabel = DateFormat('MMM d, yyyy').format(bucket.time.toLocal());
+        timeLabel = DateFormat('MMM d, yyyy').format(bucket.time);
       }
     }
 

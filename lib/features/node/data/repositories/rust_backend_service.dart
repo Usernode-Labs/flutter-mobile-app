@@ -40,32 +40,26 @@ class RustBackendService {
   /// Call once at app startup (before runApp).
   Future<void> init() async {
     if (_initialized) return;
-    Log.i('RUST', 'Init FRB');
     try {
       await RustLib.init(
-        externalLibrary: Platform.isIOS
+        externalLibrary: Platform.isIOS || Platform.isMacOS
             ? ExternalLibrary.process(iKnowHowToUseIt: true)
             : null,
       );
       _initialized = true;
-      Log.i('RUST', 'Init complete');
-      SentryUtil.addBreadcrumb(
-          category: 'backend', message: 'FRB init complete');
     } on PanicException catch (e, st) {
       final msg = e.toString();
       // Handle duplicate tracing subscriber setup from Rust side gracefully
       if (msg.contains('SetGlobalDefaultError') ||
           msg.contains(
               'global default trace dispatcher has already been set')) {
-        Log.w('RUST',
-            'Tracing subscriber already set in Rust; continuing initialization');
+        LoggingService.instance.warn(
+            'Tracing subscriber already set in Rust; continuing initialization',
+            tag: 'RUST');
         _initialized = true; // library loaded; only tracing init failed
-        SentryUtil.addBreadcrumb(
-          category: 'backend',
-          message: 'FRB init: tracing already set; ignored',
-        );
       } else {
-        Log.e('RUST', 'FRB init failed', e, st);
+        LoggingService.instance
+            .error('FRB init failed', tag: 'RUST', error: e, stackTrace: st);
         rethrow;
       }
     }
@@ -78,7 +72,9 @@ class RustBackendService {
       await init();
     }
     if (_nodeRunning) return;
-    Log.i('RUST', 'Starting node${httpPort != null ? ' on $httpPort' : ''}');
+    LoggingService.instance.trace(
+        'Starting node${httpPort != null ? ' on $httpPort' : ''}',
+        tag: 'RUST');
     SentryUtil.addBreadcrumb(
       category: 'backend',
       message: 'Starting node',
@@ -99,14 +95,14 @@ class RustBackendService {
     // Run the node in a background thread.
     _node!.runForeverInNewThread();
     _nodeRunning = true;
-    Log.i('RUST', 'Node started');
-    await SentryUtil.captureMessage('Node started');
   }
 
   Future<void> stopNode() async {
     if (!_initialized && !_nodeRunning) return;
     // Currently frb-generated API does not expose a graceful shutdown; dispose bridge.
-    Log.w('RUST', 'Stopping node (dropping references; FRB stays initialized)');
+    LoggingService.instance.warn(
+        'Stopping node (dropping references; FRB stays initialized)',
+        tag: 'RUST');
     SentryUtil.addBreadcrumb(category: 'backend', message: 'Stopping node');
     _nodeRunning = false;
     _node = null;
@@ -115,36 +111,38 @@ class RustBackendService {
 
   /// Start node if there is an active account; otherwise do nothing.
   Future<bool> startForActiveAccount() async {
-    Log.d('RUST', 'startForActiveAccount begin');
-    SentryUtil.addBreadcrumb(
-        category: 'backend', message: 'startForActiveAccount begin');
     final repo = await AccountsRepository.create();
-    Log.d('RUST', 'Checking if any accounts exist...');
+    LoggingService.instance
+        .trace('Checking if any accounts exist...', tag: 'RUST');
     final hasAny = await repo.hasAny();
-    Log.d('RUST', 'Account check result: hasAny = $hasAny');
+    LoggingService.instance
+        .trace('Account check result: hasAny = $hasAny', tag: 'RUST');
     if (!hasAny) {
-      Log.d('RUST', 'No accounts found - skipping node start');
+      LoggingService.instance
+          .trace('No accounts found - skipping node start', tag: 'RUST');
       SentryUtil.addBreadcrumb(
           category: 'backend', message: 'no accounts; skipping start');
       return false;
     }
-    Log.d('RUST', 'Account exists - proceeding with node start');
+    LoggingService.instance
+        .debug('Account exists - proceeding with node start', tag: 'RUST');
     if (!_initialized) {
       await init();
     }
     if (_nodeRunning) {
-      Log.d('RUST', 'Node already running');
+      LoggingService.instance.trace('Node already running', tag: 'RUST');
       return true;
     }
     await startNode();
-    Log.d('RUST', 'startForActiveAccount done');
+    LoggingService.instance.trace('startForActiveAccount done', tag: 'RUST');
     await SentryUtil.captureMessage('Backend started for active account');
     return true;
   }
 
   /// Restart node using current active account context.
   Future<void> restartForActiveAccount() async {
-    Log.i('RUST', 'Restarting node for active account');
+    LoggingService.instance
+        .info('Restarting node for active account', tag: 'RUST');
     SentryUtil.addBreadcrumb(
         category: 'backend', message: 'restartForActiveAccount');
     await stopNode();
@@ -156,8 +154,6 @@ class RustBackendService {
 
   /// Convenience helper to fetch node status via RPC.
   Future<RpcStatusResp?> getStatus() async {
-    Log.d('RUST', 'getStatus called');
-    SentryUtil.addBreadcrumb(category: 'rpc', message: 'getStatus called');
     final r = _rpc;
     if (r == null) return null;
 
@@ -167,7 +163,8 @@ class RustBackendService {
       status = await r.status();
     } on PanicException catch (e, st) {
       // FRB surfaced a Rust-side panic (e.g., stdout transport failure in process mode).
-      Log.e('RUST', 'FRB panic during getStatus', e, st);
+      LoggingService.instance.error('FRB panic during getStatus',
+          tag: 'RUST', error: e, stackTrace: st);
       // Mark backend as not running and drop RPC handle to avoid cascading failures.
       _nodeRunning = false;
       _rpc = null;
@@ -176,7 +173,7 @@ class RustBackendService {
       return null;
     } catch (e, st) {
       // Any other error from the bridge/RPC call.
-      Log.w('RUST', 'RPC getStatus failed: $e\n$st');
+      LoggingService.instance.warn('RPC getStatus failed: $e\$st', tag: 'RUST');
       await SentryUtil.captureError(e, st, tag: 'rpc_getStatus');
       return null;
     }
@@ -199,6 +196,10 @@ class RustBackendService {
                 'incoming': p.incoming,
                 'peerId': p.peerId.toString(),
                 'time': p.time.toString(),
+                'bestTip': p.bestTip?.toString(),
+                'bestTipHeight': p.bestTipHeight,
+                'bestTipGlobalSlot': p.bestTipGlobalSlot,
+                'bestTipTimestamp': p.bestTipTimestamp?.toString(),
               })
           .toList();
 
@@ -216,6 +217,8 @@ class RustBackendService {
               'height': bestTip.height,
               'global_slot': bestTip.globalSlot,
               'epoch': bestTip.epoch,
+              'producer_pubkey': bestTip.producerPubkey,
+              'transactions': bestTip.transactions.toString(),
               'batches': bestTip.batches
                   .map((b) => {
                         'transactions': b.transactions.toString(),
@@ -230,6 +233,9 @@ class RustBackendService {
                         'height': syncBlocks.bestTip.height,
                         'global_slot': syncBlocks.bestTip.globalSlot,
                         'epoch': syncBlocks.bestTip.epoch,
+                        'producer_pubkey': syncBlocks.bestTip.producerPubkey,
+                        'transactions':
+                            syncBlocks.bestTip.transactions.toString(),
                         'batches': syncBlocks.bestTip.batches
                             .map((b) => {
                                   'transactions': b.transactions.toString(),
@@ -255,12 +261,147 @@ class RustBackendService {
         }
       }
 
+      // Build batcher data for logging
+      Map<String, dynamic>? batcherData;
+      final batcher = status?.batcher;
+      if (batcher != null) {
+        try {
+          batcherData = {
+            'pending_leaves': batcher.pendingLeaves.toString(),
+            'pending_batches': batcher.pendingBatches.toString(),
+            'pending_batches_txs': batcher.pendingBatchesTxs.toString(),
+            'inflight_jobs': batcher.inflightJobs.toString(),
+            'total_issued_batches': batcher.totalIssuedBatches.toString(),
+            'total_issued_txs': batcher.totalIssuedTxs.toString(),
+            'total_confirmed_txs': batcher.totalConfirmedTxs.toString(),
+            'total_confirmed_batches': batcher.totalConfirmedBatches.toString(),
+            'last_update_ms': batcher.lastUpdateMs.toString(),
+            'jobs_per_tick': batcher.jobsPerTick.toString(),
+            'lease_ttl_ms': batcher.leaseTtlMs.toString(),
+          };
+        } catch (e) {
+          batcherData = {'error': 'Failed to parse batcher data: $e'};
+        }
+      }
+
+      // Build block producer data for logging
+      Map<String, dynamic>? blockProducerData;
+      final blockProducer = status?.blockProducer;
+      if (blockProducer != null) {
+        try {
+          final statusData = blockProducer.status;
+          Map<String, dynamic> statusMap = {
+            'type': statusData.toString().split('(').first.split('.').last,
+          };
+
+          // Extract won slot info if available
+          statusData.whenOrNull(
+            wonSlotDiscarded: (wonSlot) => statusMap['won_slot'] = {
+              'global_slot': wonSlot.globalSlot,
+              'slot_timestamp': wonSlot.slotTimestamp.toString(),
+            },
+            wonSlot: (wonSlot) => statusMap['won_slot'] = {
+              'global_slot': wonSlot.globalSlot,
+              'slot_timestamp': wonSlot.slotTimestamp.toString(),
+            },
+            wonSlotWait: (wonSlot) => statusMap['won_slot'] = {
+              'global_slot': wonSlot.globalSlot,
+              'slot_timestamp': wonSlot.slotTimestamp.toString(),
+            },
+            wonSlotProduceInit: (wonSlot) => statusMap['won_slot'] = {
+              'global_slot': wonSlot.globalSlot,
+              'slot_timestamp': wonSlot.slotTimestamp.toString(),
+            },
+            batchesAssemblePending: (wonSlot) => statusMap['won_slot'] = {
+              'global_slot': wonSlot.globalSlot,
+              'slot_timestamp': wonSlot.slotTimestamp.toString(),
+            },
+            batchesAssembleSuccess: (wonSlot) => statusMap['won_slot'] = {
+              'global_slot': wonSlot.globalSlot,
+              'slot_timestamp': wonSlot.slotTimestamp.toString(),
+            },
+            dbDiffPending: (wonSlot) => statusMap['won_slot'] = {
+              'global_slot': wonSlot.globalSlot,
+              'slot_timestamp': wonSlot.slotTimestamp.toString(),
+            },
+            dbDiffSuccess: (wonSlot) => statusMap['won_slot'] = {
+              'global_slot': wonSlot.globalSlot,
+              'slot_timestamp': wonSlot.slotTimestamp.toString(),
+            },
+            stakeProofWait: (wonSlot) => statusMap['won_slot'] = {
+              'global_slot': wonSlot.globalSlot,
+              'slot_timestamp': wonSlot.slotTimestamp.toString(),
+            },
+            signingPending: (wonSlot) => statusMap['won_slot'] = {
+              'global_slot': wonSlot.globalSlot,
+              'slot_timestamp': wonSlot.slotTimestamp.toString(),
+            },
+            produced: (wonSlot) => statusMap['won_slot'] = {
+              'global_slot': wonSlot.globalSlot,
+              'slot_timestamp': wonSlot.slotTimestamp.toString(),
+            },
+            injected: (wonSlot) => statusMap['won_slot'] = {
+              'global_slot': wonSlot.globalSlot,
+              'slot_timestamp': wonSlot.slotTimestamp.toString(),
+            },
+          );
+
+          blockProducerData = {
+            'pub_key': blockProducer.pubKey.toString(),
+            'status': statusMap,
+          };
+        } catch (e) {
+          blockProducerData = {
+            'error': 'Failed to parse block producer data: $e'
+          };
+        }
+      }
+
+      // Build mempool data for logging
+      Map<String, dynamic>? mempoolData;
+      final mempool = status?.mempool;
+      if (mempool != null) {
+        try {
+          Map<String, dynamic>? lastReorgData;
+          final lastReorg = mempool.lastReorg;
+          if (lastReorg != null) {
+            lastReorgData = {
+              'root': lastReorg.root,
+              'blocks_disconnected': lastReorg.blocksDisconnected,
+              'blocks_connected': lastReorg.blocksConnected,
+              'txs_readmitted_ok': lastReorg.txsReadmittedOk,
+              'txs_readmitted_orphaned': lastReorg.txsReadmittedOrphaned,
+              'txs_readmitted_conflict': lastReorg.txsReadmittedConflict,
+              'connected_removed': lastReorg.connectedRemoved,
+              'prepared_count': lastReorg.preparedCount,
+              'plan_elapsed_ms': lastReorg.planElapsedMs?.toString(),
+              'when': lastReorg.when.toString(),
+              'in_progress': lastReorg.inProgress,
+            };
+          }
+
+          mempoolData = {
+            'entries': mempool.entries.toString(),
+            'orphans': mempool.orphans.toString(),
+            'total_size': mempool.totalSize.toString(),
+            'unleased': mempool.unleased?.toString(),
+            'leased_for_batcher': mempool.leasedForBatcher?.toString(),
+            if (lastReorgData != null) 'last_reorg': lastReorgData,
+          };
+        } catch (e) {
+          mempoolData = {'error': 'Failed to parse mempool data: $e'};
+        }
+      }
+
       final fullResponse = {
         'peers': peers,
         if (blockchainData != null) 'blockchain': blockchainData,
+        if (batcherData != null) 'batcher': batcherData,
+        if (blockProducerData != null) 'block_producer': blockProducerData,
+        if (mempoolData != null) 'mempool': mempoolData,
       };
       final json = jsonEncode(fullResponse);
-      Log.d('RUST', 'getStatus response: $json');
+      LoggingService.instance.trace('getStatus response: $json', tag: 'RUST');
 
       // Build summarized fields
       int connected = 0, connecting = 0, disconnected = 0, disconnecting = 0;
@@ -334,11 +475,11 @@ class RustBackendService {
         },
       );
     } catch (e, st) {
-      Log.w('RUST', 'Failed to encode getStatus to JSON: $e\n$st');
+      LoggingService.instance
+          .warn('Failed to encode getStatus to JSON: $e\$st', tag: 'RUST');
       // Report handled error to Sentry with context
       await SentryUtil.captureError(e, st, tag: 'getStatus');
     }
-    Log.d('RUST', 'getStatus ok');
     return status;
   }
 
@@ -347,13 +488,9 @@ class RustBackendService {
     int? limit,
     bool? fromTip,
   }) async {
-    Log.d('RUST',
-        'listBlockchain called with params: limit=$limit, fromTip=$fromTip');
-    SentryUtil.addBreadcrumb(
-      category: 'rpc',
-      message: 'listBlockchain called',
-      data: {'limit': limit, 'fromTip': fromTip},
-    );
+    LoggingService.instance.trace(
+        'listBlockchain called with params: limit=$limit, fromTip=$fromTip',
+        tag: 'RUST');
     final r = _rpc;
     if (r == null) return null;
 
@@ -366,7 +503,8 @@ class RustBackendService {
       );
     } on PanicException catch (e, st) {
       // FRB surfaced a Rust-side panic.
-      Log.e('RUST', 'FRB panic during listBlockchain', e, st);
+      LoggingService.instance.error('FRB panic during listBlockchain',
+          tag: 'RUST', error: e, stackTrace: st);
       // Mark backend as not running and drop RPC handle to avoid cascading failures.
       _nodeRunning = false;
       _rpc = null;
@@ -375,7 +513,8 @@ class RustBackendService {
       return null;
     } catch (e, st) {
       // Any other error from the bridge/RPC call.
-      Log.w('RUST', 'RPC listBlockchain failed: $e\n$st');
+      LoggingService.instance
+          .warn('RPC listBlockchain failed: $e\$st', tag: 'RUST');
       await SentryUtil.captureError(e, st, tag: 'rpc_listBlockchain');
       return null;
     }
@@ -417,7 +556,8 @@ class RustBackendService {
       };
 
       final json = jsonEncode(fullResponse);
-      Log.d('RUST', 'listBlockchain response: $json');
+      LoggingService.instance
+          .debug('listBlockchain response: $json', tag: 'RUST');
 
       await SentryUtil.captureMessageWithData('rpc.listBlockchain', {
         'totalBlocks': totalBlocks.toString(),
@@ -434,11 +574,10 @@ class RustBackendService {
         },
       );
     } catch (e, st) {
-      Log.w('RUST', 'Failed to log listBlockchain response: $e\n$st');
+      LoggingService.instance
+          .warn('Failed to log listBlockchain response: $e\$st', tag: 'RUST');
       await SentryUtil.captureError(e, st, tag: 'listBlockchain_logging');
     }
-
-    Log.d('RUST', 'listBlockchain ok');
     return blockchain;
   }
 
@@ -449,8 +588,6 @@ class RustBackendService {
     bool? idsOnly,
     TransactionHash? cursorAfter,
   }) async {
-    Log.d('RUST', 'listMempool called');
-    SentryUtil.addBreadcrumb(category: 'rpc', message: 'listMempool called');
     final r = _rpc;
     if (r == null) return null;
 
@@ -465,16 +602,17 @@ class RustBackendService {
       );
     } on PanicException catch (e, st) {
       // FRB surfaced a Rust-side panic.
-      Log.e('RUST', 'FRB panic during listMempool', e, st);
+      LoggingService.instance.error('FRB panic during listMempool',
+          tag: 'RUST', error: e, stackTrace: st);
       // Mark backend as not running and drop RPC handle to avoid cascading failures.
       _nodeRunning = false;
       _rpc = null;
-      await SentryUtil.captureError(e, st, tag: 'frb_panic_listMempool');
       // Return null gracefully so UI can keep rendering with an error message.
       return null;
     } catch (e, st) {
       // Any other error from the bridge/RPC call.
-      Log.w('RUST', 'RPC listMempool failed: $e\n$st');
+      LoggingService.instance
+          .warn('RPC listMempool failed: $e\$st', tag: 'RUST');
       await SentryUtil.captureError(e, st, tag: 'rpc_listMempool');
       return null;
     }
@@ -508,7 +646,7 @@ class RustBackendService {
       };
 
       final json = jsonEncode(fullResponse);
-      Log.d('RUST', 'listMempool response: $json');
+      LoggingService.instance.trace('listMempool response: $json', tag: 'RUST');
 
       await SentryUtil.captureMessageWithData('rpc.listMempool', {
         'count': count.toString(),
@@ -529,11 +667,10 @@ class RustBackendService {
         },
       );
     } catch (e, st) {
-      Log.w('RUST', 'Failed to log listMempool response: $e\n$st');
+      LoggingService.instance
+          .warn('Failed to log listMempool response: $e\$st', tag: 'RUST');
       await SentryUtil.captureError(e, st, tag: 'listMempool_logging');
     }
-
-    Log.d('RUST', 'listMempool ok');
     return mempool;
   }
 
@@ -552,15 +689,14 @@ class RustBackendService {
     // Call into FRB with defensive handling for panics / transport errors.
     RpcEpochRewardsResp? rewards;
     try {
-      Log.d('RUST',
-          'epochRewards called with params: epoch=$epoch, includeWonSlots:true');
       rewards = await r.epochRewards(
         epoch: epoch,
         includeWonSlots: true,
       );
     } on PanicException catch (e, st) {
       // FRB surfaced a Rust-side panic.
-      Log.e('RUST', 'FRB panic during epochRewards', e, st);
+      LoggingService.instance.error('FRB panic during epochRewards',
+          tag: 'RUST', error: e, stackTrace: st);
       // Mark backend as not running and drop RPC handle to avoid cascading failures.
       _nodeRunning = false;
       _rpc = null;
@@ -569,7 +705,8 @@ class RustBackendService {
       return null;
     } catch (e, st) {
       // Any other error from the bridge/RPC call.
-      Log.w('RUST', 'RPC epochRewards failed: $e\n$st');
+      LoggingService.instance
+          .warn('RPC epochRewards failed: $e\$st', tag: 'RUST');
       await SentryUtil.captureError(e, st, tag: 'rpc_epochRewards');
       return null;
     }
@@ -612,7 +749,8 @@ class RustBackendService {
       };
 
       final json = jsonEncode(fullResponse);
-      Log.d('RUST', 'epochRewards response: $json');
+      LoggingService.instance
+          .debug('epochRewards response: $json', tag: 'RUST');
 
       await SentryUtil.captureMessageWithData('rpc.epochRewards', {
         'epoch': epochNum,
@@ -634,11 +772,10 @@ class RustBackendService {
         },
       );
     } catch (e, st) {
-      Log.w('RUST', 'Failed to log epochRewards response: $e\n$st');
+      LoggingService.instance
+          .warn('Failed to log epochRewards response: $e\$st', tag: 'RUST');
       await SentryUtil.captureError(e, st, tag: 'epochRewards_logging');
     }
-
-    Log.d('RUST', 'epochRewards ok');
     return rewards;
   }
 
@@ -647,9 +784,6 @@ class RustBackendService {
     required PublicKeyHash owner,
     int? limit,
   }) async {
-    Log.d('RUST', 'listUtxosByOwner called');
-    SentryUtil.addBreadcrumb(
-        category: 'rpc', message: 'listUtxosByOwner called');
     final r = _rpc;
     if (r == null) return null;
 
@@ -662,7 +796,8 @@ class RustBackendService {
       );
     } on PanicException catch (e, st) {
       // FRB surfaced a Rust-side panic.
-      Log.e('RUST', 'FRB panic during listUtxosByOwner', e, st);
+      LoggingService.instance.error('FRB panic during listUtxosByOwner',
+          tag: 'RUST', error: e, stackTrace: st);
       // Mark backend as not running and drop RPC handle to avoid cascading failures.
       _nodeRunning = false;
       _rpc = null;
@@ -671,7 +806,8 @@ class RustBackendService {
       return null;
     } catch (e, st) {
       // Any other error from the bridge/RPC call.
-      Log.w('RUST', 'RPC listUtxosByOwner failed: $e\n$st');
+      LoggingService.instance
+          .warn('RPC listUtxosByOwner failed: $e\$st', tag: 'RUST');
       await SentryUtil.captureError(e, st, tag: 'rpc_listUtxosByOwner');
       return null;
     }
@@ -680,7 +816,9 @@ class RustBackendService {
     try {
       final itemsCount = utxos?.items.length ?? 0;
 
-      Log.d('RUST', 'listUtxosByOwner response: itemsCount=$itemsCount');
+      LoggingService.instance.trace(
+          'listUtxosByOwner response: itemsCount=$itemsCount',
+          tag: 'RUST');
 
       // Avoid calling owner.toString() here since PublicKeyHash may be disposed
       await SentryUtil.captureMessageWithData('rpc.listUtxosByOwner', {
@@ -697,11 +835,10 @@ class RustBackendService {
         },
       );
     } catch (e, st) {
-      Log.w('RUST', 'Failed to log listUtxosByOwner response: $e\n$st');
+      LoggingService.instance
+          .warn('Failed to log listUtxosByOwner response: $e\$st', tag: 'RUST');
       await SentryUtil.captureError(e, st, tag: 'listUtxosByOwner_logging');
     }
-
-    Log.d('RUST', 'listUtxosByOwner ok');
     return utxos;
   }
 
@@ -711,8 +848,6 @@ class RustBackendService {
     required BigInt amount,
     required PublicKeyHash toPkHash,
   }) async {
-    Log.d('RUST', 'transferFunds called');
-    SentryUtil.addBreadcrumb(category: 'rpc', message: 'transferFunds called');
     final r = _rpc;
     if (r == null) return null;
 
@@ -726,7 +861,8 @@ class RustBackendService {
       );
     } on PanicException catch (e, st) {
       // FRB surfaced a Rust-side panic.
-      Log.e('RUST', 'FRB panic during transferFunds', e, st);
+      LoggingService.instance.error('FRB panic during transferFunds',
+          tag: 'RUST', error: e, stackTrace: st);
       // Mark backend as not running and drop RPC handle to avoid cascading failures.
       _nodeRunning = false;
       _rpc = null;
@@ -735,7 +871,8 @@ class RustBackendService {
       return null;
     } catch (e, st) {
       // Any other error from the bridge/RPC call.
-      Log.w('RUST', 'RPC transferFunds failed: $e\n$st');
+      LoggingService.instance
+          .warn('RPC transferFunds failed: $e\$st', tag: 'RUST');
       await SentryUtil.captureError(e, st, tag: 'rpc_transferFunds');
       return null;
     }
@@ -745,7 +882,9 @@ class RustBackendService {
       final queued = response?.queued ?? false;
       final error = response?.error;
 
-      Log.d('RUST', 'transferFunds response: queued=$queued, error=$error');
+      LoggingService.instance.trace(
+          'transferFunds response: queued=$queued, error=$error',
+          tag: 'RUST');
 
       await SentryUtil.captureMessageWithData('rpc.transferFunds', {
         'queued': queued,
@@ -765,11 +904,11 @@ class RustBackendService {
         },
       );
     } catch (e, st) {
-      Log.w('RUST', 'Failed to log transferFunds response: $e\n$st');
+      LoggingService.instance
+          .warn('Failed to log transferFunds response: $e\$st', tag: 'RUST');
       await SentryUtil.captureError(e, st, tag: 'transferFunds_logging');
     }
 
-    Log.d('RUST', 'transferFunds ok');
     return response;
   }
 

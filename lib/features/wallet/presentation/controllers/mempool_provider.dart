@@ -32,19 +32,17 @@ class WalletMempoolController extends AsyncNotifier<List<MempoolTxSummary>> {
           ownerStr = acc.address;
         }
       } catch (e) {
-        Log.w('MEMPOOL', 'Failed to get active account: $e');
+        LoggingService.instance
+            .warn('Failed to get active account: $e', tag: 'MEMPOOL');
       }
 
       if (ownerStr == null) {
-        Log.w('MEMPOOL', 'No active account, skipping mempool fetch');
+        LoggingService.instance
+            .warn('No active account, skipping mempool fetch', tag: 'MEMPOOL');
         return const [];
       }
 
       final owner = rust_types.publicKeyHashFromString(s: ownerStr);
-      Log.i(
-        'MEMPOOL',
-        'GET rpc.listMempool params={owner: $ownerStr, limit: null}',
-      );
 
       final resp = await RustBackendService.instance.listMempool(
         owner: owner,
@@ -53,24 +51,11 @@ class WalletMempoolController extends AsyncNotifier<List<MempoolTxSummary>> {
       );
 
       final items = resp?.entries ?? const <MempoolTxSummary>[];
-      Log.d('MEMPOOL', 'loaded items=${items.length}');
-
-      // Log detailed response
-      if (resp != null) {
-        Log.d('MEMPOOL',
-            'Response: count=${resp.count}, orphans=${resp.orphans}, totalSize=${resp.totalSize}');
-      }
-
-      // Log each transaction
-      for (var i = 0; i < items.length; i++) {
-        final tx = items[i];
-        Log.d('MEMPOOL',
-            '  [$i] id=${tx.id}, fee=${tx.fee}, inputs=${tx.inputs.length}, outputs=${tx.outputs.length}');
-      }
 
       return items;
     } catch (e, st) {
-      Log.e('MEMPOOL', 'listMempool failed', e, st);
+      LoggingService.instance.error('listMempool failed',
+          tag: 'MEMPOOL', error: e, stackTrace: st);
       rethrow;
     }
   }

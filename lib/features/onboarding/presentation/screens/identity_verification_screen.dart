@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
-import 'package:crypto_mobile_app/core/di/providers.dart';
+import 'package:crypto_mobile_app/core/providers/providers.dart';
 
 class IdentityVerificationScreen extends ConsumerStatefulWidget {
   final String? accountId;
@@ -29,8 +29,6 @@ class _IdentityVerificationScreenState
     setState(() => _processing = true);
 
     try {
-      Log.d('IDENTITY_VERIFICATION', 'Starting zkPassport verification...');
-
       // TODO: Integrate with zkPassport SDK
       // For now, simulate verification process
       await Future.delayed(const Duration(seconds: 2));
@@ -44,7 +42,6 @@ class _IdentityVerificationScreenState
           widget.accountId!,
           verified: true,
         );
-        Log.d('IDENTITY_VERIFICATION', 'Identity verification completed successfully');
       }
 
       if (!mounted) return;
@@ -66,7 +63,8 @@ class _IdentityVerificationScreenState
       // Navigate to home
       context.go('/main/home');
     } catch (e) {
-      Log.e('IDENTITY_VERIFICATION', 'Verification failed', e);
+      LoggingService.instance
+          .error('Verification failed', tag: 'IDENTITY_VERIFICATION', error: e);
       if (!mounted) return;
       setState(() => _processing = false);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -76,8 +74,6 @@ class _IdentityVerificationScreenState
   }
 
   Future<void> _skipForLater() async {
-    Log.d('IDENTITY_VERIFICATION', 'User skipped identity verification');
-
     // Invalidate provider to update router state before navigation
     ref.invalidate(hasAnyAccountProvider);
     await Future.delayed(const Duration(milliseconds: 100));
@@ -98,6 +94,7 @@ class _IdentityVerificationScreenState
           title: 'Identity Verification',
           automaticallyImplyLeading: false,
           showNotifications: false,
+          showNodeStatus: false,
         ),
         body: SafeArea(
           child: SingleChildScrollView(
@@ -106,24 +103,6 @@ class _IdentityVerificationScreenState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Icon
-                  Center(
-                    child: Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: colorScheme.primaryContainer,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.verified_user,
-                        size: 48,
-                        color: colorScheme.primary,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
                   // Title
                   Text(
                     'Verify Your Identity',
@@ -143,65 +122,59 @@ class _IdentityVerificationScreenState
                   ),
                   const SizedBox(height: 24),
 
-                  // Benefits card
-                  _SectionCard(
-                    title: 'Benefits',
-                    icon: Icons.card_giftcard,
-                    colorScheme: colorScheme,
-                    theme: theme,
+                  // Benefits and Privacy in one simple card
+                  Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(
+                        color: colorScheme.outlineVariant,
+                        width: 1,
+                      ),
+                    ),
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _BenefitItem(
                             icon: Icons.trending_up,
                             text: 'Increased reward multiplier',
-                            colorScheme: colorScheme,
                             theme: theme,
                           ),
+                          const SizedBox(height: 12),
                           _BenefitItem(
                             icon: Icons.widgets,
-                            text: 'Access to block production feature',
-                            colorScheme: colorScheme,
+                            text: 'Access to block production',
                             theme: theme,
                           ),
+                          const SizedBox(height: 12),
                           _BenefitItem(
                             icon: Icons.security,
                             text: 'Enhanced account security',
-                            colorScheme: colorScheme,
                             theme: theme,
                           ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Privacy card
-                  _SectionCard(
-                    title: 'Privacy',
-                    icon: Icons.shield,
-                    colorScheme: colorScheme,
-                    theme: theme,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(
-                            Icons.info_outline,
-                            size: 20,
-                            color: colorScheme.primary,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'Your personal information is encrypted and will never be shared with anyone. We guarantee complete privacy.',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                                height: 1.4,
+                          const SizedBox(height: 16),
+                          Divider(color: colorScheme.outlineVariant),
+                          const SizedBox(height: 16),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                Icons.shield,
+                                size: 18,
+                                color: colorScheme.primary,
                               ),
-                            ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'Your personal information is encrypted and never shared.',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -244,100 +217,34 @@ class _IdentityVerificationScreenState
   }
 }
 
-class _SectionCard extends StatelessWidget {
-  final String title;
-  final IconData icon;
-  final ColorScheme colorScheme;
-  final ThemeData theme;
-  final Widget child;
-
-  const _SectionCard({
-    required this.title,
-    required this.icon,
-    required this.colorScheme,
-    required this.theme,
-    required this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 8),
-          child: Row(
-            children: [
-              Icon(icon, size: 20, color: colorScheme.primary),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ),
-        Card(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(
-              color: colorScheme.outlineVariant,
-              width: 1,
-            ),
-          ),
-          child: child,
-        ),
-      ],
-    );
-  }
-}
-
 class _BenefitItem extends StatelessWidget {
   final IconData icon;
   final String text;
-  final ColorScheme colorScheme;
   final ThemeData theme;
 
   const _BenefitItem({
     required this.icon,
     required this.text,
-    required this.colorScheme,
     required this.theme,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: colorScheme.primaryContainer,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              color: colorScheme.onPrimaryContainer,
-              size: 20,
-            ),
+    return Row(
+      children: [
+        Icon(
+          icon,
+          size: 18,
+          color: theme.colorScheme.primary,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: theme.textTheme.bodyMedium,
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              text,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontSize: 15,
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

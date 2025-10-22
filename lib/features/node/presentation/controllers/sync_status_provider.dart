@@ -1,42 +1,115 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/node_raw_status_provider.dart';
-
-class SyncStatus {
-  final bool isSynced;
-  final String label;
-  final double progress; // 0..1 based on heights when available
-  const SyncStatus({required this.isSynced, required this.label, required this.progress});
-}
+import 'package:crypto_mobile_app/features/node/domain/entities/sync_status.dart';
+import 'package:crypto_mobile_app/core/utils/logger.dart';
 
 final syncStatusProvider = Provider<SyncStatus>((ref) {
   final raw = ref.watch(nodeRawStatusProvider).value;
-  final current = raw?.localBestHeight;
-  final network = raw?.networkBestHeight;
 
-  // Derive from heights if present
-  if (current != null && network != null && network > 0) {
-    final synced = current >= network;
-    final prog = (current / network).clamp(0.0, 1.0);
-    return SyncStatus(
-      isSynced: synced,
-      label: synced ? 'Synced & Healthy' : 'Syncing',
-      progress: prog,
+  // Handle null or error case
+  if (raw == null) {
+    return SyncStatus.error(message: 'No status data');
+  }
+
+  // Step 1: Check peer connectivity
+  final connectedPeers = raw.connectedPeers;
+  if (connectedPeers == 0) {
+    LoggingService.instance.trace(
+      'No peers connected - status: CONNECTING',
+      tag: 'SYNC_STATUS',
+    );
+    return SyncStatus.connecting();
+  }
+
+  // Step 2: Gather heights
+  final localHeight = raw.localBestHeight;
+  final networkSyncHeight = raw.networkBestHeight;
+
+  // If we don't have local height, we can't determine sync status
+  if (localHeight == null) {
+    LoggingService.instance.warn(
+      'No local height available - returning error state',
+      tag: 'SYNC_STATUS',
+    );
+    return SyncStatus.error(message: 'No local blockchain data');
+  }
+
+  // Step 3: Calculate highest peer height
+  int? highestPeerHeight;
+  try {
+    final peerHeights = raw.peers
+        .where((p) => p.bestTipHeight != null)
+        .map((p) => p.bestTipHeight!)
+        .toList();
+
+    if (peerHeights.isNotEmpty) {
+      highestPeerHeight = peerHeights.reduce((a, b) => a > b ? a : b);
+    }
+  } catch (e) {
+    LoggingService.instance.warn(
+      'Error extracting peer heights: $e',
+      tag: 'SYNC_STATUS',
     );
   }
 
-  // Fallback to progress data
-  final fetch = raw?.fetchProgress;
-  final apply = raw?.applyProgress;
-  if (fetch == null && apply == null) {
-    return const SyncStatus(isSynced: true, label: 'Synced & Healthy', progress: 1);
+  // Step 4: Determine network height
+  // Network height is the maximum of:
+  // - Network sync height (from blockchain.sync.blocks.best_tip)
+  // - Highest peer best tip height
+  int networkHeight = localHeight; // Default to local if no network data
+
+  if (networkSyncHeight != null && highestPeerHeight != null) {
+    networkHeight = networkSyncHeight > highestPeerHeight
+        ? networkSyncHeight
+        : highestPeerHeight;
+  } else if (networkSyncHeight != null) {
+    networkHeight = networkSyncHeight;
+  } else if (highestPeerHeight != null) {
+    networkHeight = highestPeerHeight;
   }
-  final fetchTotal = ((fetch?.idle ?? BigInt.zero) + (fetch?.pending ?? BigInt.zero) + (fetch?.done ?? BigInt.zero)).toInt();
-  final applyTotal = ((apply?.idle ?? BigInt.zero) + (apply?.pending ?? BigInt.zero) + (apply?.done ?? BigInt.zero)).toInt();
-  final any = fetchTotal + applyTotal;
-  final synced = fetchTotal == 0 && applyTotal == 0;
-  return SyncStatus(
-    isSynced: synced,
-    label: synced ? 'Synced & Healthy' : 'Awaiting Sync',
-    progress: synced || any == 0 ? 1.0 : 0.0,
+
+  // Step 5: Special case - genesis block
+  // If both local and network are at height 1 or less, we're not truly synced yet
+  if (localHeight <= 1 && networkHeight <= 1) {
+    LoggingService.instance.trace(
+      'At genesis block (height <= 1) - status: SYNCING',
+      tag: 'SYNC_STATUS',
+    );
+    return SyncStatus.syncing(
+      localHeight: localHeight,
+      networkHeight: networkHeight,
+      connectedPeers: connectedPeers,
+      highestPeerHeight: highestPeerHeight,
+    );
+  }
+
+  // Step 6: Compare heights and determine status
+  final synced = localHeight >= networkHeight;
+
+  LoggingService.instance.trace(
+    'Sync status calculated: '
+    'local=$localHeight, '
+    'networkSync=$networkSyncHeight, '
+    'highestPeer=$highestPeerHeight, '
+    'network=$networkHeight, '
+    'synced=$synced, '
+    'peers=$connectedPeers',
+    tag: 'SYNC_STATUS',
   );
+
+  if (synced) {
+    return SyncStatus.synced(
+      localHeight: localHeight,
+      networkHeight: networkHeight,
+      connectedPeers: connectedPeers,
+      highestPeerHeight: highestPeerHeight,
+    );
+  } else {
+    return SyncStatus.syncing(
+      localHeight: localHeight,
+      networkHeight: networkHeight,
+      connectedPeers: connectedPeers,
+      highestPeerHeight: highestPeerHeight,
+    );
+  }
 });

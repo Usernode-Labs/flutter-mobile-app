@@ -1,5 +1,3 @@
-// ignore_for_file: use_build_context_synchronously
-
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,8 +11,9 @@ import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_rep
 import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
-import 'package:crypto_mobile_app/core/routing/app_router.dart';
-import 'package:crypto_mobile_app/core/di/providers.dart';
+import 'package:crypto_mobile_app/features/profile/presentation/controllers/user_tier_provider.dart';
+import 'package:crypto_mobile_app/features/profile/domain/services/points_calculator.dart';
+import 'package:crypto_mobile_app/features/node/presentation/controllers/sync_status_provider.dart';
 
 /// Profile Screen - User profile, identity, rewards, and settings
 ///
@@ -79,21 +78,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         _privateKey = privateKey;
       });
     } catch (e, st) {
-      Log.e('PROFILE', 'Failed to load private key', e, st);
+      LoggingService.instance.error('Failed to load private key',
+          tag: 'PROFILE', error: e, stackTrace: st);
     }
   }
 
   Future<void> _loadRewards() async {
     try {
-      Log.d('PROFILE', 'Loading epoch rewards');
+      LoggingService.instance.debug('Loading epoch rewards', tag: 'PROFILE');
       final rewards = await RustBackendService.instance.epochRewards();
       if (!mounted) return;
       setState(() {
         _rewards = rewards;
       });
-      Log.d('PROFILE', 'Epoch rewards loaded: ${rewards != null}');
+      LoggingService.instance
+          .debug('Epoch rewards loaded: ${rewards != null}', tag: 'PROFILE');
     } catch (e, st) {
-      Log.e('PROFILE', 'Failed to load epoch rewards', e, st);
+      LoggingService.instance.error('Failed to load epoch rewards',
+          tag: 'PROFILE', error: e, stackTrace: st);
     }
   }
 
@@ -248,6 +250,266 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
                 const SizedBox(height: 32),
 
+                // Tier & Points Section
+                Consumer(
+                  builder: (context, ref, _) {
+                    final tierState = ref.watch(userTierProvider);
+
+                    return Column(
+                      children: [
+                        // Current Epoch Card
+                        _SectionCard(
+                          title: 'Current Epoch',
+                          icon: Icons.star,
+                          colorScheme: colorScheme,
+                          theme: theme,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '${tierState.currentTier.name} Tier',
+                                          style: theme.textTheme.titleLarge
+                                              ?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '${tierState.currentPoints} points',
+                                          style: theme.textTheme.bodyMedium
+                                              ?.copyWith(
+                                            color: colorScheme.onSurface
+                                                .withValues(alpha: 0.6),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: colorScheme.primaryContainer,
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Text(
+                                        '${tierState.currentMultiplier}x slots',
+                                        style:
+                                            theme.textTheme.labelMedium?.copyWith(
+                                          color:
+                                              colorScheme.onPrimaryContainer,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (tierState.pointsToNextTier != null) ...[
+                                  const SizedBox(height: 16),
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            'Progress to ${tierState.currentTier.nextTier?.name}',
+                                            style: theme.textTheme.bodySmall
+                                                ?.copyWith(
+                                              color: colorScheme.onSurface
+                                                  .withValues(alpha: 0.6),
+                                            ),
+                                          ),
+                                          Text(
+                                            '${tierState.pointsToNextTier} points needed',
+                                            style: theme.textTheme.bodySmall
+                                                ?.copyWith(
+                                              color: colorScheme.onSurface
+                                                  .withValues(alpha: 0.6),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      LinearProgressIndicator(
+                                        value: tierState.progressToNextTier,
+                                        backgroundColor: colorScheme
+                                            .surfaceContainerHighest,
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                          colorScheme.primary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Next Epoch Projection Card
+                        _SectionCard(
+                          title: 'Next Epoch Projection',
+                          icon: Icons.trending_up,
+                          colorScheme: colorScheme,
+                          theme: theme,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Text(
+                                              '${tierState.nextEpochTier.name} Tier',
+                                              style: theme.textTheme.titleLarge
+                                                  ?.copyWith(
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            if (tierState.willTierUp) ...[
+                                              const SizedBox(width: 8),
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                  horizontal: 8,
+                                                  vertical: 2,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: colorScheme.tertiary
+                                                      .withValues(alpha: 0.2),
+                                                  borderRadius:
+                                                      BorderRadius.circular(4),
+                                                ),
+                                                child: Row(
+                                                  children: [
+                                                    Icon(
+                                                      Icons.arrow_upward,
+                                                      size: 12,
+                                                      color:
+                                                          colorScheme.tertiary,
+                                                    ),
+                                                    const SizedBox(width: 2),
+                                                    Text(
+                                                      'Upgrade!',
+                                                      style: theme.textTheme
+                                                          .labelSmall
+                                                          ?.copyWith(
+                                                        color: colorScheme
+                                                            .tertiary,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '~${tierState.nextEpochPoints} points',
+                                          style: theme.textTheme.bodyMedium
+                                              ?.copyWith(
+                                            color: colorScheme.onSurface
+                                                .withValues(alpha: 0.6),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: colorScheme.secondaryContainer,
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Text(
+                                        '${tierState.nextEpochMultiplier}x slots',
+                                        style:
+                                            theme.textTheme.labelMedium?.copyWith(
+                                          color: colorScheme
+                                              .onSecondaryContainer,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Points Breakdown Expansion
+                        _SectionCard(
+                          title: 'How Points Are Earned',
+                          icon: Icons.info_outline,
+                          colorScheme: colorScheme,
+                          theme: theme,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              children: PointsCalculator.pointsRules.entries
+                                  .map((entry) => Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 6.0),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(
+                                              entry.key,
+                                              style: theme.textTheme.bodyMedium,
+                                            ),
+                                            Text(
+                                              entry.value,
+                                              style: theme.textTheme.bodySmall
+                                                  ?.copyWith(
+                                                color: colorScheme.onSurface
+                                                    .withValues(alpha: 0.6),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ))
+                                  .toList(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 32),
+
                 // Identity & Verification Section
                 _SectionCard(
                   title: 'Identity & Verification',
@@ -362,6 +624,56 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
                       children: [
+                        // Sync status banner
+                        Consumer(
+                          builder: (context, ref, _) {
+                            final syncStatus = ref.watch(syncStatusProvider);
+                            if (!syncStatus.isSynced && _rewards != null) {
+                              return Column(
+                                children: [
+                                  Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: colorScheme.primaryContainer
+                                          .withValues(alpha: 0.3),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: colorScheme.primary
+                                            .withValues(alpha: 0.3),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.info_outline,
+                                          size: 16,
+                                          color: colorScheme.primary,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            'Node syncing... Final data will be shown after full sync',
+                                            style:
+                                                theme.textTheme.bodySmall?.copyWith(
+                                              color: colorScheme.onSurface,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                ],
+                              );
+                            }
+                            return const SizedBox.shrink();
+                          },
+                        ),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -501,165 +813,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
-
-                // Preferences Section
-                _SectionCard(
-                  title: 'Preferences',
-                  icon: Icons.tune,
-                  colorScheme: colorScheme,
-                  theme: theme,
-                  child: Column(
-                    children: [
-                      _ListTileButton(
-                        icon: Icons.dark_mode,
-                        title: 'Theme',
-                        trailing: 'System',
-                        onTap: () {
-                          showDialog(
-                            context: context,
-                            builder: (ctx) => AlertDialog(
-                              title: const Text('Theme'),
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  ListTile(
-                                    leading: const Icon(Icons.brightness_auto),
-                                    title: const Text('System'),
-                                    trailing: const Icon(Icons.check),
-                                    onTap: () => Navigator.pop(ctx),
-                                  ),
-                                  ListTile(
-                                    leading: const Icon(Icons.light_mode),
-                                    title: const Text('Light'),
-                                    onTap: () => Navigator.pop(ctx),
-                                  ),
-                                  ListTile(
-                                    leading: const Icon(Icons.dark_mode),
-                                    title: const Text('Dark'),
-                                    onTap: () => Navigator.pop(ctx),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                      _ListTileButton(
-                        icon: Icons.language,
-                        title: 'Language',
-                        trailing: 'English',
-                        onTap: () {
-                          showDialog(
-                            context: context,
-                            builder: (ctx) => AlertDialog(
-                              title: const Text('Language'),
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  ListTile(
-                                    title: const Text('English'),
-                                    trailing: const Icon(Icons.check),
-                                    onTap: () => Navigator.pop(ctx),
-                                  ),
-                                  ListTile(
-                                    title: const Text('Français'),
-                                    onTap: () {
-                                      Navigator.pop(ctx);
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                            content: Text(
-                                                'Language support coming soon')),
-                                      );
-                                    },
-                                  ),
-                                  ListTile(
-                                    title: const Text('Español'),
-                                    onTap: () {
-                                      Navigator.pop(ctx);
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                            content: Text(
-                                                'Language support coming soon')),
-                                      );
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                      _ListTileButton(
-                        icon: Icons.attach_money,
-                        title: 'Currency',
-                        trailing: 'USD',
-                        onTap: () {
-                          showDialog(
-                            context: context,
-                            builder: (ctx) => AlertDialog(
-                              title: const Text('Currency'),
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  ListTile(
-                                    title: const Text('USD (\$)'),
-                                    trailing: const Icon(Icons.check),
-                                    onTap: () => Navigator.pop(ctx),
-                                  ),
-                                  ListTile(
-                                    title: const Text('EUR (€)'),
-                                    onTap: () {
-                                      Navigator.pop(ctx);
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                            content: Text(
-                                                'Currency support coming soon')),
-                                      );
-                                    },
-                                  ),
-                                  ListTile(
-                                    title: const Text('GBP (£)'),
-                                    onTap: () {
-                                      Navigator.pop(ctx);
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                            content: Text(
-                                                'Currency support coming soon')),
-                                      );
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Developer Section (for testing)
-                _SectionCard(
-                  title: 'Developer',
-                  icon: Icons.code,
-                  colorScheme: colorScheme,
-                  theme: theme,
-                  child: Column(
-                    children: [
-                      _ListTileButton(
-                        icon: Icons.delete_forever,
-                        title: 'Delete Account',
-                        onTap: _showDeleteAccountDialog,
-                      ),
-                    ],
-                  ),
-                ),
 
                 // Cryptographic Keys Card (hidden by default, revealed with 3 taps)
                 if (_showCryptoKeys) ...[
@@ -746,112 +899,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ),
     );
   }
-
-  Future<void> _showDeleteAccountDialog() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        icon: Icon(
-          Icons.warning_amber_rounded,
-          color: Theme.of(ctx).colorScheme.error,
-          size: 48,
-        ),
-        title: const Text('Delete All Accounts'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'This will permanently delete ALL accounts and app data. This is a complete reset.',
-            ),
-            const SizedBox(height: 12),
-            Text(
-              '⚠️ This action cannot be undone!',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Theme.of(ctx).colorScheme.error,
-              ),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Make sure you have backed up all recovery phrases if you want to restore your accounts later.',
-              style: TextStyle(fontSize: 12),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(ctx).colorScheme.error,
-            ),
-            child: const Text('Delete All Accounts'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      await _deleteAccount();
-    }
-  }
-
-  Future<void> _deleteAccount() async {
-    try {
-      // Delete ALL accounts from storage (complete reset)
-      final repo = await AccountsRepository.create();
-      Log.d('PROFILE', 'Deleting ALL accounts');
-      await repo.deleteAll();
-
-      if (!mounted) return;
-
-      // Invalidate the provider (backend will stop automatically via backendLifecycleProvider)
-      Log.d('PROFILE', 'Invalidating hasAnyAccountProvider');
-      ref.invalidate(hasAnyAccountProvider);
-
-      // Wait for next frame before navigating to avoid race condition
-      Log.d('PROFILE', 'Waiting for next frame...');
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        Log.d('PROFILE', 'Navigating to onboarding screen');
-        context.go(AppRoutes.onboarding);
-
-        // Show success message after navigation
-        Future.delayed(const Duration(milliseconds: 500), () {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                  content: Text('All accounts deleted successfully')),
-            );
-          }
-        });
-      });
-    } catch (e, st) {
-      Log.e('PROFILE', 'Failed to delete account', e, st);
-      if (!mounted) return;
-
-      // Provide more specific error message
-      String errorMessage = 'Failed to delete account';
-      if (e.toString().contains('storage')) {
-        errorMessage = 'Failed to delete account: Storage error';
-      } else if (e.toString().contains('backend')) {
-        errorMessage = 'Failed to delete account: Backend error';
-      } else {
-        errorMessage = 'Failed to delete account: ${e.toString()}';
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          duration: const Duration(seconds: 4),
-        ),
-      );
-    }
-  }
 }
 
 class _SectionCard extends StatelessWidget {
@@ -901,47 +948,6 @@ class _SectionCard extends StatelessWidget {
           child: child,
         ),
       ],
-    );
-  }
-}
-
-class _ListTileButton extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String? trailing;
-  final VoidCallback onTap;
-
-  const _ListTileButton({
-    required this.icon,
-    required this.title,
-    this.trailing,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return ListTile(
-      leading: Icon(icon, color: colorScheme.primary),
-      title: Text(title),
-      trailing: trailing != null
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  trailing!,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurface.withValues(alpha: 0.6),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                const Icon(Icons.chevron_right),
-              ],
-            )
-          : const Icon(Icons.chevron_right),
-      onTap: onTap,
     );
   }
 }
@@ -1022,7 +1028,8 @@ class _KeyField extends StatelessWidget {
                         style: const TextStyle(fontSize: 11),
                       ),
                       style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
                         minimumSize: Size.zero,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
@@ -1047,7 +1054,8 @@ class _KeyField extends StatelessWidget {
                       style: TextStyle(fontSize: 11),
                     ),
                     style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),

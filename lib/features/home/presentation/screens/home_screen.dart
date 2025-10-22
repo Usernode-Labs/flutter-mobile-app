@@ -1,17 +1,25 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:crypto_mobile_app/core/design/design_tokens.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 import 'package:crypto_mobile_app/core/widgets/activity_list_item.dart';
-import 'package:crypto_mobile_app/core/widgets/app_action_button.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:crypto_mobile_app/core/widgets/hero_action_card.dart';
+import 'package:crypto_mobile_app/core/widgets/tier_dialog.dart';
+import 'package:crypto_mobile_app/core/widgets/block_production_status_card.dart';
 import 'package:crypto_mobile_app/features/rewards/presentation/controllers/epoch_rewards_provider.dart';
+import 'package:crypto_mobile_app/features/node/presentation/controllers/sync_status_provider.dart';
+import 'package:crypto_mobile_app/features/node/presentation/controllers/node_data_providers.dart';
 import 'package:crypto_mobile_app/core/widgets/won_slot_item.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
+import 'package:crypto_mobile_app/features/wallet/data/models/account.dart';
+import 'package:crypto_mobile_app/features/profile/presentation/controllers/user_tier_provider.dart';
+import 'package:crypto_mobile_app/features/profile/domain/entities/user_tier.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -21,15 +29,65 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
+  Timer? _autoTimer;
+  bool _refreshing = false;
+  AccountMeta? _account;
+
   @override
   void initState() {
     super.initState();
+    _loadAccount();
     // Refresh epoch rewards when screen loads
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Log.d('HOME_SCREEN',
-          'Invalidating epochRewardsUiProvider to trigger refresh');
-      ref.invalidate(epochRewardsUiProvider);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _refresh());
+    // Periodic auto-refresh every 3 seconds while this screen is alive
+    _autoTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (mounted && !_refreshing) {
+        _refresh();
+      }
     });
+  }
+
+  Future<void> _loadAccount() async {
+    try {
+      final repo = await AccountsRepository.create();
+      final account = await repo.getActive();
+      if (!mounted) return;
+      setState(() {
+        _account = account;
+      });
+    } catch (e, st) {
+      LoggingService.instance.error('Failed to load account',
+          tag: LogTag.ui, error: e, stackTrace: st);
+    }
+  }
+
+  Future<void> _refresh() async {
+    if (!mounted) return;
+    setState(() {
+      _refreshing = true;
+    });
+    try {
+      LoggingService.instance.trace('Refreshing epoch rewards and blockchain',
+          tag: LogTag.rewards);
+      // Use refresh() instead of invalidate() to avoid blinking
+      await Future.wait([
+        ref.read(epochRewardsUiProvider.notifier).refresh(),
+        ref.read(nodeBlockchainProvider.notifier).refresh(),
+      ]);
+    } catch (e, st) {
+      LoggingService.instance.error('Failed to refresh data',
+          tag: LogTag.rewards, error: e, stackTrace: st);
+    } finally {
+      if (mounted) {
+        setState(() => _refreshing = false);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _autoTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -43,416 +101,425 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       drawer: const AppDrawer(),
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header section with tier and points
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: colorScheme.secondaryContainer,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.star_outline,
-                            color: colorScheme.onSecondaryContainer,
-                            size: 22,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          'Basic Tier',
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            color: colorScheme.onSurface,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Container(
+        child: RefreshIndicator(
+          onRefresh: _refresh,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header section with tier and points
+                Consumer(
+                  builder: (context, ref, _) {
+                    final tierState = ref.watch(userTierProvider);
+
+                    return Padding(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: colorScheme.surface,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                            color: colorScheme.outlineVariant
-                                .withValues(alpha: 0.4)),
-                      ),
-                      child: Text(
-                        '0 points',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurface,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Hero action cards - horizontal scroll
-              SizedBox(
-                height: 140,
-                child: FutureBuilder<List<dynamic>>(
-                  future:
-                      AccountsRepository.create().then((repo) => repo.list()),
-                  builder: (context, snapshot) {
-                    final accounts = snapshot.data ?? [];
-                    final activeAccount =
-                        accounts.isNotEmpty ? accounts.first : null;
-                    final isIdentityVerified =
-                        activeAccount?.identityVerified ?? false;
-                    final cardWidth = MediaQuery.of(context).size.width * 0.8;
-
-                    return ListView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 10),
-                      children: [
-                        // Identity verification card - dynamic based on status
-                        HeroActionCard(
-                          width: cardWidth,
-                          icon: isIdentityVerified
-                              ? Icons.verified_user
-                              : Icons.badge,
-                          title: isIdentityVerified
-                              ? 'Identity Verified ✓'
-                              : 'Boost Your Tier',
-                          subtitle: isIdentityVerified
-                              ? 'Update your verification to maintain benefits'
-                              : 'Verify your identity to unlock premium features',
-                          gradientColors: [
-                            Color.lerp(colorScheme.primary, Colors.white, 0.4)!,
-                            Color.lerp(colorScheme.primary, Colors.white, 0.1)!,
-                          ],
-                          onTap: () {
-                            if (activeAccount != null) {
-                              context.go(
-                                  '/identity-verification?accountId=${activeAccount.id}');
-                            }
-                          },
-                        ),
-
-                        // Lock tokens for yield card
-                        HeroActionCard(
-                          width: cardWidth,
-                          icon: Icons.lock,
-                          title: 'Lock for Rewards',
-                          subtitle:
-                              'Lock USDC and tokens for yield and participation bonuses',
-                          gradientColors: [
-                            Color.lerp(
-                                colorScheme.tertiary, Colors.white, 0.4)!,
-                            Color.lerp(
-                                colorScheme.tertiary, Colors.white, 0.1)!,
-                          ],
-                          onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text('Token locking coming soon')),
-                            );
-                          },
-                        ),
-
-                        // Invite friends card
-                        HeroActionCard(
-                          width: cardWidth,
-                          icon: Icons.people,
-                          title: 'Invite Friends',
-                          subtitle:
-                              'Share the app and earn rewards for each referral',
-                          gradientColors: [
-                            Color.lerp(
-                                colorScheme.secondary, Colors.white, 0.4)!,
-                            Color.lerp(
-                                colorScheme.secondary, Colors.white, 0.1)!,
-                          ],
-                          onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content:
-                                      Text('Referral program coming soon')),
-                            );
-                          },
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-
-              const SizedBox(height: 6),
-
-              // Rewards and projection card
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color:
-                        colorScheme.surfaceContainerHigh.withValues(alpha: 0.8),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Consumer(builder: (ctx, ref, _) {
-                    final rewardsAsync = ref.watch(epochRewardsUiProvider);
-                    return rewardsAsync.when(
-                      loading: () => const Center(
+                          horizontal: 16, vertical: 8),
+                      child: InkWell(
+                        onTap: () {
+                          showDialog(
+                            context: context,
+                            builder: (context) => const TierDialog(),
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(12),
                         child: Padding(
-                          padding: EdgeInsets.all(24.0),
-                          child: CircularProgressIndicator(),
-                        ),
-                      ),
-                      error: (e, st) => Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: _buildRewardsSection(
-                          context,
-                          colorScheme,
-                          theme,
-                          null,
-                        ),
-                      ),
-                      data: (ui) => Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ..._buildRewardsSection(
-                            context,
-                            colorScheme,
-                            theme,
-                            ui?.snapshot,
-                          ),
-                          if (ui?.isCached == true)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 8.0),
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: colorScheme.surface,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                        color: colorScheme.outlineVariant
-                                            .withValues(alpha: 0.5)),
-                                  ),
-                                  child: Text(
-                                    ui!.isStale ? 'Cached (stale)' : 'Cached',
-                                    style: theme.textTheme.labelSmall,
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    );
-                  }),
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // Recent Activity section
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  'Recent Activity',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              // Activity item
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: ActivityListItem(
-                  icon: Icons.verified_user,
-                  title: 'Identity verified',
-                  trailing: '+1x bonus',
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // Second activity item for visual balance
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: ActivityListItem(
-                  key: const ValueKey('activity-bridge'),
-                  icon: Icons.swap_horiz,
-                  title: 'Bridge deposit completed',
-                  trailing: '+1.5x bonus',
-                ),
-              ),
-
-              const SizedBox(height: 28),
-
-              // Upcoming Won Slots (using same provider as rewards card)
-              Consumer(builder: (ctx, ref, _) {
-                final rewardsUiAsync = ref.watch(epochRewardsUiProvider);
-                return rewardsUiAsync.when(
-                  loading: () => const SizedBox.shrink(),
-                  error: (e, st) => const SizedBox.shrink(),
-                  data: (ui) {
-                    final wonSlots = ui?.snapshot?.wonSlots;
-                    if (wonSlots == null || wonSlots.isEmpty) {
-                      return const SizedBox.shrink();
-                    }
-                    final now = DateTime.now().toUtc();
-                    final upcoming = wonSlots
-                        .where((slot) => DateTime.fromMillisecondsSinceEpoch(
-                                slot.expectedTimeMs.toInt(),
-                                isUtc: true)
-                            .isAfter(now))
-                        .take(3)
-                        .toList();
-                    if (upcoming.isEmpty) return const SizedBox.shrink();
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                'Upcoming Slots',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  color: colorScheme.onSurface,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 44,
+                                    height: 44,
+                                    decoration: BoxDecoration(
+                                      color: _getTierBackgroundColor(
+                                          tierState.currentTier),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      _getTierIcon(tierState.currentTier),
+                                      color: _getTierIconColor(
+                                          tierState.currentTier),
+                                      size: 22,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    '${tierState.currentTier.name} Tier',
+                                    style: theme.textTheme.titleLarge?.copyWith(
+                                      color: colorScheme.onSurface,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              TextButton(
-                                onPressed: () => context.push('/rewards'),
-                                child: Text('View All',
-                                    style:
-                                        TextStyle(color: colorScheme.primary)),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.surface,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                      color: colorScheme.outlineVariant
+                                          .withValues(alpha: 0.4)),
+                                ),
+                                child: Text(
+                                  '${tierState.currentPoints} points',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurface,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        ...upcoming.map((slot) => Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 16),
-                              child: WonSlotItem(
-                                slot: slot,
-                                status: SlotStatus.pending,
-                                isCompact: true,
-                              ),
-                            )),
-                        const SizedBox(height: 28),
-                      ],
+                      ),
                     );
                   },
-                );
-              }),
-
-              // Quick Actions Grid
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Quick Actions',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        Expanded(
-                          child: AppActionButton(
-                            icon: Icons.arrow_upward,
-                            label: 'Send',
-                            color: colorScheme.primary,
-                            onTap: () => context.push('/send'),
-                          ),
-                        ),
-                        Expanded(
-                          child: AppActionButton(
-                            icon: Icons.arrow_downward,
-                            label: 'Receive',
-                            color: colorScheme.tertiary,
-                            onTap: () => context.push('/receive'),
-                          ),
-                        ),
-                        Expanded(
-                          child: AppActionButton(
-                            icon: Icons.swap_horiz,
-                            label: 'Swap',
-                            color: colorScheme.secondary,
-                            onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text('Swap coming soon')),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: kSpace8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        Expanded(
-                          child: AppActionButton(
-                            icon: Icons.account_balance,
-                            label: 'Bridge',
-                            color: colorScheme.primary,
-                            onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text('Bridge coming soon')),
-                              );
-                            },
-                          ),
-                        ),
-                        Expanded(
-                          child: AppActionButton(
-                            icon: Icons.lock,
-                            label: 'Stake',
-                            color: colorScheme.tertiary,
-                            onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text('Staking coming soon')),
-                              );
-                            },
-                          ),
-                        ),
-                        Expanded(
-                          child: AppActionButton(
-                            icon: Icons.card_giftcard,
-                            label: 'Rewards',
-                            color: colorScheme.secondary,
-                            onTap: () => context.push('/rewards'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
                 ),
-              ),
 
-              const SizedBox(height: 32),
-            ],
+                // Hero action cards - horizontal scroll
+                SizedBox(
+                  height: 140,
+                  child: FutureBuilder<List<dynamic>>(
+                    future:
+                        AccountsRepository.create().then((repo) => repo.list()),
+                    builder: (context, snapshot) {
+                      final accounts = snapshot.data ?? [];
+                      final activeAccount =
+                          accounts.isNotEmpty ? accounts.first : null;
+                      final isIdentityVerified =
+                          activeAccount?.identityVerified ?? false;
+                      final cardWidth = MediaQuery.of(context).size.width * 0.8;
+
+                      return ListView(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 10),
+                        children: [
+                          // Identity verification card - only show if NOT verified
+                          if (!isIdentityVerified)
+                            HeroActionCard(
+                              width: cardWidth,
+                              icon: Icons.badge,
+                              title: 'Boost Your Tier',
+                              subtitle:
+                                  'Verify your identity to unlock premium features',
+                              gradientColors: [
+                                Color.lerp(
+                                    colorScheme.primary, Colors.white, 0.4)!,
+                                Color.lerp(
+                                    colorScheme.primary, Colors.white, 0.1)!,
+                              ],
+                              onTap: () {
+                                if (activeAccount != null) {
+                                  context.go(
+                                      '/identity-verification?accountId=${activeAccount.id}');
+                                }
+                              },
+                            ),
+
+                          // Lock tokens for yield card
+                          HeroActionCard(
+                            width: cardWidth,
+                            icon: Icons.lock,
+                            title: 'Lock for Rewards',
+                            subtitle:
+                                'Lock USDC and tokens for yield and participation bonuses',
+                            gradientColors: [
+                              Color.lerp(
+                                  colorScheme.tertiary, Colors.white, 0.4)!,
+                              Color.lerp(
+                                  colorScheme.tertiary, Colors.white, 0.1)!,
+                            ],
+                            onTap: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text('Token locking coming soon')),
+                              );
+                            },
+                          ),
+
+                          // Invite friends card
+                          HeroActionCard(
+                            width: cardWidth,
+                            icon: Icons.people,
+                            title: 'Invite Friends',
+                            subtitle:
+                                'Share the app and earn rewards for each referral',
+                            gradientColors: [
+                              Color.lerp(
+                                  colorScheme.secondary, Colors.white, 0.4)!,
+                              Color.lerp(
+                                  colorScheme.secondary, Colors.white, 0.1)!,
+                            ],
+                            onTap: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content:
+                                        Text('Referral program coming soon')),
+                              );
+                            },
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+
+                const SizedBox(height: 6),
+
+                // Rewards and projection card
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHigh
+                          .withValues(alpha: 0.8),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Consumer(builder: (ctx, ref, _) {
+                      final syncStatus = ref.watch(syncStatusProvider);
+                      final rewardsAsync = ref.watch(epochRewardsUiProvider);
+
+                      // Always show data (cached or live)
+                      return rewardsAsync.when(
+                        loading: () => Skeletonizer(
+                          enabled: true,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: _buildRewardsSection(
+                              context,
+                              colorScheme,
+                              theme,
+                              null,
+                              true,
+                            ),
+                          ),
+                        ),
+                        error: (e, st) => Skeletonizer(
+                          enabled: true,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: _buildRewardsSection(
+                              context,
+                              colorScheme,
+                              theme,
+                              null,
+                              true,
+                            ),
+                          ),
+                        ),
+                        data: (ui) => Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Show sync banner if node is syncing
+                            if (!syncStatus.isSynced && ui != null)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: colorScheme.primaryContainer
+                                        .withValues(alpha: 0.3),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                        color: colorScheme.primary
+                                            .withValues(alpha: 0.3)),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.info_outline,
+                                          size: 16, color: colorScheme.primary),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'Node syncing... Final data will be shown after full sync',
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                            color: colorScheme.onSurface,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ..._buildRewardsSection(
+                              context,
+                              colorScheme,
+                              theme,
+                              ui?.snapshot,
+                              false,
+                            ),
+                            if (ui?.isCached == true && syncStatus.isSynced)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8.0),
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: colorScheme.surface,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                          color: colorScheme.outlineVariant
+                                              .withValues(alpha: 0.5)),
+                                    ),
+                                    child: Text(
+                                      ui!.isStale ? 'Cached (stale)' : 'Cached',
+                                      style: theme.textTheme.labelSmall,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // Scheduled Activity (Upcoming Won Slots)
+                Consumer(builder: (ctx, ref, _) {
+                  final rewardsUiAsync = ref.watch(epochRewardsUiProvider);
+                  return rewardsUiAsync.when(
+                    loading: () =>
+                        _buildSkeletonSlots(context, theme, colorScheme),
+                    error: (e, st) =>
+                        _buildSkeletonSlots(context, theme, colorScheme),
+                    data: (ui) {
+                      final wonSlots = ui?.snapshot?.wonSlots;
+                      if (wonSlots == null || wonSlots.isEmpty) {
+                        return _buildSkeletonSlots(context, theme, colorScheme);
+                      }
+                      final now = DateTime.now().toUtc();
+                      final upcoming = wonSlots
+                          .where((slot) => DateTime.fromMillisecondsSinceEpoch(
+                                  slot.expectedTimeMs.toInt(),
+                                  isUtc: true)
+                              .isAfter(now))
+                          .take(1)
+                          .toList();
+                      if (upcoming.isEmpty) {
+                        return _buildSkeletonSlots(context, theme, colorScheme);
+                      }
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Scheduled Activity',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    color: colorScheme.onSurface,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          ...upcoming.map((slot) => Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 16),
+                                child: WonSlotItem(
+                                  slot: slot,
+                                  status: SlotStatus.pending,
+                                  isCompact: true,
+                                ),
+                              )),
+                          const SizedBox(height: 28),
+                        ],
+                      );
+                    },
+                  );
+                }),
+
+                // Recent Activity section
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(
+                    'Recent Activity',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: colorScheme.onSurface,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+
+                // Activity item - only show if identity is verified
+                if (_account?.identityVerified == true) ...[
+                  const SizedBox(height: 12),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: ActivityListItem(
+                      icon: Icons.verified_user,
+                      title: 'Identity verified',
+                      trailing: '+1x bonus',
+                    ),
+                  ),
+                ],
+
+                // Recent produced blocks
+                Consumer(
+                  builder: (context, ref, _) {
+                    final blockchainAsync = ref.watch(nodeBlockchainProvider);
+                    final rewardsAsync = ref.watch(epochRewardsUiProvider);
+                    final blockchain = blockchainAsync.value;
+                    final rewards = rewardsAsync.value?.snapshot;
+
+                    if (blockchain == null || blockchain.items.isEmpty) {
+                      return const SizedBox.shrink();
+                    }
+
+                    final recentBlocks = blockchain.items.take(5).toList();
+                    final rewardPerBlock = rewards?.rewardPerBlock;
+                    final tknAmount = rewardPerBlock != null
+                        ? BigInt.parse(rewardPerBlock).toInt()
+                        : 0;
+
+                    return Column(
+                      children: recentBlocks.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final block = entry.value;
+                        return Padding(
+                          padding: const EdgeInsets.only(
+                            top: 12,
+                            left: 16,
+                            right: 16,
+                          ),
+                          child: BlockProductionStatusCard(
+                            blockNumber: block.height,
+                            timeAgo: _formatTimeAgo(index),
+                            timestamp: _formatTimestamp(),
+                            tknAmount: tknAmount,
+                            backgroundColor: colorScheme.surface,
+                            borderColor: colorScheme.outlineVariant,
+                            blockIconColor: colorScheme.tertiary,
+                            tknColor: colorScheme.tertiary,
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 32),
+              ],
+            ),
           ),
         ),
       ),
@@ -464,13 +531,62 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return formatter.format(amount.toInt());
   }
 
+  IconData _getTierIcon(TierLevel tier) {
+    return switch (tier) {
+      TierLevel.basic => Icons.star_outline,
+      TierLevel.bronze => Icons.emoji_events,
+      TierLevel.gold => Icons.star,
+      TierLevel.platinum => Icons.diamond,
+    };
+  }
+
+  Color _getTierIconColor(TierLevel tier) {
+    return switch (tier) {
+      TierLevel.basic => const Color(0xFF4FC3F7),
+      TierLevel.bronze => const Color(0xFFFFB74D),
+      TierLevel.gold => const Color(0xFFFFD54F),
+      TierLevel.platinum => const Color(0xFF9575CD),
+    };
+  }
+
+  Color _getTierBackgroundColor(TierLevel tier) {
+    return switch (tier) {
+      TierLevel.basic => const Color(0xFFE1F5FE),
+      TierLevel.bronze => const Color(0xFFFFF3E0),
+      TierLevel.gold => const Color(0xFFFFFDE7),
+      TierLevel.platinum => const Color(0xFFF3E5F5),
+    };
+  }
+
+  String _formatTimeAgo(int blockIndex) {
+    // Simple placeholder based on block position (most recent = 0)
+    // In reality, would calculate from actual block timestamp
+    if (blockIndex == 0) return '0s';
+    if (blockIndex == 1) return '1m';
+    if (blockIndex == 2) return '3m';
+    if (blockIndex == 3) return '5m';
+    return '10m';
+  }
+
+  String _formatTimestamp() {
+    // Return current time as placeholder
+    // In reality, would use actual block timestamp
+    final now = DateTime.now();
+    return '${now.hour.toString().padLeft(2, '0')}:'
+        '${now.minute.toString().padLeft(2, '0')}:'
+        '${now.second.toString().padLeft(2, '0')}';
+  }
+
   List<Widget> _buildRewardsSection(
     BuildContext context,
     ColorScheme colorScheme,
     ThemeData theme,
     dynamic snapshot, // EpochRewardsSnapshot? but avoid import type bleed here
+    bool isLoading,
   ) {
-    Log.d('HOME_SCREEN', 'Building rewards section with snapshot: $snapshot');
+    LoggingService.instance.trace(
+        'Building rewards section with snapshot: $snapshot',
+        tag: 'HOME_SCREEN');
     BigInt? earned;
     BigInt? expected;
     int? epoch;
@@ -479,23 +595,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     BigInt? rewardPerBlock;
     if (snapshot != null) {
       try {
-        Log.d(
-            'HOME_SCREEN', 'Snapshot earnedSoFar raw: ${snapshot.earnedSoFar}');
-        Log.d('HOME_SCREEN',
-            'Snapshot expectedTotal raw: ${snapshot.expectedTotal}');
+        LoggingService.instance.trace(
+            'Snapshot earnedSoFar raw: ${snapshot.earnedSoFar}',
+            tag: 'HOME_SCREEN');
+        LoggingService.instance.trace(
+            'Snapshot expectedTotal raw: ${snapshot.expectedTotal}',
+            tag: 'HOME_SCREEN');
         earned = BigInt.parse(snapshot.earnedSoFar as String);
         expected = BigInt.parse(snapshot.expectedTotal as String);
         epoch = snapshot.epoch as int;
         produced = snapshot.producedInEpoch as int;
         wins = snapshot.winsInEpoch as int;
         rewardPerBlock = BigInt.parse(snapshot.rewardPerBlock as String);
-        Log.d('HOME_SCREEN',
-            'Parsed earned: $earned, expected: $expected, epoch: $epoch');
+        LoggingService.instance.trace(
+            'Parsed earned: $earned, expected: $expected, epoch: $epoch',
+            tag: 'HOME_SCREEN');
       } catch (e) {
-        Log.e('HOME_SCREEN', 'Error parsing snapshot', e, StackTrace.current);
+        LoggingService.instance.error('Error parsing snapshot',
+            tag: 'HOME_SCREEN', error: e, stackTrace: StackTrace.current);
       }
     } else {
-      Log.d('HOME_SCREEN', 'Snapshot is null');
+      LoggingService.instance.trace('Snapshot is null', tag: 'HOME_SCREEN');
     }
 
     return [
@@ -520,14 +640,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       const SizedBox(height: 8),
 
       // Rewards amount
-      Text(
-        earned != null ? '${_formatTokenAmount(earned)} TKN' : '— TKN',
-        style: theme.textTheme.headlineMedium?.copyWith(
-          fontSize: 36,
-          fontWeight: FontWeight.w700,
-          color: colorScheme.onSurface,
-        ),
-      ),
+      (earned != null && expected != null)
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${_formatTokenAmount(earned)} TKN',
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Out of ${_formatTokenAmount(expected)} TKN potential rewards',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            )
+          : Bone.text(
+              words: 2,
+              style: theme.textTheme.headlineMedium?.copyWith(
+                fontSize: 28,
+                fontWeight: FontWeight.w700,
+                color: colorScheme.onSurface,
+              ),
+            ),
 
       const SizedBox(height: 12),
 
@@ -547,27 +689,53 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            epoch != null ? 'Epoch $epoch' : 'Epoch —',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurface,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          Text(
-            (produced != null && wins != null)
-                ? '$produced / $wins blocks'
-                : '—',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w500,
-            ),
+          epoch != null
+              ? Text(
+                  'Epoch $epoch',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w500,
+                  ),
+                )
+              : Bone.text(
+                  words: 2,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+          Flexible(
+            child: (produced != null && wins != null)
+                ? Text(
+                    'Produced $produced / $wins won slots',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w400,
+                      fontSize: 12,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  )
+                : Bone.text(
+                    words: 3,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
           ),
         ],
       ),
 
-      const SizedBox(height: 16),
-
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Container(
+          height: 1,
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            borderRadius: BorderRadius.circular(4.0),
+          ),
+        ),
+      ),
       // Next epoch projection
       Text(
         'Next epoch projection',
@@ -577,23 +745,139 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       ),
       const SizedBox(height: 8),
-      Text(
-        expected != null ? '~${_formatTokenAmount(expected)} TKN' : '— TKN',
-        style: theme.textTheme.headlineSmall?.copyWith(
-          fontSize: 28,
-          fontWeight: FontWeight.w700,
-          color: colorScheme.onSurface,
-        ),
-      ),
+      expected != null
+          ? Text(
+              '~${_formatTokenAmount(expected)} TKN',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: colorScheme.onSurface,
+              ),
+            )
+          : Bone.text(
+              words: 2,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontSize: 28,
+                fontWeight: FontWeight.w700,
+                color: colorScheme.onSurface,
+              ),
+            ),
       const SizedBox(height: 4),
-      Text(
-        (wins != null && rewardPerBlock != null)
-            ? 'Based on $wins won slots at ${_formatTokenAmount(rewardPerBlock)} per block'
-            : 'Loading projection...',
-        style: theme.textTheme.bodyMedium?.copyWith(
-          color: colorScheme.onSurfaceVariant,
-        ),
-      ),
+      (wins != null && rewardPerBlock != null)
+          ? Text(
+              'Based on $wins won slots at ${_formatTokenAmount(rewardPerBlock)} TKN per block',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontSize: 12,
+              ),
+            )
+          : Bone.text(
+              words: 8,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
     ];
+  }
+
+  Widget _buildSkeletonSlots(
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Scheduled Activity',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              TextButton(
+                onPressed: null,
+                child: Text('View All',
+                    style: TextStyle(color: colorScheme.primary)),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Skeletonizer(
+          enabled: true,
+          child: Column(
+            children: List.generate(
+              3,
+              (index) => Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                        color: colorScheme.primary.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.schedule,
+                          size: 16, color: colorScheme.primary),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Bone.text(
+                              words: 2,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.onSurface,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Bone.text(
+                              words: 3,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: colorScheme.primary.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Bone.text(
+                          words: 1,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: colorScheme.primary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 28),
+      ],
+    );
   }
 }

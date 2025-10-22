@@ -56,7 +56,7 @@ Enforcement guidelines:
   - `features/node/domain/repositories/node_repository.dart`
   - `features/node/data/repositories/node_repository_impl.dart` (wraps `RustBackendService`)
 
-## What’s Implemented Now
+## What's Implemented Now
 
 - Provider‑driven Node UI (raw status, sync status, mempool, blockchain, epoch rewards)
 - Optional Result‑based providers for Node (toggle with `USE_RESULT_PROVIDERS=true`)
@@ -65,6 +65,23 @@ Enforcement guidelines:
 - Theme persistence (Settings + quick app bar toggles)
 - Lifecycle breadcrumbs + config via `--dart-define`
 - CI with format/analyze/tests
+
+## State Management
+
+The app uses **Riverpod** for all state management with a singleton RustBackendService as the central data hub:
+- 25+ providers organized by feature (node, wallet, rewards, core)
+- Centralized RustBackendService for all Rust backend communication via Flutter Rust Bridge
+- Auto-refresh mechanisms for real-time data updates
+- Comprehensive error handling with defensive PanicException catching
+- Complete Sentry logging and telemetry
+
+**📖 See [STATE_MANAGEMENT.md](./STATE_MANAGEMENT.md)** for complete documentation including:
+- Complete provider inventory with all 25 providers
+- RustBackendService architecture, lifecycle, and all RPC methods
+- Data flow diagrams with detailed ASCII visualizations
+- Code examples for common patterns (watch, read, refresh, error handling)
+- Best practices for provider organization and performance
+- Troubleshooting guide for common issues
 
 ## Adding a New Feature
 

@@ -11,16 +11,17 @@ import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/routing/app_router.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/utils/lifecycle.dart';
-import 'package:crypto_mobile_app/core/di/providers.dart';
-
+import 'package:crypto_mobile_app/core/providers/providers.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final log = LoggingService();
   await SentryUtil.bootstrap(() async {
     SentryUtil.addBreadcrumb(category: 'app', message: 'startup begin');
+    log.info('App started', tag: 'MAIN');
 
     // Render UI immediately; perform heavy bootstrap asynchronously.
-    Log.i('MAIN', 'Running app UI');
+    log.info('Running app UI', tag: 'MAIN');
     SentryUtil.addBreadcrumb(category: 'app', message: 'runApp');
     runApp(const ProviderScope(child: CryptoMobileApp()));
     // Track lifecycle changes for breadcrumbs/diagnostics
@@ -28,14 +29,14 @@ Future<void> main() async {
 
     // Kick off non-blocking bootstrap work (feature flags, backend, etc).
     // ignore: unawaited_futures
-    _bootstrapAsync();
+    _bootstrapAsync(log);
   });
 }
 
-Future<void> _bootstrapAsync() async {
+Future<void> _bootstrapAsync(LoggingService log) async {
   try {
     SentryUtil.addBreadcrumb(category: 'app', message: 'bootstrap begin');
-    Log.i('MAIN', 'Initializing application');
+    log.info('Initializing application', tag: 'MAIN');
 
     // Log environment/config for diagnostics
     final cfg = AppConfig.instance;
@@ -48,16 +49,16 @@ Future<void> _bootstrapAsync() async {
     // Load feature flags from assets (if provided)
     await FeatureFlags.loadFromAssetIfAvailable();
     if (kDebugMode) {
-      Log.d(
-        'MAIN',
+      log.debug(
         'Feature flags loaded: ${FeatureFlags.ordered.where(FeatureFlags.isEnabled).toList()}',
+        tag: 'MAIN',
       );
     }
 
     // Initialize FRB only; start backend only if an account exists
     await RustBackendService.instance.init();
     final started = await RustBackendService.instance.startForActiveAccount();
-    Log.i('MAIN', 'Backend startForActiveAccount => $started');
+    log.info('Backend startForActiveAccount => $started', tag: 'MAIN');
     await SentryUtil.captureMessage(
       started
           ? 'backend startForActiveAccount: started'
@@ -66,7 +67,7 @@ Future<void> _bootstrapAsync() async {
 
     SentryUtil.addBreadcrumb(category: 'app', message: 'bootstrap end');
   } catch (e, st) {
-    Log.e('MAIN', 'Bootstrap failed: $e');
+    log.error('Bootstrap failed: $e', tag: 'MAIN', error: e, stackTrace: st);
     await SentryUtil.captureError(e, st, tag: 'bootstrap');
   }
 }

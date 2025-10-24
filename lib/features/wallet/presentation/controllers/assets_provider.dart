@@ -146,12 +146,12 @@ class WalletAssetsController extends AsyncNotifier<List<AssetSummary>> {
     // Mock price data for now
     // TODO: Replace with actual price feed integration
     final mockPrices = {
-      'default': 0.001,
+      'default': 0.00005,
       '0x0000000000000000000000000000000000000000000000000000000000000000':
-          0.001,
+          0.00005,
     };
 
-    final pricePerToken = mockPrices[tokenId] ?? 0.001;
+    final pricePerToken = mockPrices[tokenId] ?? 0.00005;
     final balanceAsDouble = balance.toDouble();
 
     return balanceAsDouble * pricePerToken;

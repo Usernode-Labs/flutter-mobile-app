@@ -270,25 +270,25 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
       opacity: _balanceAnimation,
       child: Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
+          gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              theme.colorScheme.primaryContainer,
-              theme.colorScheme.secondaryContainer,
+              Color(0xFF6366F1), // Indigo-500
+              Color(0xFF7C3AED), // Purple-600
             ],
           ),
-          borderRadius: BorderRadius.circular(kRadiusLarge),
+          borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: theme.colorScheme.primary.withValues(alpha: 0.3),
-              blurRadius: 16,
-              offset: const Offset(0, 8),
+              color: const Color(0xFF6366F1).withValues(alpha: 0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.all(kSpace12),
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -301,8 +301,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                         ? 'Total Balance (${_shortAddr(_account!.address)})'
                         : 'Total Balance',
                     style: theme.textTheme.titleSmall?.copyWith(
-                      color: theme.colorScheme.onPrimaryContainer
-                          .withValues(alpha: 0.8),
+                      color: Colors.white,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -311,8 +310,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                       _balanceHidden ? Icons.visibility_off : Icons.visibility,
                       size: kIconSmall,
                     ),
-                    color: theme.colorScheme.onPrimaryContainer
-                        .withValues(alpha: 0.8),
+                    color: Colors.white,
                     onPressed: _toggleBalanceVisibility,
                     tooltip: _balanceHidden ? 'Show balance' : 'Hide balance',
                   ),
@@ -331,7 +329,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                       Text(
                         _balanceHidden ? '••••••' : _formatUSD(totalValue),
                         style: theme.textTheme.headlineMedium?.copyWith(
-                          color: theme.colorScheme.onPrimaryContainer,
+                          color: Colors.white,
                           fontWeight: FontWeight.w700,
                           height: 1.2,
                         ),
@@ -342,8 +340,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                         Text(
                           '${assets.length} ${assets.length == 1 ? 'asset' : 'assets'}',
                           style: theme.textTheme.titleMedium?.copyWith(
-                            color: theme.colorScheme.onPrimaryContainer
-                                .withValues(alpha: 0.7),
+                            color: Colors.white.withValues(alpha: 0.9),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -358,8 +355,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                       width: 200,
                       height: 36,
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.onPrimaryContainer
-                            .withValues(alpha: 0.1),
+                        color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(kRadiusSmall),
                       ),
                     ),
@@ -369,8 +365,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                       width: 140,
                       height: 20,
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.onPrimaryContainer
-                            .withValues(alpha: 0.1),
+                        color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(kRadiusSmall),
                       ),
                     ),
@@ -378,16 +373,16 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                 ),
                 error: (e, _) => Row(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.error_outline,
-                      color: theme.colorScheme.error,
+                      color: Colors.white,
                       size: kIconSmall,
                     ),
                     const SizedBox(width: kSpace8),
                     Text(
                       'Failed to load balance',
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.error,
+                        color: Colors.white,
                       ),
                     ),
                   ],
@@ -426,26 +421,6 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                 color: theme.colorScheme.tertiary,
                 size: AppActionButtonSize.compact,
                 onTap: _handleReceiveTap,
-              ),
-            ),
-            const SizedBox(width: kSpace8),
-            Expanded(
-              child: AppActionButton(
-                icon: Icons.swap_horiz,
-                label: 'Swap',
-                color: theme.colorScheme.secondary,
-                size: AppActionButtonSize.compact,
-                onTap: () => _showComingSoon('Swap'),
-              ),
-            ),
-            const SizedBox(width: kSpace8),
-            Expanded(
-              child: AppActionButton(
-                icon: Icons.account_balance,
-                label: 'Bridge',
-                color: theme.colorScheme.primary,
-                size: AppActionButtonSize.compact,
-                onTap: () => _showComingSoon('Bridge'),
               ),
             ),
             const SizedBox(width: kSpace8),
@@ -960,19 +935,30 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
       ThemeData theme, TransactionItem transaction, int index) {
     // Determine icon and color based on type
     final isSent = transaction.type == TransactionType.sent;
+    final isCoinbaseReward = transaction.type == TransactionType.coinbaseReward;
+    final isGenesis = transaction.type == TransactionType.genesis;
     final isPending = transaction.status == TransactionStatus.pending;
 
-    final iconColor =
-        isSent ? theme.colorScheme.primary : theme.colorScheme.tertiary;
+    final iconColor = isSent
+        ? theme.colorScheme.primary
+        : (isCoinbaseReward || isGenesis)
+            ? theme.colorScheme.secondary
+            : theme.colorScheme.tertiary;
     final iconBgColor = isSent
         ? theme.colorScheme.primaryContainer
-        : theme.colorScheme.tertiaryContainer;
+        : (isCoinbaseReward || isGenesis)
+            ? theme.colorScheme.secondaryContainer
+            : theme.colorScheme.tertiaryContainer;
 
     // Format amounts
     String amountStr = '';
     if (transaction.amounts.isNotEmpty) {
       final firstAmount = transaction.amounts.first;
-      amountStr = firstAmount.amount.toString();
+      final amountValue = firstAmount.amount.toInt();
+
+      // Format the token amount
+      final formatter = NumberFormat('#,##0', 'en_US');
+      amountStr = formatter.format(amountValue);
       if (firstAmount.tokenId.isNotEmpty) {
         amountStr += ' ${TokenFormatter.formatTokenDisplay(firstAmount.tokenId)}';
       }
@@ -991,7 +977,13 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
             borderRadius: BorderRadius.circular(kRadiusSmall),
           ),
           child: Icon(
-            isSent ? Icons.arrow_upward : Icons.arrow_downward,
+            isSent
+                ? Icons.arrow_upward
+                : isCoinbaseReward
+                    ? Icons.stars
+                    : isGenesis
+                        ? Icons.rocket_launch
+                        : Icons.arrow_downward,
             color: iconColor,
             size: kIconSmall,
           ),
@@ -1003,45 +995,44 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // For received: "Received <amount>", for sent: "Sent"
+              // Title with token amount
               Text(
                 isSent
-                    ? 'Sent'
-                    : amountStr.isNotEmpty
-                        ? 'Received $amountStr'
-                        : 'Received',
+                    ? amountStr.isNotEmpty
+                        ? 'Sent $amountStr'
+                        : 'Sent'
+                    : isCoinbaseReward
+                        ? amountStr.isNotEmpty
+                            ? 'Coinbase Reward $amountStr'
+                            : 'Coinbase Reward'
+                        : isGenesis
+                            ? amountStr.isNotEmpty
+                                ? 'Genesis Transaction $amountStr'
+                                : 'Genesis Transaction'
+                            : amountStr.isNotEmpty
+                                ? 'Received $amountStr'
+                                : 'Received',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: kSpace4),
-              // Address line with "from:" or "to" prefix
-              if (transaction.recipientAddress != null)
-                Text(
-                  '${isSent ? 'to' : 'from:'} ${_shortPk(transaction.recipientAddress!)}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+              // Address line with "from:" or "to:" prefix - always show
+              Text(
+                transaction.recipientAddress != null
+                    ? '${isSent ? 'to:' : 'from:'} ${_shortPk(transaction.recipientAddress!)}'
+                    : _account != null
+                        ? isSent
+                            ? 'to: ${_shortAddr(_account!.address)}'
+                            : 'from: ${_shortAddr(_account!.address)}'
+                        : isSent
+                            ? 'to: unknown'
+                            : 'from: unknown',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
-              if (transaction.recipientAddress == null && _account != null)
-                Text(
-                  isSent
-                      ? 'from your wallet'
-                      : 'to ${_shortAddr(_account!.address)}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
+              ),
               const SizedBox(height: kSpace4),
-              // For sent transactions, show amount separately if not already in title
-              if (isSent && amountStr.isNotEmpty)
-                Text(
-                  amountStr,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              if (isSent && amountStr.isNotEmpty) const SizedBox(height: kSpace4),
               // Show fee only for sent transactions
               if (isSent && transaction.fee != null)
                 Text(

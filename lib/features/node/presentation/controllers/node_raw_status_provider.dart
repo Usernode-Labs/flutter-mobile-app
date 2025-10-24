@@ -61,6 +61,23 @@ class NodeRawStatusView {
   }
 
   int get totalPeers => peers.length;
+
+  /// Get the number of blocks that have been applied
+  BigInt? get appliedBlocksCount => applyProgress?.done;
+
+  /// Get the total number of blocks to apply (done + pending + idle)
+  BigInt? get totalBlocksToApply {
+    if (applyProgress == null) return null;
+    return applyProgress!.done + applyProgress!.pending + applyProgress!.idle;
+  }
+
+  /// Calculate the progress percentage based on applied blocks (0.0 to 1.0)
+  double? get applyProgressPercentage {
+    final total = totalBlocksToApply;
+    final applied = appliedBlocksCount;
+    if (total == null || applied == null || total == BigInt.zero) return null;
+    return applied.toDouble() / total.toDouble();
+  }
 }
 
 class NodeRawStatusController extends AsyncNotifier<NodeRawStatusView?> {

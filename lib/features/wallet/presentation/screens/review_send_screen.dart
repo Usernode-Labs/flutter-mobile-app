@@ -169,6 +169,8 @@ class _ReviewSendScreenState extends State<ReviewSendScreen> {
     return Scaffold(
         appBar: const AppAppBar(
           title: 'Review Send',
+          showNotifications: false,
+          showNodeStatus: false,
         ),
         body: SafeArea(
           child: Padding(

@@ -1,7 +1,7 @@
 name: crypto_mobile_app
 description: A New Layer 1 Operated & Secured by users from their phones.
 
-version: 0.1.0+7
+version: 0.1.0+8
 publish_to: none
 
 environment:
@@ -45,6 +45,7 @@ dev_dependencies:
     sdk: flutter
   freezed: ^2.5.2
   build_runner: ^2.4.11
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
@@ -52,3 +53,8 @@ flutter:
   assets:
     - assets/feature_flags.json
     - assets/images/
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/icon-1024.png

@@ -58,14 +58,22 @@ class TransactionActivityController
         // Continue even if mempool fails
       }
 
-      // Fetch confirmed UTXOs
+      // Add mock transactions first (5 mock transactions)
+      final mockTransactions = _generateMockTransactions();
+      transactions.addAll(mockTransactions);
+
+      // Fetch confirmed UTXOs (limit to 5 for display with mocks)
       try {
         final utxos = await ref.watch(walletUtxosProvider.future);
         LoggingService.instance
             .debug('Confirmed UTXOs: ${utxos.length}', tag: 'ACTIVITY');
 
-        for (var i = 0; i < utxos.length; i++) {
-          final utxo = utxos[i];
+        // Take last 5 UTXOs (most recent ones)
+        final limitedUtxos = utxos.length > 5
+            ? utxos.sublist(utxos.length - 5)
+            : utxos;
+        for (var i = 0; i < limitedUtxos.length; i++) {
+          final utxo = limitedUtxos[i];
           try {
             // Generate commitment hex for ID via FRB helper
             final commitmentHex =
@@ -87,21 +95,8 @@ class TransactionActivityController
         // Continue even if UTXOs fail
       }
 
-      // Sort: pending first, then confirmed
-      transactions.sort((a, b) {
-        if (a.status == TransactionStatus.pending &&
-            b.status == TransactionStatus.confirmed) {
-          return -1;
-        }
-        if (a.status == TransactionStatus.confirmed &&
-            b.status == TransactionStatus.pending) {
-          return 1;
-        }
-        return 0;
-      });
-
       LoggingService.instance
-          .debug('Total transactions: ${transactions.length}', tag: 'ACTIVITY');
+          .debug('Total transactions: ${transactions.length} (${mockTransactions.length} mock + ${transactions.length - mockTransactions.length} real)', tag: 'ACTIVITY');
 
       return transactions;
     } catch (e, st) {
@@ -109,6 +104,82 @@ class TransactionActivityController
           tag: 'ACTIVITY', error: e, stackTrace: st);
       rethrow;
     }
+  }
+
+  /// Generate mock transactions for demonstration purposes
+  List<TransactionItem> _generateMockTransactions() {
+    return [
+      // Received transaction 1: 25 TKN
+      TransactionItem(
+        id: '0x3a7f8b2e9d4c1f6a8e5b3d7c9a2f4e6b8d1a3c5e7f9b2d4a6c8e1f3a5b7d9c2e4',
+        type: TransactionType.received,
+        status: TransactionStatus.confirmed,
+        amounts: [
+          AssetAmount(
+            tokenId: 'AiitAFAG8P8g6uXXu6zmbzsaa5bFXDNwCMYDkSUyH2wU8XLpNG',
+            amount: BigInt.from(25),
+          ),
+        ],
+        recipientAddress: 'abc123def456',
+        fee: null,
+      ),
+      // Received transaction 2: 42 TKN
+      TransactionItem(
+        id: '0x7c2e4f9b1d6a8e3c5f7b9d2a4e6c8f1b3d5a7c9e2f4b6d8a1c3e5f7b9d2c4e6a8',
+        type: TransactionType.received,
+        status: TransactionStatus.confirmed,
+        amounts: [
+          AssetAmount(
+            tokenId: 'AiitAFAG8P8g6uXXu6zmbzsaa5bFXDNwCMYDkSUyH2wU8XLpNG',
+            amount: BigInt.from(42),
+          ),
+        ],
+        recipientAddress: 'xyz789ghi012',
+        fee: null,
+      ),
+      // Sent transaction 1: 15 TKN
+      TransactionItem(
+        id: '0x9e4b7d2c5f8a1e6b3d9c4f7a2e5b8d1c6f9a3e7b2d5c8f1a4e7b3d6c9f2a5e8b1',
+        type: TransactionType.sent,
+        status: TransactionStatus.confirmed,
+        amounts: [
+          AssetAmount(
+            tokenId: 'AiitAFAG8P8g6uXXu6zmbzsaa5bFXDNwCMYDkSUyH2wU8XLpNG',
+            amount: BigInt.from(15),
+          ),
+        ],
+        recipientAddress: 'mno345pqr678',
+        fee: null,
+      ),
+      // Sent transaction 2: 38 TKN (pending)
+      TransactionItem(
+        id: '0x2f5b8d1e7c4a9e6b2d8c5f7a1e4b7d9c3f6a8e2b5d7c9f1a4e6b8d2c5f7a9e3b6',
+        type: TransactionType.sent,
+        status: TransactionStatus.pending,
+        amounts: [
+          AssetAmount(
+            tokenId: 'AiitAFAG8P8g6uXXu6zmbzsaa5bFXDNwCMYDkSUyH2wU8XLpNG',
+            amount: BigInt.from(38),
+          ),
+        ],
+        recipientAddress: 'jkl901stu234',
+        fee: null,
+      ),
+      // Sent transaction 3: 55 TKN
+      TransactionItem(
+        id: '0x6d9c2e5a8b1f4d7c3e6a9b2f5d8c1a4e7b9d3f6c8a2e5b7d1c4f6a9e3b5d8c2a7',
+        type: TransactionType.sent,
+        status: TransactionStatus.confirmed,
+        amounts: [
+          AssetAmount(
+            tokenId: 'AiitAFAG8P8g6uXXu6zmbzsaa5bFXDNwCMYDkSUyH2wU8XLpNG',
+            amount: BigInt.from(55),
+          ),
+        ],
+        recipientAddress: 'vwx567yza890',
+        fee: null,
+      ),
+    ];
   }
 }
 

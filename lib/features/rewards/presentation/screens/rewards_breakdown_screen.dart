@@ -53,6 +53,8 @@ class _RewardsBreakdownScreenState extends ConsumerState<RewardsBreakdownScreen>
     return Scaffold(
       appBar: const AppAppBar(
         title: 'Rewards Breakdown',
+        showNotifications: false,
+        showNodeStatus: false,
       ),
       body: SafeArea(
         child: _isLoading

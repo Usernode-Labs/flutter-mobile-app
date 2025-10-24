@@ -80,9 +80,20 @@ class TransactionItem {
         }
       }
 
+      // Determine transaction type based on amount
+      TransactionType txType = TransactionType.received;
+      if (amounts.isNotEmpty) {
+        final firstAmount = amounts.first.amount.toInt();
+        if (firstAmount == 200) {
+          txType = TransactionType.coinbaseReward;
+        } else if (firstAmount == 50000000) {
+          txType = TransactionType.genesis;
+        }
+      }
+
       return TransactionItem(
         id: commitmentHex,
-        type: TransactionType.received,
+        type: txType,
         status: TransactionStatus.confirmed,
         amounts: amounts,
         recipientAddress: recipientAddress,
@@ -129,6 +140,8 @@ class TransactionItem {
 enum TransactionType {
   sent,
   received,
+  coinbaseReward,
+  genesis,
 }
 
 /// Status of transaction

@@ -59,6 +59,7 @@ class NotificationsScreen extends ConsumerWidget {
       appBar: AppAppBar(
         title: 'Notifications',
         showNotifications: false,
+        showNodeStatus: false,
         actions: [
           if (notificationsState.notifications.isNotEmpty)
             PopupMenuButton<String>(

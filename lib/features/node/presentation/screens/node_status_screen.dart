@@ -13,8 +13,6 @@ import 'package:crypto_mobile_app/features/node/domain/entities/node_status.dart
 import 'package:crypto_mobile_app/features/node/presentation/controllers/node_data_providers.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/node_raw_status_provider.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/sync_status_provider.dart';
-import 'package:crypto_mobile_app/features/node/presentation/controllers/mempool_cache_provider.dart';
-import 'package:crypto_mobile_app/features/node/presentation/controllers/best_tip_cache_provider.dart';
 import 'package:go_router/go_router.dart';
 
 class NodeStatusScreen extends ConsumerStatefulWidget {
@@ -34,27 +32,17 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   int? _networkBestTipHeight;
   int? _bestTipGlobalSlot;
   int? _bestTipEpoch;
-  String? _bestTipHash;
-  List<BigInt> _bestTipBatchTransactions = const [];
 
   // Cached rewards data
   int? _producedInEpoch;
   int? _winsInEpoch;
-  BigInt? _earnedSoFar;
-  BigInt? _expectedTotal;
   BigInt? _rewardPerBlock;
 
   Timer? _autoTimer;
   late final TabController _tabController;
   DateTime? _lastChecked;
 
-  // Sync speed tracking
-  int? _previousBlockHeight;
-  DateTime? _previousHeightCheck;
-  double? _blocksPerSecond;
-
   // Collapsible section states
-  bool _isBlockchainExpanded = false;
   bool _isRecentBlocksExpanded = false;
 
   @override
@@ -99,33 +87,11 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
         if (!mounted) return;
         setState(() {
-          // Calculate sync speed
-          final currentHeight = localBestTip?.height;
-          final now = DateTime.now();
-          if (_previousBlockHeight != null &&
-              _previousHeightCheck != null &&
-              currentHeight != null &&
-              currentHeight > _previousBlockHeight!) {
-            final timeDiff = now.difference(_previousHeightCheck!).inSeconds;
-            if (timeDiff > 0) {
-              final blockDiff = currentHeight - _previousBlockHeight!;
-              _blocksPerSecond = blockDiff / timeDiff;
-            }
-          }
-          _previousBlockHeight = currentHeight;
-          _previousHeightCheck = now;
-
           _peers = raw.peers;
           _currentBlockHeight = localBestTip?.height;
           _networkBestTipHeight = networkBestTip?.height;
           _bestTipGlobalSlot = displayBestTip?.globalSlot;
           _bestTipEpoch = displayBestTip?.epoch;
-          try {
-            _bestTipHash = displayBestTip?.hash.toString();
-          } catch (e) {
-            _bestTipHash = null;
-          }
-          _bestTipBatchTransactions = raw.bestTipBatchTransactions;
           _lastChecked = DateTime.now();
 
           // Cache rewards data
@@ -133,8 +99,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
           if (rewardsData != null) {
             _producedInEpoch = rewardsData.producedInEpoch;
             _winsInEpoch = rewardsData.winsInEpoch;
-            _earnedSoFar = rewardsData.earnedSoFar;
-            _expectedTotal = rewardsData.expectedTotal;
             _rewardPerBlock = rewardsData.rewardPerBlock;
           }
         });
@@ -188,10 +152,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
             // OVERVIEW Section (includes Synchronization details)
             _buildOverviewSection(context, ref.watch(nodeStatusProvider).value),
-            const SizedBox(height: 18),
-
-            // BLOCKCHAIN Section (collapsible, without Recent Blocks)
-            _buildBlockchainSection(context),
             const SizedBox(height: 18),
 
             // RECENT BLOCKS Section (collapsible, separate card)
@@ -266,14 +226,25 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     final sync = ref.watch(syncStatusProvider);
     final isSynced = sync.isSynced;
 
-    // Calculate sync percentage
-    final currentHeight =
-        statusFromProvider?.localBestHeight ?? _currentBlockHeight ?? 0;
-    final networkHeight = statusFromProvider?.networkBestHeight ??
-        _networkBestTipHeight ??
-        currentHeight;
-    final syncPercentage =
-        networkHeight > 0 ? (currentHeight / networkHeight) : sync.progress;
+    // Calculate sync percentage - now based on applied blocks progress from sync status
+    final syncPercentage = sync.progress;
+
+    // Determine what to display for block counts
+    String blockDisplayText;
+    if (sync.appliedBlocks != null && sync.targetBlocks != null) {
+      // Use applied blocks data
+      final appliedStr = _formatBigIntStatic(sync.appliedBlocks!);
+      final targetStr = _formatBigIntStatic(sync.targetBlocks!);
+      blockDisplayText = 'Block $appliedStr / $targetStr';
+    } else {
+      // Fallback to height-based display
+      final currentHeight =
+          statusFromProvider?.localBestHeight ?? _currentBlockHeight ?? 0;
+      final networkHeight = statusFromProvider?.networkBestHeight ??
+          _networkBestTipHeight ??
+          currentHeight;
+      blockDisplayText = 'Block $currentHeight / $networkHeight';
+    }
 
     // Peer status
     int connectedPeers;
@@ -336,7 +307,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Block $currentHeight / $networkHeight',
+                blockDisplayText,
                 style: theme.textTheme.bodyMedium!
                     .copyWith(fontSize: 14, letterSpacing: 0.2),
               ),
@@ -366,43 +337,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             minHeight: 8,
           ),
         ),
-
-        // Sync speed info
-        if (!isSynced && _blocksPerSecond != null && _blocksPerSecond! > 0) ...[
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Icon(Icons.speed, size: 14, color: colorScheme.onSurfaceVariant),
-              const SizedBox(width: 6),
-              Text(
-                '${_blocksPerSecond!.toStringAsFixed(1)} blocks/sec',
-                style: theme.textTheme.bodySmall!
-                    .copyWith(
-                        fontSize: 12,
-                        letterSpacing: 0.2,
-                        color: colorScheme.onSurfaceVariant)
-                    .copyWith(
-                      fontSize: 11,
-                    ),
-              ),
-              const SizedBox(width: 16),
-              Icon(Icons.schedule,
-                  size: 14, color: colorScheme.onSurfaceVariant),
-              const SizedBox(width: 6),
-              Text(
-                'ETA: ${_calculateETA(currentHeight, networkHeight, _blocksPerSecond!)}',
-                style: theme.textTheme.bodySmall!
-                    .copyWith(
-                        fontSize: 12,
-                        letterSpacing: 0.2,
-                        color: colorScheme.onSurfaceVariant)
-                    .copyWith(
-                      fontSize: 11,
-                    ),
-              ),
-            ],
-          ),
-        ],
 
         // Horizontal divider before sync details
         Padding(
@@ -509,6 +443,78 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                     0xFFF9A825), // Darker golden yellow for better readability
                 colorScheme: colorScheme,
                 onTap: () => context.push('/main/node/won-slots'),
+                useGradient: false,
+              ),
+            ),
+          ],
+        ),
+
+        // Horizontal divider before Best Tip and Mempool
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: _buildDivider(),
+        ),
+
+        // Best Tip and Mempool row
+        Row(
+          children: [
+            Expanded(
+              child: _buildMultiLineInfoCard(
+                context,
+                icon: Icons.toll,
+                label: 'Best Tip',
+                lines: () {
+                  final raw = ref.watch(nodeRawStatusProvider).value;
+                  final localBestTip = raw?.localBest;
+                  final networkBestTip = raw?.networkBest;
+                  final displayBestTip = networkBestTip ?? localBestTip;
+
+                  if (displayBestTip == null) return ['N/A'];
+
+                  final height = displayBestTip.height;
+                  final hash = displayBestTip.hash.toString();
+                  final producer = displayBestTip.producerPubkey;
+
+                  final formattedHeight =
+                      'Height ${NumberFormat('#,###').format(height)}';
+                  final truncatedHash = hash.length > 16
+                      ? '${hash.substring(0, 8)}...${hash.substring(hash.length - 8)}'
+                      : hash;
+                  final truncatedProducer = producer.length > 16
+                      ? '${producer.substring(0, 6)}...${producer.substring(producer.length - 4)}'
+                      : producer;
+
+                  return [formattedHeight, truncatedHash, truncatedProducer];
+                }(),
+                color: colorScheme.tertiary,
+                colorScheme: colorScheme,
+                useGradient: false,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: _buildMultiLineInfoCard(
+                context,
+                icon: Icons.dynamic_feed,
+                label: 'Mempool',
+                lines: () {
+                  final mempool = ref.watch(nodeMempoolProvider).value;
+                  if (mempool == null) return ['N/A'];
+
+                  final count = mempool.count.toInt();
+                  final orphans = mempool.orphans.toInt();
+                  final sizeKB =
+                      (mempool.totalSize.toInt() / 1024).toStringAsFixed(1);
+
+                  return [
+                    count == 1 ? '1 txn' : '$count txns',
+                    '$sizeKB KB',
+                    orphans == 1 ? '1 orphan' : '$orphans orphans',
+                  ];
+                }(),
+                color: colorScheme.secondary,
+                colorScheme: colorScheme,
+                onTap: () => context.push('/main/node/mempool'),
                 useGradient: false,
               ),
             ),
@@ -644,6 +650,123 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                     letterSpacing: 0.2,
                   ),
                 ),
+              ],
+            ),
+          ),
+          // Show chevron arrow for clickable cards
+          if (onTap != null)
+            Icon(
+              Icons.chevron_right,
+              size: 20,
+              color: color.withValues(alpha: 0.5),
+            ),
+        ],
+      ),
+    );
+
+    if (onTap != null) {
+      return InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: card,
+      );
+    }
+
+    return card;
+  }
+
+  Widget _buildMultiLineInfoCard(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required List<String> lines,
+    required Color color,
+    required ColorScheme colorScheme,
+    VoidCallback? onTap,
+    bool useGradient = false,
+  }) {
+    final theme = Theme.of(context);
+
+    final card = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+      decoration: BoxDecoration(
+          color: useGradient ? null : colorScheme.surfaceContainerLow,
+          gradient: useGradient
+              ? LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color.alphaBlend(
+                      Colors.white.withValues(alpha: 0.04),
+                      color.withValues(alpha: 0.08),
+                    ),
+                    Color.alphaBlend(
+                      Colors.white.withValues(alpha: 0.02),
+                      color.withValues(alpha: 0.04),
+                    ),
+                  ],
+                )
+              : null,
+          border: useGradient
+              ? Border.all(
+                  color: color.withValues(alpha: 0.8),
+                  width: 1.0,
+                )
+              : null,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: useGradient
+              ? [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.2),
+                    offset: const Offset(0, 2),
+                    blurRadius: 8.0,
+                    spreadRadius: 2,
+                  ),
+                ]
+              : [
+                  BoxShadow(
+                      color: colorScheme.outline.withValues(alpha: 0.8),
+                      offset: const Offset(0.5, 0.5),
+                      blurRadius: 4.0)
+                ]),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.20),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(icon, size: 12, color: color),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: theme.textTheme.bodySmall!.copyWith(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 12,
+                      letterSpacing: 0.2,
+                      color: colorScheme.onSurfaceVariant),
+                ),
+                const SizedBox(height: 2),
+                ...lines.map((line) => Padding(
+                      padding: const EdgeInsets.only(top: 1),
+                      child: Text(
+                        line,
+                        style: theme.textTheme.bodySmall!.copyWith(
+                          color: color,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.1,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    )),
               ],
             ),
           ),
@@ -886,234 +1009,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     );
   }
 
-  Widget _buildBlockchainSection(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final raw = ref.watch(nodeRawStatusProvider).value;
-    final bestTipUi = ref.watch(bestTipUiProvider).value;
-    final mempoolAsync = ref.watch(nodeMempoolProvider);
-    final mempoolUi = ref.watch(mempoolUiProvider).value;
-    final rewards = ref.watch(nodeEpochRewardsProvider).value;
-
-    // Best Tip data
-    final height = raw?.networkBestHeight ??
-        raw?.localBestHeight ??
-        _networkBestTipHeight ??
-        _currentBlockHeight ??
-        bestTipUi?.snapshot?.height;
-    final hash = raw?.bestTipHash ?? _bestTipHash ?? bestTipUi?.snapshot?.hash;
-    final displayHash = () {
-      if (hash == null || hash.isEmpty) return 'N/A';
-      final h = hash;
-      final head = h.length >= 6 ? h.substring(0, 6) : h;
-      final tail = h.length >= 6 ? h.substring(h.length - 6) : '';
-      return '$head…$tail';
-    }();
-
-    final batches = (() {
-      if (raw?.bestTipBatchTransactions.isNotEmpty == true) {
-        return raw!.bestTipBatchTransactions;
-      }
-      if (_bestTipBatchTransactions.isNotEmpty) {
-        return _bestTipBatchTransactions;
-      }
-      return (bestTipUi?.snapshot?.batchTransactions ?? [])
-          .map((e) => BigInt.parse(e))
-          .toList();
-    }());
-
-    final batchSummary = batches.isNotEmpty
-        ? batches
-            .asMap()
-            .entries
-            .map((e) => '${e.key + 1}: ${e.value}')
-            .join('  •  ')
-        : 'None';
-
-    // Mempool data
-    String mempoolCount = '0';
-    String mempoolOrphans = '0';
-    String mempoolSize = '0B';
-
-    mempoolAsync.whenData((mempool) {
-      if (mempool != null) {
-        mempoolCount = mempool.count.toString();
-        mempoolOrphans = mempool.orphans.toString();
-        mempoolSize = _formatBytes(mempool.totalSize);
-      } else if (mempoolUi?.snapshot != null) {
-        final snap = mempoolUi!.snapshot!;
-        mempoolCount = snap.count;
-        mempoolOrphans = snap.orphans;
-        mempoolSize = _formatBytes(BigInt.parse(snap.totalSize));
-      }
-    });
-
-    return _buildDiaryCard(
-      context: context,
-      children: [
-        // Header row with expand/collapse icon
-        InkWell(
-          onTap: () {
-            setState(() {
-              _isBlockchainExpanded = !_isBlockchainExpanded;
-            });
-          },
-          child: Row(
-            children: [
-              Expanded(child: _buildSectionHeader(context, 'Blockchain')),
-              Icon(
-                _isBlockchainExpanded ? Icons.expand_less : Icons.expand_more,
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ],
-          ),
-        ),
-
-        // Collapsible content
-        if (_isBlockchainExpanded) ...[
-          const SizedBox(height: 12),
-
-          // Best Tip row
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 80,
-                child: Text(
-                  'Best Tip',
-                  style: theme.textTheme.bodySmall!.copyWith(
-                      fontSize: 12,
-                      letterSpacing: 0.2,
-                      color: colorScheme.onSurfaceVariant),
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  '${_fmtInt(height)} ($displayHash)',
-                  style: theme.textTheme.bodyMedium!
-                      .copyWith(fontSize: 14, letterSpacing: 0.2),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-
-          // Batches row
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 80,
-                child: Text(
-                  'Batches',
-                  style: theme.textTheme.bodySmall!.copyWith(
-                      fontSize: 12,
-                      letterSpacing: 0.2,
-                      color: colorScheme.onSurfaceVariant),
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  batchSummary,
-                  style: theme.textTheme.bodyMedium!
-                      .copyWith(fontSize: 14, letterSpacing: 0.2),
-                ),
-              ),
-            ],
-          ),
-
-          // Horizontal divider
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: _buildDivider(),
-          ),
-
-          // Mempool row
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 80,
-                child: Text(
-                  'Mempool',
-                  style: theme.textTheme.bodySmall!.copyWith(
-                      fontSize: 12,
-                      letterSpacing: 0.2,
-                      color: colorScheme.onSurfaceVariant),
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  '$mempoolCount tx ($mempoolOrphans orphans)  •  $mempoolSize',
-                  style: theme.textTheme.bodyMedium!
-                      .copyWith(fontSize: 14, letterSpacing: 0.2),
-                ),
-              ),
-              TextButton(
-                onPressed: () => context.push('/main/node/mempool'),
-                style: TextButton.styleFrom(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'View',
-                      style: theme.textTheme.bodySmall!
-                          .copyWith(
-                              fontSize: 12,
-                              letterSpacing: 0.2,
-                              color: colorScheme.onSurfaceVariant)
-                          .copyWith(
-                            color: colorScheme.primary,
-                          ),
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(Icons.arrow_forward,
-                        size: 14, color: colorScheme.primary),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
-          // Horizontal divider before Earned row
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: _buildDivider(),
-          ),
-
-          // Earned row
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 80,
-                child: Text(
-                  'Earned',
-                  style: theme.textTheme.bodySmall!.copyWith(
-                      fontSize: 12,
-                      letterSpacing: 0.2,
-                      color: colorScheme.onSurfaceVariant),
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  '${_formatTokenAmount(rewards?.earnedSoFar ?? _earnedSoFar ?? BigInt.zero)}  •  Expected: ${_formatTokenAmount(rewards?.expectedTotal ?? _expectedTotal ?? BigInt.zero)}',
-                  style: theme.textTheme.bodyMedium!
-                      .copyWith(fontSize: 14, letterSpacing: 0.2),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ],
-    );
-  }
-
   // NEW method: Separate Recent Blocks section
   Widget _buildRecentBlocksSection(BuildContext context) {
     final theme = Theme.of(context);
@@ -1191,13 +1086,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
         ],
       ],
     );
-  }
-
-  String _formatBytes(BigInt bytes) {
-    final b = bytes.toInt();
-    if (b < 1024) return '${b}B';
-    if (b < 1024 * 1024) return '${(b / 1024).toStringAsFixed(1)}KB';
-    return '${(b / (1024 * 1024)).toStringAsFixed(1)}MB';
   }
 
   // ignore: unused_element
@@ -1342,13 +1230,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     return '$years year${years > 1 ? 's' : ''} ago';
   }
 
-  String _fmtInt(int? v) => v == null ? 'N/A' : v.toString();
-
-  String _formatTokenAmount(BigInt amount) {
-    final formatter = NumberFormat('#,##0', 'en_US');
-    return formatter.format(amount.toInt());
-  }
-
   String _formatLastChecked() {
     if (_lastChecked == null) return '';
 
@@ -1375,23 +1256,14 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     }
   }
 
-  String _calculateETA(int current, int target, double blocksPerSec) {
-    if (blocksPerSec <= 0 || current >= target) return 'N/A';
-
-    final blocksRemaining = target - current;
-    final secondsRemaining = (blocksRemaining / blocksPerSec).ceil();
-
-    if (secondsRemaining < 60) {
-      return '~${secondsRemaining}s';
-    } else if (secondsRemaining < 3600) {
-      final minutes = (secondsRemaining / 60).ceil();
-      return '~$minutes min';
-    } else if (secondsRemaining < 86400) {
-      final hours = (secondsRemaining / 3600).ceil();
-      return '~$hours hr';
-    } else {
-      final days = (secondsRemaining / 86400).ceil();
-      return '~$days day${days > 1 ? 's' : ''}';
+  static String _formatBigIntStatic(BigInt value) {
+    final formatter = NumberFormat('#,###', 'en_US');
+    // Convert BigInt to int for formatting (safe for reasonable block counts)
+    try {
+      return formatter.format(value.toInt());
+    } catch (e) {
+      // Fallback for very large numbers that don't fit in int
+      return value.toString();
     }
   }
 

@@ -2,15 +2,17 @@
 ///
 /// Tiers:
 /// - Basic: 0-99 points (1.0x slot multiplier)
-/// - Bronze: 100-499 points (1.3x slot multiplier)
-/// - Gold: 500-999 points (1.5x slot multiplier)
-/// - Platinum: 1000+ points (2.0x slot multiplier)
+/// - Bronze: 100-499 points (1.5x slot multiplier)
+/// - Silver: 500-749 points (2.0x slot multiplier)
+/// - Gold: 750-999 points (3.0x slot multiplier)
+/// - Platinum: 1000+ points (4.0x slot multiplier)
 
 enum TierLevel {
   basic(1, 'Basic', 0, 99),
   bronze(2, 'Bronze', 100, 499),
-  gold(3, 'Gold', 500, 999),
-  platinum(4, 'Platinum', 1000, null);
+  silver(3, 'Silver', 500, 749),
+  gold(4, 'Gold', 750, 999),
+  platinum(5, 'Platinum', 1000, null);
 
   const TierLevel(this.level, this.name, this.minPoints, this.maxPoints);
 
@@ -26,18 +28,21 @@ enum TierLevel {
       case TierLevel.basic:
         return 1.0;
       case TierLevel.bronze:
-        return 1.3;
-      case TierLevel.gold:
         return 1.5;
-      case TierLevel.platinum:
+      case TierLevel.silver:
         return 2.0;
+      case TierLevel.gold:
+        return 3.0;
+      case TierLevel.platinum:
+        return 4.0;
     }
   }
 
   /// Calculate tier from points
   static TierLevel fromPoints(int points) {
     if (points >= 1000) return TierLevel.platinum;
-    if (points >= 500) return TierLevel.gold;
+    if (points >= 750) return TierLevel.gold;
+    if (points >= 500) return TierLevel.silver;
     if (points >= 100) return TierLevel.bronze;
     return TierLevel.basic;
   }
@@ -48,6 +53,8 @@ enum TierLevel {
       case TierLevel.basic:
         return TierLevel.bronze;
       case TierLevel.bronze:
+        return TierLevel.silver;
+      case TierLevel.silver:
         return TierLevel.gold;
       case TierLevel.gold:
         return TierLevel.platinum;

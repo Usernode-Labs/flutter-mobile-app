@@ -6,6 +6,7 @@ import 'package:crypto_mobile_app/features/wallet/data/models/transaction_item.d
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
 import 'package:crypto_mobile_app/features/wallet/presentation/controllers/utxo_provider.dart';
 import 'package:crypto_mobile_app/features/wallet/presentation/controllers/mempool_provider.dart';
+import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 
 /// Controller that combines mempool transactions and confirmed UTXOs
@@ -62,6 +63,21 @@ class TransactionActivityController
       final mockTransactions = _generateMockTransactions();
       transactions.addAll(mockTransactions);
 
+      // Fetch coinbase reward amount from epoch rewards
+      BigInt? coinbaseRewardAmount;
+      try {
+        final epochRewards = await RustBackendService.instance.epochRewards();
+        if (epochRewards != null) {
+          coinbaseRewardAmount = epochRewards.rewardPerBlock;
+          LoggingService.instance.debug(
+              'Coinbase reward amount: $coinbaseRewardAmount', tag: 'ACTIVITY');
+        }
+      } catch (e) {
+        LoggingService.instance
+            .warn('Failed to fetch epoch rewards: $e', tag: 'ACTIVITY');
+        // Continue with null, will use default fallback value
+      }
+
       // Fetch confirmed UTXOs (limit to 5 for display with mocks)
       try {
         final utxos = await ref.watch(walletUtxosProvider.future);
@@ -82,6 +98,7 @@ class TransactionActivityController
             final item = TransactionItem.fromUtxo(
               utxo: utxo,
               commitmentHex: commitmentHex,
+              coinbaseRewardAmount: coinbaseRewardAmount,
             );
             transactions.add(item);
           } catch (e) {

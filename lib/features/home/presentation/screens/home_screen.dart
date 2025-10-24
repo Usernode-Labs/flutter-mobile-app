@@ -11,12 +11,11 @@ import 'package:crypto_mobile_app/core/widgets/earn_yield_hero_card.dart';
 import 'package:crypto_mobile_app/core/widgets/boost_tier_hero_card.dart';
 import 'package:crypto_mobile_app/core/widgets/invite_friends_hero_card.dart';
 import 'package:crypto_mobile_app/core/widgets/tier_dialog.dart';
-import 'package:crypto_mobile_app/core/widgets/block_production_status_card.dart';
+import 'package:crypto_mobile_app/core/widgets/produced_block_card.dart';
 import 'package:crypto_mobile_app/features/rewards/presentation/controllers/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/sync_status_provider.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/node_data_providers.dart';
 import 'package:crypto_mobile_app/features/node/presentation/screens/scheduled_slot_details_screen.dart';
-import 'package:crypto_mobile_app/features/node/presentation/screens/block_details_screen.dart';
 import 'package:crypto_mobile_app/core/widgets/won_slot_item.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/log_tag.dart';
@@ -548,27 +547,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             left: 16,
                             right: 16,
                           ),
-                          child: GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => BlockDetailsScreen(
-                                    block: block,
-                                  ),
-                                ),
-                              );
-                            },
-                            child: BlockProductionStatusCard(
-                              blockNumber: block.height,
-                              timeAgo: _formatTimeAgo(block.timestamp),
-                              timestamp: _formatTimestamp(block.timestamp),
-                              tknAmount: tknAmount,
-                              backgroundColor: colorScheme.surface,
-                              borderColor: colorScheme.outlineVariant,
-                              blockIconColor: colorScheme.tertiary,
-                              tknColor: colorScheme.tertiary,
-                            ),
+                          child: ProducedBlockCard(
+                            block: block,
+                            rewardPerBlock: BigInt.from(tknAmount),
+                            variant: BlockCardVariant.compact,
                           ),
                         );
                       }).toList(),
@@ -618,39 +600,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       TierLevel.gold => const Color(0xFFFFFDE7),
       TierLevel.platinum => const Color(0xFFF3E5F5),
     };
-  }
-
-  String _formatTimeAgo(BigInt timestampMs) {
-    try {
-      final millis = timestampMs.toInt();
-      final blockTime = DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true).toLocal();
-      final now = DateTime.now();
-      final diff = now.difference(blockTime);
-
-      if (diff.inSeconds < 60) {
-        return '${diff.inSeconds}s';
-      } else if (diff.inMinutes < 60) {
-        return '${diff.inMinutes}m';
-      } else if (diff.inHours < 24) {
-        return '${diff.inHours}h';
-      } else {
-        return '${diff.inDays}d';
-      }
-    } catch (e) {
-      return 'N/A';
-    }
-  }
-
-  String _formatTimestamp(BigInt timestampMs) {
-    try {
-      final millis = timestampMs.toInt();
-      final blockTime = DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true).toLocal();
-      return '${blockTime.hour.toString().padLeft(2, '0')}:'
-          '${blockTime.minute.toString().padLeft(2, '0')}:'
-          '${blockTime.second.toString().padLeft(2, '0')}';
-    } catch (e) {
-      return 'Invalid time';
-    }
   }
 
   List<Widget> _buildRewardsSection(

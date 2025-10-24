@@ -51,6 +51,7 @@ class TransactionItem {
   factory TransactionItem.fromUtxo({
     required OwnedUtxo utxo,
     required String commitmentHex,
+    BigInt? coinbaseRewardAmount,
   }) {
     try {
       // Serialize UTXO to JSON to access its fields
@@ -84,7 +85,8 @@ class TransactionItem {
       TransactionType txType = TransactionType.received;
       if (amounts.isNotEmpty) {
         final firstAmount = amounts.first.amount.toInt();
-        if (firstAmount == 200) {
+        final rewardAmount = coinbaseRewardAmount?.toInt() ?? 20;
+        if (firstAmount == rewardAmount) {
           txType = TransactionType.coinbaseReward;
         } else if (firstAmount == 50000000) {
           txType = TransactionType.genesis;

@@ -71,7 +71,7 @@ class BlockDetailsScreen extends StatelessWidget {
               icon: Icons.check,
               title: 'VRF Slot Discovered',
               subtitle: 'Slot ${block.globalSlot} won',
-              timing: '5ms',
+              timing: null,
               isLast: false,
             ),
 
@@ -86,9 +86,10 @@ class BlockDetailsScreen extends StatelessWidget {
             _TimelineItem(
               icon: Icons.check,
               title: 'Transaction Batches Included',
-              subtitle:
-                  'Included ${block.batches.length} batches / ${block.transactions} transactions',
-              timing: '<1ms',
+              subtitle: block.batches.isNotEmpty
+                  ? 'Included ${block.batches.length} batches / ${block.transactions} transactions'
+                  : 'Included batches / transactions',
+              timing: null,
               isLast: false,
             ),
 
@@ -96,15 +97,15 @@ class BlockDetailsScreen extends StatelessWidget {
               icon: Icons.check,
               title: 'State Transition.',
               subtitle: 'Protocol and Consensus states updated',
-              timing: '<1ms',
+              timing: null,
               isLast: false,
             ),
 
             _TimelineItem(
               icon: Icons.check,
               title: 'Applied Locally',
-              subtitle: '+543 New UTXOs, -210 Spent UTXOs',
-              timing: '100ms',
+              subtitle: 'UTXOs updated',
+              timing: null,
               isLast: false,
             ),
 
@@ -117,11 +118,11 @@ class BlockDetailsScreen extends StatelessWidget {
             ),
 
             _TimelineItem(
-              icon: Icons.shield_outlined,
+              icon: Icons.verified,
               title: 'Block Confirmed',
               subtitle:
                   'Hash: ${block.hash.toString().length > 16 ? block.hash.toString().substring(0, 16) : block.hash.toString()}...',
-              timing: '250ms',
+              timing: null,
               isLast: true,
             ),
 
@@ -225,17 +226,16 @@ class _TimelineItem extends StatelessWidget {
                   width: 20,
                   height: 20,
                   decoration: BoxDecoration(
-                    color: icon == Icons.shield_outlined
-                        ? theme.colorScheme.surfaceContainerHighest
+                    color: icon == Icons.verified
+                        ? Colors.amber.withOpacity(0.2)
                         : theme.colorScheme.onSurface,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Icon(
                     icon,
-                    color: icon == Icons.shield_outlined
-                        ? theme.colorScheme.onSurfaceVariant
-                        : theme.colorScheme.surface,
-                    size: 14,
+                    color:
+                        isLast ? Colors.amber[700] : theme.colorScheme.surface,
+                    size: isLast ? 20 : 14,
                   ),
                 ),
                 if (!isLast)

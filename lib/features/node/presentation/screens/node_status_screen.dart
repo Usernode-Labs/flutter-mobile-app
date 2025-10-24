@@ -1315,6 +1315,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
         }
 
         return _ProducedBlockItem(
+          block: block,
           blockNumber: block.height,
           epoch: block.epoch,
           globalSlot: block.globalSlot,
@@ -1337,6 +1338,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 }
 
 class _ProducedBlockItem extends StatelessWidget {
+  final RpcStatusBlockInfo block;
   final int blockNumber;
   final int epoch;
   final int globalSlot;
@@ -1347,6 +1349,7 @@ class _ProducedBlockItem extends StatelessWidget {
   final BigInt reward;
 
   const _ProducedBlockItem({
+    required this.block,
     required this.blockNumber,
     required this.epoch,
     required this.globalSlot,
@@ -1365,18 +1368,23 @@ class _ProducedBlockItem extends StatelessWidget {
     // Shorten the hash
     final shortHash = _shortenHashStatic(hash);
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: isBestTip
-            ? colorScheme.primaryContainer.withValues(alpha: 0.3)
-            : colorScheme.surfaceContainerLow,
-        border:
-            isBestTip ? Border.all(color: colorScheme.primary, width: 2) : null,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
+    return InkWell(
+      onTap: () {
+        context.push('/main/node/block-details', extra: block);
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: isBestTip
+              ? colorScheme.primaryContainer.withValues(alpha: 0.3)
+              : colorScheme.surfaceContainerLow,
+          border:
+              isBestTip ? Border.all(color: colorScheme.primary, width: 2) : null,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Icon
@@ -1470,6 +1478,7 @@ class _ProducedBlockItem extends StatelessWidget {
               ),
             ),
         ],
+        ),
       ),
     );
   }

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/node_data_providers.dart';
@@ -131,15 +132,20 @@ class _ProducedBlockTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
-      ),
-      child: Row(
+    return InkWell(
+      onTap: () {
+        context.push('/main/node/block-details', extra: block);
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+        ),
+        child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(Icons.auto_awesome_motion, color: colorScheme.primary, size: 16),
@@ -207,6 +213,7 @@ class _ProducedBlockTile extends StatelessWidget {
             ),
           ),
         ],
+        ),
       ),
     );
   }

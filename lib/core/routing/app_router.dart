@@ -124,11 +124,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(
             path: '/main/home',
-            builder: (context, state) => const HomeScreen(),
+            pageBuilder: (context, state) => _buildPageWithFade(
+              state,
+              const HomeScreen(),
+            ),
           ),
           GoRoute(
             path: '/main/node',
-            builder: (context, state) => const NodeStatusScreen(),
+            pageBuilder: (context, state) => _buildPageWithFade(
+              state,
+              const NodeStatusScreen(),
+            ),
           ),
           GoRoute(
             path: '/main/node/won-slots',
@@ -144,16 +150,25 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/main/dapps',
-            builder: (context, state) => const DAppsScreen(),
+            pageBuilder: (context, state) => _buildPageWithFade(
+              state,
+              const DAppsScreen(),
+            ),
           ),
           // Optional routes for wallet/profile (hidden from bottom nav by flags)
           GoRoute(
             path: '/main/wallet',
-            builder: (context, state) => const WalletScreen(),
+            pageBuilder: (context, state) => _buildPageWithFade(
+              state,
+              const WalletScreen(),
+            ),
           ),
           GoRoute(
             path: '/main/profile',
-            builder: (context, state) => const ProfileScreen(),
+            pageBuilder: (context, state) => _buildPageWithFade(
+              state,
+              const ProfileScreen(),
+            ),
           ),
         ],
       ),
@@ -239,3 +254,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     },
   );
 });
+
+/// Helper function to build pages with subtle fade transitions
+Page<dynamic> _buildPageWithFade(
+  GoRouterState state,
+  Widget child,
+) {
+  return CustomTransitionPage(
+    key: state.pageKey,
+    child: child,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      return FadeTransition(
+        opacity: animation.drive(CurveTween(curve: Curves.easeInOut)),
+        child: child,
+      );
+    },
+    transitionDuration: const Duration(milliseconds: 150),
+  );
+}

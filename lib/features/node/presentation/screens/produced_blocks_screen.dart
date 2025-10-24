@@ -181,6 +181,13 @@ class _ProducedBlockTile extends StatelessWidget {
                       fontSize: 12,
                     )),
                 const SizedBox(height: 2),
+                Text(_formatTimestamp(block.timestamp),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w400,
+                      fontSize: 12,
+                    )),
+                const SizedBox(height: 2),
                 Text('Hash: ${_shorten(hash)}',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: colorScheme.onSurfaceVariant,
@@ -212,5 +219,38 @@ class _ProducedBlockTile extends StatelessWidget {
   String _formatTokenAmount(BigInt amount) {
     final formatter = NumberFormat('#,##0', 'en_US');
     return formatter.format(amount.toInt());
+  }
+
+  String _formatTimestamp(BigInt timestampMs) {
+    try {
+      final millis = timestampMs.toInt();
+      final blockTime = DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true).toLocal();
+      final now = DateTime.now();
+      final diff = now.difference(blockTime);
+
+      // Calculate relative time
+      String relativeTime;
+      if (diff.inMinutes < 1) {
+        relativeTime = 'just now';
+      } else if (diff.inMinutes < 60) {
+        relativeTime = '${diff.inMinutes} min${diff.inMinutes == 1 ? '' : 's'} ago';
+      } else if (diff.inHours < 24) {
+        relativeTime = '${diff.inHours} hour${diff.inHours == 1 ? '' : 's'} ago';
+      } else if (diff.inDays < 7) {
+        relativeTime = '${diff.inDays} day${diff.inDays == 1 ? '' : 's'} ago';
+      } else {
+        relativeTime = '${(diff.inDays / 7).floor()} week${(diff.inDays / 7).floor() == 1 ? '' : 's'} ago';
+      }
+
+      // Format absolute time
+      final hour = blockTime.hour.toString().padLeft(2, '0');
+      final minute = blockTime.minute.toString().padLeft(2, '0');
+      final second = blockTime.second.toString().padLeft(2, '0');
+      final absoluteTime = '$hour:$minute:$second';
+
+      return '$relativeTime • $absoluteTime';
+    } catch (e) {
+      return 'Invalid time';
+    }
   }
 }

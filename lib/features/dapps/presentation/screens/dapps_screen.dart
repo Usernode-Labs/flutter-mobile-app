@@ -40,9 +40,9 @@ class _DAppsScreenState extends State<DAppsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     DAppCard(
-                      name: 'Bridge [coming soon]',
+                      name: 'Bridge',
                       description:
-                          'Transfer assets across different blockchains',
+                          'Transfer assets across different blockchains (coming soon)',
                       icon: Icons.account_balance,
                       color: colorScheme.primary,
                       onTap: () {
@@ -54,8 +54,8 @@ class _DAppsScreenState extends State<DAppsScreen> {
                     const SizedBox(height: 12),
 
                     DAppCard(
-                      name: 'Yield [coming soon]',
-                      description: 'Earn rewards on your crypto holdings',
+                      name: 'Yield',
+                      description: 'Earn rewards on your crypto holdings (coming soon)',
                       icon: Icons.trending_up,
                       color: colorScheme.tertiary,
                       onTap: () {
@@ -67,8 +67,8 @@ class _DAppsScreenState extends State<DAppsScreen> {
                     const SizedBox(height: 12),
 
                     DAppCard(
-                      name: 'Lend [coming soon]',
-                      description: 'Lend your assets and earn interest',
+                      name: 'Lend',
+                      description: 'Lend your assets and earn interest (coming soon)',
                       icon: Icons.attach_money,
                       color: colorScheme.secondary,
                       onTap: () {
@@ -80,8 +80,8 @@ class _DAppsScreenState extends State<DAppsScreen> {
                     const SizedBox(height: 12),
 
                     DAppCard(
-                      name: 'Borrow [coming soon]',
-                      description: 'Borrow assets against your collateral',
+                      name: 'Borrow',
+                      description: 'Borrow assets against your collateral (coming soon)',
                       icon: Icons.account_balance_wallet,
                       color: colorScheme.tertiary,
                       onTap: () {
@@ -93,8 +93,8 @@ class _DAppsScreenState extends State<DAppsScreen> {
                     const SizedBox(height: 12),
 
                     DAppCard(
-                      name: 'Trade (swap) [coming soon]',
-                      description: 'Exchange tokens instantly at best rates',
+                      name: 'Trade (swap)',
+                      description: 'Exchange tokens instantly at best rates (coming soon)',
                       icon: Icons.swap_horiz,
                       color: colorScheme.primary,
                       onTap: () {
@@ -106,8 +106,8 @@ class _DAppsScreenState extends State<DAppsScreen> {
                     const SizedBox(height: 12),
 
                     DAppCard(
-                      name: 'Trade (provide liquidity) [coming soon]',
-                      description: 'Provide liquidity and earn trading fees',
+                      name: 'Trade (provide liquidity)',
+                      description: 'Provide liquidity and earn trading fees (coming soon)',
                       icon: Icons.water_drop,
                       color: colorScheme.secondary,
                       onTap: () {

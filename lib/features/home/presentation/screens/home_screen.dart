@@ -7,7 +7,6 @@ import 'package:skeletonizer/skeletonizer.dart';
 import 'package:crypto_mobile_app/core/widgets/activity_list_item.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
-import 'package:crypto_mobile_app/core/widgets/hero_action_card.dart';
 import 'package:crypto_mobile_app/core/widgets/earn_yield_hero_card.dart';
 import 'package:crypto_mobile_app/core/widgets/boost_tier_hero_card.dart';
 import 'package:crypto_mobile_app/core/widgets/invite_friends_hero_card.dart';
@@ -542,9 +541,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         : 0;
 
                     return Column(
-                      children: recentBlocks.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final block = entry.value;
+                      children: recentBlocks.map((block) {
                         return Padding(
                           padding: const EdgeInsets.only(
                             top: 12,
@@ -564,8 +561,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             },
                             child: BlockProductionStatusCard(
                               blockNumber: block.height,
-                              timeAgo: _formatTimeAgo(index),
-                              timestamp: _formatTimestamp(),
+                              timeAgo: _formatTimeAgo(block.timestamp),
+                              timestamp: _formatTimestamp(block.timestamp),
                               tknAmount: tknAmount,
                               backgroundColor: colorScheme.surface,
                               borderColor: colorScheme.outlineVariant,
@@ -597,6 +594,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return switch (tier) {
       TierLevel.basic => Icons.star_outline,
       TierLevel.bronze => Icons.emoji_events,
+      TierLevel.silver => Icons.military_tech,
       TierLevel.gold => Icons.star,
       TierLevel.platinum => Icons.diamond,
     };
@@ -606,6 +604,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return switch (tier) {
       TierLevel.basic => const Color(0xFF4FC3F7),
       TierLevel.bronze => const Color(0xFFFFB74D),
+      TierLevel.silver => const Color(0xFFB0BEC5),
       TierLevel.gold => const Color(0xFFFFD54F),
       TierLevel.platinum => const Color(0xFF9575CD),
     };
@@ -615,28 +614,43 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return switch (tier) {
       TierLevel.basic => const Color(0xFFE1F5FE),
       TierLevel.bronze => const Color(0xFFFFF3E0),
+      TierLevel.silver => const Color(0xFFECEFF1),
       TierLevel.gold => const Color(0xFFFFFDE7),
       TierLevel.platinum => const Color(0xFFF3E5F5),
     };
   }
 
-  String _formatTimeAgo(int blockIndex) {
-    // Simple placeholder based on block position (most recent = 0)
-    // In reality, would calculate from actual block timestamp
-    if (blockIndex == 0) return '0s';
-    if (blockIndex == 1) return '1m';
-    if (blockIndex == 2) return '3m';
-    if (blockIndex == 3) return '5m';
-    return '10m';
+  String _formatTimeAgo(BigInt timestampMs) {
+    try {
+      final millis = timestampMs.toInt();
+      final blockTime = DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true).toLocal();
+      final now = DateTime.now();
+      final diff = now.difference(blockTime);
+
+      if (diff.inSeconds < 60) {
+        return '${diff.inSeconds}s';
+      } else if (diff.inMinutes < 60) {
+        return '${diff.inMinutes}m';
+      } else if (diff.inHours < 24) {
+        return '${diff.inHours}h';
+      } else {
+        return '${diff.inDays}d';
+      }
+    } catch (e) {
+      return 'N/A';
+    }
   }
 
-  String _formatTimestamp() {
-    // Return current time as placeholder
-    // In reality, would use actual block timestamp
-    final now = DateTime.now();
-    return '${now.hour.toString().padLeft(2, '0')}:'
-        '${now.minute.toString().padLeft(2, '0')}:'
-        '${now.second.toString().padLeft(2, '0')}';
+  String _formatTimestamp(BigInt timestampMs) {
+    try {
+      final millis = timestampMs.toInt();
+      final blockTime = DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true).toLocal();
+      return '${blockTime.hour.toString().padLeft(2, '0')}:'
+          '${blockTime.minute.toString().padLeft(2, '0')}:'
+          '${blockTime.second.toString().padLeft(2, '0')}';
+    } catch (e) {
+      return 'Invalid time';
+    }
   }
 
   List<Widget> _buildRewardsSection(

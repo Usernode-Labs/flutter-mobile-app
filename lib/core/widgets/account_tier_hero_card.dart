@@ -35,6 +35,7 @@ class AccountTierHeroCard extends StatelessWidget {
     return switch (tier) {
       TierLevel.basic => Icons.star_outline,
       TierLevel.bronze => Icons.emoji_events,
+      TierLevel.silver => Icons.military_tech,
       TierLevel.gold => Icons.star,
       TierLevel.platinum => Icons.diamond,
     };
@@ -44,6 +45,7 @@ class AccountTierHeroCard extends StatelessWidget {
     return switch (tier) {
       TierLevel.basic => const Color(0xFF4FC3F7),
       TierLevel.bronze => const Color(0xFFFFB74D),
+      TierLevel.silver => const Color(0xFFB0BEC5),
       TierLevel.gold => const Color(0xFFFFD54F),
       TierLevel.platinum => const Color(0xFF9575CD),
     };

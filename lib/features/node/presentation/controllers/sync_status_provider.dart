@@ -56,58 +56,53 @@ final syncStatusProvider = Provider<SyncStatus>((ref) {
   // Network height is the maximum of:
   // - Network sync height (from blockchain.sync.blocks.best_tip)
   // - Highest peer best tip height
-  int networkHeight = localHeight; // Default to local if no network data
+  // If we have no network data from sync OR peers, we can't determine sync status
+  int? networkHeight;
 
-  if (networkSyncHeight != null && highestPeerHeight != null) {
-    networkHeight = networkSyncHeight > highestPeerHeight
-        ? networkSyncHeight
-        : highestPeerHeight;
-  } else if (networkSyncHeight != null) {
-    networkHeight = networkSyncHeight;
-  } else if (highestPeerHeight != null) {
-    networkHeight = highestPeerHeight;
-  }
-
-  // Step 4.5: If connected but network height is unknown, we're syncing
-  // This prevents false "synced" status when we have no network data
-  if (connectedPeers > 0 && networkSyncHeight == null && highestPeerHeight == null) {
+  if (networkSyncHeight != null || highestPeerHeight != null) {
+    // We have at least one source of network height data
+    if (networkSyncHeight != null && highestPeerHeight != null) {
+      networkHeight = networkSyncHeight > highestPeerHeight
+          ? networkSyncHeight
+          : highestPeerHeight;
+    } else if (networkSyncHeight != null) {
+      networkHeight = networkSyncHeight;
+    } else if (highestPeerHeight != null) {
+      networkHeight = highestPeerHeight;
+    }
+  } else {
+    // No network height data available - we're still connecting
     LoggingService.instance.trace(
-      'Connected to peers but network height unknown - status: SYNCING',
+      'No network height data available (networkSync=$networkSyncHeight, highestPeer=$highestPeerHeight) - status: CONNECTING',
       tag: 'SYNC_STATUS',
     );
-    return SyncStatus.syncing(
-      localHeight: localHeight,
-      networkHeight: localHeight, // Use local as placeholder
-      connectedPeers: connectedPeers,
-      highestPeerHeight: null,
-    );
+    return SyncStatus.connecting();
   }
 
   // Step 5: Special case - genesis block
-  // If both local and network are at height 1 or less, we're not truly synced yet
-  if (localHeight <= 1 && networkHeight <= 1) {
+  // If both local and network are at height 1 or less, show connecting
+  if (localHeight <= 1 && networkHeight! <= 1) {
     LoggingService.instance.trace(
-      'At genesis block (height <= 1) - status: SYNCING',
+      'At genesis block (height <= 1) - status: CONNECTING',
       tag: 'SYNC_STATUS',
     );
-    return SyncStatus.syncing(
-      localHeight: localHeight,
-      networkHeight: networkHeight,
-      connectedPeers: connectedPeers,
-      highestPeerHeight: highestPeerHeight,
-    );
+    return SyncStatus.connecting();
   }
 
   // Step 6: Extract applied blocks data
   final appliedBlocks = raw.appliedBlocksCount;
   final targetBlocks = raw.totalBlocksToApply;
 
+  // At this point, networkHeight is guaranteed to be non-null
+  // (we returned early if it was null)
+  final confirmedNetworkHeight = networkHeight!;
+
   // Step 7: Determine sync status
   // If no applyProgress data AND localHeight == networkHeight, consider it synced
   bool synced;
   if (appliedBlocks == null || targetBlocks == null) {
     // No apply progress data - fallback to height comparison
-    synced = localHeight >= networkHeight;
+    synced = localHeight >= confirmedNetworkHeight;
   } else {
     // Use apply progress: synced if all blocks are applied
     synced = appliedBlocks >= targetBlocks;
@@ -118,7 +113,7 @@ final syncStatusProvider = Provider<SyncStatus>((ref) {
     'local=$localHeight, '
     'networkSync=$networkSyncHeight, '
     'highestPeer=$highestPeerHeight, '
-    'network=$networkHeight, '
+    'network=$confirmedNetworkHeight, '
     'appliedBlocks=$appliedBlocks, '
     'targetBlocks=$targetBlocks, '
     'synced=$synced, '
@@ -129,7 +124,7 @@ final syncStatusProvider = Provider<SyncStatus>((ref) {
   if (synced) {
     return SyncStatus.synced(
       localHeight: localHeight,
-      networkHeight: networkHeight,
+      networkHeight: confirmedNetworkHeight,
       connectedPeers: connectedPeers,
       highestPeerHeight: highestPeerHeight,
       appliedBlocks: appliedBlocks,
@@ -138,7 +133,7 @@ final syncStatusProvider = Provider<SyncStatus>((ref) {
   } else {
     return SyncStatus.syncing(
       localHeight: localHeight,
-      networkHeight: networkHeight,
+      networkHeight: confirmedNetworkHeight,
       connectedPeers: connectedPeers,
       highestPeerHeight: highestPeerHeight,
       appliedBlocks: appliedBlocks,

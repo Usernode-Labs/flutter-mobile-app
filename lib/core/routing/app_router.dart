@@ -12,6 +12,7 @@ import 'package:crypto_mobile_app/features/home/presentation/screens/home_screen
 import 'package:crypto_mobile_app/features/node/presentation/screens/node_status_screen.dart';
 import 'package:crypto_mobile_app/features/node/presentation/screens/node_won_slots_screen.dart';
 import 'package:crypto_mobile_app/features/node/presentation/screens/produced_blocks_screen.dart';
+import 'package:crypto_mobile_app/features/node/presentation/screens/block_details_screen.dart';
 import 'package:crypto_mobile_app/features/node/presentation/screens/mempool_details_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/presentation/screens/dapps_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/presentation/screens/wallet_screen.dart';
@@ -24,6 +25,7 @@ import 'package:crypto_mobile_app/features/rewards/presentation/screens/rewards_
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 
 class AppRoutes {
   static const splash = '/splash';
@@ -143,6 +145,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/main/node/produced-blocks',
             builder: (context, state) => const ProducedBlocksScreen(),
+          ),
+          GoRoute(
+            path: '/main/node/block-details',
+            builder: (context, state) {
+              final block = state.extra as RpcStatusBlockInfo;
+              return BlockDetailsScreen(block: block);
+            },
           ),
           GoRoute(
             path: '/main/node/mempool',

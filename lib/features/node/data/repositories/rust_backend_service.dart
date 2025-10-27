@@ -86,8 +86,10 @@ class RustBackendService {
       builder.httpServer(port: httpPort);
     }
 
-    builder.blockProducerHex(skHex: "3b40aba2c6f3c53c26d5945e723525d8471d89d7e330e99b223d3e67f12a871e");
-    builder.mempoolAutoinsertInterval(secs: BigInt.from(1));
+    builder.blockProducerHex(
+        skHex:
+            "3b40aba2c6f3c53c26d5945e723525d8471d89d7e330e99b223d3e67f12a871e");
+    builder.mempoolAutoinsertInterval(secs: BigInt.from(5));
 
     _node = builder.build();
     _rpc = _node!.rpc();
@@ -487,9 +489,11 @@ class RustBackendService {
   Future<RpcListBlockchainResp?> listBlockchain({
     int? limit,
     bool? fromTip,
+    int? epoch,
+    AccountPublicKey? blockProducer,
   }) async {
     LoggingService.instance.trace(
-        'listBlockchain called with params: limit=$limit, fromTip=$fromTip',
+        'listBlockchain called with params: limit=$limit, fromTip=$fromTip, epoch=$epoch, blockProducer=$blockProducer',
         tag: 'RUST');
     final r = _rpc;
     if (r == null) return null;
@@ -500,6 +504,8 @@ class RustBackendService {
       blockchain = await r.listBlockchain(
         limit: limit,
         fromTip: fromTip,
+        epoch: epoch,
+        blockProducer: blockProducer,
       );
     } on PanicException catch (e, st) {
       // FRB surfaced a Rust-side panic.

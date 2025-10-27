@@ -162,11 +162,6 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
     return formatter.format(amount);
   }
 
-  String _formatUSD(double usd) {
-    final formatter = NumberFormat('\$#,##0.00', 'en_US');
-    return formatter.format(usd);
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -321,13 +316,15 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
               // Balance amount
               assetsAsync.when(
                 data: (assets) {
-                  final totalValue = assets.fold<double>(0.0, (sum, a) => sum + a.usdValue);
+                  final totalBalance = assets.fold<BigInt>(BigInt.zero, (sum, a) => sum + a.totalBalance);
+                  final tokenSymbol = assets.isNotEmpty ? assets.first.tokenSymbol : 'TKN';
+                  final formattedBalance = '${_formatAmount(totalBalance.toDouble())} $tokenSymbol';
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // USD value (primary)
+                      // Token balance (primary)
                       Text(
-                        _balanceHidden ? '••••••' : _formatUSD(totalValue),
+                        _balanceHidden ? '••••••' : formattedBalance,
                         style: theme.textTheme.headlineMedium?.copyWith(
                           color: Colors.white,
                           fontWeight: FontWeight.w700,
@@ -657,8 +654,6 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
   }
 
   Widget _buildAssetRow(ThemeData theme, AssetSummary asset) {
-    final isPositive = asset.change24h >= 0;
-
     return Row(
       children: [
         // Token icon
@@ -679,73 +674,20 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
 
         // Token info
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                asset.tokenName,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: kSpace4),
-              Text(
-                '${_formatAmount(asset.totalBalance.toDouble())} ${asset.tokenSymbol}',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
+          child: Text(
+            asset.tokenName,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
 
-        // Value and change
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              _formatUSD(asset.usdValue),
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: kSpace4),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: kSpace8,
-                vertical: kSpace4,
-              ),
-              decoration: BoxDecoration(
-                color: (isPositive
-                        ? theme.colorScheme.tertiary
-                        : theme.colorScheme.error)
-                    .withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(kRadiusFull),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    isPositive ? Icons.arrow_upward : Icons.arrow_downward,
-                    size: 12,
-                    color: isPositive
-                        ? theme.colorScheme.tertiary
-                        : theme.colorScheme.error,
-                  ),
-                  const SizedBox(width: kSpace4),
-                  Text(
-                    '${isPositive ? '+' : ''}${asset.change24h.toStringAsFixed(1)}%',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: isPositive
-                          ? theme.colorScheme.tertiary
-                          : theme.colorScheme.error,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+        // Token amount
+        Text(
+          '${_formatAmount(asset.totalBalance.toDouble())} ${asset.tokenSymbol}',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ],
     );

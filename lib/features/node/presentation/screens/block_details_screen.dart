@@ -1,8 +1,9 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 
-class BlockDetailsScreen extends StatelessWidget {
+class BlockDetailsScreen extends StatefulWidget {
   final RpcStatusBlockInfo block;
 
   const BlockDetailsScreen({
@@ -11,8 +12,69 @@ class BlockDetailsScreen extends StatelessWidget {
   });
 
   @override
+  State<BlockDetailsScreen> createState() => _BlockDetailsScreenState();
+}
+
+class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
+  late List<int> timings;
+
+  @override
+  void initState() {
+    super.initState();
+    timings = _generateTimings();
+  }
+
+  /// Generate random timings for each step with total not exceeding 400ms
+  /// Steps 1-6: 5-149ms, Step 7 (Block Confirmed): 150-250ms
+  List<int> _generateTimings() {
+    final random = Random();
+    const int stepCount = 7;
+    const int minMs = 5;
+    const int maxMs = 149;
+    const int lastStepMinMs = 150;
+    const int lastStepMaxMs = 250;
+    const int maxTotal = 400;
+
+    // First, generate the last step value (Block Confirmed) between 150-250ms
+    int lastStepValue = lastStepMinMs + random.nextInt(lastStepMaxMs - lastStepMinMs + 1);
+
+    // Calculate remaining budget for first 6 steps
+    int remainingBudget = maxTotal - lastStepValue;
+
+    // Generate values for first 6 steps within the remaining budget
+    List<int> values = [];
+
+    // Start with random values in the 5-149ms range
+    for (int i = 0; i < stepCount - 1; i++) {
+      values.add(minMs + random.nextInt(maxMs - minMs + 1));
+    }
+
+    // Calculate sum of first 6 steps
+    int firstSixSum = values.reduce((a, b) => a + b);
+
+    // If first 6 steps exceed remaining budget, scale them down
+    if (firstSixSum > remainingBudget) {
+      // Target slightly below budget for safety
+      int targetSum = (remainingBudget * 0.95).round();
+      double scaleFactor = targetSum / firstSixSum;
+
+      values = values.map((v) {
+        int scaled = (v * scaleFactor).round();
+        // Ensure minimum of 5ms is maintained
+        return scaled < minMs ? minMs : scaled;
+      }).toList();
+    }
+
+    // Add the last step value
+    values.add(lastStepValue);
+
+    return values;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final block = widget.block;
 
     return Scaffold(
       appBar: const AppAppBar(
@@ -71,7 +133,7 @@ class BlockDetailsScreen extends StatelessWidget {
               icon: Icons.check,
               title: 'VRF Slot Discovered',
               subtitle: 'Slot ${block.globalSlot} won',
-              timing: '5ms',
+              timing: '${timings[0]}ms',
               isLast: false,
             ),
 
@@ -79,16 +141,17 @@ class BlockDetailsScreen extends StatelessWidget {
               icon: Icons.check,
               title: 'Block Production Scheduled',
               subtitle: 'Epoch ${block.epoch}, Slot ${block.globalSlot}',
-              timing: null,
+              timing: '${timings[1]}ms',
               isLast: false,
             ),
 
             _TimelineItem(
               icon: Icons.check,
               title: 'Transaction Batches Included',
-              subtitle:
-                  'Included ${block.batches.length} batches / ${block.transactions} transactions',
-              timing: '<1ms',
+              subtitle: block.batches.isNotEmpty
+                  ? 'Included ${block.batches.length} batches / ${block.transactions} transactions'
+                  : 'Included batches / transactions',
+              timing: '${timings[2]}ms',
               isLast: false,
             ),
 
@@ -96,15 +159,15 @@ class BlockDetailsScreen extends StatelessWidget {
               icon: Icons.check,
               title: 'State Transition.',
               subtitle: 'Protocol and Consensus states updated',
-              timing: '<1ms',
+              timing: '${timings[3]}ms',
               isLast: false,
             ),
 
             _TimelineItem(
               icon: Icons.check,
               title: 'Applied Locally',
-              subtitle: '+543 New UTXOs, -210 Spent UTXOs',
-              timing: '100ms',
+              subtitle: 'UTXOs updated',
+              timing: '${timings[4]}ms',
               isLast: false,
             ),
 
@@ -112,16 +175,16 @@ class BlockDetailsScreen extends StatelessWidget {
               icon: Icons.check,
               title: 'Block Committed',
               subtitle: 'Block #${block.height}',
-              timing: null,
+              timing: '${timings[5]}ms',
               isLast: false,
             ),
 
             _TimelineItem(
-              icon: Icons.shield_outlined,
+              icon: Icons.verified,
               title: 'Block Confirmed',
               subtitle:
                   'Hash: ${block.hash.toString().length > 16 ? block.hash.toString().substring(0, 16) : block.hash.toString()}...',
-              timing: '250ms',
+              timing: '${timings[6]}ms',
               isLast: true,
             ),
 
@@ -225,17 +288,16 @@ class _TimelineItem extends StatelessWidget {
                   width: 20,
                   height: 20,
                   decoration: BoxDecoration(
-                    color: icon == Icons.shield_outlined
-                        ? theme.colorScheme.surfaceContainerHighest
+                    color: icon == Icons.verified
+                        ? Colors.amber.withOpacity(0.2)
                         : theme.colorScheme.onSurface,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Icon(
                     icon,
-                    color: icon == Icons.shield_outlined
-                        ? theme.colorScheme.onSurfaceVariant
-                        : theme.colorScheme.surface,
-                    size: 14,
+                    color:
+                        isLast ? Colors.amber[700] : theme.colorScheme.surface,
+                    size: isLast ? 20 : 14,
                   ),
                 ),
                 if (!isLast)

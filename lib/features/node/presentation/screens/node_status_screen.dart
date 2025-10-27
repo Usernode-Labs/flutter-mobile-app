@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
+import 'package:crypto_mobile_app/core/widgets/produced_block_card.dart';
 import 'package:crypto_mobile_app/gen_l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
@@ -13,7 +15,6 @@ import 'package:crypto_mobile_app/features/node/domain/entities/node_status.dart
 import 'package:crypto_mobile_app/features/node/presentation/controllers/node_data_providers.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/node_raw_status_provider.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/sync_status_provider.dart';
-import 'package:go_router/go_router.dart';
 
 class NodeStatusScreen extends ConsumerStatefulWidget {
   const NodeStatusScreen({super.key});
@@ -1314,15 +1315,13 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
           producerPubkey = '';
         }
 
-        return _ProducedBlockItem(
-          blockNumber: block.height,
-          epoch: block.epoch,
-          globalSlot: block.globalSlot,
-          hash: blockHash,
-          producerPubkey: producerPubkey,
-          batches: block.batches.length,
+        return ProducedBlockCard(
+          block: block,
           isBestTip: isBestTip,
-          reward: rewardPerBlock,
+          customHash: blockHash,
+          customProducer: producerPubkey,
+          rewardPerBlock: rewardPerBlock,
+          variant: BlockCardVariant.detailed,
         );
       }).toList(),
     );
@@ -1333,156 +1332,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     _autoTimer?.cancel();
     _tabController.dispose();
     super.dispose();
-  }
-}
-
-class _ProducedBlockItem extends StatelessWidget {
-  final int blockNumber;
-  final int epoch;
-  final int globalSlot;
-  final String hash;
-  final String producerPubkey;
-  final int batches;
-  final bool isBestTip;
-  final BigInt reward;
-
-  const _ProducedBlockItem({
-    required this.blockNumber,
-    required this.epoch,
-    required this.globalSlot,
-    required this.hash,
-    required this.producerPubkey,
-    required this.batches,
-    required this.isBestTip,
-    required this.reward,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    // Shorten the hash
-    final shortHash = _shortenHashStatic(hash);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: isBestTip
-            ? colorScheme.primaryContainer.withValues(alpha: 0.3)
-            : colorScheme.surfaceContainerLow,
-        border:
-            isBestTip ? Border.all(color: colorScheme.primary, width: 2) : null,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Icon
-          Icon(
-            Icons.check_circle,
-            color: colorScheme.primary,
-            size: 20,
-          ),
-          const SizedBox(width: 12),
-
-          // Content
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Title row with best tip badge
-                Row(
-                  children: [
-                    Text(
-                      'Block #$blockNumber',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    if (isBestTip) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: colorScheme.primary,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          'BEST TIP',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: colorScheme.onPrimary,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 9,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 4),
-
-                // Slot and batches info
-                Text(
-                  'Slot #$globalSlot • ${batches == 1 ? '1 batch' : '$batches batches'}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 2),
-
-                // Hash
-                Text(
-                  'Hash: $shortHash',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                    fontFamily: 'monospace',
-                    fontSize: 11,
-                  ),
-                ),
-
-                // Producer pubkey if available
-                if (producerPubkey.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    'Producer: ${_shortenHashStatic(producerPubkey, head: 8, tail: 8)}',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color:
-                          colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                      fontFamily: 'monospace',
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-
-          // Reward
-          if (reward > BigInt.zero)
-            Text(
-              '+${_formatTokenAmountStatic(reward)} TKN',
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: colorScheme.tertiary,
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  static String _shortenHashStatic(String hash, {int head = 6, int tail = 6}) {
-    if (hash == 'N/A' || hash.isEmpty) return hash;
-    if (hash.length <= head + tail + 3) return hash;
-    return '${hash.substring(0, head)}...${hash.substring(hash.length - tail)}';
-  }
-
-  static String _formatTokenAmountStatic(BigInt amount) {
-    final formatter = NumberFormat('#,##0', 'en_US');
-    return formatter.format(amount.toInt());
   }
 }
 

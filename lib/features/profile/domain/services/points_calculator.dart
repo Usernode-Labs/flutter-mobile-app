@@ -1,7 +1,6 @@
 /// Points calculation service
 ///
 /// Points are earned through:
-/// - Blocks produced: 10 points per block
 /// - Identity verification: 50 bonus points
 /// - Token locking/staking: 1 point per 100 tokens locked
 /// - Referrals: 25 points per referral
@@ -16,9 +15,6 @@ class PointsCalculator {
     required int referrals,
   }) {
     int points = 0;
-
-    // Blocks produced: 10 points per block
-    points += blocksProduced * 10;
 
     // Identity verification: 50 bonus points
     if (isIdentityVerified) {
@@ -36,19 +32,17 @@ class PointsCalculator {
 
   /// Project next epoch points based on expected performance
   ///
-  /// Simple projection: current points + expected new blocks * 10
+  /// Simple projection: returns current points (no block-based projection)
   /// In production, this would factor in:
-  /// - Expected VRF wins
-  /// - Historical production rate
-  /// - Tier multiplier effects
+  /// - Expected locked tokens
+  /// - Potential new referrals
+  /// - Other tier advancement factors
   static int projectNextEpochPoints({
     required int currentPoints,
     required int expectedBlocksNextEpoch,
   }) {
-    // Points earned from expected blocks
-    final newPoints = expectedBlocksNextEpoch * 10;
-
-    return currentPoints + newPoints;
+    // Return current points (blocks no longer contribute to tier points)
+    return currentPoints;
   }
 
   /// Get points breakdown for display
@@ -59,7 +53,6 @@ class PointsCalculator {
     required int referrals,
   }) {
     return {
-      'blocks': blocksProduced * 10,
       'identity': isIdentityVerified ? 50 : 0,
       'staking': (lockedTokens / 100).floor(),
       'referrals': referrals * 25,
@@ -68,7 +61,6 @@ class PointsCalculator {
 
   /// Get human-readable points rules
   static const Map<String, String> pointsRules = {
-    'Blocks Produced': '10 points per block',
     'Identity Verified': '+50 bonus points',
     'Token Locking': '1 point per 100 tokens',
     'Referrals': '25 points per referral',

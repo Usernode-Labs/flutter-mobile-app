@@ -18,6 +18,7 @@ class NodeRawStatusView {
   final RpcStatusBlockInfo? networkBest;
   final BlockProgressData? fetchProgress;
   final BlockProgressData? applyProgress;
+  final RpcStatusBlockProducer? blockProducer;
 
   const NodeRawStatusView({
     required this.peers,
@@ -25,6 +26,7 @@ class NodeRawStatusView {
     required this.networkBest,
     required this.fetchProgress,
     required this.applyProgress,
+    required this.blockProducer,
   });
 
   int? get localBestHeight => localBest?.height;
@@ -135,6 +137,7 @@ class NodeRawStatusController extends AsyncNotifier<NodeRawStatusView?> {
         networkBest: networkBest,
         fetchProgress: fetchProgress,
         applyProgress: applyProgress,
+        blockProducer: status.blockProducer,
       );
     } catch (e, st) {
       LoggingService.instance.error('raw status load failed',

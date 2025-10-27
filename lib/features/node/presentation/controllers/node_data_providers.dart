@@ -6,7 +6,9 @@ import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_s
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_mempool.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_blockchain.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
+import 'package:crypto_mobile_app/src/rust/node/builder.dart';
 import 'node_status_provider.dart';
+import 'node_raw_status_provider.dart';
 
 class NodeMempoolController extends AsyncNotifier<RpcListMempoolResp?> {
   @override
@@ -53,18 +55,35 @@ final nodeMempoolResultProvider = FutureProvider<Result<RpcListMempoolResp?>>(
 class NodeBlockchainController extends AsyncNotifier<RpcListBlockchainResp?> {
   @override
   Future<RpcListBlockchainResp?> build() async {
-    return await _load();
+    // Depend on status to get epoch and blockProducer
+    final statusAsync = ref.watch(nodeStatusProvider);
+    final rawStatusAsync = ref.watch(nodeRawStatusProvider);
+
+    final epoch = statusAsync.value?.epoch;
+    final blockProducer = rawStatusAsync.value?.blockProducer?.pubKey;
+
+    return await _load(epoch: epoch, blockProducer: blockProducer);
   }
 
   Future<void> refresh() async {
+    final statusAsync = ref.read(nodeStatusProvider);
+    final rawStatusAsync = ref.read(nodeRawStatusProvider);
+
+    final epoch = statusAsync.value?.epoch;
+    final blockProducer = rawStatusAsync.value?.blockProducer?.pubKey;
+
     state = const AsyncLoading();
-    state = await AsyncValue.guard(_load);
+    state = await AsyncValue.guard(() => _load(epoch: epoch, blockProducer: blockProducer));
   }
 
-  Future<RpcListBlockchainResp?> _load() async {
+  Future<RpcListBlockchainResp?> _load({int? epoch, AccountPublicKey? blockProducer}) async {
     try {
-      return await RustBackendService.instance
-          .listBlockchain(limit: 20, fromTip: true);
+      return await RustBackendService.instance.listBlockchain(
+        limit: 20,
+        fromTip: true,
+        epoch: epoch,
+        blockProducer: blockProducer,
+      );
     } catch (e, st) {
       LoggingService.instance.error('blockchain load failed',
           tag: 'NODE', error: e, stackTrace: st);
@@ -81,8 +100,18 @@ final nodeBlockchainProvider =
 final nodeBlockchainResultProvider =
     FutureProvider<Result<RpcListBlockchainResp?>>((ref) async {
   try {
-    final resp = await RustBackendService.instance
-        .listBlockchain(limit: 20, fromTip: true);
+    final statusAsync = ref.watch(nodeStatusProvider);
+    final rawStatusAsync = ref.watch(nodeRawStatusProvider);
+
+    final epoch = statusAsync.value?.epoch;
+    final blockProducer = rawStatusAsync.value?.blockProducer?.pubKey;
+
+    final resp = await RustBackendService.instance.listBlockchain(
+      limit: 20,
+      fromTip: true,
+      epoch: epoch,
+      blockProducer: blockProducer,
+    );
     return Ok(resp);
   } catch (e, st) {
     LoggingService.instance.error('blockchain result failed',

@@ -487,9 +487,11 @@ class RustBackendService {
   Future<RpcListBlockchainResp?> listBlockchain({
     int? limit,
     bool? fromTip,
+    int? epoch,
+    AccountPublicKey? blockProducer,
   }) async {
     LoggingService.instance.trace(
-        'listBlockchain called with params: limit=$limit, fromTip=$fromTip',
+        'listBlockchain called with params: limit=$limit, fromTip=$fromTip, epoch=$epoch, blockProducer=$blockProducer',
         tag: 'RUST');
     final r = _rpc;
     if (r == null) return null;
@@ -500,6 +502,8 @@ class RustBackendService {
       blockchain = await r.listBlockchain(
         limit: limit,
         fromTip: fromTip,
+        epoch: epoch,
+        blockProducer: blockProducer,
       );
     } on PanicException catch (e, st) {
       // FRB surfaced a Rust-side panic.

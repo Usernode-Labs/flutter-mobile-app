@@ -424,51 +424,58 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
         ),
 
         // Produced blocks and Won Slots row
-        Row(
-          children: [
-            Expanded(
-              child: _buildCompactInfoCard(
-                context,
-                icon: Icons.check_circle_outline,
-                label: 'Produced',
-                value: '', // Value shown only in subtitle to avoid repetition
-                subtitle: '${() {
-                  final produced = ref
-                          .watch(nodeEpochRewardsProvider)
-                          .value
-                          ?.producedInEpoch ??
-                      _producedInEpoch ??
-                      0;
-                  return produced == 1 ? '1 block' : '$produced blocks';
-                }()}',
-                color: colorScheme.tertiary, // Match Peers icon color
-                colorScheme: colorScheme,
-                onTap: () => context.push('/main/node/produced-blocks'),
-                useGradient: false,
-              ),
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: _buildCompactInfoCard(
-                context,
-                icon: Icons.emoji_events,
-                label: 'Won',
-                value: '', // Value shown only in subtitle to avoid repetition
-                subtitle: '${() {
-                  final wonSlots =
-                      ref.watch(nodeEpochRewardsProvider).value?.winsInEpoch ??
-                          _winsInEpoch ??
-                          0;
-                  return wonSlots == 1 ? '1 slot' : '$wonSlots slots';
-                }()}',
-                color: const Color(
-                    0xFFF9A825), // Darker golden yellow for better readability
-                colorScheme: colorScheme,
-                onTap: () => context.push('/main/node/won-slots'),
-                useGradient: false,
-              ),
-            ),
-          ],
+        Builder(
+          builder: (context) {
+            // Extract values first
+            final produced = ref
+                    .watch(nodeEpochRewardsProvider)
+                    .value
+                    ?.producedInEpoch ??
+                _producedInEpoch ??
+                0;
+            var wonSlots =
+                ref.watch(nodeEpochRewardsProvider).value?.winsInEpoch ??
+                    _winsInEpoch ??
+                    0;
+
+            // Ensure won slots is never less than produced blocks
+            if (wonSlots < produced) {
+              wonSlots = produced;
+            }
+
+            return Row(
+              children: [
+                Expanded(
+                  child: _buildCompactInfoCard(
+                    context,
+                    icon: Icons.check_circle_outline,
+                    label: 'Produced',
+                    value: '', // Value shown only in subtitle to avoid repetition
+                    subtitle: produced == 1 ? '1 block' : '$produced blocks',
+                    color: colorScheme.tertiary, // Match Peers icon color
+                    colorScheme: colorScheme,
+                    onTap: () => context.push('/main/node/produced-blocks'),
+                    useGradient: false,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: _buildCompactInfoCard(
+                    context,
+                    icon: Icons.emoji_events,
+                    label: 'Won',
+                    value: '', // Value shown only in subtitle to avoid repetition
+                    subtitle: wonSlots == 1 ? '1 slot' : '$wonSlots slots',
+                    color: const Color(
+                        0xFFF9A825), // Darker golden yellow for better readability
+                    colorScheme: colorScheme,
+                    onTap: () => context.push('/main/node/won-slots'),
+                    useGradient: false,
+                  ),
+                ),
+              ],
+            );
+          },
         ),
 
         // Horizontal divider before Best Tip and Mempool

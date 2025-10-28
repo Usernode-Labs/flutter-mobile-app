@@ -14,7 +14,6 @@ import 'package:crypto_mobile_app/core/widgets/tier_dialog.dart';
 import 'package:crypto_mobile_app/core/widgets/produced_block_card.dart';
 import 'package:crypto_mobile_app/features/rewards/presentation/controllers/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/sync_status_provider.dart';
-import 'package:crypto_mobile_app/features/node/domain/entities/sync_status.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/node_data_providers.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/node_raw_status_provider.dart';
 import 'package:crypto_mobile_app/features/node/presentation/screens/scheduled_slot_details_screen.dart';
@@ -35,12 +34,8 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   Timer? _autoTimer;
-  Timer? _rewardsSkeletonTimer;
   bool _refreshing = false;
-  bool _holdRewardsSkeleton = false;
   AccountMeta? _account;
-  static const Duration _rewardsSkeletonHoldDuration =
-      Duration(milliseconds: 1200);
 
   @override
   void initState() {
@@ -76,8 +71,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _refreshing = true;
     });
     try {
-      LoggingService.instance.trace(
-          'Refreshing epoch rewards, blockchain, and sync status',
+      LoggingService.instance.trace('Refreshing epoch rewards, blockchain, and sync status',
           tag: LogTag.rewards);
       // Use refresh() instead of invalidate() to avoid blinking
       await Future.wait<void>([
@@ -95,72 +89,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  void _startRewardsSkeletonHold() {
-    _cancelRewardsSkeletonHold();
-    if (!_holdRewardsSkeleton && mounted) {
-      setState(() => _holdRewardsSkeleton = true);
-    }
-    _rewardsSkeletonTimer = Timer(_rewardsSkeletonHoldDuration, () {
-      if (!mounted) {
-        return;
-      }
-      if (_holdRewardsSkeleton) {
-        setState(() => _holdRewardsSkeleton = false);
-      }
-    });
-  }
-
-  void _releaseRewardsSkeletonHold() {
-    if (!_holdRewardsSkeleton) {
-      return;
-    }
-    _cancelRewardsSkeletonHold();
-    if (mounted) {
-      setState(() => _holdRewardsSkeleton = false);
-    }
-  }
-
-  void _cancelRewardsSkeletonHold() {
-    _rewardsSkeletonTimer?.cancel();
-    _rewardsSkeletonTimer = null;
-  }
-
-  void _handleSyncStatusChange(SyncStatus? previous, SyncStatus next) {
-    if (!mounted) {
-      return;
-    }
-    if (!next.isSynced) {
-      final hadHold = _holdRewardsSkeleton;
-      _cancelRewardsSkeletonHold();
-      if (hadHold) {
-        setState(() => _holdRewardsSkeleton = false);
-      }
-      return;
-    }
-    final wasSynced = previous?.isSynced ?? true;
-    if (!wasSynced && next.isSynced) {
-      _startRewardsSkeletonHold();
-    }
-  }
-
-  void _handleRewardsUiChange(
-    AsyncValue<EpochRewardsUiState?>? previous,
-    AsyncValue<EpochRewardsUiState?> next,
-  ) {
-    if (!mounted) {
-      return;
-    }
-    next.whenData((ui) {
-      if (ui != null && !ui.isCached) {
-        _releaseRewardsSkeletonHold();
-      }
-    });
-  }
-
   @override
   void dispose() {
     _autoTimer?.cancel();
-    _cancelRewardsSkeletonHold();
     super.dispose();
   }
 
@@ -168,12 +99,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-
-    ref.listen<SyncStatus>(syncStatusProvider, _handleSyncStatusChange);
-    ref.listen<AsyncValue<EpochRewardsUiState?>>(
-      epochRewardsUiProvider,
-      _handleRewardsUiChange,
-    );
 
     return Scaffold(
       appBar: AppAppBar(
@@ -434,33 +359,51 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                       // Show skeleton when not synced or loading
                       return rewardsAsync.when(
-                        loading: () => Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: _buildRewardsSection(
-                            context,
-                            colorScheme,
-                            theme,
-                            null,
-                            true,
+                        loading: () => Skeletonizer(
+                          enabled: true,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: _buildRewardsSection(
+                              context,
+                              colorScheme,
+                              theme,
+                              null,
+                              true,
+                            ),
                           ),
                         ),
-                        error: (e, st) => Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: _buildRewardsSection(
-                            context,
-                            colorScheme,
-                            theme,
-                            null,
-                            true,
+                        error: (e, st) => Skeletonizer(
+                          enabled: true,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: _buildRewardsSection(
+                              context,
+                              colorScheme,
+                              theme,
+                              null,
+                              true,
+                            ),
                           ),
                         ),
                         data: (ui) {
-                          final isSynced = syncStatus.isSynced;
-                          final snapshot = ui?.snapshot;
-                          final shouldSkeletonize = _holdRewardsSkeleton ||
-                              !isSynced ||
-                              snapshot == null;
+                          // Show skeleton if not synced
+                          if (!syncStatus.isSynced) {
+                            return Skeletonizer(
+                              enabled: true,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: _buildRewardsSection(
+                                  context,
+                                  colorScheme,
+                                  theme,
+                                  null,
+                                  true,
+                                ),
+                              ),
+                            );
+                          }
 
+                          // Show actual data when synced
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -468,12 +411,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 context,
                                 colorScheme,
                                 theme,
-                                snapshot,
-                                shouldSkeletonize,
+                                ui?.snapshot,
+                                false,
                               ),
-                              if (ui?.isCached == true &&
-                                  isSynced &&
-                                  !shouldSkeletonize)
+                              if (ui?.isCached == true && syncStatus.isSynced)
                                 Padding(
                                   padding: const EdgeInsets.only(top: 8.0),
                                   child: Align(
@@ -485,14 +426,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                         color: colorScheme.surface,
                                         borderRadius: BorderRadius.circular(12),
                                         border: Border.all(
-                                          color: colorScheme.outlineVariant
-                                              .withValues(alpha: 0.5),
-                                        ),
+                                            color: colorScheme.outlineVariant
+                                                .withValues(alpha: 0.5)),
                                       ),
                                       child: Text(
-                                        ui!.isStale
-                                            ? 'Cached (stale)'
-                                            : 'Cached',
+                                        ui!.isStale ? 'Cached (stale)' : 'Cached',
                                         style: theme.textTheme.labelSmall,
                                       ),
                                     ),
@@ -647,7 +585,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 child: Row(
                                   children: [
                                     Icon(Icons.check_circle,
-                                        size: 18, color: colorScheme.tertiary),
+                                        size: 18,
+                                        color: colorScheme.tertiary),
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: Column(
@@ -664,7 +603,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                           const SizedBox(height: 4),
                                           Bone.text(
                                             words: 4,
-                                            style: theme.textTheme.bodySmall
+                                            style: theme
+                                                .textTheme.bodySmall
                                                 ?.copyWith(fontSize: 12),
                                           ),
                                         ],
@@ -788,10 +728,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         epoch = snapshot.epoch as int;
         produced = snapshot.producedInEpoch as int;
         wins = snapshot.winsInEpoch as int;
-        // Ensure won slots is never less than produced blocks
-        if (wins < produced) {
-          wins = produced;
-        }
         rewardPerBlock = BigInt.parse(snapshot.rewardPerBlock as String);
         LoggingService.instance.trace(
             'Parsed earned: $earned, expected: $expected, epoch: $epoch',
@@ -802,23 +738,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }
     } else {
       LoggingService.instance.trace('Snapshot is null', tag: 'HOME_SCREEN');
-    }
-
-    final showAmountSkeleton = isLoading || earned == null || expected == null;
-    final showProgressSkeleton = isLoading ||
-        earned == null ||
-        expected == null ||
-        expected == BigInt.zero;
-    final showEpochSkeleton = isLoading || epoch == null;
-    final showProductionSkeleton =
-        isLoading || produced == null || wins == null;
-    final showProjectionSkeleton = isLoading || expected == null;
-    final showRewardPerBlockSkeleton =
-        isLoading || wins == null || rewardPerBlock == null;
-    double? progressValue;
-    if (!showProgressSkeleton) {
-      final ratio = earned.toDouble() / expected.toDouble();
-      progressValue = ratio.clamp(0.0, 1.0).toDouble();
     }
 
     return [
@@ -843,32 +762,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       const SizedBox(height: 8),
 
       // Rewards amount
-      showAmountSkeleton
-          ? Skeletonizer(
-              enabled: true,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Bone.text(
-                    words: 2,
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                      color: colorScheme.onSurface,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Bone.text(
-                    words: 6,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            )
-          : Column(
+      (earned != null && expected != null)
+          ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
@@ -888,6 +783,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ),
               ],
+            )
+          : Bone.text(
+              words: 2,
+              style: theme.textTheme.headlineMedium?.copyWith(
+                fontSize: 28,
+                fontWeight: FontWeight.w700,
+                color: colorScheme.onSurface,
+              ),
             ),
 
       const SizedBox(height: 12),
@@ -895,61 +798,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       // Progress bar and epoch info
       ClipRRect(
         borderRadius: const BorderRadius.all(Radius.circular(3)),
-        child: showProgressSkeleton
-            ? Skeletonizer(
-                enabled: true,
-                child: SizedBox(
-                  height: 6,
-                  width: double.infinity,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHighest,
-                    ),
-                  ),
-                ),
-              )
-            : LinearProgressIndicator(
-                value: progressValue ?? 0.0,
-                backgroundColor: colorScheme.surfaceContainerHighest,
-                valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
-                minHeight: 6,
-              ),
+        child: LinearProgressIndicator(
+          value: (earned != null && expected != null && expected > BigInt.zero)
+              ? (earned.toDouble() / expected.toDouble())
+              : 0.0,
+          backgroundColor: colorScheme.surfaceContainerHighest,
+          valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+          minHeight: 6,
+        ),
       ),
       const SizedBox(height: 8),
       Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          showEpochSkeleton
-              ? Skeletonizer(
-                  enabled: true,
-                  child: Bone.text(
-                    words: 2,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurface,
-                      fontWeight: FontWeight.w500,
-                    ),
+          epoch != null
+              ? Text(
+                  'Epoch $epoch',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w500,
                   ),
                 )
-              : Text(
-                  'Epoch $epoch',
+              : Bone.text(
+                  words: 2,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurface,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
           Flexible(
-            child: showProductionSkeleton
-                ? Skeletonizer(
-                    enabled: true,
-                    child: Bone.text(
-                      words: 4,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  )
-                : Text(
+            child: (produced != null && wins != null)
+                ? Text(
                     'Produced $produced / $wins won slots',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: colorScheme.onSurfaceVariant,
@@ -957,6 +836,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       fontSize: 12,
                     ),
                     overflow: TextOverflow.ellipsis,
+                  )
+                : Bone.text(
+                    words: 3,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
           ),
         ],
@@ -982,39 +868,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       const SizedBox(height: 8),
       expected != null
-          ? showProjectionSkeleton
-              ? Skeletonizer(
-                  enabled: true,
-                  child: Bone.text(
-                    words: 2,
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      color: colorScheme.onSurface,
-                    ),
-                  ),
-                )
-              : Text(
-                  '~${_formatTokenAmount(expected)} TKN',
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: colorScheme.onSurface,
-                  ),
-                )
-          : Skeletonizer(
-              enabled: true,
-              child: Bone.text(
-                words: 2,
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: colorScheme.onSurface,
-                ),
+          ? Text(
+              '~${_formatTokenAmount(expected)} TKN',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: colorScheme.onSurface,
+              ),
+            )
+          : Bone.text(
+              words: 2,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontSize: 28,
+                fontWeight: FontWeight.w700,
+                color: colorScheme.onSurface,
               ),
             ),
       const SizedBox(height: 4),
-      (wins != null && rewardPerBlock != null && !showRewardPerBlockSkeleton)
+      (wins != null && rewardPerBlock != null)
           ? Text(
               'Based on $wins won slots at ${_formatTokenAmount(rewardPerBlock)} TKN per block',
               style: theme.textTheme.bodySmall?.copyWith(
@@ -1022,13 +893,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 fontSize: 12,
               ),
             )
-          : Skeletonizer(
-              enabled: true,
-              child: Bone.text(
-                words: 8,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
+          : Bone.text(
+              words: 8,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
               ),
             ),
     ];

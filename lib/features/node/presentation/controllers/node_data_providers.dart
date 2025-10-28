@@ -7,6 +7,7 @@ import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_mempool.dart'
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_blockchain.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 import 'package:crypto_mobile_app/src/rust/node/builder.dart';
+import 'package:crypto_mobile_app/core/services/slot_notification_manager.dart';
 import 'node_status_provider.dart';
 import 'node_raw_status_provider.dart';
 
@@ -122,6 +123,9 @@ final nodeBlockchainResultProvider =
 });
 
 class NodeEpochRewardsController extends AsyncNotifier<RpcEpochRewardsResp?> {
+  Set<int> _previousProducedSlots = {};
+  List<int> _previousWonSlots = [];
+
   @override
   Future<RpcEpochRewardsResp?> build() async {
     // Depend on status to get epoch value
@@ -145,12 +149,85 @@ class NodeEpochRewardsController extends AsyncNotifier<RpcEpochRewardsResp?> {
 
   Future<RpcEpochRewardsResp?> _load(int epoch) async {
     try {
-      return await RustBackendService.instance.epochRewards(epoch: epoch);
+      final rewards = await RustBackendService.instance.epochRewards(epoch: epoch);
+
+      // Monitor slots and trigger notifications
+      if (rewards != null) {
+        await _monitorSlots(rewards, epoch);
+      }
+
+      return rewards;
     } catch (e, st) {
       LoggingService.instance.error('epochRewards load failed',
           tag: 'NODE', error: e, stackTrace: st);
       throw BackendError('Failed to load epoch rewards',
           cause: e, stackTrace: st);
+    }
+  }
+
+  Future<void> _monitorSlots(RpcEpochRewardsResp rewards, int epoch) async {
+    try {
+      final wonSlots = rewards.wonSlots ?? [];
+      if (wonSlots.isEmpty) return;
+
+      // Get produced slots from blockchain data
+      final blockchainAsync = ref.read(nodeBlockchainProvider);
+      final blockchain = blockchainAsync.value;
+
+      final producedSlots = <int>{};
+      if (blockchain?.items != null) {
+        for (final block in blockchain!.items) {
+          producedSlots.add(block.globalSlot);
+        }
+      }
+
+      // Check for newly produced blocks
+      final newlyProduced = producedSlots.difference(_previousProducedSlots);
+      for (final slot in newlyProduced) {
+        // Only notify if this was a won slot
+        if (wonSlots.any((ws) => ws.globalSlot == slot)) {
+          await SlotNotificationManager.instance.notifyBlockProduced(
+            globalSlot: slot,
+            epoch: epoch,
+          );
+        }
+      }
+
+      // Check for missed slots
+      final now = DateTime.now();
+      for (final wonSlot in wonSlots) {
+        final slotTime = DateTime.fromMillisecondsSinceEpoch(
+          wonSlot.expectedTimeMs.toInt(),
+          isUtc: true,
+        ).toLocal();
+
+        // If slot time has passed and it's not produced, it's missed
+        if (slotTime.isBefore(now) &&
+            !producedSlots.contains(wonSlot.globalSlot) &&
+            _previousWonSlots.contains(wonSlot.globalSlot)) {
+          await SlotNotificationManager.instance.notifySlotMissed(
+            globalSlot: wonSlot.globalSlot,
+            slotTime: slotTime,
+            epoch: epoch,
+          );
+        }
+      }
+
+      // Schedule notifications for upcoming slots
+      await SlotNotificationManager.instance.scheduleNotificationsForSlots(
+        wonSlots: wonSlots,
+        producedSlots: producedSlots,
+        epoch: epoch,
+      );
+
+      // Update tracking
+      _previousProducedSlots = producedSlots;
+      _previousWonSlots = wonSlots.map((s) => s.globalSlot).toList();
+
+    } catch (e, st) {
+      LoggingService.instance.error('Slot monitoring failed',
+          tag: 'NODE', error: e, stackTrace: st);
+      // Don't throw - monitoring is optional, don't break the main flow
     }
   }
 }

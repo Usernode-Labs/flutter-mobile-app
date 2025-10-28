@@ -12,6 +12,9 @@ import 'package:crypto_mobile_app/core/routing/app_router.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/utils/lifecycle.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
+import 'package:crypto_mobile_app/core/services/local_notification_service.dart';
+import 'package:crypto_mobile_app/core/services/background_task_service.dart';
+import 'package:crypto_mobile_app/core/data/notification_state_repository.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -53,6 +56,28 @@ Future<void> _bootstrapAsync(LoggingService log) async {
         'Feature flags loaded: ${FeatureFlags.ordered.where(FeatureFlags.isEnabled).toList()}',
         tag: 'MAIN',
       );
+    }
+
+    // Initialize notification services
+    log.info('Initializing notification services', tag: 'MAIN');
+    await NotificationStateRepository.instance.initialize();
+    final notificationInitialized = await LocalNotificationService.instance.initialize();
+    log.info('Notification service initialized: $notificationInitialized', tag: 'MAIN');
+
+    if (notificationInitialized) {
+      // Request permissions
+      final permissionsGranted = await LocalNotificationService.instance.requestPermissions();
+      log.info('Notification permissions granted: $permissionsGranted', tag: 'MAIN');
+
+      // Initialize background tasks
+      final backgroundInitialized = await BackgroundTaskService.instance.initialize();
+      log.info('Background task service initialized: $backgroundInitialized', tag: 'MAIN');
+
+      if (backgroundInitialized && NotificationStateRepository.instance.notificationsEnabled) {
+        // Register periodic background task for slot monitoring
+        await BackgroundTaskService.instance.registerSlotMonitoringTask();
+        log.info('Slot monitoring background task registered', tag: 'MAIN');
+      }
     }
 
     // Initialize FRB only; start backend only if an account exists

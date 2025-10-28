@@ -40,5 +40,10 @@
     <string>Camera is used to scan MRZ on your document.</string>
     <key>NSFaceIDUsageDescription</key>
     <string>Biometrics are used to unlock your private data.</string>
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>fetch</string>
+        <string>processing</string>
+    </array>
 </dict>
 </plist>

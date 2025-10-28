@@ -20,6 +20,7 @@ import 'package:crypto_mobile_app/features/wallet/presentation/screens/send_scre
 import 'package:crypto_mobile_app/features/wallet/presentation/screens/receive_screen.dart';
 import 'package:crypto_mobile_app/features/profile/presentation/screens/profile_screen.dart';
 import 'package:crypto_mobile_app/features/settings/presentation/screens/settings_screen.dart';
+import 'package:crypto_mobile_app/features/settings/presentation/screens/notification_settings_screen.dart';
 import 'package:crypto_mobile_app/features/notifications/presentation/screens/notifications_screen.dart';
 import 'package:crypto_mobile_app/features/rewards/presentation/screens/rewards_breakdown_screen.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
@@ -98,6 +99,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/settings',
         builder: (context, state) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: '/notification-settings',
+        builder: (context, state) => const NotificationSettingsScreen(),
       ),
       GoRoute(
         path: '/notifications',

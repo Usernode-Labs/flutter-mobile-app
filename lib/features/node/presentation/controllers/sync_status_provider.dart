@@ -13,7 +13,7 @@ final syncStatusProvider = Provider<SyncStatus>((ref) {
 
   // Step 1: Check peer connectivity
   final connectedPeers = raw.connectedPeers;
-  if (connectedPeers == 0) {
+  if (connectedPeers == 0 || raw.peers.isEmpty) {
     LoggingService.instance.trace(
       'No peers connected - status: CONNECTING',
       tag: 'SYNC_STATUS',

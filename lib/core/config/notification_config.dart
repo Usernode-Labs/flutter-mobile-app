@@ -43,6 +43,7 @@ class NotificationConfig {
   static const String prefKeyAdvanceWarningMinutes = 'advance_warning_minutes';
   static const String prefKeySmartBatchingEnabled = 'smart_batching_enabled';
   static const String prefKeyScheduledNotifications = 'scheduled_notifications';
+  static const String prefKeyCurrentEpoch = 'current_epoch';
 
   // Default settings
   static const bool defaultNotificationsEnabled = true;

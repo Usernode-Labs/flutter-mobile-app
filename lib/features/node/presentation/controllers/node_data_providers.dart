@@ -8,6 +8,7 @@ import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_blockchain.da
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 import 'package:crypto_mobile_app/src/rust/node/builder.dart';
 import 'package:crypto_mobile_app/core/services/slot_notification_manager.dart';
+import 'package:crypto_mobile_app/core/data/notification_state_repository.dart';
 import 'node_status_provider.dart';
 import 'node_raw_status_provider.dart';
 
@@ -126,6 +127,15 @@ class NodeEpochRewardsController extends AsyncNotifier<RpcEpochRewardsResp?> {
   Set<int> _previousProducedSlots = {};
   List<int> _previousWonSlots = [];
 
+  /// Helper method to compare two lists for equality
+  bool _listsEqual(List<int> a, List<int> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
   @override
   Future<RpcEpochRewardsResp?> build() async {
     // Depend on status to get epoch value
@@ -170,6 +180,26 @@ class NodeEpochRewardsController extends AsyncNotifier<RpcEpochRewardsResp?> {
       final wonSlots = rewards.wonSlots ?? [];
       if (wonSlots.isEmpty) return;
 
+      final stateRepo = NotificationStateRepository.instance;
+
+      // Check for epoch change
+      final previousEpoch = stateRepo.currentEpoch;
+      final epochChanged = previousEpoch != null && previousEpoch != epoch;
+
+      if (epochChanged) {
+        LoggingService.instance.info(
+          'Epoch changed from $previousEpoch to $epoch - cancelling old notifications',
+          tag: 'NODE',
+        );
+        // Cancel all old notifications from previous epoch
+        await SlotNotificationManager.instance.cancelAllScheduledNotifications();
+        // Update tracked epoch
+        await stateRepo.setCurrentEpoch(epoch);
+      } else if (previousEpoch == null) {
+        // First time tracking, just set the epoch
+        await stateRepo.setCurrentEpoch(epoch);
+      }
+
       // Get produced slots from blockchain data
       final blockchainAsync = ref.read(nodeBlockchainProvider);
       final blockchain = blockchainAsync.value;
@@ -189,6 +219,7 @@ class NodeEpochRewardsController extends AsyncNotifier<RpcEpochRewardsResp?> {
           await SlotNotificationManager.instance.notifyBlockProduced(
             globalSlot: slot,
             epoch: epoch,
+            rewardAmount: rewards.rewardPerBlock,
           );
         }
       }
@@ -213,16 +244,29 @@ class NodeEpochRewardsController extends AsyncNotifier<RpcEpochRewardsResp?> {
         }
       }
 
-      // Schedule notifications for upcoming slots
-      await SlotNotificationManager.instance.scheduleNotificationsForSlots(
-        wonSlots: wonSlots,
-        producedSlots: producedSlots,
-        epoch: epoch,
-      );
+      // Check if won slots have changed
+      final currentWonSlots = wonSlots.map((s) => s.globalSlot).toList();
+      final wonSlotsChanged = epochChanged ||
+          _previousWonSlots.isEmpty ||
+          !_listsEqual(currentWonSlots, _previousWonSlots);
+
+      // Only schedule notifications if epoch changed or won slots changed
+      if (wonSlotsChanged) {
+        LoggingService.instance.debug(
+          'Won slots changed (${currentWonSlots.length} slots) - scheduling notifications',
+          tag: 'NODE',
+        );
+        await SlotNotificationManager.instance.scheduleNotificationsForSlots(
+          wonSlots: wonSlots,
+          producedSlots: producedSlots,
+          epoch: epoch,
+          rewardPerBlock: rewards.rewardPerBlock,
+        );
+      }
 
       // Update tracking
       _previousProducedSlots = producedSlots;
-      _previousWonSlots = wonSlots.map((s) => s.globalSlot).toList();
+      _previousWonSlots = currentWonSlots;
 
     } catch (e, st) {
       LoggingService.instance.error('Slot monitoring failed',

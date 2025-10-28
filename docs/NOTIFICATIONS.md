@@ -4,6 +4,321 @@
 
 This app implements a comprehensive notification system for won slots in the blockchain node. The system monitors upcoming slots, successfully produced blocks, and missed slots, providing timely notifications to users while preventing notification overload through smart batching.
 
+## System Architecture Diagram
+
+```mermaid
+flowchart TB
+    subgraph "Flutter Application Layer"
+        UI["Notification Settings UI<br/>- Configuration<br/>- Debug View"]
+        HomeScreen["HomeScreen<br/>Timer: 3s refresh"]
+        NodeScreen["Node Screens<br/>Timer: 3s refresh"]
+    end
+
+    subgraph "Core Services"
+        SlotManager["SlotNotificationManager<br/>- Smart Batching<br/>- Rate Limiting<br/>- Scheduling Logic"]
+        LocalNotif["LocalNotificationService<br/>- Native Notifications<br/>- Timezone Aware<br/>- Permission Handling"]
+        StateRepo["NotificationStateRepository<br/>- Settings Storage<br/>- Epoch Tracking<br/>- Scheduled Metadata"]
+        BackgroundTask["BackgroundTaskService<br/>- 15min periodic task<br/>- Epoch monitoring<br/>- Notification refresh"]
+    end
+
+    subgraph "Data Providers"
+        EpochController["NodeEpochRewardsController<br/>✓ Epoch Change Detection<br/>✓ Smart Re-scheduling<br/>✓ Slot Monitoring"]
+        BlockchainProvider["NodeBlockchainProvider<br/>- Produced Blocks<br/>- Block Status"]
+    end
+
+    subgraph "Backend & Platform"
+        RustBackend["Rust Backend<br/>- VRF Calculations<br/>- Won Slots Data<br/>- Blockchain State"]
+        FlutterNotif["flutter_local_notifications<br/>- iOS: UserNotifications<br/>- Android: NotificationManager"]
+        WorkManager["WorkManager<br/>- iOS: BGTaskScheduler<br/>- Android: WorkManager"]
+    end
+
+    subgraph "Storage"
+        SharedPrefs["SharedPreferences<br/>- Notification Settings<br/>- Current Epoch<br/>- Scheduled Notifications"]
+    end
+
+    %% UI Connections
+    UI -->|"Configure Settings"| StateRepo
+    HomeScreen -->|"Refresh Every 3s"| EpochController
+    NodeScreen -->|"Refresh Every 3s"| EpochController
+
+    %% Provider Connections
+    EpochController -->|"Fetch Epoch Data"| RustBackend
+    EpochController -->|"Get Blockchain"| BlockchainProvider
+    BlockchainProvider -->|"Fetch Blocks"| RustBackend
+
+    %% Monitoring Flow
+    EpochController -->|"1. Detect Epoch Change"| StateRepo
+    EpochController -->|"2. Check Won Slots Changed"| SlotManager
+    EpochController -->|"3. Schedule Notifications"| SlotManager
+    EpochController -->|"4. Notify Produced/Missed"| SlotManager
+
+    %% Service Connections
+    SlotManager -->|"Schedule Native"| LocalNotif
+    SlotManager -->|"Track Metadata"| StateRepo
+    LocalNotif -->|"Platform API"| FlutterNotif
+    StateRepo -->|"Persist"| SharedPrefs
+
+    %% Background Flow
+    BackgroundTask -->|"15min Task"| WorkManager
+    BackgroundTask -->|"Fetch Epoch"| RustBackend
+    BackgroundTask -->|"Detect Changes"| StateRepo
+    BackgroundTask -->|"Schedule"| SlotManager
+    BackgroundTask -->|"Cancel Old"| LocalNotif
+
+    %% Styling
+    classDef uiClass fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    classDef serviceClass fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef providerClass fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    classDef backendClass fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef storageClass fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+
+    class UI,HomeScreen,NodeScreen uiClass
+    class SlotManager,LocalNotif,StateRepo,BackgroundTask serviceClass
+    class EpochController,BlockchainProvider providerClass
+    class RustBackend,FlutterNotif,WorkManager backendClass
+    class SharedPrefs storageClass
+```
+
+## Complete Notification Flow Diagram
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant App as "Flutter App<br/>(Foreground)"
+    participant Provider as "EpochRewards<br/>Controller"
+    participant SlotMgr as "Slot Notification<br/>Manager"
+    participant StateRepo as "State<br/>Repository"
+    participant LocalNotif as "Local Notification<br/>Service"
+    participant Backend as "Rust<br/>Backend"
+    participant Platform as "iOS/Android<br/>Platform"
+    participant BgTask as "Background<br/>Task"
+
+    %% Foreground Flow
+    rect rgb(200, 230, 255)
+        Note over App,Platform: FOREGROUND MONITORING (Every 3 seconds)
+
+        App->>Provider: "Timer triggers refresh"
+        Provider->>Backend: "Fetch epoch rewards"
+        Backend-->>Provider: "Epoch data + won slots"
+
+        Provider->>StateRepo: "Get currentEpoch"
+        StateRepo-->>Provider: "Previous epoch number"
+
+        alt Epoch Changed
+            Provider->>StateRepo: "Epoch changed detected!"
+            Provider->>SlotMgr: "Cancel all old notifications"
+            SlotMgr->>LocalNotif: "cancelAllNotifications()"
+            LocalNotif->>Platform: "Cancel platform notifications"
+            Provider->>StateRepo: "setCurrentEpoch(newEpoch)"
+        end
+
+        Provider->>Provider: "Check if won slots changed"
+
+        alt Won Slots Changed
+            Provider->>SlotMgr: "scheduleNotificationsForSlots()"
+            SlotMgr->>SlotMgr: "Apply smart batching algorithm"
+            SlotMgr->>LocalNotif: "scheduleNotification(id, time, ...)"
+            LocalNotif->>Platform: "Schedule native notification"
+            SlotMgr->>StateRepo: "Save scheduled metadata"
+        end
+
+        Provider->>Backend: "Get produced blocks"
+        Backend-->>Provider: "Blockchain data"
+
+        alt Block Produced
+            Provider->>SlotMgr: "notifyBlockProduced(slot)"
+            SlotMgr->>LocalNotif: "showNotification('Block produced!')"
+            LocalNotif->>Platform: "Display notification"
+            Platform->>User: "🔔 Block produced!"
+        end
+
+        alt Slot Missed
+            Provider->>SlotMgr: "notifySlotMissed(slot)"
+            SlotMgr->>LocalNotif: "showNotification('Slot missed')"
+            LocalNotif->>Platform: "Display notification"
+            Platform->>User: "🔔 Slot missed"
+        end
+    end
+
+    %% Background Flow
+    rect rgb(255, 240, 200)
+        Note over BgTask,Platform: BACKGROUND MONITORING (Every 15 minutes)
+
+        BgTask->>BgTask: "WorkManager task executes"
+        BgTask->>StateRepo: "cleanupOldNotifications()"
+
+        BgTask->>Backend: "getStatus() - check epoch"
+
+        alt Backend Available
+            Backend-->>BgTask: "Current epoch"
+            BgTask->>StateRepo: "Get currentEpoch"
+            StateRepo-->>BgTask: "Previous epoch"
+
+            alt Epoch Changed in Background
+                BgTask->>LocalNotif: "Cancel all notifications"
+                LocalNotif->>Platform: "Cancel platform notifications"
+                BgTask->>StateRepo: "clearScheduledNotifications()"
+                BgTask->>StateRepo: "setCurrentEpoch(newEpoch)"
+            end
+
+            BgTask->>Backend: "epochRewards(epoch)"
+            Backend-->>BgTask: "Won slots data"
+            BgTask->>Backend: "listBlockchain()"
+            Backend-->>BgTask: "Produced blocks"
+
+            BgTask->>SlotMgr: "scheduleNotificationsForSlots()"
+            SlotMgr->>LocalNotif: "Schedule notifications"
+            LocalNotif->>Platform: "Schedule native notifications"
+        else Backend Unavailable
+            BgTask->>BgTask: "Log: Backend unavailable, wait for next run"
+        end
+    end
+
+    %% Notification Delivery
+    rect rgb(200, 255, 200)
+        Note over Platform,User: NOTIFICATION DELIVERY
+
+        Platform->>Platform: "Scheduled time arrives"
+        Platform->>User: "🔔 Slot in 10 minutes<br/>Slot #31727 at 9:03 AM"
+
+        opt User Taps Notification
+            User->>Platform: "Tap notification"
+            Platform->>App: "Launch app / bring to foreground"
+            App->>User: "Navigate to relevant screen"
+        end
+    end
+```
+
+## Epoch Change Detection Flow
+
+```mermaid
+flowchart TD
+    Start["App Refreshes Data<br/>(Foreground or Background)"]
+    FetchEpoch["Fetch Current Epoch from Backend"]
+    GetPrevious["Get Previously Tracked Epoch<br/>from StateRepository"]
+
+    CompareEpoch{"Epoch<br/>Changed?"}
+
+    CancelOld["Cancel All Old Notifications<br/>from Previous Epoch"]
+    ClearMeta["Clear Scheduled Notification<br/>Metadata"]
+    UpdateEpoch["Update Tracked Epoch<br/>in StateRepository"]
+
+    FetchNewSlots["Fetch Won Slots for<br/>New Epoch"]
+    FetchBlocks["Fetch Produced Blocks"]
+
+    SmartBatch["Apply Smart Batching<br/>Algorithm"]
+    Schedule["Schedule Notifications<br/>for New Epoch Slots"]
+    SaveMeta["Save Scheduled Notification<br/>Metadata"]
+
+    Continue["Continue Normal Monitoring"]
+    End["Monitoring Complete"]
+
+    Start --> FetchEpoch
+    FetchEpoch --> GetPrevious
+    GetPrevious --> CompareEpoch
+
+    CompareEpoch -->|"Yes - New Epoch!"| CancelOld
+    CancelOld --> ClearMeta
+    ClearMeta --> UpdateEpoch
+    UpdateEpoch --> FetchNewSlots
+
+    CompareEpoch -->|"No - Same Epoch"| Continue
+    Continue --> End
+
+    FetchNewSlots --> FetchBlocks
+    FetchBlocks --> SmartBatch
+    SmartBatch --> Schedule
+    Schedule --> SaveMeta
+    SaveMeta --> End
+
+    style Start fill:#e1f5ff
+    style CompareEpoch fill:#fff9c4,stroke:#f57f17,stroke-width:3px
+    style CancelOld fill:#ffebee,stroke:#c62828,stroke-width:2px
+    style UpdateEpoch fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    style Schedule fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
+    style End fill:#e0f2f1
+```
+
+## Smart Batching Algorithm Flow
+
+```mermaid
+flowchart TD
+    Start["Receive Won Slots<br/>for Current Epoch"]
+    Filter["Filter Slots Within<br/>24-Hour Look-Ahead Window"]
+    Sort["Sort Slots by Time<br/>(Earliest First)"]
+
+    InitCluster["Initialize Empty Cluster"]
+    NextSlot{"More<br/>Slots?"}
+
+    CheckCluster{"Current<br/>Cluster<br/>Empty?"}
+
+    AddFirst["Add Slot to<br/>New Cluster<br/>(Set cluster start time)"]
+
+    CheckTime{"Slot within<br/>30 min of<br/>cluster start?"}
+
+    AddToCluster["Add Slot to<br/>Current Cluster"]
+
+    CheckSize{"Cluster<br/>has 3+<br/>slots?"}
+
+    CreateGrouped["Create GROUPED Notification<br/>'X slots in next Y min'<br/>Slots from TIME to TIME"]
+
+    CreateIndividual["Create INDIVIDUAL Notifications<br/>'Slot in X minutes'<br/>For each slot"]
+
+    StartNewCluster["Finalize Current Cluster<br/>Start New Cluster"]
+
+    RateLimit{"Reached<br/>Max 5<br/>per hour?"}
+
+    SkipRemaining["Skip Remaining<br/>Individual Slots<br/>(Rate Limited)"]
+
+    ScheduleAll["Schedule All<br/>Notifications"]
+
+    SaveMeta["Save Scheduled<br/>Notification Metadata"]
+
+    End["Smart Batching Complete"]
+
+    Start --> Filter
+    Filter --> Sort
+    Sort --> InitCluster
+    InitCluster --> NextSlot
+
+    NextSlot -->|"Yes"| CheckCluster
+    NextSlot -->|"No"| CheckSize
+
+    CheckCluster -->|"Yes"| AddFirst
+    CheckCluster -->|"No"| CheckTime
+
+    AddFirst --> NextSlot
+
+    CheckTime -->|"Yes - Within 30min"| AddToCluster
+    CheckTime -->|"No - Too far"| CheckSize
+
+    AddToCluster --> NextSlot
+
+    CheckSize -->|"Yes - Group It"| CreateGrouped
+    CheckSize -->|"No - Individual"| CreateIndividual
+
+    CreateGrouped --> StartNewCluster
+    CreateIndividual --> RateLimit
+
+    RateLimit -->|"Yes"| SkipRemaining
+    RateLimit -->|"No"| StartNewCluster
+
+    SkipRemaining --> ScheduleAll
+    StartNewCluster --> NextSlot
+
+    ScheduleAll --> SaveMeta
+    SaveMeta --> End
+
+    style Start fill:#e1f5ff
+    style CheckTime fill:#fff9c4,stroke:#f57f17,stroke-width:3px
+    style CheckSize fill:#fff9c4,stroke:#f57f17,stroke-width:3px
+    style RateLimit fill:#fff9c4,stroke:#f57f17,stroke-width:3px
+    style CreateGrouped fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
+    style CreateIndividual fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    style SkipRemaining fill:#ffebee,stroke:#c62828,stroke-width:2px
+    style End fill:#e0f2f1
+```
+
 ## Architecture
 
 ### System Components
@@ -655,11 +970,34 @@ Shows message when no notifications are scheduled
 
 ## Monitoring & Integration
 
+### Continuous Slot Monitoring
+
+The app implements a **hybrid monitoring approach** to ensure notifications are updated continuously:
+
+#### Foreground Monitoring (Active)
+**When**: App is in foreground with screens active
+**Frequency**: Every 3 seconds
+**Capabilities**:
+- ✅ Epoch change detection
+- ✅ New won slots detection
+- ✅ Produced block detection
+- ✅ Missed slot detection
+- ✅ Smart re-scheduling (only when needed)
+
+#### Background Monitoring (Passive)
+**When**: App is backgrounded or closed
+**Frequency**: Every 15 minutes
+**Capabilities**:
+- ✅ Epoch change detection
+- ✅ Notification re-scheduling for new epochs
+- ⚠️ Requires Rust backend to be running
+- ✅ Graceful fallback if backend unavailable
+
 ### Slot Monitoring Integration
 
 **Location**: `lib/features/node/presentation/controllers/node_data_providers.dart`
 
-The `NodeEpochRewardsController` monitors slots and triggers notifications:
+The `NodeEpochRewardsController` monitors slots and triggers notifications with intelligent epoch tracking:
 
 ```dart
 class NodeEpochRewardsController extends AsyncNotifier<RpcEpochRewardsResp?> {
@@ -667,10 +1005,23 @@ class NodeEpochRewardsController extends AsyncNotifier<RpcEpochRewardsResp?> {
   List<int> _previousWonSlots = [];
 
   Future<void> _monitorSlots(RpcEpochRewardsResp rewards, int epoch) async {
+    final stateRepo = NotificationStateRepository.instance;
+
+    // 1. EPOCH CHANGE DETECTION
+    final previousEpoch = stateRepo.currentEpoch;
+    final epochChanged = previousEpoch != null && previousEpoch != epoch;
+
+    if (epochChanged) {
+      // NEW EPOCH! Cancel all old notifications
+      await SlotNotificationManager.instance.cancelAllScheduledNotifications();
+      await stateRepo.setCurrentEpoch(epoch);
+      LoggingService.instance.info('Epoch changed: $previousEpoch → $epoch');
+    }
+
     // Get produced slots from blockchain
     final producedSlots = getProducedSlots();
 
-    // Check for newly produced blocks
+    // 2. CHECK FOR NEWLY PRODUCED BLOCKS
     final newlyProduced = producedSlots.difference(_previousProducedSlots);
     for (final slot in newlyProduced) {
       await SlotNotificationManager.instance.notifyBlockProduced(
@@ -679,7 +1030,7 @@ class NodeEpochRewardsController extends AsyncNotifier<RpcEpochRewardsResp?> {
       );
     }
 
-    // Check for missed slots
+    // 3. CHECK FOR MISSED SLOTS
     for (final wonSlot in wonSlots) {
       if (slotTimePassed && !produced && wasPreviouslyWon) {
         await SlotNotificationManager.instance.notifySlotMissed(
@@ -690,16 +1041,24 @@ class NodeEpochRewardsController extends AsyncNotifier<RpcEpochRewardsResp?> {
       }
     }
 
-    // Schedule upcoming notifications
-    await SlotNotificationManager.instance.scheduleNotificationsForSlots(
-      wonSlots: wonSlots,
-      producedSlots: producedSlots,
-      epoch: epoch,
-    );
+    // 4. SMART RE-SCHEDULING (only when won slots change)
+    final currentWonSlots = wonSlots.map((s) => s.globalSlot).toList();
+    final wonSlotsChanged = epochChanged ||
+        _previousWonSlots.isEmpty ||
+        !_listsEqual(currentWonSlots, _previousWonSlots);
+
+    if (wonSlotsChanged) {
+      // Won slots changed - reschedule notifications
+      await SlotNotificationManager.instance.scheduleNotificationsForSlots(
+        wonSlots: wonSlots,
+        producedSlots: producedSlots,
+        epoch: epoch,
+      );
+    }
 
     // Update tracking
     _previousProducedSlots = producedSlots;
-    _previousWonSlots = wonSlots.map((s) => s.globalSlot).toList();
+    _previousWonSlots = currentWonSlots;
   }
 }
 ```
@@ -707,8 +1066,16 @@ class NodeEpochRewardsController extends AsyncNotifier<RpcEpochRewardsResp?> {
 ### Refresh Frequency
 
 **Foreground**: Every 3 seconds (via Timer in HomeScreen)
+- Detects epoch changes immediately
+- Schedules notifications only when won slots change
+- Monitors for newly produced blocks every 3 seconds
+- Checks for missed slots continuously
 
 **Background**: Every 15 minutes (via WorkManager)
+- Fetches latest epoch data from Rust backend (if running)
+- Detects epoch changes and cancels old notifications
+- Schedules notifications for new epoch slots
+- Falls back gracefully if backend unavailable
 
 ---
 
@@ -773,6 +1140,81 @@ Future<void> _bootstrapAsync(LoggingService log) async {
    - Registers periodic task (15 min interval)
    - Sets constraints (network required)
    - Configures backoff policy
+
+---
+
+## Epoch Change Handling
+
+### What is an Epoch?
+An epoch is a time period in the blockchain where the node's slot assignments are determined. When a new epoch starts, the node receives a new set of won slots based on its stake and VRF calculations.
+
+### Epoch Transition Flow
+
+```
+Old Epoch Running
+   ↓
+New Epoch Starts (detected by polling or background task)
+   ↓
+Epoch Change Detection Triggers
+   ↓
+Cancel All Old Notifications (from previous epoch)
+   ↓
+Clear Scheduled Notification Metadata
+   ↓
+Update Tracked Epoch Number
+   ↓
+Fetch New Won Slots for New Epoch
+   ↓
+Schedule Notifications for New Epoch Slots
+   ↓
+User Receives Notifications for New Epoch
+```
+
+### Detection Mechanisms
+
+**Foreground Detection** (Every 3 seconds):
+```dart
+// In NodeEpochRewardsController._monitorSlots()
+final previousEpoch = stateRepo.currentEpoch;
+final epochChanged = previousEpoch != null && previousEpoch != epoch;
+
+if (epochChanged) {
+  // Cancel old notifications
+  await SlotNotificationManager.instance.cancelAllScheduledNotifications();
+  // Update epoch
+  await stateRepo.setCurrentEpoch(epoch);
+  // Notifications will be rescheduled below
+}
+```
+
+**Background Detection** (Every 15 minutes):
+```dart
+// In background_task_service.dart
+final currentEpoch = status.epoch;
+final previousEpoch = stateRepo.currentEpoch;
+
+if (previousEpoch != null && previousEpoch != currentEpoch) {
+  // Epoch changed in background!
+  await LocalNotificationService.instance.cancelAllNotifications();
+  await stateRepo.clearScheduledNotifications();
+  await stateRepo.setCurrentEpoch(currentEpoch);
+  // Fetch and schedule new epoch slots
+}
+```
+
+### Why Epoch Tracking Matters
+
+1. **Prevents Stale Notifications**: Old epoch slots are no longer relevant
+2. **Ensures Accuracy**: Only schedules notifications for current epoch
+3. **Efficient Resource Use**: Cancels outdated notifications immediately
+4. **Seamless Transitions**: Users don't receive notifications for wrong epoch
+
+### Storage
+
+**Key**: `current_epoch` in SharedPreferences
+**Type**: `int`
+**Persistence**: Survives app restarts
+**Usage**: Compared on every data refresh to detect changes
 
 ---
 

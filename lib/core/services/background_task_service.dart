@@ -1,8 +1,11 @@
+import 'dart:io';
 import 'package:workmanager/workmanager.dart';
 import 'package:logger/logger.dart';
 import '../config/notification_config.dart';
 import '../data/notification_state_repository.dart';
 import 'local_notification_service.dart';
+import 'slot_notification_manager.dart';
+import '../../features/node/data/repositories/rust_backend_service.dart';
 
 /// Background task service for monitoring slots when app is not in foreground
 class BackgroundTaskService {
@@ -39,6 +42,14 @@ class BackgroundTaskService {
     }
 
     try {
+      // iOS has different background task behavior
+      if (Platform.isIOS) {
+        _logger.i(
+          'Registering background task for iOS (Note: Frequency is best-effort, '
+          'iOS system decides when to run based on device usage patterns)',
+        );
+      }
+
       await Workmanager().registerPeriodicTask(
         NotificationConfig.backgroundTaskName,
         NotificationConfig.backgroundTaskName,
@@ -115,29 +126,80 @@ void callbackDispatcher() {
 /// Perform slot monitoring in background
 Future<void> _performSlotMonitoring(Logger logger) async {
   try {
-    // Get current epoch rewards data from Rust backend
-    // Note: This requires the Rust backend to be running, which may not be
-    // the case in background. For a hybrid approach, we'll try but fail gracefully.
-    // Try to get current epoch (this might fail if Rust backend is not running)
-    // In a production app, you might want to store the current epoch in SharedPreferences
-    // and use that as a fallback
+    logger.d('Background slot monitoring started');
 
-    logger.d('Attempting to fetch epoch data in background');
-
-    // For now, we'll clean up old notifications and let the foreground
-    // handle the actual scheduling when the app is active
+    // Always clean up old notifications first
     await NotificationStateRepository.instance.cleanupOldNotifications();
+    logger.d('Cleaned up old notifications');
 
-    logger.d('Cleaned up old notifications in background');
+    // Try to fetch latest epoch data from Rust backend
+    // This will only work if backend is running in background
+    try {
+      final rustBackend = RustBackendService.instance;
 
-    // TODO: Implement more sophisticated background monitoring
-    // This could include:
-    // 1. Storing epoch data in local storage when app is active
-    // 2. Using that stored data to check for missed slots
-    // 3. Sending notifications for missed slots
-    // 4. Re-scheduling upcoming notifications if they were cancelled
-  } catch (e) {
-    logger.e('Error in background slot monitoring: $e');
+      // Get current status to determine epoch
+      final status = await rustBackend.getStatus();
+      if (status == null) {
+        logger.d('Background: No status available from Rust backend');
+        return;
+      }
+
+      final currentEpoch = status.blockchain.bestTip.epoch;
+      logger.d('Background: Current epoch is $currentEpoch');
+
+      // Fetch epoch rewards for current epoch
+      final rewards = await rustBackend.epochRewards(epoch: currentEpoch);
+      if (rewards == null || rewards.wonSlots == null || rewards.wonSlots!.isEmpty) {
+        logger.d('Background: No won slots for epoch $currentEpoch');
+        return;
+      }
+
+      logger.i('Background: Found ${rewards.wonSlots!.length} won slots for epoch $currentEpoch');
+
+      // Check for epoch change
+      final stateRepo = NotificationStateRepository.instance;
+      final previousEpoch = stateRepo.currentEpoch;
+
+      if (previousEpoch != null && previousEpoch != currentEpoch) {
+        logger.i('Background: Epoch changed from $previousEpoch to $currentEpoch');
+        // Cancel old notifications from previous epoch
+        await LocalNotificationService.instance.cancelAllNotifications();
+        await stateRepo.clearScheduledNotifications();
+        await stateRepo.setCurrentEpoch(currentEpoch);
+      }
+
+      // Get produced slots from blockchain
+      final blockchain = await rustBackend.listBlockchain(
+        limit: 100,
+        fromTip: true,
+        epoch: currentEpoch,
+      );
+
+      final producedSlots = <int>{};
+      if (blockchain?.items != null) {
+        for (final block in blockchain!.items) {
+          producedSlots.add(block.globalSlot);
+        }
+      }
+
+      logger.d('Background: Found ${producedSlots.length} produced slots');
+
+      // Schedule notifications for upcoming slots
+      await SlotNotificationManager.instance.scheduleNotificationsForSlots(
+        wonSlots: rewards.wonSlots!,
+        producedSlots: producedSlots,
+        epoch: currentEpoch,
+        rewardPerBlock: rewards.rewardPerBlock,
+      );
+
+      logger.i('Background: Successfully scheduled notifications for epoch $currentEpoch');
+    } on Exception catch (e) {
+      logger.w('Background: Rust backend not available or failed: $e');
+      // This is expected when app is fully closed - backend may not be running
+      // Notifications will be rescheduled when app opens and foreground runs
+    }
+  } catch (e, st) {
+    logger.e('Background slot monitoring error: $e', error: e, stackTrace: st);
     // Don't throw - we want the task to complete even if there's an error
   }
 }

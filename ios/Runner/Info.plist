@@ -45,5 +45,9 @@
         <string>fetch</string>
         <string>processing</string>
     </array>
+    <key>BGTaskSchedulerPermittedIdentifiers</key>
+    <array>
+        <string>be.tramckrijte.workmanager.slot_monitoring_task</string>
+    </array>
 </dict>
 </plist>

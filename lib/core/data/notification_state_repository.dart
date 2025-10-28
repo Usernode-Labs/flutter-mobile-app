@@ -223,6 +223,25 @@ class NotificationStateRepository {
     return stats;
   }
 
+  // ===== Epoch Tracking =====
+
+  /// Get current tracked epoch
+  int? get currentEpoch {
+    return _preferences.getInt(NotificationConfig.prefKeyCurrentEpoch);
+  }
+
+  /// Set current epoch
+  Future<void> setCurrentEpoch(int epoch) async {
+    await _preferences.setInt(NotificationConfig.prefKeyCurrentEpoch, epoch);
+    _logger.d('Current epoch set to: $epoch');
+  }
+
+  /// Clear current epoch tracking
+  Future<void> clearCurrentEpoch() async {
+    await _preferences.remove(NotificationConfig.prefKeyCurrentEpoch);
+    _logger.d('Current epoch cleared');
+  }
+
   /// Reset all settings to defaults
   Future<void> resetToDefaults() async {
     await setNotificationsEnabled(NotificationConfig.defaultNotificationsEnabled);
@@ -236,6 +255,7 @@ class NotificationStateRepository {
     await setSmartBatchingEnabled(
         NotificationConfig.defaultSmartBatchingEnabled);
     await clearScheduledNotifications();
+    await clearCurrentEpoch();
     _logger.i('Reset notification settings to defaults');
   }
 }

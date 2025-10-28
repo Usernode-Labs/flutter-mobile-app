@@ -22,6 +22,7 @@ class SlotNotificationManager {
     required List<RpcEpochWonSlot> wonSlots,
     required Set<int> producedSlots,
     required int epoch,
+    BigInt? rewardPerBlock,
   }) async {
     if (!_stateRepo.notificationsEnabled) {
       _logger.d('Notifications disabled, skipping scheduling');
@@ -58,6 +59,7 @@ class SlotNotificationManager {
         producedSlots: producedSlots,
         advanceMinutes: advanceMinutes,
         epoch: epoch,
+        rewardPerBlock: rewardPerBlock,
       );
     } else {
       await _scheduleAllSlots(
@@ -65,6 +67,7 @@ class SlotNotificationManager {
         producedSlots: producedSlots,
         advanceMinutes: advanceMinutes,
         epoch: epoch,
+        rewardPerBlock: rewardPerBlock,
       );
     }
   }
@@ -75,6 +78,7 @@ class SlotNotificationManager {
     required Set<int> producedSlots,
     required int advanceMinutes,
     required int epoch,
+    BigInt? rewardPerBlock,
   }) async {
     // Sort slots by time
     final sortedSlots = List<RpcEpochWonSlot>.from(upcomingSlots)
@@ -158,6 +162,7 @@ class SlotNotificationManager {
         cluster: cluster,
         advanceMinutes: advanceMinutes,
         epoch: epoch,
+        rewardPerBlock: rewardPerBlock,
       );
     }
 
@@ -173,6 +178,7 @@ class SlotNotificationManager {
         slot: slot,
         advanceMinutes: advanceMinutes,
         epoch: epoch,
+        rewardPerBlock: rewardPerBlock,
       );
       scheduledCount++;
     }
@@ -184,6 +190,7 @@ class SlotNotificationManager {
     required Set<int> producedSlots,
     required int advanceMinutes,
     required int epoch,
+    BigInt? rewardPerBlock,
   }) async {
     final now = DateTime.now();
 
@@ -211,6 +218,7 @@ class SlotNotificationManager {
     required RpcEpochWonSlot slot,
     required int advanceMinutes,
     required int epoch,
+    BigInt? rewardPerBlock,
   }) async {
     if (!_stateRepo.upcomingNotificationsEnabled) return;
 
@@ -239,12 +247,14 @@ class SlotNotificationManager {
 
     final notificationId =
         NotificationConfig.upcomingSlotNotificationIdBase + slot.globalSlot;
-    final timeFormatter = DateFormat('h:mm a');
+
+    // Create earnings-focused notification message
+    final rewardAmount = rewardPerBlock != null ? _formatReward(rewardPerBlock) : 'rewards';
 
     await _notificationService.scheduleNotification(
       id: notificationId,
-      title: 'Slot in $advanceMinutes minutes',
-      body: 'Slot #${slot.globalSlot} at ${timeFormatter.format(slotTime)}',
+      title: '💰 Earning Opportunity in $advanceMinutes min!',
+      body: 'Open app now to earn $rewardAmount from Slot #${slot.globalSlot}',
       scheduledTime: notificationTime,
       payload: 'slot:${slot.globalSlot}:upcoming',
       isSlotNotification: true,
@@ -267,6 +277,7 @@ class SlotNotificationManager {
     required GroupedSlots cluster,
     required int advanceMinutes,
     required int epoch,
+    BigInt? rewardPerBlock,
   }) async {
     if (!_stateRepo.upcomingNotificationsEnabled) return;
 
@@ -285,10 +296,18 @@ class SlotNotificationManager {
     final startTimeStr = timeFormatter.format(cluster.startTime);
     final endTimeStr = timeFormatter.format(cluster.endTime);
 
+    // Calculate total potential earnings for grouped slots
+    String earningsMessage = '';
+    if (rewardPerBlock != null) {
+      final totalReward = rewardPerBlock * BigInt.from(cluster.count);
+      final formattedTotal = _formatReward(totalReward);
+      earningsMessage = ' - earn up to $formattedTotal!';
+    }
+
     await _notificationService.scheduleNotification(
       id: notificationId,
-      title: '${cluster.count} slots in next ${advanceMinutes} min',
-      body: 'Slots from $startTimeStr to $endTimeStr',
+      title: '🚀 ${cluster.count} Earning Opportunities Soon!',
+      body: 'Keep app open from $startTimeStr to $endTimeStr$earningsMessage',
       scheduledTime: notificationTime,
       payload: 'slots:grouped:${cluster.globalSlots.join(",")}',
       isSlotNotification: true,
@@ -311,6 +330,7 @@ class SlotNotificationManager {
   Future<void> notifyBlockProduced({
     required int globalSlot,
     required int epoch,
+    BigInt? rewardAmount,
   }) async {
     if (!_stateRepo.notificationsEnabled ||
         !_stateRepo.producedNotificationsEnabled) {
@@ -326,10 +346,17 @@ class SlotNotificationManager {
     final notificationId =
         NotificationConfig.producedBlockNotificationIdBase + globalSlot;
 
+    // Create celebration message with earnings
+    String earningsMessage = '';
+    if (rewardAmount != null) {
+      final formattedReward = _formatReward(rewardAmount);
+      earningsMessage = ' You earned $formattedReward!';
+    }
+
     await _notificationService.showNotification(
       id: notificationId,
-      title: 'Block produced!',
-      body: 'Successfully produced block for slot #$globalSlot',
+      title: '🎉 Block Produced Successfully!',
+      body: 'Slot #$globalSlot completed.$earningsMessage',
       payload: 'slot:$globalSlot:produced',
       isSlotNotification: true,
     );
@@ -364,8 +391,8 @@ class SlotNotificationManager {
 
     await _notificationService.showNotification(
       id: notificationId,
-      title: 'Slot missed',
-      body: 'Slot #$globalSlot at ${timeFormatter.format(slotTime)} was not produced',
+      title: '⚠️ Slot Missed',
+      body: 'Slot #$globalSlot at ${timeFormatter.format(slotTime)} - Keep app open for next opportunities!',
       payload: 'slot:$globalSlot:missed',
       isSlotNotification: true,
     );
@@ -424,5 +451,42 @@ class SlotNotificationManager {
         'smart_batching': _stateRepo.smartBatchingEnabled,
       },
     };
+  }
+
+  /// Format reward amount for display in notifications
+  /// Converts from smallest unit to main unit with proper formatting
+  String _formatReward(BigInt rewardInSmallestUnit) {
+    // Assuming 1 TKN = 10^9 smallest units (nano units)
+    // Adjust this divisor based on your token's decimals
+    final divisor = BigInt.from(1000000000);
+
+    if (rewardInSmallestUnit == BigInt.zero) {
+      return '0 TKN';
+    }
+
+    // Calculate main units and remainder
+    final mainUnits = rewardInSmallestUnit ~/ divisor;
+    final remainder = rewardInSmallestUnit % divisor;
+
+    if (remainder == BigInt.zero) {
+      // Whole number
+      return '$mainUnits TKN';
+    } else {
+      // Has decimal part
+      final decimal = remainder.toDouble() / divisor.toDouble();
+      final totalValue = mainUnits.toDouble() + decimal;
+
+      // Format with 2 decimal places
+      if (totalValue < 0.01) {
+        // Very small amount, show 4 decimals
+        return '~${totalValue.toStringAsFixed(4)} TKN';
+      } else if (totalValue < 1) {
+        // Less than 1, show 3 decimals
+        return '~${totalValue.toStringAsFixed(3)} TKN';
+      } else {
+        // 1 or more, show 2 decimals
+        return '~${totalValue.toStringAsFixed(2)} TKN';
+      }
+    }
   }
 }

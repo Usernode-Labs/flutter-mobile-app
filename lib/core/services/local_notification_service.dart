@@ -3,7 +3,10 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:logger/logger.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
+import 'package:go_router/go_router.dart';
 import '../config/notification_config.dart';
+import '../routing/app_router.dart';
+import '../models/notification_payload.dart';
 
 /// Service for managing local (native) notifications
 class LocalNotificationService {
@@ -127,8 +130,29 @@ class LocalNotificationService {
   /// Handle notification tap
   void _onNotificationTapped(NotificationResponse response) {
     _logger.d('Notification tapped: ${response.id}, payload: ${response.payload}');
-    // TODO: Navigate to appropriate screen based on payload
-    // This can be extended to parse payload and navigate using go_router
+
+    try {
+      // Parse the notification payload
+      final payload = NotificationPayload.parse(response.payload);
+
+      if (payload == null) {
+        _logger.w('Invalid notification payload: ${response.payload}');
+        return;
+      }
+
+      // Get the navigator context from the exposed key
+      final context = appNavigatorKey.currentContext;
+      if (context == null) {
+        _logger.w('Navigator context not available');
+        return;
+      }
+
+      // Navigate to notification details screen
+      context.push('/main/node/notification-details', extra: payload);
+      _logger.i('Navigating to notification details for payload: ${response.payload}');
+    } catch (e, st) {
+      _logger.e('Error handling notification tap', error: e, stackTrace: st);
+    }
   }
 
   /// Show an immediate notification

@@ -265,12 +265,13 @@ class _NodeStatusSummaryModalState
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        'Block $currentHeight / $networkHeight',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
+                      if (!syncStatus.isConnecting)
+                        Text(
+                          'Block $currentHeight / $networkHeight',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
                         ),
-                      ),
                       if (!syncStatus.isSynced &&
                           _blocksPerSecond != null &&
                           _blocksPerSecond! > 0) ...[
@@ -304,7 +305,7 @@ class _NodeStatusSummaryModalState
                 );
               }
               // Show default values when no previous data (instead of placeholder)
-              final accentColor = colorScheme.primary;
+              final accentColor = colorScheme.outline;
               return _StatusCard(
                 icon: Icons.hourglass_empty,
                 iconColor: accentColor,
@@ -316,7 +317,7 @@ class _NodeStatusSummaryModalState
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Syncing',
+                          'Connecting',
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: accentColor,
@@ -339,13 +340,6 @@ class _NodeStatusSummaryModalState
                         backgroundColor: colorScheme.surfaceContainerHighest,
                         valueColor: AlwaysStoppedAnimation<Color>(accentColor),
                         minHeight: 6,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Block 0 / 0',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],

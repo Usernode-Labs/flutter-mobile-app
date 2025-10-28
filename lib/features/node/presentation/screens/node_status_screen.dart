@@ -232,7 +232,10 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
     // Determine what to display for block counts
     String blockDisplayText;
-    if (sync.appliedBlocks != null && sync.targetBlocks != null) {
+    if (sync.isConnecting) {
+      // Don't show block count when connecting
+      blockDisplayText = '';
+    } else if (sync.appliedBlocks != null && sync.targetBlocks != null) {
       // Use applied blocks data
       final appliedStr = _formatBigIntStatic(sync.appliedBlocks!);
       final targetStr = _formatBigIntStatic(sync.targetBlocks!);
@@ -268,7 +271,25 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       }
     }
     final peerHealthy = connectedPeers > 0 && connectedPeers == totalPeers;
-    final accentColor = isSynced ? colorScheme.tertiary : colorScheme.primary;
+
+    // Determine status display based on connection state
+    final IconData statusIcon;
+    final String statusLabel;
+    final Color accentColor;
+
+    if (sync.isConnecting) {
+      statusIcon = Icons.hourglass_empty;
+      statusLabel = 'Connecting';
+      accentColor = colorScheme.outline;
+    } else if (isSynced) {
+      statusIcon = Icons.check_circle;
+      statusLabel = 'Synced';
+      accentColor = colorScheme.tertiary;
+    } else {
+      statusIcon = Icons.sync;
+      statusLabel = 'Syncing';
+      accentColor = colorScheme.primary;
+    }
 
     return _buildDiaryCard(
       context: context,
@@ -280,13 +301,13 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
         Row(
           children: [
             Icon(
-              isSynced ? Icons.check_circle : Icons.sync,
+              statusIcon,
               size: 18,
               color: accentColor,
             ),
             const SizedBox(width: 8),
             Text(
-              isSynced ? 'Synced' : 'Syncing',
+              statusLabel,
               style: theme.textTheme.titleMedium!
                   .copyWith(
                       fontWeight: FontWeight.bold,

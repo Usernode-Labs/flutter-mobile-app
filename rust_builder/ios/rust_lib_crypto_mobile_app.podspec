@@ -27,19 +27,24 @@ A new Flutter FFI plugin project.
     'DEFINES_MODULE' => 'YES',
     # Flutter.framework does not contain a i386 slice.
     'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386',
-    'OTHER_LDFLAGS' => '$(inherited) -lc++ -force_load ${BUILT_PRODUCTS_DIR}/libusernode.a',
+    # Link C++ stdlib, include the built Rust static lib, and keep the
+    # FRB marker symbol so it is linked without all-load.
+    'OTHER_LDFLAGS' => '$(inherited) -lc++ ${BUILT_PRODUCTS_DIR}/libusernode.a -Wl,-u,_frb_get_rust_content_hash',
     'IPHONEOS_DEPLOYMENT_TARGET' => '12.0'
   }
   s.swift_version = '5.0'
 
   s.script_phase = {
     :name => 'Build Rust library',
-    # First argument is relative path to the `rust` folder, second is name of rust library
-    :script => 'export CONFIGURATION=Release && sh "$PODS_TARGET_SRCROOT/../cargokit/build_pod.sh" ../../../usernode/crates/usernode rust_lib_crypto_mobile_app',
+    # Build the Rust static library for the `usernode` crate, then symlink it
+    # to the pod's expected product name so Xcode links it normally.
+    :script => <<-BASH,
+sh "$PODS_TARGET_SRCROOT/../cargokit/build_pod.sh" ../../../usernode/crates/usernode usernode
+# Ensure the pod product name resolves to the built Rust library
+ln -sf "${BUILT_PRODUCTS_DIR}/libusernode.a" "${BUILT_PRODUCTS_DIR}/librust_lib_crypto_mobile_app.a"
+BASH
     :execution_position => :before_compile,
     :input_files => ['${BUILT_PRODUCTS_DIR}/cargokit_phony'],
-    # Let XCode know that the static library referenced in -force_load below is
-    # created by this build step.
-    :output_files => ["${BUILT_PRODUCTS_DIR}/libusernode.a"],
+    :output_files => ["${BUILT_PRODUCTS_DIR}/libusernode.a", "${BUILT_PRODUCTS_DIR}/librust_lib_crypto_mobile_app.a"],
   }
 end

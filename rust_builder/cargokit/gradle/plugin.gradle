@@ -134,10 +134,18 @@ class CargoKitPlugin implements Plugin<Project> {
 
             def platforms = com.flutter.gradle.FlutterPluginUtils.getTargetPlatforms(project).collect()
 
-            // Same thing addFlutterDependencies does in flutter.gradle
-            if (buildType == "debug") {
-                platforms.add("android-x86")
-                platforms.add("android-x64")
+            // Optionally restrict to arm64-only to speed up and avoid
+            // unsupported architectures in native builds.
+            def onlyArm64 = System.getenv("CARGOKIT_ONLY_ANDROID_ARM64")
+            if (onlyArm64 != null && onlyArm64.toString().trim() == "1") {
+                platforms.clear()
+                platforms.add("android-arm64")
+            } else {
+                // Same behavior as addFlutterDependencies in flutter.gradle
+                if (buildType == "debug") {
+                    platforms.add("android-x86")
+                    platforms.add("android-x64")
+                }
             }
 
             // The task name depends on plugin properties, which are not available

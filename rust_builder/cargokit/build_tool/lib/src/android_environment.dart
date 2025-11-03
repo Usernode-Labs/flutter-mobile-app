@@ -33,9 +33,15 @@ class AndroidEnvironment {
           "cargo-ndk rustc linker: didn't find _CARGOKIT_NDK_LINK_TARGET env var");
     }
 
+    // Some third-party native builds (e.g. libdatachannel via CMake) may inject
+    // "-lpthread". Android's bionic libc provides pthread symbols without a
+    // separate libpthread, and linking against "-lpthread" fails with ld.lld
+    // ("unable to find library -lpthread"). Prefer dropping that flag.
+    final filteredArgs = args.where((a) => a != '-lpthread').toList();
+
     runCommand(clang, [
       target,
-      ...args,
+      ...filteredArgs,
     ]);
   }
 

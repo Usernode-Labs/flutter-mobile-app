@@ -263,29 +263,6 @@ class RustBackendService {
         }
       }
 
-      // Build batcher data for logging
-      Map<String, dynamic>? batcherData;
-      final batcher = status?.batcher;
-      if (batcher != null) {
-        try {
-          batcherData = {
-            'pending_leaves': batcher.pendingLeaves.toString(),
-            'pending_batches': batcher.pendingBatches.toString(),
-            'pending_batches_txs': batcher.pendingBatchesTxs.toString(),
-            'inflight_jobs': batcher.inflightJobs.toString(),
-            'total_issued_batches': batcher.totalIssuedBatches.toString(),
-            'total_issued_txs': batcher.totalIssuedTxs.toString(),
-            'total_confirmed_txs': batcher.totalConfirmedTxs.toString(),
-            'total_confirmed_batches': batcher.totalConfirmedBatches.toString(),
-            'last_update_ms': batcher.lastUpdateMs.toString(),
-            'jobs_per_tick': batcher.jobsPerTick.toString(),
-            'lease_ttl_ms': batcher.leaseTtlMs.toString(),
-          };
-        } catch (e) {
-          batcherData = {'error': 'Failed to parse batcher data: $e'};
-        }
-      }
-
       // Build block producer data for logging
       Map<String, dynamic>? blockProducerData;
       final blockProducer = status?.blockProducer;
@@ -398,7 +375,6 @@ class RustBackendService {
       final fullResponse = {
         'peers': peers,
         if (blockchainData != null) 'blockchain': blockchainData,
-        if (batcherData != null) 'batcher': batcherData,
         if (blockProducerData != null) 'block_producer': blockProducerData,
         if (mempoolData != null) 'mempool': mempoolData,
       };

@@ -443,6 +443,11 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
               wonSlots = produced;
             }
 
+            // Get VRF evaluator data for slots information
+            final vrfEvaluator = ref.watch(nodeRawStatusProvider).value?.vrfEvaluator;
+            final evaluatedSlots = vrfEvaluator?.evaluatedSlotsSinceStart ?? 0;
+            const totalSlotsPerEpoch = 17280; // SLOTS_PER_EPOCH constant
+
             return Row(
               children: [
                 Expanded(
@@ -460,14 +465,16 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                 ),
                 const SizedBox(width: 6),
                 Expanded(
-                  child: _buildCompactInfoCard(
+                  child: _buildMultiLineInfoCard(
                     context,
                     icon: Icons.emoji_events,
-                    label: 'Won',
-                    value: '', // Value shown only in subtitle to avoid repetition
-                    subtitle: wonSlots == 1 ? '1 slot' : '$wonSlots slots',
-                    color: const Color(
-                        0xFFF9A825), // Darker golden yellow for better readability
+                    label: 'Slots',
+                    lines: [
+                      'Total: ${NumberFormat('#,###').format(totalSlotsPerEpoch)}',
+                      'Evaluated: ${NumberFormat('#,###').format(evaluatedSlots)}',
+                      'Won: ${NumberFormat('#,###').format(wonSlots)}',
+                    ],
+                    color: const Color(0xFFF9A825),
                     colorScheme: colorScheme,
                     onTap: () => context.push('/main/node/won-slots'),
                     useGradient: false,

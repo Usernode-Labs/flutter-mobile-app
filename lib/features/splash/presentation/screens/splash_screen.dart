@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/core/config/app_constants.dart';
-import 'package:crypto_mobile_app/gen_l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/core/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {

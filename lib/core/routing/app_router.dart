@@ -7,7 +7,7 @@ import 'package:crypto_mobile_app/features/onboarding/presentation/screens/accou
 import 'package:crypto_mobile_app/features/onboarding/presentation/screens/create_new_account_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/presentation/screens/import_seed_phrase_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/presentation/screens/identity_verification_screen.dart';
-import 'package:crypto_mobile_app/app/main_app.dart';
+import 'package:crypto_mobile_app/core/main_app.dart';
 import 'package:crypto_mobile_app/features/home/presentation/screens/home_screen.dart';
 import 'package:crypto_mobile_app/features/node/presentation/screens/node_status_screen.dart';
 import 'package:crypto_mobile_app/features/node/presentation/screens/node_won_slots_screen.dart';

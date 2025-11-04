@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../gen_l10n/app_localizations.dart';
+import '../l10n/app_localizations.dart';
 
 class LiquidityBridgeCard extends StatelessWidget {
   final String? title; // 🔥 CHANGED: Made optional since we'll use i18n

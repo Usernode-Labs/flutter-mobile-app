@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../gen_l10n/app_localizations.dart';
+import '../l10n/app_localizations.dart';
  
 import 'liquidity_bridge_card.dart';
 import 'package:crypto_mobile_app/core/feature_flags.dart';

@@ -705,6 +705,120 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Checked {seconds} seconds ago'**
   String checkedAgoSeconds(String seconds);
+
+  /// Feedback feature label
+  ///
+  /// In en, this message translates to:
+  /// **'Feedback'**
+  String get feedback;
+
+  /// Send feedback button text
+  ///
+  /// In en, this message translates to:
+  /// **'Send Feedback'**
+  String get sendFeedback;
+
+  /// Feedback title field label
+  ///
+  /// In en, this message translates to:
+  /// **'Title'**
+  String get feedbackTitle;
+
+  /// Feedback title field hint
+  ///
+  /// In en, this message translates to:
+  /// **'Brief summary of your feedback'**
+  String get feedbackTitleHint;
+
+  /// Feedback description field label
+  ///
+  /// In en, this message translates to:
+  /// **'Description'**
+  String get feedbackDescription;
+
+  /// Feedback description field hint
+  ///
+  /// In en, this message translates to:
+  /// **'Describe your feedback in detail'**
+  String get feedbackDescriptionHint;
+
+  /// Feedback category field label
+  ///
+  /// In en, this message translates to:
+  /// **'Category'**
+  String get feedbackCategory;
+
+  /// Bug report category option
+  ///
+  /// In en, this message translates to:
+  /// **'Bug Report'**
+  String get feedbackBugReport;
+
+  /// Feature request category option
+  ///
+  /// In en, this message translates to:
+  /// **'Feature Request'**
+  String get feedbackFeatureRequest;
+
+  /// General feedback category option
+  ///
+  /// In en, this message translates to:
+  /// **'General Feedback'**
+  String get feedbackGeneral;
+
+  /// Include device info checkbox label
+  ///
+  /// In en, this message translates to:
+  /// **'Include device information'**
+  String get feedbackIncludeDeviceInfo;
+
+  /// Device info checkbox subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Helps us diagnose issues'**
+  String get feedbackDeviceInfoHelp;
+
+  /// Submit feedback button text
+  ///
+  /// In en, this message translates to:
+  /// **'Submit Feedback'**
+  String get feedbackSubmit;
+
+  /// Feedback submission success message
+  ///
+  /// In en, this message translates to:
+  /// **'Thank you for your feedback!'**
+  String get feedbackSuccess;
+
+  /// Feedback submission error message
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to submit feedback'**
+  String get feedbackError;
+
+  /// Required field validation message
+  ///
+  /// In en, this message translates to:
+  /// **'This field is required'**
+  String get feedbackRequired;
+
+  /// Screenshots section label
+  ///
+  /// In en, this message translates to:
+  /// **'Screenshots'**
+  String get feedbackScreenshots;
+
+  /// Add screenshot button text
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get feedbackAddScreenshot;
+
+  /// Empty screenshots message
+  ///
+  /// In en, this message translates to:
+  /// **'No screenshots added (optional)'**
+  String get feedbackNoScreenshots;
 }
 
 class _AppLocalizationsDelegate

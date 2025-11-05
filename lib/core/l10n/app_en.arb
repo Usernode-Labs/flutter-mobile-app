@@ -260,5 +260,81 @@
   "@transactionsSuffix": {"placeholders": {"count": {"type": "String"}}}
   ,
   "checkedAgoSeconds": "Checked {seconds} seconds ago",
-  "@checkedAgoSeconds": {"placeholders": {"seconds": {"type": "String"}}}
+  "@checkedAgoSeconds": {"placeholders": {"seconds": {"type": "String"}}},
+  "feedback": "Feedback",
+  "@feedback": {
+    "description": "Feedback feature label"
+  },
+  "sendFeedback": "Send Feedback",
+  "@sendFeedback": {
+    "description": "Send feedback button text"
+  },
+  "feedbackTitle": "Title",
+  "@feedbackTitle": {
+    "description": "Feedback title field label"
+  },
+  "feedbackTitleHint": "Brief summary of your feedback",
+  "@feedbackTitleHint": {
+    "description": "Feedback title field hint"
+  },
+  "feedbackDescription": "Description",
+  "@feedbackDescription": {
+    "description": "Feedback description field label"
+  },
+  "feedbackDescriptionHint": "Describe your feedback in detail",
+  "@feedbackDescriptionHint": {
+    "description": "Feedback description field hint"
+  },
+  "feedbackCategory": "Category",
+  "@feedbackCategory": {
+    "description": "Feedback category field label"
+  },
+  "feedbackBugReport": "Bug Report",
+  "@feedbackBugReport": {
+    "description": "Bug report category option"
+  },
+  "feedbackFeatureRequest": "Feature Request",
+  "@feedbackFeatureRequest": {
+    "description": "Feature request category option"
+  },
+  "feedbackGeneral": "General Feedback",
+  "@feedbackGeneral": {
+    "description": "General feedback category option"
+  },
+  "feedbackIncludeDeviceInfo": "Include device information",
+  "@feedbackIncludeDeviceInfo": {
+    "description": "Include device info checkbox label"
+  },
+  "feedbackDeviceInfoHelp": "Helps us diagnose issues",
+  "@feedbackDeviceInfoHelp": {
+    "description": "Device info checkbox subtitle"
+  },
+  "feedbackSubmit": "Submit Feedback",
+  "@feedbackSubmit": {
+    "description": "Submit feedback button text"
+  },
+  "feedbackSuccess": "Thank you for your feedback!",
+  "@feedbackSuccess": {
+    "description": "Feedback submission success message"
+  },
+  "feedbackError": "Failed to submit feedback",
+  "@feedbackError": {
+    "description": "Feedback submission error message"
+  },
+  "feedbackRequired": "This field is required",
+  "@feedbackRequired": {
+    "description": "Required field validation message"
+  },
+  "feedbackScreenshots": "Screenshots",
+  "@feedbackScreenshots": {
+    "description": "Screenshots section label"
+  },
+  "feedbackAddScreenshot": "Add",
+  "@feedbackAddScreenshot": {
+    "description": "Add screenshot button text"
+  },
+  "feedbackNoScreenshots": "No screenshots added (optional)",
+  "@feedbackNoScreenshots": {
+    "description": "Empty screenshots message"
+  }
 }

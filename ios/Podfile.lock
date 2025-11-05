@@ -1,0 +1,98 @@
+PODS:
+  - device_info_plus (0.0.1):
+    - Flutter
+  - Flutter (1.0.0)
+  - flutter_local_notifications (0.0.1):
+    - Flutter
+  - flutter_secure_storage (6.0.0):
+    - Flutter
+  - image_picker_ios (0.0.1):
+    - Flutter
+  - integration_test (0.0.1):
+    - Flutter
+  - objective_c (0.0.1):
+    - Flutter
+  - package_info_plus (0.4.5):
+    - Flutter
+  - path_provider_foundation (0.0.1):
+    - Flutter
+    - FlutterMacOS
+  - rust_lib_crypto_mobile_app (0.0.1):
+    - Flutter
+  - Sentry/HybridSDK (8.56.2)
+  - sentry_flutter (9.7.0):
+    - Flutter
+    - FlutterMacOS
+    - Sentry/HybridSDK (= 8.56.2)
+  - shared_preferences_foundation (0.0.1):
+    - Flutter
+    - FlutterMacOS
+  - workmanager (0.0.1):
+    - Flutter
+
+DEPENDENCIES:
+  - device_info_plus (from `.symlinks/plugins/device_info_plus/ios`)
+  - Flutter (from `Flutter`)
+  - flutter_local_notifications (from `.symlinks/plugins/flutter_local_notifications/ios`)
+  - flutter_secure_storage (from `.symlinks/plugins/flutter_secure_storage/ios`)
+  - image_picker_ios (from `.symlinks/plugins/image_picker_ios/ios`)
+  - integration_test (from `.symlinks/plugins/integration_test/ios`)
+  - objective_c (from `.symlinks/plugins/objective_c/ios`)
+  - package_info_plus (from `.symlinks/plugins/package_info_plus/ios`)
+  - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
+  - rust_lib_crypto_mobile_app (from `.symlinks/plugins/rust_lib_crypto_mobile_app/ios`)
+  - sentry_flutter (from `.symlinks/plugins/sentry_flutter/ios`)
+  - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
+  - workmanager (from `.symlinks/plugins/workmanager/ios`)
+
+SPEC REPOS:
+  trunk:
+    - Sentry
+
+EXTERNAL SOURCES:
+  device_info_plus:
+    :path: ".symlinks/plugins/device_info_plus/ios"
+  Flutter:
+    :path: Flutter
+  flutter_local_notifications:
+    :path: ".symlinks/plugins/flutter_local_notifications/ios"
+  flutter_secure_storage:
+    :path: ".symlinks/plugins/flutter_secure_storage/ios"
+  image_picker_ios:
+    :path: ".symlinks/plugins/image_picker_ios/ios"
+  integration_test:
+    :path: ".symlinks/plugins/integration_test/ios"
+  objective_c:
+    :path: ".symlinks/plugins/objective_c/ios"
+  package_info_plus:
+    :path: ".symlinks/plugins/package_info_plus/ios"
+  path_provider_foundation:
+    :path: ".symlinks/plugins/path_provider_foundation/darwin"
+  rust_lib_crypto_mobile_app:
+    :path: ".symlinks/plugins/rust_lib_crypto_mobile_app/ios"
+  sentry_flutter:
+    :path: ".symlinks/plugins/sentry_flutter/ios"
+  shared_preferences_foundation:
+    :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
+  workmanager:
+    :path: ".symlinks/plugins/workmanager/ios"
+
+SPEC CHECKSUMS:
+  device_info_plus: c6fb39579d0f423935b0c9ce7ee2f44b71b9fce6
+  Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
+  flutter_local_notifications: 4cde75091f6327eb8517fa068a0a5950212d2086
+  flutter_secure_storage: d33dac7ae2ea08509be337e775f6b59f1ff45f12
+  image_picker_ios: 4f2f91b01abdb52842a8e277617df877e40f905b
+  integration_test: 252f60fa39af5e17c3aa9899d35d908a0721b573
+  objective_c: 77e887b5ba1827970907e10e832eec1683f3431d
+  package_info_plus: c0502532a26c7662a62a356cebe2692ec5fe4ec4
+  path_provider_foundation: 2b6b4c569c0fb62ec74538f866245ac84301af46
+  rust_lib_crypto_mobile_app: dac4a42fc0dd8bd6902f6f8c36cd1eb48a91b3bb
+  Sentry: b53951377b78e21a734f5dc8318e333dbfc682d7
+  sentry_flutter: b71c80b7a071cc42af82576046ff2db19fc12f57
+  shared_preferences_foundation: fcdcbc04712aee1108ac7fda236f363274528f78
+  workmanager: 0afdcf5628bbde6924c21af7836fed07b42e30e6
+
+PODFILE CHECKSUM: 2d51da7ffc22cb292323e928e74cddee239783c5
+
+COCOAPODS: 1.16.2

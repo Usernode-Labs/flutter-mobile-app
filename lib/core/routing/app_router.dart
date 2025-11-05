@@ -7,25 +7,28 @@ import 'package:crypto_mobile_app/features/onboarding/presentation/screens/accou
 import 'package:crypto_mobile_app/features/onboarding/presentation/screens/create_new_account_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/presentation/screens/import_seed_phrase_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/presentation/screens/identity_verification_screen.dart';
-import 'package:crypto_mobile_app/app/main_app.dart';
+import 'package:crypto_mobile_app/core/main_app.dart';
 import 'package:crypto_mobile_app/features/home/presentation/screens/home_screen.dart';
 import 'package:crypto_mobile_app/features/node/presentation/screens/node_status_screen.dart';
 import 'package:crypto_mobile_app/features/node/presentation/screens/node_won_slots_screen.dart';
 import 'package:crypto_mobile_app/features/node/presentation/screens/produced_blocks_screen.dart';
 import 'package:crypto_mobile_app/features/node/presentation/screens/block_details_screen.dart';
 import 'package:crypto_mobile_app/features/node/presentation/screens/mempool_details_screen.dart';
+import 'package:crypto_mobile_app/features/node/presentation/screens/notification_details_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/presentation/screens/dapps_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/presentation/screens/wallet_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/presentation/screens/send_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/presentation/screens/receive_screen.dart';
 import 'package:crypto_mobile_app/features/profile/presentation/screens/profile_screen.dart';
 import 'package:crypto_mobile_app/features/settings/presentation/screens/settings_screen.dart';
+import 'package:crypto_mobile_app/features/settings/presentation/screens/notification_settings_screen.dart';
 import 'package:crypto_mobile_app/features/notifications/presentation/screens/notifications_screen.dart';
 import 'package:crypto_mobile_app/features/rewards/presentation/screens/rewards_breakdown_screen.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
+import 'package:crypto_mobile_app/core/models/notification_payload.dart';
 
 class AppRoutes {
   static const splash = '/splash';
@@ -58,6 +61,10 @@ class GoRouterRefreshStream extends ChangeNotifier {
 
 // Create a stable navigator key outside the provider
 final _navigatorKey = GlobalKey<NavigatorState>(debugLabel: 'mainNavigator');
+
+/// Getter to expose the navigator key for external navigation
+/// This is used by the notification tap handler to navigate from outside the widget tree
+GlobalKey<NavigatorState> get appNavigatorKey => _navigatorKey;
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   // Watch the provider to make router reactive
@@ -98,6 +105,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/settings',
         builder: (context, state) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: '/notification-settings',
+        builder: (context, state) => const NotificationSettingsScreen(),
       ),
       GoRoute(
         path: '/notifications',
@@ -156,6 +167,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/main/node/mempool',
             builder: (context, state) => const MempoolDetailsScreen(),
+          ),
+          GoRoute(
+            path: '/main/node/notification-details',
+            builder: (context, state) {
+              final payload = state.extra as NotificationPayload;
+              return NotificationDetailsScreen(payload: payload);
+            },
           ),
           GoRoute(
             path: '/main/dapps',

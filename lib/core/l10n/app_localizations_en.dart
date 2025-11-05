@@ -340,4 +340,61 @@ class AppLocalizationsEn extends AppLocalizations {
   String checkedAgoSeconds(String seconds) {
     return 'Checked $seconds seconds ago';
   }
+
+  @override
+  String get feedback => 'Feedback';
+
+  @override
+  String get sendFeedback => 'Send Feedback';
+
+  @override
+  String get feedbackTitle => 'Title';
+
+  @override
+  String get feedbackTitleHint => 'Brief summary of your feedback';
+
+  @override
+  String get feedbackDescription => 'Description';
+
+  @override
+  String get feedbackDescriptionHint => 'Describe your feedback in detail';
+
+  @override
+  String get feedbackCategory => 'Category';
+
+  @override
+  String get feedbackBugReport => 'Bug Report';
+
+  @override
+  String get feedbackFeatureRequest => 'Feature Request';
+
+  @override
+  String get feedbackGeneral => 'General Feedback';
+
+  @override
+  String get feedbackIncludeDeviceInfo => 'Include device information';
+
+  @override
+  String get feedbackDeviceInfoHelp => 'Helps us diagnose issues';
+
+  @override
+  String get feedbackSubmit => 'Submit Feedback';
+
+  @override
+  String get feedbackSuccess => 'Thank you for your feedback!';
+
+  @override
+  String get feedbackError => 'Failed to submit feedback';
+
+  @override
+  String get feedbackRequired => 'This field is required';
+
+  @override
+  String get feedbackScreenshots => 'Screenshots';
+
+  @override
+  String get feedbackAddScreenshot => 'Add';
+
+  @override
+  String get feedbackNoScreenshots => 'No screenshots added (optional)';
 }

@@ -160,6 +160,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               );
             },
           ),
+          ListTile(
+            leading: Icon(Icons.notifications, color: colorScheme.primary),
+            title: const Text('Notifications'),
+            subtitle: const Text('Manage slot notifications'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              context.push('/notification-settings');
+            },
+          ),
           const Divider(),
 
           // Developer Section

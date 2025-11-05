@@ -1,11 +1,12 @@
 import 'package:crypto_mobile_app/features/home/presentation/screens/home_screen.dart';
 import 'package:crypto_mobile_app/features/node/presentation/screens/node_status_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:crypto_mobile_app/gen_l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/core/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/features/wallet/presentation/screens/wallet_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/presentation/screens/dapps_screen.dart';
 import 'package:crypto_mobile_app/features/profile/presentation/screens/profile_screen.dart';
 import 'package:crypto_mobile_app/core/feature_flags.dart';
+import 'package:crypto_mobile_app/features/feedback/presentation/widgets/feedback_fab.dart';
 import 'package:go_router/go_router.dart';
 
 class MainApp extends StatefulWidget {
@@ -76,6 +77,10 @@ class _MainAppState extends State<MainApp> {
 
     return Scaffold(
       body: widget.child ?? screens[index],
+      floatingActionButton: FeatureFlags.on('feedback')
+          ? const FeedbackFab()
+          : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: colorScheme.surface,

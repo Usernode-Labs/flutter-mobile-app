@@ -18,5 +18,10 @@ class AppConfig {
         apiBaseUrl: _api,
         verboseLogging: _verbose,
       );
+
+  // GitHub configuration
+  static const String githubToken = String.fromEnvironment('GITHUB_TOKEN', defaultValue: '');
+  static const String githubOwner = 'Usernode-Labs';
+  static const String githubRepo = 'flutter-mobile-app';
 }
 

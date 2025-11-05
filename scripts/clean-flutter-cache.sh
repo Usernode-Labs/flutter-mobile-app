@@ -26,15 +26,22 @@ rm -rf ~/flutter/bin/cache/
 rm -rf $FLUTTER_ROOT/bin/cache/
 
 rm -rf ~/.cargo/git/checkouts
+
+echo "♻️  Repairing Flutter cache..."
+flutter clean
+
+cd rust_builder
+flutter pub get
+cd ..
+
+flutter pub get
+
 cd ios                       
 rm -rf Pods Podfile.lock
 pod cache clean --all
 pod install
 cd ..
 
-echo "♻️  Repairing Flutter cache..."
-flutter clean
-flutter pub get
 flutter pub cache repair
 
 echo "📥 Re-downloading Flutter artifacts..."

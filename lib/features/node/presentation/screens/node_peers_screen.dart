@@ -15,7 +15,6 @@ class NodePeersScreen extends StatelessWidget {
     // Calculate peer statistics
     int connected = 0;
     int connecting = 0;
-    int disconnected = 0;
 
     for (final peer in peers) {
       switch (peer.connectionStatus) {
@@ -27,7 +26,6 @@ class NodePeersScreen extends StatelessWidget {
           connecting++;
           break;
         case PeerConnectionStatus.disconnected:
-          disconnected++;
           break;
       }
     }
@@ -108,7 +106,6 @@ class NodePeersScreen extends StatelessWidget {
                   final status = p.connectionStatus.toString().split('.').last;
                   final statusColor = _statusColor(theme, p.connectionStatus);
                   final details = p.connectingDetails;
-                  final incoming = p.incoming ? 'incoming' : 'outgoing';
 
                   // Safely stringify peerId
                   String idShort;
@@ -317,8 +314,9 @@ class NodePeersScreen extends StatelessWidget {
     final ipv6Br = RegExp(r'\[([0-9a-fA-F:]+)\]').firstMatch(s);
     if (ipv6Br != null) return ipv6Br.group(0);
     final ipv6Raw = RegExp(r'\b[0-9a-fA-F:]{2,}\b').firstMatch(s);
-    if (ipv6Raw != null && ipv6Raw.group(0)!.contains(':'))
+    if (ipv6Raw != null && ipv6Raw.group(0)!.contains(':')) {
       return ipv6Raw.group(0);
+    }
     final ipv4 = RegExp(r'(\d{1,3}(?:\.\d{1,3}){3})').firstMatch(s);
     if (ipv4 != null) return ipv4.group(1);
     final hostOnly = RegExp(r'^([A-Za-z0-9.-]+)').firstMatch(s)?.group(1);

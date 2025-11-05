@@ -51,14 +51,38 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId "com.usernode_labs.usernode"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://docs.flutter.dev/deployment/android#reviewing-the-gradle-build-configuration.
+        applicationId "org.usernode.app"
         minSdkVersion flutter.minSdkVersion
         targetSdkVersion flutter.targetSdkVersion
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
+    }
+
+    flavorDimensions "environment"
+    productFlavors {
+        internal {
+            dimension "environment"
+            applicationIdSuffix ""
+            versionNameSuffix "-internal"
+            resValue "string", "app_name", "Usernode Internal"
+        }
+        alpha {
+            dimension "environment"
+            applicationIdSuffix ""
+            versionNameSuffix "-alpha"
+            resValue "string", "app_name", "Usernode Alpha"
+        }
+        beta {
+            dimension "environment"
+            applicationIdSuffix ""
+            versionNameSuffix "-beta"
+            resValue "string", "app_name", "Usernode Beta"
+        }
+        production {
+            dimension "environment"
+            applicationIdSuffix ""
+            resValue "string", "app_name", "Usernode"
+        }
     }
 
     signingConfigs {

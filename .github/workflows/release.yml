@@ -1,0 +1,320 @@
+name: Release Build and Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      flavor:
+        description: 'Build flavor'
+        required: true
+        type: choice
+        options:
+          - internal
+          - alpha
+          - beta
+          - production
+        default: 'internal'
+      platform:
+        description: 'Platform to build'
+        required: true
+        type: choice
+        options:
+          - both
+          - android
+          - ios
+        default: 'both'
+      version_bump:
+        description: 'Version bump type (for production only)'
+        required: false
+        type: choice
+        options:
+          - none
+          - patch
+          - minor
+          - major
+        default: 'none'
+
+env:
+  FLUTTER_VERSION: '3.24.0'
+  JAVA_VERSION: '17'
+
+jobs:
+  prepare:
+    name: Prepare Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      build_number: ${{ steps.version.outputs.build_number }}
+      release_notes: ${{ steps.release_notes.outputs.notes }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup jq
+        run: sudo apt-get install -y jq
+
+      - name: Bump version if needed
+        if: inputs.flavor == 'production' && inputs.version_bump != 'none'
+        run: |
+          chmod +x scripts/version_manager.sh
+          scripts/version_manager.sh bump ${{ inputs.version_bump }}
+
+      - name: Increment build number
+        id: version
+        run: |
+          chmod +x scripts/version_manager.sh
+          BUILD_NUMBER=$(scripts/version_manager.sh increment ${{ inputs.flavor }})
+          VERSION=$(scripts/version_manager.sh get ${{ inputs.flavor }})
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION, Build: $BUILD_NUMBER"
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          chmod +x scripts/generate_release_notes.sh
+          NOTES=$(scripts/generate_release_notes.sh generate "" HEAD plain)
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add version.json
+          git commit -m "chore: bump ${{ inputs.flavor }} build to ${{ steps.version.outputs.build_number }}" || true
+          git push || true
+
+  build-android:
+    name: Build Android (${{ inputs.flavor }})
+    runs-on: ubuntu-latest
+    needs: prepare
+    if: inputs.platform == 'both' || inputs.platform == 'android'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Decode keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/keystore.jks
+
+      - name: Create key.properties
+        run: |
+          cat > android/key.properties << EOF
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          storeFile=keystore.jks
+          EOF
+
+      - name: Load environment variables
+        run: |
+          cat .env.${{ inputs.flavor }} > .env
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Android AAB
+        run: |
+          flutter build appbundle \
+            --flavor ${{ inputs.flavor }} \
+            --build-number=${{ needs.prepare.outputs.build_number }} \
+            --build-name=${{ needs.prepare.outputs.version }} \
+            --dart-define-from-file=.env
+
+      - name: Upload to Google Play
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: org.usernode.app
+          releaseFiles: build/app/outputs/bundle/${{ inputs.flavor }}Release/app-${{ inputs.flavor }}-release.aab
+          track: ${{ inputs.flavor == 'production' && 'production' || inputs.flavor }}
+          status: completed
+          whatsNewDirectory: release-notes/
+          inAppUpdatePriority: 2
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-${{ inputs.flavor }}-${{ needs.prepare.outputs.version }}
+          path: build/app/outputs/bundle/${{ inputs.flavor }}Release/app-${{ inputs.flavor }}-release.aab
+
+  build-ios:
+    name: Build iOS (${{ inputs.flavor }})
+    runs-on: macos-latest
+    needs: prepare
+    if: inputs.platform == 'both' || inputs.platform == 'ios'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: false
+
+      - name: Install Fastlane
+        run: |
+          gem install fastlane
+          cd ios && pod install
+
+      - name: Import signing certificate
+        env:
+          CERTIFICATES_P12: ${{ secrets.CERTIFICATES_P12 }}
+          CERTIFICATES_PASSWORD: ${{ secrets.CERTIFICATES_PASSWORD }}
+        run: |
+          echo "$CERTIFICATES_P12" | base64 -d > certificate.p12
+          security create-keychain -p "" build.keychain
+          security import certificate.p12 -k build.keychain -P "$CERTIFICATES_PASSWORD" -T /usr/bin/codesign
+          security list-keychains -s build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+          security set-key-partition-list -S apple-tool:,apple: -s -k "" build.keychain
+
+      - name: Install provisioning profiles
+        env:
+          PROVISIONING_PROFILES: ${{ secrets.PROVISIONING_PROFILES }}
+        run: |
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo "$PROVISIONING_PROFILES" | base64 -d > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
+
+      - name: Load environment variables
+        run: |
+          cat .env.${{ inputs.flavor }} > .env
+
+      - name: Build iOS IPA
+        run: |
+          flutter build ios \
+            --release \
+            --no-codesign \
+            --build-number=${{ needs.prepare.outputs.build_number }} \
+            --build-name=${{ needs.prepare.outputs.version }} \
+            --dart-define-from-file=.env
+
+      - name: Build and upload to TestFlight
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+        run: |
+          cd ios
+          fastlane ios release flavor:${{ inputs.flavor }}
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-${{ inputs.flavor }}-${{ needs.prepare.outputs.version }}
+          path: build/ios/Usernode-${{ inputs.flavor }}-${{ needs.prepare.outputs.version }}.ipa
+
+  create-github-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [prepare, build-android, build-ios]
+    if: always() && inputs.flavor == 'production'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          chmod +x scripts/generate_release_notes.sh
+          scripts/generate_release_notes.sh generate "" HEAD markdown > release_notes.md
+
+      - name: Create Git Tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "v${{ needs.prepare.outputs.version }}" -m "Release v${{ needs.prepare.outputs.version }}"
+          git push origin "v${{ needs.prepare.outputs.version }}"
+
+      - name: Download Android artifact
+        if: inputs.platform == 'both' || inputs.platform == 'android'
+        uses: actions/download-artifact@v4
+        with:
+          name: android-${{ inputs.flavor }}-${{ needs.prepare.outputs.version }}
+          path: ./artifacts/
+
+      - name: Download iOS artifact
+        if: inputs.platform == 'both' || inputs.platform == 'ios'
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-${{ inputs.flavor }}-${{ needs.prepare.outputs.version }}
+          path: ./artifacts/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.prepare.outputs.version }}
+          name: Release v${{ needs.prepare.outputs.version }}
+          body_path: release_notes.md
+          files: ./artifacts/*
+          draft: false
+          prerelease: false
+
+  notify:
+    name: Send Notification
+    runs-on: ubuntu-latest
+    needs: [prepare, build-android, build-ios]
+    if: always()
+    steps:
+      - name: Determine status
+        id: status
+        run: |
+          if [ "${{ needs.build-android.result }}" == "failure" ] || [ "${{ needs.build-ios.result }}" == "failure" ]; then
+            echo "status=failure" >> $GITHUB_OUTPUT
+            echo "emoji=❌" >> $GITHUB_OUTPUT
+          else
+            echo "status=success" >> $GITHUB_OUTPUT
+            echo "emoji=✅" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Send Slack notification
+        if: env.SLACK_WEBHOOK_URL != ''
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -X POST "$SLACK_WEBHOOK_URL" \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "text": "${{ steps.status.outputs.emoji }} Release ${{ needs.prepare.outputs.version }} (${{ inputs.flavor }}) - ${{ steps.status.outputs.status }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Release Build Complete*\n\n*Version:* ${{ needs.prepare.outputs.version }}\n*Flavor:* ${{ inputs.flavor }}\n*Platform:* ${{ inputs.platform }}\n*Status:* ${{ steps.status.outputs.status }}\n\n${{ needs.prepare.outputs.release_notes }}"
+                  }
+                }
+              ]
+            }'

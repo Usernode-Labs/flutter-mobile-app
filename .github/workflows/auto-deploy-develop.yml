@@ -1,0 +1,232 @@
+name: Auto Deploy from Develop
+
+on:
+  push:
+    branches:
+      - develop
+
+env:
+  FLUTTER_VERSION: '3.24.0'
+  JAVA_VERSION: '17'
+
+jobs:
+  prepare:
+    name: Prepare Internal Build
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      build_number: ${{ steps.version.outputs.build_number }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup jq
+        run: sudo apt-get install -y jq
+
+      - name: Increment build number
+        id: version
+        run: |
+          chmod +x scripts/version_manager.sh
+          BUILD_NUMBER=$(scripts/version_manager.sh increment internal)
+          VERSION=$(scripts/version_manager.sh get internal)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION, Build: $BUILD_NUMBER"
+
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add version.json
+          git commit -m "chore: bump internal build to ${{ steps.version.outputs.build_number }} [skip ci]" || true
+          git push || true
+
+  build-android:
+    name: Build Android Internal
+    runs-on: ubuntu-latest
+    needs: prepare
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Decode keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/keystore.jks
+
+      - name: Create key.properties
+        run: |
+          cat > android/key.properties << EOF
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          storeFile=keystore.jks
+          EOF
+
+      - name: Load environment variables
+        run: |
+          cat .env.internal > .env
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Android AAB
+        run: |
+          flutter build appbundle \
+            --flavor internal \
+            --build-number=${{ needs.prepare.outputs.build_number }} \
+            --build-name=${{ needs.prepare.outputs.version }} \
+            --dart-define-from-file=.env
+
+      - name: Build Android APK for Firebase
+        run: |
+          flutter build apk \
+            --flavor internal \
+            --build-number=${{ needs.prepare.outputs.build_number }} \
+            --build-name=${{ needs.prepare.outputs.version }} \
+            --dart-define-from-file=.env
+
+      - name: Upload to Google Play Internal Track
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: org.usernode.app
+          releaseFiles: build/app/outputs/bundle/internalRelease/app-internal-release.aab
+          track: internal
+          status: completed
+          inAppUpdatePriority: 2
+
+      - name: Upload to Firebase App Distribution
+        if: env.FIREBASE_APP_DISTRIBUTION_TOKEN != ''
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: ${{ secrets.FIREBASE_APP_ID_ANDROID }}
+          token: ${{ secrets.FIREBASE_APP_DISTRIBUTION_TOKEN }}
+          groups: internal-testers
+          file: build/app/outputs/flutter-apk/app-internal-release.apk
+          releaseNotes: "Internal build ${{ needs.prepare.outputs.version }} - Auto-deployed from develop branch"
+
+  build-ios:
+    name: Build iOS Internal
+    runs-on: macos-latest
+    needs: prepare
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: false
+
+      - name: Install Fastlane
+        run: |
+          gem install fastlane
+          cd ios && pod install
+
+      - name: Import signing certificate
+        env:
+          CERTIFICATES_P12: ${{ secrets.CERTIFICATES_P12 }}
+          CERTIFICATES_PASSWORD: ${{ secrets.CERTIFICATES_PASSWORD }}
+        run: |
+          echo "$CERTIFICATES_P12" | base64 -d > certificate.p12
+          security create-keychain -p "" build.keychain
+          security import certificate.p12 -k build.keychain -P "$CERTIFICATES_PASSWORD" -T /usr/bin/codesign
+          security list-keychains -s build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+          security set-key-partition-list -S apple-tool:,apple: -s -k "" build.keychain
+
+      - name: Install provisioning profiles
+        env:
+          PROVISIONING_PROFILES: ${{ secrets.PROVISIONING_PROFILES }}
+        run: |
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo "$PROVISIONING_PROFILES" | base64 -d > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
+
+      - name: Load environment variables
+        run: |
+          cat .env.internal > .env
+
+      - name: Build iOS IPA
+        run: |
+          flutter build ios \
+            --release \
+            --no-codesign \
+            --build-number=${{ needs.prepare.outputs.build_number }} \
+            --build-name=${{ needs.prepare.outputs.version }} \
+            --dart-define-from-file=.env
+
+      - name: Build and upload to TestFlight
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+        run: |
+          cd ios
+          fastlane ios release flavor:internal
+
+  notify:
+    name: Send Notification
+    runs-on: ubuntu-latest
+    needs: [prepare, build-android, build-ios]
+    if: always()
+    steps:
+      - name: Determine status
+        id: status
+        run: |
+          if [ "${{ needs.build-android.result }}" == "failure" ] || [ "${{ needs.build-ios.result }}" == "failure" ]; then
+            echo "status=failure" >> $GITHUB_OUTPUT
+            echo "emoji=❌" >> $GITHUB_OUTPUT
+          else
+            echo "status=success" >> $GITHUB_OUTPUT
+            echo "emoji=✅" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Send Slack notification
+        if: env.SLACK_WEBHOOK_URL != ''
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -X POST "$SLACK_WEBHOOK_URL" \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "text": "${{ steps.status.outputs.emoji }} Internal build ${{ needs.prepare.outputs.version }} - ${{ steps.status.outputs.status }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Internal Build Deployed*\n\n*Version:* ${{ needs.prepare.outputs.version }}\n*Status:* ${{ steps.status.outputs.status }}\n*Commit:* ${{ github.event.head_commit.message }}\n\nAvailable on Google Play Internal track and TestFlight"
+                  }
+                }
+              ]
+            }'

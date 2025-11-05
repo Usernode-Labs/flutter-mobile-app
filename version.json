@@ -1,0 +1,11 @@
+{
+  "major": 0,
+  "minor": 1,
+  "patch": 1,
+  "build": {
+    "internal": 1,
+    "alpha": 1,
+    "beta": 1,
+    "production": 12
+  }
+}

@@ -10,7 +10,6 @@
 .history
 .svn/
 .swiftpm/
-.github
 migrate_working_dir/
 
 # IntelliJ related
@@ -45,6 +44,25 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 /android/key.properties
+/android/app/keystore.jks
+/android/app/*.jks
+/android/app/*.keystore
+
+# iOS Signing
+*.p12
+*.mobileprovision
+*.cer
+*.certSigningRequest
+
+# CI/CD Secrets (local testing only)
+.env.local
+.env.alpha
+.env.beta
+.env.internal
+.env.production
+service-account*.json
+AuthKey_*.p8
+
 # flutter_rust_bridge_codegen generated
 lib/src/rust
 

@@ -64,9 +64,6 @@ jobs:
   build-android:
     name: Build Android (Debug)
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        flavor: [internal, alpha, beta, production]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -86,7 +83,7 @@ jobs:
 
       - name: Load environment variables
         run: |
-          cat .env.${{ matrix.flavor }} > .env
+          cat .env.production > .env
 
       - name: Install dependencies
         run: flutter pub get
@@ -95,7 +92,6 @@ jobs:
         run: |
           flutter build apk \
             --debug \
-            --flavor ${{ matrix.flavor }} \
             --dart-define-from-file=.env
 
   build-ios:

@@ -74,28 +74,27 @@ The Usernode app uses a multi-track release strategy with four environments:
 
 ### Workflows
 
-Three main GitHub Actions workflows:
+Two main GitHub Actions workflows:
 
 1. **PR Checks** (`.github/workflows/pr-checks.yml`)
    - Trigger: Pull requests to `main` or `develop`
    - Runs tests, code analysis, and debug builds
 
-2. **Auto-Deploy Develop** (`.github/workflows/auto-deploy-develop.yml`)
-   - Trigger: Push to `develop` branch
-   - Builds and deploys internal builds automatically
+2. **Build Once, Promote Many** (`.github/workflows/build-and-promote.yml`)
+   - Trigger: Push to `develop` branch OR manual promotion
+   - Builds once, promotes same binary through tracks
+   - See [Build Once, Promote Many Guide](BUILD-ONCE-PROMOTE.md)
 
-3. **Manual Release** (`.github/workflows/release.yml`)
-   - Trigger: Manual workflow dispatch
-   - Deploys to any track with version bump options
+This approach builds a single binary and promotes it through tracks (internal → alpha → beta → production), ensuring the exact same binary that was tested goes to production.
 
 ### Files Structure
 
 ```
 flutter-mobile-app/
 ├── .github/workflows/          # GitHub Actions workflows
-│   ├── release.yml
-│   ├── auto-deploy-develop.yml
-│   └── pr-checks.yml
+│   ├── build-and-promote.yml  # Build once, promote many
+│   ├── pr-checks.yml          # PR validation
+│   └── test.yml               # Test suite
 ├── scripts/                    # Automation scripts
 │   ├── version_manager.sh
 │   └── generate_release_notes.sh
@@ -494,71 +493,97 @@ git push origin develop
 ```
 
 **What happens**:
-1. Auto-increments internal build number
-2. Builds Android AAB and iOS IPA
+1. Auto-increments production build number
+2. Builds single release AAB and IPA (production config)
 3. Uploads to Google Play Internal track
 4. Uploads to TestFlight Internal testing
-5. Optionally uploads to Firebase App Distribution
+5. Stores artifact in GitHub (90 days retention)
 6. Sends team notification
 
-### Manual Release
+**Result**: A new build is available in Internal track for testing.
 
-#### Step-by-Step Guide
+### Manual Promotion
+
+#### Promote to Alpha
+
+After internal testing passes:
 
 1. **Navigate to GitHub Actions**:
    - Go to repository on GitHub
    - Click "Actions" tab
-   - Select "Release Build and Deploy" workflow
+   - Select "Build Once, Promote Many" workflow
 
-2. **Trigger the Workflow**:
+2. **Trigger Promotion**:
    - Click "Run workflow"
-   - Select branch (usually `main` for production, `develop` for others)
-   - Choose parameters:
-     - **Flavor**: internal/alpha/beta/production
-     - **Platform**: both/android/ios
-     - **Version Bump**: none/patch/minor/major (production only)
+   - `promote_to`: **alpha**
+   - `build_number`: leave empty (uses latest) or specify build number
+   - Click "Run workflow"
 
-3. **Monitor the Build**:
-   - Watch workflow progress in Actions tab
-   - Check for failures
+3. **Verify**:
+   - Check Google Play Console → Alpha track
+   - Check TestFlight → Alpha group
 
-4. **Verify the Release**:
-   - **Android**: Check Google Play Console
-   - **iOS**: Check App Store Connect/TestFlight
-   - **Production**: Verify GitHub Release created
+#### Promote to Beta
 
-#### Release Examples
+After alpha testing passes:
 
-**Alpha Release**:
+1. Go to GitHub Actions → "Build Once, Promote Many"
+2. Click "Run workflow"
+3. `promote_to`: **beta**
+4. `build_number`: leave empty
+5. Click "Run workflow"
+
+#### Promote to Production
+
+After beta testing passes:
+
+1. Go to GitHub Actions → "Build Once, Promote Many"
+2. Click "Run workflow"
+3. `promote_to`: **production**
+4. `build_number`: leave empty
+5. Click "Run workflow"
+
+**Additional actions for production**:
+- Creates git tag (e.g., `v1.2.3`)
+- Creates GitHub Release with notes
+- Sends team notification
+
+> **Important**: The same binary tested in internal/alpha/beta is what goes to production. No rebuild, just promotion.
+
+#### Promotion Examples
+
+**Promote Latest Build to Alpha**:
 ```
-1. Actions → Release Build and Deploy → Run workflow
-2. Branch: develop
-3. Flavor: alpha
-4. Platform: both
-5. Version Bump: none
-6. Click "Run workflow"
+1. Actions → Build Once, Promote Many → Run workflow
+2. promote_to: alpha
+3. build_number: (leave empty)
+4. Click "Run workflow"
 ```
 
-**Beta Release**:
+**Promote Specific Build to Production**:
 ```
-1. Actions → Release Build and Deploy → Run workflow
-2. Branch: main
-3. Flavor: beta
-4. Platform: both
-5. Version Bump: none
-6. Click "Run workflow"
+1. Check build: ./scripts/version_manager.sh get-build production
+2. Actions → Build Once, Promote Many → Run workflow
+3. promote_to: production
+4. build_number: 123 (specific build)
+5. Click "Run workflow"
 ```
 
-**Production Release**:
+**Complete Flow Example**:
 ```
-1. Ensure all changes merged to main
-2. Actions → Release Build and Deploy → Run workflow
-3. Branch: main
-4. Flavor: production
-5. Platform: both
-6. Version Bump: patch (or minor/major as needed)
-7. Click "Run workflow"
-8. After successful build, manually submit to stores
+Day 1: Push to develop
+       → Build #120 deployed to Internal
+
+Day 3: Internal testing passed
+       → Promote #120 to Alpha
+
+Day 5: Alpha testing passed
+       → Promote #120 to Beta
+
+Day 10: Beta testing passed
+        → Promote #120 to Production
+        → Git tag v1.2.3 created
+        → GitHub Release created
 ```
 
 ### Post-Deployment

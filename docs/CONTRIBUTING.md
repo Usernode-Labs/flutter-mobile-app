@@ -71,7 +71,7 @@ See `docs/ARCHITECTURE.md` for details.
 - Build screens/widgets under `features/<feature>/presentation`.
 - Add tests: provider unit tests and widget tests using provider overrides.
 - Wire navigation in `core/routing/app_router.dart`.
-- Document flags and config if needed in `RUNNING.md`.
+- Document flags and config if needed in `docs/RUNNING.md`.
 
 ## Examples
 

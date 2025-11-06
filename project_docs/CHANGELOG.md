@@ -117,7 +117,7 @@ All notable changes to this project will be documented in this file.
 - `features/` directory with clean architecture layers
 - `dapps/` directory for third-party integrations
 - `app/` directory for app-level configuration
-- `ARCHITECTURE.md` documentation
+- `docs/ARCHITECTURE.md` documentation
 - `dapps/README.md` integration guide for third-party developers
 - Empty domain layer directories prepared for future use
 

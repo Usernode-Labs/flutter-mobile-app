@@ -420,7 +420,7 @@ lib/features/dapps/presentation/widgets/dapp_card.dart
 
 - [CHANGELOG.md](./CHANGELOG.md) - Detailed change log
 - [TASKS.md](./TASKS.md) - Task tracking
-- [ARCHITECTURE.md](../ARCHITECTURE.md) - Architecture docs
+- [ARCHITECTURE.md](../docs/ARCHITECTURE.md) - Architecture docs
 - [README.md](../README.md) - Project overview
 
 ---

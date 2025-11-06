@@ -7,10 +7,10 @@ echo "🧹 Starting complete Flutter cleanup..."
 if [ -f "pubspec.yaml" ]; then
     echo "📦 Cleaning current project..."
     flutter clean
-    rm -rf .dart_tool/
+#    rm -rf .dart_tool/
     rm -rf build/
-    rm -rf .flutter-plugins
-    rm -rf .flutter-plugins-dependencies
+#    rm -rf .flutter-plugins
+#    rm -rf .flutter-plugins-dependencies
     rm -rf lib/src/rust/
 fi
 

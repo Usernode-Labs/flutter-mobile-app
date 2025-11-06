@@ -1,0 +1,10 @@
+# Appfile for Usernode
+
+# iOS
+app_identifier("org.usernode.app")
+apple_id(ENV['APPLE_ID'])
+team_id("785Y2C9VG2")
+
+# Android
+package_name("org.usernode.app")
+json_key_file(ENV['GOOGLE_PLAY_JSON_KEY_FILE'])

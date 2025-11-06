@@ -56,10 +56,13 @@ app.*.map.json
 
 # CI/CD Secrets (local testing only)
 .env.local
+<<<<<<< Updated upstream
 .env.alpha
 .env.beta
 .env.internal
 .env.production
+=======
+>>>>>>> Stashed changes
 service-account*.json
 AuthKey_*.p8
 

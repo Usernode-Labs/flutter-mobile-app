@@ -4,10 +4,11 @@ on:
   push:
     branches:
       - develop
+      - main
   workflow_dispatch:
     inputs:
       promote_to:
-        description: 'Promote existing build to track'
+        description: "Promote existing build to track"
         required: false
         type: choice
         options:
@@ -15,15 +16,15 @@ on:
           - alpha
           - beta
           - production
-        default: 'none'
+        default: "none"
       build_number:
-        description: 'Build number to promote (leave empty to build new)'
+        description: "Build number to promote (leave empty to build new)"
         required: false
         type: string
 
 env:
-  FLUTTER_VERSION: '3.27.1'
-  JAVA_VERSION: '17'
+  FLUTTER_VERSION: "3.27.1"
+  JAVA_VERSION: "17"
 
 jobs:
   # Job 1: Build a new release (only if not promoting)
@@ -43,6 +44,46 @@ jobs:
 
       - name: Setup jq
         run: sudo apt-get install -y jq
+
+      - name: Determine environment based on branch
+        id: env_config
+        run: |
+          if [ "${{ github.ref_name }}" == "main" ]; then
+            echo "env_type=PROD" >> $GITHUB_OUTPUT
+            echo "track=production" >> $GITHUB_OUTPUT
+            echo "📦 Building for PRODUCTION (main branch)"
+          else
+            echo "env_type=NONPROD" >> $GITHUB_OUTPUT
+            echo "track=internal" >> $GITHUB_OUTPUT
+            echo "📦 Building for NON-PRODUCTION (develop branch)"
+          fi
+
+      - name: Create .env file from secrets
+        run: |
+          if [ "${{ steps.env_config.outputs.env_type }}" == "PROD" ]; then
+            cat > .env << EOF
+          APP_ENV=${{ secrets.PROD_APP_ENV }}
+          API_BASE_URL=${{ secrets.PROD_API_BASE_URL }}
+          VERBOSE_LOGGING=${{ secrets.PROD_VERBOSE_LOGGING }}
+          SENTRY_DSN=${{ secrets.PROD_SENTRY_DSN }}
+          GITHUB_TOKEN=${{ secrets.PROD_GITHUB_TOKEN }}
+          USE_RESULT_PROVIDERS=${{ secrets.PROD_USE_RESULT_PROVIDERS }}
+          ENABLED_FEATURES=${{ secrets.PROD_ENABLED_FEATURES }}
+          DISABLED_FEATURES=${{ secrets.PROD_DISABLED_FEATURES }}
+          EOF
+          else
+            cat > .env << EOF
+          APP_ENV=${{ secrets.NONPROD_APP_ENV }}
+          API_BASE_URL=${{ secrets.NONPROD_API_BASE_URL }}
+          VERBOSE_LOGGING=${{ secrets.NONPROD_VERBOSE_LOGGING }}
+          SENTRY_DSN=${{ secrets.NONPROD_SENTRY_DSN }}
+          GITHUB_TOKEN=${{ secrets.NONPROD_GITHUB_TOKEN }}
+          USE_RESULT_PROVIDERS=${{ secrets.NONPROD_USE_RESULT_PROVIDERS }}
+          ENABLED_FEATURES=${{ secrets.NONPROD_ENABLED_FEATURES }}
+          DISABLED_FEATURES=${{ secrets.NONPROD_DISABLED_FEATURES }}
+          EOF
+          fi
+          echo "✅ Created .env file with ${{ steps.env_config.outputs.env_type }} secrets"
 
       - name: Increment build number
         id: version
@@ -66,14 +107,14 @@ jobs:
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
+          distribution: "zulu"
           java-version: ${{ env.JAVA_VERSION }}
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: 'stable'
+          channel: "stable"
           cache: true
 
       - name: Decode keystore
@@ -90,12 +131,6 @@ jobs:
           keyAlias=${{ secrets.KEY_ALIAS }}
           storeFile=keystore.jks
           EOF
-
-      - name: Load environment variables (production config)
-        run: |
-          # Use production config for all tracks
-          # Environment-specific differences handled via runtime configuration
-          cat .env.production > .env
 
       - name: Install dependencies
         run: flutter pub get
@@ -116,18 +151,18 @@ jobs:
           path: build/app/outputs/bundle/productionRelease/app-production-release.aab
           retention-days: 90
 
-      - name: Deploy to Internal Track
+      - name: Deploy to Track
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: org.usernode.app
           releaseFiles: build/app/outputs/bundle/productionRelease/app-production-release.aab
-          track: internal
+          track: ${{ steps.env_config.outputs.track }}
           status: completed
-          inAppUpdatePriority: 2
+          inAppUpdatePriority: ${{ steps.env_config.outputs.track == 'production' && '5' || '2' }}
           releaseNotes: |
             Build ${{ steps.version.outputs.build_number }}
-            Auto-deployed to internal track for testing.
+            Auto-deployed to ${{ steps.env_config.outputs.track }} track.
 
   # Job 2: Build iOS (only if not promoting)
   build-ios:
@@ -143,7 +178,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: 'stable'
+          channel: "stable"
           cache: true
 
       - name: Install dependencies
@@ -152,7 +187,7 @@ jobs:
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.2'
+          ruby-version: "3.2"
           bundler-cache: false
 
       - name: Install Fastlane
@@ -180,9 +215,43 @@ jobs:
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           echo "$PROVISIONING_PROFILES" | base64 -d > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
 
-      - name: Load environment variables
+      - name: Determine environment based on branch
+        id: env_config
         run: |
-          cat .env.production > .env
+          if [ "${{ github.ref_name }}" == "main" ]; then
+            echo "env_type=PROD" >> $GITHUB_OUTPUT
+            echo "📦 Building iOS for PRODUCTION (main branch)"
+          else
+            echo "env_type=NONPROD" >> $GITHUB_OUTPUT
+            echo "📦 Building iOS for NON-PRODUCTION (develop branch)"
+          fi
+
+      - name: Create .env file from secrets
+        run: |
+          if [ "${{ steps.env_config.outputs.env_type }}" == "PROD" ]; then
+            cat > .env << EOF
+          APP_ENV=${{ secrets.PROD_APP_ENV }}
+          API_BASE_URL=${{ secrets.PROD_API_BASE_URL }}
+          VERBOSE_LOGGING=${{ secrets.PROD_VERBOSE_LOGGING }}
+          SENTRY_DSN=${{ secrets.PROD_SENTRY_DSN }}
+          GITHUB_TOKEN=${{ secrets.PROD_GITHUB_TOKEN }}
+          USE_RESULT_PROVIDERS=${{ secrets.PROD_USE_RESULT_PROVIDERS }}
+          ENABLED_FEATURES=${{ secrets.PROD_ENABLED_FEATURES }}
+          DISABLED_FEATURES=${{ secrets.PROD_DISABLED_FEATURES }}
+          EOF
+          else
+            cat > .env << EOF
+          APP_ENV=${{ secrets.NONPROD_APP_ENV }}
+          API_BASE_URL=${{ secrets.NONPROD_API_BASE_URL }}
+          VERBOSE_LOGGING=${{ secrets.NONPROD_VERBOSE_LOGGING }}
+          SENTRY_DSN=${{ secrets.NONPROD_SENTRY_DSN }}
+          GITHUB_TOKEN=${{ secrets.NONPROD_GITHUB_TOKEN }}
+          USE_RESULT_PROVIDERS=${{ secrets.NONPROD_USE_RESULT_PROVIDERS }}
+          ENABLED_FEATURES=${{ secrets.NONPROD_ENABLED_FEATURES }}
+          DISABLED_FEATURES=${{ secrets.NONPROD_DISABLED_FEATURES }}
+          EOF
+          fi
+          echo "✅ Created .env file with ${{ steps.env_config.outputs.env_type }} secrets"
 
       - name: Build iOS IPA
         run: |
@@ -202,11 +271,11 @@ jobs:
           cd ios
           fastlane ios release flavor:production
 
-  # Job 3: Promote existing build to higher track
+  # Job 3: Promote existing build to higher track (develop builds only)
   promote:
     name: Promote to ${{ github.event.inputs.promote_to }}
     runs-on: ubuntu-latest
-    if: github.event.inputs.promote_to != 'none' && github.event.inputs.promote_to != ''
+    if: github.event.inputs.promote_to != 'none' && github.event.inputs.promote_to != '' && github.event.inputs.promote_to != 'production'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

@@ -81,9 +81,43 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Load environment variables
+      - name: Determine environment based on target branch
+        id: env_config
         run: |
-          cat .env.production > .env
+          if [ "${{ github.base_ref }}" == "main" ]; then
+            echo "env_type=PROD" >> $GITHUB_OUTPUT
+            echo "📦 PR targets main - using PRODUCTION secrets"
+          else
+            echo "env_type=NONPROD" >> $GITHUB_OUTPUT
+            echo "📦 PR targets develop - using NON-PRODUCTION secrets"
+          fi
+
+      - name: Create .env file from secrets
+        run: |
+          if [ "${{ steps.env_config.outputs.env_type }}" == "PROD" ]; then
+            cat > .env << EOF
+          APP_ENV=${{ secrets.PROD_APP_ENV }}
+          API_BASE_URL=${{ secrets.PROD_API_BASE_URL }}
+          VERBOSE_LOGGING=${{ secrets.PROD_VERBOSE_LOGGING }}
+          SENTRY_DSN=${{ secrets.PROD_SENTRY_DSN }}
+          GITHUB_TOKEN=${{ secrets.PROD_GITHUB_TOKEN }}
+          USE_RESULT_PROVIDERS=${{ secrets.PROD_USE_RESULT_PROVIDERS }}
+          ENABLED_FEATURES=${{ secrets.PROD_ENABLED_FEATURES }}
+          DISABLED_FEATURES=${{ secrets.PROD_DISABLED_FEATURES }}
+          EOF
+          else
+            cat > .env << EOF
+          APP_ENV=${{ secrets.NONPROD_APP_ENV }}
+          API_BASE_URL=${{ secrets.NONPROD_API_BASE_URL }}
+          VERBOSE_LOGGING=${{ secrets.NONPROD_VERBOSE_LOGGING }}
+          SENTRY_DSN=${{ secrets.NONPROD_SENTRY_DSN }}
+          GITHUB_TOKEN=${{ secrets.NONPROD_GITHUB_TOKEN }}
+          USE_RESULT_PROVIDERS=${{ secrets.NONPROD_USE_RESULT_PROVIDERS }}
+          ENABLED_FEATURES=${{ secrets.NONPROD_ENABLED_FEATURES }}
+          DISABLED_FEATURES=${{ secrets.NONPROD_DISABLED_FEATURES }}
+          EOF
+          fi
+          echo "✅ Created .env file with ${{ steps.env_config.outputs.env_type }} secrets"
 
       - name: Install dependencies
         run: flutter pub get
@@ -108,9 +142,43 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Load environment variables
+      - name: Determine environment based on target branch
+        id: env_config
         run: |
-          cat .env.internal > .env
+          if [ "${{ github.base_ref }}" == "main" ]; then
+            echo "env_type=PROD" >> $GITHUB_OUTPUT
+            echo "📦 PR targets main - using PRODUCTION secrets"
+          else
+            echo "env_type=NONPROD" >> $GITHUB_OUTPUT
+            echo "📦 PR targets develop - using NON-PRODUCTION secrets"
+          fi
+
+      - name: Create .env file from secrets
+        run: |
+          if [ "${{ steps.env_config.outputs.env_type }}" == "PROD" ]; then
+            cat > .env << EOF
+          APP_ENV=${{ secrets.PROD_APP_ENV }}
+          API_BASE_URL=${{ secrets.PROD_API_BASE_URL }}
+          VERBOSE_LOGGING=${{ secrets.PROD_VERBOSE_LOGGING }}
+          SENTRY_DSN=${{ secrets.PROD_SENTRY_DSN }}
+          GITHUB_TOKEN=${{ secrets.PROD_GITHUB_TOKEN }}
+          USE_RESULT_PROVIDERS=${{ secrets.PROD_USE_RESULT_PROVIDERS }}
+          ENABLED_FEATURES=${{ secrets.PROD_ENABLED_FEATURES }}
+          DISABLED_FEATURES=${{ secrets.PROD_DISABLED_FEATURES }}
+          EOF
+          else
+            cat > .env << EOF
+          APP_ENV=${{ secrets.NONPROD_APP_ENV }}
+          API_BASE_URL=${{ secrets.NONPROD_API_BASE_URL }}
+          VERBOSE_LOGGING=${{ secrets.NONPROD_VERBOSE_LOGGING }}
+          SENTRY_DSN=${{ secrets.NONPROD_SENTRY_DSN }}
+          GITHUB_TOKEN=${{ secrets.NONPROD_GITHUB_TOKEN }}
+          USE_RESULT_PROVIDERS=${{ secrets.NONPROD_USE_RESULT_PROVIDERS }}
+          ENABLED_FEATURES=${{ secrets.NONPROD_ENABLED_FEATURES }}
+          DISABLED_FEATURES=${{ secrets.NONPROD_DISABLED_FEATURES }}
+          EOF
+          fi
+          echo "✅ Created .env file with ${{ steps.env_config.outputs.env_type }} secrets"
 
       - name: Install dependencies
         run: flutter pub get

@@ -11,7 +11,7 @@ Usernode is a feature‑first Flutter app that lets users run/observe a node, vi
 
 ## Quick Start
 
-See RUNNING.md for commands, flags, and testing. Common flags:
+See [docs/RUNNING.md](docs/RUNNING.md) for commands, flags, and testing. Common flags:
 
 ```
 flutter run \
@@ -176,7 +176,7 @@ See CONTRIBUTING.md for a step‑by‑step checklist and examples:
 
 ## Running
 
-See RUNNING.md for commands, flags, theme tips, and test notes.
+See [docs/RUNNING.md](docs/RUNNING.md) for commands, flags, theme tips, and test notes.
 
 ### Environment Configuration
 
@@ -1435,7 +1435,7 @@ samples, guidance on mobile development, and a full API reference.
 ```
 ## Quick Start
 
-See RUNNING.md for how to run the app with optional flags, change theme mode, and run tests.
+See [docs/RUNNING.md](docs/RUNNING.md) for how to run the app with optional flags, change theme mode, and run tests.
 
 ## Project Overview
 
@@ -1451,6 +1451,6 @@ Highlights implemented:
 - CI workflow (format/analyze/tests)
 
 Useful docs:
-- ARCHITECTURE.md — layers, navigation, toggles
-- CONTRIBUTING.md — patterns, examples, and a checklist for adding features
-- RUNNING.md — flags, theme, tests
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — layers, navigation, toggles
+- [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) — patterns, examples, and a checklist for adding features
+- [docs/RUNNING.md](docs/RUNNING.md) — flags, theme, tests

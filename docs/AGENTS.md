@@ -8,7 +8,7 @@ This file guides agents working in this repository. Follow these conventions and
 - `lib/gen_l10n` — generated localization; do not edit by hand.
 - `rust_builder/` — Rust crates and flutter_rust_bridge integration.
 - `assets/`, `android/`, `ios/`, `web/`, `macos/`, `linux/`, `windows/` — platform assets.
-- `test/` — unit/widget/provider tests. See also `README.md` and `ARCHITECTURE.md`.
+- `test/` — unit/widget/provider tests. See also `README.md` and `docs/ARCHITECTURE.md`.
 
 Helpful entry points
 - `lib/main.dart` — app bootstrap + Sentry + backend init.

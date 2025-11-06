@@ -334,7 +334,7 @@ flutter run -d ios
 ## 📞 Getting Help
 
 ### Documentation
-- [ARCHITECTURE.md](../ARCHITECTURE.md) - System design
+- [ARCHITECTURE.md](../docs/ARCHITECTURE.md) - System design
 - [NAVIGATION_REDESIGN_2025-10-03.md](./NAVIGATION_REDESIGN_2025-10-03.md) - Redesign details
 - [CHANGELOG.md](./CHANGELOG.md) - Change history
 - [TASKS.md](./TASKS.md) - Active tasks

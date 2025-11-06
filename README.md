@@ -165,6 +165,7 @@ Key files:
 
 - flutter test runs provider + widget tests (Node, Wallet, Settings, Router)
 - CI: .github/workflows/flutter_ci.yml (format/analyze/tests on PRs)
+- **CI/CD & Deployment**: See [docs/CICD-GUIDE.md](docs/CICD-GUIDE.md) for complete CI/CD pipeline, deployment, and version management guide
 
 ## Contributing
 

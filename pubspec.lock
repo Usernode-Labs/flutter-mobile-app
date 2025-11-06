@@ -1008,10 +1008,10 @@ packages:
     dependency: "direct main"
     description:
       name: skeletonizer
-      sha256: eebc03dc86b298e2d7f61e0ebce5713e9dbbc3e786f825909b4591756f196eb6
+      sha256: "0dcacc51c144af4edaf37672072156f49e47036becbc394d7c51850c5c1e884b"
       url: "https://pub.dev"
     source: hosted
-    version: "2.1.0+1"
+    version: "1.4.3"
   sky_engine:
     dependency: transitive
     description: flutter

@@ -187,6 +187,23 @@ jobs:
           path: usernode
           token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
 
+      - name: Verify usernode checkout and structure
+        run: |
+          echo "📍 Current directory: $(pwd)"
+          echo "📁 Listing root work directory..."
+          ls -la ../
+          echo ""
+          echo "📁 Checking usernode directory..."
+          ls -la ../usernode/ || echo "❌ usernode directory not found"
+          echo ""
+          echo "📁 Checking usernode/crates..."
+          ls -la ../usernode/crates/ || echo "❌ usernode/crates not found"
+          echo ""
+          echo "📁 Checking for Cargo.toml..."
+          ls -la ../usernode/crates/usernode/Cargo.toml || echo "❌ Cargo.toml not found"
+          echo ""
+          echo "✅ Path verification complete"
+
       - name: Setup jq
         run: brew install jq
 
@@ -230,8 +247,23 @@ jobs:
           ruby-version: "3.2"
           bundler-cache: false
 
-      - name: Install CocoaPods dependencies
-        run: cd ios && pod install
+      - name: Install CocoaPods dependencies (verbose)
+        run: |
+          cd ios
+          echo "📍 Running pod install from: $(pwd)"
+          echo "📁 Listing ios directory before pod install..."
+          ls -la
+          echo ""
+          echo "🔧 Running pod install with verbose output..."
+          pod install --verbose 2>&1 | tee pod-install.log
+          echo ""
+          echo "✅ Pod install complete"
+          echo ""
+          echo "📁 Checking for built Rust library..."
+          find ../build -name "libusernode.a" -o -name "librust_lib_crypto_mobile_app.a" 2>/dev/null || echo "❌ Rust libraries not found in build directory"
+          echo ""
+          echo "📁 Checking Pods directory..."
+          ls -la Pods/ | head -20
 
       - name: Install Fastlane
         run: gem install fastlane
@@ -293,6 +325,21 @@ jobs:
           EOF
           fi
           echo "✅ Created .env file with ${{ steps.env_config.outputs.env_type }} secrets"
+
+      - name: Verify Rust library before iOS build
+        run: |
+          echo "🔍 Searching for Rust libraries in entire workspace..."
+          find . -name "libusernode.a" 2>/dev/null || echo "❌ libusernode.a not found anywhere"
+          find . -name "librust_lib_crypto_mobile_app.a" 2>/dev/null || echo "❌ librust_lib_crypto_mobile_app.a not found anywhere"
+          echo ""
+          echo "📁 Checking expected build location..."
+          ls -la build/ios/Debug-iphoneos/rust_lib_crypto_mobile_app/ 2>/dev/null || echo "❌ Expected directory doesn't exist"
+          echo ""
+          echo "📁 Checking Pods build products..."
+          find ios/Pods -name "*.a" 2>/dev/null | head -10 || echo "❌ No .a files found in Pods"
+          echo ""
+          echo "📁 Checking DerivedData if it exists..."
+          find ~/Library/Developer/Xcode/DerivedData -name "libusernode.a" 2>/dev/null | head -5 || echo "ℹ️  No DerivedData or library not found there"
 
       - name: Build iOS IPA
         run: |

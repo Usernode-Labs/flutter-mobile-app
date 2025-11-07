@@ -190,10 +190,11 @@ jobs:
           ruby-version: "3.2"
           bundler-cache: false
 
+      - name: Install CocoaPods dependencies
+        run: cd ios && pod install
+
       - name: Install Fastlane
-        run: |
-          gem install fastlane
-          cd ios && pod install
+        run: gem install fastlane
 
       - name: Import signing certificate
         env:

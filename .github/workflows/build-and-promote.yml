@@ -185,7 +185,7 @@ jobs:
         with:
           repository: Usernode-Labs/usernode
           path: usernode
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
 
       - name: Setup jq
         run: brew install jq

@@ -23,7 +23,7 @@ on:
         type: string
 
 env:
-  FLUTTER_VERSION: "3.27.1"
+  FLUTTER_VERSION: "3.10.0"
   JAVA_VERSION: "17"
 
 jobs:

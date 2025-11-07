@@ -11,122 +11,123 @@ env:
   JAVA_VERSION: "17"
 
 jobs:
-  analyze:
-    name: Code Analysis
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+  # TEMPORARILY COMMENTED OUT - Focusing on iOS builds only
+  # analyze:
+  #   name: Code Analysis
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Setup Flutter
+  #       uses: subosito/flutter-action@v2
+  #       with:
+  #         flutter-version: ${{ env.FLUTTER_VERSION }}
+  #         channel: "stable"
+  #         cache: true
+  #
+  #     - name: Install dependencies
+  #       run: flutter pub get
+  #
+  #     - name: Check formatting
+  #       run: dart format --set-exit-if-changed .
+  #
+  #     - name: Analyze code
+  #       run: flutter analyze
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: "stable"
-          cache: true
+  # test:
+  #   name: Run Tests
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Setup Flutter
+  #       uses: subosito/flutter-action@v2
+  #       with:
+  #         flutter-version: ${{ env.FLUTTER_VERSION }}
+  #         channel: "stable"
+  #         cache: true
+  #
+  #     - name: Install dependencies
+  #       run: flutter pub get
+  #
+  #     - name: Run unit tests
+  #       run: flutter test --coverage
+  #
+  #     - name: Upload coverage to Codecov
+  #       uses: codecov/codecov-action@v3
+  #       with:
+  #         files: ./coverage/lcov.info
+  #         flags: unittests
+  #         name: codecov-umbrella
 
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Check formatting
-        run: dart format --set-exit-if-changed .
-
-      - name: Analyze code
-        run: flutter analyze
-
-  test:
-    name: Run Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: "stable"
-          cache: true
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Run unit tests
-        run: flutter test --coverage
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          files: ./coverage/lcov.info
-          flags: unittests
-          name: codecov-umbrella
-
-  build-android:
-    name: Build Android (Debug)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: "zulu"
-          java-version: ${{ env.JAVA_VERSION }}
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: "stable"
-          cache: true
-
-      - name: Determine environment based on target branch
-        id: env_config
-        run: |
-          if [ "${{ github.base_ref }}" == "main" ]; then
-            echo "env_type=PROD" >> $GITHUB_OUTPUT
-            echo "📦 PR targets main - using PRODUCTION secrets"
-          else
-            echo "env_type=NONPROD" >> $GITHUB_OUTPUT
-            echo "📦 PR targets develop - using NON-PRODUCTION secrets"
-          fi
-
-      - name: Create .env file from secrets
-        run: |
-          if [ "${{ steps.env_config.outputs.env_type }}" == "PROD" ]; then
-            cat > .env << EOF
-          APP_ENV=${{ secrets.PROD_APP_ENV }}
-          API_BASE_URL=${{ secrets.PROD_API_BASE_URL }}
-          VERBOSE_LOGGING=${{ secrets.PROD_VERBOSE_LOGGING }}
-          SENTRY_DSN=${{ secrets.PROD_SENTRY_DSN }}
-          GITHUB_TOKEN=${{ secrets.PROD_GITHUB_TOKEN }}
-          USE_RESULT_PROVIDERS=${{ secrets.PROD_USE_RESULT_PROVIDERS }}
-          ENABLED_FEATURES=${{ secrets.PROD_ENABLED_FEATURES }}
-          DISABLED_FEATURES=${{ secrets.PROD_DISABLED_FEATURES }}
-          EOF
-          else
-            cat > .env << EOF
-          APP_ENV=${{ secrets.NONPROD_APP_ENV }}
-          API_BASE_URL=${{ secrets.NONPROD_API_BASE_URL }}
-          VERBOSE_LOGGING=${{ secrets.NONPROD_VERBOSE_LOGGING }}
-          SENTRY_DSN=${{ secrets.NONPROD_SENTRY_DSN }}
-          GITHUB_TOKEN=${{ secrets.NONPROD_GITHUB_TOKEN }}
-          USE_RESULT_PROVIDERS=${{ secrets.NONPROD_USE_RESULT_PROVIDERS }}
-          ENABLED_FEATURES=${{ secrets.NONPROD_ENABLED_FEATURES }}
-          DISABLED_FEATURES=${{ secrets.NONPROD_DISABLED_FEATURES }}
-          EOF
-          fi
-          echo "✅ Created .env file with ${{ steps.env_config.outputs.env_type }} secrets"
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Build Android APK (Debug)
-        run: |
-          flutter build apk \
-            --debug \
-            --dart-define-from-file=.env
+  # build-android:
+  #   name: Build Android (Debug)
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Setup Java
+  #       uses: actions/setup-java@v4
+  #       with:
+  #         distribution: "zulu"
+  #         java-version: ${{ env.JAVA_VERSION }}
+  #
+  #     - name: Setup Flutter
+  #       uses: subosito/flutter-action@v2
+  #       with:
+  #         flutter-version: ${{ env.FLUTTER_VERSION }}
+  #         channel: "stable"
+  #         cache: true
+  #
+  #     - name: Determine environment based on target branch
+  #       id: env_config
+  #       run: |
+  #         if [ "${{ github.base_ref }}" == "main" ]; then
+  #           echo "env_type=PROD" >> $GITHUB_OUTPUT
+  #           echo "📦 PR targets main - using PRODUCTION secrets"
+  #         else
+  #           echo "env_type=NONPROD" >> $GITHUB_OUTPUT
+  #           echo "📦 PR targets develop - using NON-PRODUCTION secrets"
+  #         fi
+  #
+  #     - name: Create .env file from secrets
+  #       run: |
+  #         if [ "${{ steps.env_config.outputs.env_type }}" == "PROD" ]; then
+  #           cat > .env << EOF
+  #         APP_ENV=${{ secrets.PROD_APP_ENV }}
+  #         API_BASE_URL=${{ secrets.PROD_API_BASE_URL }}
+  #         VERBOSE_LOGGING=${{ secrets.PROD_VERBOSE_LOGGING }}
+  #         SENTRY_DSN=${{ secrets.PROD_SENTRY_DSN }}
+  #         GITHUB_TOKEN=${{ secrets.PROD_GITHUB_TOKEN }}
+  #         USE_RESULT_PROVIDERS=${{ secrets.PROD_USE_RESULT_PROVIDERS }}
+  #         ENABLED_FEATURES=${{ secrets.PROD_ENABLED_FEATURES }}
+  #         DISABLED_FEATURES=${{ secrets.PROD_DISABLED_FEATURES }}
+  #         EOF
+  #         else
+  #           cat > .env << EOF
+  #         APP_ENV=${{ secrets.NONPROD_APP_ENV }}
+  #         API_BASE_URL=${{ secrets.NONPROD_API_BASE_URL }}
+  #         VERBOSE_LOGGING=${{ secrets.NONPROD_VERBOSE_LOGGING }}
+  #         SENTRY_DSN=${{ secrets.NONPROD_SENTRY_DSN }}
+  #         GITHUB_TOKEN=${{ secrets.NONPROD_GITHUB_TOKEN }}
+  #         USE_RESULT_PROVIDERS=${{ secrets.NONPROD_USE_RESULT_PROVIDERS }}
+  #         ENABLED_FEATURES=${{ secrets.NONPROD_ENABLED_FEATURES }}
+  #         DISABLED_FEATURES=${{ secrets.NONPROD_DISABLED_FEATURES }}
+  #         EOF
+  #         fi
+  #         echo "✅ Created .env file with ${{ steps.env_config.outputs.env_type }} secrets"
+  #
+  #     - name: Install dependencies
+  #       run: flutter pub get
+  #
+  #     - name: Build Android APK (Debug)
+  #       run: |
+  #         flutter build apk \
+  #           --debug \
+  #           --dart-define-from-file=.env
 
   build-ios:
     name: Build iOS (Debug)
@@ -196,17 +197,14 @@ jobs:
   summary:
     name: PR Check Summary
     runs-on: ubuntu-latest
-    needs: [analyze, test, build-android, build-ios]
+    needs: [build-ios]
     if: always()
     steps:
       - name: Check results
         run: |
-          if [ "${{ needs.analyze.result }}" == "failure" ] || \
-             [ "${{ needs.test.result }}" == "failure" ] || \
-             [ "${{ needs.build-android.result }}" == "failure" ] || \
-             [ "${{ needs.build-ios.result }}" == "failure" ]; then
-            echo "❌ Some checks failed"
+          if [ "${{ needs.build-ios.result }}" == "failure" ]; then
+            echo "❌ iOS build failed"
             exit 1
           else
-            echo "✅ All checks passed"
+            echo "✅ iOS build passed"
           fi

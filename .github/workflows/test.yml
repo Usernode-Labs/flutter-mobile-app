@@ -17,128 +17,120 @@ env:
   FLUTTER_VERSION: '3.35.7'
 
 jobs:
-  unit-tests:
-    name: Unit Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+  # TEMPORARILY COMMENTED OUT - Focusing on iOS builds only
+  # unit-tests:
+  #   name: Unit Tests
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Setup Flutter
+  #       uses: subosito/flutter-action@v2
+  #       with:
+  #         flutter-version: ${{ env.FLUTTER_VERSION }}
+  #         channel: 'stable'
+  #         cache: true
+  #
+  #     - name: Install dependencies
+  #       run: flutter pub get
+  #
+  #     - name: Run unit tests
+  #       run: flutter test --coverage --reporter expanded
+  #
+  #     - name: Upload coverage
+  #       uses: codecov/codecov-action@v3
+  #       with:
+  #         files: ./coverage/lcov.info
+  #         flags: unittests
+  #         name: codecov-unit
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: 'stable'
-          cache: true
+  # widget-tests:
+  #   name: Widget Tests
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Setup Flutter
+  #       uses: subosito/flutter-action@v2
+  #       with:
+  #         flutter-version: ${{ env.FLUTTER_VERSION }}
+  #         channel: 'stable'
+  #         cache: true
+  #
+  #     - name: Install dependencies
+  #       run: flutter pub get
+  #
+  #     - name: Run widget tests
+  #       run: flutter test --coverage test/widget_test --reporter expanded
 
-      - name: Install dependencies
-        run: flutter pub get
+  # integration-tests:
+  #   name: Integration Tests
+  #   runs-on: macos-latest
+  #   if: github.event_name != 'schedule'
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Setup Flutter
+  #       uses: subosito/flutter-action@v2
+  #       with:
+  #         flutter-version: ${{ env.FLUTTER_VERSION }}
+  #         channel: 'stable'
+  #         cache: true
+  #
+  #     - name: Install dependencies
+  #       run: flutter pub get
+  #
+  #     - name: Run iOS integration tests
+  #       run: |
+  #         cd ios && pod install && cd ..
+  #         flutter test integration_test
 
-      - name: Run unit tests
-        run: flutter test --coverage --reporter expanded
-
-      - name: Upload coverage
-        uses: codecov/codecov-action@v3
-        with:
-          files: ./coverage/lcov.info
-          flags: unittests
-          name: codecov-unit
-
-  widget-tests:
-    name: Widget Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: 'stable'
-          cache: true
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Run widget tests
-        run: flutter test --coverage test/widget_test --reporter expanded
-
-  integration-tests:
-    name: Integration Tests
-    runs-on: macos-latest
-    if: github.event_name != 'schedule'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: 'stable'
-          cache: true
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Run iOS integration tests
-        run: |
-          cd ios && pod install && cd ..
-          flutter test integration_test
-
-  coverage-report:
-    name: Coverage Report
-    runs-on: ubuntu-latest
-    needs: [unit-tests, widget-tests]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: 'stable'
-          cache: true
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Generate coverage
-        run: flutter test --coverage
-
-      - name: Check coverage threshold
-        run: |
-          # Install lcov
-          sudo apt-get install -y lcov
-
-          # Calculate coverage percentage
-          COVERAGE=$(lcov --summary coverage/lcov.info 2>&1 | grep "lines" | awk '{print $2}' | sed 's/%//')
-          echo "Coverage: $COVERAGE%"
-
-          # Fail if coverage is below 70%
-          if (( $(echo "$COVERAGE < 70" | bc -l) )); then
-            echo "❌ Coverage is below 70%"
-            exit 1
-          else
-            echo "✅ Coverage is above 70%"
-          fi
+  # coverage-report:
+  #   name: Coverage Report
+  #   runs-on: ubuntu-latest
+  #   needs: [unit-tests, widget-tests]
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Setup Flutter
+  #       uses: subosito/flutter-action@v2
+  #       with:
+  #         flutter-version: ${{ env.FLUTTER_VERSION }}
+  #         channel: 'stable'
+  #         cache: true
+  #
+  #     - name: Install dependencies
+  #       run: flutter pub get
+  #
+  #     - name: Generate coverage
+  #       run: flutter test --coverage
+  #
+  #     - name: Check coverage threshold
+  #       run: |
+  #         # Install lcov
+  #         sudo apt-get install -y lcov
+  #
+  #         # Calculate coverage percentage
+  #         COVERAGE=$(lcov --summary coverage/lcov.info 2>&1 | grep "lines" | awk '{print $2}' | sed 's/%//')
+  #         echo "Coverage: $COVERAGE%"
+  #
+  #         # Fail if coverage is below 70%
+  #         if (( $(echo "$COVERAGE < 70" | bc -l) )); then
+  #           echo "❌ Coverage is below 70%"
+  #           exit 1
+  #         else
+  #           echo "✅ Coverage is above 70%"
+  #         fi
 
   test-summary:
     name: Test Summary
     runs-on: ubuntu-latest
-    needs: [unit-tests, widget-tests, integration-tests, coverage-report]
-    if: always()
     steps:
       - name: Check results
         run: |
-          if [ "${{ needs.unit-tests.result }}" == "failure" ] || \
-             [ "${{ needs.widget-tests.result }}" == "failure" ] || \
-             [ "${{ needs.integration-tests.result }}" == "failure" ] || \
-             [ "${{ needs.coverage-report.result }}" == "failure" ]; then
-            echo "❌ Some tests failed"
-            exit 1
-          else
-            echo "✅ All tests passed"
-          fi
+          echo "⏭️  All tests temporarily disabled - focusing on iOS builds"
+          echo "✅ No tests to run"

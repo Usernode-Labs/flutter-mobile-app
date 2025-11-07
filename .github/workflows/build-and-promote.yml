@@ -180,6 +180,13 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Checkout usernode repository
+        uses: actions/checkout@v4
+        with:
+          repository: Usernode-Labs/usernode
+          path: usernode
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Setup jq
         run: brew install jq
 

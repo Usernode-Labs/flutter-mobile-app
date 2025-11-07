@@ -133,7 +133,7 @@ flutter-mobile-app/
 │   └── build.gradle           # Flavor configurations
 ├── ios/                        # iOS configuration
 │   └── ExportOptions-*.plist  # Export options per flavor
-├── version.json               # Version tracking
+├── pubspec.yaml               # App manifest with version tracking
 └── .env.example               # Environment template (for local dev only)
                                # CI/CD uses GitHub Secrets
 ```
@@ -406,25 +406,19 @@ Increment for backward compatible bug fixes:
 
 ### Build Numbers
 
-Each flavor maintains its own build counter stored in `version.json`:
+The app uses a single build counter stored in `pubspec.yaml` (shared across all flavors):
 
-```json
-{
-  "major": 1,
-  "minor": 2,
-  "patch": 3,
-  "build": {
-    "internal": 456,
-    "alpha": 123,
-    "beta": 89,
-    "production": 67
-  }
-}
+```yaml
+version: 1.2.3+67
 ```
+
+**Format**: `MAJOR.MINOR.PATCH+BUILD`
+- **1.2.3**: Semantic version
+- **+67**: Build number
 
 **Characteristics**:
 - Auto-incremented on each build
-- Unique per flavor
+- Shared across all flavors (single build number)
 - Must always increase (cannot go backward)
 - Used by app stores for version identification
 
@@ -776,7 +770,7 @@ git tag -l "v*" | sort -V | tail -5
    ```
 
 3. **Increment Build Number**:
-   - Update `version.json` to have higher build number than current
+   - Update `pubspec.yaml` to have higher build number than current
    - Keep the same version number
 
 4. **Build and Submit**:
@@ -826,7 +820,7 @@ flutter build ios --release
 ./scripts/version_manager.sh bump patch
 
 # Commit version bump
-git add version.json
+git add pubspec.yaml
 git commit -m "chore: bump version to 1.0.1"
 ```
 
@@ -1116,7 +1110,7 @@ git merge develop
 ### Store Upload Issues
 
 **Problem**: "Version code must be higher than previous"
-- **Solution**: Increment build number manually in `version.json`
+- **Solution**: Increment build number manually in `pubspec.yaml` or use `./scripts/version_manager.sh increment production`
 
 **Problem**: Upload to store fails
 - Verify API keys valid and not expired
@@ -1141,7 +1135,7 @@ git merge develop
 - Rebuild with explicit version parameters
 - Check version_manager.sh is being used
 
-**Problem**: Merge conflicts in version.json
+**Problem**: Merge conflicts in pubspec.yaml version
 - **Solution**: Keep higher build numbers, manually resolve
 - Run `./scripts/version_manager.sh info` to verify
 

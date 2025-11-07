@@ -1,37 +1,65 @@
 # Fastfile for Usernode CI/CD
+# Uses pubspec.yaml as the single source of truth for version and build numbers
 
 default_platform(:ios)
 
-# Load version information
-def load_version
-  version_file = File.join(Dir.pwd, '..', 'version.json')
-  JSON.parse(File.read(version_file))
+require 'yaml'
+
+# Load version information from pubspec.yaml
+def load_pubspec
+  pubspec_file = File.join(Dir.pwd, '..', 'pubspec.yaml')
+  YAML.load_file(pubspec_file)
 end
 
-def save_version(version_data)
-  version_file = File.join(Dir.pwd, '..', 'version.json')
-  File.write(version_file, JSON.pretty_generate(version_data))
+def save_pubspec(pubspec_data)
+  pubspec_file = File.join(Dir.pwd, '..', 'pubspec.yaml')
+  File.write(pubspec_file, YAML.dump(pubspec_data))
+end
+
+def get_current_version
+  pubspec = load_pubspec
+  version_string = pubspec['version']
+
+  if version_string.nil? || version_string.empty?
+    UI.user_error!("No version found in pubspec.yaml")
+  end
+
+  # Split version string: "0.1.1+12"
+  parts = version_string.split('+')
+  semantic = parts[0]           # "0.1.1"
+  build = parts[1] || "1"       # "12" or default "1"
+
+  { semantic: semantic, build: build.to_i, full: version_string }
 end
 
 def get_version_string(flavor)
-  version = load_version
-  major = version['major']
-  minor = version['minor']
-  patch = version['patch']
-  build = version['build'][flavor]
+  version_info = get_current_version
+  semantic = version_info[:semantic]
+  build = version_info[:build]
 
   if flavor == 'production'
-    "#{major}.#{minor}.#{patch}"
+    semantic
   else
-    "#{major}.#{minor}.#{patch}.#{build}-#{flavor}"
+    # For backward compatibility with old format
+    "#{semantic}.#{build}-#{flavor}"
   end
 end
 
 def increment_build_number(flavor)
-  version = load_version
-  version['build'][flavor] += 1
-  save_version(version)
-  version['build'][flavor]
+  # Note: Flavor parameter accepted for backward compatibility but ignored
+  # All flavors now share the same build number
+  version_info = get_current_version
+  new_build = version_info[:build] + 1
+  new_version = "#{version_info[:semantic]}+#{new_build}"
+
+  pubspec = load_pubspec
+  pubspec['version'] = new_version
+  save_pubspec(pubspec)
+
+  UI.success("Incremented build number: #{version_info[:build]} -> #{new_build}")
+  UI.success("New version: #{new_version}")
+
+  new_build
 end
 
 # iOS Platform
@@ -81,7 +109,7 @@ platform :ios do
 
     # Commit version bump
     git_commit(
-      path: ["version.json"],
+      path: ["pubspec.yaml"],
       message: "Bump iOS #{flavor} build to #{build_number}"
     )
   end
@@ -142,7 +170,7 @@ platform :android do
 
     # Commit version bump
     git_commit(
-      path: ["version.json"],
+      path: ["pubspec.yaml"],
       message: "Bump Android #{flavor} build to #{build_number}"
     )
   end

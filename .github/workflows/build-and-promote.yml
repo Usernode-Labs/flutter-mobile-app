@@ -203,6 +203,15 @@ jobs:
           fi
           mv usernode "$TARGET_DIR"
 
+      - name: Determine usernode revision
+        id: usernode_rev
+        run: |
+          cd ../usernode
+          SHA=$(git rev-parse HEAD)
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "Usernode commit: $SHORT_SHA"
+
       - name: Determine flutter_rust_bridge revision
         id: frb_rev
         run: |
@@ -230,6 +239,14 @@ jobs:
           ls -la ../usernode/crates/usernode/Cargo.toml || echo "❌ Cargo.toml not found"
           echo ""
           echo "✅ Path verification complete"
+
+      - name: Cache usernode Rust target artifacts
+        uses: actions/cache@v4
+        with:
+          path: ../usernode/target
+          key: ${{ runner.os }}-usernode-target-${{ steps.usernode_rev.outputs.sha }}
+          restore-keys: |
+            ${{ runner.os }}-usernode-target-
 
       - name: Setup jq
         run: brew install jq

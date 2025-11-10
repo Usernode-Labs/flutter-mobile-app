@@ -34,8 +34,7 @@ def get_current_version
   { semantic: semantic, build: build.to_i, full: version_string }
 end
 
-def get_version_string(flavor)
-  version_info = get_current_version
+def get_version_string(flavor, version_info = get_current_version)
   semantic = version_info[:semantic]
   build = version_info[:build]
 
@@ -47,7 +46,7 @@ def get_version_string(flavor)
   end
 end
 
-def increment_build_number(flavor)
+def increment_pubspec_build_number(flavor)
   # Note: Flavor parameter accepted for backward compatibility but ignored
   # All flavors now share the same build number
   version_info = get_current_version
@@ -64,16 +63,30 @@ def increment_build_number(flavor)
   new_build
 end
 
+def next_build_info(flavor)
+  unless ENV['CI'] == 'true'
+    increment_pubspec_build_number(flavor)
+  end
+
+  version_info = get_current_version
+  build_number = version_info[:build]
+  version_string = get_version_string(flavor, version_info)
+
+  [build_number, version_string]
+end
+
 # iOS Platform
 platform :ios do
   desc "Build and upload iOS app to TestFlight"
   lane :release do |options|
     flavor = options[:flavor] || 'production'
-    scheme = flavor.capitalize
+    scheme = options[:scheme] || 'Runner'
+    configuration = options[:configuration] || 'Release'
+    default_profile = "Usernode #{flavor.capitalize}"
+    provisioning_profile = options[:provisioning_profile] || default_profile
+    team_id = ENV['APPLE_TEAM_ID'] || '785Y2C9VG2'
 
-    # Increment build number
-    build_number = increment_build_number(flavor)
-    version_string = get_version_string(flavor)
+    build_number, version_string = next_build_info(flavor)
 
     # Update version in Xcode
     increment_build_number(
@@ -89,14 +102,16 @@ platform :ios do
     # Build the app
     build_app(
       scheme: scheme,
+      configuration: configuration,
       workspace: "ios/Runner.xcworkspace",
       export_method: "app-store",
       export_options: {
         method: "app-store",
         provisioningProfiles: {
-          "org.usernode.app" => "Usernode #{scheme}"
+          "org.usernode.app" => provisioning_profile
         }
       },
+      xcargs: %(DEVELOPMENT_TEAM=#{team_id} CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER="#{provisioning_profile}" CODE_SIGN_IDENTITY="Apple Distribution"),
       output_directory: "build/ios",
       output_name: "Usernode-#{flavor}-#{version_string}.ipa"
     )
@@ -144,9 +159,8 @@ platform :android do
     flavor = options[:flavor] || 'production'
     track = options[:track] || 'internal'
 
-    # Increment build number
-    build_number = increment_build_number(flavor)
-    version_string = get_version_string(flavor)
+    # Increment build number (handled externally on CI)
+    build_number, version_string = next_build_info(flavor)
 
     # Build the app
     gradle(

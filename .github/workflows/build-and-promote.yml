@@ -250,6 +250,9 @@ jobs:
         with:
           targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
 
+      - name: Install cargo-expand
+        run: cargo install cargo-expand --locked
+
       - name: Install flutter_rust_bridge_codegen
         run: cargo install flutter_rust_bridge_codegen --git https://github.com/Usernode-Labs/flutter_rust_bridge --locked
 

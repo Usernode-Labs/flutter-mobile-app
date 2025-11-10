@@ -206,6 +206,7 @@ jobs:
       - name: Build iOS (Debug)
         run: |
           flutter build ios \
+            --verbose \
             --debug \
             --no-codesign \
             --dart-define-from-file=.env

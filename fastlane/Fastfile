@@ -5,15 +5,17 @@ default_platform(:ios)
 
 require 'yaml'
 
+FASTLANE_DIR = File.expand_path(__dir__)
+PROJECT_ROOT = File.expand_path('..', FASTLANE_DIR)
+PUBSPEC_PATH = File.join(PROJECT_ROOT, 'pubspec.yaml')
+
 # Load version information from pubspec.yaml
 def load_pubspec
-  pubspec_file = File.join(Dir.pwd, '..', 'pubspec.yaml')
-  YAML.load_file(pubspec_file)
+  YAML.load_file(PUBSPEC_PATH)
 end
 
 def save_pubspec(pubspec_data)
-  pubspec_file = File.join(Dir.pwd, '..', 'pubspec.yaml')
-  File.write(pubspec_file, YAML.dump(pubspec_data))
+  File.write(PUBSPEC_PATH, YAML.dump(pubspec_data))
 end
 
 def get_current_version

@@ -367,11 +367,14 @@ jobs:
         run: |
           echo "$CERTIFICATES_P12" | base64 -d > certificate.p12
           security create-keychain -p "" build.keychain
-          security import certificate.p12 -k build.keychain -P "$CERTIFICATES_PASSWORD" -T /usr/bin/codesign
+          security import certificate.p12 -k build.keychain -P "$CERTIFICATES_PASSWORD" -T /usr/bin/codesign -T /usr/bin/xcodebuild -T /usr/bin/security
           security list-keychains -s build.keychain
           security default-keychain -s build.keychain
           security unlock-keychain -p "" build.keychain
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain
+
+      - name: Verify signing identities
+        run: security find-identity -v -p codesigning build.keychain
 
       - name: Install provisioning profiles
         env:

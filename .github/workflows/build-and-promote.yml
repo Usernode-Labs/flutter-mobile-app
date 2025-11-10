@@ -184,7 +184,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: Usernode-Labs/usernode
-          path: usernode
+          # Place repo one level up so it matches local ../usernode expectation
+          path: ../usernode
           token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
 
       - name: Verify usernode checkout and structure

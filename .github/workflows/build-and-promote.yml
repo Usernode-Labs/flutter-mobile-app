@@ -21,6 +21,11 @@ on:
         description: "Build number to promote (leave empty to build new)"
         required: false
         type: string
+      debug_logs:
+        description: "Enable verbose logging before TestFlight upload"
+        required: false
+        type: boolean
+        default: false
 
 env:
   FLUTTER_VERSION: "3.35.7"
@@ -170,6 +175,8 @@ jobs:
     name: Build iOS Release
     runs-on: macos-latest
     if: github.event.inputs.promote_to == 'none' || github.event.inputs.promote_to == ''
+    env:
+      DEBUG_LOGS: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.debug_logs == 'true' }}
     outputs:
       version: ${{ steps.version.outputs.version }}
       build_number: ${{ steps.version.outputs.build_number }}
@@ -207,6 +214,7 @@ jobs:
           echo "rev=$FRB_REV" >> "$GITHUB_OUTPUT"
           echo "Using flutter_rust_bridge rev: $FRB_REV"
       - name: Verify usernode checkout and structure
+        if: env.DEBUG_LOGS == 'true'
         run: |
           echo "📍 Current directory: $(pwd)"
           echo "📁 Listing root work directory..."
@@ -284,23 +292,23 @@ jobs:
           ruby-version: "3.2"
           bundler-cache: false
 
-      - name: Install CocoaPods dependencies (verbose)
+      - name: Install CocoaPods dependencies
         run: |
           cd ios
-          echo "📍 Running pod install from: $(pwd) "
-          echo "📁 Listing ios directory before pod install..."
-          ls -la
-          echo ""
-          echo "🔧 Running pod install with verbose output..."
-          pod install --verbose 2>&1 | tee pod-install.log
-          echo ""
+          if [ "${DEBUG_LOGS}" = "true" ]; then
+            echo "📍 Running pod install from: $(pwd)"
+            echo "📁 Listing ios directory before pod install..."
+            ls -la
+            echo ""
+            echo "🔧 Running pod install with verbose output..."
+            pod install --verbose 2>&1 | tee pod-install.log
+            echo ""
+            echo "📁 Checking Pods directory..."
+            ls -la Pods/ | head -20
+          else
+            pod install
+          fi
           echo "✅ Pod install complete"
-          echo ""
-          echo "📁 Checking for built Rust library..."
-          find ../build -name "libusernode.a" -o -name "librust_lib_crypto_mobile_app.a" 2>/dev/null || echo "❌ Rust libraries not found in build directory"
-          echo ""
-          echo "📁 Checking Pods directory..."
-          ls -la Pods/ | head -20
 
       - name: Install Fastlane
         run: gem install fastlane
@@ -364,6 +372,7 @@ jobs:
           echo "✅ Created .env file with ${{ steps.env_config.outputs.env_type }} secrets"
 
       - name: Verify Rust library before iOS build
+        if: env.DEBUG_LOGS == 'true'
         run: |
           echo "🔍 Searching for Rust libraries in entire workspace..."
           find . -name "libusernode.a" 2>/dev/null || echo "❌ libusernode.a not found anywhere"
@@ -380,13 +389,18 @@ jobs:
 
       - name: Build iOS IPA
         run: |
-          flutter build ios \
-            --release \
-            --verbose \
-            --no-codesign \
-            --build-number=${{ steps.version.outputs.build_number }} \
-            --build-name=${{ steps.version.outputs.version }} \
+          FLUTTER_CMD=(
+            flutter build ios
+            --release
+            --no-codesign
+            --build-number=${{ steps.version.outputs.build_number }}
+            --build-name=${{ steps.version.outputs.version }}
             --dart-define-from-file=.env
+          )
+          if [ "${DEBUG_LOGS}" = "true" ]; then
+            FLUTTER_CMD+=(--verbose)
+          fi
+          "${FLUTTER_CMD[@]}"
 
       - name: Build and upload to TestFlight (Internal)
         env:
@@ -394,7 +408,6 @@ jobs:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
         run: |
-          cd ios
           fastlane ios release flavor:production
 
   # Job 3: Promote existing build to higher track (develop builds only)

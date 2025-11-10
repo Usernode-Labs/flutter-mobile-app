@@ -237,11 +237,9 @@ jobs:
       - name: Install CocoaPods
         run: cd ios && pod install
 
-      - name: Build iOS (Debug)
+      - name: Build iOS
         run: |
           flutter build ios \
-            --verbose \
-            --debug \
             --no-codesign \
             --dart-define-from-file=.env
 

@@ -332,18 +332,19 @@ jobs:
         run: |
           PROFILE_DIR=~/Library/MobileDevice/Provisioning\ Profiles
           mkdir -p "$PROFILE_DIR"
-          PROFILE_PATH="$PROFILE_DIR/profile.mobileprovision"
-          echo "$PROVISIONING_PROFILES" | base64 -d > "$PROFILE_PATH"
-          DECODED_PLIST="$PROFILE_DIR/profile.plist"
-          security cms -D -i "$PROFILE_PATH" > "$DECODED_PLIST"
-          UUID=$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$DECODED_PLIST" 2>/dev/null || true)
-          NAME=$(/usr/libexec/PlistBuddy -c 'Print :Name' "$DECODED_PLIST" 2>/dev/null || true)
+          RAW_PROFILE=$(mktemp "$PROFILE_DIR/profile.XXXXXX.mobileprovision")
+          echo "$PROVISIONING_PROFILES" | base64 -d > "$RAW_PROFILE"
+          PLIST_PATH=$(mktemp "$PROFILE_DIR/profile.XXXXXX.plist")
+          security cms -D -i "$RAW_PROFILE" > "$PLIST_PATH"
+          UUID=$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$PLIST_PATH" 2>/dev/null || true)
+          NAME=$(/usr/libexec/PlistBuddy -c 'Print :Name' "$PLIST_PATH" 2>/dev/null || true)
+          rm -f "$PLIST_PATH"
           if [ -n "$UUID" ]; then
             DEST="$PROFILE_DIR/$UUID.mobileprovision"
-            cp "$PROFILE_PATH" "$DEST"
+            mv "$RAW_PROFILE" "$DEST"
             echo "✅ Installed provisioning profile: ${NAME:-Unknown} ($UUID)"
           else
-            echo "::warning::Unable to determine provisioning profile UUID. Using default file name."
+            echo "::warning::Unable to determine provisioning profile UUID. Keeping default file name."
           fi
 
       - name: Determine environment based on branch

@@ -82,7 +82,7 @@ platform :ios do
     flavor = options[:flavor] || 'production'
     scheme = options[:scheme] || 'Runner'
     configuration = options[:configuration] || 'Release'
-    default_profile = "Usernode #{flavor.capitalize}"
+    default_profile = "mobile-apps"
     provisioning_profile = options[:provisioning_profile] || default_profile
     team_id = ENV['APPLE_TEAM_ID'] || '785Y2C9VG2'
 

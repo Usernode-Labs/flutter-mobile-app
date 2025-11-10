@@ -159,6 +159,14 @@ jobs:
           channel: "stable"
           cache: true
 
+      - name: Setup Rust for iOS
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
+
+      - name: Install flutter_rust_bridge_codegen
+        run: cargo install flutter_rust_bridge_codegen --git https://github.com/Usernode-Labs/flutter_rust_bridge --locked
+
       - name: Determine environment based on target branch
         id: env_config
         run: |
@@ -199,6 +207,9 @@ jobs:
 
       - name: Install dependencies
         run: flutter pub get
+
+      - name: Generate flutter_rust_bridge bindings
+        run: flutter_rust_bridge_codegen generate
 
       - name: Install CocoaPods
         run: cd ios && pod install

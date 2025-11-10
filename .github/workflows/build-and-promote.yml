@@ -184,9 +184,17 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: Usernode-Labs/usernode
-          # Place repo one level up so it matches local ../usernode expectation
-          path: ../usernode
+          path: usernode
           token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
+
+      - name: Move usernode repository next to workspace
+        run: |
+          TARGET_DIR="../usernode"
+          if [ -d "$TARGET_DIR" ]; then
+            echo "⚠️  Existing $TARGET_DIR detected. Removing to ensure fresh checkout."
+            rm -rf "$TARGET_DIR"
+          fi
+          mv usernode "$TARGET_DIR"
 
       - name: Verify usernode checkout and structure
         run: |

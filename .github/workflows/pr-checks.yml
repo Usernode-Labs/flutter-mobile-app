@@ -225,6 +225,15 @@ jobs:
       - name: Generate flutter_rust_bridge bindings
         run: flutter_rust_bridge_codegen generate
 
+      - name: Verify flutter_rust_bridge bindings are up-to-date
+        run: |
+          cd ../usernode
+          if ! git diff --quiet -- crates/usernode/src/frb_generated.rs; then
+            echo "::error::frb_generated.rs changed during CI. Run flutter_rust_bridge_codegen generate and commit the result in the usernode repo."
+            git status --short crates/usernode/src/frb_generated.rs
+            exit 1
+          fi
+
       - name: Install CocoaPods
         run: cd ios && pod install
 

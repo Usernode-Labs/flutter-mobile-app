@@ -354,6 +354,7 @@ jobs:
         run: |
           flutter build ios \
             --release \
+            --verbose \
             --no-codesign \
             --build-number=${{ steps.version.outputs.build_number }} \
             --build-name=${{ steps.version.outputs.version }} \

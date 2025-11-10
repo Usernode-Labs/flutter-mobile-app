@@ -22,8 +22,11 @@ export CARGOKIT_DARWIN_ARCHS=$ARCHS
 # Current build configuration (Debug, Release)
 export CARGOKIT_CONFIGURATION=$CONFIGURATION
 
-# Path to directory containing Cargo.toml.
-export CARGOKIT_MANIFEST_DIR=$PODS_TARGET_SRCROOT/$1
+# Path to directory containing Cargo.toml. Support both absolute and relative inputs.
+case "$1" in
+  /*) export CARGOKIT_MANIFEST_DIR="$1" ;;
+  *) export CARGOKIT_MANIFEST_DIR="$PODS_TARGET_SRCROOT/$1" ;;
+esac
 
 # Temporary directory for build artifacts.
 export CARGOKIT_TARGET_TEMP_DIR=$TARGET_TEMP_DIR

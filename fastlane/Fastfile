@@ -111,7 +111,7 @@ platform :ios do
           "org.usernode.app" => provisioning_profile
         }
       },
-      xcargs: %(DEVELOPMENT_TEAM=#{team_id} CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER="#{provisioning_profile}" CODE_SIGN_IDENTITY="Apple Distribution"),
+      xcargs: %(DEVELOPMENT_TEAM=#{team_id} CODE_SIGN_IDENTITY="Apple Distribution"),
       output_directory: "build/ios",
       output_name: "Usernode-#{flavor}-#{version_string}.ipa"
     )

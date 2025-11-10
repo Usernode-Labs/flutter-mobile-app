@@ -39,7 +39,42 @@ A new Flutter FFI plugin project.
     # Build the Rust static library for the `usernode` crate, then symlink it
     # to the pod's expected product name so Xcode links it normally.
     :script => <<-BASH,
-sh "$PODS_TARGET_SRCROOT/../cargokit/build_pod.sh" ../../../usernode/crates/usernode usernode
+set -euo pipefail 2>/dev/null || set -eu
+
+PROJECT_ROOT="$(cd "$PODS_ROOT/../.." && pwd -P)"
+
+resolve_candidate() {
+  if [ -d "$1" ] && [ -f "$1/Cargo.toml" ]; then
+    RUST_CRATE_DIR="$1"
+  fi
+}
+
+if [ -n "${USERNODE_CRATE_DIR:-}" ]; then
+  resolve_candidate "$USERNODE_CRATE_DIR"
+fi
+
+if [ -z "${RUST_CRATE_DIR:-}" ]; then
+  resolve_candidate "$PROJECT_ROOT/../usernode/crates/usernode"
+fi
+
+if [ -z "${RUST_CRATE_DIR:-}" ]; then
+  resolve_candidate "$PROJECT_ROOT/rust"
+fi
+
+if [ -z "${RUST_CRATE_DIR:-}" ]; then
+  cat >&2 <<EOF
+[rust_lib_crypto_mobile_app] Could not locate the usernode Rust crate.
+Checked:
+  - USERNODE_CRATE_DIR=${USERNODE_CRATE_DIR:-"(not set)"}
+  - $PROJECT_ROOT/../usernode/crates/usernode
+  - $PROJECT_ROOT/rust
+Ensure the usernode repository exists next to flutter-mobile-app or set USERNODE_CRATE_DIR to the crate path.
+EOF
+  exit 1
+fi
+
+echo "[rust_lib_crypto_mobile_app] Building Rust crate at: $RUST_CRATE_DIR"
+sh "$PODS_TARGET_SRCROOT/../cargokit/build_pod.sh" "$RUST_CRATE_DIR" usernode
 # Ensure the pod product name resolves to the built Rust library
 ln -sf "${BUILT_PRODUCTS_DIR}/libusernode.a" "${BUILT_PRODUCTS_DIR}/librust_lib_crypto_mobile_app.a"
 BASH

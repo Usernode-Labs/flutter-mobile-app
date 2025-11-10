@@ -30,18 +30,29 @@ A complete CI/CD pipeline for building and deploying the Flutter app to both iOS
 
 **All Flavors**: `org.usernode.app` (single bundle ID across all environments)
 
-### Branch Strategy
+### Branch Strategy & Environment Mapping
 
-- **`main`**: Production releases, reflects latest production version
-- **`develop`**: Development work, auto-deploys to internal track
-- **Tags**: Created automatically for production releases (e.g., `v1.0.0`)
+The project uses a **branch-based environment strategy** where configuration secrets are automatically selected based on the branch:
+
+| Branch | Secrets | Initial Track | Promotion Path |
+|--------|---------|---------------|----------------|
+| **`develop`** | `NONPROD_*` | Internal | Internal → Alpha → Beta |
+| **`main`** | `PROD_*` | Production | (Direct to production) |
+
+**Workflow:**
+1. **Push to `develop`** → Builds with non-production config → Deploys to internal → Manually promote through alpha/beta
+2. **Push to `main`** → Builds with production config → Deploys directly to production track
+3. **PR to `develop`** → Validates with non-production secrets
+4. **PR to `main`** → Validates with production secrets
+
+**Tags**: Created automatically for production releases (e.g., `v1.0.0`)
 
 ### Release Tracks
 
-- **Internal**: Auto-deployed from `develop` branch
-- **Alpha**: Manual workflow dispatch
-- **Beta**: Manual workflow dispatch
-- **Production**: Manual workflow dispatch with version bump options
+- **Internal**: Auto-deployed from `develop` branch (non-prod config)
+- **Alpha**: Manual promotion of develop builds
+- **Beta**: Manual promotion of develop builds
+- **Production**: Auto-deployed from `main` branch (prod config)
 
 ### Quick Commands
 
@@ -74,29 +85,46 @@ The Usernode app uses a multi-track release strategy with four environments:
 
 ### Workflows
 
-Two main GitHub Actions workflows:
+Three main GitHub Actions workflows:
 
 1. **PR Checks** (`.github/workflows/pr-checks.yml`)
-   - Trigger: Pull requests to `main` or `develop`
-   - Runs tests, code analysis, and debug builds
+   - **Trigger**: Pull requests to `main` or `develop`
+   - **Behavior**: Automatically selects secrets based on target branch
+     - PR to `develop` → Uses `NONPROD_*` secrets
+     - PR to `main` → Uses `PROD_*` secrets
+   - **Actions**: Runs tests, code analysis, and debug builds
 
 2. **Build Once, Promote Many** (`.github/workflows/build-and-promote.yml`)
-   - Trigger: Push to `develop` branch OR manual promotion
-   - Builds once, promotes same binary through tracks
-   - See [Build Once, Promote Many Guide](BUILD-ONCE-PROMOTE.md)
+   - **Trigger**: Push to `develop` or `main` branch, OR manual promotion
+   - **Behavior**: Automatically selects secrets based on source branch
+     - Push to `develop` → Uses `NONPROD_*` secrets → Builds for internal/alpha/beta
+     - Push to `main` → Uses `PROD_*` secrets → Builds for production
+   - **Strategy**: Builds once per environment, promotes same binary through tracks
+   - **See**: [Build Once, Promote Many Guide](BUILD-ONCE-PROMOTE.md)
 
-This approach builds a single binary and promotes it through tracks (internal → alpha → beta → production), ensuring the exact same binary that was tested goes to production.
+3. **Test Suite** (`.github/workflows/test.yml`)
+   - **Trigger**: Push to any branch
+   - **Actions**: Runs unit and integration tests
+
+**Key Concept**: Each branch builds with its own environment configuration:
+- `develop` builds use non-production URLs/settings (for testing)
+- `main` builds use production URLs/settings (for real users)
+- Same binary promoted through tracks within each environment
 
 ### Files Structure
 
 ```
 flutter-mobile-app/
 ├── .github/workflows/          # GitHub Actions workflows
-│   ├── build-and-promote.yml  # Build once, promote many
-│   ├── pr-checks.yml          # PR validation
+│   ├── build-and-promote.yml  # Build once, promote many (branch-based)
+│   ├── pr-checks.yml          # PR validation (branch-based)
 │   └── test.yml               # Test suite
+├── docs/                       # Documentation
+│   ├── CICD-GUIDE.md          # This file
+│   ├── SECRETS.md             # GitHub Secrets configuration guide
+│   └── BUILD-ONCE-PROMOTE.md  # Promotion strategy guide
 ├── scripts/                    # Automation scripts
-│   ├── version_manager.sh
+│   ├── version_manager.sh     # Version management
 │   └── generate_release_notes.sh
 ├── fastlane/                   # Fastlane configuration
 │   ├── Fastfile
@@ -105,8 +133,9 @@ flutter-mobile-app/
 │   └── build.gradle           # Flavor configurations
 ├── ios/                        # iOS configuration
 │   └── ExportOptions-*.plist  # Export options per flavor
-├── version.json               # Version tracking
-└── .env.*                     # Environment configurations
+├── pubspec.yaml               # App manifest with version tracking
+└── .env.example               # Environment template (for local dev only)
+                               # CI/CD uses GitHub Secrets
 ```
 
 ---
@@ -263,21 +292,41 @@ Navigate to your GitHub repository → Settings → Secrets and variables → Ac
    - Create 4 schemes: Internal, Alpha, Beta, Production
    - Configure signing for each scheme
 
-### 6. Update Environment Variables
+### 6. Configure Environment Secrets
 
-Edit the `.env.*` files with your actual values:
+The project uses **GitHub Secrets** for environment configuration instead of committing `.env` files. You need to configure two sets of secrets: Production (`PROD_*`) and Non-Production (`NONPROD_*`).
+
+#### Production Secrets (PROD_*)
+
+Used when building from the `main` branch:
 
 ```bash
-# .env.production
-APP_ENV=production
-API_BASE_URL=https://api.usernode.app
-VERBOSE_LOGGING=false
-SENTRY_DSN=https://your-sentry-dsn@sentry.io/project-id
-GITHUB_TOKEN=ghp_your_github_token
-USE_RESULT_PROVIDERS=true
-ENABLED_FEATURES=home,wallet,dapps,profile,node,feedback
-DISABLED_FEATURES=
+PROD_APP_ENV=production
+PROD_API_BASE_URL=https://api.usernode.app
+PROD_VERBOSE_LOGGING=false
+PROD_SENTRY_DSN=https://your-prod-sentry-dsn@sentry.io/project-id
+PROD_GITHUB_TOKEN=ghp_your_production_github_token
+PROD_USE_RESULT_PROVIDERS=true
+PROD_ENABLED_FEATURES=home,wallet,dapps,profile,node
+PROD_DISABLED_FEATURES=
 ```
+
+#### Non-Production Secrets (NONPROD_*)
+
+Used when building from the `develop` branch:
+
+```bash
+NONPROD_APP_ENV=staging
+NONPROD_API_BASE_URL=https://api-staging.usernode.app
+NONPROD_VERBOSE_LOGGING=true
+NONPROD_SENTRY_DSN=https://your-staging-sentry-dsn@sentry.io/project-id
+NONPROD_GITHUB_TOKEN=ghp_your_staging_github_token
+NONPROD_USE_RESULT_PROVIDERS=true
+NONPROD_ENABLED_FEATURES=home,wallet,dapps,profile,node
+NONPROD_DISABLED_FEATURES=
+```
+
+**📚 For complete details**, see [SECRETS.md](SECRETS.md) - comprehensive guide on configuring all GitHub Secrets.
 
 ### 7. Test the Pipeline
 
@@ -357,25 +406,19 @@ Increment for backward compatible bug fixes:
 
 ### Build Numbers
 
-Each flavor maintains its own build counter stored in `version.json`:
+The app uses a single build counter stored in `pubspec.yaml` (shared across all flavors):
 
-```json
-{
-  "major": 1,
-  "minor": 2,
-  "patch": 3,
-  "build": {
-    "internal": 456,
-    "alpha": 123,
-    "beta": 89,
-    "production": 67
-  }
-}
+```yaml
+version: 1.2.3+67
 ```
+
+**Format**: `MAJOR.MINOR.PATCH+BUILD`
+- **1.2.3**: Semantic version
+- **+67**: Build number
 
 **Characteristics**:
 - Auto-incremented on each build
-- Unique per flavor
+- Shared across all flavors (single build number)
 - Must always increase (cannot go backward)
 - Used by app stores for version identification
 
@@ -727,7 +770,7 @@ git tag -l "v*" | sort -V | tail -5
    ```
 
 3. **Increment Build Number**:
-   - Update `version.json` to have higher build number than current
+   - Update `pubspec.yaml` to have higher build number than current
    - Keep the same version number
 
 4. **Build and Submit**:
@@ -777,7 +820,7 @@ flutter build ios --release
 ./scripts/version_manager.sh bump patch
 
 # Commit version bump
-git add version.json
+git add pubspec.yaml
 git commit -m "chore: bump version to 1.0.1"
 ```
 
@@ -1067,7 +1110,7 @@ git merge develop
 ### Store Upload Issues
 
 **Problem**: "Version code must be higher than previous"
-- **Solution**: Increment build number manually in `version.json`
+- **Solution**: Increment build number manually in `pubspec.yaml` or use `./scripts/version_manager.sh increment production`
 
 **Problem**: Upload to store fails
 - Verify API keys valid and not expired
@@ -1092,7 +1135,7 @@ git merge develop
 - Rebuild with explicit version parameters
 - Check version_manager.sh is being used
 
-**Problem**: Merge conflicts in version.json
+**Problem**: Merge conflicts in pubspec.yaml version
 - **Solution**: Keep higher build numbers, manually resolve
 - Run `./scripts/version_manager.sh info` to verify
 

@@ -54,15 +54,13 @@ app.*.map.json
 *.cer
 *.certSigningRequest
 
-# CI/CD Secrets (local testing only)
+# CI/CD Secrets (local development only - CI uses GitHub Secrets)
+.env
 .env.local
-<<<<<<< Updated upstream
 .env.alpha
 .env.beta
 .env.internal
 .env.production
-=======
->>>>>>> Stashed changes
 service-account*.json
 AuthKey_*.p8
 

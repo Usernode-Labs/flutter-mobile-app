@@ -152,6 +152,17 @@ jobs:
           fi
           mv usernode "$TARGET_DIR"
 
+      - name: Determine flutter_rust_bridge revision
+        id: frb_rev
+        run: |
+          FRB_REV=$(grep -m1 'flutter_rust_bridge =' ../usernode/crates/usernode/Cargo.toml | sed -E 's/.*rev = "([^"]+)".*/\1/')
+          if [ -z "$FRB_REV" ]; then
+            echo "Unable to find flutter_rust_bridge rev in Cargo.toml" >&2
+            exit 1
+          fi
+          echo "rev=$FRB_REV" >> "$GITHUB_OUTPUT"
+          echo "Using flutter_rust_bridge rev: $FRB_REV"
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -168,7 +179,7 @@ jobs:
         run: cargo install cargo-expand --locked
 
       - name: Install flutter_rust_bridge_codegen
-        run: cargo install flutter_rust_bridge_codegen --git https://github.com/Usernode-Labs/flutter_rust_bridge --locked
+        run: cargo install flutter_rust_bridge_codegen --git https://github.com/Usernode-Labs/flutter_rust_bridge --rev ${{ steps.frb_rev.outputs.rev }} --locked
 
       - name: Determine environment based on target branch
         id: env_config

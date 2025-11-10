@@ -260,6 +260,15 @@ jobs:
           channel: "stable"
           cache: true
 
+      - name: Cache Flutter pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+
       - name: Install dependencies
         run: flutter pub get
 
@@ -267,6 +276,17 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ steps.frb_rev.outputs.rev }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
 
       - name: Install cargo-expand
         run: cargo install cargo-expand --locked
@@ -291,6 +311,16 @@ jobs:
         with:
           ruby-version: "3.2"
           bundler-cache: false
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: |
+            ios/Pods
+            ~/Library/Caches/CocoaPods
+          key: ${{ runner.os }}-pods-${{ hashFiles('ios/Podfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pods-
 
       - name: Install CocoaPods dependencies
         run: |

@@ -173,6 +173,7 @@ jobs:
   # Job 2a: Setup Rust tools for iOS (reusable)
   setup-rust-tools:
     name: Setup Rust Tools
+    needs: [determine-frb-rev]
     if: github.event.inputs.promote_to == 'none' || github.event.inputs.promote_to == ''
     uses: ./.github/workflows/setup-rust-tools.yml
     secrets: inherit

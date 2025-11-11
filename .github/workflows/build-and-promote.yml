@@ -170,10 +170,60 @@ jobs:
   #           Build ${{ steps.version.outputs.build_number }}
   #           Auto-deployed to ${{ steps.env_config.outputs.track }} track.
 
-  # Job 2: Build iOS (only if not promoting)
+  # Job 2a: Setup Rust tools for iOS (reusable)
+  setup-rust-tools:
+    name: Setup Rust Tools
+    if: github.event.inputs.promote_to == 'none' || github.event.inputs.promote_to == ''
+    uses: ./.github/workflows/setup-rust-tools.yml
+    secrets: inherit
+    with:
+      frb_rev: ${{ needs.determine-frb-rev.outputs.frb_rev }}
+      usernode_ref: ${{ needs.determine-frb-rev.outputs.usernode_sha }}
+
+  # Job 2b: Determine versions before build
+  determine-frb-rev:
+    name: Determine Rust Versions
+    runs-on: macos-latest
+    if: github.event.inputs.promote_to == 'none' || github.event.inputs.promote_to == ''
+    outputs:
+      frb_rev: ${{ steps.frb_rev.outputs.rev }}
+      usernode_sha: ${{ steps.usernode_rev.outputs.sha }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Checkout usernode repository
+        uses: actions/checkout@v4
+        with:
+          repository: Usernode-Labs/usernode
+          path: usernode
+          token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
+
+      - name: Determine usernode revision
+        id: usernode_rev
+        run: |
+          cd usernode
+          SHA=$(git rev-parse HEAD)
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "Usernode commit: $SHORT_SHA"
+
+      - name: Determine flutter_rust_bridge revision
+        id: frb_rev
+        run: |
+          FRB_REV=$(grep -m1 'flutter_rust_bridge =' usernode/crates/usernode/Cargo.toml | sed -E 's/.*rev = "([^"]+)".*/\1/')
+          if [ -z "$FRB_REV" ]; then
+            echo "Unable to find flutter_rust_bridge rev in Cargo.toml" >&2
+            exit 1
+          fi
+          echo "rev=$FRB_REV" >> "$GITHUB_OUTPUT"
+          echo "Using flutter_rust_bridge rev: $FRB_REV"
+
+  # Job 2c: Build iOS (only if not promoting)
   build-ios:
     name: Build iOS Release
     runs-on: macos-latest
+    needs: [determine-frb-rev, setup-rust-tools]
     if: github.event.inputs.promote_to == 'none' || github.event.inputs.promote_to == ''
     env:
       DEBUG_LOGS: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.debug_logs == 'true' }}
@@ -203,25 +253,6 @@ jobs:
           fi
           mv usernode "$TARGET_DIR"
 
-      - name: Determine usernode revision
-        id: usernode_rev
-        run: |
-          cd ../usernode
-          SHA=$(git rev-parse HEAD)
-          SHORT_SHA=$(git rev-parse --short HEAD)
-          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
-          echo "Usernode commit: $SHORT_SHA"
-
-      - name: Determine flutter_rust_bridge revision
-        id: frb_rev
-        run: |
-          FRB_REV=$(grep -m1 'flutter_rust_bridge =' ../usernode/crates/usernode/Cargo.toml | sed -E 's/.*rev = "([^"]+)".*/\1/')
-          if [ -z "$FRB_REV" ]; then
-            echo "Unable to find flutter_rust_bridge rev in Cargo.toml" >&2
-            exit 1
-          fi
-          echo "rev=$FRB_REV" >> "$GITHUB_OUTPUT"
-          echo "Using flutter_rust_bridge rev: $FRB_REV"
       - name: Verify usernode checkout and structure
         if: env.DEBUG_LOGS == 'true'
         run: |
@@ -244,7 +275,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ../usernode/target
-          key: ${{ runner.os }}-usernode-target-${{ steps.usernode_rev.outputs.sha }}
+          key: ${{ runner.os }}-usernode-target-${{ needs.determine-frb-rev.outputs.usernode_sha }}
           restore-keys: |
             ${{ runner.os }}-usernode-target-
 
@@ -286,6 +317,17 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pub-
 
+      - name: Cache Flutter build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            build
+            .dart_tool
+          key: ${{ runner.os }}-flutter-build-${{ hashFiles('pubspec.lock') }}-${{ hashFiles('lib/**/*.dart', 'rust_builder/**/*.rs') }}
+          restore-keys: |
+            ${{ runner.os }}-flutter-build-${{ hashFiles('pubspec.lock') }}-
+            ${{ runner.os }}-flutter-build-
+
       - name: Install dependencies
         run: flutter pub get
 
@@ -294,24 +336,28 @@ jobs:
         with:
           targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
 
-      - name: Cache cargo registry
+      - name: Restore cargo binaries from cache
+        uses: actions/cache/restore@v4
+        id: cache-cargo-bins
+        with:
+          path: |
+            ~/.cargo/bin/cargo-expand
+            ~/.cargo/bin/flutter_rust_bridge_codegen
+          key: ${{ runner.os }}-cargo-bins-${{ needs.determine-frb-rev.outputs.frb_rev }}-v2
+
+      - name: Cache FRB generated code
+        id: cache-frb-gen
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/bin
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: ${{ runner.os }}-cargo-${{ steps.frb_rev.outputs.rev }}
+            lib/src/rust/frb_generated.dart
+            lib/src/rust/api
+          key: ${{ runner.os }}-frb-gen-${{ needs.determine-frb-rev.outputs.frb_rev }}-${{ hashFiles('rust_builder/**/*.rs', '../usernode/crates/**/*.rs') }}
           restore-keys: |
-            ${{ runner.os }}-cargo-
-
-      - name: Install cargo-expand
-        run: cargo install cargo-expand --locked
-
-      - name: Install flutter_rust_bridge_codegen
-        run: cargo install flutter_rust_bridge_codegen --git https://github.com/Usernode-Labs/flutter_rust_bridge --rev ${{ steps.frb_rev.outputs.rev }} --locked
+            ${{ runner.os }}-frb-gen-${{ needs.determine-frb-rev.outputs.frb_rev }}-
 
       - name: Generate flutter_rust_bridge bindings
+        if: steps.cache-frb-gen.outputs.cache-hit != 'true'
         run: flutter_rust_bridge_codegen generate
 
       - name: Verify flutter_rust_bridge bindings are up-to-date
@@ -327,38 +373,42 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.2"
-          bundler-cache: false
+          bundler-cache: true
 
       - name: Cache CocoaPods
+        id: cache-pods
         uses: actions/cache@v4
         with:
           path: |
             ios/Pods
             ~/Library/Caches/CocoaPods
-          key: ${{ runner.os }}-pods-${{ hashFiles('ios/Podfile.lock') }}
+          key: ${{ runner.os }}-pods-${{ hashFiles('ios/Podfile.lock') }}-${{ hashFiles('ios/Podfile') }}
           restore-keys: |
+            ${{ runner.os }}-pods-${{ hashFiles('ios/Podfile.lock') }}-
             ${{ runner.os }}-pods-
 
       - name: Install CocoaPods dependencies
         run: |
           cd ios
-          if [ "${DEBUG_LOGS}" = "true" ]; then
-            echo "📍 Running pod install from: $(pwd)"
-            echo "📁 Listing ios directory before pod install..."
-            ls -la
-            echo ""
-            echo "🔧 Running pod install with verbose output..."
-            pod install --verbose 2>&1 | tee pod-install.log
-            echo ""
-            echo "📁 Checking Pods directory..."
-            ls -la Pods/ | head -20
+          # Only install if Pods directory doesn't exist or is outdated
+          if [ ! -d "Pods" ] || [ "Podfile.lock" -nt "Pods/Manifest.lock" ] || [ "${{ steps.cache-pods.outputs.cache-hit }}" != "true" ]; then
+            if [ "${DEBUG_LOGS}" = "true" ]; then
+              echo "📍 Running pod install from: $(pwd)"
+              echo "📁 Listing ios directory before pod install..."
+              ls -la
+              echo ""
+              echo "🔧 Running pod install with verbose output..."
+              pod install --verbose 2>&1 | tee pod-install.log
+              echo ""
+              echo "📁 Checking Pods directory..."
+              ls -la Pods/ | head -20
+            else
+              pod install
+            fi
+            echo "✅ Pod install complete"
           else
-            pod install
+            echo "✅ Pods are up to date (cache hit), skipping installation"
           fi
-          echo "✅ Pod install complete"
-
-      - name: Install Fastlane
-        run: gem install fastlane
 
       - name: Import signing certificate
         env:
@@ -470,21 +520,6 @@ jobs:
           echo "📁 Checking DerivedData if it exists..."
           find ~/Library/Developer/Xcode/DerivedData -name "libusernode.a" 2>/dev/null | head -5 || echo "ℹ️  No DerivedData or library not found there"
 
-      - name: Build iOS IPA
-        run: |
-          FLUTTER_CMD=(
-            flutter build ios
-            --release
-            --no-codesign
-            --build-number=${{ steps.version.outputs.build_number }}
-            --build-name=${{ steps.version.outputs.version }}
-            --dart-define-from-file=.env
-          )
-          if [ "${DEBUG_LOGS}" = "true" ]; then
-            FLUTTER_CMD+=(--verbose)
-          fi
-          "${FLUTTER_CMD[@]}"
-
       - name: Build and upload to TestFlight (Internal)
         env:
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
@@ -494,6 +529,15 @@ jobs:
           set -euo pipefail
           export GYM_XCARGS='OTHER_CODE_SIGN_FLAGS="--keychain '"$KEYCHAIN_PATH"'"'
           fastlane ios release flavor:production
+
+      - name: Build Cache Statistics
+        if: always()
+        run: |
+          echo "### iOS Build Cache Statistics" >> $GITHUB_STEP_SUMMARY
+          echo "- Cargo binaries cache hit: \`${{ steps.cache-cargo-bins.outputs.cache-hit }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- FRB generated code cache hit: \`${{ steps.cache-frb-gen.outputs.cache-hit }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- CocoaPods cache hit: \`${{ steps.cache-pods.outputs.cache-hit }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Rust tools setup cache hit: \`${{ needs.setup-rust-tools.outputs.cache-hit }}\`" >> $GITHUB_STEP_SUMMARY
 
   # Job 3: Promote existing build to higher track (develop builds only)
   promote:

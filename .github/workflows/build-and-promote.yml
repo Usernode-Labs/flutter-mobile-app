@@ -41,6 +41,8 @@ jobs:
     name: Build Release
     runs-on: ubuntu-latest
     if: github.event.inputs.promote_to == 'none' || github.event.inputs.promote_to == ''
+    env:
+      CARGOKIT_ONLY_ANDROID_ARM64: "1"
     outputs:
       version: ${{ steps.version.outputs.version }}
       build_number: ${{ steps.version.outputs.build_number }}

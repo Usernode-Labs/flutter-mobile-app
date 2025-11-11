@@ -1,0 +1,95 @@
+name: Setup Rust Tools for iOS (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      frb_rev:
+        description: 'Flutter Rust Bridge revision to use'
+        required: true
+        type: string
+      usernode_ref:
+        description: 'Usernode repository reference (branch/tag/commit)'
+        required: true
+        type: string
+    outputs:
+      cache-hit:
+        description: 'Whether cargo binaries were found in cache'
+        value: ${{ jobs.setup.outputs.cache-hit }}
+
+jobs:
+  setup:
+    runs-on: macos-latest
+    outputs:
+      cache-hit: ${{ steps.cache-cargo-bins.outputs.cache-hit }}
+
+    steps:
+      - name: Checkout usernode repository
+        uses: actions/checkout@v4
+        with:
+          repository: Usernode-Labs/usernode
+          ref: ${{ inputs.usernode_ref }}
+          path: usernode
+          token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
+
+      - name: Setup Rust for iOS
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
+
+      - name: Cache cargo registry and git dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-registry-${{ inputs.frb_rev }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache cargo binaries
+        id: cache-cargo-bins
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/cargo-expand
+            ~/.cargo/bin/flutter_rust_bridge_codegen
+          key: ${{ runner.os }}-cargo-bins-${{ inputs.frb_rev }}-v2
+          restore-keys: |
+            ${{ runner.os }}-cargo-bins-
+
+      - name: Install cargo-binstall
+        if: steps.cache-cargo-bins.outputs.cache-hit != 'true'
+        run: |
+          curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+
+      - name: Install cargo-expand
+        if: steps.cache-cargo-bins.outputs.cache-hit != 'true'
+        run: |
+          if ! command -v cargo-expand &> /dev/null; then
+            # Try binstall first (faster), fall back to cargo install
+            cargo binstall cargo-expand -y --locked || cargo install cargo-expand --locked
+          else
+            echo "cargo-expand already installed"
+          fi
+
+      - name: Install flutter_rust_bridge_codegen
+        if: steps.cache-cargo-bins.outputs.cache-hit != 'true'
+        run: |
+          if ! command -v flutter_rust_bridge_codegen &> /dev/null; then
+            # This doesn't have pre-built binaries, must compile from source
+            cargo install flutter_rust_bridge_codegen --git https://github.com/Usernode-Labs/flutter_rust_bridge --rev ${{ inputs.frb_rev }} --locked
+          else
+            echo "flutter_rust_bridge_codegen already installed"
+          fi
+
+      - name: Verify installations
+        run: |
+          echo "Installed Rust tools:"
+          cargo-expand --version || echo "cargo-expand not found"
+          flutter_rust_bridge_codegen --version || echo "flutter_rust_bridge_codegen not found"
+
+      - name: Cache statistics
+        run: |
+          echo "### Rust Tools Cache Statistics" >> $GITHUB_STEP_SUMMARY
+          echo "- Cargo binaries cache hit: \`${{ steps.cache-cargo-bins.outputs.cache-hit }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- FRB revision: \`${{ inputs.frb_rev }}\`" >> $GITHUB_STEP_SUMMARY

@@ -116,6 +116,28 @@ increment_build() {
     echo "$new_build"
 }
 
+set_build_number() {
+    local new_build=$1
+    if ! [[ "$new_build" =~ ^[0-9]+$ ]]; then
+        print_error "Invalid build number: $new_build"
+        exit 1
+    fi
+
+    local semantic_version
+    semantic_version=$(get_semantic_version)
+    local new_version="${semantic_version}+${new_build}"
+
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        sed -i '' "s/^version: .*/version: ${new_version}/" "$PUBSPEC_FILE"
+    else
+        sed -i "s/^version: .*/version: ${new_version}/" "$PUBSPEC_FILE"
+    fi
+
+    print_info "Set build number to ${new_build}"
+    print_info "New version: ${new_version}"
+    echo "$new_build"
+}
+
 # Function to bump version (major, minor, or patch)
 bump_version() {
     local bump_type=$1
@@ -199,6 +221,14 @@ case "${1:-}" in
         flavor="${2:-production}"
         increment_build "$flavor"
         ;;
+    set-build)
+        new_build="${2:-}"
+        if [ -z "$new_build" ]; then
+            print_error "Usage: $0 set-build <number>"
+            exit 1
+        fi
+        set_build_number "$new_build"
+        ;;
     bump)
         bump_type="${2:-patch}"
         bump_version "$bump_type"
@@ -207,12 +237,13 @@ case "${1:-}" in
         display_version_info
         ;;
     *)
-        echo "Usage: $0 {get|get-build|increment|bump|info} [flavor|bump_type]"
+        echo "Usage: $0 {get|get-build|increment|set-build|bump|info} [args]"
         echo ""
         echo "Commands:"
         echo "  get [flavor]           - Get version string for flavor (default: production)"
         echo "  get-build [flavor]     - Get build number (flavor parameter ignored)"
         echo "  increment [flavor]     - Increment build number (flavor parameter ignored)"
+        echo "  set-build <number>     - Force build number to a specific value"
         echo "  bump [type]            - Bump version (major|minor|patch, default: patch)"
         echo "  info                   - Display current version information"
         echo ""

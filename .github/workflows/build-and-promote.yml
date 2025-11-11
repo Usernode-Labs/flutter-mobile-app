@@ -92,6 +92,7 @@ jobs:
           path: ../usernode/target
           key: ${{ runner.os }}-usernode-target-${{ steps.usernode_meta.outputs.sha }}
           restore-keys: |
+            ${{ runner.os }}-usernode-target-${{ steps.usernode_meta.outputs.frb_rev }}-
             ${{ runner.os }}-usernode-target-
 
       - name: Determine environment based on branch
@@ -241,7 +242,6 @@ jobs:
         run: flutter pub get
 
       - name: Generate flutter_rust_bridge bindings
-        if: steps.cache-frb-gen.outputs.cache-hit != 'true'
         run: flutter_rust_bridge_codegen generate
 
       - name: Verify flutter_rust_bridge bindings are up-to-date
@@ -273,34 +273,34 @@ jobs:
           storeFile=keystore.jks
           EOF
 
-      - name: Build Android AAB
-        run: |
-          CARGOKIT_ONLY_ANDROID_ARM64=1 flutter build appbundle \
-            --release \
-            --flavor production \
-            --build-number=${{ steps.version.outputs.build_number }} \
-            --build-name=${{ steps.version.outputs.version }} \
-            --dart-define-from-file=.env
+  #      - name: Build Android AAB
+  #        run: |
+  #          CARGOKIT_ONLY_ANDROID_ARM64=1 flutter build appbundle \
+  #            --release \
+  #            --flavor production \
+  #            --build-number=${{ steps.version.outputs.build_number }} \
+  #            --build-name=${{ steps.version.outputs.version }} \
+  #            --dart-define-from-file=.env
 
-      - name: Upload AAB artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-release-${{ steps.version.outputs.build_number }}
-          path: build/app/outputs/bundle/productionRelease/app-production-release.aab
-          retention-days: 90
+  #      - name: Upload AAB artifact
+  #        uses: actions/upload-artifact@v4
+  #        with:
+  #          name: android-release-${{ steps.version.outputs.build_number }}
+  #          path: build/app/outputs/bundle/productionRelease/app-production-release.aab
+  #          retention-days: 90
 
-      - name: Deploy to Track
-        uses: r0adkll/upload-google-play@v1
-        with:
-          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
-          packageName: org.usernode.app
-          releaseFiles: build/app/outputs/bundle/productionRelease/app-production-release.aab
-          track: ${{ steps.env_config.outputs.track }}
-          status: completed
-          inAppUpdatePriority: ${{ steps.env_config.outputs.track == 'production' && '5' || '2' }}
-          releaseNotes: |
-            Build ${{ steps.version.outputs.build_number }}
-            Auto-deployed to ${{ steps.env_config.outputs.track }} track.
+  #      - name: Deploy to Track
+  #        uses: r0adkll/upload-google-play@v1
+  #        with:
+  #          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+  #          packageName: org.usernode.app
+  #          releaseFiles: build/app/outputs/bundle/productionRelease/app-production-release.aab
+  #          track: ${{ steps.env_config.outputs.track }}
+  #          status: completed
+  #          inAppUpdatePriority: ${{ steps.env_config.outputs.track == 'production' && '5' || '2' }}
+  #          releaseNotes: |
+  #            Build ${{ steps.version.outputs.build_number }}
+  #            Auto-deployed to ${{ steps.env_config.outputs.track }} track.
 
   # --- iOS pipeline temporarily disabled ---
   # setup-rust-tools:

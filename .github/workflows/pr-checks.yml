@@ -257,7 +257,7 @@ jobs:
           path: |
             lib/src/rust/frb_generated.dart
             lib/src/rust/api
-          key: ${{ runner.os }}-frb-gen-${{ needs.determine-frb-rev.outputs.frb_rev }}-${{ hashFiles('rust_builder/**/*.rs', '../usernode/crates/**/*.rs') }}
+          key: ${{ runner.os }}-frb-gen-${{ needs.determine-frb-rev.outputs.frb_rev }}-${{ needs.determine-frb-rev.outputs.usernode_sha }}
           restore-keys: |
             ${{ runner.os }}-frb-gen-${{ needs.determine-frb-rev.outputs.frb_rev }}-
 

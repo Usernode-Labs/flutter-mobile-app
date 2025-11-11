@@ -39,7 +39,7 @@ jobs:
   # TEMPORARILY COMMENTED OUT - Focusing on iOS builds only
   build:
     name: Build Release
-    runs-on: ubuntu-20.04-16core
+    runs-on: ubuntu-latest
     if: github.event.inputs.promote_to == 'none' || github.event.inputs.promote_to == ''
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -568,10 +568,10 @@ jobs:
   # Job 3: Promote existing build to higher track (develop builds only)
   promote:
     name: Promote to ${{ github.event.inputs.promote_to }}
-    runs-on: ubuntu-20.04-16core
+    runs-on: ubuntu-latest
     if: github.event.inputs.promote_to != 'none' && github.event.inputs.promote_to != '' && github.event.inputs.promote_to != 'production'
     steps:
-      - name: Checkout  code
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Setup jq
@@ -633,7 +633,7 @@ jobs:
   # Job 4: Notify team
   notify:
     name: Send Notification
-    runs-on: ubuntu-20.04-16core
+    runs-on: ubuntu-latest
     needs: [build, promote]
     if: always()
     steps:

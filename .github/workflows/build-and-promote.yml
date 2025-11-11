@@ -39,8 +39,10 @@ jobs:
   # TEMPORARILY COMMENTED OUT - Focusing on iOS builds only
   build:
     name: Build Release
-    runs-on: ubuntu-latest
+    runs-on: ARM64-runner
     if: github.event.inputs.promote_to == 'none' || github.event.inputs.promote_to == ''
+    env:
+      CARGOKIT_ONLY_ANDROID_ARM64: "1"
     outputs:
       version: ${{ steps.version.outputs.version }}
       build_number: ${{ steps.version.outputs.build_number }}
@@ -571,7 +573,7 @@ jobs:
   # Job 3: Promote existing build to higher track (develop builds only)
   promote:
     name: Promote to ${{ github.event.inputs.promote_to }}
-    runs-on: ubuntu-latest
+    runs-on: ARM64-runner
     if: github.event.inputs.promote_to != 'none' && github.event.inputs.promote_to != '' && github.event.inputs.promote_to != 'production'
     steps:
       - name: Checkout code
@@ -636,7 +638,7 @@ jobs:
   # Job 4: Notify team
   notify:
     name: Send Notification
-    runs-on: ubuntu-latest
+    runs-on: ARM64-runner
     needs: [build, promote]
     if: always()
     steps:

@@ -253,10 +253,10 @@ jobs:
             exit 1
           fi
 
-      - name: Build usernode Rust workspace
-        run: |
-          cd ../usernode
-          cargo build --release
+      #      - name: Build usernode Rust workspace
+      #        run: |
+      #          cd ../usernode
+      #         cargo build --release
 
       - name: Decode keystore
         env:

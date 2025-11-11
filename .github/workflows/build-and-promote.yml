@@ -286,16 +286,15 @@ jobs:
       - name: Setup jq
         run: brew install jq
 
-      - name: Set build number for this run
+      - name: Read build number from pubspec
         id: version
         run: |
           chmod +x scripts/version_manager.sh
-          BUILD_NUMBER=$((10000 + $GITHUB_RUN_NUMBER))
-          scripts/version_manager.sh set-build "$BUILD_NUMBER"
+          BUILD_NUMBER=$(scripts/version_manager.sh get-build production)
           VERSION=$(scripts/version_manager.sh get production)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
-          echo "📦 Building version: $VERSION (build $BUILD_NUMBER)"
+          echo "📦 Building version: $VERSION (existing build $BUILD_NUMBER)"
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2

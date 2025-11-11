@@ -571,7 +571,7 @@ jobs:
     runs-on: ubuntu-20.04-16core
     if: github.event.inputs.promote_to != 'none' && github.event.inputs.promote_to != '' && github.event.inputs.promote_to != 'production'
     steps:
-      - name: Checkout code
+      - name: Checkout  code
         uses: actions/checkout@v4
 
       - name: Setup jq

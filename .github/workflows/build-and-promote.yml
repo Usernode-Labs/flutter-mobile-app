@@ -54,6 +54,46 @@ jobs:
       - name: Setup jq
         run: sudo apt-get install -y jq
 
+      - name: Checkout usernode repository
+        uses: actions/checkout@v4
+        with:
+          repository: Usernode-Labs/usernode
+          path: usernode
+          token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
+
+      - name: Move usernode repository next to workspace
+        run: |
+          TARGET_DIR="../usernode"
+          if [ -d "$TARGET_DIR" ]; then
+            echo "⚠️  Existing $TARGET_DIR detected. Removing to ensure fresh checkout."
+            rm -rf "$TARGET_DIR"
+          fi
+          mv usernode "$TARGET_DIR"
+
+      - name: Determine usernode and FRB revisions
+        id: usernode_meta
+        run: |
+          cd ../usernode
+          SHA=$(git rev-parse HEAD)
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          FRB_REV=$(grep -m1 'flutter_rust_bridge =' crates/usernode/Cargo.toml | sed -E 's/.*rev = "([^"]+)".*/\1/')
+          if [ -z "$FRB_REV" ]; then
+            echo "Unable to find flutter_rust_bridge rev in Cargo.toml" >&2
+            exit 1
+          fi
+          echo "sha=$SHA" >> $GITHUB_OUTPUT
+          echo "frb_rev=$FRB_REV" >> $GITHUB_OUTPUT
+          echo "Usernode commit: $SHORT_SHA"
+          echo "Using flutter_rust_bridge rev: $FRB_REV"
+
+      - name: Cache usernode Rust target artifacts
+        uses: actions/cache@v4
+        with:
+          path: ../usernode/target
+          key: ${{ runner.os }}-usernode-target-${{ steps.usernode_meta.outputs.sha }}
+          restore-keys: |
+            ${{ runner.os }}-usernode-target-
+
       - name: Determine environment based on branch
         id: env_config
         run: |
@@ -117,6 +157,110 @@ jobs:
           channel: "stable"
           cache: true
 
+      - name: Cache Flutter pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+
+      - name: Cache Flutter build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            build
+            .dart_tool
+          key: ${{ runner.os }}-flutter-build-${{ hashFiles('pubspec.lock') }}-${{ hashFiles('lib/**/*.dart', 'rust_builder/**/*.rs') }}
+          restore-keys: |
+            ${{ runner.os }}-flutter-build-${{ hashFiles('pubspec.lock') }}-
+            ${{ runner.os }}-flutter-build-
+
+      - name: Setup Rust for Android
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+
+      - name: Cache cargo registry and git
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-registry-${{ steps.usernode_meta.outputs.frb_rev }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Prepare cargo bin directory
+        run: mkdir -p ~/.cargo/bin
+
+      - name: Cache cargo binaries
+        id: cache-cargo-bins
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/cargo-expand
+            ~/.cargo/bin/flutter_rust_bridge_codegen
+          key: ${{ runner.os }}-cargo-bins-${{ steps.usernode_meta.outputs.frb_rev }}-v2
+          restore-keys: |
+            ${{ runner.os }}-cargo-bins-
+
+      - name: Install cargo-binstall
+        if: steps.cache-cargo-bins.outputs.cache-hit != 'true'
+        run: |
+          curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+
+      - name: Install cargo-expand
+        if: steps.cache-cargo-bins.outputs.cache-hit != 'true'
+        run: |
+          if ! command -v cargo-expand &> /dev/null; then
+            cargo binstall cargo-expand -y --locked || cargo install cargo-expand --locked
+          else
+            echo "cargo-expand already installed"
+          fi
+
+      - name: Install flutter_rust_bridge_codegen
+        if: steps.cache-cargo-bins.outputs.cache-hit != 'true'
+        run: |
+          if ! command -v flutter_rust_bridge_codegen &> /dev/null; then
+            cargo install flutter_rust_bridge_codegen --git https://github.com/Usernode-Labs/flutter_rust_bridge --rev ${{ steps.usernode_meta.outputs.frb_rev }} --locked
+          else
+            echo "flutter_rust_bridge_codegen already installed"
+          fi
+
+      - name: Cache FRB generated code
+        id: cache-frb-gen
+        uses: actions/cache@v4
+        with:
+          path: |
+            lib/src/rust/frb_generated.dart
+            lib/src/rust/api
+          key: ${{ runner.os }}-frb-gen-${{ steps.usernode_meta.outputs.frb_rev }}-${{ steps.usernode_meta.outputs.sha }}
+          restore-keys: |
+            ${{ runner.os }}-frb-gen-${{ steps.usernode_meta.outputs.frb_rev }}-
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Generate flutter_rust_bridge bindings
+        if: steps.cache-frb-gen.outputs.cache-hit != 'true'
+        run: flutter_rust_bridge_codegen generate
+
+      - name: Verify flutter_rust_bridge bindings are up-to-date
+        run: |
+          cd ../usernode
+          if ! git diff --quiet -- crates/usernode/src/frb_generated.rs; then
+            echo "::error::frb_generated.rs changed during CI. Run flutter_rust_bridge_codegen generate and commit the result in the usernode repo."
+            git status --short crates/usernode/src/frb_generated.rs
+            exit 1
+          fi
+
+      - name: Build usernode Rust workspace
+        run: |
+          cd ../usernode
+          cargo build --release
+
       - name: Decode keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -131,9 +275,6 @@ jobs:
           keyAlias=${{ secrets.KEY_ALIAS }}
           storeFile=keystore.jks
           EOF
-
-      - name: Install dependencies
-        run: flutter pub get
 
       - name: Build Android AAB
         run: |

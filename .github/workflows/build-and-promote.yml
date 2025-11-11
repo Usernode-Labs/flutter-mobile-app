@@ -92,6 +92,7 @@ jobs:
           path: ../usernode/target
           key: ${{ runner.os }}-usernode-target-${{ steps.usernode_meta.outputs.sha }}
           restore-keys: |
+            ${{ runner.os }}-usernode-target-${{ steps.usernode_meta.outputs.frb_rev }}-
             ${{ runner.os }}-usernode-target-
 
       - name: Determine environment based on branch
@@ -241,7 +242,6 @@ jobs:
         run: flutter pub get
 
       - name: Generate flutter_rust_bridge bindings
-        if: steps.cache-frb-gen.outputs.cache-hit != 'true'
         run: flutter_rust_bridge_codegen generate
 
       - name: Verify flutter_rust_bridge bindings are up-to-date

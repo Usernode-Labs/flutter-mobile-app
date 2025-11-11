@@ -32,7 +32,7 @@ dependencies:
   timeago: "^3.7.0"
   skeletonizer: "^2.1.0"
   flutter_local_notifications: "^17.0.0"
-  workmanager: "^0.5.2"
+  workmanager: "^0.9.0"
   timezone: "^0.9.0"
   http: "^1.1.0"
   package_info_plus: "^9.0.0"

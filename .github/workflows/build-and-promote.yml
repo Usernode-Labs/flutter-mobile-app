@@ -472,8 +472,15 @@ jobs:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
         run: |
+          set -x
           fastlane ios release flavor:production
 
+      - name: Upload gym log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gym-log
+          path: ~/Library/Logs/gym/Runner-Runner.log
   # Job 3: Promote existing build to higher track (develop builds only)
   promote:
     name: Promote to ${{ github.event.inputs.promote_to }}

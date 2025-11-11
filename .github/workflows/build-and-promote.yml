@@ -529,7 +529,7 @@ jobs:
         run: |
           set -euo pipefail
           export GYM_XCARGS='OTHER_CODE_SIGN_FLAGS="--keychain '"$KEYCHAIN_PATH"'"'
-          fastlane ios release flavor:production
+          bundle exec fastlane ios release flavor:production
 
       - name: Build Cache Statistics
         if: always()

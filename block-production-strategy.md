@@ -23,6 +23,16 @@ This document outlines the options for keeping the Usernode mobile validator in 
 | **Android** | Foreground Service + persistent notification, `WorkManager` for periodic sync, `JobScheduler` for idle tasks, exact alarms (API 31+ restrictions) | Background execution throttled when battery saver is ON; OEM-level task killers |
 | **iOS** | `BGProcessingTask`, `BGAppRefreshTask`, background fetch, push-triggered background notifications, VoIP/Audio background modes (with entitlement) | Tasks capped (≈30s) and throttled when the app is rarely opened; no arbitrary long-running daemons |
 
+### Resource Constraints by Platform
+
+| Resource | Android (API 26+) | iOS (iOS 15+) |
+| --- | --- | --- |
+| **RAM budget** | ~256–512 MB per app before LMK starts trimming; background services receive `onTrimMemory()` once system falls below ~20% free RAM. Heavy Rust heaps should spill snapshots to disk to avoid LMK kills. | Jetsam limits vary by device tier (~200–500 MB). Surpassing the tier quota causes immediate termination with `JetsamEvent`. Use incremental sync buffers and release FFI caches when not actively producing. |
+| **CPU window** | Foreground services can sustain multi-core load; background workers are throttled and may be paused after ~10 min if not foregrounded. Doze + thermal throttling will cap CPU frequency. Aim <40% sustained CPU or migrate to foreground mode. | Background tasks get ~30 s CPU slices; extended runtime possible only with privileged modes (audio, location, VoIP). Thermal pressure or watchdog (20 s unresponsive run loop) will freeze the app. |
+| **Battery policies** | Battery saver or OEM “sleep” modes disable background network and exact alarms; expect Doze maintenance windows every 15–60 min. Request battery-optimization exemption for continuous production. | Low Power Mode restricts background fetch and throttles push-triggered wakes; BGProcessing requires `requiresExternalPower=true` for long tasks. |
+| **Network** | In Doze, network access allowed only during maintenance windows; WorkManager enforces constraints (unmetered Wi-Fi, charging). Foreground service can keep sockets alive but may still drop on aggressive OEM ROMs. | Background sockets suspended ~5 s after app goes inactive unless using VoIP/PushKit. Push notifications can wake app for ~30 s of networking; background fetch frequency adapts based on usage. |
+| **TTL before suspension** | Non-foreground processes typically frozen within 1–2 min after user leaves the app; `WorkManager` jobs get ≤10 min runtime. Foreground service avoids TTL but must keep notification visible. | App transitions to “suspended” within seconds after `sceneDidEnterBackground`. BGProcessing or push wake provides ≤30 s execution; after 3–4 denied launches, the system exponentially backs off future schedules. |
+
 ---
 
 ## Option Matrix
@@ -227,6 +237,24 @@ Risks & mitigations:
 
 ---
 
+## Progress Checklists
+
+**Done**
+
+- [x] Captured platform constraints and OS-specific keep-alive primitives.
+- [x] Defined four production archetypes with pros/cons and Mermaid diagrams.
+- [x] Documented recovery flows, telemetry requirements, and staged rollout plan.
+
+**Remaining**
+
+- [ ] Decide default operating mode (Option B vs Option A) and surface it in product requirements.
+- [ ] Implement lifecycle hooks in `background_task_service.dart` plus Android/iOS schedulers.
+- [ ] Expose node lifecycle controls and health streams via Riverpod/Rust bridge.
+- [ ] Design/backend heartbeats + failover APIs and integrate push notification triggers.
+- [ ] Build user-facing diagnostics + delegation UI, then validate with forced-stop tests.
+
+---
+
 ## Next Steps for the Flutter App
 
 - Extend `background_task_service.dart` to register BGTaskScheduler IDs per account and coordinate with WorkManager on Android.
@@ -235,4 +263,3 @@ Risks & mitigations:
 - Create backend contract for heartbeats + failover API and integrate with push notification service outlined in `docs/NOTIFICATIONS.md`.
 
 By layering these options, the app can serve casual users, power validators, and enterprise operators without compromising security or transparency.
-

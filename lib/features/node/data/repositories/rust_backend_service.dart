@@ -363,8 +363,6 @@ class RustBackendService {
             'entries': mempool.entries.toString(),
             'orphans': mempool.orphans.toString(),
             'total_size': mempool.totalSize.toString(),
-            'unleased': mempool.unleased?.toString(),
-            'leased_for_batcher': mempool.leasedForBatcher?.toString(),
             if (lastReorgData != null) 'last_reorg': lastReorgData,
           };
         } catch (e) {

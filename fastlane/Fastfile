@@ -75,6 +75,17 @@ def next_build_info(flavor)
   [build_number, version_string]
 end
 
+def commit_version_bump(paths, message)
+  if ENV['CI'] == 'true'
+    UI.important("CI detected — skipping git commit for '#{message}'.")
+  else
+    git_commit(
+      path: paths,
+      message: message
+    )
+  end
+end
+
 # iOS Platform
 platform :ios do
   desc "Build and upload iOS app to TestFlight"
@@ -141,9 +152,9 @@ platform :ios do
     upload_to_testflight(upload_params)
 
     # Commit version bump
-    git_commit(
-      path: ["pubspec.yaml"],
-      message: "Bump iOS #{flavor} build to #{build_number}"
+    commit_version_bump(
+      ["pubspec.yaml"],
+      "Bump iOS #{flavor} build to #{build_number}"
     )
   end
 
@@ -201,9 +212,9 @@ platform :android do
     )
 
     # Commit version bump
-    git_commit(
-      path: ["pubspec.yaml"],
-      message: "Bump Android #{flavor} build to #{build_number}"
+    commit_version_bump(
+      ["pubspec.yaml"],
+      "Bump Android #{flavor} build to #{build_number}"
     )
   end
 

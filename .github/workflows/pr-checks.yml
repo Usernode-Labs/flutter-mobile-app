@@ -152,6 +152,15 @@ jobs:
           fi
           mv usernode "$TARGET_DIR"
 
+      - name: Determine usernode revision
+        id: usernode_rev
+        run: |
+          cd ../usernode
+          SHA=$(git rev-parse HEAD)
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "Usernode commit: $SHORT_SHA"
+
       - name: Determine flutter_rust_bridge revision
         id: frb_rev
         run: |
@@ -163,6 +172,14 @@ jobs:
           echo "rev=$FRB_REV" >> "$GITHUB_OUTPUT"
           echo "Using flutter_rust_bridge rev: $FRB_REV"
 
+      - name: Cache usernode Rust target artifacts
+        uses: actions/cache@v4
+        with:
+          path: ../usernode/target
+          key: ${{ runner.os }}-usernode-target-${{ steps.usernode_rev.outputs.sha }}
+          restore-keys: |
+            ${{ runner.os }}-usernode-target-
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -170,10 +187,30 @@ jobs:
           channel: "stable"
           cache: true
 
+      - name: Cache Flutter pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+
       - name: Setup Rust for iOS
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ steps.frb_rev.outputs.rev }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
 
       - name: Install cargo-expand
         run: cargo install cargo-expand --locked
@@ -233,6 +270,16 @@ jobs:
             git status --short crates/usernode/src/frb_generated.rs
             exit 1
           fi
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: |
+            ios/Pods
+            ~/Library/Caches/CocoaPods
+          key: ${{ runner.os }}-pods-${{ hashFiles('ios/Podfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pods-
 
       - name: Install CocoaPods
         run: cd ios && pod install

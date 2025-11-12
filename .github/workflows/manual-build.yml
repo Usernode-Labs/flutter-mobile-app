@@ -176,14 +176,14 @@ jobs:
       - name: Set custom version
         id: version
         run: |
-          BUILD_NUMBER=${GITHUB_RUN_NUMBER}
+          BUILD_NUMBER=$((1000 + ${GITHUB_RUN_NUMBER}))
           # Remove 'v' prefix if present for version number
           VERSION="${{ github.event.inputs.version }}"
           VERSION_NUMBER="${VERSION#v}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "version_number=$VERSION_NUMBER" >> $GITHUB_OUTPUT
           echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
-          echo "📦 Building custom version: $VERSION (build $BUILD_NUMBER)"
+          echo "📦 Building custom version: $VERSION (build number $BUILD_NUMBER from run ${GITHUB_RUN_NUMBER})"
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -362,14 +362,14 @@ jobs:
       - name: Set custom version
         id: version
         run: |
-          BUILD_NUMBER=${GITHUB_RUN_NUMBER}
+          BUILD_NUMBER=$((1000 + ${GITHUB_RUN_NUMBER}))
           # Remove 'v' prefix if present for version number
           VERSION="${{ github.event.inputs.version }}"
           VERSION_NUMBER="${VERSION#v}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "version_number=$VERSION_NUMBER" >> $GITHUB_OUTPUT
           echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
-          echo "📦 Building custom version: $VERSION (build $BUILD_NUMBER)"
+          echo "📦 Building custom version: $VERSION (build number $BUILD_NUMBER from run ${GITHUB_RUN_NUMBER})"
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2

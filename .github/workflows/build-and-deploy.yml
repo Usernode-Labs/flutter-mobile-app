@@ -463,7 +463,6 @@ jobs:
             ${{ runner.os }}-frb-gen-${{ needs.determine-frb-rev.outputs.frb_rev }}-
 
       - name: Generate flutter_rust_bridge bindings
-        if: steps.cache-frb-gen.outputs.cache-hit != 'true'
         run: flutter_rust_bridge_codegen generate
 
       - name: Verify flutter_rust_bridge bindings are up-to-date

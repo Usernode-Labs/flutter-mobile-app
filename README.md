@@ -168,7 +168,7 @@ Key files:
 
 ## CI/CD Pipeline
 
-The project uses GitHub Actions for continuous integration and deployment. The workflows are organized to handle PRs, automatic builds, manual deployments, and daily team notifications.
+The project uses GitHub Actions for continuous integration and deployment. The workflows are organized to handle PRs, automatic builds, and manual deployments.
 
 ### Workflow Overview
 
@@ -188,10 +188,6 @@ The project uses GitHub Actions for continuous integration and deployment. The w
 
 ┌─────────────────┐
 │ Manual Workflow │──> Build Custom Version → Deploy to Internal → Tag
-└─────────────────┘
-
-┌─────────────────┐
-│ Daily Standup   │──> Discord Notification (Mon-Fri @ 8AM UTC)
 └─────────────────┘
 ```
 
@@ -264,22 +260,6 @@ Actions → Manual Build and Deploy → Run workflow
 - Enter version name (e.g., v1.2.3-rc1)
 ```
 
-#### 4. **Daily Standup** (`.github/workflows/daily-standup.yml`)
-
-**Triggers:** Schedule (Mon-Fri @ 8:00 AM UTC) + Manual trigger
-
-**Action:** Sends formatted standup message to Discord:
-```
-Daily Standup 2025-11-13
-
-Hey @channel! Please share your updates:
-✅ DONE - What did you complete yesterday?
-🔥 DOING - What are you focusing on today?
-⛔ BLOCKED - Any impediments or support needed?
-
-Reply in thread to keep things organised 🧵 👉
-```
-
 ### Build Numbers
 
 Build numbers use an offset to avoid conflicts with previous uploads:
@@ -317,7 +297,6 @@ Build numbers use an offset to avoid conflicts with previous uploads:
 
 #### Notification Secrets
 - `DISCORD_WEBHOOK_URL`: Build notifications channel
-- `DISCORD_STATUS_UPDATE_WEBHOOK_URL`: Daily standup channel
 
 ### Deployment Tracks
 

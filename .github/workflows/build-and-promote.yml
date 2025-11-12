@@ -268,20 +268,6 @@ jobs:
           echo "ndk_root=$NDK_ROOT" >> "$GITHUB_OUTPUT"
           echo "Using NDK at $NDK_ROOT"
 
-      #      - name: Build usernode Rust workspace
-      #        env:
-      #          NDK_ROOT: ${{ steps.ndk.outputs.ndk_root }}
-      #        run: |
-      #          set -euo pipefail
-      #          export CARGO_TARGET_AARCH64_LINUX_ANDROID_CC="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang"
-      #          export CARGO_TARGET_AARCH64_LINUX_ANDROID_CXX="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang++"
-      #          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$CARGO_TARGET_AARCH64_LINUX_ANDROID_CC"
-      #          export CARGO_TARGET_AARCH64_LINUX_ANDROID_AR="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
-      #          export CARGO_TARGET_AARCH64_LINUX_ANDROID_RANLIB="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
-      #          export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
-      #          cd ../usernode
-      #          cargo build --release
-
       - name: Decode keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -328,7 +314,7 @@ jobs:
           packageName: com.usernode_labs.usernode
           releaseFiles: build/app/outputs/bundle/productionRelease/app-production-release.aab
           track: ${{ steps.env_config.outputs.track }}
-          status: completed
+          status: draft
           inAppUpdatePriority: ${{ steps.env_config.outputs.track == 'production' && '5' || '2' }}
 
   # --- iOS pipeline temporarily disabled ---
@@ -635,7 +621,7 @@ jobs:
           packageName: com.usernode_labs.usernode
           track: internal
           promoteTrack: ${{ github.event.inputs.promote_to == 'production' && 'production' || github.event.inputs.promote_to }}
-          status: completed
+          status: draft
           inAppUpdatePriority: ${{ github.event.inputs.promote_to == 'production' && '5' || '2' }}
 
       - name: Create GitHub Release (if production)

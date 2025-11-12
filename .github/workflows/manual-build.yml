@@ -317,6 +317,15 @@ jobs:
         env:
           NDK_ROOT: ${{ steps.ndk.outputs.ndk_root }}
         run: |
+          # Disable sccache if it's causing issues
+          if [ -n "${RUSTC_WRAPPER:-}" ]; then
+            if ! sccache --version >/dev/null 2>&1; then
+              echo "⚠️  sccache not working, disabling for build"
+              unset RUSTC_WRAPPER
+              unset SCCACHE_GHA_ENABLED
+            fi
+          fi
+
           export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
           export CARGO_TARGET_AARCH64_LINUX_ANDROID_CC="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang"
           export CARGO_TARGET_AARCH64_LINUX_ANDROID_CXX="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang++"
@@ -585,6 +594,15 @@ jobs:
 
       - name: Build iOS IPA
         run: |
+          # Disable sccache if it's causing issues
+          if [ -n "${RUSTC_WRAPPER:-}" ]; then
+            if ! sccache --version >/dev/null 2>&1; then
+              echo "⚠️  sccache not working, disabling for build"
+              unset RUSTC_WRAPPER
+              unset SCCACHE_GHA_ENABLED
+            fi
+          fi
+
           flutter build ipa \
             --release \
             --build-number=${{ steps.version.outputs.build_number }} \

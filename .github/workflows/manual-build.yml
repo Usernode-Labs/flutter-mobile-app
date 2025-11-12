@@ -1,0 +1,675 @@
+name: Manual Build and Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, tag, or commit to build from"
+        required: true
+        type: string
+        default: "develop"
+      version:
+        description: "Version name for this build (e.g., v1.2.3-rc1, beta-2.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  FLUTTER_VERSION: "3.35.7"
+  JAVA_VERSION: "17"
+
+jobs:
+  check-tag:
+    name: Check Tag Availability
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify tag doesn't exist
+        run: |
+          TAG_NAME="${{ github.event.inputs.version }}"
+          if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+            echo "❌ Error: Tag '$TAG_NAME' already exists!"
+            echo "Please choose a different version name or delete the existing tag first."
+            exit 1
+          fi
+          echo "✅ Tag '$TAG_NAME' is available"
+
+  determine-frb-rev:
+    name: Determine Rust Versions
+    runs-on: macos-latest
+    needs: [check-tag]
+    outputs:
+      frb_rev: ${{ steps.frb_rev.outputs.rev }}
+      usernode_sha: ${{ steps.usernode_rev.outputs.sha }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref }}
+
+      - name: Checkout usernode repository
+        uses: actions/checkout@v4
+        with:
+          repository: Usernode-Labs/usernode
+          path: usernode
+          token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
+
+      - name: Determine usernode revision
+        id: usernode_rev
+        run: |
+          cd usernode
+          SHA=$(git rev-parse HEAD)
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "Usernode commit: $SHORT_SHA"
+
+      - name: Determine flutter_rust_bridge revision
+        id: frb_rev
+        run: |
+          FRB_REV=$(grep -m1 'flutter_rust_bridge =' usernode/crates/usernode/Cargo.toml | sed -E 's/.*rev = "([^"]+)".*/\1/')
+          if [ -z "$FRB_REV" ]; then
+            echo "Unable to find flutter_rust_bridge rev in Cargo.toml" >&2
+            exit 1
+          fi
+          echo "rev=$FRB_REV" >> "$GITHUB_OUTPUT"
+          echo "Using flutter_rust_bridge rev: $FRB_REV"
+
+  setup-rust-tools:
+    name: Setup Rust Tools
+    needs: [determine-frb-rev]
+    uses: ./.github/workflows/setup-rust-tools.yml
+    secrets: inherit
+    with:
+      frb_rev: ${{ needs.determine-frb-rev.outputs.frb_rev }}
+      usernode_ref: ${{ needs.determine-frb-rev.outputs.usernode_sha }}
+
+  build-android:
+    name: Build Android App
+    runs-on: ubuntu-20.04-16core
+    needs: [check-tag, determine-frb-rev]
+    outputs:
+      version: ${{ github.event.inputs.version }}
+      build_number: ${{ steps.version.outputs.build_number }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup jq
+        run: sudo apt-get install -y jq
+
+      - name: Checkout usernode repository
+        uses: actions/checkout@v4
+        with:
+          repository: Usernode-Labs/usernode
+          path: usernode
+          token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
+
+      - name: Move usernode repository next to workspace
+        run: |
+          TARGET_DIR="../usernode"
+          if [ -d "$TARGET_DIR" ]; then
+            echo "⚠️  Existing $TARGET_DIR detected. Removing to ensure fresh checkout."
+            rm -rf "$TARGET_DIR"
+          fi
+          mv usernode "$TARGET_DIR"
+
+      - name: Determine usernode and FRB revisions
+        id: usernode_meta
+        run: |
+          cd ../usernode
+          SHA=$(git rev-parse HEAD)
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          FRB_REV=$(grep -m1 'flutter_rust_bridge =' crates/usernode/Cargo.toml | sed -E 's/.*rev = "([^"]+)".*/\1/')
+          if [ -z "$FRB_REV" ]; then
+            echo "Unable to find flutter_rust_bridge rev in Cargo.toml" >&2
+            exit 1
+          fi
+          echo "sha=$SHA" >> $GITHUB_OUTPUT
+          echo "frb_rev=$FRB_REV" >> $GITHUB_OUTPUT
+          echo "Usernode commit: $SHORT_SHA"
+          echo "Using flutter_rust_bridge rev: $FRB_REV"
+
+      - name: Cache usernode Rust target artifacts
+        uses: actions/cache@v4
+        with:
+          path: ../usernode/target
+          key: ${{ runner.os }}-usernode-target-${{ steps.usernode_meta.outputs.sha }}
+          restore-keys: |
+            ${{ runner.os }}-usernode-target-${{ steps.usernode_meta.outputs.frb_rev }}-
+            ${{ runner.os }}-usernode-target-
+
+      - name: Create .env file from secrets (NON-PRODUCTION)
+        run: |
+          cat > .env << EOF
+          APP_ENV=${{ secrets.NONPROD_APP_ENV }}
+          API_BASE_URL=${{ secrets.NONPROD_API_BASE_URL }}
+          VERBOSE_LOGGING=${{ secrets.NONPROD_VERBOSE_LOGGING }}
+          SENTRY_DSN=${{ secrets.NONPROD_SENTRY_DSN }}
+          GITHUB_TOKEN=${{ secrets.NONPROD_GITHUB_TOKEN }}
+          USE_RESULT_PROVIDERS=${{ secrets.NONPROD_USE_RESULT_PROVIDERS }}
+          ENABLED_FEATURES=${{ secrets.NONPROD_ENABLED_FEATURES }}
+          DISABLED_FEATURES=${{ secrets.NONPROD_DISABLED_FEATURES }}
+          EOF
+          echo "✅ Created .env file with NONPROD secrets"
+
+      - name: Set custom version
+        id: version
+        run: |
+          BUILD_NUMBER=${GITHUB_RUN_NUMBER}
+          # Remove 'v' prefix if present for version number
+          VERSION="${{ github.event.inputs.version }}"
+          VERSION_NUMBER="${VERSION#v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version_number=$VERSION_NUMBER" >> $GITHUB_OUTPUT
+          echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+          echo "📦 Building custom version: $VERSION (build $BUILD_NUMBER)"
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: "stable"
+          cache: true
+
+      - name: Cache Flutter pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+
+      - name: Cache Flutter build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            build
+            .dart_tool
+          key: ${{ runner.os }}-flutter-build-${{ hashFiles('pubspec.lock') }}-${{ hashFiles('lib/**/*.dart', 'rust_builder/**/*.rs') }}
+          restore-keys: |
+            ${{ runner.os }}-flutter-build-${{ hashFiles('pubspec.lock') }}-
+            ${{ runner.os }}-flutter-build-
+
+      - name: Setup Rust for Android
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi
+
+      - name: Cache cargo registry and git
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-registry-${{ steps.usernode_meta.outputs.frb_rev }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache cargo binaries
+        id: cache-cargo-bins
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/cargo-expand
+            ~/.cargo/bin/flutter_rust_bridge_codegen
+          key: ${{ runner.os }}-cargo-bins-${{ steps.usernode_meta.outputs.frb_rev }}-v2
+          restore-keys: |
+            ${{ runner.os }}-cargo-bins-
+
+      - name: Install cargo-binstall
+        if: steps.cache-cargo-bins.outputs.cache-hit != 'true'
+        run: |
+          curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+
+      - name: Install cargo-expand
+        if: steps.cache-cargo-bins.outputs.cache-hit != 'true'
+        run: |
+          if ! command -v cargo-expand &> /dev/null; then
+            cargo binstall cargo-expand -y --locked || cargo install cargo-expand --locked
+          else
+            echo "cargo-expand already installed"
+          fi
+
+      - name: Install flutter_rust_bridge_codegen
+        if: steps.cache-cargo-bins.outputs.cache-hit != 'true'
+        run: |
+          if ! command -v flutter_rust_bridge_codegen &> /dev/null; then
+            cargo install flutter_rust_bridge_codegen --git https://github.com/Usernode-Labs/flutter_rust_bridge --rev ${{ steps.usernode_meta.outputs.frb_rev }} --locked
+          else
+            echo "flutter_rust_bridge_codegen already installed"
+          fi
+
+      - name: Cache FRB generated code
+        id: cache-frb-gen
+        uses: actions/cache@v4
+        with:
+          path: |
+            lib/src/rust/frb_generated.dart
+            lib/src/rust/api
+          key: ${{ runner.os }}-frb-gen-${{ steps.usernode_meta.outputs.frb_rev }}-${{ steps.usernode_meta.outputs.sha }}
+          restore-keys: |
+            ${{ runner.os }}-frb-gen-${{ steps.usernode_meta.outputs.frb_rev }}-
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Generate flutter_rust_bridge bindings
+        run: flutter_rust_bridge_codegen generate
+
+      - name: Verify flutter_rust_bridge bindings are up-to-date
+        run: |
+          cd ../usernode
+          if ! git diff --quiet -- crates/usernode/src/frb_generated.rs; then
+            echo "::error::frb_generated.rs changed during CI. Run flutter_rust_bridge_codegen generate and commit the result in the usernode repo."
+            git status --short crates/usernode/src/frb_generated.rs
+            exit 1
+          fi
+
+      - name: Locate Android NDK
+        id: ndk
+        run: |
+          set -euo pipefail
+          if [ -d "/usr/local/lib/android/sdk/ndk" ]; then
+            NDK_ROOT=$(ls -d /usr/local/lib/android/sdk/ndk/* | head -n 1)
+          elif [ -n "${ANDROID_NDK_HOME:-}" ]; then
+            NDK_ROOT="$ANDROID_NDK_HOME"
+          else
+            echo "Unable to locate Android NDK installation" >&2
+            exit 1
+          fi
+          echo "ndk_root=$NDK_ROOT" >> "$GITHUB_OUTPUT"
+          echo "Using NDK at $NDK_ROOT"
+
+      - name: Decode keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/keystore.jks
+
+      - name: Create key.properties
+        run: |
+          cat > android/key.properties << EOF
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          storeFile=keystore.jks
+          EOF
+
+      - name: Build Android AAB
+        env:
+          NDK_ROOT: ${{ steps.ndk.outputs.ndk_root }}
+        run: |
+          export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_CC="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_CXX="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang++"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$CARGO_TARGET_AARCH64_LINUX_ANDROID_CC"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_AR="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_RANLIB="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
+          CARGOKIT_ONLY_ANDROID_ARM64=1 flutter build appbundle \
+            --release \
+            --flavor production \
+            --build-number=${{ steps.version.outputs.build_number }} \
+            --build-name=${{ steps.version.outputs.version_number }} \
+            --dart-define-from-file=.env
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-release-manual-${{ github.event.inputs.version }}
+          path: build/app/outputs/bundle/productionRelease/app-production-release.aab
+          retention-days: 90
+
+      - name: Deploy to Google Play Internal Track
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.usernode_labs.usernode
+          releaseFiles: build/app/outputs/bundle/productionRelease/app-production-release.aab
+          track: internal
+          status: draft
+          inAppUpdatePriority: 2
+
+  build-ios:
+    name: Build iOS App
+    runs-on: macos-latest
+    needs: [check-tag, determine-frb-rev, setup-rust-tools]
+    outputs:
+      version: ${{ github.event.inputs.version }}
+      build_number: ${{ steps.version.outputs.build_number }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout usernode repository
+        uses: actions/checkout@v4
+        with:
+          repository: Usernode-Labs/usernode
+          path: usernode
+          token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
+
+      - name: Move usernode repository next to workspace
+        run: |
+          TARGET_DIR="../usernode"
+          if [ -d "$TARGET_DIR" ]; then
+            echo "⚠️  Existing $TARGET_DIR detected. Removing to ensure fresh checkout."
+            rm -rf "$TARGET_DIR"
+          fi
+          mv usernode "$TARGET_DIR"
+
+      - name: Cache usernode Rust target artifacts
+        uses: actions/cache@v4
+        with:
+          path: ../usernode/target
+          key: ${{ runner.os }}-usernode-target-${{ needs.determine-frb-rev.outputs.usernode_sha }}
+          restore-keys: |
+            ${{ runner.os }}-usernode-target-
+
+      - name: Setup jq
+        run: brew install jq
+
+      - name: Set custom version
+        id: version
+        run: |
+          BUILD_NUMBER=${GITHUB_RUN_NUMBER}
+          # Remove 'v' prefix if present for version number
+          VERSION="${{ github.event.inputs.version }}"
+          VERSION_NUMBER="${VERSION#v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version_number=$VERSION_NUMBER" >> $GITHUB_OUTPUT
+          echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+          echo "📦 Building custom version: $VERSION (build $BUILD_NUMBER)"
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: "stable"
+          cache: true
+
+      - name: Cache Flutter pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+
+      - name: Cache Flutter build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            build
+            .dart_tool
+          key: ${{ runner.os }}-flutter-build-${{ hashFiles('pubspec.lock') }}-${{ hashFiles('lib/**/*.dart', 'rust_builder/**/*.rs') }}
+          restore-keys: |
+            ${{ runner.os }}-flutter-build-${{ hashFiles('pubspec.lock') }}-
+            ${{ runner.os }}-flutter-build-
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Setup Rust for iOS
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
+
+      - name: Restore cargo binaries from cache
+        uses: actions/cache/restore@v4
+        id: cache-cargo-bins
+        with:
+          path: |
+            ~/.cargo/bin/cargo-expand
+            ~/.cargo/bin/flutter_rust_bridge_codegen
+          key: ${{ runner.os }}-cargo-bins-${{ needs.determine-frb-rev.outputs.frb_rev }}-v2
+
+      - name: Cache FRB generated code
+        id: cache-frb-gen
+        uses: actions/cache@v4
+        with:
+          path: |
+            lib/src/rust/frb_generated.dart
+            lib/src/rust/api
+          key: ${{ runner.os }}-frb-gen-${{ needs.determine-frb-rev.outputs.frb_rev }}-${{ needs.determine-frb-rev.outputs.usernode_sha }}
+          restore-keys: |
+            ${{ runner.os }}-frb-gen-${{ needs.determine-frb-rev.outputs.frb_rev }}-
+
+      - name: Generate flutter_rust_bridge bindings
+        if: steps.cache-frb-gen.outputs.cache-hit != 'true'
+        run: flutter_rust_bridge_codegen generate
+
+      - name: Verify flutter_rust_bridge bindings are up-to-date
+        run: |
+          cd ../usernode
+          if ! git diff --quiet -- crates/usernode/src/frb_generated.rs; then
+            echo "::error::frb_generated.rs changed during CI. Run flutter_rust_bridge_codegen generate and commit the result in the usernode repo."
+            git status --short crates/usernode/src/frb_generated.rs
+            exit 1
+          fi
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
+
+      - name: Cache CocoaPods
+        id: cache-pods
+        uses: actions/cache@v4
+        with:
+          path: |
+            ios/Pods
+            ~/Library/Caches/CocoaPods
+          key: ${{ runner.os }}-pods-${{ hashFiles('ios/Podfile.lock') }}-${{ hashFiles('ios/Podfile') }}
+          restore-keys: |
+            ${{ runner.os }}-pods-${{ hashFiles('ios/Podfile.lock') }}-
+            ${{ runner.os }}-pods-
+
+      - name: Install CocoaPods dependencies
+        run: |
+          cd ios
+          if [ ! -d "Pods" ] || [ "Podfile.lock" ] && [ "Podfile.lock" -nt "Pods/Manifest.lock" ] || [ "${{ steps.cache-pods.outputs.cache-hit }}" != "true" ]; then
+            pod install
+            echo "✅ Pod install complete"
+          else
+            echo "✅ Pods are up to date (cache hit), skipping installation"
+          fi
+
+      - name: Import signing certificate
+        env:
+          CERTIFICATES_P12: ${{ secrets.CERTIFICATES_P12 }}
+          CERTIFICATES_PASSWORD: ${{ secrets.CERTIFICATES_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          echo "$CERTIFICATES_P12" | base64 -d > certificate.p12
+
+          KEYCHAIN="$RUNNER_TEMP/build.keychain-db"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+
+          security import certificate.p12 -k "$KEYCHAIN" -P "$CERTIFICATES_PASSWORD" \
+            -T /usr/bin/codesign -T /usr/bin/xcodebuild -T /usr/bin/security
+
+          EXISTING=$(security list-keychains -d user | tr -d ' "\n')
+          security list-keychains -d user -s "$KEYCHAIN" $EXISTING
+
+          security default-keychain -s "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          echo "KEYCHAIN_PATH=$KEYCHAIN" >> $GITHUB_ENV
+
+      - name: Verify signing identities
+        run: security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+
+      - name: Install provisioning profiles
+        env:
+          PROVISIONING_PROFILES: ${{ secrets.PROVISIONING_PROFILES }}
+        run: |
+          PROFILE_DIR=~/Library/MobileDevice/Provisioning\ Profiles
+          mkdir -p "$PROFILE_DIR"
+          echo "$PROVISIONING_PROFILES" | base64 -d | tar -xz -C "$PROFILE_DIR"
+          echo "✅ Installed provisioning profiles"
+
+      - name: Create .env file from secrets (NON-PRODUCTION)
+        run: |
+          cat > .env << EOF
+          APP_ENV=${{ secrets.NONPROD_APP_ENV }}
+          API_BASE_URL=${{ secrets.NONPROD_API_BASE_URL }}
+          VERBOSE_LOGGING=${{ secrets.NONPROD_VERBOSE_LOGGING }}
+          SENTRY_DSN=${{ secrets.NONPROD_SENTRY_DSN }}
+          GITHUB_TOKEN=${{ secrets.NONPROD_GITHUB_TOKEN }}
+          USE_RESULT_PROVIDERS=${{ secrets.NONPROD_USE_RESULT_PROVIDERS }}
+          ENABLED_FEATURES=${{ secrets.NONPROD_ENABLED_FEATURES }}
+          DISABLED_FEATURES=${{ secrets.NONPROD_DISABLED_FEATURES }}
+          EOF
+          echo "✅ Created .env file with NONPROD secrets"
+
+      - name: Build iOS IPA
+        run: |
+          flutter build ipa \
+            --release \
+            --flavor production \
+            --build-number=${{ steps.version.outputs.build_number }} \
+            --build-name=${{ steps.version.outputs.version_number }} \
+            --dart-define-from-file=.env \
+            --export-options-plist=ios/ExportOptions.plist
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-release-manual-${{ github.event.inputs.version }}
+          path: build/ios/ipa/*.ipa
+          retention-days: 90
+
+      - name: Upload to TestFlight
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+        run: |
+          xcrun altool --upload-app \
+            --type ios \
+            --file build/ios/ipa/*.ipa \
+            --apiKey "$APP_STORE_CONNECT_API_KEY_ID" \
+            --apiIssuer "$APP_STORE_CONNECT_API_ISSUER_ID"
+
+  tag:
+    name: Create Tag
+    runs-on: ubuntu-latest
+    needs: [build-android, build-ios]
+    if: >
+      needs.build-android.result == 'success' &&
+      needs.build-ios.result == 'success'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create custom tag
+        run: |
+          set -euo pipefail
+          TAG_NAME="${{ github.event.inputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG_NAME" -m "Manual build: $TAG_NAME (build ${{ needs.build-android.outputs.build_number }})"
+          git push origin "$TAG_NAME"
+          echo "✅ Created tag: $TAG_NAME"
+
+  notify:
+    name: Send Notification
+    runs-on: ubuntu-20.04-16core
+    needs: [build-android, build-ios, tag]
+    if: always()
+    steps:
+      - name: Determine status and action
+        id: status
+        run: |
+          ACTION="manual build ${{ github.event.inputs.version }}"
+          BUILD="${{ needs.build-android.outputs.build_number }}"
+
+          if [ "${{ needs.build-android.result }}" == "failure" ] || [ "${{ needs.build-ios.result }}" == "failure" ]; then
+            echo "status=failure" >> $GITHUB_OUTPUT
+            echo "emoji=❌" >> $GITHUB_OUTPUT
+          else
+            echo "status=success" >> $GITHUB_OUTPUT
+            echo "emoji=✅" >> $GITHUB_OUTPUT
+          fi
+
+          echo "action=$ACTION" >> $GITHUB_OUTPUT
+          echo "build=$BUILD" >> $GITHUB_OUTPUT
+
+      - name: Send Discord notification
+        if: env.DISCORD_WEBHOOK_URL != ''
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          if [ "${{ steps.status.outputs.status }}" == "success" ]; then
+            COLOR=5763719  # Green
+          else
+            COLOR=15548997  # Red
+          fi
+
+          curl -X POST "$DISCORD_WEBHOOK_URL" \
+            -H 'Content-Type: application/json' \
+            -d "{
+              \"content\": \"${{ steps.status.outputs.emoji }} Build ${{ steps.status.outputs.build }} ${{ steps.status.outputs.action }} - ${{ steps.status.outputs.status }}\",
+              \"embeds\": [{
+                \"title\": \"Manual Build\",
+                \"color\": $COLOR,
+                \"fields\": [
+                  {
+                    \"name\": \"Version\",
+                    \"value\": \"${{ github.event.inputs.version }}\",
+                    \"inline\": true
+                  },
+                  {
+                    \"name\": \"Build Number\",
+                    \"value\": \"${{ steps.status.outputs.build }}\",
+                    \"inline\": true
+                  },
+                  {
+                    \"name\": \"Status\",
+                    \"value\": \"${{ steps.status.outputs.status }}\",
+                    \"inline\": true
+                  },
+                  {
+                    \"name\": \"Ref\",
+                    \"value\": \"${{ github.event.inputs.ref }}\",
+                    \"inline\": true
+                  },
+                  {
+                    \"name\": \"Triggered by\",
+                    \"value\": \"${{ github.actor }}\",
+                    \"inline\": true
+                  }
+                ],
+                \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\"
+              }]
+            }"

@@ -30,7 +30,7 @@ A new Flutter FFI plugin project.
     # Link C++ stdlib, include the built Rust static lib, and keep the
     # FRB marker symbol so it is linked without all-load.
     'OTHER_LDFLAGS' => '$(inherited) -lc++ ${BUILT_PRODUCTS_DIR}/libusernode.a -Wl,-u,_frb_get_rust_content_hash',
-    'IPHONEOS_DEPLOYMENT_TARGET' => '12.0'
+    'IPHONEOS_DEPLOYMENT_TARGET' => '14.0'
   }
   s.swift_version = '5.0'
 

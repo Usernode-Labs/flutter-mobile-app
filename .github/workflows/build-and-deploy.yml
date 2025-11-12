@@ -489,7 +489,76 @@ jobs:
           PROVISIONING_PROFILES: ${{ secrets.PROVISIONING_PROFILES }}
         run: |
           PROFILE_DIR=~/Library/MobileDevice/Provisioning\ Profiles
-          mkdir -  ...
+          mkdir -p "$PROFILE_DIR"
+          echo "$PROVISIONING_PROFILES" | base64 -d | tar -xz -C "$PROFILE_DIR"
+          echo "✅ Installed provisioning profiles"
+
+      - name: Determine environment based on branch
+        id: env_config_ios
+        run: |
+          if [ "${{ github.ref_name }}" == "main" ]; then
+            echo "env_type=PROD" >> $GITHUB_OUTPUT
+            echo "📦 Building for PRODUCTION (main branch)"
+          else
+            echo "env_type=NONPROD" >> $GITHUB_OUTPUT
+            echo "📦 Building for NON-PRODUCTION (develop branch)"
+          fi
+
+      - name: Create .env file from secrets
+        run: |
+          if [ "${{ steps.env_config_ios.outputs.env_type }}" == "PROD" ]; then
+            cat > .env << EOF
+          APP_ENV=${{ secrets.PROD_APP_ENV }}
+          API_BASE_URL=${{ secrets.PROD_API_BASE_URL }}
+          VERBOSE_LOGGING=${{ secrets.PROD_VERBOSE_LOGGING }}
+          SENTRY_DSN=${{ secrets.PROD_SENTRY_DSN }}
+          GITHUB_TOKEN=${{ secrets.PROD_GITHUB_TOKEN }}
+          USE_RESULT_PROVIDERS=${{ secrets.PROD_USE_RESULT_PROVIDERS }}
+          ENABLED_FEATURES=${{ secrets.PROD_ENABLED_FEATURES }}
+          DISABLED_FEATURES=${{ secrets.PROD_DISABLED_FEATURES }}
+          EOF
+          else
+            cat > .env << EOF
+          APP_ENV=${{ secrets.NONPROD_APP_ENV }}
+          API_BASE_URL=${{ secrets.NONPROD_API_BASE_URL }}
+          VERBOSE_LOGGING=${{ secrets.NONPROD_VERBOSE_LOGGING }}
+          SENTRY_DSN=${{ secrets.NONPROD_SENTRY_DSN }}
+          GITHUB_TOKEN=${{ secrets.NONPROD_GITHUB_TOKEN }}
+          USE_RESULT_PROVIDERS=${{ secrets.NONPROD_USE_RESULT_PROVIDERS }}
+          ENABLED_FEATURES=${{ secrets.NONPROD_ENABLED_FEATURES }}
+          DISABLED_FEATURES=${{ secrets.NONPROD_DISABLED_FEATURES }}
+          EOF
+          fi
+          echo "✅ Created .env file with ${{ steps.env_config_ios.outputs.env_type }} secrets"
+
+      - name: Build iOS IPA
+        run: |
+          flutter build ipa \
+            --release \
+            --flavor production \
+            --build-number=${{ steps.version.outputs.build_number }} \
+            --build-name=${{ steps.version.outputs.version }} \
+            --dart-define-from-file=.env \
+            --export-options-plist=ios/ExportOptions.plist
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-release-${{ steps.version.outputs.build_number }}
+          path: build/ios/ipa/*.ipa
+          retention-days: 90
+
+      - name: Upload to TestFlight
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+        run: |
+          xcrun altool --upload-app \
+            --type ios \
+            --file build/ios/ipa/*.ipa \
+            --apiKey "$APP_STORE_CONNECT_API_KEY_ID" \
+            --apiIssuer "$APP_STORE_CONNECT_API_ISSUER_ID"
 
   # Notify team
   notify:

@@ -165,7 +165,229 @@ Key files:
 
 - flutter test runs provider + widget tests (Node, Wallet, Settings, Router)
 - CI: .github/workflows/flutter_ci.yml (format/analyze/tests on PRs)
-- **CI/CD & Deployment**: See [docs/CICD-GUIDE.md](docs/CICD-GUIDE.md) for complete CI/CD pipeline, deployment, and version management guide
+
+## CI/CD Pipeline
+
+The project uses GitHub Actions for continuous integration and deployment. The workflows are organized to handle PRs, automatic builds, manual deployments, and daily team notifications.
+
+### Workflow Overview
+
+```
+┌─────────────────┐
+│  Pull Request   │
+│   (PR Checks)   │──> Validation (format, analyze, test, debug builds)
+└─────────────────┘
+
+┌─────────────────┐
+│ Push to Develop │──> Build → Deploy to Internal → Tag (ci-vX.Y.Z-runNNN)
+└─────────────────┘
+
+┌─────────────────┐
+│  Push to Main   │──> Build → Deploy to Production → Tag (vX.Y.Z)
+└─────────────────┘
+
+┌─────────────────┐
+│ Manual Workflow │──> Build Custom Version → Deploy to Internal → Tag
+└─────────────────┘
+
+┌─────────────────┐
+│ Daily Standup   │──> Discord Notification (Mon-Fri @ 8AM UTC)
+└─────────────────┘
+```
+
+### Workflows
+
+#### 1. **PR Checks** (`.github/workflows/pr-checks.yml`)
+
+**Triggers:** Pull requests to `main` or `develop`
+
+**Jobs:**
+- **Code Analysis**: `dart format` and `flutter analyze`
+- **Unit Tests**: Runs tests with coverage, uploads to Codecov
+- **Debug Builds**:
+  - Android: Debug APK with environment-specific secrets
+  - iOS: Debug build without code signing
+- **Environment Configuration**:
+  - PRs to `develop`: Uses `NONPROD_*` secrets
+  - PRs to `main`: Uses `PROD_*` secrets
+
+**Purpose:** Validate code quality before merging
+
+#### 2. **Build and Deploy** (`.github/workflows/build-and-deploy.yml`)
+
+**Triggers:** Push to `develop` or `main` branches
+
+**Jobs:**
+1. **determine-frb-rev**: Determines Rust/FRB versions from usernode repo
+2. **setup-rust-tools**: Sets up iOS Rust toolchain
+3. **setup-rust-tools-android**: Sets up Android Rust toolchain
+4. **build-android**:
+   - Builds signed AAB with production flavor
+   - Build number: `1000 + GITHUB_RUN_NUMBER`
+   - Deploys to Google Play (internal or production track)
+5. **build-ios**:
+   - Builds signed IPA
+   - Uploads to TestFlight (internal or production track)
+6. **tag**:
+   - Develop: Creates `ci-vX.Y.Z-run1NNN` tag
+   - Main: Creates `vX.Y.Z` tag
+7. **notify**: Sends Discord notification with build status
+
+**Environment Configuration:**
+- **Develop**: NONPROD secrets → Internal track → `ci-v*` tags
+- **Main**: PROD secrets → Production track → `v*` tags
+
+#### 3. **Manual Build** (`.github/workflows/manual-build.yml`)
+
+**Triggers:** Manual workflow dispatch
+
+**Inputs:**
+- `ref`: Branch/tag/commit to build from
+- `version`: Custom version name (e.g., `v1.2.3-rc1`, `beta-2.0`)
+
+**Jobs:**
+1. **check-tag**: Verifies version tag doesn't already exist
+2. **determine-frb-rev**: Gets Rust versions
+3. **setup-rust-tools**: Sets up iOS toolchain
+4. **setup-rust-tools-android**: Sets up Android toolchain
+5. **build-android**: Builds with custom version, deploys to internal track
+6. **build-ios**: Builds with custom version, uploads to TestFlight internal
+7. **tag**: Creates custom tag only after successful builds
+8. **notify**: Sends Discord notification
+
+**Purpose:** Create custom builds for testing/RC without affecting main pipeline
+
+**Usage:**
+```
+Actions → Manual Build and Deploy → Run workflow
+- Enter branch/tag/commit
+- Enter version name (e.g., v1.2.3-rc1)
+```
+
+#### 4. **Daily Standup** (`.github/workflows/daily-standup.yml`)
+
+**Triggers:** Schedule (Mon-Fri @ 8:00 AM UTC) + Manual trigger
+
+**Action:** Sends formatted standup message to Discord:
+```
+Daily Standup 2025-11-13
+
+Hey @channel! Please share your updates:
+✅ DONE - What did you complete yesterday?
+🔥 DOING - What are you focusing on today?
+⛔ BLOCKED - Any impediments or support needed?
+
+Reply in thread to keep things organised 🧵 👉
+```
+
+### Build Numbers
+
+Build numbers use an offset to avoid conflicts with previous uploads:
+
+**Formula:** `BUILD_NUMBER = 1000 + GITHUB_RUN_NUMBER`
+
+| Run # | Build Number |
+|-------|-------------|
+| 1 | 1001 |
+| 2 | 1002 |
+| 50 | 1050 |
+| 100 | 1100 |
+
+### Secrets Required
+
+#### Build Secrets
+- `USERNODE_ACCESS_TOKEN`: Access to usernode repository
+- `ANDROID_KEYSTORE_BASE64`: Android signing keystore (base64)
+- `KEYSTORE_PASSWORD`, `KEY_PASSWORD`, `KEY_ALIAS`: Android signing credentials
+- `CERTIFICATES_P12`: iOS signing certificate (base64)
+- `CERTIFICATES_PASSWORD`, `KEYCHAIN_PASSWORD`: iOS signing credentials
+- `PROVISIONING_PROFILES`: iOS provisioning profiles (tar.gz base64)
+- `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`: Google Play deployment
+- `APP_STORE_CONNECT_API_KEY_ID`, `APP_STORE_CONNECT_API_ISSUER_ID`, `APP_STORE_CONNECT_API_KEY`: TestFlight upload
+
+#### Environment Secrets (NONPROD_* and PROD_*)
+- `APP_ENV`: Environment name
+- `API_BASE_URL`: API endpoint
+- `VERBOSE_LOGGING`: Logging level
+- `SENTRY_DSN`: Sentry DSN for crash reporting
+- `GITHUB_TOKEN`: GitHub access token
+- `USE_RESULT_PROVIDERS`: Feature toggle
+- `ENABLED_FEATURES`: Enabled features
+- `DISABLED_FEATURES`: Disabled features
+
+#### Notification Secrets
+- `DISCORD_WEBHOOK_URL`: Build notifications channel
+- `DISCORD_STATUS_UPDATE_WEBHOOK_URL`: Daily standup channel
+
+### Deployment Tracks
+
+#### Android (Google Play)
+- **Internal Track**: Develop builds and manual builds
+- **Production Track**: Main branch builds (as draft)
+
+#### iOS (TestFlight)
+- **Internal Testing**: Develop builds and manual builds
+- **Production**: Main branch builds
+
+### Caching Strategy
+
+The workflows use aggressive caching for faster builds:
+
+- **Flutter pub cache**: Dependencies
+- **Flutter build artifacts**: Compiled code
+- **Rust cargo registry**: Rust dependencies
+- **Rust cargo binaries**: cargo-expand, flutter_rust_bridge_codegen
+- **CocoaPods**: iOS dependencies
+- **Usernode Rust targets**: Compiled Rust backend
+
+### Version Management
+
+**Semantic Versioning:** `MAJOR.MINOR.PATCH`
+
+**Version Sources:**
+- Version name: `scripts/version_manager.sh get production`
+- Build number: `1000 + GITHUB_RUN_NUMBER`
+
+**Tags:**
+- Development: `ci-v1.2.3-run1042` (includes run number)
+- Production: `v1.2.3` (clean semantic version)
+- Custom: User-defined (e.g., `v1.2.3-rc1`, `beta-2.0.0`)
+
+### Monitoring & Notifications
+
+All workflows send Discord notifications with:
+- Build status (success/failure)
+- Build number
+- Version information
+- Branch/trigger information
+- Color-coded embeds (green=success, red=failure)
+
+### Best Practices
+
+1. **Always create PRs**: Don't push directly to main/develop
+2. **Wait for PR checks**: Ensure all validations pass before merging
+3. **Use manual workflow for testing**: Test custom versions before production
+4. **Monitor Discord**: Stay informed about build status
+5. **Check version numbers**: Ensure no conflicts with existing releases
+6. **Review deployment tracks**: Verify builds go to correct channels
+
+### Troubleshooting
+
+#### Build Number Conflicts
+If you get "Version code X has already been used":
+- Build numbers are offset by 1000 to avoid conflicts
+- Check Google Play Console for the highest version code used
+- The offset is configured in both workflows
+
+#### Tag Already Exists
+Manual builds will fail if the tag already exists:
+- Choose a different version name
+- Delete the existing tag if it was a mistake
+- Use semantic versioning conventions
+
+#### Secrets Not Found
+Ensure all required secrets are configured in:
+`Repository Settings → Secrets and variables → Actions`
 
 ## Contributing
 

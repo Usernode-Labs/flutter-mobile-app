@@ -221,11 +221,20 @@ jobs:
 
       - name: Setup sccache for Rust compilation
         uses: mozilla-actions/sccache-action@v0.0.3
+        continue-on-error: true
+        id: sccache-android
 
       - name: Configure Rust to use sccache
+        if: steps.sccache-android.outcome == 'success'
         run: |
           echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
           echo "SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
+          echo "✅ sccache enabled for Rust compilation"
+
+      - name: Rust compilation without sccache
+        if: steps.sccache-android.outcome != 'success'
+        run: |
+          echo "⚠️  sccache setup failed, building without cache"
 
       - name: Decode keystore
         env:
@@ -419,11 +428,20 @@ jobs:
 
       - name: Setup sccache for Rust compilation
         uses: mozilla-actions/sccache-action@v0.0.3
+        continue-on-error: true
+        id: sccache-ios
 
       - name: Configure Rust to use sccache
+        if: steps.sccache-ios.outcome == 'success'
         run: |
           echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
           echo "SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
+          echo "✅ sccache enabled for Rust compilation"
+
+      - name: Rust compilation without sccache
+        if: steps.sccache-ios.outcome != 'success'
+        run: |
+          echo "⚠️  sccache setup failed, building without cache"
 
       - name: Restore cargo binaries from cache
         uses: actions/cache/restore@v4
@@ -528,8 +546,19 @@ jobs:
         run: |
           PROFILE_DIR=~/Library/MobileDevice/Provisioning\ Profiles
           mkdir -p "$PROFILE_DIR"
-          echo "$PROVISIONING_PROFILES" | base64 -d | tar -xz -C "$PROFILE_DIR"
+
+          # Try to extract as tar.gz archive first
+          if echo "$PROVISIONING_PROFILES" | base64 -d | tar -tzf - >/dev/null 2>&1; then
+            echo "📦 Extracting provisioning profiles from tar.gz archive..."
+            echo "$PROVISIONING_PROFILES" | base64 -d | tar -xzf - -C "$PROFILE_DIR"
+          else
+            # If not a tar.gz, assume it's a single .mobileprovision file
+            echo "📄 Installing single provisioning profile..."
+            echo "$PROVISIONING_PROFILES" | base64 -d > "$PROFILE_DIR/profile.mobileprovision"
+          fi
+
           echo "✅ Installed provisioning profiles"
+          ls -la "$PROFILE_DIR"
 
       - name: Determine environment based on branch
         id: env_config_ios

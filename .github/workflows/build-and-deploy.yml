@@ -17,6 +17,7 @@ jobs:
   build-android:
     name: Build Android App
     runs-on: ubuntu-20.04-16core
+    needs: [determine-frb-rev, setup-rust-tools-android]
     outputs:
       version: ${{ steps.version.outputs.version }}
       build_number: ${{ steps.version.outputs.build_number }}
@@ -155,54 +156,14 @@ jobs:
             ${{ runner.os }}-flutter-build-${{ hashFiles('pubspec.lock') }}-
             ${{ runner.os }}-flutter-build-
 
-      - name: Setup Rust for Android
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-linux-android,armv7-linux-androideabi
-
-      - name: Cache cargo registry and git
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: ${{ runner.os }}-cargo-registry-${{ steps.usernode_meta.outputs.frb_rev }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-registry-
-
-      - name: Cache cargo binaries
+      - name: Restore cargo binaries from cache
+        uses: actions/cache/restore@v4
         id: cache-cargo-bins
-        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/cargo-expand
             ~/.cargo/bin/flutter_rust_bridge_codegen
-          key: ${{ runner.os }}-cargo-bins-${{ steps.usernode_meta.outputs.frb_rev }}-v2
-          restore-keys: |
-            ${{ runner.os }}-cargo-bins-
-
-      - name: Install cargo-binstall
-        if: steps.cache-cargo-bins.outputs.cache-hit != 'true'
-        run: |
-          curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
-
-      - name: Install cargo-expand
-        if: steps.cache-cargo-bins.outputs.cache-hit != 'true'
-        run: |
-          if ! command -v cargo-expand &> /dev/null; then
-            cargo binstall cargo-expand -y --locked || cargo install cargo-expand --locked
-          else
-            echo "cargo-expand already installed"
-          fi
-
-      - name: Install flutter_rust_bridge_codegen
-        if: steps.cache-cargo-bins.outputs.cache-hit != 'true'
-        run: |
-          if ! command -v flutter_rust_bridge_codegen &> /dev/null; then
-            cargo install flutter_rust_bridge_codegen --git https://github.com/Usernode-Labs/flutter_rust_bridge --rev ${{ steps.usernode_meta.outputs.frb_rev }} --locked
-          else
-            echo "flutter_rust_bridge_codegen already installed"
-          fi
+          key: ${{ runner.os }}-cargo-bins-${{ needs.determine-frb-rev.outputs.frb_rev }}-v2
 
       - name: Cache FRB generated code
         id: cache-frb-gen
@@ -295,9 +256,18 @@ jobs:
           inAppUpdatePriority: ${{ steps.env_config.outputs.track == 'production' && '5' || '2' }}
 
   setup-rust-tools:
-    name: Setup Rust Tools
+    name: Setup Rust Tools for iOS
     needs: [determine-frb-rev]
     uses: ./.github/workflows/setup-rust-tools.yml
+    secrets: inherit
+    with:
+      frb_rev: ${{ needs.determine-frb-rev.outputs.frb_rev }}
+      usernode_ref: ${{ needs.determine-frb-rev.outputs.usernode_sha }}
+
+  setup-rust-tools-android:
+    name: Setup Rust Tools for Android
+    needs: [determine-frb-rev]
+    uses: ./.github/workflows/setup-rust-tools-android.yml
     secrets: inherit
     with:
       frb_rev: ${{ needs.determine-frb-rev.outputs.frb_rev }}

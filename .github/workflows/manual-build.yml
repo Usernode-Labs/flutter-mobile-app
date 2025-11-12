@@ -325,7 +325,6 @@ jobs:
           export CARGO_TARGET_AARCH64_LINUX_ANDROID_RANLIB="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
           CARGOKIT_ONLY_ANDROID_ARM64=1 flutter build appbundle \
             --release \
-            --flavor production \
             --build-number=${{ steps.version.outputs.build_number }} \
             --build-name=${{ steps.version.outputs.version_number }} \
             --dart-define-from-file=.env
@@ -588,7 +587,6 @@ jobs:
         run: |
           flutter build ipa \
             --release \
-            --flavor production \
             --build-number=${{ steps.version.outputs.build_number }} \
             --build-name=${{ steps.version.outputs.version_number }} \
             --dart-define-from-file=.env \

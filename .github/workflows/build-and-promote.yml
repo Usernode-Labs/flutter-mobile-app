@@ -54,11 +54,6 @@ jobs:
       - name: Setup jq
         run: sudo apt-get install -y jq
 
-      - name: Install native build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libc6-dev
-
       - name: Checkout usernode repository
         uses: actions/checkout@v4
         with:
@@ -273,18 +268,19 @@ jobs:
           echo "ndk_root=$NDK_ROOT" >> "$GITHUB_OUTPUT"
           echo "Using NDK at $NDK_ROOT"
 
-      - name: Build usernode Rust workspace
-        env:
-          NDK_ROOT: ${{ steps.ndk.outputs.ndk_root }}
-        run: |
-          set -euo pipefail
-          export CARGO_TARGET_AARCH64_LINUX_ANDROID_CC="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang"
-          export CARGO_TARGET_AARCH64_LINUX_ANDROID_CXX="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang++"
-          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$CARGO_TARGET_AARCH64_LINUX_ANDROID_CC"
-          export CARGO_TARGET_AARCH64_LINUX_ANDROID_AR="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
-          export CARGO_TARGET_AARCH64_LINUX_ANDROID_RANLIB="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
-          cd ../usernode
-          cargo build --release
+      #      - name: Build usernode Rust workspace
+      #        env:
+      #          NDK_ROOT: ${{ steps.ndk.outputs.ndk_root }}
+      #        run: |
+      #          set -euo pipefail
+      #          export CARGO_TARGET_AARCH64_LINUX_ANDROID_CC="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang"
+      #          export CARGO_TARGET_AARCH64_LINUX_ANDROID_CXX="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang++"
+      #          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$CARGO_TARGET_AARCH64_LINUX_ANDROID_CC"
+      #          export CARGO_TARGET_AARCH64_LINUX_ANDROID_AR="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
+      #          export CARGO_TARGET_AARCH64_LINUX_ANDROID_RANLIB="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
+      #          export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
+      #          cd ../usernode
+      #          cargo build --release
 
       - name: Decode keystore
         env:
@@ -302,7 +298,15 @@ jobs:
           EOF
 
       - name: Build Android AAB
+        env:
+          NDK_ROOT: ${{ steps.ndk.outputs.ndk_root }}
         run: |
+          export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_CC="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_CXX="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang++"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$CARGO_TARGET_AARCH64_LINUX_ANDROID_CC"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_AR="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_RANLIB="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
           CARGOKIT_ONLY_ANDROID_ARM64=1 flutter build appbundle \
             --release \
             --flavor production \

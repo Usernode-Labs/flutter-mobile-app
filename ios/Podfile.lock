@@ -27,7 +27,7 @@ PODS:
   - shared_preferences_foundation (0.0.1):
     - Flutter
     - FlutterMacOS
-  - workmanager (0.0.1):
+  - workmanager_apple (0.0.1):
     - Flutter
 
 DEPENDENCIES:
@@ -43,7 +43,7 @@ DEPENDENCIES:
   - rust_lib_crypto_mobile_app (from `.symlinks/plugins/rust_lib_crypto_mobile_app/ios`)
   - sentry_flutter (from `.symlinks/plugins/sentry_flutter/ios`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
-  - workmanager (from `.symlinks/plugins/workmanager/ios`)
+  - workmanager_apple (from `.symlinks/plugins/workmanager_apple/ios`)
 
 SPEC REPOS:
   trunk:
@@ -74,8 +74,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/sentry_flutter/ios"
   shared_preferences_foundation:
     :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
-  workmanager:
-    :path: ".symlinks/plugins/workmanager/ios"
+  workmanager_apple:
+    :path: ".symlinks/plugins/workmanager_apple/ios"
 
 SPEC CHECKSUMS:
   device_info_plus: c6fb39579d0f423935b0c9ce7ee2f44b71b9fce6
@@ -87,12 +87,12 @@ SPEC CHECKSUMS:
   objective_c: 77e887b5ba1827970907e10e832eec1683f3431d
   package_info_plus: c0502532a26c7662a62a356cebe2692ec5fe4ec4
   path_provider_foundation: 2b6b4c569c0fb62ec74538f866245ac84301af46
-  rust_lib_crypto_mobile_app: 0407ea64888780bad4290b7d9e2baaff775c982d
+  rust_lib_crypto_mobile_app: b14c41db44a5333f6b460d8e38f59b2bf5070e20
   Sentry: b53951377b78e21a734f5dc8318e333dbfc682d7
   sentry_flutter: b71c80b7a071cc42af82576046ff2db19fc12f57
   shared_preferences_foundation: fcdcbc04712aee1108ac7fda236f363274528f78
-  workmanager: 0afdcf5628bbde6924c21af7836fed07b42e30e6
+  workmanager_apple: 7bac258335c310689a641e2d66e88d4845d372e9
 
-PODFILE CHECKSUM: 2d51da7ffc22cb292323e928e74cddee239783c5
+PODFILE CHECKSUM: 90b17bc87e6ab3c3960784c55a2b7fad9da1c60b
 
 COCOAPODS: 1.16.2

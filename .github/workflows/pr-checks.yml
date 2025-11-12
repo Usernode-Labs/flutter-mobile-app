@@ -255,11 +255,20 @@ jobs:
 
       - name: Setup sccache for Rust compilation
         uses: mozilla-actions/sccache-action@v0.0.3
+        continue-on-error: true
+        id: sccache-ios
 
       - name: Configure Rust to use sccache
+        if: steps.sccache-ios.outcome == 'success'
         run: |
           echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
           echo "SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
+          echo "✅ sccache enabled for Rust compilation"
+
+      - name: Rust compilation without sccache
+        if: steps.sccache-ios.outcome != 'success'
+        run: |
+          echo "⚠️  sccache setup failed, building without cache"
 
       - name: Restore cargo binaries from cache
         uses: actions/cache/restore@v4

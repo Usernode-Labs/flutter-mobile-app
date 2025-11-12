@@ -129,6 +129,19 @@ jobs:
           channel: "stable"
           cache: true
 
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            android/app/build
+            android/.gradle
+          key: ${{ runner.os }}-gradle-${{ hashFiles('android/**/*.gradle*', 'android/gradle.properties', 'pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-${{ hashFiles('android/**/*.gradle*', 'android/gradle.properties') }}-
+            ${{ runner.os }}-gradle-
+
       - name: Determine environment based on target branch
         id: env_config
         run: |
@@ -240,6 +253,14 @@ jobs:
         with:
           targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
 
+      - name: Setup sccache for Rust compilation
+        uses: mozilla-actions/sccache-action@v0.0.3
+
+      - name: Configure Rust to use sccache
+        run: |
+          echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
+          echo "SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
+
       - name: Restore cargo binaries from cache
         uses: actions/cache/restore@v4
         id: cache-cargo-bins
@@ -325,6 +346,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pods-${{ hashFiles('ios/Podfile.lock') }}-
             ${{ runner.os }}-pods-
+
+      - name: Cache Xcode DerivedData
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Developer/Xcode/DerivedData
+          key: ${{ runner.os }}-xcode-${{ hashFiles('ios/**/*.{swift,m,h}', 'ios/Podfile.lock') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-xcode-${{ hashFiles('ios/**/*.{swift,m,h}', 'ios/Podfile.lock') }}-
+            ${{ runner.os }}-xcode-
 
       - name: Install CocoaPods
         run: |

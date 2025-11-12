@@ -1,0 +1,31 @@
+name: Daily Standup Reminder
+
+on:
+  schedule:
+    # Runs Monday-Friday at 8:00 AM UTC
+    - cron: '0 8 * * 1-5'
+  workflow_dispatch: # Allow manual trigger for testing
+
+permissions:
+  contents: read
+
+jobs:
+  send-standup-message:
+    name: Send Daily Standup Message
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Discord standup reminder
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_STATUS_UPDATE_WEBHOOK_URL }}
+        run: |
+          # Get current date in YYYY-MM-DD format (UTC)
+          CURRENT_DATE=$(date -u +%Y-%m-%d)
+
+          # Send message to Discord
+          curl -X POST "$DISCORD_WEBHOOK_URL" \
+            -H 'Content-Type: application/json' \
+            -d "{
+              \"content\": \"**Daily Standup ${CURRENT_DATE}**\n\nHey @channel! Please share your updates:\n✅ **DONE** - What did you complete yesterday?\n🔥 **DOING** - What are you focusing on today?\n⛔ **BLOCKED** - Any impediments or support needed?\n\nReply in thread to keep things organised 🧵 👉\"
+            }"
+
+          echo "✅ Daily standup message sent for $CURRENT_DATE"

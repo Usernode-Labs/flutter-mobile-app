@@ -78,10 +78,16 @@ jobs:
           if [ "${{ github.ref_name }}" == "main" ]; then
             echo "env_type=PROD" >> $GITHUB_OUTPUT
             echo "track=production" >> $GITHUB_OUTPUT
+            echo "flavor=production" >> $GITHUB_OUTPUT
+            echo "bundle_dir=build/app/outputs/bundle/productionRelease" >> $GITHUB_OUTPUT
+            echo "aab_path=build/app/outputs/bundle/productionRelease/app-production-release.aab" >> $GITHUB_OUTPUT
             echo "📦 Building for PRODUCTION (main branch)"
           else
             echo "env_type=NONPROD" >> $GITHUB_OUTPUT
             echo "track=internal" >> $GITHUB_OUTPUT
+            echo "flavor=internal" >> $GITHUB_OUTPUT
+            echo "bundle_dir=build/app/outputs/bundle/internalRelease" >> $GITHUB_OUTPUT
+            echo "aab_path=build/app/outputs/bundle/internalRelease/app-internal-release.aab" >> $GITHUB_OUTPUT
             echo "📦 Building for NON-PRODUCTION (develop branch)"
           fi
 
@@ -262,6 +268,7 @@ jobs:
           export CARGO_TARGET_AARCH64_LINUX_ANDROID_AR="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
           export CARGO_TARGET_AARCH64_LINUX_ANDROID_RANLIB="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
           CARGOKIT_ONLY_ANDROID_ARM64=1 flutter build appbundle \
+            --flavor ${{ steps.env_config.outputs.flavor }} \
             --release \
             --build-number=${{ steps.version.outputs.build_number }} \
             --build-name=${{ steps.version.outputs.version }} \
@@ -271,7 +278,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: android-release-${{ steps.version.outputs.build_number }}
-          path: build/app/outputs/bundle/productionRelease/app-production-release.aab
+          path: ${{ steps.env_config.outputs.aab_path }}
           retention-days: 90
 
       - name: Deploy to Track
@@ -279,7 +286,7 @@ jobs:
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: com.usernode_labs.usernode
-          releaseFiles: build/app/outputs/bundle/productionRelease/app-production-release.aab
+          releaseFiles: ${{ steps.env_config.outputs.aab_path }}
           track: ${{ steps.env_config.outputs.track }}
           status: draft
           inAppUpdatePriority: ${{ steps.env_config.outputs.track == 'production' && '5' || '2' }}
@@ -563,9 +570,11 @@ jobs:
         run: |
           if [ "${{ github.ref_name }}" == "main" ]; then
             echo "env_type=PROD" >> $GITHUB_OUTPUT
+            echo "export_options=ios/ExportOptions-production.plist" >> $GITHUB_OUTPUT
             echo "📦 Building for PRODUCTION (main branch)"
           else
             echo "env_type=NONPROD" >> $GITHUB_OUTPUT
+            echo "export_options=ios/ExportOptions-internal.plist" >> $GITHUB_OUTPUT
             echo "📦 Building for NON-PRODUCTION (develop branch)"
           fi
 
@@ -603,7 +612,7 @@ jobs:
             --build-number=${{ steps.version.outputs.build_number }} \
             --build-name=${{ steps.version.outputs.version }} \
             --dart-define-from-file=.env \
-            --export-options-plist=ios/ExportOptions-production.plist
+            --export-options-plist=${{ steps.env_config_ios.outputs.export_options }}
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4

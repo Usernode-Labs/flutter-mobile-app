@@ -538,8 +538,19 @@ jobs:
         run: |
           PROFILE_DIR=~/Library/MobileDevice/Provisioning\ Profiles
           mkdir -p "$PROFILE_DIR"
-          echo "$PROVISIONING_PROFILES" | base64 -d | tar -xz -C "$PROFILE_DIR"
+
+          # Try to extract as tar.gz archive first
+          if echo "$PROVISIONING_PROFILES" | base64 -d | tar -tzf - >/dev/null 2>&1; then
+            echo "📦 Extracting provisioning profiles from tar.gz archive..."
+            echo "$PROVISIONING_PROFILES" | base64 -d | tar -xzf - -C "$PROFILE_DIR"
+          else
+            # If not a tar.gz, assume it's a single .mobileprovision file
+            echo "📄 Installing single provisioning profile..."
+            echo "$PROVISIONING_PROFILES" | base64 -d > "$PROFILE_DIR/profile.mobileprovision"
+          fi
+
           echo "✅ Installed provisioning profiles"
+          ls -la "$PROFILE_DIR"
 
       - name: Create .env file from secrets (NON-PRODUCTION)
         run: |

@@ -511,7 +511,7 @@ jobs:
       - name: Install CocoaPods dependencies
         run: |
           cd ios
-          if [ ! -d "Pods" ] || [ "Podfile.lock" ] && [ "Podfile.lock" -nt "Pods/Manifest.lock" ] || [ "${{ steps.cache-pods.outputs.cache-hit }}" != "true" ]; then
+          if [ ! -d "Pods" ] || [ -f "Podfile.lock" ] && [ "Podfile.lock" -nt "Pods/Manifest.lock" ] || [ "${{ steps.cache-pods.outputs.cache-hit }}" != "true" ]; then
             pod install
             echo "✅ Pod install complete"
           else
@@ -650,31 +650,37 @@ jobs:
             exit 1
           fi
 
-          cat > ios/ExportOptions-ci.plist <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>method</key>
-    <string>app-store</string>
-    <key>teamID</key>
-    <string>785Y2C9VG2</string>
-    <key>uploadBitcode</key>
-    <false/>
-    <key>uploadSymbols</key>
-    <true/>
-    <key>compileBitcode</key>
-    <false/>
-    <key>signingStyle</key>
-    <string>manual</string>
-    <key>provisioningProfiles</key>
-    <dict>
-        <key>org.usernode.app</key>
-        <string>$SELECTED_PROFILE</string>
-    </dict>
-</dict>
-</plist>
-EOF
+          SELECTED_PROFILE="$SELECTED_PROFILE" python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          profile = os.environ["SELECTED_PROFILE"]
+          content = f"""<?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+            <dict>
+              <key>method</key>
+              <string>app-store</string>
+              <key>teamID</key>
+              <string>785Y2C9VG2</string>
+              <key>uploadBitcode</key>
+              <false/>
+              <key>uploadSymbols</key>
+              <true/>
+              <key>compileBitcode</key>
+              <false/>
+              <key>signingStyle</key>
+              <string>manual</string>
+              <key>provisioningProfiles</key>
+              <dict>
+                <key>org.usernode.app</key>
+                <string>{profile}</string>
+              </dict>
+            </dict>
+          </plist>
+          """
+          Path("ios/ExportOptions-ci.plist").write_text(content, encoding="utf-8")
+          PY
 
           echo "Using provisioning profile: $SELECTED_PROFILE"
           echo "export_options=ios/ExportOptions-ci.plist" >> $GITHUB_OUTPUT

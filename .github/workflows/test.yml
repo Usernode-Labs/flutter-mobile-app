@@ -51,6 +51,7 @@ jobs:
         uses: ./.github/workflows/setup-rust-tools-android.yml
         with:
             frb_rev: ${{ needs.determine-frb-rev.outputs.frb_rev }}
+            usernode_ref: ${{ needs.determine-frb-rev.outputs.usernode_sha }}
         secrets: inherit
 
     unit-tests:

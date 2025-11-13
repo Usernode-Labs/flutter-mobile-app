@@ -113,7 +113,7 @@ These secrets are required for building and signing the applications (not enviro
 | `PROVISIONING_PROFILES` | Base64-encoded provisioning profile | `base64 -i profile.mobileprovision` |
 | `APP_STORE_CONNECT_API_KEY_ID` | App Store Connect API Key ID | From App Store Connect |
 | `APP_STORE_CONNECT_ISSUER_ID` | App Store Connect Issuer ID | From App Store Connect |
-| `APP_STORE_CONNECT_API_KEY` | Base64-encoded API Key | `base64 -i AuthKey_XXX.p8` |
+| `APP_STORE_CONNECT_API_KEY` | Raw .p8 API Key content | Copy content from AuthKey_XXX.p8 file |
 
 #### Optional Notifications
 
@@ -187,9 +187,11 @@ base64 -i certificate.p12 | pbcopy
 base64 -i profile.mobileprovision | pbcopy
 # Add as PROVISIONING_PROFILES
 
-# Generate base64 API key
-base64 -i AuthKey_XXX.p8 | pbcopy
+# Copy raw API key content
+cat AuthKey_XXX.p8 | pbcopy
 # Add as APP_STORE_CONNECT_API_KEY
+# Note: The secret should contain the raw .p8 file content including
+# -----BEGIN PRIVATE KEY----- and -----END PRIVATE KEY----- lines
 ```
 
 ---

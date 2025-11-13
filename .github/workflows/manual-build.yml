@@ -150,6 +150,27 @@ jobs:
           echo "Usernode commit: $SHORT_SHA"
           echo "Using flutter_rust_bridge rev: $FRB_REV"
 
+      - name: Determine environment from ref
+        id: env_config
+        run: |
+          REF="${{ github.event.inputs.ref }}"
+          case "$REF" in
+            main|refs/heads/main|origin/main|refs/tags/*)
+              echo "env_type=PROD" >> $GITHUB_OUTPUT
+              echo "track=production" >> $GITHUB_OUTPUT
+              echo "flavor=production" >> $GITHUB_OUTPUT
+              echo "aab_path=build/app/outputs/bundle/productionRelease/app-production-release.aab" >> $GITHUB_OUTPUT
+              echo "📦 Building for PRODUCTION ($REF)"
+              ;;
+            *)
+              echo "env_type=NONPROD" >> $GITHUB_OUTPUT
+              echo "track=internal" >> $GITHUB_OUTPUT
+              echo "flavor=internal" >> $GITHUB_OUTPUT
+              echo "aab_path=build/app/outputs/bundle/internalRelease/app-internal-release.aab" >> $GITHUB_OUTPUT
+              echo "📦 Building for NON-PRODUCTION ($REF)"
+              ;;
+          esac
+
       - name: Cache usernode Rust target artifacts
         uses: actions/cache@v4
         with:
@@ -159,9 +180,21 @@ jobs:
             ${{ runner.os }}-usernode-target-${{ steps.usernode_meta.outputs.frb_rev }}-
             ${{ runner.os }}-usernode-target-
 
-      - name: Create .env file from secrets (NON-PRODUCTION)
+      - name: Create .env file from secrets
         run: |
-          cat > .env << EOF
+          if [ "${{ steps.env_config.outputs.env_type }}" == "PROD" ]; then
+            cat > .env << EOF
+          APP_ENV=${{ secrets.PROD_APP_ENV }}
+          API_BASE_URL=${{ secrets.PROD_API_BASE_URL }}
+          VERBOSE_LOGGING=${{ secrets.PROD_VERBOSE_LOGGING }}
+          SENTRY_DSN=${{ secrets.PROD_SENTRY_DSN }}
+          GITHUB_TOKEN=${{ secrets.PROD_GITHUB_TOKEN }}
+          USE_RESULT_PROVIDERS=${{ secrets.PROD_USE_RESULT_PROVIDERS }}
+          ENABLED_FEATURES=${{ secrets.PROD_ENABLED_FEATURES }}
+          DISABLED_FEATURES=${{ secrets.PROD_DISABLED_FEATURES }}
+          EOF
+          else
+            cat > .env << EOF
           APP_ENV=${{ secrets.NONPROD_APP_ENV }}
           API_BASE_URL=${{ secrets.NONPROD_API_BASE_URL }}
           VERBOSE_LOGGING=${{ secrets.NONPROD_VERBOSE_LOGGING }}
@@ -171,19 +204,27 @@ jobs:
           ENABLED_FEATURES=${{ secrets.NONPROD_ENABLED_FEATURES }}
           DISABLED_FEATURES=${{ secrets.NONPROD_DISABLED_FEATURES }}
           EOF
-          echo "✅ Created .env file with NONPROD secrets"
+          fi
+          echo "✅ Created .env file with ${{ steps.env_config.outputs.env_type }} secrets"
 
       - name: Set custom version
         id: version
         run: |
+          set -euo pipefail
           BUILD_NUMBER=$((1000 + ${GITHUB_RUN_NUMBER}))
-          # Remove 'v' prefix if present for version number
-          VERSION="${{ github.event.inputs.version }}"
-          VERSION_NUMBER="${VERSION#v}"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          VERSION_INPUT="${{ github.event.inputs.version }}"
+          VERSION_SANITIZED="${VERSION_INPUT#v}"
+          VERSION_NUMBER="${VERSION_SANITIZED%%+*}"
+          if [ -z "$VERSION_NUMBER" ]; then
+            echo "Invalid version input: $VERSION_INPUT" >&2
+            exit 1
+          fi
+          FULL_VERSION="${VERSION_NUMBER}+${BUILD_NUMBER}"
+          sed -i "s/^version: .*/version: ${FULL_VERSION}/" pubspec.yaml
+          echo "version=$VERSION_INPUT" >> $GITHUB_OUTPUT
           echo "version_number=$VERSION_NUMBER" >> $GITHUB_OUTPUT
           echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
-          echo "📦 Building custom version: $VERSION (build number $BUILD_NUMBER from run ${GITHUB_RUN_NUMBER})"
+          echo "📦 Building custom version: $VERSION_INPUT -> ${FULL_VERSION}"
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -324,6 +365,7 @@ jobs:
           export CARGO_TARGET_AARCH64_LINUX_ANDROID_AR="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
           export CARGO_TARGET_AARCH64_LINUX_ANDROID_RANLIB="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
           CARGOKIT_ONLY_ANDROID_ARM64=1 flutter build appbundle \
+            --flavor ${{ steps.env_config.outputs.flavor }} \
             --release \
             --build-number=${{ steps.version.outputs.build_number }} \
             --build-name=${{ steps.version.outputs.version_number }} \
@@ -333,7 +375,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: android-release-manual-${{ github.event.inputs.version }}
-          path: build/app/outputs/bundle/productionRelease/app-production-release.aab
+          path: ${{ steps.env_config.outputs.aab_path }}
           retention-days: 90
 
       - name: Deploy to Google Play Internal Track
@@ -341,10 +383,10 @@ jobs:
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: com.usernode_labs.usernode
-          releaseFiles: build/app/outputs/bundle/productionRelease/app-production-release.aab
-          track: internal
+          releaseFiles: ${{ steps.env_config.outputs.aab_path }}
+          track: ${{ steps.env_config.outputs.track }}
           status: draft
-          inAppUpdatePriority: 2
+          inAppUpdatePriority: ${{ steps.env_config.outputs.track == 'production' && '5' || '2' }}
 
   build-ios:
     name: Build iOS App
@@ -385,20 +427,44 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-usernode-target-
 
+      - name: Determine environment from ref
+        id: env_config
+        run: |
+          REF="${{ github.event.inputs.ref }}"
+          case "$REF" in
+            main|refs/heads/main|origin/main|refs/tags/*)
+              echo "env_type=PROD" >> $GITHUB_OUTPUT
+              echo "flavor=production" >> $GITHUB_OUTPUT
+              echo "📦 Building iOS for PRODUCTION ($REF)"
+              ;;
+            *)
+              echo "env_type=NONPROD" >> $GITHUB_OUTPUT
+              echo "flavor=internal" >> $GITHUB_OUTPUT
+              echo "📦 Building iOS for NON-PRODUCTION ($REF)"
+              ;;
+          esac
+
       - name: Setup jq
         run: brew install jq
 
       - name: Set custom version
         id: version
         run: |
+          set -euo pipefail
           BUILD_NUMBER=$((1000 + ${GITHUB_RUN_NUMBER}))
-          # Remove 'v' prefix if present for version number
-          VERSION="${{ github.event.inputs.version }}"
-          VERSION_NUMBER="${VERSION#v}"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          VERSION_INPUT="${{ github.event.inputs.version }}"
+          VERSION_SANITIZED="${VERSION_INPUT#v}"
+          VERSION_NUMBER="${VERSION_SANITIZED%%+*}"
+          if [ -z "$VERSION_NUMBER" ]; then
+            echo "Invalid version input: $VERSION_INPUT" >&2
+            exit 1
+          fi
+          FULL_VERSION="${VERSION_NUMBER}+${BUILD_NUMBER}"
+          sed -i '' "s/^version: .*/version: ${FULL_VERSION}/" pubspec.yaml
+          echo "version=$VERSION_INPUT" >> $GITHUB_OUTPUT
           echo "version_number=$VERSION_NUMBER" >> $GITHUB_OUTPUT
           echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
-          echo "📦 Building custom version: $VERSION (build number $BUILD_NUMBER from run ${GITHUB_RUN_NUMBER})"
+          echo "📦 Building custom version: $VERSION_INPUT -> ${FULL_VERSION}"
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -569,9 +635,21 @@ jobs:
           echo "✅ Installed provisioning profiles"
           ls -la "$PROFILE_DIR"
 
-      - name: Create .env file from secrets (NON-PRODUCTION)
+      - name: Create .env file from secrets
         run: |
-          cat > .env << EOF
+          if [ "${{ steps.env_config.outputs.env_type }}" == "PROD" ]; then
+            cat > .env << EOF
+          APP_ENV=${{ secrets.PROD_APP_ENV }}
+          API_BASE_URL=${{ secrets.PROD_API_BASE_URL }}
+          VERBOSE_LOGGING=${{ secrets.PROD_VERBOSE_LOGGING }}
+          SENTRY_DSN=${{ secrets.PROD_SENTRY_DSN }}
+          GITHUB_TOKEN=${{ secrets.PROD_GITHUB_TOKEN }}
+          USE_RESULT_PROVIDERS=${{ secrets.PROD_USE_RESULT_PROVIDERS }}
+          ENABLED_FEATURES=${{ secrets.PROD_ENABLED_FEATURES }}
+          DISABLED_FEATURES=${{ secrets.PROD_DISABLED_FEATURES }}
+          EOF
+          else
+            cat > .env << EOF
           APP_ENV=${{ secrets.NONPROD_APP_ENV }}
           API_BASE_URL=${{ secrets.NONPROD_API_BASE_URL }}
           VERBOSE_LOGGING=${{ secrets.NONPROD_VERBOSE_LOGGING }}
@@ -581,35 +659,34 @@ jobs:
           ENABLED_FEATURES=${{ secrets.NONPROD_ENABLED_FEATURES }}
           DISABLED_FEATURES=${{ secrets.NONPROD_DISABLED_FEATURES }}
           EOF
-          echo "✅ Created .env file with NONPROD secrets"
+          fi
+          echo "✅ Created .env file with ${{ steps.env_config.outputs.env_type }} secrets"
 
-      - name: Build iOS IPA
+      - name: Build iOS app (no codesign)
         run: |
-          flutter build ipa \
+          set -euo pipefail
+          flutter build ios \
             --release \
+            --no-codesign \
             --build-number=${{ steps.version.outputs.build_number }} \
             --build-name=${{ steps.version.outputs.version_number }} \
-            --dart-define-from-file=.env \
-            --export-options-plist=ios/ExportOptions-production.plist
+            --dart-define-from-file=.env
 
-      - name: Upload IPA artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ios-release-manual-${{ github.event.inputs.version }}
-          path: build/ios/ipa/*.ipa
-          retention-days: 90
-
-      - name: Upload to TestFlight
+      - name: Build and upload via Fastlane
         env:
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
         run: |
-          xcrun altool --upload-app \
-            --type ios \
-            --file build/ios/ipa/*.ipa \
-            --apiKey "$APP_STORE_CONNECT_API_KEY_ID" \
-            --apiIssuer "$APP_STORE_CONNECT_API_ISSUER_ID"
+          bundle exec fastlane ios release flavor:${{ steps.env_config.outputs.flavor }}
+
+      - name: Upload IPA artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-release-manual-${{ github.event.inputs.version }}
+          path: build/ios/*.ipa
+          retention-days: 90
 
   tag:
     name: Create Tag
@@ -647,8 +724,11 @@ jobs:
         run: |
           ACTION="manual build ${{ github.event.inputs.version }}"
           BUILD="${{ needs.build-android.outputs.build_number }}"
+          VERSION="${{ github.event.inputs.version }}"
+          ANDROID_RESULT="${{ needs.build-android.result }}"
+          IOS_RESULT="${{ needs.build-ios.result }}"
 
-          if [ "${{ needs.build-android.result }}" == "failure" ] || [ "${{ needs.build-ios.result }}" == "failure" ]; then
+          if [ "$ANDROID_RESULT" == "failure" ] || [ "$IOS_RESULT" == "failure" ]; then
             echo "status=failure" >> $GITHUB_OUTPUT
             echo "emoji=❌" >> $GITHUB_OUTPUT
           else
@@ -658,6 +738,9 @@ jobs:
 
           echo "action=$ACTION" >> $GITHUB_OUTPUT
           echo "build=$BUILD" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "android_result=$ANDROID_RESULT" >> $GITHUB_OUTPUT
+          echo "ios_result=$IOS_RESULT" >> $GITHUB_OUTPUT
 
       - name: Send Discord notification
         if: env.DISCORD_WEBHOOK_URL != ''
@@ -680,7 +763,7 @@ jobs:
                 \"fields\": [
                   {
                     \"name\": \"Version\",
-                    \"value\": \"${{ github.event.inputs.version }}\",
+                    \"value\": \"${{ steps.status.outputs.version }}\",
                     \"inline\": true
                   },
                   {
@@ -702,6 +785,21 @@ jobs:
                     \"name\": \"Triggered by\",
                     \"value\": \"${{ github.actor }}\",
                     \"inline\": true
+                  },
+                  {
+                    \"name\": \"Android\",
+                    \"value\": \"${{ steps.status.outputs.android_result }}\",
+                    \"inline\": true
+                  },
+                  {
+                    \"name\": \"iOS\",
+                    \"value\": \"${{ steps.status.outputs.ios_result }}\",
+                    \"inline\": true
+                  },
+                  {
+                    \"name\": \"Run\",
+                    \"value\": \"https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\",
+                    \"inline\": false
                   }
                 ],
                 \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\"

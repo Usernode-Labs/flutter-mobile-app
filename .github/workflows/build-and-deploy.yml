@@ -570,11 +570,9 @@ jobs:
         run: |
           if [ "${{ github.ref_name }}" == "main" ]; then
             echo "env_type=PROD" >> $GITHUB_OUTPUT
-            echo "export_options=ios/ExportOptions-production.plist" >> $GITHUB_OUTPUT
             echo "📦 Building for PRODUCTION (main branch)"
           else
             echo "env_type=NONPROD" >> $GITHUB_OUTPUT
-            echo "export_options=ios/ExportOptions-internal.plist" >> $GITHUB_OUTPUT
             echo "📦 Building for NON-PRODUCTION (develop branch)"
           fi
 
@@ -605,6 +603,82 @@ jobs:
           fi
           echo "✅ Created .env file with ${{ steps.env_config_ios.outputs.env_type }} secrets"
 
+      - name: Prepare export options
+        id: export_options
+        run: |
+          set -euo pipefail
+          PROFILE_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
+          if [ ! -d "$PROFILE_DIR" ]; then
+            echo "Provisioning profile directory not found: $PROFILE_DIR" >&2
+            exit 1
+          fi
+
+          if [ "${{ steps.env_config_ios.outputs.env_type }}" == "PROD" ]; then
+            TARGET_KEYWORD="Production"
+          else
+            TARGET_KEYWORD="Internal"
+          fi
+
+          TMP_DIR=$(mktemp -d)
+          MATCHING_PROFILE=""
+          FALLBACK_PROFILE=""
+
+          for PROFILE_PATH in "$PROFILE_DIR"/*.mobileprovision; do
+            [ -e "$PROFILE_PATH" ] || continue
+            DECODED_PLIST="$TMP_DIR/profile.plist"
+            security cms -D -i "$PROFILE_PATH" > "$DECODED_PLIST"
+
+            APP_IDENTIFIER=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$DECODED_PLIST" 2>/dev/null | sed -e 's/^[A-Z0-9]*\.//')
+            GET_TASK_ALLOW=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:get-task-allow' "$DECODED_PLIST" 2>/dev/null || echo "false")
+            PROFILE_NAME=$(/usr/libexec/PlistBuddy -c 'Print :Name' "$DECODED_PLIST")
+
+            if [ "$APP_IDENTIFIER" == "org.usernode.app" ] && [ "$GET_TASK_ALLOW" == "false" ]; then
+              if [ -z "$FALLBACK_PROFILE" ]; then
+                FALLBACK_PROFILE="$PROFILE_NAME"
+              fi
+              if [[ "$PROFILE_NAME" == *"$TARGET_KEYWORD"* ]]; then
+                MATCHING_PROFILE="$PROFILE_NAME"
+                break
+              fi
+            fi
+          done
+
+          SELECTED_PROFILE=${MATCHING_PROFILE:-$FALLBACK_PROFILE}
+          if [ -z "$SELECTED_PROFILE" ]; then
+            echo "Unable to locate an App Store provisioning profile for org.usernode.app" >&2
+            ls -la "$PROFILE_DIR"
+            exit 1
+          fi
+
+          cat > ios/ExportOptions-ci.plist <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>app-store</string>
+    <key>teamID</key>
+    <string>785Y2C9VG2</string>
+    <key>uploadBitcode</key>
+    <false/>
+    <key>uploadSymbols</key>
+    <true/>
+    <key>compileBitcode</key>
+    <false/>
+    <key>signingStyle</key>
+    <string>manual</string>
+    <key>provisioningProfiles</key>
+    <dict>
+        <key>org.usernode.app</key>
+        <string>$SELECTED_PROFILE</string>
+    </dict>
+</dict>
+</plist>
+EOF
+
+          echo "Using provisioning profile: $SELECTED_PROFILE"
+          echo "export_options=ios/ExportOptions-ci.plist" >> $GITHUB_OUTPUT
+
       - name: Build iOS IPA
         run: |
           flutter build ipa \
@@ -612,7 +686,7 @@ jobs:
             --build-number=${{ steps.version.outputs.build_number }} \
             --build-name=${{ steps.version.outputs.version }} \
             --dart-define-from-file=.env \
-            --export-options-plist=${{ steps.env_config_ios.outputs.export_options }}
+            --export-options-plist=${{ steps.export_options.outputs.export_options }}
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4

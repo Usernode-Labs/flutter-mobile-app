@@ -387,15 +387,16 @@ jobs:
       - name: Setup jq
         run: brew install jq
 
-      - name: Read build number from pubspec
+      - name: Set build number from run
         id: version
         run: |
           chmod +x scripts/version_manager.sh
-          BUILD_NUMBER=$(scripts/version_manager.sh get-build production)
+          BUILD_NUMBER=$((1000 + ${GITHUB_RUN_NUMBER}))
+          scripts/version_manager.sh set-build "$BUILD_NUMBER"
           VERSION=$(scripts/version_manager.sh get production)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
-          echo "📦 Building version: $VERSION (existing build $BUILD_NUMBER)"
+          echo "📦 Building version: $VERSION (build number $BUILD_NUMBER from run ${GITHUB_RUN_NUMBER})"
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -641,8 +642,11 @@ jobs:
         run: |
           ACTION="built release"
           BUILD="${{ needs.build-android.outputs.build_number }}"
+          VERSION="${{ needs.build-android.outputs.version }}"
+          ANDROID_RESULT="${{ needs.build-android.result }}"
+          IOS_RESULT="${{ needs.build-ios.result }}"
 
-          if [ "${{ needs.build-android.result }}" == "failure" ] || [ "${{ needs.build-ios.result }}" == "failure" ]; then
+          if [ "$ANDROID_RESULT" == "failure" ] || [ "$IOS_RESULT" == "failure" ]; then
             echo "status=failure" >> $GITHUB_OUTPUT
             echo "emoji=❌" >> $GITHUB_OUTPUT
           else
@@ -652,6 +656,9 @@ jobs:
 
           echo "action=$ACTION" >> $GITHUB_OUTPUT
           echo "build=$BUILD" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "android_result=$ANDROID_RESULT" >> $GITHUB_OUTPUT
+          echo "ios_result=$IOS_RESULT" >> $GITHUB_OUTPUT
 
       - name: Send Discord notification
         if: env.DISCORD_WEBHOOK_URL != ''
@@ -678,6 +685,11 @@ jobs:
                     \"inline\": true
                   },
                   {
+                    \"name\": \"Version\",
+                    \"value\": \"${{ steps.status.outputs.version }}\",
+                    \"inline\": true
+                  },
+                  {
                     \"name\": \"Status\",
                     \"value\": \"${{ steps.status.outputs.status }}\",
                     \"inline\": true
@@ -691,6 +703,21 @@ jobs:
                     \"name\": \"Branch\",
                     \"value\": \"${{ github.ref_name }}\",
                     \"inline\": true
+                  },
+                  {
+                    \"name\": \"Android\",
+                    \"value\": \"${{ steps.status.outputs.android_result }}\",
+                    \"inline\": true
+                  },
+                  {
+                    \"name\": \"iOS\",
+                    \"value\": \"${{ steps.status.outputs.ios_result }}\",
+                    \"inline\": true
+                  },
+                  {
+                    \"name\": \"Run\",
+                    \"value\": \"https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\",
+                    \"inline\": false
                   }
                 ],
                 \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\"

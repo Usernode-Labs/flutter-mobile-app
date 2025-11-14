@@ -5,10 +5,12 @@
 **Architecture**: Scheduled discrete wake-ups (NOT continuous operation)
 
 **Strategy**:
+
 - **Android**: Keep node running + use exact alarms to ensure app wakes before slots (90-95% reliability)
 - **iOS**: Start/stop node on demand + use BGProcessingTask + notifications for user alerts (60-90% reliability)
 
 **Key Approach**:
+
 1. Query Rust backend for won slots via `epochRewards(includeWonSlots: true)`
 2. Schedule platform-specific alarms/tasks before each slot
 3. When alarm fires: ensure node is running, monitor status until block is produced
@@ -19,6 +21,7 @@
 ## Rust Backend API (Already Available)
 
 ### 1. Get Won Slots
+
 ```dart
 final rpc = RustBackendService.instance.rpc;
 final epochData = await rpc.epochRewards(
@@ -33,6 +36,7 @@ final epochData = await rpc.epochRewards(
 ```
 
 ### 2. Monitor Block Production Status
+
 ```dart
 final status = await rpc.status();
 
@@ -47,6 +51,7 @@ final status = await rpc.status();
 ```
 
 ### 3. Node Lifecycle (Already Available)
+
 ```dart
 // Start node
 await RustBackendService.instance.startForActiveAccount();
@@ -64,30 +69,30 @@ final rpc = RustBackendService.instance.rpc;
 
 ### Android Constraints
 
-| Constraint | Impact | Workaround | Severity |
-|------------|--------|------------|----------|
-| **Exact Alarm Permission Required (Android 14+)** | User must grant permission to schedule exact alarms | Request permission at runtime with clear explanation | Medium |
-| **Background Service Restrictions** | Foreground service needed for reliable operation | Use short-lived FGS during slot production only | Medium |
-| **OEM-Specific Killing** | Xiaomi, Oppo, OnePlus kill background apps aggressively | Educate users to whitelist app; use persistent connection | High |
-| **Doze Mode** | System restricts background activity in deep sleep | Exact alarms bypass Doze; use setExactAndAllowWhileIdle() | Low |
+| Constraint                                        | Impact                                                  | Workaround                                                | Severity |
+| ------------------------------------------------- | ------------------------------------------------------- | --------------------------------------------------------- | -------- |
+| **Exact Alarm Permission Required (Android 14+)** | User must grant permission to schedule exact alarms     | Request permission at runtime with clear explanation      | Medium   |
+| **Background Service Restrictions**               | Foreground service needed for reliable operation        | Use short-lived FGS during slot production only           | Medium   |
+| **OEM-Specific Killing**                          | Xiaomi, Oppo, OnePlus kill background apps aggressively | Educate users to whitelist app; use persistent connection | High     |
+| **Doze Mode**                                     | System restricts background activity in deep sleep      | Exact alarms bypass Doze; use setExactAndAllowWhileIdle() | Low      |
 
 ### iOS Constraints
 
-| Constraint | Impact | Workaround | Severity |
-|------------|--------|------------|----------|
-| **BGProcessingTask Unreliable** | System decides when to run; not guaranteed | Use notifications to prompt user before critical slots | **Critical** |
-| **30-Second Background Limit** | Without special mode, app suspended after 30s | Start/stop node on demand; keep work under 30s window | **Critical** |
-| **No Exact Alarm Equivalent** | Cannot schedule precise wake-ups | Combine BGTask (early) + notification (fallback) | **Critical** |
-| **Memory Limits** | ~50MB in background; terminated if exceeded | Stop node between slots to free memory | **Critical** |
-| **No Boot Receiver** | Cannot auto-start after device reboot | Prompt user to open app daily to recalculate slots | High |
+| Constraint                      | Impact                                        | Workaround                                             | Severity     |
+| ------------------------------- | --------------------------------------------- | ------------------------------------------------------ | ------------ |
+| **BGProcessingTask Unreliable** | System decides when to run; not guaranteed    | Use notifications to prompt user before critical slots | **Critical** |
+| **30-Second Background Limit**  | Without special mode, app suspended after 30s | Start/stop node on demand; keep work under 30s window  | **Critical** |
+| **No Exact Alarm Equivalent**   | Cannot schedule precise wake-ups              | Combine BGTask (early) + notification (fallback)       | **Critical** |
+| **Memory Limits**               | ~50MB in background; terminated if exceeded   | Stop node between slots to free memory                 | **Critical** |
+| **No Boot Receiver**            | Cannot auto-start after device reboot         | Prompt user to open app daily to recalculate slots     | High         |
 
 ### Cross-Platform Constraints
 
-| Constraint | Both Platforms | Workaround | Severity |
-|------------|----------------|------------|----------|
-| **Network Dependency** | Node needs internet to sync and produce blocks | Detect offline state; warn user before slots | High |
-| **Battery Impact** | Multiple wake-ups per day drain battery | Optimize: only wake 2 min before slots | Medium |
-| **User Awareness** | Users may force-close app or disable permissions | Clear UI explaining validator requirements | High |
+| Constraint             | Both Platforms                                   | Workaround                                   | Severity |
+| ---------------------- | ------------------------------------------------ | -------------------------------------------- | -------- |
+| **Network Dependency** | Node needs internet to sync and produce blocks   | Detect offline state; warn user before slots | High     |
+| **Battery Impact**     | Multiple wake-ups per day drain battery          | Optimize: only wake 2 min before slots       | Medium   |
+| **User Awareness**     | Users may force-close app or disable permissions | Clear UI explaining validator requirements   | High     |
 
 ---
 
@@ -419,7 +424,7 @@ stateDiagram-v2
     WaitingForSlot --> PreSlotWakeup: Alarm fires (2 min before slot)
     WaitingForSlot --> EpochTransition: Epoch changes
 
-    PreSlotWakeup --> NodeStarting: "iOS: Start node<br/>Android: Node already running"
+    PreSlotWakeup --> NodeStarting: iOS starts node, Android already running
 
     NodeStarting --> Monitoring: Node running, start polling
 
@@ -435,8 +440,8 @@ stateDiagram-v2
     RecordSuccess --> Cleanup: Send success notification
     RecordFailure --> Cleanup: Send failure notification
 
-    Cleanup --> StopNode: "iOS: Stop node to save memory"
-    Cleanup --> WaitingForSlot: "Android: Keep node running"
+    Cleanup --> StopNode: iOS stops node to save memory
+    Cleanup --> WaitingForSlot: Android keeps node running
     StopNode --> WaitingForSlot
 
     EpochTransition --> CancelAlarms: Cancel old epoch alarms
@@ -452,6 +457,7 @@ stateDiagram-v2
 ### Phase 1: Core Services (Platform-Agnostic)
 
 #### Slot Scheduler Service
+
 - [ ] Create `lib/core/services/slot_scheduler_service.dart`
 - [ ] Define `SlotSchedulerService` class with methods:
   - [ ] `Future<void> scheduleDailySlots()` - Query epoch won slots and schedule alarms
@@ -463,6 +469,7 @@ stateDiagram-v2
 - [ ] Handle epoch transitions (detect new epoch, recalculate, reschedule)
 
 #### Slot Monitor Service
+
 - [ ] Create `lib/core/services/slot_monitor_service.dart`
 - [ ] Define `SlotMonitorService` class with methods:
   - [ ] `Stream<BlockProductionStatus> monitorSlot(int slotNumber)` - Monitor specific slot
@@ -473,6 +480,7 @@ stateDiagram-v2
 - [ ] Record success/failure statistics
 
 #### Statistics Repository
+
 - [ ] Create `lib/core/repositories/block_production_stats_repository.dart`
 - [ ] Define data models:
   - [ ] `SlotResult` - Outcome of a single slot (produced, missed, error)
@@ -490,6 +498,7 @@ stateDiagram-v2
 #### Native Android Code
 
 ##### AlarmManager Integration
+
 - [ ] Create `android/app/src/main/kotlin/com/usernode_labs/usernode/SlotAlarmReceiver.kt`
 - [ ] Extend `BroadcastReceiver` to handle alarm intents
 - [ ] In `onReceive()`:
@@ -499,6 +508,7 @@ stateDiagram-v2
 - [ ] Add receiver to `AndroidManifest.xml`
 
 ##### Method Channel Handler
+
 - [ ] Update `android/app/src/main/kotlin/com/usernode_labs/usernode/MainActivity.kt`
 - [ ] Create method channel: `com.usernode_labs.usernode/slot_scheduler`
 - [ ] Implement methods:
@@ -510,6 +520,7 @@ stateDiagram-v2
   - [ ] `requestExactAlarmPermission()` - Open settings to grant permission
 
 ##### Manifest Updates
+
 - [ ] Update `android/app/src/main/AndroidManifest.xml`
 - [ ] Add permissions:
   - [ ] `<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />`
@@ -524,6 +535,7 @@ stateDiagram-v2
   ```
 
 #### Flutter Android Service
+
 - [ ] Create `lib/core/services/android_slot_scheduler.dart`
 - [ ] Implement `SlotScheduler` interface
 - [ ] Methods:
@@ -542,6 +554,7 @@ stateDiagram-v2
 #### Native iOS Code
 
 ##### BGProcessingTask Setup
+
 - [ ] Update `ios/Runner/Info.plist`
 - [ ] Add background modes:
   ```xml
@@ -560,6 +573,7 @@ stateDiagram-v2
   ```
 
 ##### BGTask Registration & Handling
+
 - [ ] Update `ios/Runner/AppDelegate.swift`
 - [ ] In `application(_:didFinishLaunchingWithOptions:)`:
   - [ ] Register BGTask handler:
@@ -578,6 +592,7 @@ stateDiagram-v2
   - [ ] Call `task.setTaskCompleted(success:)` when done
 
 ##### Method Channel Handler
+
 - [ ] Create method channel: `com.usernode_labs.usernode/slot_scheduler`
 - [ ] Implement methods in AppDelegate:
   - [ ] `scheduleBGTask(slotNumber, timestampMs)` - Schedule BGProcessingTask
@@ -586,12 +601,14 @@ stateDiagram-v2
   - [ ] `cancelNotification(identifier)` - Cancel notification
 
 ##### Local Notifications
+
 - [ ] Request notification permission in AppDelegate
 - [ ] Create notification category "SLOT_REMINDER"
 - [ ] Define notification actions (optional: "Open App")
 - [ ] Handle notification taps → launch app with slot context
 
 #### Flutter iOS Service
+
 - [ ] Create `lib/core/services/ios_slot_scheduler.dart`
 - [ ] Implement `SlotScheduler` interface
 - [ ] Methods:
@@ -610,6 +627,7 @@ stateDiagram-v2
 ### Phase 4: Flutter UI Integration
 
 #### Epoch Calculator Page
+
 - [ ] Create `lib/features/epochs/presentation/pages/epoch_calculator_page.dart`
 - [ ] UI Components:
   - [ ] "Calculate Won Slots" button
@@ -626,6 +644,7 @@ stateDiagram-v2
   - [ ] Show success/error feedback
 
 #### Upcoming Slots Widget
+
 - [ ] Create `lib/features/epochs/presentation/widgets/upcoming_slots_list.dart`
 - [ ] Display each upcoming slot as a card:
   - [ ] Slot number
@@ -637,6 +656,7 @@ stateDiagram-v2
 - [ ] Refresh on pull-down
 
 #### Settings Integration
+
 - [ ] Update `lib/features/settings/presentation/pages/settings_page.dart`
 - [ ] Add "Block Production" section
 - [ ] Settings items:
@@ -655,6 +675,7 @@ stateDiagram-v2
   - [ ] **View Statistics** button → navigate to stats page
 
 #### Statistics Dashboard
+
 - [ ] Create `lib/features/epochs/presentation/pages/block_production_stats_page.dart`
 - [ ] Display metrics:
   - [ ] **Today**: X won slots, Y produced, Z missed (reliability %)
@@ -669,6 +690,7 @@ stateDiagram-v2
 - [ ] Export button (optional): Export CSV of slot history
 
 #### Real-time Slot Monitor Widget
+
 - [ ] Create `lib/features/epochs/presentation/widgets/slot_production_monitor.dart`
 - [ ] Show during active slot window (2 min before → 1 min after):
   - [ ] Large countdown timer: "Slot 145 in 1m 32s"
@@ -690,6 +712,7 @@ stateDiagram-v2
 #### Daily Slot Calculation Task
 
 ##### Android: WorkManager
+
 - [ ] Update `lib/core/services/background_task_service.dart`
 - [ ] Add new task: `daily_slot_calculation`
 - [ ] Schedule periodic work:
@@ -709,6 +732,7 @@ stateDiagram-v2
   - [ ] Return success
 
 ##### iOS: BGAppRefreshTask
+
 - [ ] In `ios/Runner/AppDelegate.swift`:
   - [ ] Register handler for `com.usernode.dailySlotCalc`
   - [ ] In handler: send message to Flutter to trigger calculation
@@ -719,6 +743,7 @@ stateDiagram-v2
   ```
 
 #### App Lifecycle Handling
+
 - [ ] Update `lib/core/utils/lifecycle.dart`
 - [ ] In `didChangeAppLifecycleState`:
   - [ ] **On resume**:
@@ -730,6 +755,7 @@ stateDiagram-v2
     - [ ] Save current state
 
 #### Slot Alarm Handler
+
 - [ ] Create `lib/core/services/slot_alarm_handler.dart`
 - [ ] Singleton service that handles incoming slot alarms
 - [ ] Method: `Future<void> handleSlotAlarm(int slotNumber, int timestampMs)`
@@ -753,6 +779,7 @@ stateDiagram-v2
 ### Phase 6: Testing & Validation
 
 #### Unit Tests
+
 - [ ] Test `SlotSchedulerService`:
   - [ ] Mock Rust backend responses
   - [ ] Verify slot scheduling logic
@@ -766,6 +793,7 @@ stateDiagram-v2
   - [ ] Test reliability calculations
 
 #### Integration Tests
+
 - [ ] Test Android alarm flow:
   - [ ] Schedule alarm → wait → verify receiver fired
   - [ ] Test with app in background
@@ -777,6 +805,7 @@ stateDiagram-v2
   - [ ] Stop node → wait → start node → verify sync completes
 
 #### End-to-End Tests
+
 - [ ] Full 24-hour simulation:
   - [ ] Calculate won slots for test epoch
   - [ ] Schedule alarms
@@ -789,6 +818,7 @@ stateDiagram-v2
   - [ ] Verify old alarms canceled
 
 #### Device Testing
+
 - [ ] **Android devices** (minimum 3):
   - [ ] Pixel (stock Android 14)
   - [ ] Samsung (One UI)
@@ -810,6 +840,7 @@ stateDiagram-v2
 ### Phase 7: User Experience & Polish
 
 #### Permission Request Flow
+
 - [ ] Create onboarding screen explaining block production requirements
 - [ ] Step-by-step permission requests:
   - [ ] **Android**: Exact alarm permission
@@ -826,6 +857,7 @@ stateDiagram-v2
   - [ ] Link to external guides (dontkillmyapp.com)
 
 #### Notifications
+
 - [ ] **Android**:
   - [ ] "Slot 145 in 2 minutes" - when alarm fires
   - [ ] "Block produced for slot 145 ✓" - on success
@@ -836,6 +868,7 @@ stateDiagram-v2
   - [ ] Tap action → open app in slot monitor view
 
 #### Error Handling & Retry
+
 - [ ] If alarm fires but node is offline:
   - [ ] Attempt to start node (3 retries with 10s delay)
   - [ ] If fails: show notification "Unable to produce block for slot X - check internet"
@@ -849,6 +882,7 @@ stateDiagram-v2
   - [ ] Prompt user to grant permission
 
 #### Documentation for Users
+
 - [ ] In-app help section:
   - [ ] "How block production works"
   - [ ] "Why you receive notifications"
@@ -867,13 +901,13 @@ stateDiagram-v2
 
 ## RELIABILITY ESTIMATES
 
-| Platform | Method | Expected Reliability | Battery Impact | User Interaction |
-|----------|--------|---------------------|----------------|------------------|
-| **Android** | Exact Alarms + Continuous Node | **90-95%** | Low (node running) | Minimal (just grant permission once) |
-| **Android** | Exact Alarms + On-Demand Node | **85-90%** | Very Low | Minimal |
-| **iOS** | BGTask only | **50-70%** | Very Low | None (but unreliable) |
-| **iOS** | BGTask + Notifications | **80-90%** | Low | Must respond to notifications |
-| **iOS** | Foreground Mode (user opens app) | **99%** | Low | Must keep app open during slots |
+| Platform    | Method                           | Expected Reliability | Battery Impact     | User Interaction                     |
+| ----------- | -------------------------------- | -------------------- | ------------------ | ------------------------------------ |
+| **Android** | Exact Alarms + Continuous Node   | **90-95%**           | Low (node running) | Minimal (just grant permission once) |
+| **Android** | Exact Alarms + On-Demand Node    | **85-90%**           | Very Low           | Minimal                              |
+| **iOS**     | BGTask only                      | **50-70%**           | Very Low           | None (but unreliable)                |
+| **iOS**     | BGTask + Notifications           | **80-90%**           | Low                | Must respond to notifications        |
+| **iOS**     | Foreground Mode (user opens app) | **99%**              | Low                | Must keep app open during slots      |
 
 ---
 
@@ -892,19 +926,23 @@ stateDiagram-v2
 ## EXPECTED OUTCOMES
 
 ### Battery Life
+
 - **Android (continuous node)**: 10-15% daily increase
 - **Android (on-demand node)**: 3-5% daily increase (only wakes for slots)
 - **iOS (on-demand)**: 3-5% daily increase
 
 ### User Experience
+
 - **Android**: Nearly invisible - one-time permission, then automatic
 - **iOS**: Requires attention - respond to notifications before slots
 
 ### Reliability
+
 - **Android**: 90-95% with proper permissions and user whitelisting
 - **iOS**: 80-90% if user responds to notifications promptly
 
 ### Development Effort
+
 - **Core + Android**: Medium complexity (exact alarms are straightforward)
 - **iOS**: High complexity (BGTasks unreliable, need multi-tier fallback)
 - **Testing**: High effort (need real device testing over 24+ hours)
@@ -914,26 +952,21 @@ stateDiagram-v2
 ## DEPENDENCIES & BLOCKERS
 
 ### Hard Dependencies (Must Have)
+
 ✅ Rust backend already exposes `epochRewards(includeWonSlots: true)`
 ✅ Rust node already supports start/stop via `RustBackendService`
 ✅ Flutter can call Rust via FFI (flutter_rust_bridge)
 
 ### Soft Dependencies (Nice to Have, but not blockers)
+
 ⚠️ Rust backend API to explicitly trigger sync (currently implicit via node running)
 ⚠️ Rust backend API to produce block for specific slot (currently automatic)
 
 **These are NOT blockers** - the current "node runs and produces automatically" model works fine. The Flutter app just needs to:
+
 1. Ensure node is running before slot time
 2. Monitor status to verify production happened
 3. Record statistics
-
----
-
-## CHANGE LOG
-
-| Date | Change | Author |
-|------|--------|--------|
-| 2025-11-14 | Initial Flutter-only implementation plan | Claude Code |
 
 ---
 

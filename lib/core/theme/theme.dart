@@ -370,7 +370,8 @@ class MaterialTheme {
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ButtonStyle(
-            padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
+            padding: WidgetStateProperty.all(
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
             elevation: WidgetStateProperty.all(0),
             shape: WidgetStateProperty.all(
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -392,7 +393,8 @@ class MaterialTheme {
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide(color: colorScheme.primary),
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         ),
         navigationBarTheme: NavigationBarThemeData(
           backgroundColor: colorScheme.surface,
@@ -400,12 +402,16 @@ class MaterialTheme {
           elevation: 0,
           iconTheme: WidgetStateProperty.resolveWith((states) {
             final selected = states.contains(WidgetState.selected);
-            return IconThemeData(color: selected ? colorScheme.primary : colorScheme.onSurfaceVariant);
+            return IconThemeData(
+                color: selected
+                    ? colorScheme.primary
+                    : colorScheme.onSurfaceVariant);
           }),
           labelTextStyle: WidgetStateProperty.resolveWith((states) {
             final selected = states.contains(WidgetState.selected);
             return TextStyle(
-              color: selected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+              color:
+                  selected ? colorScheme.primary : colorScheme.onSurfaceVariant,
               fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
             );
           }),

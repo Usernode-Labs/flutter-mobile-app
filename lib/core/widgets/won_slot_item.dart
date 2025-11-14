@@ -171,7 +171,8 @@ class WonSlotItem extends StatelessWidget {
       decoration: BoxDecoration(
         color: statusBgColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: statusColor.withValues(alpha: 0.3), width: 1.5),
+        border:
+            Border.all(color: statusColor.withValues(alpha: 0.3), width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -203,7 +204,8 @@ class WonSlotItem extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: statusColor,
                   borderRadius: BorderRadius.circular(6),
@@ -227,7 +229,8 @@ class WonSlotItem extends StatelessWidget {
             const SizedBox(height: 12),
             Row(
               children: [
-                Icon(Icons.timer_outlined, size: 18, color: colorScheme.primary),
+                Icon(Icons.timer_outlined,
+                    size: 18, color: colorScheme.primary),
                 const SizedBox(width: 8),
                 Text(
                   _formatTimeRemaining(timeRemaining),
@@ -247,7 +250,8 @@ class WonSlotItem extends StatelessWidget {
   String _formatExpectedTime(BigInt expectedTimeMs) {
     try {
       final millis = expectedTimeMs.toInt();
-      final dt = DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true).toLocal();
+      final dt =
+          DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true).toLocal();
       final now = DateTime.now();
 
       // If it's today, show time only
@@ -282,7 +286,8 @@ class WonSlotItem extends StatelessWidget {
   Duration _calculateTimeRemaining(BigInt expectedTimeMs) {
     try {
       final millis = expectedTimeMs.toInt();
-      final expectedTime = DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true);
+      final expectedTime =
+          DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true);
       final now = DateTime.now().toUtc();
       return expectedTime.difference(now);
     } catch (e) {

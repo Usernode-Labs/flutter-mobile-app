@@ -6,4 +6,3 @@ abstract class WalletRepository {
   Future<List<Transaction>> getRecentTransactions({int limit = 10});
   Future<void> refresh();
 }
-

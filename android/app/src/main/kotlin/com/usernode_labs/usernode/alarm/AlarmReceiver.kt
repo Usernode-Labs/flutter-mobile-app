@@ -60,7 +60,17 @@ class AlarmReceiver : BroadcastReceiver() {
 
     private fun handleBootCompleted(context: Context) {
         Log.i(TAG, "Device boot completed - alarms need to be rescheduled")
-        // Alarms are lost on reboot and need to be rescheduled
-        // This will be handled by Flutter when the app starts
+
+        // Start a background service to reschedule alarms
+        // This ensures alarms are restored even if user doesn't open the app
+        val serviceIntent = Intent(context, BootRescheduleService::class.java)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.startForegroundService(serviceIntent)
+        } else {
+            context.startService(serviceIntent)
+        }
+
+        Log.i(TAG, "Boot reschedule service started")
     }
 }

@@ -9,9 +9,12 @@ class AppConfig {
     required this.verboseLogging,
   });
 
-  static const String _env = String.fromEnvironment('APP_ENV', defaultValue: 'development');
-  static const String _api = String.fromEnvironment('API_BASE_URL', defaultValue: '');
-  static const bool _verbose = bool.fromEnvironment('VERBOSE_LOGGING', defaultValue: false);
+  static const String _env =
+      String.fromEnvironment('APP_ENV', defaultValue: 'development');
+  static const String _api =
+      String.fromEnvironment('API_BASE_URL', defaultValue: '');
+  static const bool _verbose =
+      bool.fromEnvironment('VERBOSE_LOGGING', defaultValue: false);
 
   static AppConfig get instance => AppConfig._(
         environment: _env,
@@ -20,8 +23,8 @@ class AppConfig {
       );
 
   // GitHub configuration
-  static const String githubToken = String.fromEnvironment('GITHUB_TOKEN', defaultValue: '');
+  static const String githubToken =
+      String.fromEnvironment('GITHUB_TOKEN', defaultValue: '');
   static const String githubOwner = 'Usernode-Labs';
   static const String githubRepo = 'flutter-mobile-app';
 }
-

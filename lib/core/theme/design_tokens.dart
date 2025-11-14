@@ -147,19 +147,24 @@ const double kButtonHeightLarge = 56.0;
 // ============================================================================
 
 /// Small radius for all corners
-const BorderRadius kBorderRadiusSmall = BorderRadius.all(Radius.circular(kRadiusSmall));
+const BorderRadius kBorderRadiusSmall =
+    BorderRadius.all(Radius.circular(kRadiusSmall));
 
 /// Medium radius for all corners
-const BorderRadius kBorderRadiusMedium = BorderRadius.all(Radius.circular(kRadiusMedium));
+const BorderRadius kBorderRadiusMedium =
+    BorderRadius.all(Radius.circular(kRadiusMedium));
 
 /// Large radius for all corners
-const BorderRadius kBorderRadiusLarge = BorderRadius.all(Radius.circular(kRadiusLarge));
+const BorderRadius kBorderRadiusLarge =
+    BorderRadius.all(Radius.circular(kRadiusLarge));
 
 /// XLarge radius for all corners
-const BorderRadius kBorderRadiusXLarge = BorderRadius.all(Radius.circular(kRadiusXLarge));
+const BorderRadius kBorderRadiusXLarge =
+    BorderRadius.all(Radius.circular(kRadiusXLarge));
 
 /// Full radius for all corners (pill shape)
-const BorderRadius kBorderRadiusFull = BorderRadius.all(Radius.circular(kRadiusFull));
+const BorderRadius kBorderRadiusFull =
+    BorderRadius.all(Radius.circular(kRadiusFull));
 
 /// Top-only large radius (for bottom sheets, modals)
 const BorderRadius kBorderRadiusTopLarge = BorderRadius.vertical(

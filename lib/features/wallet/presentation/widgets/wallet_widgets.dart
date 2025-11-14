@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/features/wallet/data/models/transaction_model.dart';
- 
+
 import 'package:crypto_mobile_app/core/l10n/app_localizations.dart';
 
 class WalletBalanceCard extends StatefulWidget {
@@ -26,7 +26,6 @@ class WalletBalanceCard extends StatefulWidget {
 }
 
 class _WalletBalanceCardState extends State<WalletBalanceCard> {
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -62,8 +61,8 @@ class _WalletBalanceCardState extends State<WalletBalanceCard> {
                             contentPadding: EdgeInsets.zero,
                             leading: CircleAvatar(
                               radius: 18,
-                              backgroundColor:
-                                  theme.colorScheme.primary.withValues(alpha: 0.08),
+                              backgroundColor: theme.colorScheme.primary
+                                  .withValues(alpha: 0.08),
                               foregroundColor: theme.colorScheme.primary,
                               child: Icon(h.icon, size: 18),
                             ),
@@ -149,7 +148,7 @@ class QuickActionButton extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
+                  color: color.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(

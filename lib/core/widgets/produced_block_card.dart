@@ -4,9 +4,9 @@ import 'package:intl/intl.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 
 enum BlockCardVariant {
-  compact,   // Home Screen - minimal info
-  standard,  // Produced Blocks Screen - detailed
-  detailed,  // Node Status Screen - most detailed
+  compact, // Home Screen - minimal info
+  standard, // Produced Blocks Screen - detailed
+  detailed, // Node Status Screen - most detailed
 }
 
 class ProducedBlockCard extends StatelessWidget {
@@ -86,7 +86,8 @@ class ProducedBlockCard extends StatelessWidget {
 
             // Content
             Expanded(
-              child: _buildContent(context, theme, colorScheme, blockHash, producerPubkey),
+              child: _buildContent(
+                  context, theme, colorScheme, blockHash, producerPubkey),
             ),
 
             // TKN amount
@@ -116,7 +117,8 @@ class ProducedBlockCard extends StatelessWidget {
       case BlockCardVariant.standard:
         return _buildStandardContent(theme, colorScheme, blockHash);
       case BlockCardVariant.detailed:
-        return _buildDetailedContent(theme, colorScheme, blockHash, producerPubkey);
+        return _buildDetailedContent(
+            theme, colorScheme, blockHash, producerPubkey);
     }
   }
 
@@ -324,7 +326,8 @@ class ProducedBlockCard extends StatelessWidget {
   String _formatTimeAgo(BigInt timestampMs) {
     try {
       final millis = timestampMs.toInt();
-      final blockTime = DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true).toLocal();
+      final blockTime =
+          DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true).toLocal();
       final now = DateTime.now();
       final diff = now.difference(blockTime);
 
@@ -345,7 +348,8 @@ class ProducedBlockCard extends StatelessWidget {
   String _formatTimestamp(BigInt timestampMs) {
     try {
       final millis = timestampMs.toInt();
-      final blockTime = DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true).toLocal();
+      final blockTime =
+          DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true).toLocal();
       final hour = blockTime.hour.toString().padLeft(2, '0');
       final minute = blockTime.minute.toString().padLeft(2, '0');
       final second = blockTime.second.toString().padLeft(2, '0');
@@ -358,7 +362,8 @@ class ProducedBlockCard extends StatelessWidget {
   String _formatTimestampDetailed(BigInt timestampMs) {
     try {
       final millis = timestampMs.toInt();
-      final blockTime = DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true).toLocal();
+      final blockTime =
+          DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true).toLocal();
       final now = DateTime.now();
       final diff = now.difference(blockTime);
 
@@ -367,13 +372,16 @@ class ProducedBlockCard extends StatelessWidget {
       if (diff.inMinutes < 1) {
         relativeTime = 'just now';
       } else if (diff.inMinutes < 60) {
-        relativeTime = '${diff.inMinutes} min${diff.inMinutes == 1 ? '' : 's'} ago';
+        relativeTime =
+            '${diff.inMinutes} min${diff.inMinutes == 1 ? '' : 's'} ago';
       } else if (diff.inHours < 24) {
-        relativeTime = '${diff.inHours} hour${diff.inHours == 1 ? '' : 's'} ago';
+        relativeTime =
+            '${diff.inHours} hour${diff.inHours == 1 ? '' : 's'} ago';
       } else if (diff.inDays < 7) {
         relativeTime = '${diff.inDays} day${diff.inDays == 1 ? '' : 's'} ago';
       } else {
-        relativeTime = '${(diff.inDays / 7).floor()} week${(diff.inDays / 7).floor() == 1 ? '' : 's'} ago';
+        relativeTime =
+            '${(diff.inDays / 7).floor()} week${(diff.inDays / 7).floor() == 1 ? '' : 's'} ago';
       }
 
       // Format absolute time

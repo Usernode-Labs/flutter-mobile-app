@@ -249,7 +249,8 @@ class SlotNotificationManager {
         NotificationConfig.upcomingSlotNotificationIdBase + slot.globalSlot;
 
     // Create earnings-focused notification message
-    final rewardAmount = rewardPerBlock != null ? _formatReward(rewardPerBlock) : 'rewards';
+    final rewardAmount =
+        rewardPerBlock != null ? _formatReward(rewardPerBlock) : 'rewards';
 
     await _notificationService.scheduleNotification(
       id: notificationId,
@@ -392,7 +393,8 @@ class SlotNotificationManager {
     await _notificationService.showNotification(
       id: notificationId,
       title: '⚠️ Slot Missed',
-      body: 'Slot #$globalSlot at ${timeFormatter.format(slotTime)} - Keep app open for next opportunities!',
+      body:
+          'Slot #$globalSlot at ${timeFormatter.format(slotTime)} - Keep app open for next opportunities!',
       payload: 'slot:$globalSlot:missed',
       isSlotNotification: true,
     );

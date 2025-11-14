@@ -2,6 +2,9 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:logger/logger.dart';
 
+/// Callback type for handling boot reschedule events
+typedef BootRescheduleCallback = Future<void> Function();
+
 /// Abstract interface for platform-specific alarm/wake-up scheduling
 ///
 /// Android: Uses AlarmManager with exact alarms and Foreground Service
@@ -11,17 +14,25 @@ class PlatformAlarmService {
   PlatformAlarmService._();
 
   final Logger _logger = Logger();
-  static const MethodChannel _channel = MethodChannel('com.usernode.lingash/alarm');
+  static const MethodChannel _channel =
+      MethodChannel('com.usernode.lingash/alarm');
 
   bool _initialized = false;
   bool _permissionsGranted = false;
+
+  /// Callback to invoke when device reboots and alarms need to be rescheduled
+  BootRescheduleCallback? _onBootReschedule;
 
   /// Initialize the platform alarm service
   Future<bool> initialize() async {
     if (_initialized) return true;
 
     try {
-      _logger.i('PlatformAlarmService initializing for ${Platform.operatingSystem}...');
+      _logger.i(
+          'PlatformAlarmService initializing for ${Platform.operatingSystem}...');
+
+      // Set up method call handler for platform->Flutter calls
+      _channel.setMethodCallHandler(_handleMethodCall);
 
       if (Platform.isAndroid) {
         await _initializeAndroid();
@@ -38,11 +49,52 @@ class PlatformAlarmService {
     }
   }
 
+  /// Handle method calls from platform (Android/iOS)
+  Future<dynamic> _handleMethodCall(MethodCall call) async {
+    _logger.d('Method call from platform: ${call.method}');
+
+    switch (call.method) {
+      case 'rescheduleAfterBoot':
+        return await _handleRescheduleAfterBoot();
+      default:
+        _logger.w('Unknown method call: ${call.method}');
+        throw MissingPluginException('Method ${call.method} not implemented');
+    }
+  }
+
+  /// Set the callback to invoke when device reboots
+  void setBootRescheduleCallback(BootRescheduleCallback callback) {
+    _onBootReschedule = callback;
+    _logger.d('Boot reschedule callback registered');
+  }
+
+  /// Handle alarm rescheduling after device reboot
+  Future<void> _handleRescheduleAfterBoot() async {
+    try {
+      _logger.i(
+          'Handling rescheduleAfterBoot - device rebooted, restoring alarms...');
+
+      if (_onBootReschedule == null) {
+        _logger.w('No boot reschedule callback registered!');
+        return;
+      }
+
+      // Invoke the registered callback
+      await _onBootReschedule!();
+
+      _logger.i('✓ Boot reschedule callback completed');
+    } catch (e) {
+      _logger.e('Error in rescheduleAfterBoot: $e');
+      rethrow;
+    }
+  }
+
   /// Initialize Android-specific alarm capabilities
   Future<void> _initializeAndroid() async {
     try {
       // Check if exact alarm permission is granted
-      final hasPermission = await _channel.invokeMethod<bool>('hasExactAlarmPermission') ?? false;
+      final hasPermission =
+          await _channel.invokeMethod<bool>('hasExactAlarmPermission') ?? false;
       _permissionsGranted = hasPermission;
 
       if (!hasPermission) {
@@ -97,7 +149,9 @@ class PlatformAlarmService {
   Future<bool> _requestAndroidPermissions() async {
     try {
       // Android 12+ requires user to grant exact alarm permission in settings
-      final granted = await _channel.invokeMethod<bool>('requestExactAlarmPermission') ?? false;
+      final granted =
+          await _channel.invokeMethod<bool>('requestExactAlarmPermission') ??
+              false;
       _permissionsGranted = granted;
 
       if (granted) {
@@ -116,7 +170,9 @@ class PlatformAlarmService {
   /// Request iOS notification permissions
   Future<bool> _requestIOSPermissions() async {
     try {
-      final granted = await _channel.invokeMethod<bool>('requestNotificationPermission') ?? false;
+      final granted =
+          await _channel.invokeMethod<bool>('requestNotificationPermission') ??
+              false;
       _permissionsGranted = granted;
 
       if (granted) {
@@ -176,10 +232,13 @@ class PlatformAlarmService {
   /// Schedule Android exact alarm
   Future<bool> _scheduleAndroidAlarm(Map<String, dynamic> params) async {
     try {
-      final success = await _channel.invokeMethod<bool>('scheduleExactAlarm', params) ?? false;
+      final success =
+          await _channel.invokeMethod<bool>('scheduleExactAlarm', params) ??
+              false;
 
       if (success) {
-        _logger.i('Android exact alarm scheduled for slot ${params['slotNumber']}');
+        _logger.i(
+            'Android exact alarm scheduled for slot ${params['slotNumber']}');
       } else {
         _logger.w('Failed to schedule Android exact alarm');
       }
@@ -194,7 +253,9 @@ class PlatformAlarmService {
   /// Schedule iOS background task and notification
   Future<bool> _scheduleIOSAlarm(Map<String, dynamic> params) async {
     try {
-      final success = await _channel.invokeMethod<bool>('scheduleIOSBGTask', params) ?? false;
+      final success =
+          await _channel.invokeMethod<bool>('scheduleIOSBGTask', params) ??
+              false;
 
       if (success) {
         _logger.i('iOS BGTask scheduled for slot ${params['slotNumber']}');
@@ -217,7 +278,9 @@ class PlatformAlarmService {
     }
 
     try {
-      final success = await _channel.invokeMethod<bool>('cancelAlarm', {'alarmId': alarmId}) ?? false;
+      final success = await _channel
+              .invokeMethod<bool>('cancelAlarm', {'alarmId': alarmId}) ??
+          false;
 
       if (success) {
         _logger.d('Alarm cancelled: $alarmId');
@@ -240,7 +303,8 @@ class PlatformAlarmService {
     }
 
     try {
-      final success = await _channel.invokeMethod<bool>('cancelAllAlarms') ?? false;
+      final success =
+          await _channel.invokeMethod<bool>('cancelAllAlarms') ?? false;
 
       if (success) {
         _logger.i('All alarms cancelled');
@@ -276,7 +340,9 @@ class PlatformAlarmService {
         'slotNumber': slotNumber,
       };
 
-      final success = await _channel.invokeMethod<bool>('startForegroundService', params) ?? false;
+      final success =
+          await _channel.invokeMethod<bool>('startForegroundService', params) ??
+              false;
 
       if (success) {
         _logger.i('Foreground service started for slot $slotNumber');
@@ -299,7 +365,8 @@ class PlatformAlarmService {
     }
 
     try {
-      final success = await _channel.invokeMethod<bool>('stopForegroundService') ?? false;
+      final success =
+          await _channel.invokeMethod<bool>('stopForegroundService') ?? false;
 
       if (success) {
         _logger.i('Foreground service stopped');
@@ -319,7 +386,8 @@ class PlatformAlarmService {
   /// Helps users exempt the app from battery optimization on OEM devices.
   Future<bool> openBatteryOptimizationSettings() async {
     try {
-      final success = await _channel.invokeMethod<bool>('openBatterySettings') ?? false;
+      final success =
+          await _channel.invokeMethod<bool>('openBatterySettings') ?? false;
 
       if (success) {
         _logger.i('Opened battery optimization settings');
@@ -341,7 +409,9 @@ class PlatformAlarmService {
     }
 
     try {
-      return await _channel.invokeMethod<bool>('isBatteryOptimizationDisabled') ?? false;
+      return await _channel
+              .invokeMethod<bool>('isBatteryOptimizationDisabled') ??
+          false;
     } on PlatformException catch (e) {
       _logger.e('Error checking battery optimization: ${e.message}');
       return false;

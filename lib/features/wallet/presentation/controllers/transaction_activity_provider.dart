@@ -70,7 +70,8 @@ class TransactionActivityController
         if (epochRewards != null) {
           coinbaseRewardAmount = epochRewards.rewardPerBlock;
           LoggingService.instance.debug(
-              'Coinbase reward amount: $coinbaseRewardAmount', tag: 'ACTIVITY');
+              'Coinbase reward amount: $coinbaseRewardAmount',
+              tag: 'ACTIVITY');
         }
       } catch (e) {
         LoggingService.instance
@@ -85,9 +86,8 @@ class TransactionActivityController
             .debug('Confirmed UTXOs: ${utxos.length}', tag: 'ACTIVITY');
 
         // Take last 5 UTXOs (most recent ones)
-        final limitedUtxos = utxos.length > 5
-            ? utxos.sublist(utxos.length - 5)
-            : utxos;
+        final limitedUtxos =
+            utxos.length > 5 ? utxos.sublist(utxos.length - 5) : utxos;
         for (var i = 0; i < limitedUtxos.length; i++) {
           final utxo = limitedUtxos[i];
           try {
@@ -112,8 +112,9 @@ class TransactionActivityController
         // Continue even if UTXOs fail
       }
 
-      LoggingService.instance
-          .debug('Total transactions: ${transactions.length} (${mockTransactions.length} mock + ${transactions.length - mockTransactions.length} real)', tag: 'ACTIVITY');
+      LoggingService.instance.debug(
+          'Total transactions: ${transactions.length} (${mockTransactions.length} mock + ${transactions.length - mockTransactions.length} real)',
+          tag: 'ACTIVITY');
 
       return transactions;
     } catch (e, st) {

@@ -88,15 +88,11 @@ class EpochRewardsUiController extends AsyncNotifier<EpochRewardsUiState?> {
     try {
       final cache = EpochRewardsCacheRepository();
       await cache.save(_cacheKey, snapshot);
-      LoggingService.instance.trace(
-          'Saved epoch rewards to cache',
-          tag: 'EPOCH_REWARDS_UI');
+      LoggingService.instance
+          .trace('Saved epoch rewards to cache', tag: 'EPOCH_REWARDS_UI');
     } catch (e, st) {
-      LoggingService.instance.error(
-          'Failed to save epoch rewards to cache',
-          tag: 'EPOCH_REWARDS_UI',
-          error: e,
-          stackTrace: st);
+      LoggingService.instance.error('Failed to save epoch rewards to cache',
+          tag: 'EPOCH_REWARDS_UI', error: e, stackTrace: st);
     }
 
     // Check if rewards increased and trigger notification

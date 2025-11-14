@@ -217,9 +217,8 @@ class SlotProductionRepository {
       }
     }
 
-    final successRate = totalAttempted > 0
-        ? (totalProduced / totalAttempted * 100)
-        : 0.0;
+    final successRate =
+        totalAttempted > 0 ? (totalProduced / totalAttempted * 100) : 0.0;
 
     _cachedStats = SlotProductionStats(
       totalWonSlots: totalWon,
@@ -331,10 +330,10 @@ class SlotProductionRepository {
 
 /// Status of a slot production
 enum SlotProductionStatus {
-  won,         // Slot was won, not yet attempted
-  attempting,  // Currently attempting to produce
-  produced,    // Successfully produced block
-  failed,      // Failed to produce block
+  won, // Slot was won, not yet attempted
+  attempting, // Currently attempting to produce
+  produced, // Successfully produced block
+  failed, // Failed to produce block
 }
 
 /// Record of a slot production attempt

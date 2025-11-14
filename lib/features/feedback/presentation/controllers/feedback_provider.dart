@@ -10,7 +10,8 @@ final feedbackRepositoryProvider = Provider<FeedbackRepository>((ref) {
 });
 
 // Provider for FeedbackQueueRepository
-final feedbackQueueRepositoryProvider = Provider<FeedbackQueueRepository>((ref) {
+final feedbackQueueRepositoryProvider =
+    Provider<FeedbackQueueRepository>((ref) {
   return FeedbackQueueRepository(
     feedbackRepository: ref.watch(feedbackRepositoryProvider),
   );
@@ -45,7 +46,8 @@ class FeedbackSubmissionState {
 }
 
 // StateNotifier for managing feedback submission
-class FeedbackSubmissionNotifier extends StateNotifier<FeedbackSubmissionState> {
+class FeedbackSubmissionNotifier
+    extends StateNotifier<FeedbackSubmissionState> {
   final FeedbackRepository _repository;
   final FeedbackQueueRepository _queueRepository;
 
@@ -72,7 +74,8 @@ class FeedbackSubmissionNotifier extends StateNotifier<FeedbackSubmissionState> 
 
         state = state.copyWith(
           status: FeedbackSubmissionStatus.error,
-          errorMessage: 'Failed to submit feedback. It has been queued for retry.',
+          errorMessage:
+              'Failed to submit feedback. It has been queued for retry.',
         );
       }
     } catch (e) {
@@ -93,7 +96,8 @@ class FeedbackSubmissionNotifier extends StateNotifier<FeedbackSubmissionState> 
 
 // Provider for FeedbackSubmissionNotifier
 final feedbackSubmissionProvider =
-    StateNotifierProvider<FeedbackSubmissionNotifier, FeedbackSubmissionState>((ref) {
+    StateNotifierProvider<FeedbackSubmissionNotifier, FeedbackSubmissionState>(
+        (ref) {
   return FeedbackSubmissionNotifier(
     ref.watch(feedbackRepositoryProvider),
     ref.watch(feedbackQueueRepositoryProvider),

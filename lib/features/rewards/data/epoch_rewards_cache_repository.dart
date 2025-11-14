@@ -32,10 +32,12 @@ class EpochRewardsSnapshot {
         'winsInEpoch': winsInEpoch,
         'rewardPerBlock': rewardPerBlock,
         'updatedAt': updatedAt,
-        'wonSlots': wonSlots?.map((slot) => {
-          'globalSlot': slot.globalSlot,
-          'expectedTimeMs': slot.expectedTimeMs.toString(),
-        }).toList(),
+        'wonSlots': wonSlots
+            ?.map((slot) => {
+                  'globalSlot': slot.globalSlot,
+                  'expectedTimeMs': slot.expectedTimeMs.toString(),
+                })
+            .toList(),
       };
 
   static EpochRewardsSnapshot? fromJson(Map<String, dynamic>? json) {
@@ -46,7 +48,8 @@ class EpochRewardsSnapshot {
         wonSlots = (json['wonSlots'] as List)
             .map((slot) => RpcEpochWonSlot(
                   globalSlot: (slot['globalSlot'] as num).toInt(),
-                  expectedTimeMs: BigInt.parse(slot['expectedTimeMs'] as String),
+                  expectedTimeMs:
+                      BigInt.parse(slot['expectedTimeMs'] as String),
                 ))
             .toList();
       }
@@ -86,4 +89,3 @@ class EpochRewardsCacheRepository {
     await prefs.setString('$_keyPrefix$envKey', jsonEncode(snapshot.toJson()));
   }
 }
-

@@ -6,7 +6,8 @@ class BestTipUiState {
   final BestTipSnapshot? snapshot;
   final bool isCached;
   final bool isStale;
-  const BestTipUiState({required this.snapshot, required this.isCached, required this.isStale});
+  const BestTipUiState(
+      {required this.snapshot, required this.isCached, required this.isStale});
 }
 
 class BestTipUiController extends AsyncNotifier<BestTipUiState?> {
@@ -18,7 +19,8 @@ class BestTipUiController extends AsyncNotifier<BestTipUiState?> {
 
     try {
       final bestTip = status.blockchain.bestTip;
-      final txs = bestTip.batches.map((b) => b.transactions.toString()).toList();
+      final txs =
+          bestTip.batches.map((b) => b.transactions.toString()).toList();
       final snap = BestTipSnapshot(
         height: bestTip.height,
         hash: bestTip.hash.toString(),
@@ -38,6 +40,7 @@ class BestTipUiController extends AsyncNotifier<BestTipUiState?> {
   }
 }
 
-final bestTipUiProvider = AsyncNotifierProvider<BestTipUiController, BestTipUiState?>(
+final bestTipUiProvider =
+    AsyncNotifierProvider<BestTipUiController, BestTipUiState?>(
   BestTipUiController.new,
 );

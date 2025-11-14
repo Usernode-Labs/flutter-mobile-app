@@ -143,7 +143,8 @@ class SentryUtil {
         }
         final bytes = utf8.encode(content);
         scope.addAttachment(
-          SentryAttachment.fromIntList(bytes, filename, contentType: contentType),
+          SentryAttachment.fromIntList(bytes, filename,
+              contentType: contentType),
         );
       },
     );

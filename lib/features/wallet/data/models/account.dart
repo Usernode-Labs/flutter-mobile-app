@@ -30,7 +30,8 @@ class AccountMeta {
     bool? backupConfirmed,
     bool? identityVerified,
     DateTime? identityVerifiedAt,
-  }) => AccountMeta(
+  }) =>
+      AccountMeta(
         id: id,
         name: name ?? this.name,
         createdAt: createdAt,
@@ -74,4 +75,3 @@ class AccountMeta {
   @override
   String toString() => jsonEncode(toJson());
 }
-

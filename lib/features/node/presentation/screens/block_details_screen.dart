@@ -36,7 +36,8 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
     const int maxTotal = 400;
 
     // First, generate the last step value (Block Confirmed) between 150-250ms
-    int lastStepValue = lastStepMinMs + random.nextInt(lastStepMaxMs - lastStepMinMs + 1);
+    int lastStepValue =
+        lastStepMinMs + random.nextInt(lastStepMaxMs - lastStepMinMs + 1);
 
     // Calculate remaining budget for first 6 steps
     int remainingBudget = maxTotal - lastStepValue;

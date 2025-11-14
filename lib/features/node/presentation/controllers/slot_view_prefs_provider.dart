@@ -26,8 +26,10 @@ class SlotViewPrefs {
 class SlotViewPrefsController extends StateNotifier<SlotViewPrefs> {
   SlotViewPrefsController() : super(const SlotViewPrefs());
 
-  void toggleProduced() => state = state.copyWith(showProduced: !state.showProduced);
-  void togglePending() => state = state.copyWith(showPending: !state.showPending);
+  void toggleProduced() =>
+      state = state.copyWith(showProduced: !state.showProduced);
+  void togglePending() =>
+      state = state.copyWith(showPending: !state.showPending);
   void toggleMissed() => state = state.copyWith(showMissed: !state.showMissed);
 }
 

@@ -427,12 +427,10 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
         Builder(
           builder: (context) {
             // Extract values first
-            final produced = ref
-                    .watch(nodeEpochRewardsProvider)
-                    .value
-                    ?.producedInEpoch ??
-                _producedInEpoch ??
-                0;
+            final produced =
+                ref.watch(nodeEpochRewardsProvider).value?.producedInEpoch ??
+                    _producedInEpoch ??
+                    0;
             var wonSlots =
                 ref.watch(nodeEpochRewardsProvider).value?.winsInEpoch ??
                     _winsInEpoch ??
@@ -444,7 +442,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             }
 
             // Get VRF evaluator data for slots information
-            final vrfEvaluator = ref.watch(nodeRawStatusProvider).value?.vrfEvaluator;
+            final vrfEvaluator =
+                ref.watch(nodeRawStatusProvider).value?.vrfEvaluator;
             final evaluatedSlots = vrfEvaluator?.evaluatedSlotsSinceStart ?? 0;
             const totalSlotsPerEpoch = 17280; // SLOTS_PER_EPOCH constant
 
@@ -455,7 +454,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                     context,
                     icon: Icons.check_circle_outline,
                     label: 'Produced',
-                    value: '', // Value shown only in subtitle to avoid repetition
+                    value:
+                        '', // Value shown only in subtitle to avoid repetition
                     subtitle: produced == 1 ? '1 block' : '$produced blocks',
                     color: colorScheme.tertiary, // Match Peers icon color
                     colorScheme: colorScheme,

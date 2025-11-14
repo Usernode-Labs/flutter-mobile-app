@@ -35,4 +35,3 @@ extension WalletBalanceToDomain on data.WalletBalance {
         usdValue: usdValue,
       );
 }
-

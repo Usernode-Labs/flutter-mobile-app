@@ -316,9 +316,12 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
               // Balance amount
               assetsAsync.when(
                 data: (assets) {
-                  final totalBalance = assets.fold<BigInt>(BigInt.zero, (sum, a) => sum + a.totalBalance);
-                  final tokenSymbol = assets.isNotEmpty ? assets.first.tokenSymbol : 'TKN';
-                  final formattedBalance = '${_formatAmount(totalBalance.toDouble())} $tokenSymbol';
+                  final totalBalance = assets.fold<BigInt>(
+                      BigInt.zero, (sum, a) => sum + a.totalBalance);
+                  final tokenSymbol =
+                      assets.isNotEmpty ? assets.first.tokenSymbol : 'TKN';
+                  final formattedBalance =
+                      '${_formatAmount(totalBalance.toDouble())} $tokenSymbol';
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -642,8 +645,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: assets.length,
-        itemBuilder: (context, index) =>
-            _buildAssetRow(theme, assets[index]),
+        itemBuilder: (context, index) => _buildAssetRow(theme, assets[index]),
         separatorBuilder: (context, index) => Divider(
           height: kSpace16,
           thickness: 1,
@@ -902,7 +904,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
       final formatter = NumberFormat('#,##0', 'en_US');
       amountStr = formatter.format(amountValue);
       if (firstAmount.tokenId.isNotEmpty) {
-        amountStr += ' ${TokenFormatter.formatTokenDisplay(firstAmount.tokenId)}';
+        amountStr +=
+            ' ${TokenFormatter.formatTokenDisplay(firstAmount.tokenId)}';
       }
     }
 
@@ -983,7 +986,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
-              if (isSent && transaction.fee != null) const SizedBox(height: kSpace4),
+              if (isSent && transaction.fee != null)
+                const SizedBox(height: kSpace4),
               // Transaction ID
               Text(
                 'ID: $shortId',

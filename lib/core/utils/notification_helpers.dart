@@ -10,14 +10,16 @@ class NotificationHelpers {
     controller.addNotification(
       AppNotification.create(
         title: 'Welcome!',
-        message: 'Notifications are now enabled. You\'ll be notified about blocks, rewards, and more.',
+        message:
+            'Notifications are now enabled. You\'ll be notified about blocks, rewards, and more.',
         type: NotificationType.info,
       ),
     );
   }
 
   /// Create a notification for block produced
-  static void notifyBlockProduced(WidgetRef ref, int height, int epoch, int slot) {
+  static void notifyBlockProduced(
+      WidgetRef ref, int height, int epoch, int slot) {
     final controller = ref.read(notificationsProvider.notifier);
     controller.addNotification(
       AppNotification.create(
@@ -50,7 +52,8 @@ class NotificationHelpers {
   }
 
   /// Create a notification for transaction sent
-  static void notifyTransactionSent(WidgetRef ref, String amount, String recipient) {
+  static void notifyTransactionSent(
+      WidgetRef ref, String amount, String recipient) {
     final controller = ref.read(notificationsProvider.notifier);
     controller.addNotification(
       AppNotification.create(
@@ -66,7 +69,8 @@ class NotificationHelpers {
   }
 
   /// Create a notification for transaction received
-  static void notifyTransactionReceived(WidgetRef ref, String amount, String sender) {
+  static void notifyTransactionReceived(
+      WidgetRef ref, String amount, String sender) {
     final controller = ref.read(notificationsProvider.notifier);
     controller.addNotification(
       AppNotification.create(

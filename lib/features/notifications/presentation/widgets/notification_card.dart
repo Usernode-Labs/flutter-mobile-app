@@ -161,7 +161,8 @@ class NotificationCard extends StatelessWidget {
                     Text(
                       relativeTime,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                        color:
+                            colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                         fontSize: 12,
                       ),
                     ),

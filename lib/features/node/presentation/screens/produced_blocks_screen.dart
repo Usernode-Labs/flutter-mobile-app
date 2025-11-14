@@ -11,7 +11,8 @@ class ProducedBlocksScreen extends ConsumerStatefulWidget {
   const ProducedBlocksScreen({super.key});
 
   @override
-  ConsumerState<ProducedBlocksScreen> createState() => _ProducedBlocksScreenState();
+  ConsumerState<ProducedBlocksScreen> createState() =>
+      _ProducedBlocksScreenState();
 }
 
 class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen> {

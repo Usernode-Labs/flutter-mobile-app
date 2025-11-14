@@ -32,13 +32,13 @@ Flutter + Rust hybrid client that lets anyone run a lightweight Usernode, manage
 
 ```mermaid
 flowchart LR
-    subgraph Flutter
+    subgraph "Flutter"
       UI["UI Screens<br/>(lib/features/*/presentation)"]
       Providers["Riverpod Providers<br/>(lib/core/providers)"]
       Services["Services & Config<br/>(lib/core/services, config)"]
     end
 
-    subgraph RustSide[Rust Node (../usernode)]
+    subgraph "Rust Node (../usernode)"
       RustCrate["usernode crate<br/>crates/usernode"]
     end
 
@@ -215,7 +215,7 @@ flowchart TD
     Checks -->|format/analyze/test| Status
     Checks -->|Build Android| Apk["Debug APK"]
     Checks -->|Build iOS| Ipa["iOS Debug build"]
-    main --> BuildDeploy[build-and-deploy.yml]
+    main --> BuildDeploy["build-and-deploy.yml"]
     develop --> BuildDeploy
     BuildDeploy --> Store["TestFlight / Play Console (Fastlane)"]
     Manual["manual-build.yml"] --> Store

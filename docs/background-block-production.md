@@ -96,6 +96,73 @@ final rpc = RustBackendService.instance.rpc;
 
 ---
 
+## ANDROID 12+ SPECIFIC REQUIREMENTS
+
+### Foreground Service Type Declaration
+
+Android 12+ requires explicit `foregroundServiceType` declaration in the manifest:
+
+```xml
+<manifest>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
+    <application>
+        <service
+            android:name=".NodeForegroundService"
+            android:foregroundServiceType="dataSync"
+            android:enabled="true"
+            android:exported="false" />
+    </application>
+</manifest>
+```
+
+**Type**: We use `dataSync` because the node is syncing blockchain data and producing blocks.
+
+### Background Start Restrictions
+
+Android 12+ restricts starting FGS from the background. Our approach:
+
+1. **Alarm fires** → BroadcastReceiver wakes up
+2. **Receiver immediately starts FGS** (within 5 seconds) using `ContextCompat.startForegroundService()`
+3. **FGS posts notification** within 5 seconds of start
+4. If background start fails → fallback to expedited WorkManager
+
+### Exact Alarm Permission Flow
+
+```kotlin
+// Check permission (Android 12+)
+if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+    val alarmManager = getSystemService(AlarmManager::class.java)
+    if (!alarmManager.canScheduleExactAlarms()) {
+        // Show explanation, then:
+        val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+        startActivity(intent)
+        // Fallback to expedited WorkManager until permission granted
+    }
+}
+```
+
+### Expedited WorkManager Fallback
+
+When exact alarms are unavailable:
+
+```kotlin
+val workRequest = OneTimeWorkRequestBuilder<SlotMonitorWorker>()
+    .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+    .setInputData(workDataOf("SLOT_NUMBER" to slotNumber))
+    .setConstraints(Constraints.Builder()
+        .setRequiredNetworkType(NetworkType.CONNECTED)
+        .build())
+    .build()
+
+WorkManager.getInstance(context).enqueue(workRequest)
+```
+
+**Quota Management**: When quota is exhausted, expedited work degrades to normal scheduling. Show user notification about reduced reliability.
+
+---
+
 ## DAILY WORKFLOW
 
 ```
@@ -144,83 +211,96 @@ final rpc = RustBackendService.instance.rpc;
 
 ## FLOW DIAGRAMS
 
-### Android Background Execution Flow
+### Android Background Execution Flow (Enhanced with Android 12+ Requirements)
 
-This diagram illustrates the complete Android flow from user enablement through alarm scheduling, foreground service management, and slot monitoring.
+This diagram illustrates the complete Android flow including permission handling, FGS lifecycle management, and fallback strategies.
 
 ```mermaid
 sequenceDiagram
     autonumber
     participant User
     participant App
-    participant FlutterEngine
+    participant PermissionManager
     participant AlarmChannel
     participant AlarmManager
     participant AlarmReceiver
-    participant ForegroundService
+    participant FGS as ForegroundService
     participant RustNode
     participant SlotScheduler
     participant SlotMonitor
+    participant WorkManager
     participant NotificationService
 
     User->>App: Enable background block production
-    App->>FlutterEngine: Request SCHEDULE_EXACT_ALARM permission
-    FlutterEngine->>User: Show permission dialog
-    User->>FlutterEngine: Grant permission
 
-    App->>ForegroundService: Start foreground service
-    ForegroundService->>RustNode: Start node (runForeverInNewThread)
-    ForegroundService->>NotificationService: Show persistent notification
+    App->>PermissionManager: Check SCHEDULE_EXACT_ALARM permission
 
-    App->>SlotScheduler: Initialize slot scheduling
-    SlotScheduler->>RustNode: Query epochRewards(includeWonSlots: true)
-    RustNode-->>SlotScheduler: Return won slots list
+    alt Permission granted
+        PermissionManager-->>App: Permission OK
+        App->>FGS: Start FGS with dataSync type
+        FGS->>NotificationService: Post notification (within 5s)
+        FGS->>RustNode: Start node (runForeverInNewThread)
 
-    loop For each won slot
-        SlotScheduler->>AlarmChannel: Schedule exact alarm (slot_time - 2min)
-        AlarmChannel->>AlarmManager: setExactAndAllowWhileIdle()
-        AlarmManager-->>AlarmChannel: Alarm scheduled
-    end
+        App->>SlotScheduler: Initialize slot scheduling
+        SlotScheduler->>RustNode: Query epochRewards(includeWonSlots: true)
+        RustNode-->>SlotScheduler: Return won slots list
 
-    Note over AlarmManager: Time passes... 2 minutes before slot
-
-    AlarmManager->>AlarmReceiver: Fire alarm intent
-    AlarmReceiver->>FlutterEngine: Wake up Flutter isolate
-    FlutterEngine->>SlotMonitor: Start slot monitoring
-
-    SlotMonitor->>ForegroundService: Update notification ("Producing block...")
-
-    loop Every 10-30 seconds during slot window
-        SlotMonitor->>RustNode: getStatus()
-        RustNode-->>SlotMonitor: Return status (wonSlot/produced/injected)
-
-        alt Block produced successfully
-            SlotMonitor->>NotificationService: Show success notification
-            SlotMonitor->>SlotMonitor: Record success in statistics
-            SlotMonitor->>SlotMonitor: Stop monitoring
-        else Slot expired without production
-            SlotMonitor->>NotificationService: Show missed slot warning
-            SlotMonitor->>SlotMonitor: Record failure in statistics
-            SlotMonitor->>SlotMonitor: Stop monitoring
+        loop For each won slot
+            SlotScheduler->>AlarmChannel: Schedule exact alarm (slot_time - 2min)
+            AlarmChannel->>AlarmManager: setExactAndAllowWhileIdle()
+            AlarmManager-->>AlarmChannel: Alarm scheduled
         end
-    end
 
-    SlotMonitor->>ForegroundService: Update notification (back to idle)
+        Note over AlarmManager: Time passes... 2 minutes before slot
+
+        AlarmManager->>AlarmReceiver: Fire alarm intent
+        AlarmReceiver->>FGS: Ensure FGS running, update notification
+        FGS->>SlotMonitor: Start slot monitoring
+
+        loop Every 10-30 seconds during slot window
+            SlotMonitor->>RustNode: getStatus()
+            RustNode-->>SlotMonitor: Return status
+
+            alt Block produced
+                SlotMonitor->>NotificationService: Show success notification
+                SlotMonitor->>SlotMonitor: Record success
+                FGS->>FGS: Update notification to idle state
+            else Slot expired
+                SlotMonitor->>NotificationService: Show missed notification
+                SlotMonitor->>SlotMonitor: Record failure
+            end
+        end
+
+    else Permission denied
+        PermissionManager-->>App: Permission denied
+        App->>User: Show explanation dialog
+        User->>PermissionManager: Open settings to grant permission
+
+        Note over App: Fallback strategy while permission pending
+
+        App->>WorkManager: Use expedited WorkManager fallback
+
+        loop For each won slot
+            SlotScheduler->>WorkManager: Schedule expedited work (slot_time - 2min)
+            WorkManager->>WorkManager: setExpedited(RUN_AS_NON_EXPEDITED)
+        end
+
+        Note over WorkManager: 2 minutes before slot (if quota available)
+
+        WorkManager->>SlotMonitor: Execute slot monitoring
+        SlotMonitor->>RustNode: Ensure node running
+        SlotMonitor->>SlotMonitor: Monitor and record result
+
+        Note over App: Lower reliability - show warning to user
+        App->>NotificationService: Show "Grant exact alarm permission for better reliability"
+    end
 
     Note over App: Epoch transition detected
 
     App->>SlotScheduler: Epoch changed
     SlotScheduler->>AlarmManager: Cancel old alarms
     SlotScheduler->>RustNode: Query new epoch rewards
-    RustNode-->>SlotScheduler: New won slots
     SlotScheduler->>AlarmManager: Schedule new alarms
-
-    Note over User: User wants to check statistics
-
-    User->>App: Open slot calculator screen
-    App->>SlotScheduler: Get upcoming slots
-    App->>SlotMonitor: Get statistics
-    App->>User: Display slots and reliability %
 ```
 
 ### iOS Background Execution Flow
@@ -326,9 +406,9 @@ sequenceDiagram
     App->>User: Display slots and reliability %
 ```
 
-### High-Level Architecture Diagram
+### High-Level Architecture Diagram (Enhanced)
 
-This diagram shows the relationships between Flutter services, platform channels, native components, and the Rust backend.
+This diagram shows the relationships between Flutter services, platform channels, native components, and the Rust backend, including Android 12+ components.
 
 ```mermaid
 graph TB
@@ -339,17 +419,22 @@ graph TB
         NodeLifecycle[NodeLifecycleManager]
         PlatformAlarm[PlatformAlarmService]
         StatsRepo[StatisticsRepository]
+        PermMgr[PermissionManager]
+        BatteryOpt[BatteryOptimizationDetector]
     end
 
     subgraph "Platform Channels"
         AlarmChannel[AlarmManagerChannel]
         BGTaskChannel[BackgroundTaskChannel]
+        PermChannel[PermissionChannel]
     end
 
     subgraph "Android Native"
         AlarmManager[AlarmManager]
         AlarmReceiver[SlotAlarmReceiver]
-        ForegroundService[NodeForegroundService]
+        FGS[NodeForegroundService<br/>Type: dataSync]
+        WorkMgr[Expedited WorkManager]
+        PowerMgr[PowerManager<br/>Battery Optimization]
     end
 
     subgraph "iOS Native"
@@ -367,9 +452,11 @@ graph TB
     UI --> SlotScheduler
     UI --> SlotMonitor
     UI --> StatsRepo
+    UI --> PermMgr
 
     SlotScheduler --> PlatformAlarm
     SlotScheduler --> RustNode
+    SlotScheduler -.->|Fallback| WorkMgr
 
     SlotMonitor --> RustNode
     SlotMonitor --> NodeLifecycle
@@ -379,12 +466,18 @@ graph TB
 
     PlatformAlarm --> AlarmChannel
     PlatformAlarm --> BGTaskChannel
+    PlatformAlarm --> PermChannel
+
+    PermMgr --> PermChannel
+    BatteryOpt --> PowerMgr
 
     AlarmChannel --> AlarmManager
     AlarmManager --> AlarmReceiver
-    AlarmReceiver --> SlotMonitor
+    AlarmReceiver --> FGS
+    FGS --> SlotMonitor
+    FGS --> RustNode
 
-    ForegroundService --> RustNode
+    WorkMgr -.->|If no exact alarm| SlotMonitor
 
     BGTaskChannel --> BGScheduler
     BGScheduler --> AppDelegate
@@ -395,8 +488,10 @@ graph TB
     RustNode --> EpochRewards
     RustNode --> StatusAPI
 
-    style ForegroundService fill:#90EE90
+    style FGS fill:#90EE90,stroke:#006400,stroke-width:3px
     style AlarmManager fill:#90EE90
+    style WorkMgr fill:#FFD700
+    style PowerMgr fill:#FFA500
     style BGScheduler fill:#ADD8E6
     style LocalNotif fill:#ADD8E6
 ```
@@ -448,6 +543,63 @@ stateDiagram-v2
     CancelAlarms --> QueryingSlots: Query new epoch
 
     WaitingForSlot --> [*]: User disables background production
+```
+
+### Android Permission & FGS Lifecycle State Diagram
+
+This diagram shows Android-specific permission handling, FGS lifecycle, and fallback strategies.
+
+```mermaid
+stateDiagram-v2
+    [*] --> CheckingPermission: User enables background production
+
+    CheckingPermission --> ExactAlarmGranted: SCHEDULE_EXACT_ALARM granted
+    CheckingPermission --> ExactAlarmDenied: Permission denied
+
+    ExactAlarmGranted --> StartingFGS: Start ForegroundService
+    StartingFGS --> FGSRunning: Post notification within 5s
+    FGSRunning --> NodeRunning: Start Rust node
+
+    NodeRunning --> SchedulingExactAlarms: Query won slots
+    SchedulingExactAlarms --> WaitingForAlarm: All alarms scheduled
+
+    WaitingForAlarm --> AlarmFired: Exact alarm fires
+    AlarmFired --> UpdateFGSNotification: Update to active state
+    UpdateFGSNotification --> MonitoringSlot: Poll getStatus()
+
+    MonitoringSlot --> BlockProduced: Block produced
+    MonitoringSlot --> SlotMissed: Timeout expired
+
+    BlockProduced --> FGSIdle: Update notification to idle
+    SlotMissed --> FGSIdle: Record failure
+
+    FGSIdle --> WaitingForAlarm: Continue running
+
+    ExactAlarmDenied --> ShowPermissionDialog: Explain why needed
+    ShowPermissionDialog --> OpenSettings: User taps settings
+    ShowPermissionDialog --> UseFallback: User declines
+
+    UseFallback --> SchedulingExpeditedWork: Use WorkManager
+    SchedulingExpeditedWork --> WaitingForWork: Expedited work scheduled
+
+    WaitingForWork --> WorkExecuted: WorkManager fires (if quota available)
+    WaitingForWork --> QuotaExhausted: Quota exhausted
+
+    WorkExecuted --> MonitoringSlot: Monitor slot
+    QuotaExhausted --> ShowWarning: Notify user of reduced reliability
+    ShowWarning --> WaitingForWork: Continue with degraded service
+
+    OpenSettings --> CheckingPermission: User returns
+
+    FGSRunning --> CheckBatteryOpt: Periodic check
+    CheckBatteryOpt --> BatteryOptDetected: App is optimized
+    CheckBatteryOpt --> FGSRunning: Not optimized
+
+    BatteryOptDetected --> ShowOEMGuidance: Show manufacturer-specific guide
+    ShowOEMGuidance --> FGSRunning: User whitelists app
+
+    WaitingForAlarm --> [*]: User disables feature, stop FGS
+    WaitingForWork --> [*]: User disables feature
 ```
 
 ---
@@ -503,9 +655,121 @@ stateDiagram-v2
 - [ ] Extend `BroadcastReceiver` to handle alarm intents
 - [ ] In `onReceive()`:
   - [ ] Extract slot number and time from intent extras
-  - [ ] Launch Flutter activity or trigger app wake-up
-  - [ ] Send slot number to Flutter via method channel
+  - [ ] **Start ForegroundService immediately** using `ContextCompat.startForegroundService()`
+  - [ ] Send slot number to FGS via intent extras
 - [ ] Add receiver to `AndroidManifest.xml`
+
+**Code Example:**
+
+```kotlin
+class SlotAlarmReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        val slotNumber = intent.getIntExtra("SLOT_NUMBER", -1)
+        val slotTime = intent.getLongExtra("SLOT_TIME", 0L)
+
+        val serviceIntent = Intent(context, NodeForegroundService::class.java).apply {
+            action = NodeForegroundService.ACTION_MONITOR_SLOT
+            putExtra("SLOT_NUMBER", slotNumber)
+            putExtra("SLOT_TIME", slotTime)
+        }
+
+        // Start FGS (Android 12+ compatible)
+        ContextCompat.startForegroundService(context, serviceIntent)
+    }
+}
+```
+
+##### Foreground Service Implementation (Android 12+ Required)
+
+- [ ] Create `android/app/src/main/kotlin/com/usernode_labs/usernode/NodeForegroundService.kt`
+- [ ] Extend `Service` with foreground service capabilities
+- [ ] **Post notification within 5 seconds** of `onStartCommand()`
+- [ ] Implement notification states:
+  - [ ] Idle: "Usernode - Waiting for slots"
+  - [ ] Active: "Producing block for slot #123"
+  - [ ] Success/Failure: Brief update then back to idle
+- [ ] Handle node lifecycle (start/ensure running)
+- [ ] Handle slot monitoring via coroutines
+- [ ] Proper cleanup with `stopForeground(STOP_FOREGROUND_REMOVE)`
+
+**Code Example:**
+
+```kotlin
+class NodeForegroundService : Service() {
+    companion object {
+        const val ACTION_START = "START_SERVICE"
+        const val ACTION_MONITOR_SLOT = "MONITOR_SLOT"
+        const val ACTION_STOP = "STOP_SERVICE"
+        const val NOTIFICATION_ID = 1001
+        const val CHANNEL_ID = "block_production"
+    }
+
+    private val serviceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Must call startForeground within 5 seconds (Android 12+)
+        val notification = createNotification("Waiting for slots...")
+        startForeground(NOTIFICATION_ID, notification)
+
+        when (intent?.action) {
+            ACTION_START -> handleStart()
+            ACTION_MONITOR_SLOT -> {
+                val slotNumber = intent.getIntExtra("SLOT_NUMBER", -1)
+                handleSlotMonitoring(slotNumber)
+            }
+            ACTION_STOP -> handleStop()
+        }
+
+        return START_STICKY
+    }
+
+    private fun handleSlotMonitoring(slotNumber: Int) {
+        serviceScope.launch {
+            updateNotification("Producing block for slot #$slotNumber")
+
+            // Monitor for up to 5 minutes
+            val result = withTimeoutOrNull(5.minutes) {
+                monitorSlotProduction(slotNumber)
+            }
+
+            if (result == true) {
+                updateNotification("Block $slotNumber produced ✓")
+                delay(3.seconds)
+            } else {
+                updateNotification("Slot $slotNumber missed ✗")
+                delay(3.seconds)
+            }
+
+            updateNotification("Waiting for slots...")
+        }
+    }
+
+    private fun createNotification(text: String): Notification {
+        // Create notification channel on Android 8+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "Block Production",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Monitors and produces blocks for won slots"
+            }
+            val notificationManager = getSystemService(NotificationManager::class.java)
+            notificationManager.createNotificationChannel(channel)
+        }
+
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("Usernode Validator")
+            .setContentText(text)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOngoing(true)
+            .build()
+    }
+
+    override fun onBind(intent: Intent?): IBinder? = null
+}
+```
 
 ##### Method Channel Handler
 
@@ -519,13 +783,15 @@ stateDiagram-v2
   - [ ] `checkExactAlarmPermission()` - Check if permission granted
   - [ ] `requestExactAlarmPermission()` - Open settings to grant permission
 
-##### Manifest Updates
+##### Manifest Updates (Android 12+ Compliant)
 
 - [ ] Update `android/app/src/main/AndroidManifest.xml`
 - [ ] Add permissions:
   - [ ] `<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />`
   - [ ] `<uses-permission android:name="android.permission.USE_EXACT_ALARM" />`
   - [ ] `<uses-permission android:name="android.permission.WAKE_LOCK" />`
+  - [ ] **`<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />`**
+  - [ ] **`<uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />`**
 - [ ] Declare `SlotAlarmReceiver`:
   ```xml
   <receiver
@@ -533,6 +799,50 @@ stateDiagram-v2
       android:enabled="true"
       android:exported="false" />
   ```
+- [ ] **Declare NodeForegroundService with type:**
+  ```xml
+  <service
+      android:name=".NodeForegroundService"
+      android:foregroundServiceType="dataSync"
+      android:enabled="true"
+      android:exported="false" />
+  ```
+
+**Complete Manifest Example:**
+
+```xml
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Exact Alarm Permissions -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- Foreground Service Permissions (Android 12+) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
+    <!-- Existing permissions -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <application>
+        <!-- Alarm Receiver -->
+        <receiver
+            android:name=".SlotAlarmReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
+        <!-- Foreground Service (Android 12+ requires type) -->
+        <service
+            android:name=".NodeForegroundService"
+            android:foregroundServiceType="dataSync"
+            android:enabled="true"
+            android:exported="false" />
+
+        <!-- Rest of your app configuration -->
+    </application>
+</manifest>
+```
 
 #### Flutter Android Service
 
@@ -549,23 +859,93 @@ stateDiagram-v2
 
 ---
 
-### Phase 3: iOS Implementation
+### Phase 3: iOS Implementation (Realistic Approach)
 
-#### Native iOS Code
+> **⚠️ iOS Reality Check**: iOS **cannot reliably** wake apps at precise times for background computation without server assistance. Expected automatic reliability: **40-60%** with BGProcessingTask alone.
 
-##### BGProcessingTask Setup
+#### iOS Three-Tier Strategy
 
-- [ ] Update `ios/Runner/Info.plist`
-- [ ] Add background modes:
+**Tier 1: Foreground Keep-Alive Mode (99% reliability)** ← Recommended for critical slots
+**Tier 2: BGProcessingTask + Notifications (80-90% reliability)** ← Best practical automatic option
+**Tier 3: Server-Assisted Silent Push (70-85% reliability)** ← Future enhancement
+
+---
+
+#### Tier 1: Foreground Keep-Alive Mode (Priority Implementation)
+
+##### Purpose
+User keeps app open during won slots for guaranteed block production.
+
+##### Implementation
+
+- [ ] Create `lib/core/services/ios_foreground_mode.dart`
+- [ ] Implement "Keep Awake" mode:
+  ```dart
+  class ForegroundMode {
+    static Future<void> enableKeepAwake() async {
+      // Prevent screen sleep
+      await WakeLock.enable();
+      // Start monitoring if slot is imminent
+      if (slotWithin10Minutes()) {
+        await prepareForSlot();
+      }
+    }
+
+    static Future<void> prepareForSlot() async {
+      // Ensure node is running
+      await RustBackendService.instance.startForActiveAccount();
+      // Start proactive monitoring
+      SlotMonitorService.instance.startMonitoring();
+    }
+  }
+  ```
+
+- [ ] Add background task for 30s buffer when app backgrounds:
+  ```swift
+  // In AppDelegate.swift
+  func applicationDidEnterBackground(_ application: UIApplication) {
+      if slotIsImminent() {
+          backgroundTaskID = application.beginBackgroundTask {
+              // Expiration - warn user
+              self.sendUrgentNotification()
+              application.endBackgroundTask(self.backgroundTaskID)
+          }
+
+          // We have ~30 seconds
+          continueSlotMonitoring {
+              application.endBackgroundTask(self.backgroundTaskID)
+          }
+      }
+  }
+  ```
+
+##### UI Components
+
+- [ ] Add "Keep App Open" toggle in settings
+- [ ] Show prominent warning when won slots detected:
+  ```
+  "You have 3 won slots today. For best results, keep the app
+   open during these times or respond to notifications."
+  ```
+- [ ] Display countdown in slot calculator: "Next slot in 1h 23m - Open app before then"
+- [ ] Add "Prevent Sleep" toggle (automatically enables when slot < 10 min away)
+
+---
+
+#### Tier 2: BGProcessingTask Setup (Best-Effort Automatic)
+
+> **Expected Reliability: 40-60%** (iOS decides when to run, not guaranteed timing)
+
+##### Info.plist Configuration
+
+- [ ] Update `ios/Runner/Info.plist`:
   ```xml
   <key>UIBackgroundModes</key>
   <array>
       <string>processing</string>
       <string>fetch</string>
   </array>
-  ```
-- [ ] Add BGTask identifiers:
-  ```xml
+
   <key>BGTaskSchedulerPermittedIdentifiers</key>
   <array>
       <string>com.usernode.slot</string>
@@ -574,53 +954,350 @@ stateDiagram-v2
 
 ##### BGTask Registration & Handling
 
-- [ ] Update `ios/Runner/AppDelegate.swift`
-- [ ] In `application(_:didFinishLaunchingWithOptions:)`:
-  - [ ] Register BGTask handler:
-    ```swift
-    BGTaskScheduler.shared.register(
-        forTaskWithIdentifier: "com.usernode.slot",
-        using: nil
-    ) { task in
-        self.handleSlotTask(task as! BGProcessingTask)
+- [ ] Update `ios/Runner/AppDelegate.swift`:
+
+**Code Example:**
+
+```swift
+import BackgroundTasks
+import Flutter
+
+@UIApplicationMain
+class AppDelegate: FlutterAppDelegate {
+    var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
+
+    override func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
+    ) -> Bool {
+        // Register BGProcessingTask handler
+        BGTaskScheduler.shared.register(
+            forTaskWithIdentifier: "com.usernode.slot",
+            using: nil
+        ) { task in
+            self.handleSlotProductionTask(task: task as! BGProcessingTask)
+        }
+
+        return super.application(application, didFinishLaunchingWithOptions: launchOptions)
     }
-    ```
-- [ ] Implement `handleSlotTask(_ task: BGProcessingTask)`:
-  - [ ] Extract slot info from task
-  - [ ] Send message to Flutter via method channel
-  - [ ] Set expiration handler to save work if terminated
-  - [ ] Call `task.setTaskCompleted(success:)` when done
 
-##### Method Channel Handler
+    func handleSlotProductionTask(task: BGProcessingTask) {
+        // Extract slot info from task (passed via userInfo if possible)
+        // Note: BGTask doesn't support userInfo well, use Flutter channel instead
 
-- [ ] Create method channel: `com.usernode_labs.usernode/slot_scheduler`
-- [ ] Implement methods in AppDelegate:
-  - [ ] `scheduleBGTask(slotNumber, timestampMs)` - Schedule BGProcessingTask
-  - [ ] `scheduleNotification(slotNumber, timestampMs)` - Schedule local notification
-  - [ ] `cancelBGTask(identifier)` - Cancel BGTask
-  - [ ] `cancelNotification(identifier)` - Cancel notification
+        let queue = OperationQueue()
+        queue.maxConcurrentOperationCount = 1
 
-##### Local Notifications
+        let operation = BlockOperation {
+            // Log actual execution time vs expected
+            print("BGTask fired at \(Date())")
+
+            // Start node (if not running)
+            self.startNodeViaChannel()
+
+            // Monitor for up to 25 seconds
+            let success = self.monitorSlotViaChannel(timeout: 25)
+
+            if success {
+                self.sendSuccessNotification()
+            } else {
+                self.sendMissedNotification()
+            }
+
+            // Stop node to save memory
+            self.stopNodeViaChannel()
+        }
+
+        // Handle expiration (iOS killing us early)
+        task.expirationHandler = {
+            queue.cancelAllOperations()
+            self.stopNodeViaChannel()
+            print("BGTask expired before completion")
+        }
+
+        queue.addOperation(operation)
+        operation.completionBlock = {
+            task.setTaskCompleted(success: true)
+        }
+    }
+}
+```
+
+##### Method Channel Integration
+
+- [ ] Create method channel: `com.usernode_labs.usernode/ios_background`
+- [ ] Implement methods:
+  - [ ] `scheduleBGTask(slotNumber, timestamp)` - Schedule BGProcessingTask
+  - [ ] `scheduleNotification(slotNumber, timestamp)` - Schedule notification
+  - [ ] `enableKeepAwake()` - Prevent screen sleep
+  - [ ] `disableKeepAwake()` - Allow screen sleep
+
+**Flutter Channel Code:**
+
+```dart
+class IOSBackgroundChannel {
+  static const platform = MethodChannel('com.usernode_labs.usernode/ios_background');
+
+  static Future<bool> scheduleBGTask(int slotNumber, DateTime slotTime) async {
+    try {
+      // Schedule for 2 min before slot
+      final earliestBegin = slotTime.subtract(Duration(minutes: 2));
+
+      final result = await platform.invokeMethod('scheduleBGTask', {
+        'slot_number': slotNumber,
+        'earliest_begin': earliestBegin.millisecondsSinceEpoch,
+      });
+
+      print('BGTask scheduled for slot $slotNumber (may not run on time)');
+      return result as bool;
+    } catch (e) {
+      print('Failed to schedule BGTask: $e');
+      return false;
+    }
+  }
+}
+```
+
+**iOS Swift Channel Handler:**
+
+```swift
+// In AppDelegate.swift
+let backgroundChannel = FlutterMethodChannel(
+    name: "com.usernode_labs.usernode/ios_background",
+    binaryMessenger: controller.binaryMessenger
+)
+
+backgroundChannel.setMethodCallHandler { [weak self] (call, result) in
+    switch call.method {
+    case "scheduleBGTask":
+        if let args = call.arguments as? [String: Any],
+           let slotNumber = args["slot_number"] as? Int,
+           let earliestBegin = args["earliest_begin"] as? Int64 {
+
+            let request = BGProcessingTaskRequest(identifier: "com.usernode.slot")
+            request.earliestBeginDate = Date(timeIntervalSince1970: Double(earliestBegin) / 1000.0)
+            request.requiresNetworkConnectivity = true
+            request.requiresExternalPower = false
+
+            do {
+                try BGTaskScheduler.shared.submit(request)
+                print("Scheduled BGTask for slot \(slotNumber)")
+                result(true)
+            } catch {
+                print("BGTask scheduling failed: \(error)")
+                result(false)
+            }
+        } else {
+            result(FlutterError(code: "INVALID_ARGS", message: nil, details: nil))
+        }
+
+    default:
+        result(FlutterMethodNotImplemented)
+    }
+}
+```
+
+---
+
+#### Local Notifications (Primary User Alert)
 
 - [ ] Request notification permission in AppDelegate
-- [ ] Create notification category "SLOT_REMINDER"
-- [ ] Define notification actions (optional: "Open App")
-- [ ] Handle notification taps → launch app with slot context
+- [ ] Create notification categories with actions:
+
+**Code Example:**
+
+```swift
+func setupNotificationCategories() {
+    let openAction = UNNotificationAction(
+        identifier: "OPEN_APP",
+        title: "Open App",
+        options: [.foreground]
+    )
+
+    let slotCategory = UNNotificationCategory(
+        identifier: "SLOT_REMINDER",
+        actions: [openAction],
+        intentIdentifiers: [],
+        options: [.customDismissAction]
+    )
+
+    UNUserNotificationCenter.current().setNotificationCategories([slotCategory])
+}
+
+func scheduleSlotNotification(slotNumber: Int, slotTime: Date) {
+    // First notification: 10 min before
+    let earlyContent = UNMutableNotificationContent()
+    earlyContent.title = "Slot #\(slotNumber) in 10 minutes"
+    earlyContent.body = "Open the app to ensure block production"
+    earlyContent.sound = .default
+    earlyContent.categoryIdentifier = "SLOT_REMINDER"
+
+    let earlyTrigger = UNCalendarNotificationTrigger(
+        dateMatching: Calendar.current.dateComponents([.year, .month, .day, .hour, .minute],
+                                                      from: slotTime.addingTimeInterval(-10 * 60)),
+        repeats: false
+    )
+
+    let earlyRequest = UNNotificationRequest(
+        identifier: "slot-\(slotNumber)-early",
+        content: earlyContent,
+        trigger: earlyTrigger
+    )
+
+    // Second notification: 2 min before (URGENT)
+    let urgentContent = UNMutableNotificationContent()
+    urgentContent.title = "⚠️ URGENT: Slot #\(slotNumber) in 2 MINUTES"
+    urgentContent.body = "Open app NOW to produce block!"
+    urgentContent.sound = .defaultCritical
+    urgentContent.categoryIdentifier = "SLOT_REMINDER"
+    urgentContent.interruptionLevel = .timeSensitive
+
+    let urgentTrigger = UNCalendarNotificationTrigger(
+        dateMatching: Calendar.current.dateComponents([.year, .month, .day, .hour, .minute],
+                                                      from: slotTime.addingTimeInterval(-2 * 60)),
+        repeats: false
+    )
+
+    let urgentRequest = UNNotificationRequest(
+        identifier: "slot-\(slotNumber)-urgent",
+        content: urgentContent,
+        trigger: urgentTrigger
+    )
+
+    UNUserNotificationCenter.current().add(earlyRequest)
+    UNUserNotificationCenter.current().add(urgentRequest)
+}
+```
+
+- [ ] Handle notification taps → open app to slot monitoring screen
+- [ ] Use `interruptionLevel = .timeSensitive` for critical notifications (iOS 15+)
+
+---
 
 #### Flutter iOS Service
 
 - [ ] Create `lib/core/services/ios_slot_scheduler.dart`
-- [ ] Implement `SlotScheduler` interface
-- [ ] Methods:
-  - [ ] `Future<void> scheduleSlot(ScheduledSlot slot)` - Schedule both BGTask and notification
-  - [ ] `Future<void> scheduleMultipleSlots(List<ScheduledSlot> slots)` - Batch schedule
-  - [ ] `Future<void> cancelSlot(int slotNumber)` - Cancel both BGTask and notification
-  - [ ] `Future<bool> hasNotificationPermission()` - Check notification permission
-  - [ ] `Future<void> requestNotificationPermission()` - Request permission
-- [ ] Notification strategy:
-  - [ ] Schedule BGTask 5 minutes before slot (system may run early/late)
-  - [ ] Schedule notification 10 minutes before slot (user fallback)
-  - [ ] Schedule second notification 2 minutes before slot (final warning)
+- [ ] Implement three-tier scheduling:
+
+```dart
+class IOSSlotScheduler {
+  Future<void> scheduleSlot(ScheduledSlot slot) async {
+    // Tier 1: Always schedule notifications (most reliable user alert)
+    await scheduleNotifications(slot);
+
+    // Tier 2: Schedule BGTask (best-effort automatic)
+    final bgTaskSuccess = await IOSBackgroundChannel.scheduleBGTask(
+      slot.slotNumber,
+      slot.slotTime,
+    );
+
+    if (!bgTaskSuccess) {
+      print('BGTask scheduling failed for slot ${slot.slotNumber}');
+    }
+
+    // Track scheduling strategy
+    await _recordSchedulingMethod(slot, bgTaskSuccess);
+  }
+
+  Future<void> scheduleNotifications(ScheduledSlot slot) async {
+    // 10 min warning
+    await platform.invokeMethod('scheduleNotification', {
+      'slot_number': slot.slotNumber,
+      'time_offset': -10 * 60,  // seconds before slot
+      'title': 'Slot #${slot.slotNumber} in 10 minutes',
+      'body': 'Open app to ensure block production',
+      'urgent': false,
+    });
+
+    // 2 min urgent warning
+    await platform.invokeMethod('scheduleNotification', {
+      'slot_number': slot.slotNumber,
+      'time_offset': -2 * 60,
+      'title': '⚠️ URGENT: Slot #${slot.slotNumber} in 2 MINUTES',
+      'body': 'Open app NOW to produce block!',
+      'urgent': true,
+    });
+  }
+}
+```
+
+---
+
+#### Memory Management
+
+- [ ] Implement memory monitoring:
+
+```swift
+func monitorMemoryUsage() {
+    var info = mach_task_basic_info()
+    var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size)/4
+
+    let kerr: kern_return_t = withUnsafeMutablePointer(to: &info) {
+        $0.withMemoryRebound(to: integer_t.self, capacity: 1) {
+            task_info(mach_task_self_,
+                     task_flavor_t(MACH_TASK_BASIC_INFO),
+                     $0,
+                     &count)
+        }
+    }
+
+    if kerr == KERN_SUCCESS {
+        let usedMB = Double(info.resident_size) / 1024.0 / 1024.0
+        print("Memory usage: \(usedMB) MB")
+
+        if usedMB > 50 {
+            // Approaching limit, stop node
+            print("Memory limit approaching, stopping node")
+            stopNodeViaChannel()
+        }
+    }
+}
+```
+
+- [ ] Stop node immediately after slot monitoring completes
+- [ ] Handle memory warnings gracefully
+
+---
+
+#### User Education & UI
+
+- [ ] Add iOS limitations banner in settings:
+  ```
+  ⚠️ iOS Limitations
+
+  iOS cannot reliably wake apps for background block production.
+  For best results:
+
+  ✓ Keep app open during won slots (99% reliable)
+  ✓ Respond to notifications immediately (80-90% reliable)
+  ⚠️ Automatic background mode (40-60% reliable)
+
+  We recommend enabling "Keep App Open" mode for critical slots.
+  ```
+
+- [ ] Track and display BGTask success rate:
+  ```dart
+  "BGTask Success Rate This Week: 12/30 (40%)"
+  "Recommendation: Enable notifications and respond promptly"
+  ```
+
+- [ ] Add "Foreground Mode" toggle:
+  - When enabled: app stays awake when slot < 10 min away
+  - Shows persistent banner: "Keeping app awake for slot #123 in 5 min"
+
+---
+
+#### Debugging BGTasks (Development Only)
+
+Use Xcode breakpoint command to simulate BGTask execution:
+
+```bash
+# In Xcode console after setting breakpoint
+e -l objc -- (void)[[BGTaskScheduler sharedScheduler] _simulateLaunchForTaskWithIdentifier:@"com.usernode.slot"]
+```
+
+- [ ] Add debug logging to track when BGTask actually runs vs. expected time
+- [ ] Log reliability metrics for analysis
 
 ---
 
@@ -819,10 +1496,12 @@ stateDiagram-v2
 
 #### Device Testing
 
-- [ ] **Android devices** (minimum 3):
-  - [ ] Pixel (stock Android 14)
-  - [ ] Samsung (One UI)
-  - [ ] Xiaomi/Oppo (aggressive battery management)
+- [ ] **Android devices** (minimum 5 for comprehensive OEM coverage):
+  - [ ] Google Pixel (stock Android 14) - baseline reference
+  - [ ] Samsung Galaxy (One UI) - moderate battery optimization
+  - [ ] Xiaomi (MIUI) - **aggressive battery killer**
+  - [ ] Oppo/OnePlus (ColorOS/OxygenOS) - aggressive power management
+  - [ ] Budget device (low RAM) - memory pressure testing
 - [ ] **iOS devices** (minimum 2):
   - [ ] iPhone with iOS 16+
   - [ ] iPad (optional)
@@ -834,6 +1513,177 @@ stateDiagram-v2
   - [ ] Low Power Mode (iOS)
   - [ ] Battery Saver Mode (Android)
   - [ ] Airplane mode during slot → reconnect before slot time
+
+#### OEM-Specific Testing & Workarounds
+
+##### Testing on Xiaomi (MIUI)
+
+**Known Issues:**
+- MIUI kills background apps aggressively even with exact alarms
+- "Battery Saver" and "MIUI Optimization" interfere with FGS
+- Autostart permission required
+
+**Testing Checklist:**
+- [ ] Test with default MIUI settings (expect failures)
+- [ ] Enable all workarounds, verify improved reliability
+- [ ] Test after device reboot (autostart crucial)
+- [ ] Test with "Battery Saver" ON and OFF
+- [ ] Use `adb shell dumpsys deviceidle force-idle` to simulate Doze
+
+**Required Workarounds:**
+```kotlin
+// Detect MIUI
+fun isMIUI(): Boolean {
+    return !TextUtils.isEmpty(getSystemProperty("ro.miui.ui.version.name"))
+}
+
+// Check if battery optimization is disabled
+fun isBatteryOptimizationDisabled(context: Context): Boolean {
+    val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+    return pm.isIgnoringBatteryOptimizations(context.packageName)
+}
+
+// Request battery optimization exemption
+fun requestBatteryOptimizationExemption(context: Context) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+            data = Uri.parse("package:${context.packageName}")
+        }
+        context.startActivity(intent)
+    }
+}
+```
+
+**User Guidance (MIUI):**
+1. Settings → Apps → Manage apps → Usernode
+2. Battery saver → No restrictions
+3. Autostart → Enable
+4. Other permissions → Display pop-up windows while running in the background → Enable
+5. Settings → Battery & performance → turn off "Battery saver"
+
+##### Testing on Samsung (One UI)
+
+**Known Issues:**
+- "Optimize battery usage" can kill FGS
+- "Put apps to sleep" feature interferes
+- Generally less aggressive than Xiaomi
+
+**Testing Checklist:**
+- [ ] Test with "Optimize battery usage" ON
+- [ ] Verify FGS survives after 3+ hours in background
+- [ ] Test after device idle for 1+ hour
+
+**User Guidance (Samsung):**
+1. Settings → Apps → Usernode → Battery
+2. Set to "Unrestricted"
+3. Settings → Battery → Background usage limits
+4. Remove Usernode from "Sleeping apps" and "Deep sleeping apps"
+
+##### Testing on Oppo/OnePlus (ColorOS)
+
+**Known Issues:**
+- "Battery optimization" very aggressive
+- "App auto-launch" must be enabled
+- ColorOS 11+ has improved, but still problematic
+
+**User Guidance:**
+1. Settings → Battery → App Battery Management → Usernode → Don't optimize
+2. Settings → Apps → App Management → Usernode → Auto-launch → Enable
+3. Settings → Privacy → App Permissions → Auto-start → Usernode → Allow
+
+##### Battery Optimization Detection & Guidance
+
+**Implement in Flutter:**
+
+```dart
+class BatteryOptimizationDetector {
+  static const platform = MethodChannel('com.usernode/battery');
+
+  static Future<bool> isOptimized() async {
+    try {
+      return await platform.invokeMethod('isBatteryOptimized');
+    } catch (e) {
+      return false;
+    }
+  }
+
+  static Future<String> getManufacturer() async {
+    return await platform.invokeMethod('getManufacturer');
+  }
+
+  static Future<void> requestExemption() async {
+    await platform.invokeMethod('requestBatteryExemption');
+  }
+
+  static String getGuidanceForManufacturer(String manufacturer) {
+    switch (manufacturer.toLowerCase()) {
+      case 'xiaomi':
+        return '''
+1. Go to Settings → Apps → Manage apps → Usernode
+2. Set Battery saver to "No restrictions"
+3. Enable Autostart
+4. Enable "Display pop-up windows"
+5. Disable MIUI Battery Saver
+        ''';
+      case 'samsung':
+        return '''
+1. Settings → Apps → Usernode → Battery
+2. Select "Unrestricted"
+3. Remove from Sleeping apps list
+        ''';
+      case 'oppo':
+      case 'oneplus':
+      case 'realme':
+        return '''
+1. Settings → Battery → App Battery Management
+2. Set Usernode to "Don't optimize"
+3. Enable Auto-launch for Usernode
+        ''';
+      default:
+        return '''
+1. Go to Settings → Apps → Usernode
+2. Disable battery optimization
+3. Allow background activity
+        ''';
+    }
+  }
+}
+```
+
+##### Doze Mode Testing (All Android Devices)
+
+**Force device into Doze:**
+
+```bash
+# Connect device via ADB
+adb shell dumpsys deviceidle enable
+adb shell dumpsys deviceidle force-idle
+
+# Verify FGS and alarms still work
+
+# Exit Doze
+adb shell dumpsys deviceidle unforce
+
+# Check logs
+adb logcat | grep "NodeForegroundService\|AlarmManager"
+```
+
+**Expected Behavior:**
+- FGS should remain running (notification visible)
+- Exact alarms should fire even in Doze
+- Node should stay connected
+
+##### Testing Reliability Metrics by OEM
+
+Track and report reliability by manufacturer:
+
+| Manufacturer | Expected Reliability | Common Issues | Workaround Success Rate |
+|--------------|---------------------|---------------|------------------------|
+| Google Pixel | 95-98% | Minimal issues | N/A |
+| Samsung | 85-92% | Battery optimizer | 90% with exemption |
+| Xiaomi | 60-75% (without workarounds) | Aggressive killing | 85% with all settings |
+| Oppo/OnePlus | 70-80% | Auto-launch disabled | 88% with exemption |
+| Other | 80-90% | Varies | 85% average |
 
 ---
 
@@ -899,15 +1749,41 @@ stateDiagram-v2
 
 ---
 
-## RELIABILITY ESTIMATES
+## RELIABILITY ESTIMATES (Realistic Assessment)
 
-| Platform    | Method                           | Expected Reliability | Battery Impact     | User Interaction                     |
-| ----------- | -------------------------------- | -------------------- | ------------------ | ------------------------------------ |
-| **Android** | Exact Alarms + Continuous Node   | **90-95%**           | Low (node running) | Minimal (just grant permission once) |
-| **Android** | Exact Alarms + On-Demand Node    | **85-90%**           | Very Low           | Minimal                              |
-| **iOS**     | BGTask only                      | **50-70%**           | Very Low           | None (but unreliable)                |
-| **iOS**     | BGTask + Notifications           | **80-90%**           | Low                | Must respond to notifications        |
-| **iOS**     | Foreground Mode (user opens app) | **99%**              | Low                | Must keep app open during slots      |
+### Android
+
+| Method                         | Expected Reliability | Battery Impact     | User Interaction                     | Feasibility |
+| ------------------------------ | -------------------- | ------------------ | ------------------------------------ | ----------- |
+| Exact Alarms + FGS (24/7 node) | **90-95%**           | Medium (node 24/7) | Minimal (grant permissions once)     | ✅ Recommended |
+| Exact Alarms + FGS (on-demand) | **85-90%**           | Low                | Minimal                              | ✅ Alternative |
+| Expedited WorkManager Fallback | **70-85%**           | Very Low           | None (automatic)                     | ✅ Fallback only |
+
+**Best Android Strategy:** Exact Alarms + FGS with 24/7 node
+
+---
+
+### iOS (Honest Reality)
+
+| Method                                  | Expected Reliability | Battery Impact | User Interaction                | Feasibility    |
+| --------------------------------------- | -------------------- | -------------- | ------------------------------- | -------------- |
+| **Foreground Keep-Alive Mode**          | **99%**              | Low            | Must keep app open during slots | ✅ **Recommended** |
+| **BGTask + Notifications (user taps)**  | **80-90%**           | Very Low       | Respond to notifications        | ✅ Best automatic |
+| **BGTask alone (no user interaction)**  | **40-60%**           | Very Low       | None (but unreliable)           | ⚠️ Not recommended |
+| **Server-Assisted Silent Push**         | **70-85%**           | Low            | None (automatic)                | ⚠️ Requires server |
+
+**Best iOS Strategy:** Foreground Keep-Alive Mode for critical slots + BGTask + Notifications as backup
+
+---
+
+### Platform Comparison Summary
+
+| Platform    | Best Reliable Method               | Realistic Reliability | User Burden         |
+| ----------- | ---------------------------------- | --------------------- | ------------------- |
+| **Android** | Exact Alarms + FGS (24/7)          | **90-95%**            | Very Low (set & forget) |
+| **iOS**     | Foreground Keep-Alive + Notifications | **80-90%** (with user response) | **High** (must respond) |
+
+**Key Insight:** Android can achieve 90-95% automatic reliability. iOS **requires user involvement** (either keeping app open or responding to notifications) to achieve >80% reliability.
 
 ---
 
@@ -941,11 +1817,91 @@ stateDiagram-v2
 - **Android**: 90-95% with proper permissions and user whitelisting
 - **iOS**: 80-90% if user responds to notifications promptly
 
-### Development Effort
+### Development Effort (Updated with Android 12+ Requirements)
 
-- **Core + Android**: Medium complexity (exact alarms are straightforward)
-- **iOS**: High complexity (BGTasks unreliable, need multi-tier fallback)
-- **Testing**: High effort (need real device testing over 24+ hours)
+**Implementation Phases:**
+
+1. **Phase 1** - Core Services (Platform-Agnostic)
+2. **Phase 2** - Android Implementation:
+   - Native code (AlarmReceiver + FGS + Method Channels)
+   - Flutter integration
+3. **Phase 3** - iOS Implementation (Realistic):
+   - Tier 1: Foreground Keep-Alive Mode
+   - Tier 2: BGProcessingTask + Notifications
+   - Memory management + user education UI
+4. **Phase 4** - UI Components
+   - iOS limitations banners and warnings
+5. **Phase 5** - Background Automation
+6. **Phase 6** - Testing & Validation:
+   - Unit/Integration tests
+   - OEM device testing (Android) - critical for reliability
+   - iOS BGTask reliability testing - track actual vs expected timing
+7. **Phase 7** - User Experience & Polish
+
+**Complexity Factors:**
+- Android 12+ FGS implementation complexity
+- Realistic iOS three-tier implementation (Foreground + BGTask + Notifications)
+- Comprehensive OEM testing requirements
+- iOS reliability testing and user education
+- Battery optimization workaround development
+- Permission fallback strategies
+
+**Complexity Assessment:**
+- **Core + Android (with FGS)**: **High complexity** (Android 12+ restrictions, OEM variations)
+- **iOS**: **Very high complexity** (BGTasks fundamentally unreliable, requires three-tier approach + user education)
+- **Testing**: **Very high effort** (5+ device types, 24+ hour soak tests, OEM-specific workarounds, iOS BGTask timing analysis)
+
+---
+
+## iOS VS ANDROID REALITY CHECK
+
+### Android: Near-Automatic (90-95% Reliable)
+
+**What Works:**
+- ✅ Exact alarms fire reliably (bypasses Doze)
+- ✅ FGS keeps running with persistent notification
+- ✅ Node stays connected 24/7
+- ✅ User sets permissions once, then "set it and forget it"
+
+**User Experience:**
+1. Grant exact alarm permission (one-time)
+2. Whitelist from battery optimization (one-time)
+3. Done - blocks produce automatically
+
+---
+
+### iOS: Fundamentally Limited (40-60% automatic, 80-90% with user help)
+
+**What Doesn't Work:**
+- ❌ BGProcessingTask timing is unreliable (iOS decides when to run)
+- ❌ No exact alarm equivalent
+- ❌ 30-second background limit without foreground mode
+- ❌ Cannot keep node running in background
+
+**What Actually Works:**
+- ✅ Local notifications fire on time (but don't wake app)
+- ✅ Foreground mode works perfectly (if user keeps app open)
+- ⚠️ BGProcessingTask *sometimes* runs near requested time (40-60%)
+
+**User Experience (3 Options):**
+
+**Option 1: Foreground Keep-Alive (99% reliable)**
+1. User opens app before slots
+2. App prevents sleep
+3. Node monitors and produces blocks
+4. **User must keep app open** during slots
+
+**Option 2: Notifications + Manual Response (80-90% reliable)**
+1. App sends notifications 10min and 2min before slot
+2. **User must tap notification and open app**
+3. App produces block
+4. User can close app after
+
+**Option 3: BGTask Automatic (40-60% reliable)**
+1. App schedules BGProcessingTask
+2. iOS *might* run it near slot time
+3. If it runs, block produces
+4. **No guarantees - system decides**
 
 ---
 
@@ -970,13 +1926,126 @@ stateDiagram-v2
 
 ---
 
+## ANDROID 12+ BEST PRACTICES SUMMARY
+
+This implementation plan follows modern Android development best practices:
+
+### ✅ Exact Alarm → Foreground Service Pattern
+
+```kotlin
+// 1. Schedule exact alarm
+alarmManager.setExactAndAllowWhileIdle(RTC_WAKEUP, time, pendingIntent)
+
+// 2. Receiver starts FGS immediately
+class SlotAlarmReceiver : BroadcastReceiver() {
+    override fun onReceive(ctx: Context, intent: Intent) {
+        ContextCompat.startForegroundService(ctx, serviceIntent)
+    }
+}
+
+// 3. FGS posts notification within 5 seconds
+override fun onStartCommand(...): Int {
+    startForeground(NOTIFICATION_ID, notification)  // Android 12+ requirement
+    // ... do 30s work
+    return START_STICKY
+}
+```
+
+### ✅ Manifest Compliance
+
+- `foregroundServiceType="dataSync"` declared
+- `FOREGROUND_SERVICE_DATA_SYNC` permission
+- `SCHEDULE_EXACT_ALARM` permission with fallback
+
+### ✅ Fallback Strategy
+
+1. **Primary**: Exact alarms + FGS (90-95% reliability)
+2. **Fallback**: Expedited WorkManager (70-85% reliability)
+3. **Last Resort**: User notifications (60-70% reliability)
+
+### ✅ OEM Compatibility
+
+- Battery optimization detection
+- Manufacturer-specific guidance (Xiaomi, Samsung, Oppo)
+- Doze mode testing procedures
+- Reliability tracking by OEM
+
+### ✅ Permission Handling
+
+- Runtime permission checks (Android 12+)
+- User education dialogs
+- Settings deep-links
+- Graceful degradation
+
+---
+
+### ✅ iOS Reality Integration
+
+- Three-tier strategy (Foreground + BGTask + Notifications)
+- Realistic reliability expectations (40-60% automatic, 80-90% with user help)
+- User education about iOS limitations
+- Foreground keep-alive mode for critical slots
+
+---
+
 ## NEXT STEPS
 
 1. ✅ Review this plan
-2. ⏳ Start Phase 1: Core services (platform-agnostic)
-3. ⏳ Implement Phase 2: Android (exact alarms)
-4. ⏳ Test on real Android device
-5. ⏳ Implement Phase 3 & 4: iOS + UI
-6. ⏳ Real-world validation (24-hour test)
+2. ✅ Integrate Android 12+ best practices
+3. ✅ Integrate realistic iOS limitations and three-tier approach
+4. ⏳ Start Phase 1: Core services (platform-agnostic)
+5. ⏳ Implement Phase 2: Android (exact alarms + FGS)
+6. ⏳ Test on 5+ Android devices (including Xiaomi, Samsung)
+7. ⏳ Implement Phase 3: iOS (Foreground + BGTask + Notifications)
+8. ⏳ iOS BGTask reliability testing (track actual vs expected timing)
+9. ⏳ Implement Phase 4-5: UI + automation (including iOS limitation warnings)
+10. ⏳ Phase 6: Comprehensive OEM testing (Android and iOS)
+11. ⏳ Phase 7: Polish + user guidance (platform-specific instructions)
+12. ⏳ Real-world validation (24+ hour soak test per device)
 
-**Ready to begin implementation when you approve the plan!**
+---
+
+## FINAL RECOMMENDATIONS
+
+### For Android Users
+**Recommended Setup:**
+- Enable exact alarm permission
+- Whitelist app from battery optimization
+- Use 24/7 FGS mode for maximum reliability (90-95%)
+- Minimal user interaction required after initial setup
+
+### For iOS Users
+**Recommended Setup (Choose One):**
+
+**For Critical Slots (99% reliability):**
+- Use "Foreground Keep-Alive" mode
+- Keep app open 10 minutes before slot
+- App prevents sleep and monitors automatically
+
+**For Convenience (80-90% reliability):**
+- Enable notifications
+- Respond to 2-minute warning notification
+- Open app when alerted
+- Close app after slot completes
+
+**For "Set and Forget" (40-60% reliability):**
+- Enable BGProcessingTask
+- Accept that iOS may not wake up on time
+- Check statistics weekly to see actual reliability
+- Switch to notification mode if reliability is poor
+
+---
+
+## CONCLUSION
+
+**Implementation follows modern best practices:**
+- ✅ Android 12+ FGS with exact alarms (reliable 30-second background work)
+- ✅ iOS realistic three-tier approach (acknowledges platform limitations)
+- ✅ Comprehensive OEM testing and workarounds
+- ✅ User education about platform differences
+- ✅ Graceful degradation with fallback strategies
+
+**Expected Outcome:**
+- Android: 90-95% automatic block production (set and forget)
+- iOS: 80-90% with user notification response OR 99% with foreground mode
+- Platform-aware UX that sets correct expectations

@@ -6,17 +6,40 @@ import UIKit
 class BGTaskSchedulerManager {
     private let taskIdentifier = "com.usernode.lingash.slotmonitoring"
     private let notificationCenter = UNUserNotificationCenter.current()
+    private var isRegistered = false
 
     // Register BGProcessingTask
-    func registerBGTasks() {
-        BGTaskScheduler.shared.register(
-            forTaskWithIdentifier: taskIdentifier,
-            using: nil
-        ) { task in
-            self.handleBGTask(task: task as! BGProcessingTask)
+    // NOTE: This MUST be called during or before didFinishLaunchingWithOptions returns
+    // Calling it later can cause main thread blocking or undefined behavior
+    func registerBGTasks() -> Bool {
+        // Prevent duplicate registration
+        if isRegistered {
+            print("BGTaskScheduler: Already registered, skipping duplicate registration")
+            return true
         }
 
-        print("BGTaskScheduler: Registered task \(taskIdentifier)")
+        // Use background queue to avoid blocking main thread
+        let success = BGTaskScheduler.shared.register(
+            forTaskWithIdentifier: taskIdentifier,
+            using: DispatchQueue.global()
+        ) { task in
+            // Safe cast instead of force unwrap
+            guard let bgTask = task as? BGProcessingTask else {
+                print("BGTaskScheduler: ERROR - Unexpected task type: \(type(of: task))")
+                task.setTaskCompleted(success: false)
+                return
+            }
+            self.handleBGTask(task: bgTask)
+        }
+
+        if success {
+            isRegistered = true
+            print("BGTaskScheduler: ✓ Successfully registered task \(taskIdentifier)")
+        } else {
+            print("BGTaskScheduler: ✗ Failed to register task \(taskIdentifier)")
+        }
+
+        return success
     }
 
     // Schedule a BGProcessingTask for a specific slot
@@ -112,7 +135,9 @@ class BGTaskSchedulerManager {
         content.title = "Block Production Time"
         content.body = "Slot \(slotNumber) is coming up. Tap to start monitoring."
         content.sound = .default
-        content.interruptionLevel = .timeSensitive
+        if #available(iOS 15.0, *) {
+            content.interruptionLevel = .timeSensitive
+        }
         content.categoryIdentifier = "SLOT_MONITORING"
         content.userInfo = ["slotNumber": slotNumber]
 

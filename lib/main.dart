@@ -45,7 +45,6 @@ Future<void> _bootstrapAsync(LoggingService log) async {
     final cfg = AppConfig.instance;
     SentryUtil.addBreadcrumb(category: 'config', message: 'env', data: {
       'environment': cfg.environment,
-      'apiBaseUrl': cfg.apiBaseUrl,
       'verboseLogging': cfg.verboseLogging,
     });
 

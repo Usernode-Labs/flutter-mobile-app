@@ -72,9 +72,9 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       // Note: nodeStatusProvider is now derived from nodeRawStatusProvider,
       // so we only need to refresh nodeRawStatusProvider
       await ref.read(nodeRawStatusProvider.notifier).refresh();
-      await ref.read(nodeMempoolProvider.notifier).refresh();
-      await ref.read(nodeBlockchainProvider.notifier).refresh();
-      await ref.read(nodeEpochRewardsProvider.notifier).refresh();
+      await ref.refresh(nodeMempoolProvider.future);
+      await ref.refresh(nodeBlockchainProvider.future);
+      await ref.refresh(nodeEpochRewardsProvider.future);
 
       // Check if still mounted after async operations
       if (!mounted) return;
@@ -104,6 +104,14 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
           }
         });
       }
+    } on StateError catch (e, st) {
+      // Happens if a late timer tick fires after disposal; just log quietly.
+      LoggingService.instance
+          .debug('Skipped refresh on disposed node screen', tag: 'NODE');
+      LoggingService.instance
+          .debug('StateError during refresh: $e', tag: 'NODE');
+      LoggingService.instance.debug('Stack trace: $st', tag: 'NODE');
+      return;
     } catch (e, st) {
       LoggingService.instance
           .error('Refresh failed', tag: 'NODE', error: e, stackTrace: st);

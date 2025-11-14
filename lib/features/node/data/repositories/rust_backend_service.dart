@@ -88,7 +88,7 @@ class RustBackendService {
 
     builder.blockProducerHex(
         skHex:
-            "def170e8016858220fe64bd78baa863c15b50d35f8308545210d0a4d2550881b");
+            "1c0f48a5fa846d5e1a7f490e71d3b7176be0d3d7150a89dfaf275ada470a5c13");
     builder.mempoolAutoinsertInterval(secs: BigInt.from(1));
 
     _node = builder.build();

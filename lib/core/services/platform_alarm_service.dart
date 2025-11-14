@@ -110,10 +110,15 @@ class PlatformAlarmService {
   /// Initialize iOS-specific background task capabilities
   Future<void> _initializeIOS() async {
     try {
-      // Register BGProcessingTask identifiers
-      await _channel.invokeMethod('registerBGTasks');
+      // BGTasks are already registered in AppDelegate.didFinishLaunchingWithOptions
+      // Apple requires BGTaskScheduler.register() to be called BEFORE app launch completes
+      // Calling it again here would violate this requirement and cause main thread blocking
+      _logger.i(
+          'iOS background tasks already registered during app launch (AppDelegate)');
+
+      // Just mark as ready - no need to call native code again
       _permissionsGranted = true;
-      _logger.i('iOS background tasks registered');
+      _logger.i('iOS alarm service initialized successfully');
     } on PlatformException catch (e) {
       _logger.e('Error initializing iOS alarm service: ${e.message}');
     }

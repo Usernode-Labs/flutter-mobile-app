@@ -16,18 +16,31 @@ import workmanager_apple
     GeneratedPluginRegistrant.register(with: self)
 
     // Setup method channel for alarm service
-    let controller = window?.rootViewController as! FlutterViewController
-    alarmChannel = FlutterMethodChannel(name: alarmChannelName, binaryMessenger: controller.binaryMessenger)
-    setupMethodChannelHandlers()
+    // Use safe unwrapping instead of accessing rootViewController directly (Flutter deprecation fix)
+    if let flutterViewController = window?.rootViewController as? FlutterViewController {
+      alarmChannel = FlutterMethodChannel(
+        name: alarmChannelName,
+        binaryMessenger: flutterViewController.binaryMessenger
+      )
+      setupMethodChannelHandlers()
+    } else {
+      print("AppDelegate: Warning - Could not access FlutterViewController")
+    }
 
     // Register WorkManager for background tasks
     WorkmanagerPlugin.setPluginRegistrantCallback { registry in
         GeneratedPluginRegistrant.register(with: registry)
     }
 
-    // Register BGTaskScheduler tasks
+    // Register BGTaskScheduler tasks (MUST be done during app launch)
+    // Apple requires this to happen before didFinishLaunchingWithOptions returns
     if #available(iOS 13.0, *) {
-      bgTaskScheduler.registerBGTasks()
+      let success = bgTaskScheduler.registerBGTasks()
+      if success {
+        print("AppDelegate: BGTasks registered successfully during app launch")
+      } else {
+        print("AppDelegate: WARNING - Failed to register BGTasks")
+      }
     }
 
     // Enable background fetch
@@ -57,7 +70,11 @@ import workmanager_apple
     switch call.method {
     case "registerBGTasks":
       if #available(iOS 13.0, *) {
-        bgTaskScheduler.registerBGTasks()
+        // NOTE: BGTasks are already registered in didFinishLaunchingWithOptions
+        // This method is kept for backward compatibility but does nothing
+        // Calling registerBGTasks() again would violate Apple's requirement
+        // that it must be called before app launch completes
+        print("AppDelegate: registerBGTasks called via MethodChannel (already registered during app launch)")
         result(true)
       } else {
         result(FlutterError(code: "UNAVAILABLE", message: "BGTasks require iOS 13+", details: nil))

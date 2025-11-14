@@ -68,7 +68,7 @@ post_install do |installer|
       end
       
       # Deployment target
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
       
       # CMake environment for native dependencies
       config.build_settings['CMAKE'] = '/opt/homebrew/bin/cmake'

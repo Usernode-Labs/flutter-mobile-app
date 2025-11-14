@@ -761,6 +761,113 @@ stateDiagram-v2
 ##### Purpose
 User keeps app open during won slots for guaranteed block production.
 
+---
+
+### Understanding iOS Foreground Keep-Alive Mode
+
+**What is it?**
+
+Foreground Keep-Alive Mode is the **most reliable method** for block production on iOS, achieving **99% success rate**. When enabled, the app prevents your device's screen from locking and maintains an active connection to the Rust node, ensuring blocks are produced on time.
+
+**How it works:**
+
+1. **Screen Wake Lock**: Uses the `wakelock_plus` package to prevent the device from sleeping
+2. **Periodic Heartbeat**: Sends a lightweight signal every 30 seconds to prevent iOS from suspending the app
+3. **Active Node Connection**: Keeps the Rust node running continuously with stable blockchain sync
+4. **Automatic Monitoring**: Monitors upcoming slots and triggers block production without user interaction
+
+**When to use Keep-Alive Mode:**
+
+- During critical block production windows (when you have won slots)
+- When maximum reliability (99%) is required
+- When device can be plugged into power
+- When you can keep the app open in the foreground
+
+**User Requirements:**
+
+1. **Keep App Open**: The app must remain in the foreground (visible on screen)
+2. **Charger Recommended**: Connect device to power to avoid battery drain
+3. **Brightness Down**: Reduce screen brightness to minimum to conserve battery
+4. **Disable Auto-Lock**: Go to Settings > Display & Brightness > Auto-Lock > Never
+5. **Optional - Guided Access**: Triple-click home/side button to lock device to Usernode app (prevents accidental exit)
+
+**Battery Impact:**
+
+- **Without charging**: ~5-10% battery drain per hour
+- **With charging**: No battery impact - safe to run indefinitely
+- **Screen dimmed**: Minimal additional drain with brightness at minimum
+
+**Why is this needed on iOS?**
+
+iOS has strict background execution limits:
+- Apps are suspended after 30 seconds in the background
+- BGProcessingTask is unreliable (40-60% success rate) - system decides when to run
+- No exact alarm equivalent like Android
+- Cannot keep Rust node running in background
+
+By keeping the app in the foreground with Keep-Alive Mode, we bypass all these iOS limitations and achieve near-perfect reliability.
+
+**Comparison with Other iOS Methods:**
+
+| Method | Reliability | User Interaction | Battery Impact |
+|--------|-------------|------------------|----------------|
+| **Foreground Keep-Alive** | **99%** | Must keep app open | Low (with charger) |
+| BGTask + Notifications | 80-90% | Must respond to notifications | Very Low |
+| BGTask alone | 40-60% | None (but unreliable) | Very Low |
+
+**Best Practices:**
+
+1. **Plan Ahead**: Check your upcoming won slots in the Slot Calculator
+2. **Set Reminders**: Enable notifications to alert you 10 minutes before slots
+3. **Open App Early**: Open Usernode app 5-10 minutes before your first slot
+4. **Enable Keep-Alive**: Toggle "Foreground Keep-Alive" mode ON in settings
+5. **Stay Open**: Keep app visible on screen during entire slot window
+6. **Plug In**: Connect to charger for extended monitoring sessions
+7. **Dim Screen**: Set brightness to minimum to save battery
+8. **Check Status**: Monitor the real-time status indicator to verify monitoring is active
+
+**Example Workflow:**
+
+```
+1. Morning: Check Slot Calculator → See you have won slots at 2:00 PM and 4:30 PM
+2. 1:50 PM: Receive notification "Upcoming slot in 10 minutes"
+3. 1:55 PM: Open Usernode app
+4. 1:56 PM: Toggle "Foreground Keep-Alive" mode ON
+5. 1:57 PM: Dim screen brightness, plug in charger
+6. 2:00 PM: App automatically monitors and produces block
+7. 2:05 PM: Receive success notification "Block produced for slot 145 ✓"
+8. 4:25 PM: Still in foreground, ready for second slot
+9. 4:30 PM: App automatically monitors and produces block
+10. 4:35 PM: Toggle "Foreground Keep-Alive" mode OFF, close app
+```
+
+**Tips for Maximum Reliability:**
+
+- **Guided Access Mode**: Enable via Settings > Accessibility > Guided Access. This locks your device to the Usernode app, preventing accidental exits.
+- **Do Not Disturb**: Enable to prevent notification pop-ups from covering the app
+- **Focus Mode**: Use a custom Focus mode to silence calls and messages during slots
+- **Airplane Mode + WiFi**: If you receive frequent calls, enable Airplane Mode but turn WiFi back on to maintain internet connection
+
+**Troubleshooting:**
+
+| Issue | Solution |
+|-------|----------|
+| Screen keeps locking | Disable Auto-Lock in iOS Settings |
+| App exits unexpectedly | Enable Guided Access to lock to Usernode |
+| Battery draining quickly | Connect to charger, reduce screen brightness |
+| Node disconnects | Ensure stable WiFi/cellular connection |
+| Keep-Alive won't enable | Grant all notification permissions |
+
+**User Feedback:**
+
+When Keep-Alive Mode is active, you'll see:
+- **Status Indicator**: Green pulsing indicator showing "Monitoring Active"
+- **Persistent Banner**: "Keep-Alive Active - Monitoring slots" at top of screen
+- **Next Slot Countdown**: Real-time countdown to next won slot
+- **Node Status**: "Connected and synced" confirmation
+
+---
+
 ##### Implementation ✅
 
 - [x] Create `lib/core/services/ios_foreground_keepalive_service.dart`

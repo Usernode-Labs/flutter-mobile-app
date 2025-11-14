@@ -137,6 +137,316 @@ final rpc = RustBackendService.instance.rpc;
 
 ---
 
+## FLOW DIAGRAMS
+
+### Android Background Execution Flow
+
+This diagram illustrates the complete Android flow from user enablement through alarm scheduling, foreground service management, and slot monitoring.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant User
+    participant App
+    participant FlutterEngine
+    participant AlarmChannel
+    participant AlarmManager
+    participant AlarmReceiver
+    participant ForegroundService
+    participant RustNode
+    participant SlotScheduler
+    participant SlotMonitor
+    participant NotificationService
+
+    User->>App: Enable background block production
+    App->>FlutterEngine: Request SCHEDULE_EXACT_ALARM permission
+    FlutterEngine->>User: Show permission dialog
+    User->>FlutterEngine: Grant permission
+
+    App->>ForegroundService: Start foreground service
+    ForegroundService->>RustNode: Start node (runForeverInNewThread)
+    ForegroundService->>NotificationService: Show persistent notification
+
+    App->>SlotScheduler: Initialize slot scheduling
+    SlotScheduler->>RustNode: Query epochRewards(includeWonSlots: true)
+    RustNode-->>SlotScheduler: Return won slots list
+
+    loop For each won slot
+        SlotScheduler->>AlarmChannel: Schedule exact alarm (slot_time - 2min)
+        AlarmChannel->>AlarmManager: setExactAndAllowWhileIdle()
+        AlarmManager-->>AlarmChannel: Alarm scheduled
+    end
+
+    Note over AlarmManager: Time passes... 2 minutes before slot
+
+    AlarmManager->>AlarmReceiver: Fire alarm intent
+    AlarmReceiver->>FlutterEngine: Wake up Flutter isolate
+    FlutterEngine->>SlotMonitor: Start slot monitoring
+
+    SlotMonitor->>ForegroundService: Update notification ("Producing block...")
+
+    loop Every 10-30 seconds during slot window
+        SlotMonitor->>RustNode: getStatus()
+        RustNode-->>SlotMonitor: Return status (wonSlot/produced/injected)
+
+        alt Block produced successfully
+            SlotMonitor->>NotificationService: Show success notification
+            SlotMonitor->>SlotMonitor: Record success in statistics
+            SlotMonitor->>SlotMonitor: Stop monitoring
+        else Slot expired without production
+            SlotMonitor->>NotificationService: Show missed slot warning
+            SlotMonitor->>SlotMonitor: Record failure in statistics
+            SlotMonitor->>SlotMonitor: Stop monitoring
+        end
+    end
+
+    SlotMonitor->>ForegroundService: Update notification (back to idle)
+
+    Note over App: Epoch transition detected
+
+    App->>SlotScheduler: Epoch changed
+    SlotScheduler->>AlarmManager: Cancel old alarms
+    SlotScheduler->>RustNode: Query new epoch rewards
+    RustNode-->>SlotScheduler: New won slots
+    SlotScheduler->>AlarmManager: Schedule new alarms
+
+    Note over User: User wants to check statistics
+
+    User->>App: Open slot calculator screen
+    App->>SlotScheduler: Get upcoming slots
+    App->>SlotMonitor: Get statistics
+    App->>User: Display slots and reliability %
+```
+
+### iOS Background Execution Flow
+
+This diagram shows the iOS implementation with BGProcessingTask scheduling and local notification fallback due to iOS platform limitations.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant User
+    participant App
+    participant FlutterEngine
+    participant BGTaskChannel
+    participant BGTaskScheduler
+    participant AppDelegate
+    participant RustNode
+    participant SlotScheduler
+    participant SlotMonitor
+    participant NotificationService
+
+    User->>App: Enable background block production
+    App->>FlutterEngine: Request notification permission
+    FlutterEngine->>User: Show permission dialog
+    User->>FlutterEngine: Grant permission
+
+    App->>SlotScheduler: Initialize slot scheduling
+    SlotScheduler->>RustNode: Query epochRewards(includeWonSlots: true)
+    RustNode-->>SlotScheduler: Return won slots list
+
+    loop For each won slot
+        SlotScheduler->>BGTaskChannel: Schedule BGProcessingTask (slot_time - 2min)
+        BGTaskChannel->>BGTaskScheduler: submit(BGProcessingTaskRequest)
+        BGTaskScheduler-->>BGTaskChannel: Task registered
+
+        Note over SlotScheduler: Also schedule local notification as backup
+        SlotScheduler->>NotificationService: Schedule notification (slot_time - 2min)
+        NotificationService-->>SlotScheduler: Notification scheduled
+    end
+
+    Note over BGTaskScheduler: System decides to run task (unreliable timing)
+
+    alt BGProcessingTask fires before slot
+        BGTaskScheduler->>AppDelegate: handleSlotProductionTask()
+        AppDelegate->>FlutterEngine: Wake up Flutter isolate
+        FlutterEngine->>RustNode: Start node (runForeverInNewThread)
+        FlutterEngine->>SlotMonitor: Start slot monitoring
+
+        loop Every 10-30 seconds (max 30 sec total in background)
+            SlotMonitor->>RustNode: getStatus()
+            RustNode-->>SlotMonitor: Return status
+
+            alt Block produced within 30 seconds
+                SlotMonitor->>NotificationService: Show success notification
+                SlotMonitor->>SlotMonitor: Record success
+                SlotMonitor->>RustNode: Stop node
+                SlotMonitor->>AppDelegate: Task complete
+                AppDelegate->>BGTaskScheduler: setTaskCompleted(success: true)
+            else 30 second limit approaching
+                SlotMonitor->>NotificationService: Show "Open app to produce" notification
+                SlotMonitor->>RustNode: Keep node running (app must stay open)
+                SlotMonitor->>AppDelegate: Task complete (time limit)
+                AppDelegate->>BGTaskScheduler: setTaskCompleted(success: false)
+            end
+        end
+
+    else BGProcessingTask doesn't fire (iOS limitation)
+        Note over NotificationService: Backup notification fires instead
+
+        NotificationService->>User: Show notification "Slot in 2 minutes - Open app"
+        User->>App: Tap notification / Open app
+        App->>RustNode: Ensure node running
+        App->>SlotMonitor: Start monitoring
+
+        loop Every 10 seconds while app open
+            SlotMonitor->>RustNode: getStatus()
+            RustNode-->>SlotMonitor: Return status
+
+            alt Block produced
+                SlotMonitor->>NotificationService: Show success notification
+                SlotMonitor->>SlotMonitor: Record success
+            else Slot missed
+                SlotMonitor->>NotificationService: Show missed notification
+                SlotMonitor->>SlotMonitor: Record failure
+            end
+        end
+    end
+
+    Note over App: Epoch transition detected
+
+    App->>SlotScheduler: Epoch changed
+    SlotScheduler->>BGTaskScheduler: Cancel old tasks
+    SlotScheduler->>NotificationService: Cancel old notifications
+    SlotScheduler->>RustNode: Query new epoch rewards
+    RustNode-->>SlotScheduler: New won slots
+    SlotScheduler->>BGTaskScheduler: Schedule new tasks
+    SlotScheduler->>NotificationService: Schedule new notifications
+
+    Note over User: User checks progress
+
+    User->>App: Open slot calculator screen
+    App->>SlotScheduler: Get upcoming slots
+    App->>SlotMonitor: Get statistics
+    App->>User: Display slots and reliability %
+```
+
+### High-Level Architecture Diagram
+
+This diagram shows the relationships between Flutter services, platform channels, native components, and the Rust backend.
+
+```mermaid
+graph TB
+    subgraph "Flutter Layer"
+        UI[UI Screens]
+        SlotScheduler[SlotSchedulerService]
+        SlotMonitor[SlotMonitorService]
+        NodeLifecycle[NodeLifecycleManager]
+        PlatformAlarm[PlatformAlarmService]
+        StatsRepo[StatisticsRepository]
+    end
+
+    subgraph "Platform Channels"
+        AlarmChannel[AlarmManagerChannel]
+        BGTaskChannel[BackgroundTaskChannel]
+    end
+
+    subgraph "Android Native"
+        AlarmManager[AlarmManager]
+        AlarmReceiver[SlotAlarmReceiver]
+        ForegroundService[NodeForegroundService]
+    end
+
+    subgraph "iOS Native"
+        BGScheduler[BGTaskScheduler]
+        AppDelegate[AppDelegate Handler]
+        LocalNotif[Local Notifications]
+    end
+
+    subgraph "Rust Backend"
+        RustNode[Rust Node]
+        EpochRewards[epochRewards API]
+        StatusAPI[getStatus API]
+    end
+
+    UI --> SlotScheduler
+    UI --> SlotMonitor
+    UI --> StatsRepo
+
+    SlotScheduler --> PlatformAlarm
+    SlotScheduler --> RustNode
+
+    SlotMonitor --> RustNode
+    SlotMonitor --> NodeLifecycle
+    SlotMonitor --> StatsRepo
+
+    NodeLifecycle --> RustNode
+
+    PlatformAlarm --> AlarmChannel
+    PlatformAlarm --> BGTaskChannel
+
+    AlarmChannel --> AlarmManager
+    AlarmManager --> AlarmReceiver
+    AlarmReceiver --> SlotMonitor
+
+    ForegroundService --> RustNode
+
+    BGTaskChannel --> BGScheduler
+    BGScheduler --> AppDelegate
+    AppDelegate --> SlotMonitor
+
+    LocalNotif -.->|Fallback| UI
+
+    RustNode --> EpochRewards
+    RustNode --> StatusAPI
+
+    style ForegroundService fill:#90EE90
+    style AlarmManager fill:#90EE90
+    style BGScheduler fill:#ADD8E6
+    style LocalNotif fill:#ADD8E6
+```
+
+### Component Interaction State Machine
+
+This state diagram shows the complete lifecycle of the background execution system from initialization through slot monitoring and epoch transitions.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle: App starts
+
+    Idle --> PermissionRequest: User enables background production
+    PermissionRequest --> Initializing: Permissions granted
+    PermissionRequest --> Idle: Permissions denied
+
+    Initializing --> QueryingSlots: Start foreground service (Android)
+    Initializing --> QueryingSlots: Initialize BGTasks (iOS)
+
+    QueryingSlots --> SchedulingAlarms: Received won slots
+    QueryingSlots --> Idle: No won slots / Error
+
+    SchedulingAlarms --> WaitingForSlot: All alarms scheduled
+
+    WaitingForSlot --> PreSlotWakeup: Alarm fires (2 min before slot)
+    WaitingForSlot --> EpochTransition: Epoch changes
+
+    PreSlotWakeup --> NodeStarting: iOS: Start node<br/>Android: Node already running
+
+    NodeStarting --> Monitoring: Node running, start polling
+
+    Monitoring --> CheckingStatus: Poll getStatus() every 10-30s
+
+    CheckingStatus --> BlockProduced: Status shows "produced"
+    CheckingStatus --> SlotExpired: Slot time passed, no production
+    CheckingStatus --> Monitoring: Still in "wonSlot" state
+
+    BlockProduced --> RecordSuccess: Log to statistics
+    SlotExpired --> RecordFailure: Log missed slot
+
+    RecordSuccess --> Cleanup: Send success notification
+    RecordFailure --> Cleanup: Send failure notification
+
+    Cleanup --> StopNode: iOS: Stop node to save memory
+    Cleanup --> WaitingForSlot: Android: Keep node running
+    StopNode --> WaitingForSlot
+
+    EpochTransition --> CancelAlarms: Cancel old epoch alarms
+    CancelAlarms --> QueryingSlots: Query new epoch
+
+    WaitingForSlot --> [*]: User disables background production
+```
+
+---
+
 ## IMPLEMENTATION CHECKLIST
 
 ### Phase 1: Core Services (Platform-Agnostic)

@@ -33,20 +33,20 @@ Flutter + Rust hybrid client that lets anyone run a lightweight Usernode, manage
 ```mermaid
 flowchart LR
     subgraph Flutter
-      UI[UI Screens<br/>(lib/features/*/presentation)]
-      Providers[Riverpod Providers<br/>(lib/core/providers)]
-      Services[Services & Config<br/>(lib/core/services, config)]
+      UI["UI Screens<br/>(lib/features/*/presentation)"]
+      Providers["Riverpod Providers<br/>(lib/core/providers)"]
+      Services["Services & Config<br/>(lib/core/services, config)"]
     end
 
     subgraph RustSide[Rust Node (../usernode)]
-      RustCrate[usernode crate<br/>crates/usernode]
+      RustCrate["usernode crate<br/>crates/usernode"]
     end
 
-    UI --> Providers --> Services --> FRB[flutter_rust_bridge bindings<br/>(lib/src/rust)]
+    UI --> Providers --> Services --> FRB["flutter_rust_bridge bindings<br/>(lib/src/rust)"]
     FRB --> RustCrate
-    Services -->|HTTP| RemoteAPIs[(Remote APIs<br/>API_BASE_URL)]
-    Services -->|Feedback| GitHub[GitHub Issues<br/>via GITHUB_TOKEN]
-    Services -->|Telemetry| Sentry[Sentry DSN]
+    Services -->|HTTP| RemoteAPIs["Remote APIs<br/>API_BASE_URL"]
+    Services -->|Feedback| GitHub["GitHub Issues<br/>via GITHUB_TOKEN"]
+    Services -->|Telemetry| Sentry["Sentry DSN"]
 ```
 
 Key flows:
@@ -211,14 +211,14 @@ Testing pointers:
 
 ```mermaid
 flowchart TD
-    PR[Pull Request] --> Checks[PR Checks Workflow]
+    PR["Pull Request"] --> Checks["PR Checks Workflow"]
     Checks -->|format/analyze/test| Status
-    Checks -->|Build Android| Apk[Debug APK]
-    Checks -->|Build iOS| Ipa[iOS Debug build]
+    Checks -->|Build Android| Apk["Debug APK"]
+    Checks -->|Build iOS| Ipa["iOS Debug build"]
     main --> BuildDeploy[build-and-deploy.yml]
     develop --> BuildDeploy
-    BuildDeploy --> Store[TestFlight / Play Console (Fastlane)]
-    Manual[manual-build.yml] --> Store
+    BuildDeploy --> Store["TestFlight / Play Console (Fastlane)"]
+    Manual["manual-build.yml"] --> Store
 ```
 
 GitHub Actions workflows (`.github/workflows/`):

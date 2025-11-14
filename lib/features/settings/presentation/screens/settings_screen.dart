@@ -169,6 +169,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               context.push('/notification-settings');
             },
           ),
+          ListTile(
+            leading: Icon(Icons.widgets, color: colorScheme.primary),
+            title: const Text('Background Block Production'),
+            subtitle: const Text('Configure automatic block production'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              context.push('/background-production-settings');
+            },
+          ),
           const Divider(),
 
           // Developer Section

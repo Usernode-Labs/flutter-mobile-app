@@ -48,6 +48,7 @@
     <key>BGTaskSchedulerPermittedIdentifiers</key>
     <array>
         <string>be.tramckrijte.workmanager.slot_monitoring_task</string>
+        <string>com.usernode.lingash.slotmonitoring</string>
     </array>
 </dict>
 </plist>

@@ -15,6 +15,7 @@ import 'package:crypto_mobile_app/features/node/presentation/screens/produced_bl
 import 'package:crypto_mobile_app/features/node/presentation/screens/block_details_screen.dart';
 import 'package:crypto_mobile_app/features/node/presentation/screens/mempool_details_screen.dart';
 import 'package:crypto_mobile_app/features/node/presentation/screens/notification_details_screen.dart';
+import 'package:crypto_mobile_app/features/node/presentation/screens/slot_production_stats_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/presentation/screens/dapps_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/presentation/screens/wallet_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/presentation/screens/send_screen.dart';
@@ -22,6 +23,7 @@ import 'package:crypto_mobile_app/features/wallet/presentation/screens/receive_s
 import 'package:crypto_mobile_app/features/profile/presentation/screens/profile_screen.dart';
 import 'package:crypto_mobile_app/features/settings/presentation/screens/settings_screen.dart';
 import 'package:crypto_mobile_app/features/settings/presentation/screens/notification_settings_screen.dart';
+import 'package:crypto_mobile_app/features/settings/presentation/screens/background_production_settings_screen.dart';
 import 'package:crypto_mobile_app/features/notifications/presentation/screens/notifications_screen.dart';
 import 'package:crypto_mobile_app/features/rewards/presentation/screens/rewards_breakdown_screen.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
@@ -111,6 +113,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const NotificationSettingsScreen(),
       ),
       GoRoute(
+        path: '/background-production-settings',
+        builder: (context, state) => const BackgroundProductionSettingsScreen(),
+      ),
+      GoRoute(
         path: '/notifications',
         builder: (context, state) => const NotificationsScreen(),
       ),
@@ -156,6 +162,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/main/node/produced-blocks',
             builder: (context, state) => const ProducedBlocksScreen(),
+          ),
+          GoRoute(
+            path: '/main/node/production-stats',
+            builder: (context, state) => const SlotProductionStatsScreen(),
           ),
           GoRoute(
             path: '/main/node/block-details',

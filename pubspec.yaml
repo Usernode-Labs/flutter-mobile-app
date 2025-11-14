@@ -42,6 +42,7 @@ dependencies:
   freezed_annotation: "^2.4.4"
   logger: "^2.0.0"
   collection: any
+  wakelock_plus: "^1.2.8"
 dev_dependencies:
   flutter_lints: "^5.0.0"
   flutter_test:

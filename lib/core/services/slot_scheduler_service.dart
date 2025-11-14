@@ -1,7 +1,5 @@
-import 'dart:io';
 import 'package:logger/logger.dart';
 import '../../features/node/data/repositories/rust_backend_service.dart';
-import '../data/notification_state_repository.dart';
 import 'platform_alarm_service.dart';
 
 /// Service responsible for scheduling alarms/tasks for won slots
@@ -14,7 +12,6 @@ class SlotSchedulerService {
   SlotSchedulerService._();
 
   final Logger _logger = Logger();
-  final NotificationStateRepository _stateRepo = NotificationStateRepository.instance;
 
   bool _initialized = false;
   List<ScheduledSlot> _scheduledSlots = [];
@@ -59,13 +56,21 @@ class SlotSchedulerService {
 
       // Query Rust backend for won slots
       final rpc = RustBackendService.instance.rpc;
+      if (rpc == null) {
+        _logger.w('RPC service not available');
+        return SchedulingResult(
+          success: false,
+          error: 'RPC service not available',
+        );
+      }
+
       final epochData = await rpc.epochRewards(
         epoch: epoch,
         includeWonSlots: true,
       );
 
-      if (epochData.wonSlots == null || epochData.wonSlots!.isEmpty) {
-        _logger.i('No won slots found for epoch ${epochData.epoch}');
+      if (epochData == null || epochData.wonSlots == null || epochData.wonSlots!.isEmpty) {
+        _logger.i('No won slots found for epoch ${epochData?.epoch ?? epoch}');
         return SchedulingResult(
           success: true,
           slotsScheduled: 0,

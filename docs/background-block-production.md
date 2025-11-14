@@ -36,25 +36,41 @@ See detailed checklist below for all completed items.
 
 ---
 
-## Rust Backend API (Already Available)
+## RELIABILITY ESTIMATES (Realistic Assessment)
 
-### 1. Get Won Slots
+### Android
 
-Use `RustBackendService.instance.rpc.epochRewards()` with `includeWonSlots: true` to retrieve:
-- `epochData.wonSlots`: List of `RpcEpochWonSlot` objects
-- Each slot contains: `globalSlot` (int) and `expectedTimeMs` (BigInt timestamp)
+| Method                         | Expected Reliability | Battery Impact     | User Interaction                     | Feasibility |
+| ------------------------------ | -------------------- | ------------------ | ------------------------------------ | ----------- |
+| Exact Alarms + FGS (24/7 node) | **90-95%**           | Medium (node 24/7) | Minimal (grant permissions once)     | ✅ Recommended |
+| Exact Alarms + FGS (on-demand) | **85-90%**           | Low                | Minimal                              | ✅ Alternative |
+| Expedited WorkManager Fallback | **70-85%**           | Very Low           | None (automatic)                     | ✅ Fallback only |
 
-### 2. Monitor Block Production Status
+**Best Android Strategy:** Exact Alarms + FGS with 24/7 node
 
-Use `rpc.status()` to check block producer status:
-- Possible states: idle, wonSlot, wonSlotProduceInit, batchesAssemblePending, produced, injected
+---
 
-### 3. Node Lifecycle (Already Available)
+### iOS (Honest Reality)
 
-Available methods:
-- Start node: `RustBackendService.instance.startForActiveAccount()`
-- Stop node: `RustBackendService.instance.stopNode()`
-- Get RPC handle: `RustBackendService.instance.rpc`
+| Method                                  | Expected Reliability | Battery Impact | User Interaction                | Feasibility    |
+| --------------------------------------- | -------------------- | -------------- | ------------------------------- | -------------- |
+| **Foreground Keep-Alive Mode**          | **99%**              | Low            | Must keep app open during slots | ✅ **Recommended** |
+| **BGTask + Notifications (user taps)**  | **80-90%**           | Very Low       | Respond to notifications        | ✅ Best automatic |
+| **BGTask alone (no user interaction)**  | **40-60%**           | Very Low       | None (but unreliable)           | ⚠️ Not recommended |
+| **Server-Assisted Silent Push**         | **70-85%**           | Low            | None (automatic)                | ⚠️ Requires server |
+
+**Best iOS Strategy:** Foreground Keep-Alive Mode for critical slots + BGTask + Notifications as backup
+
+---
+
+### Platform Comparison Summary
+
+| Platform    | Best Reliable Method               | Realistic Reliability | User Burden         |
+| ----------- | ---------------------------------- | --------------------- | ------------------- |
+| **Android** | Exact Alarms + FGS (24/7)          | **90-95%**            | Very Low (set & forget) |
+| **iOS**     | Foreground Keep-Alive + Notifications | **80-90%** (with user response) | **High** (must respond) |
+
+**Key Insight:** Android can achieve 90-95% automatic reliability. iOS **requires user involvement** (either keeping app open or responding to notifications) to achieve >80% reliability.
 
 ---
 
@@ -123,34 +139,6 @@ When exact alarms are unavailable:
 - Require network connectivity constraint
 
 **Quota Management**: When quota is exhausted, expedited work degrades to normal scheduling. Show user notification about reduced reliability.
-
----
-
-## DAILY WORKFLOW
-
-**Day Start (00:00)**
-1. User opens app OR scheduled task runs
-2. Query Rust: `epochRewards(includeWonSlots: true)` returns won slots (e.g., Slot 145 at 03:27, Slot 892 at 14:54)
-3. Schedule alarms for each slot (2 minutes before)
-   - Android: Exact alarms via AlarmManager
-   - iOS: BGProcessingTask + notification fallback
-4. Android: Node keeps running in background
-5. iOS: Stop node to save memory
-
-**Alarm Fires (2 min before slot, e.g., 03:25)**
-1. Android: Wake app, ensure node still running
-2. iOS: Wake app, start node, fast sync
-3. Monitor `status()` every 5 seconds
-
-**Slot Time (e.g., 03:27)**
-1. Node automatically produces block
-2. Status changes: wonSlot → produced → injected
-3. Block confirmed ✓
-4. Android: Node continues running
-5. iOS: Stop node after 30s to save battery/memory
-6. Wait for next slot alarm
-
-**Repeat for subsequent slots**
 
 ---
 
@@ -1176,110 +1164,6 @@ Track and report reliability by manufacturer:
     - [ ] A: Link to troubleshooting guide
   - [ ] Q: "How much battery does this use?"
     - [ ] A: "Minimal - we only wake up for your won slots"
-
----
-
-## RELIABILITY ESTIMATES (Realistic Assessment)
-
-### Android
-
-| Method                         | Expected Reliability | Battery Impact     | User Interaction                     | Feasibility |
-| ------------------------------ | -------------------- | ------------------ | ------------------------------------ | ----------- |
-| Exact Alarms + FGS (24/7 node) | **90-95%**           | Medium (node 24/7) | Minimal (grant permissions once)     | ✅ Recommended |
-| Exact Alarms + FGS (on-demand) | **85-90%**           | Low                | Minimal                              | ✅ Alternative |
-| Expedited WorkManager Fallback | **70-85%**           | Very Low           | None (automatic)                     | ✅ Fallback only |
-
-**Best Android Strategy:** Exact Alarms + FGS with 24/7 node
-
----
-
-### iOS (Honest Reality)
-
-| Method                                  | Expected Reliability | Battery Impact | User Interaction                | Feasibility    |
-| --------------------------------------- | -------------------- | -------------- | ------------------------------- | -------------- |
-| **Foreground Keep-Alive Mode**          | **99%**              | Low            | Must keep app open during slots | ✅ **Recommended** |
-| **BGTask + Notifications (user taps)**  | **80-90%**           | Very Low       | Respond to notifications        | ✅ Best automatic |
-| **BGTask alone (no user interaction)**  | **40-60%**           | Very Low       | None (but unreliable)           | ⚠️ Not recommended |
-| **Server-Assisted Silent Push**         | **70-85%**           | Low            | None (automatic)                | ⚠️ Requires server |
-
-**Best iOS Strategy:** Foreground Keep-Alive Mode for critical slots + BGTask + Notifications as backup
-
----
-
-### Platform Comparison Summary
-
-| Platform    | Best Reliable Method               | Realistic Reliability | User Burden         |
-| ----------- | ---------------------------------- | --------------------- | ------------------- |
-| **Android** | Exact Alarms + FGS (24/7)          | **90-95%**            | Very Low (set & forget) |
-| **iOS**     | Foreground Keep-Alive + Notifications | **80-90%** (with user response) | **High** (must respond) |
-
-**Key Insight:** Android can achieve 90-95% automatic reliability. iOS **requires user involvement** (either keeping app open or responding to notifications) to achieve >80% reliability.
-
----
-
-## RECOMMENDED IMPLEMENTATION ORDER
-
-1. **Phase 1** (Core Services): Foundation for both platforms
-2. **Phase 2** (Android): Fastest to implement, highest reliability
-3. **Phase 4** (Flutter UI): Enable testing and user feedback
-4. **Phase 3** (iOS): More complex, lower reliability
-5. **Phase 5** (Background Automation): Enable hands-off operation
-6. **Phase 6** (Testing): Validate reliability
-7. **Phase 7** (Polish): Improve UX based on feedback
-
----
-
-## EXPECTED OUTCOMES
-
-### Battery Life
-
-- **Android (continuous node)**: 10-15% daily increase
-- **Android (on-demand node)**: 3-5% daily increase (only wakes for slots)
-- **iOS (on-demand)**: 3-5% daily increase
-
-### User Experience
-
-- **Android**: Nearly invisible - one-time permission, then automatic
-- **iOS**: Requires attention - respond to notifications before slots
-
-### Reliability
-
-- **Android**: 90-95% with proper permissions and user whitelisting
-- **iOS**: 80-90% if user responds to notifications promptly
-
-### Development Effort (Updated with Android 12+ Requirements)
-
-**Implementation Phases:**
-
-1. **Phase 1** - Core Services (Platform-Agnostic)
-2. **Phase 2** - Android Implementation:
-   - Native code (AlarmReceiver + FGS + Method Channels)
-   - Flutter integration
-3. **Phase 3** - iOS Implementation (Realistic):
-   - Tier 1: Foreground Keep-Alive Mode
-   - Tier 2: BGProcessingTask + Notifications
-   - Memory management + user education UI
-4. **Phase 4** - UI Components
-   - iOS limitations banners and warnings
-5. **Phase 5** - Background Automation
-6. **Phase 6** - Testing & Validation:
-   - Unit/Integration tests
-   - OEM device testing (Android) - critical for reliability
-   - iOS BGTask reliability testing - track actual vs expected timing
-7. **Phase 7** - User Experience & Polish
-
-**Complexity Factors:**
-- Android 12+ FGS implementation complexity
-- Realistic iOS three-tier implementation (Foreground + BGTask + Notifications)
-- Comprehensive OEM testing requirements
-- iOS reliability testing and user education
-- Battery optimization workaround development
-- Permission fallback strategies
-
-**Complexity Assessment:**
-- **Core + Android (with FGS)**: **High complexity** (Android 12+ restrictions, OEM variations)
-- **iOS**: **Very high complexity** (BGTasks fundamentally unreliable, requires three-tier approach + user education)
-- **Testing**: **Very high effort** (5+ device types, 24+ hour soak tests, OEM-specific workarounds, iOS BGTask timing analysis)
 
 ---
 

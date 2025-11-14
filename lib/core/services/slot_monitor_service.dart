@@ -128,7 +128,8 @@ class SlotMonitorService {
         return;
       }
 
-      final nodeState = status.nodeState;
+      // Get node state from block producer status
+      final nodeState = status.blockProducer?.status?.toString() ?? 'idle';
       final bestTipSlot = status.blockchain.bestTip.globalSlot;
       final currentSlotNumber = _currentSlot!.slotNumber;
 

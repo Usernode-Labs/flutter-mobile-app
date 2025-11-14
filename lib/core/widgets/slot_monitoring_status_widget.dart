@@ -244,16 +244,17 @@ class _SlotMonitoringStatusWidgetState
                   size: 24,
                 ),
                 // Pulsing animation
-                TweenAnimationBuilder(
+                TweenAnimationBuilder<double>(
                   tween: Tween<double>(begin: 0, end: 1),
                   duration: const Duration(seconds: 2),
-                  repeat: true,
                   builder: (context, value, child) {
+                    // Create repeating animation manually
+                    final animatedValue = (value * 2) % 1.0;
                     return Opacity(
-                      opacity: 1 - value,
+                      opacity: 1 - animatedValue,
                       child: Container(
-                        width: 48 * (1 + value * 0.5),
-                        height: 48 * (1 + value * 0.5),
+                        width: 48 * (1 + animatedValue * 0.5),
+                        height: 48 * (1 + animatedValue * 0.5),
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
@@ -263,6 +264,10 @@ class _SlotMonitoringStatusWidgetState
                         ),
                       ),
                     );
+                  },
+                  onEnd: () {
+                    // Trigger rebuild to restart animation
+                    if (mounted) setState(() {});
                   },
                 ),
               ],

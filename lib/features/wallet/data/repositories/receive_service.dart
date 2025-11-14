@@ -70,6 +70,5 @@ class ReceiveService {
     return String.fromCharCodes(Iterable.generate(
         length, (_) => chars.codeUnitAt(random.nextInt(chars.length))));
   }
-
 }
 // ValidationResult for receive removed. Send flow has its own type.

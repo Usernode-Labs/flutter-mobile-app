@@ -21,13 +21,18 @@ import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_utxos_by_owne
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/transfer_funds.dart';
 import 'package:crypto_mobile_app/src/rust/rpc.dart';
 
-typedef ListBlockchainFn = Future<RpcListBlockchainResp?> Function({int? limit, bool? fromTip});
+typedef ListBlockchainFn = Future<RpcListBlockchainResp?> Function(
+    {int? limit, bool? fromTip});
 typedef ListMempoolFn = Future<RpcListMempoolResp?> Function();
 typedef EpochRewardsFn = Future<RpcEpochRewardsResp?> Function({int? epoch});
 typedef GetStatusFn = Future<RpcStatusResp?> Function();
 typedef BuildEnvFn = BuildInfo Function();
-typedef ListUtxosByOwnerFn = Future<RpcListUtxosByOwnerResp?> Function({required PublicKeyHash owner, int? limit});
-typedef TransferFundsFn = Future<RpcTransferFundsResp?> Function({required PublicKeyHash fromPkHash, required BigInt amount, required PublicKeyHash toPkHash});
+typedef ListUtxosByOwnerFn = Future<RpcListUtxosByOwnerResp?> Function(
+    {required PublicKeyHash owner, int? limit});
+typedef TransferFundsFn = Future<RpcTransferFundsResp?> Function(
+    {required PublicKeyHash fromPkHash,
+    required BigInt amount,
+    required PublicKeyHash toPkHash});
 
 void main() {
   group('RustBackendService API signatures (no-load)', () {
@@ -56,7 +61,9 @@ void main() {
       expect(f, isNotNull);
     });
 
-    test('transferFunds({required PublicKeyHash fromPkHash, required BigInt amount, required PublicKeyHash toPkHash})', () {
+    test(
+        'transferFunds({required PublicKeyHash fromPkHash, required BigInt amount, required PublicKeyHash toPkHash})',
+        () {
       final TransferFundsFn f = RustBackendService.instance.transferFunds;
       expect(f, isNotNull);
     });
@@ -77,6 +84,7 @@ void main() {
         expect([_, e, s].isNotEmpty, isTrue);
         expect([h, pk, t, batches].isNotEmpty, isTrue);
       }
+
       expect(check, isNotNull);
     });
 
@@ -88,6 +96,7 @@ void main() {
         final total = r.totalBlocks; // BigInt
         expect([items, root, tip, total].isNotEmpty, isTrue);
       }
+
       expect(check, isNotNull);
     });
 
@@ -99,6 +108,7 @@ void main() {
         final entries = r.entries; // List<MempoolTxSummary>
         expect([count, orphans, total, entries].isNotEmpty, isTrue);
       }
+
       expect(check, isNotNull);
     });
 
@@ -115,6 +125,7 @@ void main() {
         expect([epoch, reward, produced, wins].isNotEmpty, isTrue);
         expect([earned, expected, pubkey, won].length, greaterThanOrEqualTo(0));
       }
+
       expect(check, isNotNull);
     });
 
@@ -123,6 +134,7 @@ void main() {
         final items = r.items; // List<OwnedUtxo>
         expect(items, isA<List<OwnedUtxo>>());
       }
+
       expect(check, isNotNull);
     });
 
@@ -132,6 +144,7 @@ void main() {
         final error = r.error; // String?
         expect([queued, error].length, greaterThan(0));
       }
+
       expect(check, isNotNull);
     });
   });

@@ -14,7 +14,8 @@ class FeedbackFormContent extends ConsumerStatefulWidget {
   const FeedbackFormContent({super.key});
 
   @override
-  ConsumerState<FeedbackFormContent> createState() => _FeedbackFormContentState();
+  ConsumerState<FeedbackFormContent> createState() =>
+      _FeedbackFormContentState();
 }
 
 class _FeedbackFormContentState extends ConsumerState<FeedbackFormContent> {
@@ -153,9 +154,8 @@ class _FeedbackFormContentState extends ConsumerState<FeedbackFormContent> {
                         ),
                         const Spacer(),
                         TextButton.icon(
-                          onPressed: _screenshots.length < 3
-                              ? _pickScreenshot
-                              : null,
+                          onPressed:
+                              _screenshots.length < 3 ? _pickScreenshot : null,
                           icon: const Icon(Icons.add_photo_alternate_outlined),
                           label: const Text('Add'),
                         ),
@@ -236,10 +236,10 @@ class _FeedbackFormContentState extends ConsumerState<FeedbackFormContent> {
             // Submit button
             AppButton(
               label: 'Submit Feedback',
-              onPressed: submissionState.status ==
-                      FeedbackSubmissionStatus.submitting
-                  ? null
-                  : _submitFeedback,
+              onPressed:
+                  submissionState.status == FeedbackSubmissionStatus.submitting
+                      ? null
+                      : _submitFeedback,
               isLoading:
                   submissionState.status == FeedbackSubmissionStatus.submitting,
             ),

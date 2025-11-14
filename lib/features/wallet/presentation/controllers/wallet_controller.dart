@@ -38,4 +38,3 @@ class WalletController extends AsyncNotifier<WalletState> {
 final walletProvider = AsyncNotifierProvider<WalletController, WalletState>(
   WalletController.new,
 );
-

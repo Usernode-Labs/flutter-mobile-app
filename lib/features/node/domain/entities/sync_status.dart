@@ -68,7 +68,9 @@ class SyncStatus {
 
   /// Get blocks remaining to sync (null if synced or unknown)
   int? get blocksRemaining {
-    if (localHeight != null && networkHeight != null && localHeight! < networkHeight!) {
+    if (localHeight != null &&
+        networkHeight != null &&
+        localHeight! < networkHeight!) {
       return networkHeight! - localHeight!;
     }
     return null;
@@ -95,11 +97,16 @@ class SyncStatus {
   }) {
     // Calculate progress based on applied blocks if available
     double progress;
-    if (appliedBlocks != null && targetBlocks != null && targetBlocks > BigInt.zero) {
-      progress = (appliedBlocks.toDouble() / targetBlocks.toDouble()).clamp(0.0, 1.0);
+    if (appliedBlocks != null &&
+        targetBlocks != null &&
+        targetBlocks > BigInt.zero) {
+      progress =
+          (appliedBlocks.toDouble() / targetBlocks.toDouble()).clamp(0.0, 1.0);
     } else {
       // Fallback to height-based calculation
-      progress = networkHeight > 0 ? (localHeight / networkHeight).clamp(0.0, 1.0) : 0.0;
+      progress = networkHeight > 0
+          ? (localHeight / networkHeight).clamp(0.0, 1.0)
+          : 0.0;
     }
 
     final percentage = (progress * 100).toStringAsFixed(1);

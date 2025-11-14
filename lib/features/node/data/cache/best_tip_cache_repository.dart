@@ -25,7 +25,8 @@ class BestTipSnapshot {
   static BestTipSnapshot? fromJson(Map<String, dynamic>? json) {
     if (json == null) return null;
     try {
-      final List<dynamic> txs = (json['batchTransactions'] as List<dynamic>? ?? []);
+      final List<dynamic> txs =
+          (json['batchTransactions'] as List<dynamic>? ?? []);
       return BestTipSnapshot(
         height: (json['height'] as num?)?.toInt(),
         hash: json['hash'] as String?,
@@ -58,4 +59,3 @@ class BestTipCacheRepository {
     await prefs.setString('$_keyPrefix$envKey', jsonEncode(snapshot.toJson()));
   }
 }
-

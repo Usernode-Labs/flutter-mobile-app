@@ -27,4 +27,3 @@ class Transaction {
 
   bool get isPositive => amount > 0;
 }
-

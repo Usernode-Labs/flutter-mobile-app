@@ -6,7 +6,8 @@ class MempoolUiState {
   final MempoolSnapshot? snapshot;
   final bool isCached;
   final bool isStale;
-  const MempoolUiState({required this.snapshot, required this.isCached, required this.isStale});
+  const MempoolUiState(
+      {required this.snapshot, required this.isCached, required this.isStale});
 }
 
 class MempoolUiController extends AsyncNotifier<MempoolUiState?> {
@@ -31,6 +32,7 @@ class MempoolUiController extends AsyncNotifier<MempoolUiState?> {
   }
 }
 
-final mempoolUiProvider = AsyncNotifierProvider<MempoolUiController, MempoolUiState?>(
+final mempoolUiProvider =
+    AsyncNotifierProvider<MempoolUiController, MempoolUiState?>(
   MempoolUiController.new,
 );

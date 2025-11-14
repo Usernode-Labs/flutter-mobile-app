@@ -45,7 +45,6 @@ Future<void> _bootstrapAsync(LoggingService log) async {
     final cfg = AppConfig.instance;
     SentryUtil.addBreadcrumb(category: 'config', message: 'env', data: {
       'environment': cfg.environment,
-      'apiBaseUrl': cfg.apiBaseUrl,
       'verboseLogging': cfg.verboseLogging,
     });
 
@@ -61,19 +60,26 @@ Future<void> _bootstrapAsync(LoggingService log) async {
     // Initialize notification services
     log.info('Initializing notification services', tag: 'MAIN');
     await NotificationStateRepository.instance.initialize();
-    final notificationInitialized = await LocalNotificationService.instance.initialize();
-    log.info('Notification service initialized: $notificationInitialized', tag: 'MAIN');
+    final notificationInitialized =
+        await LocalNotificationService.instance.initialize();
+    log.info('Notification service initialized: $notificationInitialized',
+        tag: 'MAIN');
 
     if (notificationInitialized) {
       // Request permissions
-      final permissionsGranted = await LocalNotificationService.instance.requestPermissions();
-      log.info('Notification permissions granted: $permissionsGranted', tag: 'MAIN');
+      final permissionsGranted =
+          await LocalNotificationService.instance.requestPermissions();
+      log.info('Notification permissions granted: $permissionsGranted',
+          tag: 'MAIN');
 
       // Initialize background tasks
-      final backgroundInitialized = await BackgroundTaskService.instance.initialize();
-      log.info('Background task service initialized: $backgroundInitialized', tag: 'MAIN');
+      final backgroundInitialized =
+          await BackgroundTaskService.instance.initialize();
+      log.info('Background task service initialized: $backgroundInitialized',
+          tag: 'MAIN');
 
-      if (backgroundInitialized && NotificationStateRepository.instance.notificationsEnabled) {
+      if (backgroundInitialized &&
+          NotificationStateRepository.instance.notificationsEnabled) {
         // Register periodic background task for slot monitoring
         await BackgroundTaskService.instance.registerSlotMonitoringTask();
         log.info('Slot monitoring background task registered', tag: 'MAIN');

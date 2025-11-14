@@ -220,7 +220,8 @@ class _NodeStatusSummaryModalState
               final previousData = nodeStatusAsync.valueOrNull;
               if (previousData != null) {
                 final currentHeight = previousData.localBestHeight ?? 0;
-                final networkHeight = previousData.networkBestHeight ?? currentHeight;
+                final networkHeight =
+                    previousData.networkBestHeight ?? currentHeight;
                 final syncPercentage =
                     networkHeight > 0 ? (currentHeight / networkHeight) : 1.0;
 
@@ -260,7 +261,8 @@ class _NodeStatusSummaryModalState
                         child: LinearProgressIndicator(
                           value: syncPercentage,
                           backgroundColor: colorScheme.surfaceContainerHighest,
-                          valueColor: AlwaysStoppedAnimation<Color>(accentColor),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(accentColor),
                           minHeight: 6,
                         ),
                       ),

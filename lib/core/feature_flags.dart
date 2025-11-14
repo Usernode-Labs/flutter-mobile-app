@@ -118,7 +118,13 @@ class FeatureFlags {
     const csvDisabled =
         String.fromEnvironment('DISABLED_FEATURES', defaultValue: '');
     if (csv.trim().isEmpty) {
-      return {AppFeature.home, AppFeature.wallet, AppFeature.dapps, AppFeature.profile, AppFeature.node};
+      return {
+        AppFeature.home,
+        AppFeature.wallet,
+        AppFeature.dapps,
+        AppFeature.profile,
+        AppFeature.node
+      };
     }
     final value = csv.trim().toLowerCase();
     if (value == 'all') {

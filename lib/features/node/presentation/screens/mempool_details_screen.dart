@@ -10,7 +10,8 @@ class MempoolDetailsScreen extends ConsumerStatefulWidget {
   const MempoolDetailsScreen({super.key});
 
   @override
-  ConsumerState<MempoolDetailsScreen> createState() => _MempoolDetailsScreenState();
+  ConsumerState<MempoolDetailsScreen> createState() =>
+      _MempoolDetailsScreenState();
 }
 
 class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
@@ -107,7 +108,8 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
                     Icon(
                       Icons.inbox_outlined,
                       size: 64,
-                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                      color:
+                          colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -138,7 +140,8 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
                     color: colorScheme.primaryContainer.withValues(alpha: 0.3),
                     border: Border(
                       bottom: BorderSide(
-                        color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                        color:
+                            colorScheme.outlineVariant.withValues(alpha: 0.5),
                       ),
                     ),
                   ),

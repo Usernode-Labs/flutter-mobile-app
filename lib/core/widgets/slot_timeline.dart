@@ -122,7 +122,8 @@ class _SlotDot extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (isBestTip)
-          Icon(Icons.star, size: 12, color: Theme.of(context).colorScheme.primary),
+          Icon(Icons.star,
+              size: 12, color: Theme.of(context).colorScheme.primary),
         Container(
           width: 12,
           height: 12,
@@ -151,4 +152,3 @@ class _NowMarker extends StatelessWidget {
     );
   }
 }
-

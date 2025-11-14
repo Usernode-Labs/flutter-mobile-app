@@ -224,8 +224,7 @@ class NotificationsScreen extends ConsumerWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Clear all notifications?'),
-        content:
-            const Text('This will permanently delete all notifications.'),
+        content: const Text('This will permanently delete all notifications.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),

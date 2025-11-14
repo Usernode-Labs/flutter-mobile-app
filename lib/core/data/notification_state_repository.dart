@@ -29,7 +29,8 @@ class NotificationStateRepository {
 
   /// Check if notifications are globally enabled
   bool get notificationsEnabled {
-    return _preferences.getBool(NotificationConfig.prefKeyNotificationsEnabled) ??
+    return _preferences
+            .getBool(NotificationConfig.prefKeyNotificationsEnabled) ??
         NotificationConfig.defaultNotificationsEnabled;
   }
 
@@ -48,7 +49,8 @@ class NotificationStateRepository {
 
   /// Set upcoming notifications enabled/disabled
   Future<void> setUpcomingNotificationsEnabled(bool enabled) async {
-    await _preferences.setBool(NotificationConfig.prefKeyUpcomingEnabled, enabled);
+    await _preferences.setBool(
+        NotificationConfig.prefKeyUpcomingEnabled, enabled);
     _logger.d('Upcoming notifications enabled: $enabled');
   }
 
@@ -60,7 +62,8 @@ class NotificationStateRepository {
 
   /// Set produced notifications enabled/disabled
   Future<void> setProducedNotificationsEnabled(bool enabled) async {
-    await _preferences.setBool(NotificationConfig.prefKeyProducedEnabled, enabled);
+    await _preferences.setBool(
+        NotificationConfig.prefKeyProducedEnabled, enabled);
     _logger.d('Produced notifications enabled: $enabled');
   }
 
@@ -72,13 +75,15 @@ class NotificationStateRepository {
 
   /// Set missed notifications enabled/disabled
   Future<void> setMissedNotificationsEnabled(bool enabled) async {
-    await _preferences.setBool(NotificationConfig.prefKeyMissedEnabled, enabled);
+    await _preferences.setBool(
+        NotificationConfig.prefKeyMissedEnabled, enabled);
     _logger.d('Missed notifications enabled: $enabled');
   }
 
   /// Get advance warning time in minutes
   int get advanceWarningMinutes {
-    return _preferences.getInt(NotificationConfig.prefKeyAdvanceWarningMinutes) ??
+    return _preferences
+            .getInt(NotificationConfig.prefKeyAdvanceWarningMinutes) ??
         NotificationConfig.defaultAdvanceWarningMinutes;
   }
 
@@ -91,7 +96,8 @@ class NotificationStateRepository {
 
   /// Check if smart batching is enabled
   bool get smartBatchingEnabled {
-    return _preferences.getBool(NotificationConfig.prefKeySmartBatchingEnabled) ??
+    return _preferences
+            .getBool(NotificationConfig.prefKeySmartBatchingEnabled) ??
         NotificationConfig.defaultSmartBatchingEnabled;
   }
 
@@ -107,8 +113,8 @@ class NotificationStateRepository {
   /// Get all scheduled notifications
   List<ScheduledNotification> getScheduledNotifications() {
     try {
-      final jsonString =
-          _preferences.getString(NotificationConfig.prefKeyScheduledNotifications);
+      final jsonString = _preferences
+          .getString(NotificationConfig.prefKeyScheduledNotifications);
       if (jsonString == null) return [];
 
       final List<dynamic> jsonList = json.decode(jsonString);
@@ -136,13 +142,15 @@ class NotificationStateRepository {
   }
 
   /// Add a scheduled notification to tracking
-  Future<void> addScheduledNotification(ScheduledNotification notification) async {
+  Future<void> addScheduledNotification(
+      ScheduledNotification notification) async {
     final notifications = getScheduledNotifications();
 
     // Don't add duplicates
     if (notifications.any((n) =>
         n.notificationId == notification.notificationId ||
-        (n.globalSlot == notification.globalSlot && n.type == notification.type))) {
+        (n.globalSlot == notification.globalSlot &&
+            n.type == notification.type))) {
       _logger.d('Notification already scheduled: ${notification.globalSlot}');
       return;
     }
@@ -244,12 +252,14 @@ class NotificationStateRepository {
 
   /// Reset all settings to defaults
   Future<void> resetToDefaults() async {
-    await setNotificationsEnabled(NotificationConfig.defaultNotificationsEnabled);
+    await setNotificationsEnabled(
+        NotificationConfig.defaultNotificationsEnabled);
     await setUpcomingNotificationsEnabled(
         NotificationConfig.defaultUpcomingEnabled);
     await setProducedNotificationsEnabled(
         NotificationConfig.defaultProducedEnabled);
-    await setMissedNotificationsEnabled(NotificationConfig.defaultMissedEnabled);
+    await setMissedNotificationsEnabled(
+        NotificationConfig.defaultMissedEnabled);
     await setAdvanceWarningMinutes(
         NotificationConfig.defaultAdvanceWarningMinutes);
     await setSmartBatchingEnabled(

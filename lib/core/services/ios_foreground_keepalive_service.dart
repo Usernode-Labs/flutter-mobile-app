@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:flutter/services.dart';
 import 'package:logger/logger.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
@@ -11,7 +10,8 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 ///
 /// Reliability: 99% (app must be in foreground)
 class IOSForegroundKeepAliveService {
-  static final IOSForegroundKeepAliveService instance = IOSForegroundKeepAliveService._();
+  static final IOSForegroundKeepAliveService instance =
+      IOSForegroundKeepAliveService._();
   IOSForegroundKeepAliveService._();
 
   final Logger _logger = Logger();

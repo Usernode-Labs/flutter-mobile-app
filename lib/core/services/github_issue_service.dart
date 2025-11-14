@@ -72,7 +72,8 @@ class GitHubIssueService {
         return false;
       }
     } catch (e, stackTrace) {
-      _logger.e('Error creating GitHub issue', error: e, stackTrace: stackTrace);
+      _logger.e('Error creating GitHub issue',
+          error: e, stackTrace: stackTrace);
       return false;
     }
   }
@@ -123,7 +124,8 @@ class GitHubIssueService {
       if (Platform.isAndroid) {
         final androidInfo = await deviceInfo.androidInfo;
         buffer.writeln('Platform: Android ${androidInfo.version.release}');
-        buffer.writeln('Device: ${androidInfo.manufacturer} ${androidInfo.model}');
+        buffer.writeln(
+            'Device: ${androidInfo.manufacturer} ${androidInfo.model}');
         buffer.writeln('SDK: ${androidInfo.version.sdkInt}');
       } else if (Platform.isIOS) {
         final iosInfo = await deviceInfo.iosInfo;
@@ -176,7 +178,8 @@ class GitHubIssueService {
             'Content-Type': 'application/json',
           },
           body: jsonEncode({
-            'body': '**Screenshot ${i + 1}**\n\n_(Screenshot captured but not uploaded - consider using an image hosting service for attachments)_',
+            'body':
+                '**Screenshot ${i + 1}**\n\n_(Screenshot captured but not uploaded - consider using an image hosting service for attachments)_',
           }),
         );
       }

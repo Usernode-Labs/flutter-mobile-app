@@ -29,4 +29,3 @@ extension ResultX<T> on Result<T> {
   T? get ok => this is Ok<T> ? (this as Ok<T>).value : null;
   AppError? get err => this is Err<T> ? (this as Err<T>).error : null;
 }
-

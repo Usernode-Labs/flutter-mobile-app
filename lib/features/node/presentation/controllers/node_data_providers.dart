@@ -75,10 +75,12 @@ class NodeBlockchainController extends AsyncNotifier<RpcListBlockchainResp?> {
     final blockProducer = rawStatusAsync.value?.blockProducer?.pubKey;
 
     state = const AsyncLoading();
-    state = await AsyncValue.guard(() => _load(epoch: epoch, blockProducer: blockProducer));
+    state = await AsyncValue.guard(
+        () => _load(epoch: epoch, blockProducer: blockProducer));
   }
 
-  Future<RpcListBlockchainResp?> _load({int? epoch, AccountPublicKey? blockProducer}) async {
+  Future<RpcListBlockchainResp?> _load(
+      {int? epoch, AccountPublicKey? blockProducer}) async {
     try {
       return await RustBackendService.instance.listBlockchain(
         limit: 20,
@@ -159,7 +161,8 @@ class NodeEpochRewardsController extends AsyncNotifier<RpcEpochRewardsResp?> {
 
   Future<RpcEpochRewardsResp?> _load(int epoch) async {
     try {
-      final rewards = await RustBackendService.instance.epochRewards(epoch: epoch);
+      final rewards =
+          await RustBackendService.instance.epochRewards(epoch: epoch);
 
       // Monitor slots and trigger notifications
       if (rewards != null) {
@@ -192,7 +195,8 @@ class NodeEpochRewardsController extends AsyncNotifier<RpcEpochRewardsResp?> {
           tag: 'NODE',
         );
         // Cancel all old notifications from previous epoch
-        await SlotNotificationManager.instance.cancelAllScheduledNotifications();
+        await SlotNotificationManager.instance
+            .cancelAllScheduledNotifications();
         // Update tracked epoch
         await stateRepo.setCurrentEpoch(epoch);
       } else if (previousEpoch == null) {
@@ -267,7 +271,6 @@ class NodeEpochRewardsController extends AsyncNotifier<RpcEpochRewardsResp?> {
       // Update tracking
       _previousProducedSlots = producedSlots;
       _previousWonSlots = currentWonSlots;
-
     } catch (e, st) {
       LoggingService.instance.error('Slot monitoring failed',
           tag: 'NODE', error: e, stackTrace: st);

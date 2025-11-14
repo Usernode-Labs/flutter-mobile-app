@@ -55,7 +55,8 @@ class _DAppsScreenState extends State<DAppsScreen> {
 
                     DAppCard(
                       name: 'Yield',
-                      description: 'Earn rewards on your crypto holdings (coming soon)',
+                      description:
+                          'Earn rewards on your crypto holdings (coming soon)',
                       icon: Icons.trending_up,
                       color: colorScheme.tertiary,
                       onTap: () {
@@ -68,7 +69,8 @@ class _DAppsScreenState extends State<DAppsScreen> {
 
                     DAppCard(
                       name: 'Lend',
-                      description: 'Lend your assets and earn interest (coming soon)',
+                      description:
+                          'Lend your assets and earn interest (coming soon)',
                       icon: Icons.attach_money,
                       color: colorScheme.secondary,
                       onTap: () {
@@ -81,7 +83,8 @@ class _DAppsScreenState extends State<DAppsScreen> {
 
                     DAppCard(
                       name: 'Borrow',
-                      description: 'Borrow assets against your collateral (coming soon)',
+                      description:
+                          'Borrow assets against your collateral (coming soon)',
                       icon: Icons.account_balance_wallet,
                       color: colorScheme.tertiary,
                       onTap: () {
@@ -94,7 +97,8 @@ class _DAppsScreenState extends State<DAppsScreen> {
 
                     DAppCard(
                       name: 'Trade (swap)',
-                      description: 'Exchange tokens instantly at best rates (coming soon)',
+                      description:
+                          'Exchange tokens instantly at best rates (coming soon)',
                       icon: Icons.swap_horiz,
                       color: colorScheme.primary,
                       onTap: () {
@@ -107,7 +111,8 @@ class _DAppsScreenState extends State<DAppsScreen> {
 
                     DAppCard(
                       name: 'Trade (provide liquidity)',
-                      description: 'Provide liquidity and earn trading fees (coming soon)',
+                      description:
+                          'Provide liquidity and earn trading fees (coming soon)',
                       icon: Icons.water_drop,
                       color: colorScheme.secondary,
                       onTap: () {
@@ -135,8 +140,7 @@ class _DAppsScreenState extends State<DAppsScreen> {
                           '3rd-party dApps will be worked on after DeFi functionality is complete',
                           textAlign: TextAlign.center,
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurface
-                                .withValues(alpha: 0.6),
+                            color: colorScheme.onSurface.withValues(alpha: 0.6),
                           ),
                         ),
                       ),

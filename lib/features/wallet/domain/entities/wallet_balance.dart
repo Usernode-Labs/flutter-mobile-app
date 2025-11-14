@@ -11,4 +11,3 @@ class WalletBalanceEntity {
     required this.usdValue,
   });
 }
-

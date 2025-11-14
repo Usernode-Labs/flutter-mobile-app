@@ -12,10 +12,12 @@ class RewardsBreakdownScreen extends ConsumerStatefulWidget {
   const RewardsBreakdownScreen({super.key});
 
   @override
-  ConsumerState<RewardsBreakdownScreen> createState() => _RewardsBreakdownScreenState();
+  ConsumerState<RewardsBreakdownScreen> createState() =>
+      _RewardsBreakdownScreenState();
 }
 
-class _RewardsBreakdownScreenState extends ConsumerState<RewardsBreakdownScreen> {
+class _RewardsBreakdownScreenState
+    extends ConsumerState<RewardsBreakdownScreen> {
   RpcEpochRewardsResp? _epochRewards;
   bool _isLoading = true;
 

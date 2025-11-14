@@ -33,4 +33,3 @@ class AccountCreationResult {
   @override
   String toString() => jsonEncode(toJson());
 }
-

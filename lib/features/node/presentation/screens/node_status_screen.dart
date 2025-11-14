@@ -72,9 +72,9 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       // Note: nodeStatusProvider is now derived from nodeRawStatusProvider,
       // so we only need to refresh nodeRawStatusProvider
       await ref.read(nodeRawStatusProvider.notifier).refresh();
-      await ref.read(nodeMempoolProvider.notifier).refresh();
-      await ref.read(nodeBlockchainProvider.notifier).refresh();
-      await ref.read(nodeEpochRewardsProvider.notifier).refresh();
+      await ref.refresh(nodeMempoolProvider.future);
+      await ref.refresh(nodeBlockchainProvider.future);
+      await ref.refresh(nodeEpochRewardsProvider.future);
 
       // Check if still mounted after async operations
       if (!mounted) return;
@@ -104,6 +104,14 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
           }
         });
       }
+    } on StateError catch (e, st) {
+      // Happens if a late timer tick fires after disposal; just log quietly.
+      LoggingService.instance
+          .debug('Skipped refresh on disposed node screen', tag: 'NODE');
+      LoggingService.instance
+          .debug('StateError during refresh: $e', tag: 'NODE');
+      LoggingService.instance.debug('Stack trace: $st', tag: 'NODE');
+      return;
     } catch (e, st) {
       LoggingService.instance
           .error('Refresh failed', tag: 'NODE', error: e, stackTrace: st);
@@ -427,12 +435,10 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
         Builder(
           builder: (context) {
             // Extract values first
-            final produced = ref
-                    .watch(nodeEpochRewardsProvider)
-                    .value
-                    ?.producedInEpoch ??
-                _producedInEpoch ??
-                0;
+            final produced =
+                ref.watch(nodeEpochRewardsProvider).value?.producedInEpoch ??
+                    _producedInEpoch ??
+                    0;
             var wonSlots =
                 ref.watch(nodeEpochRewardsProvider).value?.winsInEpoch ??
                     _winsInEpoch ??
@@ -444,7 +450,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             }
 
             // Get VRF evaluator data for slots information
-            final vrfEvaluator = ref.watch(nodeRawStatusProvider).value?.vrfEvaluator;
+            final vrfEvaluator =
+                ref.watch(nodeRawStatusProvider).value?.vrfEvaluator;
             final evaluatedSlots = vrfEvaluator?.evaluatedSlotsSinceStart ?? 0;
             const totalSlotsPerEpoch = 17280; // SLOTS_PER_EPOCH constant
 
@@ -455,7 +462,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                     context,
                     icon: Icons.check_circle_outline,
                     label: 'Produced',
-                    value: '', // Value shown only in subtitle to avoid repetition
+                    value:
+                        '', // Value shown only in subtitle to avoid repetition
                     subtitle: produced == 1 ? '1 block' : '$produced blocks',
                     color: colorScheme.tertiary, // Match Peers icon color
                     colorScheme: colorScheme,

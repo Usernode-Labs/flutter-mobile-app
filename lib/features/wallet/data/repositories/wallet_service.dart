@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/features/wallet/data/models/transaction_model.dart';
- 
 
 class WalletService {
   static WalletService? _instance;

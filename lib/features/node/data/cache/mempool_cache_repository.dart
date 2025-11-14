@@ -57,4 +57,3 @@ class MempoolCacheRepository {
     await prefs.setString('$_keyPrefix$envKey', jsonEncode(snapshot.toJson()));
   }
 }
-

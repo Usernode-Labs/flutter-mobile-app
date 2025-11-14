@@ -16,6 +16,9 @@ class SlotSchedulerService {
   bool _initialized = false;
   List<ScheduledSlot> _scheduledSlots = [];
 
+  /// Check if the service is initialized
+  bool get isInitialized => _initialized;
+
   /// Initialize the slot scheduler service
   Future<bool> initialize() async {
     if (_initialized) return true;
@@ -26,8 +29,15 @@ class SlotSchedulerService {
       // Load any previously scheduled slots from persistence
       await _loadPersistedSlots();
 
+      // Register boot reschedule callback with PlatformAlarmService
+      PlatformAlarmService.instance.setBootRescheduleCallback(() async {
+        _logger.i('Boot reschedule callback invoked - rescheduling all slots');
+        await scheduleDailySlots();
+      });
+
       _initialized = true;
-      _logger.i('SlotSchedulerService initialized with ${_scheduledSlots.length} persisted slots');
+      _logger.i(
+          'SlotSchedulerService initialized with ${_scheduledSlots.length} persisted slots');
       return true;
     } catch (e) {
       _logger.e('Error initializing SlotSchedulerService: $e');
@@ -69,7 +79,9 @@ class SlotSchedulerService {
         includeWonSlots: true,
       );
 
-      if (epochData == null || epochData.wonSlots == null || epochData.wonSlots!.isEmpty) {
+      if (epochData == null ||
+          epochData.wonSlots == null ||
+          epochData.wonSlots!.isEmpty) {
         _logger.i('No won slots found for epoch ${epochData?.epoch ?? epoch}');
         return SchedulingResult(
           success: true,

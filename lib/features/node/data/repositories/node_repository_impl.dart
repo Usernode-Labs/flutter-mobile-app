@@ -35,33 +35,33 @@ class NodeRepositoryImpl implements NodeRepository {
       final s = await RustBackendService.instance.getStatus();
       if (s == null) return const Ok(null);
 
-    // Derive a minimal domain status view
-    int connected = 0;
-    final peers = s.peers;
-    for (final p in peers) {
-      if (p.connectionStatus == PeerConnectionStatus.connected) connected++;
-    }
+      // Derive a minimal domain status view
+      int connected = 0;
+      final peers = s.peers;
+      for (final p in peers) {
+        if (p.connectionStatus == PeerConnectionStatus.connected) connected++;
+      }
 
-    RpcStatusBlockInfo? localBest;
-    RpcStatusBlockInfo? networkBest;
-    try {
-      localBest = s.blockchain.bestTip;
-    } catch (_) {
-      localBest = null;
-    }
-    try {
-      networkBest = s.blockchain.sync.blocks?.bestTip;
-    } catch (_) {
-      networkBest = null;
-    }
-    final display = networkBest ?? localBest;
+      RpcStatusBlockInfo? localBest;
+      RpcStatusBlockInfo? networkBest;
+      try {
+        localBest = s.blockchain.bestTip;
+      } catch (_) {
+        localBest = null;
+      }
+      try {
+        networkBest = s.blockchain.sync.blocks?.bestTip;
+      } catch (_) {
+        networkBest = null;
+      }
+      final display = networkBest ?? localBest;
 
-    String? bestTipHash;
-    try {
-      bestTipHash = display?.hash.toString();
-    } catch (_) {
-      bestTipHash = null;
-    }
+      String? bestTipHash;
+      try {
+        bestTipHash = display?.hash.toString();
+      } catch (_) {
+        bestTipHash = null;
+      }
 
       return Ok(domain.NodeStatus(
         connectedPeers: connected,
@@ -71,7 +71,7 @@ class NodeRepositoryImpl implements NodeRepository {
         epoch: display?.epoch,
         globalSlot: display?.globalSlot,
         bestTipHash: bestTipHash,
-    ));
+      ));
     } catch (e) {
       return Err(BackendError('Failed to load node status', cause: e));
     }

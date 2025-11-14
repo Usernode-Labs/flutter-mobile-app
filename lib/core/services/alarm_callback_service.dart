@@ -29,7 +29,8 @@ class AlarmCallbackService {
       final scheduledSlots = SlotSchedulerService.instance.getScheduledSlots();
       final targetSlot = scheduledSlots.firstWhere(
         (slot) => slot.slotNumber == slotNumber,
-        orElse: () => throw StateError('Slot $slotNumber not found in schedule'),
+        orElse: () =>
+            throw StateError('Slot $slotNumber not found in schedule'),
       );
 
       _logger.i('Starting monitoring for slot ${targetSlot.slotNumber}');
@@ -45,7 +46,8 @@ class AlarmCallbackService {
   /// Start foreground service if on Android
   Future<void> _startForegroundServiceIfNeeded(int slotNumber) async {
     try {
-      final success = await PlatformAlarmService.instance.startForegroundService(
+      final success =
+          await PlatformAlarmService.instance.startForegroundService(
         title: 'Block Production Active',
         message: 'Monitoring slot $slotNumber for block production',
         slotNumber: slotNumber,
@@ -61,7 +63,8 @@ class AlarmCallbackService {
 
   /// Setup listener to stop foreground service when monitoring completes
   void _setupMonitoringCompletionListener(int slotNumber) {
-    final subscription = SlotMonitorService.instance.monitoringEvents.listen((event) {
+    final subscription =
+        SlotMonitorService.instance.monitoringEvents.listen((event) {
       if (event.slotNumber != slotNumber) return;
 
       // Stop foreground service when monitoring stops

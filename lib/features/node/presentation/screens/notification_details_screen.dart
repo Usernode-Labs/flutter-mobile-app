@@ -154,7 +154,8 @@ class _NotificationDetailsScreenState
                 Text(
                   '${timeFormatter.format(startTime)} - ${timeFormatter.format(endTime)}',
                   style: theme.textTheme.bodyLarge?.copyWith(
-                    color: theme.colorScheme.onPrimaryContainer.withValues(alpha: 0.8),
+                    color: theme.colorScheme.onPrimaryContainer
+                        .withValues(alpha: 0.8),
                   ),
                 ),
               ],
@@ -223,7 +224,8 @@ class _NotificationDetailsScreenState
     RpcEpochRewardsResp epochRewards,
   ) {
     final theme = Theme.of(context);
-    final wonSlot = epochRewards.wonSlots?.cast<RpcEpochWonSlot?>()
+    final wonSlot = epochRewards.wonSlots
+        ?.cast<RpcEpochWonSlot?>()
         .firstWhere((s) => s?.globalSlot == slotNumber, orElse: () => null);
 
     if (wonSlot == null) {
@@ -382,7 +384,8 @@ class _NotificationDetailsScreenState
     RpcListBlockchainResp? blockchain,
   ) {
     final theme = Theme.of(context);
-    final block = blockchain?.items.cast<RpcStatusBlockInfo?>()
+    final block = blockchain?.items
+        .cast<RpcStatusBlockInfo?>()
         .firstWhere((b) => b?.globalSlot == slotNumber, orElse: () => null);
 
     if (block == null) {
@@ -538,7 +541,8 @@ class _NotificationDetailsScreenState
     RpcEpochRewardsResp epochRewards,
   ) {
     final theme = Theme.of(context);
-    final wonSlot = epochRewards.wonSlots?.cast<RpcEpochWonSlot?>()
+    final wonSlot = epochRewards.wonSlots
+        ?.cast<RpcEpochWonSlot?>()
         .firstWhere((s) => s?.globalSlot == slotNumber, orElse: () => null);
 
     if (wonSlot == null) {
@@ -636,7 +640,9 @@ class _NotificationDetailsScreenState
               const SizedBox(height: 12),
               _TipRow(icon: Icons.phone_android, text: 'App was not running'),
               const SizedBox(height: 8),
-              _TipRow(icon: Icons.signal_wifi_off, text: 'Network connection issue'),
+              _TipRow(
+                  icon: Icons.signal_wifi_off,
+                  text: 'Network connection issue'),
               const SizedBox(height: 8),
               _TipRow(icon: Icons.cloud_off, text: 'Node was not synced'),
             ],

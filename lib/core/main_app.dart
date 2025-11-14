@@ -77,9 +77,8 @@ class _MainAppState extends State<MainApp> {
 
     return Scaffold(
       body: widget.child ?? screens[index],
-      floatingActionButton: FeatureFlags.on('feedback')
-          ? const FeedbackFab()
-          : null,
+      floatingActionButton:
+          FeatureFlags.on('feedback') ? const FeedbackFab() : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: Container(
         decoration: BoxDecoration(

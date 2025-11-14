@@ -258,7 +258,8 @@ class _NotificationSettingsScreenState
               value: _producedEnabled,
               onChanged: _updateProducedEnabled,
               title: const Text('Block Produced'),
-              subtitle: const Text('Notify when blocks are successfully produced'),
+              subtitle:
+                  const Text('Notify when blocks are successfully produced'),
               secondary: const Icon(Icons.check_circle),
             ),
             SwitchListTile(
@@ -524,7 +525,8 @@ class _NotificationSettingsScreenState
             // Notification time
             Row(
               children: [
-                Icon(Icons.notifications, size: 16, color: colorScheme.onSurface.withOpacity(0.6)),
+                Icon(Icons.notifications,
+                    size: 16, color: colorScheme.onSurface.withOpacity(0.6)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -545,7 +547,8 @@ class _NotificationSettingsScreenState
             // Slot time
             Row(
               children: [
-                Icon(Icons.access_time, size: 16, color: colorScheme.onSurface.withOpacity(0.6)),
+                Icon(Icons.access_time,
+                    size: 16, color: colorScheme.onSurface.withOpacity(0.6)),
                 const SizedBox(width: 8),
                 Text(
                   'Slot at: $slotTimeStr',

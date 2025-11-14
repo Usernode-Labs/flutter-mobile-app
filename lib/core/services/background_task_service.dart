@@ -149,19 +149,23 @@ Future<void> _performSlotMonitoring(Logger logger) async {
 
       // Fetch epoch rewards for current epoch
       final rewards = await rustBackend.epochRewards(epoch: currentEpoch);
-      if (rewards == null || rewards.wonSlots == null || rewards.wonSlots!.isEmpty) {
+      if (rewards == null ||
+          rewards.wonSlots == null ||
+          rewards.wonSlots!.isEmpty) {
         logger.d('Background: No won slots for epoch $currentEpoch');
         return;
       }
 
-      logger.i('Background: Found ${rewards.wonSlots!.length} won slots for epoch $currentEpoch');
+      logger.i(
+          'Background: Found ${rewards.wonSlots!.length} won slots for epoch $currentEpoch');
 
       // Check for epoch change
       final stateRepo = NotificationStateRepository.instance;
       final previousEpoch = stateRepo.currentEpoch;
 
       if (previousEpoch != null && previousEpoch != currentEpoch) {
-        logger.i('Background: Epoch changed from $previousEpoch to $currentEpoch');
+        logger.i(
+            'Background: Epoch changed from $previousEpoch to $currentEpoch');
         // Cancel old notifications from previous epoch
         await LocalNotificationService.instance.cancelAllNotifications();
         await stateRepo.clearScheduledNotifications();
@@ -192,7 +196,8 @@ Future<void> _performSlotMonitoring(Logger logger) async {
         rewardPerBlock: rewards.rewardPerBlock,
       );
 
-      logger.i('Background: Successfully scheduled notifications for epoch $currentEpoch');
+      logger.i(
+          'Background: Successfully scheduled notifications for epoch $currentEpoch');
     } on Exception catch (e) {
       logger.w('Background: Rust backend not available or failed: $e');
       // This is expected when app is fully closed - backend may not be running

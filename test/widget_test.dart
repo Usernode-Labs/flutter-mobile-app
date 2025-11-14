@@ -5,7 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/main.dart';
 
 void main() {
-  testWidgets('App smoke test - builds without errors', (WidgetTester tester) async {
+  testWidgets('App smoke test - builds without errors',
+      (WidgetTester tester) async {
     // Build the app widget
     await tester.pumpWidget(
       const ProviderScope(

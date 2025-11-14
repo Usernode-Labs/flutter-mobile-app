@@ -109,7 +109,8 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                                   Expanded(
                                     child: Text(
                                       _shortAddr(_address!.address),
-                                      style: theme.textTheme.bodyMedium?.copyWith(
+                                      style:
+                                          theme.textTheme.bodyMedium?.copyWith(
                                         color: theme.colorScheme.onSurface,
                                       ),
                                       overflow: TextOverflow.ellipsis,

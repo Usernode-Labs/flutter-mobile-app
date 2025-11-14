@@ -20,18 +20,21 @@ class WalletRepositoryImpl implements WalletRepository {
       return b.toDomain();
     } catch (e, st) {
       await SentryUtil.captureError(e, st, tag: 'wallet_getBalance');
-      throw BackendError('Failed to load wallet balance', cause: e, stackTrace: st);
+      throw BackendError('Failed to load wallet balance',
+          cause: e, stackTrace: st);
     }
   }
 
   @override
-  Future<List<domain.Transaction>> getRecentTransactions({int limit = 10}) async {
+  Future<List<domain.Transaction>> getRecentTransactions(
+      {int limit = 10}) async {
     try {
       final txs = WalletService.instance.getRecentTransactions(limit: limit);
       return txs.map((t) => t.toDomain()).toList(growable: false);
     } catch (e, st) {
       await SentryUtil.captureError(e, st, tag: 'wallet_getRecentTransactions');
-      throw BackendError('Failed to load transactions', cause: e, stackTrace: st);
+      throw BackendError('Failed to load transactions',
+          cause: e, stackTrace: st);
     }
   }
 
@@ -41,7 +44,8 @@ class WalletRepositoryImpl implements WalletRepository {
       await WalletService.instance.refreshWalletData();
     } catch (e, st) {
       await SentryUtil.captureError(e, st, tag: 'wallet_refresh');
-      throw BackendError('Failed to refresh wallet data', cause: e, stackTrace: st);
+      throw BackendError('Failed to refresh wallet data',
+          cause: e, stackTrace: st);
     }
   }
 }

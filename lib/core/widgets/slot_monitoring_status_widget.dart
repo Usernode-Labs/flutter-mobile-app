@@ -197,7 +197,8 @@ class _SlotMonitoringStatusWidgetState
                 Text(
                   'Monitoring for ${_formatDuration(SlotMonitorService.instance.monitoringDuration!)}',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onPrimaryContainer.withValues(alpha: 0.8),
+                    color:
+                        colorScheme.onPrimaryContainer.withValues(alpha: 0.8),
                   ),
                 ),
               ],
@@ -230,9 +231,8 @@ class _SlotMonitoringStatusWidgetState
       height: 48,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: isActive
-            ? colorScheme.primary
-            : colorScheme.surfaceContainerHigh,
+        color:
+            isActive ? colorScheme.primary : colorScheme.surfaceContainerHigh,
       ),
       child: isActive
           ? Stack(
@@ -280,8 +280,7 @@ class _SlotMonitoringStatusWidgetState
     );
   }
 
-  Widget _buildEventItem(
-      SlotMonitoringEvent event, ColorScheme colorScheme) {
+  Widget _buildEventItem(SlotMonitoringEvent event, ColorScheme colorScheme) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(

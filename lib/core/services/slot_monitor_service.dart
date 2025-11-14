@@ -169,7 +169,8 @@ class SlotMonitorService {
 
       // Check for timeout (5 minutes after slot time)
       final now = DateTime.now();
-      final timeoutTime = _currentSlot!.slotTime.add(const Duration(minutes: 5));
+      final timeoutTime =
+          _currentSlot!.slotTime.add(const Duration(minutes: 5));
 
       if (now.isAfter(timeoutTime)) {
         _logger.w('Monitoring timeout for slot $currentSlotNumber');

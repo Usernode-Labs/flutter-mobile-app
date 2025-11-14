@@ -41,8 +41,8 @@ class _BackgroundProductionSettingsScreenState
 
       if (Platform.isAndroid) {
         // Check battery optimization
-        _batteryOptDisabled = await PlatformAlarmService.instance
-            .isBatteryOptimizationDisabled();
+        _batteryOptDisabled =
+            await PlatformAlarmService.instance.isBatteryOptimizationDisabled();
 
         // Get device manufacturer
         _deviceManufacturer =
@@ -298,8 +298,7 @@ class _BackgroundProductionSettingsScreenState
     );
   }
 
-  Widget _buildAndroidBatterySection(
-      ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildAndroidBatterySection(ThemeData theme, ColorScheme colorScheme) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -309,9 +308,10 @@ class _BackgroundProductionSettingsScreenState
             Row(
               children: [
                 Icon(
-                  _batteryOptDisabled ? Icons.battery_full : Icons.battery_alert,
-                  color:
-                      _batteryOptDisabled ? Colors.green : Colors.orange,
+                  _batteryOptDisabled
+                      ? Icons.battery_full
+                      : Icons.battery_alert,
+                  color: _batteryOptDisabled ? Colors.green : Colors.orange,
                 ),
                 const SizedBox(width: 12),
                 Text(
@@ -581,7 +581,8 @@ class _BackgroundProductionSettingsScreenState
 
   Future<void> _toggleIOSKeepAlive(bool value) async {
     if (value) {
-      final success = await IOSForegroundKeepAliveService.instance.startKeepAlive();
+      final success =
+          await IOSForegroundKeepAliveService.instance.startKeepAlive();
       if (success) {
         setState(() => _iosKeepAliveActive = true);
       }

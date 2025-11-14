@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
- 
+
 import 'liquidity_bridge_card.dart';
 import 'package:crypto_mobile_app/core/feature_flags.dart';
 
@@ -105,8 +105,8 @@ class _PromoCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     // Theme-aware tinted background that works in dark mode as well
-    final bg =
-        Color.alphaBlend(buttonColor.withValues(alpha: 0.10), colorScheme.surface);
+    final bg = Color.alphaBlend(
+        buttonColor.withValues(alpha: 0.10), colorScheme.surface);
 
     return Card(
       color: bg,
@@ -150,10 +150,11 @@ class _PromoCard extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Color.alphaBlend(
-                        bonusColor.withValues(alpha: 0.12), colorScheme.surface),
+                    color: Color.alphaBlend(bonusColor.withValues(alpha: 0.12),
+                        colorScheme.surface),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: bonusColor.withValues(alpha: 0.28)),
+                    border:
+                        Border.all(color: bonusColor.withValues(alpha: 0.28)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,

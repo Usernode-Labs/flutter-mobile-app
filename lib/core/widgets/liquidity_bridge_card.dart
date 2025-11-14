@@ -59,8 +59,7 @@ class LiquidityBridgeCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 Chip(
-                  avatar:
-                      Icon(Icons.star, size: 14, color: scheme.secondary),
+                  avatar: Icon(Icons.star, size: 14, color: scheme.secondary),
                   label: Text(
                     bonusText, // This remains dynamic
                     style: TextStyle(
@@ -70,8 +69,8 @@ class LiquidityBridgeCard extends StatelessWidget {
                     ),
                   ),
                   backgroundColor: scheme.secondary.withValues(alpha: 0.1),
-                  side:
-                      BorderSide(color: scheme.secondary.withValues(alpha: 0.3)),
+                  side: BorderSide(
+                      color: scheme.secondary.withValues(alpha: 0.3)),
                 ),
               ],
             ),

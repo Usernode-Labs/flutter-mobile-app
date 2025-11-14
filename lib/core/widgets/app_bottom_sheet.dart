@@ -41,7 +41,8 @@ class AppBottomSheet extends StatelessWidget {
                 height: 4,
                 margin: const EdgeInsets.only(top: kSpace12, bottom: kSpace16),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: kAlphaSecondary),
+                  color: theme.colorScheme.onSurfaceVariant
+                      .withValues(alpha: kAlphaSecondary),
                   borderRadius: kBorderRadiusFull,
                 ),
               ),

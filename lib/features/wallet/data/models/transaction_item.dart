@@ -77,7 +77,8 @@ class TransactionItem {
         } else if (recipientJson.containsKey('Script')) {
           final scriptData = recipientJson['Script'] as Map<String, dynamic>;
           final scriptRoot = scriptData['script_root'] as String;
-          recipientAddress = 'Script: ${scriptRoot.substring(0, scriptRoot.length > 16 ? 16 : scriptRoot.length)}...';
+          recipientAddress =
+              'Script: ${scriptRoot.substring(0, scriptRoot.length > 16 ? 16 : scriptRoot.length)}...';
         }
       }
 

@@ -419,7 +419,7 @@ stateDiagram-v2
     WaitingForSlot --> PreSlotWakeup: Alarm fires (2 min before slot)
     WaitingForSlot --> EpochTransition: Epoch changes
 
-    PreSlotWakeup --> NodeStarting: iOS: Start node<br/>Android: Node already running
+    PreSlotWakeup --> NodeStarting: "iOS: Start node<br/>Android: Node already running"
 
     NodeStarting --> Monitoring: Node running, start polling
 
@@ -435,8 +435,8 @@ stateDiagram-v2
     RecordSuccess --> Cleanup: Send success notification
     RecordFailure --> Cleanup: Send failure notification
 
-    Cleanup --> StopNode: iOS: Stop node to save memory
-    Cleanup --> WaitingForSlot: Android: Keep node running
+    Cleanup --> StopNode: "iOS: Stop node to save memory"
+    Cleanup --> WaitingForSlot: "Android: Keep node running"
     StopNode --> WaitingForSlot
 
     EpochTransition --> CancelAlarms: Cancel old epoch alarms

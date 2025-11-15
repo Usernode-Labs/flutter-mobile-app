@@ -36,7 +36,7 @@ class AlarmScheduler(
 
             // Create intent for alarm receiver
             val intent = Intent(context, AlarmReceiver::class.java).apply {
-                action = "com.usernode.lingash.SLOT_ALARM"
+                action = "com.usernode.app.SLOT_ALARM"
                 putExtra("alarmId", alarmId)
                 putExtra("slotNumber", slotNumber)
                 putExtra("alarmTimeMs", alarmTimeMs)
@@ -78,7 +78,7 @@ class AlarmScheduler(
     fun cancelAlarm(alarmId: String): Boolean {
         try {
             val intent = Intent(context, AlarmReceiver::class.java).apply {
-                action = "com.usernode.lingash.SLOT_ALARM"
+                action = "com.usernode.app.SLOT_ALARM"
             }
 
             val pendingIntent = PendingIntent.getBroadcast(

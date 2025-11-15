@@ -1,4 +1,5 @@
 import 'package:logger/logger.dart';
+import '../config/blockchain_timing.dart';
 import 'epoch_slot_scheduler_service.dart';
 import 'slot_monitor_service.dart';
 import 'platform_alarm_service.dart';
@@ -75,8 +76,8 @@ class AlarmCallbackService {
       }
     });
 
-    // Auto-cancel subscription after 10 minutes
-    Future.delayed(const Duration(minutes: 10), () {
+    // Auto-cancel subscription after monitoring window
+    Future.delayed(BlockchainTiming.listenerAutoCancel, () {
       subscription.cancel();
     });
   }

@@ -4,7 +4,7 @@ import UIKit
 
 @available(iOS 13.0, *)
 class BGTaskSchedulerManager {
-    private let taskIdentifier = "com.usernode.lingash.slotmonitoring"
+    private let taskIdentifier = "com.usernode.app.slotmonitoring"
     private let notificationCenter = UNUserNotificationCenter.current()
     private var isRegistered = false
 

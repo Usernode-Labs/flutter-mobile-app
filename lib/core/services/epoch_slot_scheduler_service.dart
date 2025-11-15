@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../features/node/data/repositories/rust_backend_service.dart';
+import '../config/blockchain_timing.dart';
 import 'platform_alarm_service.dart';
 import 'local_notification_service.dart';
 
@@ -27,7 +28,7 @@ class EpochSlotSchedulerService {
   DateTime? _lastEpochCheck;
 
   // Configuration
-  static const Duration _epochCheckInterval = Duration(minutes: 30);
+  static Duration get _epochCheckInterval => BlockchainTiming.epochCheckIntervalDefault;
   static const String _prefKeyCurrentEpoch = 'epoch_scheduler_current_epoch';
   static const String _prefKeyScheduledSlots = 'epoch_scheduler_scheduled_slots';
   static const String _prefKeyLastCheck = 'epoch_scheduler_last_check';
@@ -95,6 +96,44 @@ class EpochSlotSchedulerService {
     }
   }
 
+  /// Adjust epoch monitoring frequency based on current position in epoch.
+  ///
+  /// Dynamically adjusts the check interval:
+  /// - Early epoch (0-25%): Check every 30 minutes
+  /// - Mid epoch (25-75%): Check every 15 minutes
+  /// - Late epoch (75-100%): Check every 5 minutes
+  Future<void> _adjustEpochMonitoringFrequency() async {
+    final progress = await getEpochProgress();
+    if (progress == null) {
+      _logger.d('Cannot adjust epoch monitoring: progress unknown');
+      return;
+    }
+
+    final newInterval = BlockchainTiming.getEpochCheckInterval(progress);
+
+    // Check if timer is running and if interval needs changing
+    if (_epochMonitoringTimer != null && _epochMonitoringTimer!.isActive) {
+      // Only restart timer if interval changed significantly (more than 1 minute difference)
+      final currentInterval = _epochCheckInterval;
+      final diff = (newInterval.inMilliseconds - currentInterval.inMilliseconds).abs();
+
+      if (diff > 60000) { // More than 1 minute difference
+        _logger.i(
+          'Adjusting epoch check interval based on progress: '
+          '${(progress * 100).toStringAsFixed(1)}% - '
+          'new interval: ${newInterval.inMinutes} min '
+          '(was ${currentInterval.inMinutes} min)'
+        );
+
+        // Restart timer with new interval
+        stopEpochMonitoring();
+        _epochMonitoringTimer = Timer.periodic(newInterval, (_) async {
+          await _checkForEpochTransition();
+        });
+      }
+    }
+  }
+
   /// Check if epoch has transitioned and handle accordingly
   Future<void> _checkForEpochTransition() async {
     try {
@@ -128,6 +167,9 @@ class EpochSlotSchedulerService {
       } else {
         _logger.d('No epoch change detected (still epoch $newEpoch)');
       }
+
+      // Adjust monitoring frequency based on epoch progress
+      await _adjustEpochMonitoringFrequency();
 
       // Persist last check time
       await _persistState();
@@ -198,8 +240,9 @@ class EpochSlotSchedulerService {
   /// platform-specific alarms for each slot.
   Future<SchedulingResult> scheduleEpochSlots({
     int? epoch,
-    Duration advanceTime = const Duration(minutes: 2),
+    Duration? advanceTime,
   }) async {
+    advanceTime ??= BlockchainTiming.alarmAdvanceTime;
     if (!_initialized) {
       _logger.w('Cannot schedule slots: service not initialized');
       return SchedulingResult(
@@ -455,6 +498,88 @@ class EpochSlotSchedulerService {
     } catch (e) {
       _logger.e('Error persisting state: $e');
     }
+  }
+
+  /// Calculate when the current epoch ends
+  ///
+  /// Returns null if current epoch is unknown or backend is unavailable.
+  Future<DateTime?> getEpochEndTime() async {
+    if (_currentEpoch == null) {
+      _logger.d('Cannot calculate epoch end time: current epoch unknown');
+      return null;
+    }
+
+    try {
+      final status = await RustBackendService.instance.getStatus();
+      if (status?.blockchain == null) {
+        _logger.w('Cannot calculate epoch end time: blockchain status unavailable');
+        return null;
+      }
+
+      final currentGlobalSlot = status!.blockchain.bestTip.globalSlot;
+
+      // Calculate epoch boundaries
+      final epochStartSlot = _currentEpoch! * BlockchainTiming.slotsPerEpoch;
+      final epochEndSlot = epochStartSlot + BlockchainTiming.slotsPerEpoch;
+      final slotsUntilEnd = epochEndSlot - currentGlobalSlot;
+
+      // Calculate time until epoch ends
+      final msUntilEnd = slotsUntilEnd * BlockchainTiming.slotDurationMs;
+      final epochEndTime = DateTime.now().add(Duration(milliseconds: msUntilEnd));
+
+      return epochEndTime;
+    } catch (e) {
+      _logger.e('Error calculating epoch end time: $e');
+      return null;
+    }
+  }
+
+  /// Calculate progress through the current epoch (0.0 to 1.0)
+  ///
+  /// Returns null if current epoch is unknown or backend is unavailable.
+  Future<double?> getEpochProgress() async {
+    if (_currentEpoch == null) {
+      _logger.d('Cannot calculate epoch progress: current epoch unknown');
+      return null;
+    }
+
+    try {
+      final status = await RustBackendService.instance.getStatus();
+      if (status?.blockchain == null) {
+        _logger.w('Cannot calculate epoch progress: blockchain status unavailable');
+        return null;
+      }
+
+      final currentGlobalSlot = status!.blockchain.bestTip.globalSlot;
+
+      // Calculate slot position within epoch
+      final slotInEpoch = currentGlobalSlot % BlockchainTiming.slotsPerEpoch;
+      final progress = slotInEpoch / BlockchainTiming.slotsPerEpoch;
+
+      return progress.clamp(0.0, 1.0);
+    } catch (e) {
+      _logger.e('Error calculating epoch progress: $e');
+      return null;
+    }
+  }
+
+  /// Calculate time remaining until the current epoch ends
+  ///
+  /// Returns null if current epoch is unknown or backend is unavailable.
+  Future<Duration?> getTimeUntilEpochEnd() async {
+    final epochEndTime = await getEpochEndTime();
+    if (epochEndTime == null) return null;
+
+    final now = DateTime.now();
+    final timeRemaining = epochEndTime.difference(now);
+
+    // Ensure we don't return negative durations
+    return timeRemaining.isNegative ? Duration.zero : timeRemaining;
+  }
+
+  /// Get epoch duration based on blockchain constants
+  Duration getEpochDuration() {
+    return BlockchainTiming.epochDuration;
   }
 
   /// Dispose the service (cleanup)

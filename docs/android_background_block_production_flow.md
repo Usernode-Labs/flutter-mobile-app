@@ -27,10 +27,10 @@ flowchart TB
     QUERY_RUST --> RUST_RESPONSE[Rust Returns Won Slots<br/>List of slotNumber + expectedTimeMs + epoch]:::rust
     RUST_RESPONSE --> LOOP_SLOTS{For Each Won Slot}:::decision
 
-    LOOP_SLOTS --> CALC_TIME[Calculate Alarm Time<br/>slotTime - 2 minutes<br/>📄 epoch_slot_scheduler_service.dart:259]:::flutter
+    LOOP_SLOTS --> CALC_TIME[Calculate Alarm Time<br/>slotTime - 1 minute (12 slots)<br/>📄 blockchain_timing.dart:21]:::flutter
     CALC_TIME --> SCHEDULE_ALARM[PlatformAlarmService.scheduleAlarm<br/>📄 platform_alarm_service.dart:200]:::flutter
 
-    SCHEDULE_ALARM --> METHOD_CHANNEL["Method Channel Call<br/>com.usernode.lingash/alarm<br/>Method: scheduleExactAlarm"]:::flutter
+    SCHEDULE_ALARM --> METHOD_CHANNEL["Method Channel Call<br/>com.usernode.app/alarm<br/>Method: scheduleExactAlarm"]:::flutter
     METHOD_CHANNEL --> ALARM_SCHEDULER[AlarmScheduler.scheduleExactAlarm<br/>📄 AlarmScheduler.kt:22]:::android
 
     ALARM_SCHEDULER --> SET_ALARM[AlarmManager.setExactAndAllowWhileIdle<br/>RTC_WAKEUP mode<br/>📄 AlarmScheduler.kt:54]:::android
@@ -40,7 +40,7 @@ flowchart TB
     LOOP_SLOTS -->|All Scheduled| WAIT[Wait for Alarm Time]:::notification
 
     %% ALARM FIRING PHASE
-    WAIT --> ALARM_FIRES([⏰ Alarm Fires<br/>2 min before slot]):::notification
+    WAIT --> ALARM_FIRES([⏰ Alarm Fires<br/>1 min before slot]):::notification
     ALARM_FIRES --> ALARM_RECEIVER[AlarmReceiver.onReceive<br/>Action: SLOT_ALARM<br/>📄 AlarmReceiver.kt:14]:::android
 
     ALARM_RECEIVER --> HANDLE_ALARM[handleSlotAlarm<br/>Extract slotNumber<br/>📄 AlarmReceiver.kt:27]:::android
@@ -60,14 +60,14 @@ flowchart TB
     HANDLE_CALLBACK[AlarmCallbackService.handleAlarmCallback<br/>📄 alarm_callback_service.dart:21]:::flutter
     HANDLE_CALLBACK --> START_MONITOR[SlotMonitorService.startMonitoringSlot<br/>📄 slot_monitor_service.dart:53]:::flutter
 
-    START_MONITOR --> POLL_TIMER[Start 10s Polling Timer<br/>📄 slot_monitor_service.dart:82]:::flutter
-    POLL_TIMER --> POLL_LOOP([Every 10 Seconds]):::notification
+    START_MONITOR --> POLL_TIMER[Start 5s Polling Timer (1 slot)<br/>📄 blockchain_timing.dart:26]:::flutter
+    POLL_TIMER --> POLL_LOOP([Every 5 Seconds]):::notification
 
     POLL_LOOP --> GET_STATUS[RustBackendService.getStatus<br/>📄 rust_backend_service.dart:158]:::rust
     GET_STATUS --> EXTRACT_DATA[Extract:<br/>- nodeState<br/>- bestTipSlot<br/>📄 slot_monitor_service.dart:129]:::flutter
 
     EXTRACT_DATA --> CHECK_TIP{bestTipSlot >= slotNumber?}:::decision
-    CHECK_TIP -->|No| CHECK_TIMEOUT{5 min elapsed?}:::decision
+    CHECK_TIP -->|No| CHECK_TIMEOUT{2 min elapsed?}:::decision
     CHECK_TIMEOUT -->|No| POLL_LOOP
     CHECK_TIMEOUT -->|Yes| TIMEOUT_EVENT[Emit timeout Event<br/>📄 slot_monitor_service.dart:189]:::flutter
 
@@ -124,7 +124,7 @@ graph LR
     end
 
     subgraph "Method Channel"
-        E[com.usernode.lingash/alarm]
+        E[com.usernode.app/alarm]
     end
 
     subgraph "Android Native"
@@ -179,16 +179,16 @@ graph LR
 stateDiagram-v2
     [*] --> Idle: App Started
     Idle --> SlotsQueried: Query Epoch Won Slots
-    SlotsQueried --> AlarmsScheduled: Schedule Alarms (2 min before each slot)
+    SlotsQueried --> AlarmsScheduled: Schedule Alarms (1 min before each slot)
     AlarmsScheduled --> Waiting: All Alarms Set
 
     Waiting --> AlarmFired: Alarm Triggers
     AlarmFired --> ForegroundServiceActive: Start Monitoring Service
-    ForegroundServiceActive --> Monitoring: Begin 10s Polling
+    ForegroundServiceActive --> Monitoring: Begin 5s Polling
 
     Monitoring --> Monitoring: Poll Node Status
     Monitoring --> BlockProduced: Block Found in Chain
-    Monitoring --> Timeout: 5 Minutes Elapsed
+    Monitoring --> Timeout: 2 Minutes Elapsed
 
     BlockProduced --> Cleanup: Record Success
     Timeout --> Cleanup: Record Failure
@@ -202,8 +202,8 @@ stateDiagram-v2
     end note
 
     note right of Monitoring
-        📄 slot_monitor_service.dart:121
-        Polls every 10 seconds
+        📄 blockchain_timing.dart:26
+        Polls every 5 seconds (1 slot)
     end note
 
     note right of BlockProduced
@@ -242,7 +242,7 @@ stateDiagram-v2
 
 ## Method Channel API
 
-**Channel Name:** `com.usernode.lingash/alarm`
+**Channel Name:** `com.usernode.app/alarm`
 
 ### Flutter → Android Methods
 
@@ -262,14 +262,16 @@ stateDiagram-v2
 ## Key Implementation Details
 
 ### 1. Alarm Timing
-- **Scheduled:** 2 minutes before slot time
-- **Location:** `epoch_slot_scheduler_service.dart:259`
+- **Scheduled:** 1 minute before slot time (12 slots)
+- **Location:** `blockchain_timing.dart:21` (alarmAdvanceTime)
 - **Reason:** Gives time for app startup and node synchronization
+- **Dynamic:** Calculated from `slotDurationMs × 12`
 
 ### 2. Monitoring Poll Interval
-- **Interval:** 10 seconds
-- **Location:** `slot_monitor_service.dart:82`
-- **Timeout:** 5 minutes maximum
+- **Interval:** 5 seconds (1 slot)
+- **Location:** `blockchain_timing.dart:26` (pollInterval)
+- **Timeout:** 2 minutes maximum (24 slots)
+- **Dynamic:** Calculated from `slotDurationMs`
 
 ### 3. Foreground Service Requirement
 - **Platform:** Android 8.0+ (API 26+)
@@ -284,9 +286,13 @@ stateDiagram-v2
 - **Location:** `AlarmScheduler.kt:54`
 
 ### 5. Epoch Monitoring and Auto-Rescheduling
-- **Poll Interval:** 30 minutes
+- **Poll Interval:** Adaptive (5-30 minutes based on epoch progress)
+  - **Early epoch (0-25%):** 30 minutes
+  - **Mid epoch (25-75%):** 15 minutes
+  - **Late epoch (75-100%):** 5 minutes
 - **Method:** Queries `rpc.epochRewards()` to detect epoch transitions
-- **Location:** `epoch_slot_scheduler_service.dart:108`
+- **Location:** `blockchain_timing.dart:46` (getEpochCheckInterval)
+- **Adaptive Logic:** `epoch_slot_scheduler_service.dart:105` (_adjustEpochMonitoringFrequency)
 - **On Epoch Change:**
   1. Cancels all old epoch alarms
   2. Sends user notification about new epoch
@@ -294,6 +300,7 @@ stateDiagram-v2
   4. Schedules new alarms automatically
   5. Persists new epoch metadata
 - **Persistence:** Current epoch, scheduled slots, last check time stored in SharedPreferences
+- **Blockchain Constants:** `slotsPerEpoch = 720`, `slotDurationMs = 5000ms` (1 hour epochs)
 
 ### 6. Boot Recovery Pattern
 - **Trigger:** `ACTION_BOOT_COMPLETED` broadcast
@@ -327,7 +334,7 @@ stateDiagram-v2
 - [ ] Wait for alarm to fire, verify foreground service starts
 - [ ] Verify notification appears during monitoring
 - [ ] Test block production detection when node produces block
-- [ ] Test timeout scenario (5 minutes)
+- [ ] Test timeout scenario (2 minutes)
 - [ ] Reboot device and verify alarms are rescheduled
 - [ ] Test with battery saver mode enabled
 - [ ] Test on OEM devices (Xiaomi, Samsung, Oppo)

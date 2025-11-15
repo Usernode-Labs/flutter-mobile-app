@@ -17,11 +17,11 @@ flowchart TB
     START([App Launch]):::ios
     START --> APP_DELEGATE[AppDelegate.didFinishLaunchingWithOptions<br/>📄 AppDelegate.swift:12]:::ios
     APP_DELEGATE --> REGISTER_PLUGINS[Register Flutter Plugins<br/>📄 AppDelegate.swift:16]:::ios
-    REGISTER_PLUGINS --> CREATE_CHANNEL[Create Method Channel<br/>com.usernode.lingash/alarm<br/>📄 AppDelegate.swift:20-28]:::ios
+    REGISTER_PLUGINS --> CREATE_CHANNEL[Create Method Channel<br/>com.usernode.app/alarm<br/>📄 AppDelegate.swift:20-28]:::ios
     CREATE_CHANNEL --> REGISTER_BGTASK[⚠️ CRITICAL: Register BGTasks<br/>bgTaskScheduler.registerBGTasks<br/>📄 AppDelegate.swift:37-44]:::ios
 
     REGISTER_BGTASK --> CHECK_REGISTERED{Already Registered?<br/>📄 BGTaskSchedulerManager.swift:16}:::decision
-    CHECK_REGISTERED -->|No| DO_REGISTER[BGTaskScheduler.shared.register<br/>Identifier: com.usernode.lingash.slotmonitoring<br/>📄 BGTaskSchedulerManager.swift:22-33]:::ios
+    CHECK_REGISTERED -->|No| DO_REGISTER[BGTaskScheduler.shared.register<br/>Identifier: com.usernode.app.slotmonitoring<br/>📄 BGTaskSchedulerManager.swift:22-33]:::ios
     CHECK_REGISTERED -->|Yes| FLUTTER_INIT
     DO_REGISTER --> FLUTTER_INIT
 
@@ -50,20 +50,20 @@ flowchart TB
     QUERY_RUST --> RUST_RESPONSE[Rust Returns Won Slots<br/>List of slotNumber + expectedTimeMs + epoch]:::rust
     RUST_RESPONSE --> LOOP_SLOTS{For Each Won Slot}:::decision
 
-    LOOP_SLOTS --> CALC_TIME[Calculate Alarm Time<br/>slotTime - 2 minutes<br/>📄 epoch_slot_scheduler_service.dart:259]:::flutter
+    LOOP_SLOTS --> CALC_TIME[Calculate Alarm Time<br/>slotTime - 1 minute (12 slots)<br/>📄 blockchain_timing.dart:21]:::flutter
     CALC_TIME --> SCHEDULE_ALARM[PlatformAlarmService.scheduleAlarm<br/>📄 platform_alarm_service.dart:200]:::flutter
 
     SCHEDULE_ALARM --> METHOD_SCHEDULE["Method Channel Call<br/>scheduleIOSBGTask<br/>📄 platform_alarm_service.dart:259"]:::flutter
     METHOD_SCHEDULE --> IOS_SCHEDULE[bgTaskScheduler.scheduleBGTask<br/>📄 AppDelegate.swift:84-101]:::ios
 
-    IOS_SCHEDULE --> CREATE_BGTASK[Create BGProcessingTaskRequest<br/>Identifier: com.usernode.lingash.slotmonitoring<br/>📄 BGTaskSchedulerManager.swift:47]:::ios
+    IOS_SCHEDULE --> CREATE_BGTASK[Create BGProcessingTaskRequest<br/>Identifier: com.usernode.app.slotmonitoring<br/>📄 BGTaskSchedulerManager.swift:47]:::ios
     CREATE_BGTASK --> SET_TIME[Set earliestBeginDate = alarmTime<br/>📄 BGTaskSchedulerManager.swift:50]:::ios
 
     SET_TIME --> SET_REQS[Configure Requirements<br/>requiresNetworkConnectivity = true<br/>requiresExternalPower = false<br/>📄 BGTaskSchedulerManager.swift:54-55]:::ios
     SET_REQS --> SUBMIT_TASK[BGTaskScheduler.shared.submit<br/>📄 BGTaskSchedulerManager.swift:58]:::ios
 
     SUBMIT_TASK --> BACKUP_NOTIF[Schedule Backup Notification<br/>scheduleSlotNotification<br/>📄 BGTaskSchedulerManager.swift:62]:::ios
-    BACKUP_NOTIF --> CREATE_NOTIF[Create UNMutableNotificationContent<br/>Title: Block Production Time<br/>Body: Slot X in 2 minutes<br/>interruptionLevel: .timeSensitive<br/>📄 BGTaskSchedulerManager.swift:133-164]:::notification
+    BACKUP_NOTIF --> CREATE_NOTIF[Create UNMutableNotificationContent<br/>Title: Block Production Time<br/>Body: Slot X in 1 minute<br/>interruptionLevel: .timeSensitive<br/>📄 BGTaskSchedulerManager.swift:133-164]:::notification
 
     CREATE_NOTIF --> ADD_NOTIF[UNUserNotificationCenter.add<br/>Trigger: alarm date]:::notification
     ADD_NOTIF --> LOOP_SLOTS
@@ -83,7 +83,7 @@ flowchart TB
 
     %% TIER 2: NOTIFICATION PATH (PRIMARY RECOMMENDED)
     WAIT_NOTIFICATION[Wait for Notification<br/>100% fires on time]:::notification
-    WAIT_NOTIFICATION --> NOTIF_FIRES([⏰ Notification Fires<br/>2 min before slot]):::notification
+    WAIT_NOTIFICATION --> NOTIF_FIRES([⏰ Notification Fires<br/>1 min before slot]):::notification
     NOTIF_FIRES --> USER_SEES[User Sees Notification<br/>Slot X coming up<br/>Tap to start monitoring]:::notification
 
     USER_SEES --> USER_TAPS{User Taps?}:::decision
@@ -237,7 +237,7 @@ graph LR
     end
 
     subgraph "Method Channel"
-        E["com.usernode.lingash/alarm"]
+        E["com.usernode.app/alarm"]
     end
 
     subgraph "iOS Native"
@@ -331,9 +331,9 @@ stateDiagram-v2
     end note
 
     note right of Monitoring
-        📄 slot_monitor_service.dart:53
-        Polls Rust every 10s
-        5 min timeout
+        📄 blockchain_timing.dart:26
+        Polls Rust every 5s (1 slot)
+        2 min timeout (24 slots)
     end note
 ```
 
@@ -416,7 +416,7 @@ graph TB
 
 ## Method Channel API
 
-**Channel Name:** `com.usernode.lingash/alarm`
+**Channel Name:** `com.usernode.app/alarm`
 
 ### Flutter → iOS Methods
 
@@ -449,7 +449,7 @@ graph TB
 - **Location:** `Info.plist:48-52`
 - **Identifiers:**
   - `be.tramckrijte.workmanager.slot_monitoring_task` (Workmanager)
-  - `com.usernode.lingash.slotmonitoring` (Custom BGTask)
+  - `com.usernode.app.slotmonitoring` (Custom BGTask)
 
 ### 4. Notification Permissions
 - **Request:** `UNUserNotificationCenter.requestAuthorization()`
@@ -473,11 +473,15 @@ graph TB
 - **Success Rate:** 80-90% with engaged users
 
 ### 7. Epoch Monitoring and Auto-Rescheduling
-- **Poll Interval:** 30 minutes (same as Android)
+- **Poll Interval:** Adaptive (5-30 minutes based on epoch progress, same as Android)
+  - **Early epoch (0-25%):** 30 minutes
+  - **Mid epoch (25-75%):** 15 minutes
+  - **Late epoch (75-100%):** 5 minutes
 - **Method:** Queries `rpc.epochRewards()` to detect epoch transitions
-- **Location:** `epoch_slot_scheduler_service.dart:108`
+- **Location:** `blockchain_timing.dart:46` (getEpochCheckInterval)
+- **Adaptive Logic:** `epoch_slot_scheduler_service.dart:105` (_adjustEpochMonitoringFrequency)
 - **Trigger Points:**
-  - Periodic timer (every 30 minutes)
+  - Adaptive periodic timer (5-30 minutes)
   - App resume from background
   - User manually opens app
 - **On Epoch Change:**
@@ -487,6 +491,7 @@ graph TB
   4. Schedules new BGTasks and backup notifications
   5. Persists new epoch metadata
 - **Persistence:** Current epoch, scheduled slots, last check time stored in SharedPreferences
+- **Blockchain Constants:** `slotsPerEpoch = 720`, `slotDurationMs = 5000ms` (1 hour epochs)
 - **Note:** iOS has no boot recovery, so first open after reboot triggers epoch check
 
 ### 8. Keep-Alive Mode
@@ -516,7 +521,7 @@ graph TB
 | **Keep-Alive Strategy** | Foreground mode with wakelock | 24/7 Foreground Service |
 | **Battery Impact** | Low (notif), Medium (keep-alive) | Medium (24/7 node) |
 | **OEM Compatibility** | Consistent across all devices | Varies by manufacturer |
-| **Epoch Transition** | Periodic polling (30 min) + app resume | Periodic polling (30 min) + boot/resume |
+| **Epoch Transition** | Adaptive polling (5-30 min) + app resume | Adaptive polling (5-30 min) + boot/resume |
 | **Best Approach** | Tier 1 (Keep-Alive) or Tier 2 (Notifications) | Automatic background production |
 
 ## iOS Limitations & Workarounds
@@ -561,12 +566,12 @@ graph TB
 - [ ] Schedule backup notification and verify delivery
 - [ ] Test Keep-Alive mode (app stays active for 5+ minutes)
 - [ ] Test notification tap → app opens → monitoring starts
-- [ ] Test BGTask firing (enable `e -l objc -- (void)[[BGTaskScheduler sharedScheduler] _simulateLaunchForTaskWithIdentifier:@"com.usernode.lingash.slotmonitoring"]` in Xcode debugger)
+- [ ] Test BGTask firing (enable `e -l objc -- (void)[[BGTaskScheduler sharedScheduler] _simulateLaunchForTaskWithIdentifier:@"com.usernode.app.slotmonitoring"]` in Xcode debugger)
 - [ ] Verify 30-second BGTask limit (observe logs)
 - [ ] Test epoch transition detection on app resume
 - [ ] Test cancellation of old BGTasks/notifications on epoch change
 - [ ] Test device reboot → user opens app → BGTasks rescheduled
-- [ ] Test monitoring timeout (5 minutes)
+- [ ] Test monitoring timeout (2 minutes)
 - [ ] Test block production detection
 - [ ] Verify statistics recording for success/failure
 - [ ] Test on multiple iOS versions (13+)
@@ -586,7 +591,7 @@ graph TB
    - Enable notifications in iOS Settings
    - Ensure notifications are not silenced
    - Keep device nearby during slot times
-   - Tap notification when it appears (2 min before slot)
+   - Tap notification when it appears (1 min before slot)
    - App will open and start monitoring automatically
 
 ### Not Recommended (40-60%)
@@ -617,7 +622,7 @@ graph TB
 2. App grants notification permissions
 3. App schedules BGTasks + notifications for all won slots
 4. **Option A (Best):** User enables Keep-Alive mode before slot time
-5. **Option B (Good):** User responds to notification 2 min before slot
+5. **Option B (Good):** User responds to notification 1 min before slot
 6. App monitors slot and produces block
 7. Statistics recorded automatically
 

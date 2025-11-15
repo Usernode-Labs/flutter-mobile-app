@@ -9,4 +9,9 @@ class AppConstants {
   static const Duration shortAnimation = Duration(milliseconds: 200);
   static const Duration mediumAnimation = Duration(milliseconds: 500);
   static const Duration longAnimation = Duration(seconds: 1);
+
+  // Blockchain Constants
+  // TODO: These are temporarily hardcoded; update when backend returns them
+  static const int slotsPerEpoch = 720;
+  static const int slotDurationMs = 5000;
 }

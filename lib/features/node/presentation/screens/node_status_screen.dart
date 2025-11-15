@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
+import 'package:crypto_mobile_app/core/config/app_constants.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:crypto_mobile_app/core/widgets/produced_block_card.dart';
@@ -453,7 +454,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             final vrfEvaluator =
                 ref.watch(nodeRawStatusProvider).value?.vrfEvaluator;
             final evaluatedSlots = vrfEvaluator?.evaluatedSlotsSinceStart ?? 0;
-            const totalSlotsPerEpoch = 17280; // SLOTS_PER_EPOCH constant
+            const totalSlotsPerEpoch = AppConstants.slotsPerEpoch;
 
             return Row(
               children: [

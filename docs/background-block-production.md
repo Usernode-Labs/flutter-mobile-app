@@ -101,7 +101,7 @@ See detailed checklist below for all completed items.
 | Constraint             | Both Platforms                                   | Workaround                                   | Severity |
 | ---------------------- | ------------------------------------------------ | -------------------------------------------- | -------- |
 | **Network Dependency** | Node needs internet to sync and produce blocks   | Detect offline state; warn user before slots | High     |
-| **Battery Impact**     | Multiple wake-ups per day drain battery          | Optimize: only wake 2 min before slots       | Medium   |
+| **Battery Impact**     | Multiple wake-ups per day drain battery          | Optimize: only wake 1 min before slots       | Medium   |
 | **User Awareness**     | Users may force-close app or disable permissions | Clear UI explaining validator requirements   | High     |
 | **Device Reboot**      | Alarms lost on reboot across both platforms      | ✅ Android: Auto-restore; iOS: Manual        | High → ✅ Solved (Android) |
 
@@ -246,7 +246,7 @@ sequenceDiagram
             AlarmManager-->>AlarmChannel: Alarm scheduled
         end
 
-        Note over AlarmManager: Time passes... 2 minutes before slot
+        Note over AlarmManager: Time passes... 1 minute before slot
 
         AlarmManager->>AlarmReceiver: Fire alarm intent
         AlarmReceiver->>FGS: Ensure FGS running, update notification
@@ -276,11 +276,11 @@ sequenceDiagram
         App->>WorkManager: Use expedited WorkManager fallback
 
         loop For each won slot
-            EpochSlotScheduler->>WorkManager: Schedule expedited work (slot_time - 2min, epoch)
+            EpochSlotScheduler->>WorkManager: Schedule expedited work (slot_time - 1min, epoch)
             WorkManager->>WorkManager: setExpedited(RUN_AS_NON_EXPEDITED)
         end
 
-        Note over WorkManager: 2 minutes before slot (if quota available)
+        Note over WorkManager: 1 minute before slot (if quota available)
 
         WorkManager->>SlotMonitor: Execute slot monitoring
         SlotMonitor->>RustNode: Ensure node running
@@ -292,7 +292,7 @@ sequenceDiagram
 
     Note over App: Epoch transition detected
 
-    Note over EpochSlotScheduler: Periodic epoch monitoring (every 30 min)
+    Note over EpochSlotScheduler: Adaptive epoch monitoring (5-30 min based on progress)
     EpochSlotScheduler->>RustNode: Check current epoch
     RustNode-->>EpochSlotScheduler: Epoch X
     EpochSlotScheduler->>EpochSlotScheduler: Compare with stored epoch
@@ -372,12 +372,12 @@ sequenceDiagram
     else BGProcessingTask doesn't fire (iOS limitation)
         Note over NotificationService: Backup notification fires instead
 
-        NotificationService->>User: Show notification "Slot in 2 minutes - Open app"
+        NotificationService->>User: Show notification "Slot in 1 minute - Open app"
         User->>App: Tap notification / Open app
         App->>RustNode: Ensure node running
         App->>SlotMonitor: Start monitoring
 
-        loop Every 10 seconds while app open
+        loop Every 5 seconds (1 slot) while app open
             SlotMonitor->>RustNode: getStatus()
             RustNode-->>SlotMonitor: Return status
 
@@ -393,7 +393,7 @@ sequenceDiagram
 
     Note over App: Epoch transition detected
 
-    Note over EpochSlotScheduler: Periodic epoch monitoring (every 30 min)
+    Note over EpochSlotScheduler: Adaptive epoch monitoring (5-30 min based on progress)
     SlotScheduler->>BGTaskScheduler: Cancel old tasks
     SlotScheduler->>NotificationService: Cancel old notifications
     SlotScheduler->>RustNode: Query new epoch rewards
@@ -519,7 +519,7 @@ stateDiagram-v2
 
     SchedulingAlarms --> WaitingForSlot: All alarms scheduled
 
-    WaitingForSlot --> PreSlotWakeup: Alarm fires (2 min before slot)
+    WaitingForSlot --> PreSlotWakeup: Alarm fires (1 min before slot)
     WaitingForSlot --> EpochTransition: Epoch changes
 
     PreSlotWakeup --> NodeStarting: iOS starts node, Android already running
@@ -630,10 +630,10 @@ stateDiagram-v2
   - [x] `Stream<SlotMonitoringEvent> monitoringEvents` - Real-time monitoring events
   - [x] `Future<void> startMonitoringSlot(ScheduledSlot slot)` - Start monitoring specific slot
   - [x] `Future<void> stopMonitoring()` - Stop current monitoring
-- [x] Poll `status()` RPC every 10 seconds during active slot window
+- [x] Poll `status()` RPC every 5 seconds (1 slot) during active slot window
 - [x] Detect production state changes (wonSlot → produced → injected)
 - [x] Record success/failure statistics
-- [x] 5-minute timeout window per slot
+- [x] 2-minute timeout window per slot (24 slots)
 - [x] Check blockchain for produced blocks
 
 #### Statistics Repository ✅
@@ -710,7 +710,7 @@ stateDiagram-v2
 ##### Method Channel Handler ✅
 
 - [x] Update `android/app/src/main/kotlin/com/usernode_labs/usernode/MainActivity.kt`
-- [x] Create method channel: `com.usernode.lingash/alarm`
+- [x] Create method channel: `com.usernode.app/alarm`
 - [x] Create `AlarmMethodChannelHandler.kt`
 - [x] Implement methods:
   - [x] `hasExactAlarmPermission()` - Check if permission granted
@@ -907,7 +907,7 @@ When Keep-Alive Mode is active, you'll see:
 
 - [x] Update `ios/Runner/Info.plist`:
   - [x] Add UIBackgroundModes: `fetch`, `processing`
-  - [x] Register BGTask identifier: `com.usernode.lingash.slotmonitoring`
+  - [x] Register BGTask identifier: `com.usernode.app.slotmonitoring`
 
 ##### BGTask Registration & Handling ✅
 
@@ -927,13 +927,13 @@ When Keep-Alive Mode is active, you'll see:
   - [x] Handle task expiration
   - [x] Automatic rescheduling
 - [x] Local notification scheduling as backup:
-  - [x] `scheduleSlotNotification()` - Schedule notification 2 min before slot
+  - [x] `scheduleSlotNotification()` - Schedule notification 1 min before slot
   - [x] Time-sensitive notification level
   - [x] Custom category for slot monitoring
 
 ##### Method Channel Integration ✅
 
-- [x] Create method channel: `com.usernode.lingash/alarm`
+- [x] Create method channel: `com.usernode.app/alarm`
 - [x] Implement methods:
   - [x] `registerBGTasks()` - Register BGProcessingTask identifiers
   - [x] `requestNotificationPermission()` - Request notification permissions
@@ -1048,7 +1048,7 @@ Use Xcode breakpoint command to simulate BGTask execution:
   - [x] Started, Stopped, State Changed
   - [x] Tip Advanced, Slot Produced
   - [x] Timeout, Error
-- [x] Auto-refresh every 10 seconds
+- [x] Auto-refresh every 5 seconds (1 slot)
 - [x] Stream subscription for real-time updates
 
 #### Production Statistics Screen ✅
@@ -1317,12 +1317,12 @@ Track and report reliability by manufacturer:
 #### Notifications
 
 - [ ] **Android**:
-  - [ ] "Slot 145 in 2 minutes" - when alarm fires
+  - [ ] "Slot 145 in 1 minute" - when alarm fires
   - [ ] "Block produced for slot 145 ✓" - on success
   - [ ] "Missed slot 145 ✗ - Node was offline" - on failure
 - [ ] **iOS**:
   - [ ] "Slot 145 in 10 minutes - Open app to ensure production"
-  - [ ] "Slot 145 in 2 minutes - Open app now"
+  - [ ] "Slot 145 in 1 minute - Open app now"
   - [ ] Tap action → open app in slot monitor view
 
 #### Error Handling & Retry

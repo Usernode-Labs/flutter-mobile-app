@@ -5,7 +5,7 @@ import workmanager_apple
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
-  private let alarmChannelName = "com.usernode.lingash/alarm"
+  private let alarmChannelName = "com.usernode.app/alarm"
   private var alarmChannel: FlutterMethodChannel?
   private let bgTaskScheduler = BGTaskSchedulerManager()
 

@@ -9,7 +9,7 @@ import io.flutter.plugin.common.MethodChannel
 import com.usernode_labs.usernode.alarm.AlarmMethodChannelHandler
 
 class MainActivity: FlutterActivity() {
-    private val CHANNEL = "com.usernode.lingash/alarm"
+    private val CHANNEL = "com.usernode.app/alarm"
     private lateinit var alarmHandler: AlarmMethodChannelHandler
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -37,7 +37,7 @@ class MainActivity: FlutterActivity() {
 
     private fun handleAlarmIntent(intent: Intent?) {
         intent?.let {
-            if (it.action == "com.usernode.lingash.SLOT_ALARM") {
+            if (it.action == "com.usernode.app.SLOT_ALARM") {
                 val slotNumber = it.getIntExtra("slotNumber", -1)
                 if (slotNumber != -1) {
                     // Alarm fired - Flutter will handle via AlarmReceiver callback

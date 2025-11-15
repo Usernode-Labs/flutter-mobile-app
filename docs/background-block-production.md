@@ -241,7 +241,7 @@ sequenceDiagram
         RustNode-->>EpochSlotScheduler: Return won slots list with epoch info
 
         loop For each won slot
-            EpochSlotScheduler->>AlarmChannel: Schedule exact alarm (slot_time - 2min, epoch)
+            EpochSlotScheduler->>AlarmChannel: Schedule exact alarm (slot_time - 1min, epoch)
             AlarmChannel->>AlarmManager: setExactAndAllowWhileIdle()
             AlarmManager-->>AlarmChannel: Alarm scheduled
         end

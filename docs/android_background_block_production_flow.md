@@ -60,7 +60,7 @@ flowchart TB
     HANDLE_CALLBACK[AlarmCallbackService.handleAlarmCallback<br/>📄 alarm_callback_service.dart:21]:::flutter
     HANDLE_CALLBACK --> START_MONITOR[SlotMonitorService.startMonitoringSlot<br/>📄 slot_monitor_service.dart:53]:::flutter
 
-    START_MONITOR --> POLL_TIMER[Start Polling Timer<br/>5s interval (1 slot)]:::flutter
+    START_MONITOR --> POLL_TIMER[Start Polling Timer<br/>5s interval / 1 slot]:::flutter
     POLL_TIMER --> POLL_LOOP([Every 5 Seconds]):::notification
 
     POLL_LOOP --> GET_STATUS[RustBackendService.getStatus<br/>📄 rust_backend_service.dart:158]:::rust

@@ -334,12 +334,12 @@ sequenceDiagram
     RustNode-->>SlotScheduler: Return won slots list
 
     loop For each won slot
-        EpochSlotScheduler->>BGTaskChannel: Schedule BGProcessingTask (slot_time - 2min, epoch)
+        EpochSlotScheduler->>BGTaskChannel: Schedule BGProcessingTask (slot_time - 1min, epoch)
         BGTaskChannel->>BGTaskScheduler: submit(BGProcessingTaskRequest)
         BGTaskScheduler-->>BGTaskChannel: Task registered
 
         Note over EpochSlotScheduler: Also schedule local notification as backup
-        EpochSlotScheduler->>NotificationService: Schedule notification (slot_time - 2min, epoch)
+        EpochSlotScheduler->>NotificationService: Schedule notification (slot_time - 1min, epoch)
         NotificationService-->>EpochSlotScheduler: Notification scheduled
     end
 

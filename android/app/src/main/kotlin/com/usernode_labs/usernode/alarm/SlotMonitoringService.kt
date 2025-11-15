@@ -13,8 +13,8 @@ import com.usernode_labs.usernode.MainActivity
 class SlotMonitoringService : Service() {
     companion object {
         private const val TAG = "SlotMonitoringService"
-        const val ACTION_START_MONITORING = "com.usernode.lingash.START_MONITORING"
-        const val ACTION_STOP_MONITORING = "com.usernode.lingash.STOP_MONITORING"
+        const val ACTION_START_MONITORING = "com.usernode.app.START_MONITORING"
+        const val ACTION_STOP_MONITORING = "com.usernode.app.STOP_MONITORING"
 
         private const val NOTIFICATION_ID = 1001
         private const val CHANNEL_ID = "slot_monitoring_channel"

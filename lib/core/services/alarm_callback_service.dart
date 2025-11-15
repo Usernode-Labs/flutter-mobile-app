@@ -1,5 +1,6 @@
 import 'package:logger/logger.dart';
-import 'slot_scheduler_service.dart';
+import '../config/blockchain_timing.dart';
+import 'epoch_slot_scheduler_service.dart';
 import 'slot_monitor_service.dart';
 import 'platform_alarm_service.dart';
 
@@ -26,7 +27,7 @@ class AlarmCallbackService {
       await _startForegroundServiceIfNeeded(slotNumber);
 
       // Start monitoring this slot
-      final scheduledSlots = SlotSchedulerService.instance.getScheduledSlots();
+      final scheduledSlots = EpochSlotSchedulerService.instance.getScheduledSlots();
       final targetSlot = scheduledSlots.firstWhere(
         (slot) => slot.slotNumber == slotNumber,
         orElse: () =>
@@ -75,8 +76,8 @@ class AlarmCallbackService {
       }
     });
 
-    // Auto-cancel subscription after 10 minutes
-    Future.delayed(const Duration(minutes: 10), () {
+    // Auto-cancel subscription after monitoring window
+    Future.delayed(BlockchainTiming.listenerAutoCancel, () {
       subscription.cancel();
     });
   }

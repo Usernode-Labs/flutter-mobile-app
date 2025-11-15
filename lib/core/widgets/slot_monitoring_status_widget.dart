@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/slot_monitor_service.dart';
-import '../services/slot_scheduler_service.dart';
+import '../services/epoch_slot_scheduler_service.dart';
 
 /// Widget that displays current slot monitoring status
 ///
@@ -57,7 +57,7 @@ class _SlotMonitoringStatusWidgetState
   }
 
   void _updateNextSlot() {
-    final nextSlot = SlotSchedulerService.instance.getNextSlot();
+    final nextSlot = EpochSlotSchedulerService.instance.getNextSlot();
     if (mounted && nextSlot != _nextSlot) {
       setState(() {
         _nextSlot = nextSlot;

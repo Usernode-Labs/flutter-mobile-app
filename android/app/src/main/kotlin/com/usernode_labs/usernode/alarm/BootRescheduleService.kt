@@ -94,7 +94,7 @@ class BootRescheduleService : Service() {
         // Create method channel to communicate with Flutter
         val channel = MethodChannel(
             flutterEngine!!.dartExecutor.binaryMessenger,
-            "com.usernode.lingash/alarm"
+            "com.usernode.app/alarm"
         )
 
         // Call Flutter to reschedule alarms

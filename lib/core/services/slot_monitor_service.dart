@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'package:logger/logger.dart';
 import '../../features/node/data/repositories/rust_backend_service.dart';
-import 'slot_scheduler_service.dart';
+import '../config/blockchain_timing.dart';
+import 'epoch_slot_scheduler_service.dart';
 
 /// Service responsible for monitoring slot production status in real-time
 ///
@@ -78,9 +79,9 @@ class SlotMonitorService {
       timestamp: DateTime.now(),
     ));
 
-    // Start polling timer (every 10 seconds)
+    // Start polling timer (poll interval based on slot duration)
     _monitoringTimer = Timer.periodic(
-      const Duration(seconds: 10),
+      BlockchainTiming.pollInterval,
       (_) => _pollNodeStatus(),
     );
 
@@ -167,10 +168,10 @@ class SlotMonitorService {
         await _checkSlotProduction(currentSlotNumber);
       }
 
-      // Check for timeout (5 minutes after slot time)
+      // Check for timeout (based on slot duration)
       final now = DateTime.now();
       final timeoutTime =
-          _currentSlot!.slotTime.add(const Duration(minutes: 5));
+          _currentSlot!.slotTime.add(BlockchainTiming.monitoringTimeout);
 
       if (now.isAfter(timeoutTime)) {
         _logger.w('Monitoring timeout for slot $currentSlotNumber');
@@ -243,7 +244,7 @@ class SlotMonitorService {
     }
 
     // Check if we should be monitoring any slots right now
-    final nextSlot = SlotSchedulerService.instance.getNextSlot();
+    final nextSlot = EpochSlotSchedulerService.instance.getNextSlot();
     if (nextSlot == null) {
       _logger.d('No upcoming slots to monitor');
       return;
@@ -251,10 +252,10 @@ class SlotMonitorService {
 
     final now = DateTime.now();
     final monitoringStartTime = nextSlot.slotTime.subtract(
-      const Duration(minutes: 2),
+      BlockchainTiming.alarmAdvanceTime,
     );
     final monitoringEndTime = nextSlot.slotTime.add(
-      const Duration(minutes: 5),
+      BlockchainTiming.monitoringTimeout,
     );
 
     // Check if we're in the monitoring window

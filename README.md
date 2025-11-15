@@ -640,19 +640,19 @@ This project consists of two repositories:
 ```bash
 # Clone both repositories into the same parent directory
 cd ~/projects  # or your preferred location
-git clone https://github.com/Usernode-Labs/flutter-mobile-app.git lingash/flutter-mobile-app
-git clone https://github.com/Usernode-Labs/usernode.git lingash/usernode
+git clone https://github.com/Usernode-Labs/flutter-mobile-app.git
+git clone https://github.com/Usernode-Labs/usernode.git
 
 # Verify structure:
-# lingash/
-# ├── flutter-mobile-app/   (Flutter UI)
-# └── usernode/             (Rust backend)
+# your-directory/
+# ├── flutter-mobile-app/   (Flutter UI - this repo)
+# └── usernode/             (Rust backend - sibling repo)
 ```
 
 ### 2. Set Up Rust Backend
 
 ```bash
-cd lingash/usernode
+cd ../usernode
 
 # Install Rust dependencies and build
 cargo build --release
@@ -664,7 +664,7 @@ cargo test
 ### 3. Set Up Flutter App
 
 ```bash
-cd lingash/flutter-mobile-app
+cd ../flutter-mobile-app
 
 # Get Flutter dependencies
 flutter pub get
@@ -676,9 +676,7 @@ flutter doctor -v
 ### 4. Generate Dart-Rust Bindings
 
 ```bash
-cd lingash/flutter-mobile-app
-
-# Generate flutter_rust_bridge bindings
+# From flutter-mobile-app directory
 flutter_rust_bridge_codegen generate
 
 # This will generate:
@@ -740,7 +738,7 @@ The Rust backend is automatically compiled during Flutter build via **Cargokit**
 
 ```bash
 # Build for all Android architectures
-cd lingash/usernode/crates/usernode
+cd ../usernode/crates/usernode
 
 # ARM64 (most modern devices)
 cargo build --release --target aarch64-linux-android
@@ -1032,7 +1030,7 @@ usernode/                              # Rust backend (sibling repo)
 #### 1. Modify Rust Code
 
 ```bash
-cd lingash/usernode/crates/usernode
+cd ../usernode/crates/usernode
 
 # Make changes to Rust code
 vim src/api/node.rs
@@ -1047,7 +1045,7 @@ cargo build --release
 #### 2. Regenerate Dart Bindings
 
 ```bash
-cd lingash/flutter-mobile-app
+cd ../flutter-mobile-app
 
 # Regenerate bindings when Rust API changes
 flutter_rust_bridge_codegen generate
@@ -1213,7 +1211,7 @@ cd ../usernode && cargo outdated && cd -
 ### Rust Tests
 
 ```bash
-cd lingash/usernode
+cd ../usernode
 
 # Run all Rust tests
 cargo test
@@ -1239,9 +1237,7 @@ cargo bench
 ### Flutter Unit/Widget Tests
 
 ```bash
-cd lingash/flutter-mobile-app
-
-# Run all tests
+# From flutter-mobile-app directory
 flutter test
 
 # Run specific test file

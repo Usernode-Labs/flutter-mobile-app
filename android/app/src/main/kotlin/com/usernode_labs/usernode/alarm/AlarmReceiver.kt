@@ -15,7 +15,7 @@ class AlarmReceiver : BroadcastReceiver() {
         Log.i(TAG, "Alarm received: ${intent.action}")
 
         when (intent.action) {
-            "com.usernode.lingash.SLOT_ALARM" -> {
+            "com.usernode.app.SLOT_ALARM" -> {
                 handleSlotAlarm(context, intent)
             }
             Intent.ACTION_BOOT_COMPLETED -> {

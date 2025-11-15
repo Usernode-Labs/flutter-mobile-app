@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:logger/logger.dart';
 import '../../features/node/data/repositories/rust_backend_service.dart';
-import 'slot_scheduler_service.dart';
+import 'epoch_slot_scheduler_service.dart';
 
 /// Service responsible for monitoring slot production status in real-time
 ///
@@ -243,7 +243,7 @@ class SlotMonitorService {
     }
 
     // Check if we should be monitoring any slots right now
-    final nextSlot = SlotSchedulerService.instance.getNextSlot();
+    final nextSlot = EpochSlotSchedulerService.instance.getNextSlot();
     if (nextSlot == null) {
       _logger.d('No upcoming slots to monitor');
       return;

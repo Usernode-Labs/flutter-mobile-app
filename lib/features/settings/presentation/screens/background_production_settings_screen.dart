@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/services/platform_alarm_service.dart';
-import '../../../../core/services/slot_scheduler_service.dart';
+import '../../../../core/services/epoch_slot_scheduler_service.dart';
 import '../../../../core/services/ios_foreground_keepalive_service.dart';
 import '../../../../core/data/slot_production_repository.dart';
 
@@ -34,6 +34,7 @@ class _BackgroundProductionSettingsScreenState
     try {
       // Initialize services
       await PlatformAlarmService.instance.initialize();
+      await EpochSlotSchedulerService.instance.initialize();
       await SlotProductionRepository.instance.initialize();
 
       // Check permissions
@@ -369,8 +370,8 @@ class _BackgroundProductionSettingsScreenState
   }
 
   Widget _buildScheduledSlotsSection(ThemeData theme, ColorScheme colorScheme) {
-    final scheduledSlots = SlotSchedulerService.instance.getScheduledSlots();
-    final nextSlot = SlotSchedulerService.instance.getNextSlot();
+    final scheduledSlots = EpochSlotSchedulerService.instance.getScheduledSlots();
+    final nextSlot = EpochSlotSchedulerService.instance.getNextSlot();
 
     return Card(
       child: Padding(

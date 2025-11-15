@@ -132,7 +132,7 @@ Both Android and iOS **lose all scheduled alarms/tasks when the device reboots**
 - `android/.../alarm/BootRescheduleService.kt` - Background service
 - `android/.../alarm/AlarmReceiver.kt` - Boot receiver
 - `lib/core/services/platform_alarm_service.dart` - Method channel handler
-- `lib/core/services/slot_scheduler_service.dart` - Registers callback
+- `lib/core/services/epoch_slot_scheduler_service.dart` - Epoch-aware scheduler with periodic monitoring, registers callback
 
 **User Experience:**
 - Completely automatic - no user interaction required
@@ -221,7 +221,7 @@ sequenceDiagram
     participant AlarmReceiver
     participant FGS as ForegroundService
     participant RustNode
-    participant SlotScheduler
+    participant EpochSlotScheduler
     participant SlotMonitor
     participant WorkManager
     participant NotificationService
@@ -236,12 +236,12 @@ sequenceDiagram
         FGS->>NotificationService: Post notification (within 5s)
         FGS->>RustNode: Start node (runForeverInNewThread)
 
-        App->>SlotScheduler: Initialize slot scheduling
-        SlotScheduler->>RustNode: Query epochRewards(includeWonSlots: true)
-        RustNode-->>SlotScheduler: Return won slots list
+        App->>EpochSlotScheduler: Initialize epoch-aware slot scheduling
+        EpochSlotScheduler->>RustNode: Query epochRewards(includeWonSlots: true)
+        RustNode-->>EpochSlotScheduler: Return won slots list with epoch info
 
         loop For each won slot
-            SlotScheduler->>AlarmChannel: Schedule exact alarm (slot_time - 2min)
+            EpochSlotScheduler->>AlarmChannel: Schedule exact alarm (slot_time - 2min, epoch)
             AlarmChannel->>AlarmManager: setExactAndAllowWhileIdle()
             AlarmManager-->>AlarmChannel: Alarm scheduled
         end
@@ -276,7 +276,7 @@ sequenceDiagram
         App->>WorkManager: Use expedited WorkManager fallback
 
         loop For each won slot
-            SlotScheduler->>WorkManager: Schedule expedited work (slot_time - 2min)
+            EpochSlotScheduler->>WorkManager: Schedule expedited work (slot_time - 2min, epoch)
             WorkManager->>WorkManager: setExpedited(RUN_AS_NON_EXPEDITED)
         end
 
@@ -292,10 +292,18 @@ sequenceDiagram
 
     Note over App: Epoch transition detected
 
-    App->>SlotScheduler: Epoch changed
-    SlotScheduler->>AlarmManager: Cancel old alarms
-    SlotScheduler->>RustNode: Query new epoch rewards
-    SlotScheduler->>AlarmManager: Schedule new alarms
+    Note over EpochSlotScheduler: Periodic epoch monitoring (every 30 min)
+    EpochSlotScheduler->>RustNode: Check current epoch
+    RustNode-->>EpochSlotScheduler: Epoch X
+    EpochSlotScheduler->>EpochSlotScheduler: Compare with stored epoch
+    alt Epoch Changed
+        EpochSlotScheduler->>AlarmManager: Cancel old epoch alarms
+        EpochSlotScheduler->>User: Send notification (new epoch started)
+        EpochSlotScheduler->>RustNode: Query new epoch rewards
+        RustNode-->>EpochSlotScheduler: Won slots for epoch X
+        EpochSlotScheduler->>AlarmManager: Schedule new alarms
+        EpochSlotScheduler->>Storage: Persist new epoch metadata
+    end
 ```
 
 ### iOS Background Execution Flow
@@ -312,7 +320,7 @@ sequenceDiagram
     participant BGTaskScheduler
     participant AppDelegate
     participant RustNode
-    participant SlotScheduler
+    participant EpochSlotScheduler
     participant SlotMonitor
     participant NotificationService
 
@@ -326,13 +334,13 @@ sequenceDiagram
     RustNode-->>SlotScheduler: Return won slots list
 
     loop For each won slot
-        SlotScheduler->>BGTaskChannel: Schedule BGProcessingTask (slot_time - 2min)
+        EpochSlotScheduler->>BGTaskChannel: Schedule BGProcessingTask (slot_time - 2min, epoch)
         BGTaskChannel->>BGTaskScheduler: submit(BGProcessingTaskRequest)
         BGTaskScheduler-->>BGTaskChannel: Task registered
 
-        Note over SlotScheduler: Also schedule local notification as backup
-        SlotScheduler->>NotificationService: Schedule notification (slot_time - 2min)
-        NotificationService-->>SlotScheduler: Notification scheduled
+        Note over EpochSlotScheduler: Also schedule local notification as backup
+        EpochSlotScheduler->>NotificationService: Schedule notification (slot_time - 2min, epoch)
+        NotificationService-->>EpochSlotScheduler: Notification scheduled
     end
 
     Note over BGTaskScheduler: System decides to run task (unreliable timing)
@@ -385,7 +393,7 @@ sequenceDiagram
 
     Note over App: Epoch transition detected
 
-    App->>SlotScheduler: Epoch changed
+    Note over EpochSlotScheduler: Periodic epoch monitoring (every 30 min)
     SlotScheduler->>BGTaskScheduler: Cancel old tasks
     SlotScheduler->>NotificationService: Cancel old notifications
     SlotScheduler->>RustNode: Query new epoch rewards

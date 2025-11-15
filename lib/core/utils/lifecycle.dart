@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import '../../features/node/data/repositories/rust_backend_service.dart';
-import '../services/slot_scheduler_service.dart';
+import '../services/epoch_slot_scheduler_service.dart';
 import '../services/platform_alarm_service.dart';
 
 /// Enhanced app lifecycle observer with background block production support
@@ -185,10 +185,10 @@ class AppLifecycleLogger with WidgetsBindingObserver {
         );
 
         // Handle epoch transition - reschedule all slots
-        if (SlotSchedulerService.instance.isInitialized) {
+        if (EpochSlotSchedulerService.instance.isInitialized) {
           _logger.i('Rescheduling slots for new epoch $currentEpoch...');
 
-          final result = await SlotSchedulerService.instance.scheduleDailySlots(
+          final result = await EpochSlotSchedulerService.instance.scheduleEpochSlots(
             epoch: currentEpoch,
           );
 
@@ -204,7 +204,7 @@ class AppLifecycleLogger with WidgetsBindingObserver {
           }
         } else {
           _logger
-              .w('SlotSchedulerService not initialized, skipping rescheduling');
+              .w('EpochSlotSchedulerService not initialized, skipping rescheduling');
           // Still save the new epoch
           await _prefs?.setInt(_keyLastEpoch, currentEpoch);
         }
@@ -219,13 +219,13 @@ class AppLifecycleLogger with WidgetsBindingObserver {
   /// Verify that scheduled alarms still exist (could be cleared by system)
   Future<void> _verifyScheduledAlarms() async {
     try {
-      if (!SlotSchedulerService.instance.isInitialized) {
+      if (!EpochSlotSchedulerService.instance.isInitialized) {
         _logger.d(
-            'SlotSchedulerService not initialized, skipping alarm verification');
+            'EpochSlotSchedulerService not initialized, skipping alarm verification');
         return;
       }
 
-      final scheduledSlots = SlotSchedulerService.instance.getScheduledSlots();
+      final scheduledSlots = EpochSlotSchedulerService.instance.getScheduledSlots();
 
       if (scheduledSlots.isEmpty) {
         _logger.d('No slots scheduled, nothing to verify');

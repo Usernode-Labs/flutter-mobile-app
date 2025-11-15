@@ -43,14 +43,14 @@ flowchart TB
     USER_GRANTS -->|No| WARN_USER[⚠️ Warn: Notifications Required<br/>Cannot notify for slots]:::limitation
 
     %% SCHEDULING PHASE
-    SCHEDULE_START[SlotSchedulerService.scheduleDailySlots<br/>📄 slot_scheduler_service.dart:52]:::flutter
+    SCHEDULE_START[EpochSlotSchedulerService.scheduleEpochSlots<br/>📄 epoch_slot_scheduler_service.dart:195]:::flutter
     WARN_USER --> SCHEDULE_START
     SCHEDULE_START --> QUERY_RUST[Query Rust Backend<br/>rpc.epochRewards includeWonSlots: true<br/>📄 rust_backend_service.dart:658]:::rust
 
-    QUERY_RUST --> RUST_RESPONSE[Rust Returns Won Slots<br/>List of slotNumber + expectedTimeMs]:::rust
+    QUERY_RUST --> RUST_RESPONSE[Rust Returns Won Slots<br/>List of slotNumber + expectedTimeMs + epoch]:::rust
     RUST_RESPONSE --> LOOP_SLOTS{For Each Won Slot}:::decision
 
-    LOOP_SLOTS --> CALC_TIME[Calculate Alarm Time<br/>slotTime - 2 minutes<br/>📄 slot_scheduler_service.dart:160]:::flutter
+    LOOP_SLOTS --> CALC_TIME[Calculate Alarm Time<br/>slotTime - 2 minutes<br/>📄 epoch_slot_scheduler_service.dart:259]:::flutter
     CALC_TIME --> SCHEDULE_ALARM[PlatformAlarmService.scheduleAlarm<br/>📄 platform_alarm_service.dart:200]:::flutter
 
     SCHEDULE_ALARM --> METHOD_SCHEDULE["Method Channel Call<br/>scheduleIOSBGTask<br/>📄 platform_alarm_service.dart:259"]:::flutter
@@ -231,7 +231,7 @@ graph TD
 graph LR
     subgraph "Flutter Layer"
         A[PlatformAlarmService]
-        B[SlotSchedulerService]
+        B[EpochSlotSchedulerService]
         C[SlotMonitorService]
         D[AlarmCallbackService]
     end
@@ -403,7 +403,7 @@ graph TB
 | File | Key Lines | Purpose |
 |------|-----------|---------|
 | **platform_alarm_service.dart** | 27, 39, 111, 134, 176, 200, 259, 304 | Platform bridge, iOS initialization, scheduling |
-| **slot_scheduler_service.dart** | 52, 160 | Slot scheduling orchestrator |
+| **epoch_slot_scheduler_service.dart** | 195, 259 | Epoch-aware slot scheduling with periodic monitoring and auto-rescheduling |
 | **slot_monitor_service.dart** | 53, 82, 88, 92, 96, 100, 108, 121, 132, 137, 142, 153, 157, 166, 171, 176, 199, 202, 210, 216 | Real-time monitoring, polling, block detection |
 | **alarm_callback_service.dart** | 21, 29 | Handles alarm/notification callbacks |
 | **rust_backend_service.dart** | 158, 658 | Rust FFI interface |
@@ -472,7 +472,24 @@ graph TB
 - **Requires User Interaction** - User must tap to open app
 - **Success Rate:** 80-90% with engaged users
 
-### 7. Keep-Alive Mode
+### 7. Epoch Monitoring and Auto-Rescheduling
+- **Poll Interval:** 30 minutes (same as Android)
+- **Method:** Queries `rpc.epochRewards()` to detect epoch transitions
+- **Location:** `epoch_slot_scheduler_service.dart:108`
+- **Trigger Points:**
+  - Periodic timer (every 30 minutes)
+  - App resume from background
+  - User manually opens app
+- **On Epoch Change:**
+  1. Cancels all old epoch BGTasks and notifications
+  2. Sends user notification about new epoch
+  3. Queries new epoch won slots
+  4. Schedules new BGTasks and backup notifications
+  5. Persists new epoch metadata
+- **Persistence:** Current epoch, scheduled slots, last check time stored in SharedPreferences
+- **Note:** iOS has no boot recovery, so first open after reboot triggers epoch check
+
+### 8. Keep-Alive Mode
 - **Highest Reliability:** 99% success rate
 - **Mechanism:** Wakelock prevents device sleep
 - **Requirements:**
@@ -499,7 +516,7 @@ graph TB
 | **Keep-Alive Strategy** | Foreground mode with wakelock | 24/7 Foreground Service |
 | **Battery Impact** | Low (notif), Medium (keep-alive) | Medium (24/7 node) |
 | **OEM Compatibility** | Consistent across all devices | Varies by manufacturer |
-| **Epoch Transition** | Manual on app resume | Automatic on boot/resume |
+| **Epoch Transition** | Periodic polling (30 min) + app resume | Periodic polling (30 min) + boot/resume |
 | **Best Approach** | Tier 1 (Keep-Alive) or Tier 2 (Notifications) | Automatic background production |
 
 ## iOS Limitations & Workarounds

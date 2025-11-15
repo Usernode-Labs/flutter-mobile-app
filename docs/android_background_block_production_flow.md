@@ -21,13 +21,13 @@ flowchart TB
     REQ_PERMS --> SCHEDULE_START
 
     %% SCHEDULING PHASE
-    SCHEDULE_START[SlotSchedulerService.scheduleDailySlots<br/>📄 slot_scheduler_service.dart:52]:::flutter
+    SCHEDULE_START[EpochSlotSchedulerService.scheduleEpochSlots<br/>📄 epoch_slot_scheduler_service.dart:195]:::flutter
     SCHEDULE_START --> QUERY_RUST[Query Rust Backend<br/>rpc.epochRewards includeWonSlots: true<br/>📄 rust_backend_service.dart:658]:::rust
 
-    QUERY_RUST --> RUST_RESPONSE[Rust Returns Won Slots<br/>List of slotNumber + expectedTimeMs]:::rust
+    QUERY_RUST --> RUST_RESPONSE[Rust Returns Won Slots<br/>List of slotNumber + expectedTimeMs + epoch]:::rust
     RUST_RESPONSE --> LOOP_SLOTS{For Each Won Slot}:::decision
 
-    LOOP_SLOTS --> CALC_TIME[Calculate Alarm Time<br/>slotTime - 2 minutes<br/>📄 slot_scheduler_service.dart:160]:::flutter
+    LOOP_SLOTS --> CALC_TIME[Calculate Alarm Time<br/>slotTime - 2 minutes<br/>📄 epoch_slot_scheduler_service.dart:259]:::flutter
     CALC_TIME --> SCHEDULE_ALARM[PlatformAlarmService.scheduleAlarm<br/>📄 platform_alarm_service.dart:200]:::flutter
 
     SCHEDULE_ALARM --> METHOD_CHANNEL["Method Channel Call<br/>com.usernode.lingash/alarm<br/>Method: scheduleExactAlarm"]:::flutter
@@ -118,7 +118,7 @@ flowchart TB
 graph LR
     subgraph "Flutter Layer"
         A[PlatformAlarmService]
-        B[SlotSchedulerService]
+        B[EpochSlotSchedulerService]
         C[SlotMonitorService]
         D[AlarmCallbackService]
     end
@@ -219,7 +219,7 @@ stateDiagram-v2
 | File | Key Lines | Purpose |
 |------|-----------|---------|
 | **platform_alarm_service.dart** | 93, 200, 331, 357, 72 | Method channel bridge, alarm scheduling interface |
-| **slot_scheduler_service.dart** | 52, 160 | High-level slot scheduling orchestrator |
+| **epoch_slot_scheduler_service.dart** | 195, 259 | Epoch-aware slot scheduling with periodic monitoring and auto-rescheduling |
 | **slot_monitor_service.dart** | 53, 82, 121, 189, 208, 220, 91 | Real-time monitoring and block detection |
 | **alarm_callback_service.dart** | 21 | Handles alarm callbacks from native |
 | **rust_backend_service.dart** | 158, 658 | Rust FFI interface for node operations |
@@ -263,7 +263,7 @@ stateDiagram-v2
 
 ### 1. Alarm Timing
 - **Scheduled:** 2 minutes before slot time
-- **Location:** `slot_scheduler_service.dart:160`
+- **Location:** `epoch_slot_scheduler_service.dart:259`
 - **Reason:** Gives time for app startup and node synchronization
 
 ### 2. Monitoring Poll Interval
@@ -283,11 +283,24 @@ stateDiagram-v2
 - **Doze Mode:** Bypassed via exact alarm permission
 - **Location:** `AlarmScheduler.kt:54`
 
-### 5. Boot Recovery Pattern
+### 5. Epoch Monitoring and Auto-Rescheduling
+- **Poll Interval:** 30 minutes
+- **Method:** Queries `rpc.epochRewards()` to detect epoch transitions
+- **Location:** `epoch_slot_scheduler_service.dart:108`
+- **On Epoch Change:**
+  1. Cancels all old epoch alarms
+  2. Sends user notification about new epoch
+  3. Queries new epoch won slots
+  4. Schedules new alarms automatically
+  5. Persists new epoch metadata
+- **Persistence:** Current epoch, scheduled slots, last check time stored in SharedPreferences
+
+### 6. Boot Recovery Pattern
 - **Trigger:** `ACTION_BOOT_COMPLETED` broadcast
 - **Mechanism:** Background FlutterEngine creation
 - **Timeout:** 30 seconds maximum execution
 - **Location:** `BootRescheduleService.kt:90`
+- **Process:** Automatically checks for epoch transitions and reschedules slots
 
 ## Reliability Metrics
 
@@ -299,6 +312,8 @@ stateDiagram-v2
 - WAKE_LOCK ensures device wakes from sleep
 - Boot receiver automatically restores alarms after reboot
 - Persistent tracking in SharedPreferences
+- Periodic epoch monitoring (every 30 min) ensures automatic rescheduling
+- Epoch-aware scheduling prevents stale alarms from old epochs
 
 ### Common Failure Scenarios
 1. **OEM Battery Optimization** - Some manufacturers aggressively kill background services

@@ -27,7 +27,7 @@ flowchart TB
     QUERY_RUST --> RUST_RESPONSE[Rust Returns Won Slots<br/>List of slotNumber + expectedTimeMs + epoch]:::rust
     RUST_RESPONSE --> LOOP_SLOTS{For Each Won Slot}:::decision
 
-    LOOP_SLOTS --> CALC_TIME[Calculate Alarm Time<br/>slotTime - 1 minute (12 slots)<br/>📄 blockchain_timing.dart:21]:::flutter
+    LOOP_SLOTS --> CALC_TIME[Calculate Alarm Time<br/>slotTime - 1 min<br/>12 slots advance]:::flutter
     CALC_TIME --> SCHEDULE_ALARM[PlatformAlarmService.scheduleAlarm<br/>📄 platform_alarm_service.dart:200]:::flutter
 
     SCHEDULE_ALARM --> METHOD_CHANNEL["Method Channel Call<br/>com.usernode.app/alarm<br/>Method: scheduleExactAlarm"]:::flutter
@@ -60,7 +60,7 @@ flowchart TB
     HANDLE_CALLBACK[AlarmCallbackService.handleAlarmCallback<br/>📄 alarm_callback_service.dart:21]:::flutter
     HANDLE_CALLBACK --> START_MONITOR[SlotMonitorService.startMonitoringSlot<br/>📄 slot_monitor_service.dart:53]:::flutter
 
-    START_MONITOR --> POLL_TIMER[Start 5s Polling Timer (1 slot)<br/>📄 blockchain_timing.dart:26]:::flutter
+    START_MONITOR --> POLL_TIMER[Start Polling Timer<br/>5s interval (1 slot)]:::flutter
     POLL_TIMER --> POLL_LOOP([Every 5 Seconds]):::notification
 
     POLL_LOOP --> GET_STATUS[RustBackendService.getStatus<br/>📄 rust_backend_service.dart:158]:::rust

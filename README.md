@@ -18,8 +18,72 @@
 
 ---
 
+## ⚠️ IMPORTANT NOTICES
+
+> ### 🧪 Testing Phase
+>
+> **This application is currently in active development and testing phase.**
+>
+> For testing purposes, a few accounts/keys may be hardcoded in the application. These hardcoded credentials are **strictly for testing and development purposes only** and will be completely removed before the stable release.
+>
+> **Do not use this application with real assets or sensitive data until a stable version is officially released.**
+
+> ### 🔐 Security Warning - Private Key Management
+>
+> This application manages private keys and cryptocurrency assets. **You are solely responsible for:**
+>
+> - Securing your device and preventing unauthorized access
+> - Backing up your private keys and recovery phrases
+> - **Loss of private keys means permanent loss of all assets - there is NO recovery mechanism**
+> - Never sharing your private keys with anyone
+>
+> **Keep your device secure. Enable full device encryption and use strong authentication.**
+
+> ### 💰 Cryptocurrency & Blockchain Risks
+>
+> - **Blockchain transactions are irreversible** - sent funds cannot be recovered
+> - Running a validator node may require staked assets that could be lost (slashing) if the node misbehaves
+> - Network fees apply to all transactions
+> - Cryptocurrency values are highly volatile
+> - **Never invest more than you can afford to lose**
+
+> ### 🧪 Experimental Software - No Warranty
+>
+> This software is provided "AS IS" without warranty of any kind. The developers and Usernode Labs:
+>
+> - Make no guarantees about software reliability, security, or fitness for any purpose
+> - Are not liable for any loss of funds, data, or damages arising from use of this software
+> - Do not guarantee uninterrupted operation or error-free performance
+>
+> **Use at your own risk. This is experimental blockchain technology.**
+
+> ### 💾 Backup Responsibility
+>
+> **YOU MUST BACK UP:**
+>
+> - Your recovery phrase/seed words (write on paper, store securely offline)
+> - Your private keys
+> - Your wallet addresses
+>
+> **Without backups, device loss or failure means permanent loss of all assets.**
+> Store backups in a secure physical location separate from your device.
+
+> ### 🔋 Device Performance Notice
+>
+> Running a blockchain validator node continuously in the background will:
+>
+> - Significantly increase battery consumption
+> - Use mobile data for blockchain synchronization
+> - May impact device performance
+> - Requires stable internet connectivity
+>
+> **For optimal validator performance, keep device charged and connected to WiFi.**
+
+---
+
 ## Table of Contents
 
+- [⚠️ Important Notices](#️-important-notices)
 - [Overview](#overview)
 - [Key Features](#key-features)
 - [Documentation](#documentation)

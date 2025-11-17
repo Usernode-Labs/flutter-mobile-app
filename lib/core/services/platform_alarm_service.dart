@@ -14,8 +14,7 @@ class PlatformAlarmService {
   PlatformAlarmService._();
 
   final Logger _logger = Logger();
-  static const MethodChannel _channel =
-      MethodChannel('com.usernode.app/alarm');
+  static const MethodChannel _channel = MethodChannel('com.usernode.app/alarm');
 
   bool _initialized = false;
   bool _permissionsGranted = false;

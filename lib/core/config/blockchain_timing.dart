@@ -23,8 +23,7 @@ class BlockchainTiming {
 
   /// How often to poll node status during slot monitoring.
   /// Current: 1 slot = 5 seconds (with 5s slots)
-  static Duration get pollInterval =>
-      Duration(milliseconds: slotDurationMs);
+  static Duration get pollInterval => Duration(milliseconds: slotDurationMs);
 
   /// Maximum time to monitor for block production after slot time.
   /// Current: 24 slots = 2 minutes (with 5s slots)
@@ -33,8 +32,7 @@ class BlockchainTiming {
 
   /// Default epoch check interval (used when epoch progress is unknown).
   /// Current: 15 minutes
-  static Duration get epochCheckIntervalDefault =>
-      const Duration(minutes: 15);
+  static Duration get epochCheckIntervalDefault => const Duration(minutes: 15);
 
   /// Calculate dynamic epoch check interval based on progress through epoch.
   /// - Early epoch (0-25%): Check every 30 minutes

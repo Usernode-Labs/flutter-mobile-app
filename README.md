@@ -22,6 +22,7 @@
 
 - [Overview](#overview)
 - [Key Features](#key-features)
+- [Documentation](#documentation)
 - [Architecture](#architecture)
 - [Navigation](#navigation)
 - [State Management](#state-management)
@@ -115,47 +116,69 @@ This is **not a light client** - it's a full validator node with consensus parti
 
 ---
 
+## Documentation
+
+For detailed documentation on specific features and workflows, refer to the following guides:
+
+### Background Block Production
+
+- **[Background Block Production Overview](docs/background-block-production.md)** - Comprehensive guide to background block production system, architecture, and platform-specific implementations
+- **[Android Background Block Production Flow](docs/android_background_block_production_flow.md)** - Detailed flow diagram and implementation details for Android
+- **[iOS Background Block Production Flow](docs/ios_background_block_production_flow.md)** - Detailed flow diagram and implementation details for iOS
+
+### Development & Architecture
+
+- **[Development Agents](docs/AGENTS.md)** - Information about AI development agents and automation tools used in the project
+
+These documents provide in-depth technical details, architecture decisions, and implementation guides that complement this README.
+
+---
+
 ## Architecture
 
 ### High-Level Overview
 
 Usernode follows a **layered architecture** with clear separation of concerns:
 
-```
-┌─────────────────────────────────────────┐
-│         Flutter UI Layer (Dart)          │
-│  ┌────────────────────────────────────┐ │
-│  │   Presentation (Widgets/Screens)    │ │
-│  └────────────────────────────────────┘ │
-│  ┌────────────────────────────────────┐ │
-│  │  Application (Riverpod Providers)   │ │
-│  └────────────────────────────────────┘ │
-│  ┌────────────────────────────────────┐ │
-│  │    Domain (Entities & Use Cases)    │ │
-│  └────────────────────────────────────┘ │
-│  ┌────────────────────────────────────┐ │
-│  │   Data (Repositories & Services)    │ │
-│  └────────────────────────────────────┘ │
-└─────────────────────────────────────────┘
-                    ↕
-┌─────────────────────────────────────────┐
-│      Flutter Rust Bridge (Codegen)       │
-│  ┌────────────────────────────────────┐ │
-│  │  Dart Bindings (rust_lib_*.dart)   │ │
-│  │  Rust API (api.rs, frb generated)  │ │
-│  └────────────────────────────────────┘ │
-└─────────────────────────────────────────┘
-                    ↕
-┌─────────────────────────────────────────┐
-│        Rust Backend (Usernode)           │
-│  ┌────────────────────────────────────┐ │
-│  │    Blockchain Core (Consensus)      │ │
-│  │    Cryptography (Ed25519, BLS)      │ │
-│  │    Networking (P2P, Gossip)         │ │
-│  │    State Management (Database)      │ │
-│  │    Block Production (Validator)     │ │
-│  └────────────────────────────────────┘ │
-└─────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph Flutter["Flutter UI Layer (Dart)"]
+        Presentation["Presentation(Widgets/Screens)"]
+        Application["Application(Riverpod Providers)"]
+        Domain["Domain(Entities & Use Cases)"]
+        Data["Data(Repositories & Services)"]
+
+        Presentation --> Application
+        Application --> Domain
+        Domain --> Data
+    end
+
+    subgraph Bridge["Flutter Rust Bridge (Codegen)"]
+        DartBindings["Dart Bindings(rust_lib_*.dart)"]
+        RustAPI["Rust API(api.rs, frb generated)"]
+
+        DartBindings  RustAPI
+    end
+
+    subgraph Rust["Rust Backend (Usernode)"]
+        Blockchain["Blockchain Core(Consensus)"]
+        Crypto["Cryptography(Ed25519, BLS)"]
+        Network["Networking(P2P, Gossip)"]
+        State["State Management(Database)"]
+        Block["Block Production(Validator)"]
+
+        Blockchain --- Crypto
+        Blockchain --- Network
+        Blockchain --- State
+        Blockchain --- Block
+    end
+
+    Data  DartBindings
+    RustAPI  Blockchain
+
+    style Flutter fill:#e1f5ff
+    style Bridge fill:#fff4e1
+    style Rust fill:#ffe1e1
 ```
 
 ### Communication Method: Flutter Rust Bridge
@@ -1064,7 +1087,6 @@ The following environment variables are used in production builds:
 | Variable               | Description                       | Required | Example                     |
 | ---------------------- | --------------------------------- | -------- | --------------------------- |
 | `APP_ENV`              | Environment name                  | Yes      | `production`, `development` |
-| `API_BASE_URL`         | Backend API URL                   | Yes      | `https://api.usernode.app`  |
 | `VERBOSE_LOGGING`      | Enable verbose logging            | No       | `false`, `true`             |
 | `SENTRY_DSN`           | Sentry error tracking DSN         | No       | `https://...@sentry.io/...` |
 | `GITHUB_TOKEN`         | GitHub token for feedback         | No       | `ghp_...`                   |
@@ -1083,7 +1105,6 @@ cp .env.example .env
 # Edit with your values
 # .env
 APP_ENV=development
-API_BASE_URL=https://api.dev.usernode.app
 VERBOSE_LOGGING=true
 SENTRY_DSN=
 GITHUB_TOKEN=
@@ -1099,7 +1120,6 @@ In CI (GitHub Actions), environment variables are managed as GitHub Secrets:
 **Production Secrets (for main branch):**
 
 - `PROD_APP_ENV`
-- `PROD_API_BASE_URL`
 - `PROD_VERBOSE_LOGGING`
 - `PROD_SENTRY_DSN`
 - `PROD_GITHUB_TOKEN`
@@ -1110,7 +1130,6 @@ In CI (GitHub Actions), environment variables are managed as GitHub Secrets:
 **Non-Production Secrets (for develop branch):**
 
 - `NONPROD_APP_ENV`
-- `NONPROD_API_BASE_URL`
 - `NONPROD_VERBOSE_LOGGING`
 - `NONPROD_SENTRY_DSN`
 - `NONPROD_GITHUB_TOKEN`
@@ -1162,7 +1181,6 @@ flutter build appbundle --release --dart-define-from-file=.env
 # Inline environment variables
 flutter build appbundle --release \
   --dart-define=APP_ENV=production \
-  --dart-define=API_BASE_URL=https://api.usernode.app \
   --dart-define=VERBOSE_LOGGING=false
 ```
 

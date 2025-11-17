@@ -157,7 +157,7 @@ graph TB
         DartBindings["Dart Bindings(rust_lib_*.dart)"]
         RustAPI["Rust API(api.rs, frb generated)"]
 
-        DartBindings  RustAPI
+        DartBindings <--> RustAPI
     end
 
     subgraph Rust["Rust Backend (Usernode)"]
@@ -173,8 +173,8 @@ graph TB
         Blockchain --- Block
     end
 
-    Data  DartBindings
-    RustAPI  Blockchain
+    Data <--> DartBindings
+    RustAPI <--> Blockchain
 
     style Flutter fill:#e1f5ff
     style Bridge fill:#fff4e1

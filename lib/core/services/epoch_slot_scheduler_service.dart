@@ -4,6 +4,7 @@ import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../features/node/data/repositories/rust_backend_service.dart';
 import '../config/blockchain_timing.dart';
+import '../data/slot_production_repository.dart';
 import 'platform_alarm_service.dart';
 import 'local_notification_service.dart';
 
@@ -313,6 +314,18 @@ class EpochSlotSchedulerService {
           wonSlot.expectedTimeMs.toInt(),
         );
         final alarmTime = slotTime.subtract(advanceTime);
+
+        // Record won slot to statistics repository
+        try {
+          await SlotProductionRepository.instance.recordWonSlot(
+            slotNumber: wonSlot.globalSlot,
+            epoch: epochData.epoch,
+            slotTime: slotTime,
+          );
+          _logger.d('Recorded won slot ${wonSlot.globalSlot} to statistics');
+        } catch (e) {
+          _logger.w('Failed to record won slot ${wonSlot.globalSlot}: $e');
+        }
 
         // Only schedule future slots
         if (alarmTime.isAfter(DateTime.now())) {

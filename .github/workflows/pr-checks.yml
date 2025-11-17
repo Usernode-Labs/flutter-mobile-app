@@ -61,7 +61,7 @@ jobs:
 
   analyze:
     name: Code Analysis
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04-16core2
     needs: [determine-frb-rev, setup-rust-tools]
     steps:
       - name: Checkout code
@@ -98,6 +98,16 @@ jobs:
             ~/.cargo/bin/cargo-expand
             ~/.cargo/bin/flutter_rust_bridge_codegen
           key: ${{ runner.os }}-cargo-bins-${{ needs.determine-frb-rev.outputs.frb_rev }}-v2
+
+      - name: Install flutter_rust_bridge_codegen if not cached
+        if: steps.cache-cargo-bins.outputs.cache-hit != 'true'
+        run: |
+          if ! command -v flutter_rust_bridge_codegen &> /dev/null; then
+            echo "Installing flutter_rust_bridge_codegen..."
+            cargo install flutter_rust_bridge_codegen --git https://github.com/Usernode-Labs/flutter_rust_bridge --rev ${{ needs.determine-frb-rev.outputs.frb_rev }} --locked
+          else
+            echo "flutter_rust_bridge_codegen already available"
+          fi
 
       - name: Cache FRB generated code
         id: cache-frb-gen
@@ -125,7 +135,7 @@ jobs:
 
   test:
     name: Run Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04-16core2
     needs: [determine-frb-rev, setup-rust-tools]
     steps:
       - name: Checkout code
@@ -162,6 +172,16 @@ jobs:
             ~/.cargo/bin/cargo-expand
             ~/.cargo/bin/flutter_rust_bridge_codegen
           key: ${{ runner.os }}-cargo-bins-${{ needs.determine-frb-rev.outputs.frb_rev }}-v2
+
+      - name: Install flutter_rust_bridge_codegen if not cached
+        if: steps.cache-cargo-bins.outputs.cache-hit != 'true'
+        run: |
+          if ! command -v flutter_rust_bridge_codegen &> /dev/null; then
+            echo "Installing flutter_rust_bridge_codegen..."
+            cargo install flutter_rust_bridge_codegen --git https://github.com/Usernode-Labs/flutter_rust_bridge --rev ${{ needs.determine-frb-rev.outputs.frb_rev }} --locked
+          else
+            echo "flutter_rust_bridge_codegen already available"
+          fi
 
       - name: Cache FRB generated code
         id: cache-frb-gen
@@ -202,7 +222,7 @@ jobs:
 
   build-android:
     name: Build Android (Debug)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04-16core2
     needs: [determine-frb-rev, setup-rust-tools]
     steps:
       - name: Checkout code
@@ -253,6 +273,16 @@ jobs:
             ~/.cargo/bin/cargo-expand
             ~/.cargo/bin/flutter_rust_bridge_codegen
           key: ${{ runner.os }}-cargo-bins-${{ needs.determine-frb-rev.outputs.frb_rev }}-v2
+
+      - name: Install flutter_rust_bridge_codegen if not cached
+        if: steps.cache-cargo-bins.outputs.cache-hit != 'true'
+        run: |
+          if ! command -v flutter_rust_bridge_codegen &> /dev/null; then
+            echo "Installing flutter_rust_bridge_codegen..."
+            cargo install flutter_rust_bridge_codegen --git https://github.com/Usernode-Labs/flutter_rust_bridge --rev ${{ needs.determine-frb-rev.outputs.frb_rev }} --locked
+          else
+            echo "flutter_rust_bridge_codegen already available"
+          fi
 
       - name: Cache FRB generated code
         id: cache-frb-gen
@@ -428,6 +458,16 @@ jobs:
             ~/.cargo/bin/flutter_rust_bridge_codegen
           key: ${{ runner.os }}-cargo-bins-${{ needs.determine-frb-rev.outputs.frb_rev }}-v2
 
+      - name: Install flutter_rust_bridge_codegen if not cached
+        if: steps.cache-cargo-bins.outputs.cache-hit != 'true'
+        run: |
+          if ! command -v flutter_rust_bridge_codegen &> /dev/null; then
+            echo "Installing flutter_rust_bridge_codegen..."
+            cargo install flutter_rust_bridge_codegen --git https://github.com/Usernode-Labs/flutter_rust_bridge --rev ${{ needs.determine-frb-rev.outputs.frb_rev }} --locked
+          else
+            echo "flutter_rust_bridge_codegen already available"
+          fi
+
       - name: Cache FRB generated code
         id: cache-frb-gen
         uses: actions/cache@v4
@@ -542,7 +582,7 @@ jobs:
 
   summary:
     name: PR Check Summary
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04-16core2
     needs: [build-ios]
     if: always()
     steps:

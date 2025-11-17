@@ -102,7 +102,7 @@ jobs:
 
   build-android:
     name: Build Android App
-    runs-on: ubuntu-20.04-16core
+    runs-on: ubuntu-20.04-16core2
     needs: [check-tag, determine-frb-rev, setup-rust-tools-android]
     outputs:
       version: ${{ github.event.inputs.version }}
@@ -716,7 +716,7 @@ jobs:
 
   notify:
     name: Send Notification
-    runs-on: ubuntu-20.04-16core
+    runs-on: ubuntu-20.04-16core2
     needs: [build-android, build-ios, tag]
     if: always()
     steps:

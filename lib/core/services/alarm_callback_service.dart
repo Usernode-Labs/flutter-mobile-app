@@ -1,5 +1,6 @@
 import 'package:logger/logger.dart';
 import '../config/blockchain_timing.dart';
+import '../data/slot_production_repository.dart';
 import 'epoch_slot_scheduler_service.dart';
 import 'slot_monitor_service.dart';
 import 'platform_alarm_service.dart';
@@ -37,6 +38,18 @@ class AlarmCallbackService {
 
       _logger.i('Starting monitoring for slot ${targetSlot.slotNumber}');
       await SlotMonitorService.instance.startMonitoringSlot(targetSlot);
+
+      // Record production attempt to statistics repository
+      try {
+        await SlotProductionRepository.instance.recordProductionAttempt(
+          slotNumber: slotNumber,
+          attemptTime: DateTime.now(),
+        );
+        _logger.d('Recorded production attempt for slot $slotNumber');
+      } catch (e) {
+        _logger
+            .w('Failed to record production attempt for slot $slotNumber: $e');
+      }
 
       // Listen for monitoring completion
       _setupMonitoringCompletionListener(slotNumber);

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:logger/logger.dart';
 import '../../features/node/data/repositories/rust_backend_service.dart';
 import '../config/blockchain_timing.dart';
+import '../data/slot_production_repository.dart';
 import 'epoch_slot_scheduler_service.dart';
 
 /// Service responsible for monitoring slot production status in real-time
@@ -182,6 +183,19 @@ class SlotMonitorService {
           timestamp: now,
         ));
 
+        // Record production failure to statistics repository
+        try {
+          await SlotProductionRepository.instance.recordProductionFailure(
+            slotNumber: currentSlotNumber,
+            failedTime: now,
+            reason: 'Monitoring timeout',
+          );
+          _logger.d('Recorded production failure for slot $currentSlotNumber');
+        } catch (e) {
+          _logger.w(
+              'Failed to record production failure for slot $currentSlotNumber: $e');
+        }
+
         await stopMonitoring();
       }
     } catch (e) {
@@ -222,6 +236,19 @@ class SlotMonitorService {
         timestamp: DateTime.now(),
         blockHeight: ourBlock.height,
       ));
+
+      // Record production success to statistics repository
+      try {
+        await SlotProductionRepository.instance.recordProductionSuccess(
+          slotNumber: slotNumber,
+          blockHeight: ourBlock.height,
+          producedTime: DateTime.now(),
+        );
+        _logger.d('Recorded production success for slot $slotNumber');
+      } catch (e) {
+        _logger
+            .w('Failed to record production success for slot $slotNumber: $e');
+      }
 
       // Stop monitoring this slot
       await stopMonitoring();

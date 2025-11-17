@@ -147,9 +147,10 @@ class RustBackendService {
         final genesisBody = await _fetchWithRetry('http://127.0.0.1:8088/custom-genesis.json');
         builder.genesisJsonInline(json: genesisBody);
       } catch (e) {
-        LoggingService.instance.error('Bootstrap failed: $e', tag: 'MAIN', error: e);
-        rethrow;
+        LoggingService.instance.warn('Genesis fetch failed: '+e.toString(), tag: 'RUST');
       }
+      // Enable batcher so the node can assemble its own batches (single-node dev).
+      builder.enableBatcher();
       if (httpPort == null) {
         httpPort = 39000; // default local port for mobile app
       }

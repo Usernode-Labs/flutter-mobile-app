@@ -16,7 +16,7 @@ env:
 jobs:
   build-android:
     name: Build Android App
-    runs-on: ubuntu-20.04-16core
+    runs-on: ubuntu-20.04-16core2
     needs: [determine-frb-rev, setup-rust-tools-android]
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -630,11 +630,10 @@ jobs:
         run: |
           bundle exec fastlane ios release flavor:production
 
-
   # Notify team
   notify:
     name: Send Notification
-    runs-on: ubuntu-20.04-16core
+    runs-on: ubuntu-20.04-16core2
     needs: [build-android, build-ios, tag, tag-release]
     if: always()
     steps:

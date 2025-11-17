@@ -61,7 +61,7 @@ jobs:
 
   analyze:
     name: Code Analysis
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04-16core2
     needs: [determine-frb-rev, setup-rust-tools]
     steps:
       - name: Checkout code
@@ -135,7 +135,7 @@ jobs:
 
   test:
     name: Run Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04-16core2
     needs: [determine-frb-rev, setup-rust-tools]
     steps:
       - name: Checkout code
@@ -222,7 +222,7 @@ jobs:
 
   build-android:
     name: Build Android (Debug)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04-16core2
     needs: [determine-frb-rev, setup-rust-tools]
     steps:
       - name: Checkout code
@@ -582,7 +582,7 @@ jobs:
 
   summary:
     name: PR Check Summary
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04-16core2
     needs: [build-ios]
     if: always()
     steps:

@@ -16,7 +16,8 @@ import 'local_notification_service.dart';
 /// - Monitors for epoch changes through periodic polling
 /// - Auto-reschedules slots when epoch transitions occur
 class EpochSlotSchedulerService {
-  static final EpochSlotSchedulerService instance = EpochSlotSchedulerService._();
+  static final EpochSlotSchedulerService instance =
+      EpochSlotSchedulerService._();
   EpochSlotSchedulerService._();
 
   final Logger _logger = Logger();
@@ -28,9 +29,11 @@ class EpochSlotSchedulerService {
   DateTime? _lastEpochCheck;
 
   // Configuration
-  static Duration get _epochCheckInterval => BlockchainTiming.epochCheckIntervalDefault;
+  static Duration get _epochCheckInterval =>
+      BlockchainTiming.epochCheckIntervalDefault;
   static const String _prefKeyCurrentEpoch = 'epoch_scheduler_current_epoch';
-  static const String _prefKeyScheduledSlots = 'epoch_scheduler_scheduled_slots';
+  static const String _prefKeyScheduledSlots =
+      'epoch_scheduler_scheduled_slots';
   static const String _prefKeyLastCheck = 'epoch_scheduler_last_check';
 
   /// Check if the service is initialized
@@ -54,7 +57,8 @@ class EpochSlotSchedulerService {
 
       // Register boot reschedule callback with PlatformAlarmService
       PlatformAlarmService.instance.setBootRescheduleCallback(() async {
-        _logger.i('Boot reschedule callback invoked - checking epoch and rescheduling');
+        _logger.i(
+            'Boot reschedule callback invoked - checking epoch and rescheduling');
         await _checkForEpochTransition();
       });
 
@@ -115,15 +119,15 @@ class EpochSlotSchedulerService {
     if (_epochMonitoringTimer != null && _epochMonitoringTimer!.isActive) {
       // Only restart timer if interval changed significantly (more than 1 minute difference)
       final currentInterval = _epochCheckInterval;
-      final diff = (newInterval.inMilliseconds - currentInterval.inMilliseconds).abs();
+      final diff =
+          (newInterval.inMilliseconds - currentInterval.inMilliseconds).abs();
 
-      if (diff > 60000) { // More than 1 minute difference
-        _logger.i(
-          'Adjusting epoch check interval based on progress: '
-          '${(progress * 100).toStringAsFixed(1)}% - '
-          'new interval: ${newInterval.inMinutes} min '
-          '(was ${currentInterval.inMinutes} min)'
-        );
+      if (diff > 60000) {
+        // More than 1 minute difference
+        _logger.i('Adjusting epoch check interval based on progress: '
+            '${(progress * 100).toStringAsFixed(1)}% - '
+            'new interval: ${newInterval.inMinutes} min '
+            '(was ${currentInterval.inMinutes} min)');
 
         // Restart timer with new interval
         stopEpochMonitoring();
@@ -158,7 +162,8 @@ class EpochSlotSchedulerService {
       }
 
       final newEpoch = epochData.epoch;
-      _logger.d('Backend reports epoch: $newEpoch, tracked epoch: $_currentEpoch');
+      _logger
+          .d('Backend reports epoch: $newEpoch, tracked epoch: $_currentEpoch');
 
       // Check if epoch has changed
       if (_currentEpoch == null || newEpoch != _currentEpoch) {
@@ -200,9 +205,11 @@ class EpochSlotSchedulerService {
       final result = await scheduleEpochSlots(epoch: newEpoch);
 
       if (result.success) {
-        _logger.i('Successfully rescheduled ${result.slotsScheduled} slots for epoch $newEpoch');
+        _logger.i(
+            'Successfully rescheduled ${result.slotsScheduled} slots for epoch $newEpoch');
       } else {
-        _logger.e('Failed to reschedule slots for epoch $newEpoch: ${result.error}');
+        _logger.e(
+            'Failed to reschedule slots for epoch $newEpoch: ${result.error}');
       }
 
       // Persist updated epoch
@@ -287,7 +294,8 @@ class EpochSlotSchedulerService {
         );
       }
 
-      _logger.i('Found ${epochData.wonSlots!.length} won slots for epoch ${epochData.epoch}');
+      _logger.i(
+          'Found ${epochData.wonSlots!.length} won slots for epoch ${epochData.epoch}');
 
       // Update current epoch
       _currentEpoch = epochData.epoch;
@@ -494,7 +502,8 @@ class EpochSlotSchedulerService {
         );
       }
 
-      _logger.d('Persisted state: epoch $_currentEpoch, ${_scheduledSlots.length} slots');
+      _logger.d(
+          'Persisted state: epoch $_currentEpoch, ${_scheduledSlots.length} slots');
     } catch (e) {
       _logger.e('Error persisting state: $e');
     }
@@ -512,7 +521,8 @@ class EpochSlotSchedulerService {
     try {
       final status = await RustBackendService.instance.getStatus();
       if (status?.blockchain == null) {
-        _logger.w('Cannot calculate epoch end time: blockchain status unavailable');
+        _logger.w(
+            'Cannot calculate epoch end time: blockchain status unavailable');
         return null;
       }
 
@@ -525,7 +535,8 @@ class EpochSlotSchedulerService {
 
       // Calculate time until epoch ends
       final msUntilEnd = slotsUntilEnd * BlockchainTiming.slotDurationMs;
-      final epochEndTime = DateTime.now().add(Duration(milliseconds: msUntilEnd));
+      final epochEndTime =
+          DateTime.now().add(Duration(milliseconds: msUntilEnd));
 
       return epochEndTime;
     } catch (e) {
@@ -546,7 +557,8 @@ class EpochSlotSchedulerService {
     try {
       final status = await RustBackendService.instance.getStatus();
       if (status?.blockchain == null) {
-        _logger.w('Cannot calculate epoch progress: blockchain status unavailable');
+        _logger.w(
+            'Cannot calculate epoch progress: blockchain status unavailable');
         return null;
       }
 

@@ -2,9 +2,10 @@
 
 <div align="center">
 
-![Flutter](https://img.shields.io/badge/Flutter-3.35.0+-02569B?logo=flutter&logoColor=white)
+![Flutter](https://img.shields.io/badge/Flutter-3.35.7-02569B?logo=flutter&logoColor=white)
 ![Dart](https://img.shields.io/badge/Dart-3.3.0+-0175C2?logo=dart&logoColor=white)
 ![Rust](https://img.shields.io/badge/Rust-1.70+-000000?logo=rust&logoColor=white)
+![Java](https://img.shields.io/badge/Java-17-007396?logo=openjdk&logoColor=white)
 ![iOS](https://img.shields.io/badge/iOS-14.0+-000000?logo=apple&logoColor=white)
 ![Android](https://img.shields.io/badge/Android-API%2021+-3DDC84?logo=android&logoColor=white)
 ![License](https://img.shields.io/badge/License-Proprietary-red)
@@ -17,10 +18,75 @@
 
 ---
 
+## ⚠️ IMPORTANT NOTICES
+
+> ### 🧪 Testing Phase
+>
+> **This application is currently in active development and testing phase.**
+>
+> For testing purposes, a few accounts/keys may be hardcoded in the application. These hardcoded credentials are **strictly for testing and development purposes only** and will be completely removed before the stable release.
+>
+> **Do not use this application with real assets or sensitive data until a stable version is officially released.**
+
+> ### 🔐 Security Warning - Private Key Management
+>
+> This application manages private keys and cryptocurrency assets. **You are solely responsible for:**
+>
+> - Securing your device and preventing unauthorized access
+> - Backing up your private keys and recovery phrases
+> - **Loss of private keys means permanent loss of all assets - there is NO recovery mechanism**
+> - Never sharing your private keys with anyone
+>
+> **Keep your device secure. Enable full device encryption and use strong authentication.**
+
+> ### 💰 Cryptocurrency & Blockchain Risks
+>
+> - **Blockchain transactions are irreversible** - sent funds cannot be recovered
+> - Running a validator node may require staked assets that could be lost (slashing) if the node misbehaves
+> - Network fees apply to all transactions
+> - Cryptocurrency values are highly volatile
+> - **Never invest more than you can afford to lose**
+
+> ### 🧪 Experimental Software - No Warranty
+>
+> This software is provided "AS IS" without warranty of any kind. The developers and Usernode Labs:
+>
+> - Make no guarantees about software reliability, security, or fitness for any purpose
+> - Are not liable for any loss of funds, data, or damages arising from use of this software
+> - Do not guarantee uninterrupted operation or error-free performance
+>
+> **Use at your own risk. This is experimental blockchain technology.**
+
+> ### 💾 Backup Responsibility
+>
+> **YOU MUST BACK UP:**
+>
+> - Your recovery phrase/seed words (write on paper, store securely offline)
+> - Your private keys
+> - Your wallet addresses
+>
+> **Without backups, device loss or failure means permanent loss of all assets.**
+> Store backups in a secure physical location separate from your device.
+
+> ### 🔋 Device Performance Notice
+>
+> Running a blockchain validator node continuously in the background will:
+>
+> - Significantly increase battery consumption
+> - Use mobile data for blockchain synchronization
+> - May impact device performance
+> - Requires stable internet connectivity
+>
+> **For optimal validator performance, keep device charged and connected to WiFi.**
+
+---
+
 ## Table of Contents
 
+- [⚠️ Important Notices](#️-important-notices)
 - [Overview](#overview)
 - [Key Features](#key-features)
+- [Documentation](#documentation)
 - [Architecture](#architecture)
 - [Navigation](#navigation)
 - [State Management](#state-management)
@@ -47,7 +113,7 @@ Usernode is a revolutionary mobile application that brings blockchain validator 
 
 - **Run a full blockchain validator node** directly on their mobile device
 - **Participate in block production** and earn rewards
-- **Manage cryptocurrency wallets** with secure key storage
+- **Manage cryptocurrency wallet** with secure key storage
 - **Monitor blockchain status** in real-time
 - **Schedule background block production** with platform-specific optimizations
 
@@ -69,15 +135,15 @@ This is **not a light client** - it's a full validator node with consensus parti
 - Real-time blockchain synchronization
 - Consensus participation and block validation
 - Network peer management
-- Blockchain explorer with block/transaction details
+- Light Blockchain explorer with block/transaction details
 
 ### Wallet & Asset Management
 
 - Secure key generation and storage (using device secure enclave)
-- Multi-account support
 - Transaction creation and signing
 - Balance tracking and transaction history
 - QR code generation for receiving funds
+- And much more features to come
 
 ### Block Production & Rewards
 
@@ -85,8 +151,8 @@ This is **not a light client** - it's a full validator node with consensus parti
 - **Slot Scheduler**: Schedule alarms for upcoming block production windows
 - **Slot Monitor**: Real-time monitoring during block production (5-minute windows)
 - **Background Production** (Platform-specific):
-  - **Android**: Exact alarms + Foreground Service (90-95% reliability)
-  - **iOS**: Three-tier approach (Foreground Keep-Alive 99%, BGTask + Notifications 80-90%)
+  - **Android**: Exact alarms + Foreground Service
+  - **iOS**: Three-tier approach (Foreground Keep-Alive, BGTask + Notifications)
 - Production statistics and success rate tracking
 - Reward tracking and epoch-based analytics
 
@@ -101,7 +167,7 @@ This is **not a light client** - it's a full validator node with consensus parti
 
 - Node status dashboard
 - Real-time blockchain metrics
-- Historical data visualization
+- Historical data visualization (Limited since the node does not keep the full history of transactions and blocks)
 - Performance monitoring
 - Production success rate analytics
 
@@ -114,47 +180,69 @@ This is **not a light client** - it's a full validator node with consensus parti
 
 ---
 
+## Documentation
+
+For detailed documentation on specific features and workflows, refer to the following guides:
+
+### Background Block Production
+
+- **[Background Block Production Overview](docs/background-block-production.md)** - Comprehensive guide to background block production system, architecture, and platform-specific implementations
+- **[Android Background Block Production Flow](docs/android_background_block_production_flow.md)** - Detailed flow diagram and implementation details for Android
+- **[iOS Background Block Production Flow](docs/ios_background_block_production_flow.md)** - Detailed flow diagram and implementation details for iOS
+
+### Development & Architecture
+
+- **[Development Agents](docs/AGENTS.md)** - Information about AI development agents and automation tools used in the project
+
+These documents provide in-depth technical details, architecture decisions, and implementation guides that complement this README.
+
+---
+
 ## Architecture
 
 ### High-Level Overview
 
 Usernode follows a **layered architecture** with clear separation of concerns:
 
-```
-┌─────────────────────────────────────────┐
-│         Flutter UI Layer (Dart)          │
-│  ┌────────────────────────────────────┐ │
-│  │   Presentation (Widgets/Screens)    │ │
-│  └────────────────────────────────────┘ │
-│  ┌────────────────────────────────────┐ │
-│  │  Application (Riverpod Providers)   │ │
-│  └────────────────────────────────────┘ │
-│  ┌────────────────────────────────────┐ │
-│  │    Domain (Entities & Use Cases)    │ │
-│  └────────────────────────────────────┘ │
-│  ┌────────────────────────────────────┐ │
-│  │   Data (Repositories & Services)    │ │
-│  └────────────────────────────────────┘ │
-└─────────────────────────────────────────┘
-                    ↕
-┌─────────────────────────────────────────┐
-│      Flutter Rust Bridge (Codegen)       │
-│  ┌────────────────────────────────────┐ │
-│  │  Dart Bindings (rust_lib_*.dart)   │ │
-│  │  Rust API (api.rs, frb generated)  │ │
-│  └────────────────────────────────────┘ │
-└─────────────────────────────────────────┘
-                    ↕
-┌─────────────────────────────────────────┐
-│        Rust Backend (Usernode)           │
-│  ┌────────────────────────────────────┐ │
-│  │    Blockchain Core (Consensus)      │ │
-│  │    Cryptography (Ed25519, BLS)      │ │
-│  │    Networking (P2P, Gossip)         │ │
-│  │    State Management (Database)      │ │
-│  │    Block Production (Validator)     │ │
-│  └────────────────────────────────────┘ │
-└─────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph Flutter["Flutter UI Layer (Dart)"]
+        Presentation["Presentation(Widgets/Screens)"]
+        Application["Application(Riverpod Providers)"]
+        Domain["Domain(Entities & Use Cases)"]
+        Data["Data(Repositories & Services)"]
+
+        Presentation --> Application
+        Application --> Domain
+        Domain --> Data
+    end
+
+    subgraph Bridge["Flutter Rust Bridge (Codegen)"]
+        DartBindings["Dart Bindings(rust_lib_*.dart)"]
+        RustAPI["Rust API(api.rs, frb generated)"]
+
+        DartBindings <--> RustAPI
+    end
+
+    subgraph Rust["Rust Backend (Usernode)"]
+        Blockchain["Blockchain Core(Consensus)"]
+        Crypto["Cryptography(Ed25519, BLS)"]
+        Network["Networking(P2P, Gossip)"]
+        State["State Management(Database)"]
+        Block["Block Production(Validator)"]
+
+        Blockchain --- Crypto
+        Blockchain --- Network
+        Blockchain --- State
+        Blockchain --- Block
+    end
+
+    Data <--> DartBindings
+    RustAPI <--> Blockchain
+
+    style Flutter fill:#e1f5ff
+    style Bridge fill:#fff4e1
+    style Rust fill:#ffe1e1
 ```
 
 ### Communication Method: Flutter Rust Bridge
@@ -162,6 +250,7 @@ Usernode follows a **layered architecture** with clear separation of concerns:
 **Integration Method**: `flutter_rust_bridge` v2.x (with Cargokit for native build integration)
 
 **Bridge Location**:
+
 - Dart side: `lib/rust/` (auto-generated bindings)
 - Rust side: `../usernode/crates/usernode/src/api/` (API definitions)
 - Build integration: `rust_builder/` (Cargokit configuration)
@@ -173,7 +262,6 @@ Usernode follows a **layered architecture** with clear separation of concerns:
 3. **FFI Layer**: Auto-generated C bindings enable Dart ↔ Rust communication
 4. **Type Safety**: Strongly typed interfaces with automatic serialization/deserialization
 5. **Async Support**: Rust async functions are exposed as Dart Futures
-6. **Stream Support**: Rust streams are exposed as Dart Streams for real-time updates
 
 ### Responsibilities of Each Layer
 
@@ -576,21 +664,28 @@ stateDiagram-v2
 
 ### Required Tools
 
-- **Flutter SDK**: 3.35.0 or higher
+- **Flutter SDK**: 3.35.7 (exact version used in CI)
+
   - Download from: https://flutter.dev/docs/get-started/install
 
 - **Dart SDK**: 3.3.0+ (bundled with Flutter)
 
-- **Rust Toolchain**: 1.70.0 or higher
+- **Rust Toolchain**: 1.70.0 or higher (stable recommended)
+
   - Install from: https://rustup.rs/
+
   ```bash
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
   ```
 
+- **Java Development Kit (JDK)**: 17 (required for Android builds)
+
+  - Download from: https://adoptium.net/ or install via package manager
+  - Verify: `java -version` should show version 17.x.x
+
 - **flutter_rust_bridge_codegen**: For generating Dart-Rust bindings
-  ```bash
-  cargo install flutter_rust_bridge_codegen
-  ```
+
+  **IMPORTANT**: Must be installed from Usernode-Labs fork matching the exact revision in usernode's Cargo.toml (see installation steps below). Do NOT install from crates.io.
 
 ### Platform-Specific Requirements
 
@@ -598,27 +693,57 @@ stateDiagram-v2
 
 - **macOS**: Required for iOS development
 - **Xcode**: 15.0 or higher
+- **Ruby**: 3.2 or higher (required for Fastlane and CocoaPods)
+
+  ```bash
+  # Check Ruby version
+  ruby --version
+
+  # Install via rbenv (recommended)
+  brew install rbenv ruby-build
+  rbenv install 3.2.0
+  rbenv global 3.2.0
+
+  # Or use system Ruby and update
+  brew install ruby
+  ```
+
+- **Bundler**: For managing Ruby gems
+  ```bash
+  gem install bundler
+  ```
 - **CocoaPods**: 1.11.0 or higher
   ```bash
   sudo gem install cocoapods
   ```
+- **Fastlane**: For iOS deployment automation (installed via Bundler during setup)
 - **iOS Deployment Target**: iOS 14.0+
 
 #### Android Development
 
 - **Android Studio**: 2023.1 or higher (or IntelliJ IDEA with Android plugin)
 - **Android SDK**: API Level 21+ (Android 5.0+)
-- **Android NDK**: 25.0+ (for Rust compilation)
+- **Android NDK**: 25.2+ (for Rust compilation)
+
   ```bash
-  # Install via Android Studio SDK Manager
+  # Install via Android Studio SDK Manager (Settings → Appearance & Behavior → System Settings → Android SDK → SDK Tools)
   # Or via command line:
   sdkmanager --install "ndk;25.2.9519653"
+
+  # Set ANDROID_NDK_HOME environment variable (add to ~/.bashrc or ~/.zshrc):
+  export ANDROID_NDK_HOME=$HOME/Library/Android/sdk/ndk/25.2.9519653  # macOS
+  export ANDROID_NDK_HOME=$HOME/Android/Sdk/ndk/25.2.9519653         # Linux
   ```
-- **Rust Android Targets**:
+
+- **Rust Android Targets** (ARM64 is primary, others optional):
+
   ```bash
+  # Required for modern devices (CI builds only this)
   rustup target add aarch64-linux-android
-  rustup target add armv7-linux-androideabi
-  rustup target add x86_64-linux-android
+
+  # Optional: for older devices and emulators (not used in CI)
+  rustup target add armv7-linux-androideabi  # ARMv7 devices
+  rustup target add x86_64-linux-android     # Intel-based emulators
   ```
 
 ### System Requirements
@@ -634,6 +759,7 @@ stateDiagram-v2
 ### 1. Clone the Repositories
 
 This project consists of two repositories:
+
 - Flutter app (this repository)
 - Rust usernode (sibling repository)
 
@@ -673,7 +799,36 @@ flutter pub get
 flutter doctor -v
 ```
 
-### 4. Generate Dart-Rust Bindings
+### 4. Install flutter_rust_bridge_codegen (Critical Step)
+
+**IMPORTANT**: The flutter_rust_bridge_codegen tool MUST be installed from the Usernode-Labs fork at the exact revision specified in the usernode repository's Cargo.toml. Using the wrong version will cause build failures.
+
+```bash
+# Step 1: Extract the FRB revision from usernode's Cargo.toml
+cd ../usernode
+FRB_REV=$(grep -m1 'flutter_rust_bridge =' crates/usernode/Cargo.toml | sed -E 's/.*rev = "([^"]+)".*/\1/')
+echo "FRB Revision: $FRB_REV"
+
+# Step 2: Install flutter_rust_bridge_codegen from the exact revision
+cargo install flutter_rust_bridge_codegen \
+  --git https://github.com/Usernode-Labs/flutter_rust_bridge \
+  --rev "$FRB_REV" \
+  --locked
+
+# Step 3: Verify installation
+flutter_rust_bridge_codegen --version
+
+# Return to flutter-mobile-app directory
+cd ../flutter-mobile-app
+```
+
+**Why is this necessary?**
+
+- The usernode Rust backend uses a specific fork and revision of flutter_rust_bridge
+- The codegen tool version must exactly match the library version
+- Mismatched versions cause compilation errors and FFI incompatibilities
+
+### 5. Generate Dart-Rust Bindings
 
 ```bash
 # From flutter-mobile-app directory
@@ -682,11 +837,24 @@ flutter_rust_bridge_codegen generate
 # This will generate:
 # - lib/rust/api.dart (Dart bindings)
 # - lib/rust/frb_generated.dart (Bridge code)
+# - ../usernode/crates/usernode/src/frb_generated.rs (Rust bindings)
 ```
 
-### 5. Configure Environment Variables (Optional)
+**Verify the bindings are up-to-date:**
 
-The app uses environment variables for configuration. These are **optional** - the app has sensible defaults.
+```bash
+# Check that usernode's frb_generated.rs hasn't changed
+cd ../usernode
+git diff --quiet -- crates/usernode/src/frb_generated.rs
+
+# If there are changes, you need to commit them to the usernode repo
+# If no changes, you're good to proceed
+cd ../flutter-mobile-app
+```
+
+### 6. Configure Environment Variables (Optional)
+
+The app uses environment variables for configuration. These are **optional** for local development - the app has sensible defaults.
 
 ```bash
 # Copy the example file
@@ -699,12 +867,17 @@ cp .env.example .env
 # - GITHUB_TOKEN: (empty = feedback disabled)
 ```
 
-### 6. Platform-Specific Setup
+**For Production/CI Builds**: See the "Environment Configuration" section below for the full list of environment variables used in CI (PROD*\* and NONPROD*\* variants).
+
+### 7. Platform-Specific Setup
 
 #### iOS Setup
 
 ```bash
 cd ios
+
+# Install Ruby dependencies (Fastlane, CocoaPods, etc.)
+bundle install
 
 # Install CocoaPods dependencies
 pod install
@@ -714,17 +887,38 @@ open Runner.xcworkspace
 ```
 
 In Xcode:
+
 1. Select the "Runner" project
 2. Go to "Signing & Capabilities"
 3. Select your development team
 4. Update the bundle identifier if needed
 
+**Note**: The project uses Fastlane for iOS deployment automation. Bundler manages the Fastlane installation and its dependencies via the Gemfile.
+
 #### Android Setup
 
 ```bash
 # No additional setup required for Android
-# The Gradle build system handles Rust compilation via Cargokit
+# The Gradle build system handles Rust compilation via Cargokit automatically
 ```
+
+**Advanced Android Setup** (for debugging build issues):
+
+If you need to manually configure the Android NDK for cross-compilation:
+
+```bash
+# Set NDK environment variables (usually not needed, but helpful for troubleshooting)
+export NDK_ROOT=$ANDROID_NDK_HOME
+export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$NDK_ROOT/toolchains/llvm/prebuilt/darwin-x86_64/sysroot"  # macOS
+export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot"   # Linux
+
+# Set Cargo target-specific compilers (ARM64)
+export CARGO_TARGET_AARCH64_LINUX_ANDROID_CC="$NDK_ROOT/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android24-clang"
+export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$CARGO_TARGET_AARCH64_LINUX_ANDROID_CC"
+export CARGO_TARGET_AARCH64_LINUX_ANDROID_AR="$NDK_ROOT/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ar"
+```
+
+**Note**: Cargokit handles this automatically during builds. Manual configuration is only needed for debugging.
 
 ---
 
@@ -780,18 +974,74 @@ flutter run
 
 #### Release Build
 
+**Understanding Flavors:**
+
+The app supports two build flavors for different environments:
+
+- **production**: For production releases (Play Store, App Store)
+- **internal**: For internal testing (TestFlight internal track, Play Store internal track)
+
+**Version Management:**
+
+The project uses `scripts/version_manager.sh` to manage version numbers and build numbers:
+
 ```bash
-# Android release APK
-flutter build apk --release
+# Get current version
+./scripts/version_manager.sh get production
 
-# Android App Bundle (for Play Store)
-flutter build appbundle --release
+# Set build number (typically done in CI)
+./scripts/version_manager.sh set-build 1234
 
-# iOS release build
-flutter build ios --release
+# The version format is MAJOR.MINOR.PATCH+BUILD_NUMBER
+# Example: 0.1.2+1234
+```
 
-# Generate IPA (for App Store)
-flutter build ipa --release
+**Android Release Builds:**
+
+```bash
+# Build for production flavor (main/release builds)
+flutter build appbundle \
+  --flavor production \
+  --release \
+  --dart-define-from-file=.env
+
+# Build for internal flavor (testing/develop builds)
+flutter build appbundle \
+  --flavor internal \
+  --release \
+  --dart-define-from-file=.env
+
+# Build APK for testing (production flavor)
+flutter build apk \
+  --flavor production \
+  --release \
+  --dart-define-from-file=.env
+
+# Optimize build for ARM64 only (faster, matches CI)
+CARGOKIT_ONLY_ANDROID_ARM64=1 flutter build appbundle \
+  --flavor production \
+  --release \
+  --dart-define-from-file=.env
+```
+
+**iOS Release Builds:**
+
+```bash
+# Build for release (no code signing - Fastlane handles that)
+flutter build ios \
+  --release \
+  --no-codesign \
+  --dart-define-from-file=.env
+
+# Build IPA using Fastlane (recommended for App Store)
+cd ios
+bundle exec fastlane ios release flavor:production
+cd ..
+
+# Or build IPA directly (if not using Fastlane)
+flutter build ipa \
+  --release \
+  --dart-define-from-file=.env
 ```
 
 #### Build with Environment Variables
@@ -881,6 +1131,121 @@ flutter run -v
 flutter clean
 flutter pub get
 flutter run
+```
+
+---
+
+## Environment Configuration
+
+### Overview
+
+The app uses environment variables for configuration across different deployment environments. The CI/CD pipeline (GitHub Actions) uses different variable sets based on the branch:
+
+- **main branch** → Production environment (`PROD_*` variables)
+- **develop branch** → Non-production environment (`NONPROD_*` variables)
+
+### Environment Variables
+
+The following environment variables are used in production builds:
+
+| Variable               | Description                       | Required | Example                     |
+| ---------------------- | --------------------------------- | -------- | --------------------------- |
+| `APP_ENV`              | Environment name                  | Yes      | `production`, `development` |
+| `VERBOSE_LOGGING`      | Enable verbose logging            | No       | `false`, `true`             |
+| `SENTRY_DSN`           | Sentry error tracking DSN         | No       | `https://...@sentry.io/...` |
+| `GITHUB_TOKEN`         | GitHub token for feedback         | No       | `ghp_...`                   |
+| `USE_RESULT_PROVIDERS` | Enable result providers           | No       | `true`, `false`             |
+| `ENABLED_FEATURES`     | Comma-separated enabled features  | No       | `feature1,feature2`         |
+| `DISABLED_FEATURES`    | Comma-separated disabled features | No       | `feature3,feature4`         |
+
+### Local Development .env File
+
+For local development, create a `.env` file (optional):
+
+```bash
+# Copy example
+cp .env.example .env
+
+# Edit with your values
+# .env
+APP_ENV=development
+VERBOSE_LOGGING=true
+SENTRY_DSN=
+GITHUB_TOKEN=
+USE_RESULT_PROVIDERS=true
+ENABLED_FEATURES=
+DISABLED_FEATURES=
+```
+
+### Production/CI Environment Setup
+
+In CI (GitHub Actions), environment variables are managed as GitHub Secrets:
+
+**Production Secrets (for main branch):**
+
+- `PROD_APP_ENV`
+- `PROD_VERBOSE_LOGGING`
+- `PROD_SENTRY_DSN`
+- `PROD_GITHUB_TOKEN`
+- `PROD_USE_RESULT_PROVIDERS`
+- `PROD_ENABLED_FEATURES`
+- `PROD_DISABLED_FEATURES`
+
+**Non-Production Secrets (for develop branch):**
+
+- `NONPROD_APP_ENV`
+- `NONPROD_VERBOSE_LOGGING`
+- `NONPROD_SENTRY_DSN`
+- `NONPROD_GITHUB_TOKEN`
+- `NONPROD_USE_RESULT_PROVIDERS`
+- `NONPROD_ENABLED_FEATURES`
+- `NONPROD_DISABLED_FEATURES`
+
+**Additional CI Secrets:**
+
+- `ANDROID_KEYSTORE_BASE64` - Base64-encoded Android keystore
+- `KEYSTORE_PASSWORD` - Android keystore password
+- `KEY_PASSWORD` - Android key password
+- `KEY_ALIAS` - Android key alias
+- `CERTIFICATES_P12` - Base64-encoded iOS certificates (P12 format)
+- `CERTIFICATES_PASSWORD` - iOS certificates password
+- `KEYCHAIN_PASSWORD` - iOS keychain password
+- `PROVISIONING_PROFILES` - Base64-encoded iOS provisioning profiles (tar.gz)
+- `APP_STORE_CONNECT_API_KEY_ID` - App Store Connect API key ID
+- `APP_STORE_CONNECT_API_ISSUER_ID` - App Store Connect API issuer ID
+- `APP_STORE_CONNECT_API_KEY` - App Store Connect API key content
+- `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` - Google Play service account JSON
+- `USERNODE_ACCESS_TOKEN` - GitHub token for usernode repo access
+- `DISCORD_WEBHOOK_URL` - Discord webhook for build notifications
+
+### Branch-Based Configuration
+
+The GitHub Actions workflow automatically selects the correct environment based on the branch:
+
+```yaml
+# main branch
+→ Uses PROD_* secrets
+→ Builds with --flavor production
+→ Deploys to Google Play production track
+→ Tags release as v{VERSION}
+
+# develop branch
+→ Uses NONPROD_* secrets
+→ Builds with --flavor internal
+→ Deploys to Google Play internal track
+→ Tags build as ci-v{VERSION}-run{RUN_NUMBER}
+```
+
+### Using Environment Variables in Builds
+
+```bash
+# Local build with .env file
+flutter build appbundle --release --dart-define-from-file=.env
+
+# Inline environment variables
+flutter build appbundle --release \
+  --dart-define=APP_ENV=production \
+  --dart-define=VERBOSE_LOGGING=false
 ```
 
 ---
@@ -1008,16 +1373,19 @@ usernode/                              # Rust backend (sibling repo)
 ### Bridge/FFI Layer Location
 
 **Dart Bindings**: `lib/rust/`
+
 - `api.dart`: Main Rust API interface
 - `node.dart`: Node-specific types and functions
 - `frb_generated.dart`: Auto-generated bridge code
 
 **Rust API**: `../usernode/crates/usernode/src/api/`
+
 - `node.rs`: Node lifecycle and operations
 - `wallet.rs`: Wallet and transaction operations
 - `status.rs`: Real-time status streams
 
 **Bridge Configuration**:
+
 - Flutter side: `rust_builder/` (Cargokit)
 - Build integration: Automatic via Cargokit during `flutter build`
 
@@ -1079,17 +1447,20 @@ flutter run
 ### Hot Reload Limitations
 
 **Hot Reload Works For**:
+
 - ✅ UI changes (widgets, layouts, styles)
 - ✅ Dart business logic changes
 - ✅ Riverpod provider changes (UI layer)
 
 **Hot Reload Does NOT Work For**:
+
 - ❌ Rust code changes (requires full rebuild)
 - ❌ FFI bridge changes (requires codegen + rebuild)
 - ❌ Native Android/iOS code changes (requires rebuild)
 - ❌ Asset changes (requires hot restart)
 
 **When Rust changes are made**:
+
 ```bash
 # Stop the app (press 'q')
 flutter_rust_bridge_codegen generate  # If API changed
@@ -1110,18 +1481,21 @@ flutter run --debug
 ```
 
 **In IDE**:
+
 - VS Code: Use Flutter extension with breakpoints
 - Android Studio: Use built-in debugger
 
 #### Debugging Rust
 
 **Print Debugging**:
+
 ```rust
 // In Rust code
 println!("Debug: value = {:?}", value);
 ```
 
 **Logging** (recommended):
+
 ```rust
 use log::{info, warn, error};
 
@@ -1131,11 +1505,13 @@ error!("Failed to produce block: {:?}", err);
 ```
 
 View Rust logs in Flutter:
+
 ```bash
 flutter run -v  # Verbose mode shows Rust logs
 ```
 
 **Debugging with lldb/gdb** (advanced):
+
 ```bash
 # Attach to running app process (iOS)
 lldb -p $(pgrep -f Runner)
@@ -1162,6 +1538,7 @@ flutter run --dart-define=FRB_DEBUG=true
 #### Debugging Platform-Specific Code
 
 **Android**:
+
 ```bash
 # View Android logs
 flutter logs
@@ -1170,6 +1547,7 @@ adb logcat | grep -i usernode
 ```
 
 **iOS**:
+
 ```bash
 # View iOS logs
 flutter logs
@@ -1230,6 +1608,7 @@ cargo bench
 ```
 
 **Test Organization**:
+
 - Unit tests: Inline with code (`#[cfg(test)] mod tests`)
 - Integration tests: `tests/` directory
 - Benchmarks: `benches/` directory
@@ -1256,6 +1635,7 @@ flutter test --reporter expanded
 ```
 
 **Test Structure**:
+
 ```
 test/
 ├── core/
@@ -1294,6 +1674,7 @@ flutter test integration_test -v
 ```
 
 **Integration Test Examples**:
+
 ```dart
 // integration_test/node_integration_test.dart
 testWidgets('Start node and verify status', (tester) async {
@@ -1344,16 +1725,19 @@ final mockBackend = MockRustBackend();
 **Rust is used for performance-critical and security-critical operations**:
 
 1. **Cryptography**: Ed25519/BLS signature operations (1000s per second)
+
    - Zero-cost abstractions
    - Memory safety without garbage collection
    - SIMD optimizations for crypto primitives
 
 2. **Consensus Algorithms**: Block validation and state transitions
+
    - Predictable performance
    - No GC pauses during critical operations
    - Efficient multi-threading
 
 3. **Database Operations**: RocksDB integration for blockchain state
+
    - Direct memory management
    - Zero-copy optimizations
    - Efficient serialization with bincode
@@ -1370,6 +1754,7 @@ final mockBackend = MockRustBackend();
 **Optimization Strategies**:
 
 1. **Batch Operations**: Group multiple operations into single FFI call
+
    ```dart
    // ❌ Bad: Multiple FFI calls
    for (var tx in transactions) {
@@ -1381,6 +1766,7 @@ final mockBackend = MockRustBackend();
    ```
 
 2. **Stream for High-Frequency Updates**: Use Rust streams instead of polling
+
    ```dart
    // ✅ Good: Stream from Rust
    rustBackend.statusStream().listen((status) {
@@ -1389,6 +1775,7 @@ final mockBackend = MockRustBackend();
    ```
 
 3. **Avoid String Conversions**: Use binary formats for large data
+
    ```dart
    // ❌ Bad: JSON serialization across FFI
    final json = await rust.getBlockJson(height);
@@ -1401,15 +1788,18 @@ final mockBackend = MockRustBackend();
 ### Memory Management
 
 **Dart Side**:
+
 - Garbage collected (no manual management needed)
 - Large objects (blocks, transactions) are released automatically
 
 **Rust Side**:
+
 - Manual memory management (RAII pattern)
 - FFI objects are automatically cleaned up when Dart reference is dropped
 - Long-lived objects (node state) are managed by Rust
 
 **Best Practices**:
+
 ```rust
 // Rust: Use Arc for shared ownership
 pub struct Node {
@@ -1424,16 +1814,19 @@ final node = await rustBackend.getNode();
 ### Background Work
 
 **Android**:
+
 - Foreground Service keeps process alive (no performance impact)
 - Rust node runs continuously (24/7)
 - Efficient: ~50-100 MB RAM, <5% CPU when idle
 
 **iOS**:
+
 - BGProcessingTask has 30-second limit (insufficient for block production)
 - Solution: Foreground Keep-Alive mode
 - Battery impact: ~5-10% per hour (with screen dimmed)
 
 **Performance Metrics**:
+
 - Block validation: ~1-5ms per block
 - Signature verification: ~0.5ms per signature
 - State transition: ~2-10ms per transaction
@@ -1448,6 +1841,7 @@ final node = await rustBackend.getNode();
 #### Issue: "No space left on device" during Rust build
 
 **Solution**:
+
 ```bash
 # Clean build cache
 flutter clean
@@ -1465,6 +1859,7 @@ df -h
 #### Issue: "flutter_rust_bridge_codegen: command not found"
 
 **Solution**:
+
 ```bash
 # Install or update codegen tool
 cargo install flutter_rust_bridge_codegen
@@ -1479,6 +1874,7 @@ export PATH="$HOME/.cargo/bin:$PATH"
 #### Issue: "BGTaskSchedulerManager not found" (iOS)
 
 **Solution**:
+
 ```bash
 # The file exists but isn't in Xcode project
 # This was fixed in commit 08305a5
@@ -1498,6 +1894,7 @@ cd ios && pod install && cd -
 #### Issue: Alarms not firing on Android
 
 **Solutions**:
+
 ```bash
 # 1. Check exact alarm permission
 # Settings > Apps > Usernode > Alarms & reminders > Allow
@@ -1515,12 +1912,14 @@ cd ios && pod install && cd -
 #### Issue: "Device rebooted and alarms were lost"
 
 **Solution**:
+
 - **Android**: Automatic rescheduling implemented (BootRescheduleService)
 - **iOS**: Open app once after reboot to reschedule
 
 #### Issue: Block production missed (iOS)
 
 **Recommendations**:
+
 1. Use Foreground Keep-Alive mode (99% reliability)
 2. Enable notifications and respond to alerts
 3. Keep device charged and connected to WiFi
@@ -1531,6 +1930,7 @@ cd ios && pod install && cd -
 #### Issue: "Failed to load dynamic library"
 
 **Solutions**:
+
 ```bash
 # Rebuild Rust code
 cd ../usernode
@@ -1549,6 +1949,7 @@ flutter run
 #### Issue: Type mismatch errors after Rust changes
 
 **Solution**:
+
 ```bash
 # Always regenerate bindings after Rust API changes
 flutter_rust_bridge_codegen generate
@@ -1563,6 +1964,7 @@ flutter_rust_bridge_codegen generate
 #### Issue: Hot reload doesn't pick up changes
 
 **Solution**:
+
 - UI changes: Hot reload works (`r`)
 - Rust changes: Full restart required (`R` or restart app)
 - Native code changes: Full rebuild required
@@ -1570,6 +1972,7 @@ flutter_rust_bridge_codegen generate
 #### Issue: Rust logs not visible
 
 **Solution**:
+
 ```bash
 # Run with verbose logging
 flutter run -v
@@ -1585,6 +1988,7 @@ flutter run
 #### Issue: ".env file not found" during build
 
 **Solution**:
+
 ```bash
 # The .env file is optional!
 # Option 1: Create from template
@@ -1606,11 +2010,13 @@ flutter build apk --debug --dart-define=APP_ENV=development
 If you encounter issues not covered here:
 
 1. **Check Logs**:
+
    ```bash
    flutter logs > app_logs.txt
    ```
 
 2. **Check GitHub Issues**:
+
    - Search existing issues: https://github.com/Usernode-Labs/flutter-mobile-app/issues
    - Create new issue with logs and reproduction steps
 
@@ -1625,10 +2031,12 @@ If you encounter issues not covered here:
 ### Flutter Dependencies
 
 **Core**:
+
 - `flutter`: ^3.35.0
 - `dart`: ^3.3.0
 
 **UI & Navigation**:
+
 - `go_router`: ^14.2.0 - Declarative routing
 - `flutter_hooks`: ^0.20.5 - React-like hooks
 - `cupertino_icons`: ^1.0.2 - iOS-style icons
@@ -1636,27 +2044,33 @@ If you encounter issues not covered here:
 - `qr_flutter`: ^4.1.0 - QR code generation
 
 **State Management**:
+
 - `flutter_riverpod`: ^2.5.1 - State management
 - `hooks_riverpod`: ^2.5.1 - Hooks + Riverpod integration
 
 **Rust Integration**:
+
 - `rust_lib_crypto_mobile_app`: (local path) - Rust FFI library
 - `flutter_rust_bridge`: (custom fork) - Dart-Rust bridge
 
 **Storage**:
+
 - `shared_preferences`: ^2.2.3 - Key-value storage
 - `flutter_secure_storage`: ^9.2.2 - Encrypted storage for keys
 
 **Networking & HTTP**:
+
 - `http`: ^1.1.0 - HTTP client
 
 **Background & Notifications**:
+
 - `flutter_local_notifications`: ^17.0.0 - Local notifications
 - `workmanager`: ^0.9.0 - Background task scheduling
 - `timezone`: ^0.9.0 - Timezone calculations
 - `wakelock_plus`: ^1.2.8 - Keep device awake
 
 **Utilities**:
+
 - `logger`: ^2.0.0 - Logging
 - `sentry_flutter`: ^9.7.0 - Error tracking
 - `uuid`: ^4.5.1 - UUID generation
@@ -1668,6 +2082,7 @@ If you encounter issues not covered here:
 - `intl`: (any) - Internationalization
 
 **Dev Dependencies**:
+
 - `flutter_lints`: ^5.0.0 - Linting rules
 - `flutter_test`: (sdk) - Testing framework
 - `integration_test`: (sdk) - Integration testing
@@ -1676,36 +2091,44 @@ If you encounter issues not covered here:
 ### Rust Dependencies
 
 **Core**:
+
 - `tokio`: ^1.0 - Async runtime
 - `anyhow`: ^1.0 - Error handling
 - `thiserror`: ^1.0 - Error derive macros
 
 **Cryptography**:
+
 - `ed25519-dalek`: ^2.0 - Ed25519 signatures
 - `bls12_381`: ^0.8 - BLS signatures
 - `sha2`: ^0.10 - SHA-256/512 hashing
 - `blake3`: ^1.0 - BLAKE3 hashing
 
 **Serialization**:
+
 - `serde`: ^1.0 - Serialization framework
 - `serde_json`: ^1.0 - JSON support
 - `bincode`: ^1.0 - Binary encoding
 
 **Database**:
+
 - `rocksdb`: ^0.21 - Embedded database
 
 **Networking**:
+
 - `libp2p`: ^0.53 - P2P networking
 - `tokio-util`: ^0.7 - Tokio utilities
 
 **FFI**:
+
 - `flutter_rust_bridge`: ^2.0 - Dart-Rust bridge
 
 **Logging**:
+
 - `log`: ^0.4 - Logging facade
 - `env_logger`: ^0.11 - Logger implementation
 
 **Testing**:
+
 - `criterion`: ^0.5 - Benchmarking
 
 ---
@@ -1729,6 +2152,7 @@ We welcome contributions! Please follow these guidelines:
 ### Development Guidelines
 
 **Code Style**:
+
 - Dart: Follow [Dart style guide](https://dart.dev/guides/language/effective-dart/style)
 - Rust: Follow [Rust style guide](https://doc.rust-lang.org/1.0.0/style/)
 - Use provided linters:
@@ -1738,17 +2162,20 @@ We welcome contributions! Please follow these guidelines:
   ```
 
 **Formatting**:
+
 ```bash
 flutter format .        # Format Dart code
 cargo fmt              # Format Rust code
 ```
 
 **Testing**:
+
 - Write tests for new features
 - Ensure all tests pass before submitting PR
 - Maintain test coverage >80%
 
 **Commits**:
+
 - Use conventional commits format:
   - `feat: Add slot monitoring UI`
   - `fix: Resolve memory leak in node sync`
@@ -1759,17 +2186,20 @@ cargo fmt              # Format Rust code
 ### Submitting Changes
 
 1. **Push to your fork**:
+
    ```bash
    git push origin feature/your-feature-name
    ```
 
 2. **Create Pull Request**:
+
    - Use the PR template
    - Describe your changes
    - Link related issues
    - Add screenshots for UI changes
 
 3. **Code Review**:
+
    - Address reviewer feedback
    - Keep PR focused and small
    - Update documentation if needed
@@ -1781,6 +2211,7 @@ cargo fmt              # Format Rust code
 ### Project Structure Guidelines
 
 **When adding new features**:
+
 - Follow the existing feature structure:
   ```
   lib/features/your_feature/
@@ -1790,6 +2221,7 @@ cargo fmt              # Format Rust code
   ```
 
 **When modifying Rust API**:
+
 1. Update Rust code in `../usernode/crates/usernode/src/api/`
 2. Run tests: `cargo test`
 3. Regenerate bindings: `flutter_rust_bridge_codegen generate`
@@ -1813,39 +2245,105 @@ cargo fmt              # Format Rust code
 
 ### Version Management
 
-Update version in `pubspec.yaml`:
+The project uses `scripts/version_manager.sh` for version management:
+
+```bash
+# Get current version for a flavor
+./scripts/version_manager.sh get production
+
+# Set build number (CI does this automatically)
+./scripts/version_manager.sh set-build <BUILD_NUMBER>
+```
+
+Version format: `MAJOR.MINOR.PATCH+BUILD_NUMBER` (e.g., `0.1.2+1234`)
+
+**In CI/CD:**
+
+- Build number is automatically calculated as: `1000 + ${GITHUB_RUN_NUMBER}`
+- This ensures incrementing build numbers for each CI run
+
+**Manual version updates** can be done in `pubspec.yaml` if needed:
+
 ```yaml
-version: 0.1.2+17  # format: MAJOR.MINOR.PATCH+BUILD_NUMBER
+version: 0.1.2+17 # format: MAJOR.MINOR.PATCH+BUILD_NUMBER
 ```
 
 ### Android Release
 
 #### 1. Prepare Release Build
 
-```bash
-# Generate release APK
-flutter build apk --release --dart-define-from-file=.env.prod
+**Production flavor (for Play Store):**
 
-# Or generate App Bundle (recommended for Play Store)
-flutter build appbundle --release --dart-define-from-file=.env.prod
+```bash
+# Generate App Bundle with production flavor (recommended)
+flutter build appbundle \
+  --flavor production \
+  --release \
+  --dart-define-from-file=.env
+
+# Or generate APK (for testing)
+flutter build apk \
+  --flavor production \
+  --release \
+  --dart-define-from-file=.env
+
+# Optimize for ARM64 only (faster builds, matches CI)
+CARGOKIT_ONLY_ANDROID_ARM64=1 flutter build appbundle \
+  --flavor production \
+  --release \
+  --dart-define-from-file=.env
+```
+
+**Internal flavor (for testing):**
+
+```bash
+flutter build appbundle \
+  --flavor internal \
+  --release \
+  --dart-define-from-file=.env
 ```
 
 #### 2. Sign APK/AAB
 
-Signing is configured in `android/app/build.gradle` with keystore:
+Signing is configured in `android/app/build.gradle` with keystore.
+
+**Local Setup (one-time):**
 
 ```bash
-# Create keystore (one-time setup)
+# 1. Create keystore (if you don't have one)
 keytool -genkey -v -keystore ~/usernode-release-key.jks \
   -keyalg RSA -keysize 2048 -validity 10000 \
   -alias usernode
 
-# Configure in android/key.properties:
-storePassword=<password>
-keyPassword=<password>
+# 2. Create android/key.properties file
+cat > android/key.properties << EOF
+storePassword=<your_store_password>
+keyPassword=<your_key_password>
 keyAlias=usernode
-storeFile=/path/to/usernode-release-key.jks
+storeFile=<path_to_your_keystore>
+EOF
+
+# 3. Add key.properties to .gitignore (already done)
+# Never commit this file!
 ```
+
+**CI/CD Setup:**
+
+For GitHub Actions, configure these secrets:
+
+```bash
+# Encode your keystore to base64
+base64 -i ~/usernode-release-key.jks | pbcopy  # macOS
+base64 -w 0 ~/usernode-release-key.jks          # Linux
+
+# Add to GitHub Secrets:
+# - ANDROID_KEYSTORE_BASE64 (paste the base64 output)
+# - KEYSTORE_PASSWORD
+# - KEY_PASSWORD
+# - KEY_ALIAS
+```
+
+The CI workflow will automatically decode and use the keystore.
 
 #### 3. Test Release Build
 
@@ -1874,42 +2372,91 @@ flutter install --release
 
 ### iOS Release
 
-#### 1. Prepare Release Build
+#### 1. Setup Code Signing (Local Development)
 
 ```bash
-# Build iOS release
-flutter build ios --release --dart-define-from-file=.env.prod
-
-# Or build IPA for App Store
-flutter build ipa --release --dart-define-from-file=.env.prod
+# In Xcode (ios/Runner.xcworkspace):
+# 1. Select "Runner" project
+# 2. Go to "Signing & Capabilities"
+# 3. Select your development team
+# 4. Xcode will automatically manage provisioning profiles
 ```
 
-#### 2. Archive in Xcode
+#### 2. Setup Code Signing (CI/CD)
+
+For GitHub Actions, you need to configure iOS signing certificates and provisioning profiles:
 
 ```bash
-# Open Xcode
+# 1. Export certificates from Keychain (macOS)
+# - Open Keychain Access
+# - Find your distribution certificate
+# - Right-click → Export → Save as .p12 file
+
+# 2. Encode to base64
+base64 -i Certificates.p12 | pbcopy
+
+# 3. Package provisioning profiles
+cd ~/Library/MobileDevice/Provisioning\ Profiles
+tar -czf profiles.tar.gz *.mobileprovision
+base64 -i profiles.tar.gz | pbcopy
+
+# 4. Add to GitHub Secrets:
+# - CERTIFICATES_P12 (base64 of P12 file)
+# - CERTIFICATES_PASSWORD (P12 password)
+# - KEYCHAIN_PASSWORD (temporary keychain password for CI)
+# - PROVISIONING_PROFILES (base64 of tar.gz)
+# - APP_STORE_CONNECT_API_KEY_ID
+# - APP_STORE_CONNECT_API_ISSUER_ID
+# - APP_STORE_CONNECT_API_KEY (multiline key content)
+```
+
+#### 3. Build iOS Release
+
+**Option 1: Using Fastlane (Recommended - matches CI):**
+
+```bash
+# Build Flutter app without code signing
+flutter build ios \
+  --release \
+  --no-codesign \
+  --dart-define-from-file=.env
+
+# Use Fastlane to archive, sign, and upload
+cd ios
+bundle exec fastlane ios release flavor:production
+cd ..
+```
+
+**Option 2: Manual Build:**
+
+```bash
+# Build IPA with Flutter
+flutter build ipa \
+  --release \
+  --dart-define-from-file=.env
+
+# The IPA will be at: build/ios/ipa/usernode.ipa
+```
+
+**Option 3: Xcode Archive (Traditional):**
+
+```bash
+# Build with Flutter first
+flutter build ios \
+  --release \
+  --no-codesign \
+  --dart-define-from-file=.env
+
+# Open in Xcode
 open ios/Runner.xcworkspace
 
 # In Xcode:
-# 1. Select "Any iOS Device" as target
-# 2. Product > Archive
+# 1. Select "Any iOS Device (arm64)" as target
+# 2. Product → Archive
 # 3. Wait for archive to complete
-```
-
-#### 3. Upload to App Store Connect
-
-```bash
-# Option 1: Via Xcode Organizer
-# - Window > Organizer
-# - Select archive
-# - Click "Distribute App"
-# - Follow App Store submission wizard
-
-# Option 2: Via Command Line
-xcrun altool --upload-app --type ios \
-  --file build/ios/ipa/crypto_mobile_app.ipa \
-  --apiKey YOUR_API_KEY \
-  --apiIssuer YOUR_ISSUER_ID
+# 4. Window → Organizer → Archives
+# 5. Select archive → Distribute App
+# 6. Follow App Store submission wizard
 ```
 
 #### 4. Submit for Review
@@ -1925,20 +2472,51 @@ xcrun altool --upload-app --type ios \
 
 Before releasing:
 
-- [ ] Update version number in `pubspec.yaml`
-- [ ] Run all tests: `flutter test`
-- [ ] Run Rust tests: `cd ../usernode && cargo test`
+**Pre-Build Verification:**
+
+- [ ] Verify flutter_rust_bridge_codegen is installed at correct revision (from usernode's Cargo.toml)
+- [ ] Verify usernode repository is up-to-date and checked out to sibling directory
+- [ ] Regenerate FRB bindings: `flutter_rust_bridge_codegen generate`
+- [ ] Verify FRB generated code is up-to-date in usernode repo:
+  ```bash
+  cd ../usernode && git diff --quiet -- crates/usernode/src/frb_generated.rs
+  ```
+- [ ] Update version using version_manager.sh if needed
+
+**Testing:**
+
+- [ ] Run all Flutter tests: `flutter test`
+- [ ] Run all Rust tests: `cd ../usernode && cargo test`
 - [ ] Check for lint errors: `flutter analyze`
-- [ ] Update CHANGELOG.md
+- [ ] Check Rust lint errors: `cd ../usernode && cargo clippy`
 - [ ] Test on physical devices (both iOS and Android)
-- [ ] Verify background production works
-- [ ] Test slot monitoring end-to-end
-- [ ] Check Sentry integration (error reporting)
+- [ ] Verify background production works end-to-end
+- [ ] Test slot monitoring and notifications
+- [ ] Test with production flavor: `flutter run --flavor production`
+- [ ] Test with internal flavor: `flutter run --flavor internal`
+
+**Build Verification:**
+
+- [ ] Build Android production: `flutter build appbundle --flavor production --release --dart-define-from-file=.env`
+- [ ] Build iOS release: `flutter build ios --release --no-codesign --dart-define-from-file=.env`
+- [ ] Verify proper code signing (Android keystore, iOS certificates)
+- [ ] Verify proper obfuscation if needed
+
+**Final Checks:**
+
+- [ ] Update CHANGELOG.md with release notes
+- [ ] Check Sentry integration (error reporting works)
 - [ ] Review app permissions (Android manifest / iOS Info.plist)
-- [ ] Test on different Android OEMs (Samsung, Xiaomi)
-- [ ] Verify proper obfuscation: `flutter build --obfuscate`
+- [ ] Test on different Android OEMs (Samsung, Xiaomi) if possible
+- [ ] Verify all environment variables are correctly configured
+
+**Git & Deployment:**
+
+- [ ] Commit all changes (including FRB generated code in usernode if changed)
 - [ ] Create git tag: `git tag v0.1.2`
 - [ ] Push tag: `git push origin v0.1.2`
+- [ ] Verify CI build passes on tagged commit
+- [ ] Monitor CI deployment to app stores
 
 ### Hotfix Process
 
@@ -1968,18 +2546,6 @@ git merge hotfix/critical-bug
 
 ---
 
-## License
-
-**Proprietary License**
-
-Copyright (c) 2024 Usernode Labs. All rights reserved.
-
-This software and associated documentation files (the "Software") are proprietary and confidential. Unauthorized copying, distribution, modification, or use of this software, via any medium, is strictly prohibited without explicit permission from Usernode Labs.
-
-For licensing inquiries, contact: legal@usernode.com
-
----
-
 ## Acknowledgements
 
 ### Technologies
@@ -1998,13 +2564,6 @@ For licensing inquiries, contact: legal@usernode.com
 - **Platform Integration**: flutter_local_notifications, workmanager
 - **Developer Tools**: Cargokit, Sentry, Logger
 
-### Special Thanks
-
-- Flutter community for excellent documentation and packages
-- Rust community for memory-safe systems programming
-- [fzyzcjy](https://github.com/fzyzcjy) for flutter_rust_bridge
-- All contributors and beta testers
-
 ### Resources
 
 - [Flutter Documentation](https://docs.flutter.dev)
@@ -2016,8 +2575,6 @@ For licensing inquiries, contact: legal@usernode.com
 
 <div align="center">
 
-**Built with ❤️ by the Usernode Team**
-
-[Website](https://usernode.app) • [Documentation](https://docs.usernode.app) • [GitHub](https://github.com/Usernode-Labs)
+[GitHub](https://github.com/Usernode-Labs/flutter-mobile-app)
 
 </div>

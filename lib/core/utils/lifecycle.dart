@@ -188,7 +188,8 @@ class AppLifecycleLogger with WidgetsBindingObserver {
         if (EpochSlotSchedulerService.instance.isInitialized) {
           _logger.i('Rescheduling slots for new epoch $currentEpoch...');
 
-          final result = await EpochSlotSchedulerService.instance.scheduleEpochSlots(
+          final result =
+              await EpochSlotSchedulerService.instance.scheduleEpochSlots(
             epoch: currentEpoch,
           );
 
@@ -203,8 +204,8 @@ class AppLifecycleLogger with WidgetsBindingObserver {
             _logger.e('✗ Failed to reschedule slots: ${result.error}');
           }
         } else {
-          _logger
-              .w('EpochSlotSchedulerService not initialized, skipping rescheduling');
+          _logger.w(
+              'EpochSlotSchedulerService not initialized, skipping rescheduling');
           // Still save the new epoch
           await _prefs?.setInt(_keyLastEpoch, currentEpoch);
         }
@@ -225,7 +226,8 @@ class AppLifecycleLogger with WidgetsBindingObserver {
         return;
       }
 
-      final scheduledSlots = EpochSlotSchedulerService.instance.getScheduledSlots();
+      final scheduledSlots =
+          EpochSlotSchedulerService.instance.getScheduledSlots();
 
       if (scheduledSlots.isEmpty) {
         _logger.d('No slots scheduled, nothing to verify');

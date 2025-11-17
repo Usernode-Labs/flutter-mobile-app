@@ -370,7 +370,8 @@ class _BackgroundProductionSettingsScreenState
   }
 
   Widget _buildScheduledSlotsSection(ThemeData theme, ColorScheme colorScheme) {
-    final scheduledSlots = EpochSlotSchedulerService.instance.getScheduledSlots();
+    final scheduledSlots =
+        EpochSlotSchedulerService.instance.getScheduledSlots();
     final nextSlot = EpochSlotSchedulerService.instance.getNextSlot();
 
     return Card(

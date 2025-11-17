@@ -140,6 +140,15 @@ jobs:
         if: steps.cache-frb-gen.outputs.cache-hit != 'true'
         run: flutter_rust_bridge_codegen generate
 
+      - name: Verify flutter_rust_bridge bindings are up-to-date
+        run: |
+          cd ../usernode
+          if ! git diff --quiet -- crates/usernode/src/frb_generated.rs; then
+            echo "::error::frb_generated.rs changed during CI. Run flutter_rust_bridge_codegen generate and commit the result in the usernode repo."
+            git status --short crates/usernode/src/frb_generated.rs
+            exit 1
+          fi
+
       - name: Run unit tests
         run: flutter test --coverage
 
@@ -153,9 +162,34 @@ jobs:
   build-android:
     name: Build Android (Debug)
     runs-on: ubuntu-latest
+    needs: [determine-frb-rev, setup-rust-tools]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Checkout usernode repository
+        uses: actions/checkout@v4
+        with:
+          repository: Usernode-Labs/usernode
+          path: usernode
+          token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
+
+      - name: Move usernode repository next to workspace
+        run: |
+          TARGET_DIR="../usernode"
+          if [ -d "$TARGET_DIR" ]; then
+            echo "⚠️  Existing $TARGET_DIR detected. Removing to ensure fresh checkout."
+            rm -rf "$TARGET_DIR"
+          fi
+          mv usernode "$TARGET_DIR"
+
+      - name: Cache usernode Rust target artifacts
+        uses: actions/cache@v4
+        with:
+          path: ../usernode/target
+          key: ${{ runner.os }}-usernode-target-${{ needs.determine-frb-rev.outputs.usernode_sha }}
+          restore-keys: |
+            ${{ runner.os }}-usernode-target-
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -169,6 +203,26 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: "stable"
           cache: true
+
+      - name: Restore cargo binaries from cache
+        uses: actions/cache/restore@v4
+        id: cache-cargo-bins
+        with:
+          path: |
+            ~/.cargo/bin/cargo-expand
+            ~/.cargo/bin/flutter_rust_bridge_codegen
+          key: ${{ runner.os }}-cargo-bins-${{ needs.determine-frb-rev.outputs.frb_rev }}-v2
+
+      - name: Cache FRB generated code
+        id: cache-frb-gen
+        uses: actions/cache@v4
+        with:
+          path: |
+            lib/src/rust/frb_generated.dart
+            lib/src/rust/api
+          key: ${{ runner.os }}-frb-gen-${{ needs.determine-frb-rev.outputs.frb_rev }}-${{ needs.determine-frb-rev.outputs.usernode_sha }}
+          restore-keys: |
+            ${{ runner.os }}-frb-gen-${{ needs.determine-frb-rev.outputs.frb_rev }}-
 
       - name: Cache Gradle dependencies
         uses: actions/cache@v4
@@ -223,6 +277,19 @@ jobs:
 
       - name: Install dependencies
         run: flutter pub get
+
+      - name: Generate flutter_rust_bridge bindings
+        if: steps.cache-frb-gen.outputs.cache-hit != 'true'
+        run: flutter_rust_bridge_codegen generate
+
+      - name: Verify flutter_rust_bridge bindings are up-to-date
+        run: |
+          cd ../usernode
+          if ! git diff --quiet -- crates/usernode/src/frb_generated.rs; then
+            echo "::error::frb_generated.rs changed during CI. Run flutter_rust_bridge_codegen generate and commit the result in the usernode repo."
+            git status --short crates/usernode/src/frb_generated.rs
+            exit 1
+          fi
 
       - name: Build Android APK (Debug)
         run: |

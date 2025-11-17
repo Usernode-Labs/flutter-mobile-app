@@ -27,7 +27,8 @@ class AlarmCallbackService {
       await _startForegroundServiceIfNeeded(slotNumber);
 
       // Start monitoring this slot
-      final scheduledSlots = EpochSlotSchedulerService.instance.getScheduledSlots();
+      final scheduledSlots =
+          EpochSlotSchedulerService.instance.getScheduledSlots();
       final targetSlot = scheduledSlots.firstWhere(
         (slot) => slot.slotNumber == slotNumber,
         orElse: () =>

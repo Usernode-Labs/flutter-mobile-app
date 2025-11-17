@@ -51,7 +51,7 @@ class RustBackendService {
     }
     final address = active.address; // hex string (32 bytes)
     final uidHex = address; // deterministic for testing
-    final url = 'http://127.0.0.1:39000/identity/register';
+    final url = 'http://127.0.0.1:3001/identity/register';
     final body = jsonEncode({
       'unique_id': '0x'+uidHex,
       'staking_pk_hash': address,
@@ -149,8 +149,7 @@ class RustBackendService {
       } catch (e) {
         LoggingService.instance.warn('Genesis fetch failed: '+e.toString(), tag: 'RUST');
       }
-      // Enable batcher so the node can assemble its own batches (single-node dev).
-      builder.enableBatcher();
+
       if (httpPort == null) {
         httpPort = 39000; // default local port for mobile app
       }

@@ -19,6 +19,60 @@ import 'package:crypto_mobile_app/core/utils/sentry.dart';
 /// A small façade around flutter_rust_bridge generated APIs.
 /// Centralizes initialization and access to the Rust node / RPC.
 class RustBackendService {
+
+  Future<String> _fetchWithRetry(String url, {int attempts = 5}) async {
+    final log = LoggingService.instance;
+    int backoffMs = 200;
+    for (int i = 0; i < attempts; i++) {
+      try {
+        final client = HttpClient();
+        final req = await client.getUrl(Uri.parse(url));
+        final resp = await req.close();
+        final body = await resp.transform(utf8.decoder).join();
+        if (resp.statusCode >= 200 && resp.statusCode < 300) {
+          return body;
+        }
+        log.warn('fetch failed ($url) status=${resp.statusCode}', tag: 'RUST');
+      } catch (e) {
+        log.warn('fetch failed: $url error=$e', tag: 'RUST');
+      }
+      await Future.delayed(Duration(milliseconds: backoffMs));
+      backoffMs = (backoffMs * 2).clamp(200, 2000);
+    }
+    throw Exception('fetch failed: $url');
+  }
+
+  /// Register identity for the active account by calling the local node HTTP.
+  Future<Map<String, dynamic>> registerIdentityForActiveAccount() async {
+    final repo = await AccountsRepository.create();
+    final active = await repo.getActive();
+    if (active == null) {
+      throw Exception('No active account');
+    }
+    final address = active.address; // hex string (32 bytes)
+    final uidHex = address; // deterministic for testing
+    final url = 'http://127.0.0.1:39000/identity/register';
+    final body = jsonEncode({
+      'unique_id': '0x'+uidHex,
+      'staking_pk_hash': address,
+      'fee_payer': address,
+      'proof': 'simulated-proof',
+    });
+    LoggingService.instance.info('POST /identity/register url=$url body='+'{unique_id: 0x'+uidHex+', staking_pk_hash: '+address+', fee_payer: '+address+', proof: simulated-proof}', tag: 'RUST');
+    final client = HttpClient();
+    final req = await client.postUrl(Uri.parse(url));
+    req.headers.set('content-type', 'application/json');
+    req.add(utf8.encode(body));
+    final resp = await req.close();
+    final text = await resp.transform(utf8.decoder).join();
+    final ok = resp.statusCode >= 200 && resp.statusCode < 300;
+    if (!ok) {
+      throw Exception('identity.register failed (${resp.statusCode}): '+text);
+    }
+    final decoded = jsonDecode(text) as Map<String, dynamic>;
+    LoggingService.instance.info('identity.register response status=${resp.statusCode} body='+text, tag: 'RUST');
+    return decoded;
+  }
   RustBackendService._();
   static RustBackendService? _instance;
   static RustBackendService get instance =>
@@ -82,6 +136,23 @@ class RustBackendService {
     );
 
     final builder = NodeBuilder();
+
+      // Configure devnet peers and custom genesis
+      try {
+        await builder.initialPeersFromUrl(url: 'http://127.0.0.1:8088/peers.txt');
+      } catch (e) {
+        LoggingService.instance.warn('initialPeersFromUrl failed: $e', tag: 'RUST');
+      }
+      try {
+        final genesisBody = await _fetchWithRetry('http://127.0.0.1:8088/custom-genesis.json');
+        builder.genesisJsonInline(json: genesisBody);
+      } catch (e) {
+        LoggingService.instance.error('Bootstrap failed: $e', tag: 'MAIN', error: e);
+        rethrow;
+      }
+      if (httpPort == null) {
+        httpPort = 39000; // default local port for mobile app
+      }
     if (httpPort != null) {
       builder.httpServer(port: httpPort);
     }
@@ -135,7 +206,7 @@ class RustBackendService {
       LoggingService.instance.trace('Node already running', tag: 'RUST');
       return true;
     }
-    await startNode();
+    await startNode(httpPort: 39000);
     LoggingService.instance.trace('startForActiveAccount done', tag: 'RUST');
     await SentryUtil.captureMessage('Backend started for active account');
     return true;

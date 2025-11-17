@@ -5,6 +5,7 @@ import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
+import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
 
 class IdentityVerificationScreen extends ConsumerStatefulWidget {
   final String? accountId;
@@ -37,6 +38,13 @@ class _IdentityVerificationScreenState
       final verified = true;
 
       if (verified && widget.accountId != null) {
+        final backend = RustBackendService.instance;
+        try {
+          final resp = await backend.registerIdentityForActiveAccount();
+          // ignore resp details; proceed to update local state
+        } catch (e) {
+          LoggingService.instance.error('identity register failed', tag: 'IDENTITY_VERIFICATION', error: e);
+        }
         final repo = await AccountsRepository.create();
         await repo.updateIdentityVerification(
           widget.accountId!,

@@ -99,6 +99,16 @@ jobs:
             ~/.cargo/bin/flutter_rust_bridge_codegen
           key: ${{ runner.os }}-cargo-bins-${{ needs.determine-frb-rev.outputs.frb_rev }}-v2
 
+      - name: Install flutter_rust_bridge_codegen if not cached
+        if: steps.cache-cargo-bins.outputs.cache-hit != 'true'
+        run: |
+          if ! command -v flutter_rust_bridge_codegen &> /dev/null; then
+            echo "Installing flutter_rust_bridge_codegen..."
+            cargo install flutter_rust_bridge_codegen --git https://github.com/Usernode-Labs/flutter_rust_bridge --rev ${{ needs.determine-frb-rev.outputs.frb_rev }} --locked
+          else
+            echo "flutter_rust_bridge_codegen already available"
+          fi
+
       - name: Cache FRB generated code
         id: cache-frb-gen
         uses: actions/cache@v4
@@ -162,6 +172,16 @@ jobs:
             ~/.cargo/bin/cargo-expand
             ~/.cargo/bin/flutter_rust_bridge_codegen
           key: ${{ runner.os }}-cargo-bins-${{ needs.determine-frb-rev.outputs.frb_rev }}-v2
+
+      - name: Install flutter_rust_bridge_codegen if not cached
+        if: steps.cache-cargo-bins.outputs.cache-hit != 'true'
+        run: |
+          if ! command -v flutter_rust_bridge_codegen &> /dev/null; then
+            echo "Installing flutter_rust_bridge_codegen..."
+            cargo install flutter_rust_bridge_codegen --git https://github.com/Usernode-Labs/flutter_rust_bridge --rev ${{ needs.determine-frb-rev.outputs.frb_rev }} --locked
+          else
+            echo "flutter_rust_bridge_codegen already available"
+          fi
 
       - name: Cache FRB generated code
         id: cache-frb-gen
@@ -253,6 +273,16 @@ jobs:
             ~/.cargo/bin/cargo-expand
             ~/.cargo/bin/flutter_rust_bridge_codegen
           key: ${{ runner.os }}-cargo-bins-${{ needs.determine-frb-rev.outputs.frb_rev }}-v2
+
+      - name: Install flutter_rust_bridge_codegen if not cached
+        if: steps.cache-cargo-bins.outputs.cache-hit != 'true'
+        run: |
+          if ! command -v flutter_rust_bridge_codegen &> /dev/null; then
+            echo "Installing flutter_rust_bridge_codegen..."
+            cargo install flutter_rust_bridge_codegen --git https://github.com/Usernode-Labs/flutter_rust_bridge --rev ${{ needs.determine-frb-rev.outputs.frb_rev }} --locked
+          else
+            echo "flutter_rust_bridge_codegen already available"
+          fi
 
       - name: Cache FRB generated code
         id: cache-frb-gen
@@ -427,6 +457,16 @@ jobs:
             ~/.cargo/bin/cargo-expand
             ~/.cargo/bin/flutter_rust_bridge_codegen
           key: ${{ runner.os }}-cargo-bins-${{ needs.determine-frb-rev.outputs.frb_rev }}-v2
+
+      - name: Install flutter_rust_bridge_codegen if not cached
+        if: steps.cache-cargo-bins.outputs.cache-hit != 'true'
+        run: |
+          if ! command -v flutter_rust_bridge_codegen &> /dev/null; then
+            echo "Installing flutter_rust_bridge_codegen..."
+            cargo install flutter_rust_bridge_codegen --git https://github.com/Usernode-Labs/flutter_rust_bridge --rev ${{ needs.determine-frb-rev.outputs.frb_rev }} --locked
+          else
+            echo "flutter_rust_bridge_codegen already available"
+          fi
 
       - name: Cache FRB generated code
         id: cache-frb-gen

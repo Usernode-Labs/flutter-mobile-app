@@ -73,6 +73,11 @@ EOF
   exit 1
 fi
 
+# Workaround bindgen target triple for iOS Simulator: use 'arm64-apple-ios-simulator'
+if [[ "${EFFECTIVE_PLATFORM_NAME:-}" == *simulator* ]]; then
+  export BINDGEN_EXTRA_CLANG_ARGS="--target=arm64-apple-ios-simulator"
+fi
+
 echo "[rust_lib_crypto_mobile_app] Building Rust crate at: $RUST_CRATE_DIR"
 sh "$PODS_TARGET_SRCROOT/../cargokit/build_pod.sh" "$RUST_CRATE_DIR" usernode
 # Ensure the pod product name resolves to the built Rust library

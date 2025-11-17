@@ -1,5 +1,6 @@
-import 'dart:io' show Platform;
+import 'dart:io' show Platform, HttpServer, InternetAddress, ContentType;
 import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_mempool.dart';
@@ -8,7 +9,6 @@ import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/transfer_funds.dar
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_blockchain.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 import 'package:crypto_mobile_app/src/rust/rpc.dart';
-import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:crypto_mobile_app/src/rust/frb_generated.dart';
@@ -19,60 +19,6 @@ import 'package:crypto_mobile_app/core/utils/sentry.dart';
 /// A small façade around flutter_rust_bridge generated APIs.
 /// Centralizes initialization and access to the Rust node / RPC.
 class RustBackendService {
-
-  Future<String> _fetchWithRetry(String url, {int attempts = 5}) async {
-    final log = LoggingService.instance;
-    int backoffMs = 200;
-    for (int i = 0; i < attempts; i++) {
-      try {
-        final client = HttpClient();
-        final req = await client.getUrl(Uri.parse(url));
-        final resp = await req.close();
-        final body = await resp.transform(utf8.decoder).join();
-        if (resp.statusCode >= 200 && resp.statusCode < 300) {
-          return body;
-        }
-        log.warn('fetch failed ($url) status=${resp.statusCode}', tag: 'RUST');
-      } catch (e) {
-        log.warn('fetch failed: $url error=$e', tag: 'RUST');
-      }
-      await Future.delayed(Duration(milliseconds: backoffMs));
-      backoffMs = (backoffMs * 2).clamp(200, 2000);
-    }
-    throw Exception('fetch failed: $url');
-  }
-
-  /// Register identity for the active account by calling the local node HTTP.
-  Future<Map<String, dynamic>> registerIdentityForActiveAccount() async {
-    final repo = await AccountsRepository.create();
-    final active = await repo.getActive();
-    if (active == null) {
-      throw Exception('No active account');
-    }
-    final address = active.address; // hex string (32 bytes)
-    final uidHex = address; // deterministic for testing
-    final url = 'http://127.0.0.1:3001/identity/register';
-    final body = jsonEncode({
-      'unique_id': '0x'+uidHex,
-      'staking_pk_hash': address,
-      'fee_payer': address,
-      'proof': 'simulated-proof',
-    });
-    LoggingService.instance.info('POST /identity/register url=$url body='+'{unique_id: 0x'+uidHex+', staking_pk_hash: '+address+', fee_payer: '+address+', proof: simulated-proof}', tag: 'RUST');
-    final client = HttpClient();
-    final req = await client.postUrl(Uri.parse(url));
-    req.headers.set('content-type', 'application/json');
-    req.add(utf8.encode(body));
-    final resp = await req.close();
-    final text = await resp.transform(utf8.decoder).join();
-    final ok = resp.statusCode >= 200 && resp.statusCode < 300;
-    if (!ok) {
-      throw Exception('identity.register failed (${resp.statusCode}): '+text);
-    }
-    final decoded = jsonDecode(text) as Map<String, dynamic>;
-    LoggingService.instance.info('identity.register response status=${resp.statusCode} body='+text, tag: 'RUST');
-    return decoded;
-  }
   RustBackendService._();
   static RustBackendService? _instance;
   static RustBackendService get instance =>
@@ -81,6 +27,7 @@ class RustBackendService {
   bool _initialized = false;
   bool _nodeRunning = false;
   String? _instanceId;
+  bool _didAutoReconnect = false; // ensure we only auto-reconnect once
 
   Node? _node;
   NodeRpcClient? _rpc;
@@ -88,6 +35,104 @@ class RustBackendService {
   String? get instanceId => _instanceId;
   void setInstanceId(String id) {
     _instanceId = id;
+  }
+
+  // Localnet-only hardcoded peers (matches tools/localnet/.env)
+  // Used to avoid contacting any external peers during testing.
+  static const String _kLocalnetSeedPeerId =
+      '2cA8oHe9QNHcmobR4d1f1HHKwbJoS8Mbh9M8jTxoECXScqnvSK4';
+  static const String _kLocalnetBatcher1PeerId =
+      '2aV3E9dYkNGLQ6Jq7XiWWAWZndu6SNqgYh5nP3MSMr3fPbBAt2e';
+
+  HttpServer? _peersServer;
+  int? _peersPort;
+
+  Future<String> _ensureLocalPeersServer() async {
+    if (_peersServer == null) {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      _peersServer = server;
+      _peersPort = server.port;
+      server.listen((req) async {
+        try {
+          if (req.uri.path == '/peers.txt') {
+            final body = ('/$_kLocalnetSeedPeerId/http/127.0.0.1/39001\n'
+                '/$_kLocalnetBatcher1PeerId/http/127.0.0.1/39002\n');
+            req.response.headers.contentType = ContentType.text;
+            req.response.write(body);
+          } else {
+            req.response.statusCode = 404;
+          }
+        } finally {
+          await req.response.close();
+        }
+      });
+    }
+    return 'http://127.0.0.1:${_peersPort}/peers.txt';
+  }
+
+  /// Identity: HTTP helper to register identity (beta, mocked proof)
+  Future<bool> registerIdentityHttp({
+    required String baseUrl,
+    required String uniqueIdHex,
+    required String stakingPkHash,
+    required String feePayer,
+    int? fee,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/identity/register');
+      final bodyMap = {
+        'unique_id': uniqueIdHex,
+        'staking_pk_hash': stakingPkHash,
+        'fee_payer': feePayer,
+        if (fee != null) 'fee': fee,
+        'proof': base64Encode(utf8.encode('simulated-proof')),
+      };
+      final body = jsonEncode(bodyMap);
+      LoggingService.instance.info(
+          'POST /identity/register url=${uri.toString()} body=${bodyMap.toString()}',
+          tag: 'RUST');
+      final resp = await http.post(uri,
+          headers: {'Content-Type': 'application/json'}, body: body);
+      final ok = resp.statusCode == 200;
+      String bodyOut;
+      String? txId;
+      try {
+        final Map<String, dynamic> parsed = jsonDecode(resp.body);
+        bodyOut = parsed.toString();
+        txId = (parsed['tx_id'] as String?);
+      } catch (_) {
+        bodyOut = resp.body;
+      }
+      LoggingService.instance.info(
+          'identity.register response status=${resp.statusCode} body=$bodyOut',
+          tag: 'RUST');
+      if (txId != null && txId!.isNotEmpty) {
+        LoggingService.instance
+            .info('identity.register tx_id=$txId', tag: 'RUST');
+      }
+      return ok;
+    } catch (e, st) {
+      LoggingService.instance.error('registerIdentityHttp failed',
+          tag: 'RUST', error: e, stackTrace: st);
+      return false;
+    }
+  }
+
+  /// Identity: HTTP helper to fetch identity leaf by unique_id (hex)
+  Future<Map<String, dynamic>?> identityGetHttp({
+    required String baseUrl,
+    required String uniqueIdHex,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/identity/get/$uniqueIdHex');
+      final resp = await http.get(uri);
+      if (resp.statusCode != 200) return null;
+      return jsonDecode(resp.body) as Map<String, dynamic>;
+    } catch (e, st) {
+      LoggingService.instance.error('identityGetHttp failed',
+          tag: 'RUST', error: e, stackTrace: st);
+      return null;
+    }
   }
 
   /// Initialize flutter_rust_bridge and load the dynamic library.
@@ -136,27 +181,59 @@ class RustBackendService {
     );
 
     final builder = NodeBuilder();
-
-      // Configure devnet peers and custom genesis
-      try {
-        await builder.initialPeersFromUrl(url: 'http://127.0.0.1:8088/peers.txt');
-      } catch (e) {
-        LoggingService.instance.warn('initialPeersFromUrl failed: $e', tag: 'RUST');
-      }
-      try {
-        final genesisBody = await _fetchWithRetry('http://127.0.0.1:8088/custom-genesis.json');
-        builder.genesisJsonInline(json: genesisBody);
-      } catch (e) {
-        LoggingService.instance.warn('Genesis fetch failed: '+e.toString(), tag: 'RUST');
-      }
-
-      if (httpPort == null) {
-        httpPort = 39000; // default local port for mobile app
-      }
+    // Important for private testing: run in seed mode so the node does not
+    // auto-connect to hard-coded public peers. We will operate as an isolated
+    // single-node network (or connect only to explicitly provided peers).
+    // Do not mark as seed; we want to dial our provided peers only.
+    // Disable peer discovery so the node does not attempt to connect
+    // to any external/default peers beyond what we provide explicitly.
+    builder.p2PNoDiscovery();
     if (httpPort != null) {
       builder.httpServer(port: httpPort);
     }
 
+    // Do not enable batcher on the mobile app; it submits locally to its
+    // own mempool and peers propagate to the host batcher.
+
+    // Localnet-only peers/genesis: ALWAYS 127.0.0.1 for dev.
+    // Gate on availability to avoid chain_id mismatches and stale peer lists.
+    Future<String> _fetchWithRetry(String url, {int attempts = 20}) async {
+      for (var i = 0; i < attempts; i++) {
+        try {
+          final resp = await http.get(Uri.parse(url));
+          if (resp.statusCode == 200 && resp.body.isNotEmpty) {
+            return resp.body;
+          }
+        } catch (_) {}
+        await Future.delayed(const Duration(milliseconds: 500));
+      }
+      throw Exception('fetch failed: $url');
+    }
+
+    // Prefetch peers to ensure the file is present and non-empty
+    // Point to local host peers list served by the node setup
+    final peersUrl = 'http://127.0.0.1:8088/peers.txt';
+    final peersTxt = await _fetchWithRetry(peersUrl);
+    final peerLines = peersTxt
+        .split('\n')
+        .map((l) => l.trim())
+        .where((l) => l.isNotEmpty && !l.startsWith('#'))
+        .toList(growable: false);
+    LoggingService.instance
+        .debug('Peers from $peersUrl: ${peerLines.length}', tag: 'RUST');
+    if (peerLines.isEmpty) {
+      throw Exception('no peers in $peersUrl');
+    }
+    await builder.initialPeersFromUrl(url: peersUrl);
+
+    // Fetch custom genesis and embed inline so chain_id matches host nodes
+    final genesisBody =
+        await _fetchWithRetry('http://127.0.0.1:8088/custom-genesis.json');
+    builder.genesisJsonInline(json: genesisBody);
+    LoggingService.instance
+        .debug('Embedded localnet genesis (fetched)', tag: 'RUST');
+
+    // Use a default dev signer (was present previously) for local testing.
     builder.blockProducerHex(
         skHex:
             "1c0f48a5fa846d5e1a7f490e71d3b7176be0d3d7150a89dfaf275ada470a5c13");
@@ -168,6 +245,23 @@ class RustBackendService {
     // Run the node in a background thread.
     _node!.runForeverInNewThread();
     _nodeRunning = true;
+
+    // Schedule a one-shot reconnect shortly after startup so that
+    // (a) Android has granted INTERNET and (b) genesis/peers are in place.
+    // This avoids lingering Disconnected peers on first boot.
+    if (!_didAutoReconnect) {
+      _didAutoReconnect = true;
+      Future.delayed(const Duration(seconds: 1), () async {
+        try {
+          LoggingService.instance
+              .debug('Auto-reconnect after startup', tag: 'RUST');
+          await restartForActiveAccount();
+        } catch (e, st) {
+          LoggingService.instance.error('Auto-reconnect failed',
+              tag: 'RUST', error: e, stackTrace: st);
+        }
+      });
+    }
   }
 
   Future<void> stopNode() async {
@@ -184,21 +278,8 @@ class RustBackendService {
 
   /// Start node if there is an active account; otherwise do nothing.
   Future<bool> startForActiveAccount() async {
-    final repo = await AccountsRepository.create();
-    LoggingService.instance
-        .trace('Checking if any accounts exist...', tag: 'RUST');
-    final hasAny = await repo.hasAny();
-    LoggingService.instance
-        .trace('Account check result: hasAny = $hasAny', tag: 'RUST');
-    if (!hasAny) {
-      LoggingService.instance
-          .trace('No accounts found - skipping node start', tag: 'RUST');
-      SentryUtil.addBreadcrumb(
-          category: 'backend', message: 'no accounts; skipping start');
-      return false;
-    }
-    LoggingService.instance
-        .debug('Account exists - proceeding with node start', tag: 'RUST');
+    // Dev override: start backend even if no accounts exist, so localnet
+    // connectivity can be verified without onboarding.
     if (!_initialized) {
       await init();
     }
@@ -206,6 +287,9 @@ class RustBackendService {
       LoggingService.instance.trace('Node already running', tag: 'RUST');
       return true;
     }
+    // Enable HTTP server on a fixed local port for in-app HTTP RPC calls
+    // used by identity beta testing UI. This is safe in dev and does not
+    // expose external interfaces on mobile; it binds to localhost.
     await startNode(httpPort: 39000);
     LoggingService.instance.trace('startForActiveAccount done', tag: 'RUST');
     await SentryUtil.captureMessage('Backend started for active account');
@@ -266,68 +350,36 @@ class RustBackendService {
                     return p.connectionStatus.toString();
                   }
                 })(),
-                'incoming': p.incoming,
-                'peerId': p.peerId.toString(),
-                'time': p.time.toString(),
-                'bestTip': p.bestTip?.toString(),
-                'bestTipHeight': p.bestTipHeight,
-                'bestTipGlobalSlot': p.bestTipGlobalSlot,
-                'bestTipTimestamp': p.bestTipTimestamp?.toString(),
               })
-          .toList();
+          .toList(growable: false);
 
-      // Build blockchain data for logging
       Map<String, dynamic>? blockchainData;
-      final blockchain = status?.blockchain;
-      if (blockchain != null) {
+      final bc = status?.blockchain;
+      if (bc != null) {
         try {
-          final bestTip = blockchain.bestTip;
-          final syncBlocks = blockchain.sync.blocks;
-
+          final tip = bc.bestTip;
+          final syncBlocks = bc.sync.blocks;
           blockchainData = {
             'best_tip': {
-              'hash': bestTip.hash.toString(),
-              'height': bestTip.height,
-              'global_slot': bestTip.globalSlot,
-              'epoch': bestTip.epoch,
-              'producer_pubkey': bestTip.producerPubkey,
-              'transactions': bestTip.transactions.toString(),
-              'batches': bestTip.batches
-                  .map((b) => {
-                        'transactions': b.transactions.toString(),
-                      })
-                  .toList(),
+              'hash': tip.hash,
+              'height': tip.height,
+              'global_slot': tip.globalSlot,
+              'epoch': tip.epoch,
             },
-            'sync': {
-              'blocks': syncBlocks != null
-                  ? {
-                      'best_tip': {
-                        'hash': syncBlocks.bestTip.hash.toString(),
-                        'height': syncBlocks.bestTip.height,
-                        'global_slot': syncBlocks.bestTip.globalSlot,
-                        'epoch': syncBlocks.bestTip.epoch,
-                        'producer_pubkey': syncBlocks.bestTip.producerPubkey,
-                        'transactions':
-                            syncBlocks.bestTip.transactions.toString(),
-                        'batches': syncBlocks.bestTip.batches
-                            .map((b) => {
-                                  'transactions': b.transactions.toString(),
-                                })
-                            .toList(),
-                      },
-                      'fetch_progress': {
-                        'idle': syncBlocks.fetchProgress.idle.toString(),
-                        'pending': syncBlocks.fetchProgress.pending.toString(),
-                        'done': syncBlocks.fetchProgress.done.toString(),
-                      },
-                      'apply_progress': {
-                        'idle': syncBlocks.applyProgress.idle.toString(),
-                        'pending': syncBlocks.applyProgress.pending.toString(),
-                        'done': syncBlocks.applyProgress.done.toString(),
-                      },
-                    }
-                  : null,
-            },
+            'sync': syncBlocks == null
+                ? null
+                : {
+                    'fetch_progress': {
+                      'idle': syncBlocks.fetchProgress.idle.toString(),
+                      'pending': syncBlocks.fetchProgress.pending.toString(),
+                      'done': syncBlocks.fetchProgress.done.toString(),
+                    },
+                    'apply_progress': {
+                      'idle': syncBlocks.applyProgress.idle.toString(),
+                      'pending': syncBlocks.applyProgress.pending.toString(),
+                      'done': syncBlocks.applyProgress.done.toString(),
+                    },
+                  },
           };
         } catch (e) {
           blockchainData = {'error': 'Failed to parse blockchain data: $e'};
@@ -441,198 +493,21 @@ class RustBackendService {
         }
       }
 
-      final fullResponse = {
+      final out = {
         'peers': peers,
         if (blockchainData != null) 'blockchain': blockchainData,
         if (blockProducerData != null) 'block_producer': blockProducerData,
         if (mempoolData != null) 'mempool': mempoolData,
       };
-      final json = jsonEncode(fullResponse);
-      LoggingService.instance.trace('getStatus response: $json', tag: 'RUST');
-
-      // Build summarized fields
-      int connected = 0, connecting = 0, disconnected = 0, disconnecting = 0;
-      int incoming = 0;
-      for (final p in peersList) {
-        String name;
-        try {
-          final dynamic cs = p.connectionStatus;
-          name = (cs as dynamic).name ?? cs.toString().split('.').last;
-        } catch (_) {
-          name = p.connectionStatus.toString().split('.').last;
-        }
-        switch (name) {
-          case 'connected':
-            connected++;
-            break;
-          case 'connecting':
-            connecting++;
-            break;
-          case 'disconnected':
-            disconnected++;
-            break;
-          case 'disconnecting':
-            disconnecting++;
-            break;
-        }
-        if (p.incoming == true) incoming++;
-      }
-      final peerCount = peersList.length;
-      final outgoing = peerCount - incoming;
-
-      // Always send an event for observability; attach payload when enabled
-      if (SentryUtil.logStatusPayload) {
-        await SentryUtil.captureMessageWithAttachment(
-          'rpc.getStatus',
-          filename: 'getStatus.json',
-          content: json,
-          extras: {
-            'peerCount': peerCount,
-            'connected': connected,
-            'connecting': connecting,
-            'disconnected': disconnected,
-            'disconnecting': disconnecting,
-            'incoming': incoming,
-            'outgoing': outgoing,
-            if (status == null) 'nullStatus': true,
-          },
-        );
-      } else {
-        await SentryUtil.captureMessageWithData('rpc.getStatus', {
-          'peerCount': peerCount,
-          'connected': connected,
-          'connecting': connecting,
-          'disconnected': disconnected,
-          'disconnecting': disconnecting,
-          'incoming': incoming,
-          'outgoing': outgoing,
-          if (status == null) 'nullStatus': true,
-        });
-      }
-
-      SentryUtil.addBreadcrumb(
-        category: 'rpc',
-        message: 'getStatus ok',
-        data: {
-          'peerCount': peerCount,
-          'connected': connected,
-          'connecting': connecting,
-          'disconnected': disconnected,
-          'disconnecting': disconnecting,
-        },
-      );
-    } catch (e, st) {
-      LoggingService.instance
-          .warn('Failed to encode getStatus to JSON: $e\$st', tag: 'RUST');
-      // Report handled error to Sentry with context
-      await SentryUtil.captureError(e, st, tag: 'getStatus');
+      LoggingService.instance.info('[STATUS] ${jsonEncode(out)}', tag: 'RUST');
+    } catch (e) {
+      // ignore logging errors
     }
     return status;
   }
 
-  /// Convenience helper to fetch blockchain blocks via RPC.
-  Future<RpcListBlockchainResp?> listBlockchain({
-    int? limit,
-    bool? fromTip,
-    int? epoch,
-    AccountPublicKey? blockProducer,
-  }) async {
-    LoggingService.instance.trace(
-        'listBlockchain called with params: limit=$limit, fromTip=$fromTip, epoch=$epoch, blockProducer=$blockProducer',
-        tag: 'RUST');
-    final r = _rpc;
-    if (r == null) return null;
+  // ---- Snapshot-parity RPC wrappers used by the UI controllers ----
 
-    // Call into FRB with defensive handling for panics / transport errors.
-    RpcListBlockchainResp? blockchain;
-    try {
-      blockchain = await r.listBlockchain(
-        limit: limit,
-        fromTip: fromTip,
-        epoch: epoch,
-        blockProducer: blockProducer,
-      );
-    } on PanicException catch (e, st) {
-      // FRB surfaced a Rust-side panic.
-      LoggingService.instance.error('FRB panic during listBlockchain',
-          tag: 'RUST', error: e, stackTrace: st);
-      // Mark backend as not running and drop RPC handle to avoid cascading failures.
-      _nodeRunning = false;
-      _rpc = null;
-      await SentryUtil.captureError(e, st, tag: 'frb_panic_listBlockchain');
-      // Return null gracefully so UI can keep rendering with an error message.
-      return null;
-    } catch (e, st) {
-      // Any other error from the bridge/RPC call.
-      LoggingService.instance
-          .warn('RPC listBlockchain failed: $e\$st', tag: 'RUST');
-      await SentryUtil.captureError(e, st, tag: 'rpc_listBlockchain');
-      return null;
-    }
-
-    // Log the response for debugging purposes.
-    try {
-      final totalBlocks = blockchain?.totalBlocks ?? BigInt.zero;
-      final itemsCount = blockchain?.items.length ?? 0;
-
-      // Build detailed block list
-      final blocks = blockchain?.items.map((block) {
-            try {
-              return {
-                'height': block.height,
-                'epoch': block.epoch,
-                'globalSlot': block.globalSlot,
-                'hash': block.hash.toString(),
-                'producerPubkey': block.producerPubkey,
-                'batches': block.batches.length,
-                'batchTransactions': block.batches
-                    .map((b) => b.transactions.toString())
-                    .toList(),
-              };
-            } catch (e) {
-              return {'error': 'Failed to parse block: $e'};
-            }
-          }).toList() ??
-          [];
-
-      final fullResponse = {
-        'totalBlocks': totalBlocks.toString(),
-        'itemsCount': itemsCount,
-        'blocks': blocks,
-        if (blockchain?.rootHash != null)
-          'rootHash': blockchain!.rootHash.toString(),
-        if (blockchain?.tipHash != null)
-          'tipHash': blockchain!.tipHash.toString(),
-        if (blockchain == null) 'nullBlockchain': true,
-      };
-
-      final json = jsonEncode(fullResponse);
-      LoggingService.instance
-          .debug('listBlockchain response: $json', tag: 'RUST');
-
-      await SentryUtil.captureMessageWithData('rpc.listBlockchain', {
-        'totalBlocks': totalBlocks.toString(),
-        'itemsCount': itemsCount,
-        if (blockchain == null) 'nullBlockchain': true,
-      });
-
-      SentryUtil.addBreadcrumb(
-        category: 'rpc',
-        message: 'listBlockchain ok',
-        data: {
-          'totalBlocks': totalBlocks.toString(),
-          'itemsCount': itemsCount,
-        },
-      );
-    } catch (e, st) {
-      LoggingService.instance
-          .warn('Failed to log listBlockchain response: $e\$st', tag: 'RUST');
-      await SentryUtil.captureError(e, st, tag: 'listBlockchain_logging');
-    }
-    return blockchain;
-  }
-
-  /// Convenience helper to fetch mempool transactions via RPC.
   Future<RpcListMempoolResp?> listMempool({
     PublicKeyHash? owner,
     int? limit,
@@ -641,259 +516,46 @@ class RustBackendService {
   }) async {
     final r = _rpc;
     if (r == null) return null;
-
-    // Call into FRB with defensive handling for panics / transport errors.
-    RpcListMempoolResp? mempool;
-    try {
-      mempool = await r.listMempool(
-        owner: owner,
-        limit: limit,
-        idsOnly: idsOnly,
-        cursorAfter: cursorAfter,
-      );
-    } on PanicException catch (e, st) {
-      // FRB surfaced a Rust-side panic.
-      LoggingService.instance.error('FRB panic during listMempool',
-          tag: 'RUST', error: e, stackTrace: st);
-      // Mark backend as not running and drop RPC handle to avoid cascading failures.
-      _nodeRunning = false;
-      _rpc = null;
-      // Return null gracefully so UI can keep rendering with an error message.
-      return null;
-    } catch (e, st) {
-      // Any other error from the bridge/RPC call.
-      LoggingService.instance
-          .warn('RPC listMempool failed: $e\$st', tag: 'RUST');
-      await SentryUtil.captureError(e, st, tag: 'rpc_listMempool');
-      return null;
-    }
-
-    // Log the response for debugging purposes.
-    try {
-      final count = mempool?.count ?? BigInt.zero;
-      final orphans = mempool?.orphans ?? BigInt.zero;
-      final totalSize = mempool?.totalSize ?? BigInt.zero;
-      final entriesCount = mempool?.entries.length ?? 0;
-
-      // Build detailed transaction list
-      final transactions = mempool?.entries
-              .map((tx) => {
-                    'id': tx.id.toString(),
-                    'fee': tx.fee.toString(),
-                    'inputs': tx.inputs.length,
-                    'outputs': tx.outputs.length,
-                    'sizeBytes': tx.sizeBytes,
-                  })
-              .toList() ??
-          [];
-
-      final fullResponse = {
-        'count': count.toString(),
-        'orphans': orphans.toString(),
-        'totalSize': totalSize.toString(),
-        'entriesCount': entriesCount,
-        'transactions': transactions,
-        if (mempool == null) 'nullMempool': true,
-      };
-
-      final json = jsonEncode(fullResponse);
-      LoggingService.instance.trace('listMempool response: $json', tag: 'RUST');
-
-      await SentryUtil.captureMessageWithData('rpc.listMempool', {
-        'count': count.toString(),
-        'orphans': orphans.toString(),
-        'totalSize': totalSize.toString(),
-        'entriesCount': entriesCount,
-        if (mempool == null) 'nullMempool': true,
-      });
-
-      SentryUtil.addBreadcrumb(
-        category: 'rpc',
-        message: 'listMempool ok',
-        data: {
-          'count': count.toString(),
-          'orphans': orphans.toString(),
-          'totalSize': totalSize.toString(),
-          'entriesCount': entriesCount,
-        },
-      );
-    } catch (e, st) {
-      LoggingService.instance
-          .warn('Failed to log listMempool response: $e\$st', tag: 'RUST');
-      await SentryUtil.captureError(e, st, tag: 'listMempool_logging');
-    }
-    return mempool;
+    return r.listMempool(
+      owner: owner,
+      limit: limit,
+      idsOnly: idsOnly,
+      cursorAfter: cursorAfter,
+    );
   }
 
-  /// Convenience helper to fetch epoch rewards via RPC.
-  Future<RpcEpochRewardsResp?> epochRewards({
+  Future<RpcListBlockchainResp?> listBlockchain({
+    int? limit,
+    bool? fromTip,
     int? epoch,
+    AccountPublicKey? blockProducer,
   }) async {
-    SentryUtil.addBreadcrumb(
-      category: 'rpc',
-      message: 'epochRewards called',
-      data: {'epoch': epoch},
-    );
     final r = _rpc;
     if (r == null) return null;
-
-    // Call into FRB with defensive handling for panics / transport errors.
-    RpcEpochRewardsResp? rewards;
-    try {
-      rewards = await r.epochRewards(
-        epoch: epoch,
-        includeWonSlots: true,
-      );
-    } on PanicException catch (e, st) {
-      // FRB surfaced a Rust-side panic.
-      LoggingService.instance.error('FRB panic during epochRewards',
-          tag: 'RUST', error: e, stackTrace: st);
-      // Mark backend as not running and drop RPC handle to avoid cascading failures.
-      _nodeRunning = false;
-      _rpc = null;
-      await SentryUtil.captureError(e, st, tag: 'frb_panic_epochRewards');
-      // Return null gracefully so UI can keep rendering with an error message.
-      return null;
-    } catch (e, st) {
-      // Any other error from the bridge/RPC call.
-      LoggingService.instance
-          .warn('RPC epochRewards failed: $e\$st', tag: 'RUST');
-      await SentryUtil.captureError(e, st, tag: 'rpc_epochRewards');
-      return null;
-    }
-
-    // Log the response for debugging purposes.
-    try {
-      final epochNum = rewards?.epoch;
-      final rewardPerBlock = rewards?.rewardPerBlock ?? BigInt.zero;
-      final producedInEpoch = rewards?.producedInEpoch ?? 0;
-      final winsInEpoch = rewards?.winsInEpoch ?? 0;
-      final earnedSoFar = rewards?.earnedSoFar ?? BigInt.zero;
-      final expectedTotal = rewards?.expectedTotal ?? BigInt.zero;
-      final producerPubkey = rewards?.producerPubkey;
-      final wonSlots = rewards?.wonSlots;
-
-      // Build detailed won slots list
-      final wonSlotsList = wonSlots?.map((slot) {
-        try {
-          return {
-            'globalSlot': slot.globalSlot,
-            'expectedTimeMs': slot.expectedTimeMs.toString(),
-          };
-        } catch (e) {
-          return {'error': 'Failed to parse slot: $e'};
-        }
-      }).toList();
-
-      final fullResponse = {
-        'epoch': epochNum,
-        'rewardPerBlock': rewardPerBlock.toString(),
-        'producedInEpoch': producedInEpoch,
-        'winsInEpoch': winsInEpoch,
-        'earnedSoFar': earnedSoFar.toString(),
-        'expectedTotal': expectedTotal.toString(),
-        if (producerPubkey != null) 'producerPubkey': producerPubkey,
-        if (wonSlots != null) 'wonSlots': wonSlotsList,
-        'wonSlotsCount': wonSlots?.length ?? 0,
-        'wonSlotsIsNull': wonSlots == null,
-        if (rewards == null) 'nullRewards': true,
-      };
-
-      final json = jsonEncode(fullResponse);
-      LoggingService.instance
-          .debug('epochRewards response: $json', tag: 'RUST');
-
-      await SentryUtil.captureMessageWithData('rpc.epochRewards', {
-        'epoch': epochNum,
-        'rewardPerBlock': rewardPerBlock.toString(),
-        'producedInEpoch': producedInEpoch,
-        'winsInEpoch': winsInEpoch,
-        'earnedSoFar': earnedSoFar.toString(),
-        'expectedTotal': expectedTotal.toString(),
-        if (rewards == null) 'nullRewards': true,
-      });
-
-      SentryUtil.addBreadcrumb(
-        category: 'rpc',
-        message: 'epochRewards ok',
-        data: {
-          'epoch': epochNum,
-          'producedInEpoch': producedInEpoch,
-          'winsInEpoch': winsInEpoch,
-        },
-      );
-    } catch (e, st) {
-      LoggingService.instance
-          .warn('Failed to log epochRewards response: $e\$st', tag: 'RUST');
-      await SentryUtil.captureError(e, st, tag: 'epochRewards_logging');
-    }
-    return rewards;
+    return r.listBlockchain(
+      limit: limit,
+      fromTip: fromTip,
+      epoch: epoch,
+      blockProducer: blockProducer,
+    );
   }
 
-  /// Convenience helper to fetch UTXOs by owner via RPC.
+  Future<RpcEpochRewardsResp?> epochRewards(
+      {int? epoch, bool? includeWonSlots}) async {
+    final r = _rpc;
+    if (r == null) return null;
+    return r.epochRewards(epoch: epoch, includeWonSlots: includeWonSlots);
+  }
+
   Future<RpcListUtxosByOwnerResp?> listUtxosByOwner({
     required PublicKeyHash owner,
     int? limit,
   }) async {
     final r = _rpc;
     if (r == null) return null;
-
-    // Call into FRB with defensive handling for panics / transport errors.
-    RpcListUtxosByOwnerResp? utxos;
-    try {
-      utxos = await r.listUtxosByOwner(
-        owner: owner,
-        limit: limit,
-      );
-    } on PanicException catch (e, st) {
-      // FRB surfaced a Rust-side panic.
-      LoggingService.instance.error('FRB panic during listUtxosByOwner',
-          tag: 'RUST', error: e, stackTrace: st);
-      // Mark backend as not running and drop RPC handle to avoid cascading failures.
-      _nodeRunning = false;
-      _rpc = null;
-      await SentryUtil.captureError(e, st, tag: 'frb_panic_listUtxosByOwner');
-      // Return null gracefully so UI can keep rendering with an error message.
-      return null;
-    } catch (e, st) {
-      // Any other error from the bridge/RPC call.
-      LoggingService.instance
-          .warn('RPC listUtxosByOwner failed: $e\$st', tag: 'RUST');
-      await SentryUtil.captureError(e, st, tag: 'rpc_listUtxosByOwner');
-      return null;
-    }
-
-    // Log the response for debugging purposes.
-    try {
-      final itemsCount = utxos?.items.length ?? 0;
-
-      LoggingService.instance.trace(
-          'listUtxosByOwner response: itemsCount=$itemsCount',
-          tag: 'RUST');
-
-      // Avoid calling owner.toString() here since PublicKeyHash may be disposed
-      await SentryUtil.captureMessageWithData('rpc.listUtxosByOwner', {
-        'itemsCount': itemsCount,
-        if (limit != null) 'limit': limit,
-        if (utxos == null) 'nullUtxos': true,
-      });
-
-      SentryUtil.addBreadcrumb(
-        category: 'rpc',
-        message: 'listUtxosByOwner ok',
-        data: {
-          'itemsCount': itemsCount,
-        },
-      );
-    } catch (e, st) {
-      LoggingService.instance
-          .warn('Failed to log listUtxosByOwner response: $e\$st', tag: 'RUST');
-      await SentryUtil.captureError(e, st, tag: 'listUtxosByOwner_logging');
-    }
-    return utxos;
+    return r.listUtxosByOwner(owner: owner, limit: limit);
   }
 
-  /// Convenience helper to transfer funds via RPC.
   Future<RpcTransferFundsResp?> transferFunds({
     required PublicKeyHash fromPkHash,
     required BigInt amount,
@@ -901,73 +563,7 @@ class RustBackendService {
   }) async {
     final r = _rpc;
     if (r == null) return null;
-
-    // Call into FRB with defensive handling for panics / transport errors.
-    RpcTransferFundsResp? response;
-    try {
-      response = await r.transferFunds(
-        fromPkHash: fromPkHash,
-        amount: amount,
-        toPkHash: toPkHash,
-      );
-    } on PanicException catch (e, st) {
-      // FRB surfaced a Rust-side panic.
-      LoggingService.instance.error('FRB panic during transferFunds',
-          tag: 'RUST', error: e, stackTrace: st);
-      // Mark backend as not running and drop RPC handle to avoid cascading failures.
-      _nodeRunning = false;
-      _rpc = null;
-      await SentryUtil.captureError(e, st, tag: 'frb_panic_transferFunds');
-      // Return null gracefully so UI can keep rendering with an error message.
-      return null;
-    } catch (e, st) {
-      // Any other error from the bridge/RPC call.
-      LoggingService.instance
-          .warn('RPC transferFunds failed: $e\$st', tag: 'RUST');
-      await SentryUtil.captureError(e, st, tag: 'rpc_transferFunds');
-      return null;
-    }
-
-    // Log the response for debugging purposes.
-    try {
-      final queued = response?.queued ?? false;
-      final error = response?.error;
-
-      LoggingService.instance.trace(
-          'transferFunds response: queued=$queued, error=$error',
-          tag: 'RUST');
-
-      await SentryUtil.captureMessageWithData('rpc.transferFunds', {
-        'queued': queued,
-        'fromPkHash': fromPkHash.toString(),
-        'toPkHash': toPkHash.toString(),
-        'amount': amount.toString(),
-        if (error != null) 'error': error,
-        if (response == null) 'nullResponse': true,
-      });
-
-      SentryUtil.addBreadcrumb(
-        category: 'rpc',
-        message: 'transferFunds ${queued ? 'queued' : 'failed'}',
-        data: {
-          'queued': queued,
-          if (error != null) 'error': error,
-        },
-      );
-    } catch (e, st) {
-      LoggingService.instance
-          .warn('Failed to log transferFunds response: $e\$st', tag: 'RUST');
-      await SentryUtil.captureError(e, st, tag: 'transferFunds_logging');
-    }
-
-    return response;
-  }
-
-  /// Dispose bridge resources when the app is exiting.
-  void dispose() {
-    // Keep FRB initialized for app lifetime to avoid double-init errors.
-    _nodeRunning = false;
-    _node = null;
-    _rpc = null;
+    return r.transferFunds(
+        fromPkHash: fromPkHash, amount: amount, toPkHash: toPkHash);
   }
 }

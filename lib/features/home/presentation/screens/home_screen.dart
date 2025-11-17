@@ -291,24 +291,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                       // Build list of cards
                       final cards = <Widget>[
-                        // Identity verification card - only show if NOT verified
-                        if (!isIdentityVerified)
-                          BoostTierHeroCard(
-                            width: cardWidth,
-                            onVerifyTap: () {
-                              if (activeAccount != null) {
-                                context.go(
-                                    '/identity-verification?accountId=${activeAccount.id}');
-                              }
-                            },
-                            onInfoTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text(
-                                        'Verify your identity to get a rewards multiplier')),
-                              );
-                            },
-                          ),
+                        // Identity verification card (always visible to manage/register)
+                        BoostTierHeroCard(
+                          width: cardWidth,
+                          onVerifyTap: () {
+                            if (activeAccount != null) {
+                              context.go(
+                                  '/identity-verification?accountId=${activeAccount.id}');
+                            }
+                          },
+                          onInfoTap: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text(
+                                      'Verify your identity to get a rewards multiplier')),
+                            );
+                          },
+                        ),
 
                         // Earn Yield & Points card
                         GestureDetector(

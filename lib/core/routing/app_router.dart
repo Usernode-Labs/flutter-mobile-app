@@ -24,6 +24,7 @@ import 'package:crypto_mobile_app/features/profile/presentation/screens/profile_
 import 'package:crypto_mobile_app/features/settings/presentation/screens/settings_screen.dart';
 import 'package:crypto_mobile_app/features/settings/presentation/screens/notification_settings_screen.dart';
 import 'package:crypto_mobile_app/features/settings/presentation/screens/background_production_settings_screen.dart';
+import 'package:crypto_mobile_app/features/metrics/presentation/screens/metrics_settings_screen.dart';
 import 'package:crypto_mobile_app/features/notifications/presentation/screens/notifications_screen.dart';
 import 'package:crypto_mobile_app/features/rewards/presentation/screens/rewards_breakdown_screen.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
@@ -115,6 +116,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/background-production-settings',
         builder: (context, state) => const BackgroundProductionSettingsScreen(),
+      ),
+      GoRoute(
+        path: '/metrics-settings',
+        builder: (context, state) => const MetricsSettingsScreen(),
       ),
       GoRoute(
         path: '/notifications',

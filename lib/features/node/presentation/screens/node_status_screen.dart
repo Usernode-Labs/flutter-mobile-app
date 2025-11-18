@@ -441,7 +441,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                     _producedInEpoch ??
                     0;
             var wonSlots =
-                ref.watch(nodeEpochRewardsProvider).value?.winsInEpoch ??
+                ref.watch(nodeEpochRewardsProvider).value?.wonSlots?.length ??
+                    ref.watch(nodeEpochRewardsProvider).value?.winsInEpoch ??
                     _winsInEpoch ??
                     0;
 

@@ -29,6 +29,7 @@ class _BackgroundProductionSettingsScreenState
   }
 
   Future<void> _checkStatus() async {
+    if (!mounted) return;
     setState(() => _isInitializing = true);
 
     try {
@@ -54,7 +55,9 @@ class _BackgroundProductionSettingsScreenState
     } catch (e) {
       debugPrint('Error checking status: $e');
     } finally {
-      setState(() => _isInitializing = false);
+      if (mounted) {
+        setState(() => _isInitializing = false);
+      }
     }
   }
 
@@ -585,12 +588,14 @@ class _BackgroundProductionSettingsScreenState
     if (value) {
       final success =
           await IOSForegroundKeepAliveService.instance.startKeepAlive();
-      if (success) {
+      if (success && mounted) {
         setState(() => _iosKeepAliveActive = true);
       }
     } else {
       await IOSForegroundKeepAliveService.instance.stopKeepAlive();
-      setState(() => _iosKeepAliveActive = false);
+      if (mounted) {
+        setState(() => _iosKeepAliveActive = false);
+      }
     }
   }
 }

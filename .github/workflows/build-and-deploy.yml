@@ -103,6 +103,10 @@ jobs:
           USE_RESULT_PROVIDERS=${{ secrets.PROD_USE_RESULT_PROVIDERS }}
           ENABLED_FEATURES=${{ secrets.PROD_ENABLED_FEATURES }}
           DISABLED_FEATURES=${{ secrets.PROD_DISABLED_FEATURES }}
+          METRICS_ENABLED=${{ secrets.PROD_METRICS_ENABLED }}
+          METRICS_ENDPOINT=${{ secrets.PROD_METRICS_ENDPOINT }}
+          METRICS_HEALTH_ENDPOINT=${{ secrets.PROD_METRICS_HEALTH_ENDPOINT }}
+          METRICS_INTERVAL=${{ secrets.PROD_METRICS_INTERVAL }}
           EOF
           else
             cat > .env << EOF
@@ -114,6 +118,10 @@ jobs:
           USE_RESULT_PROVIDERS=${{ secrets.NONPROD_USE_RESULT_PROVIDERS }}
           ENABLED_FEATURES=${{ secrets.NONPROD_ENABLED_FEATURES }}
           DISABLED_FEATURES=${{ secrets.NONPROD_DISABLED_FEATURES }}
+          METRICS_ENABLED=${{ secrets.NONPROD_METRICS_ENABLED }}
+          METRICS_ENDPOINT=${{ secrets.NONPROD_METRICS_ENDPOINT }}
+          METRICS_HEALTH_ENDPOINT=${{ secrets.NONPROD_METRICS_HEALTH_ENDPOINT }}
+          METRICS_INTERVAL=${{ secrets.NONPROD_METRICS_INTERVAL }}
           EOF
           fi
           echo "✅ Created .env file with ${{ steps.env_config.outputs.env_type }} secrets"
@@ -589,6 +597,10 @@ jobs:
           USE_RESULT_PROVIDERS=${{ secrets.PROD_USE_RESULT_PROVIDERS }}
           ENABLED_FEATURES=${{ secrets.PROD_ENABLED_FEATURES }}
           DISABLED_FEATURES=${{ secrets.PROD_DISABLED_FEATURES }}
+          METRICS_ENABLED=${{ secrets.PROD_METRICS_ENABLED }}
+          METRICS_ENDPOINT=${{ secrets.PROD_METRICS_ENDPOINT }}
+          METRICS_HEALTH_ENDPOINT=${{ secrets.PROD_METRICS_HEALTH_ENDPOINT }}
+          METRICS_INTERVAL=${{ secrets.PROD_METRICS_INTERVAL }}
           EOF
           else
             cat > .env << EOF
@@ -600,6 +612,10 @@ jobs:
           USE_RESULT_PROVIDERS=${{ secrets.NONPROD_USE_RESULT_PROVIDERS }}
           ENABLED_FEATURES=${{ secrets.NONPROD_ENABLED_FEATURES }}
           DISABLED_FEATURES=${{ secrets.NONPROD_DISABLED_FEATURES }}
+          METRICS_ENABLED=${{ secrets.NONPROD_METRICS_ENABLED }}
+          METRICS_ENDPOINT=${{ secrets.NONPROD_METRICS_ENDPOINT }}
+          METRICS_HEALTH_ENDPOINT=${{ secrets.NONPROD_METRICS_HEALTH_ENDPOINT }}
+          METRICS_INTERVAL=${{ secrets.NONPROD_METRICS_INTERVAL }}
           EOF
           fi
           echo "✅ Created .env file with ${{ steps.env_config_ios.outputs.env_type }} secrets"

@@ -114,9 +114,32 @@ import workmanager_apple
         bgTaskScheduler.cancelAllBGTasks()
       }
       result(true)
+    case "getBackgroundTaskStats":
+      result(getBackgroundTaskStats())
+    case "incrementBackgroundTaskCount":
+      incrementBackgroundTaskCount()
+      result(true)
     default:
       result(FlutterMethodNotImplemented)
     }
+  }
+
+  private func getBackgroundTaskStats() -> [String: Any] {
+    let defaults = UserDefaults.standard
+    return [
+      "execution_count": defaults.integer(forKey: "bg_task_execution_count"),
+      "last_execution_time": defaults.object(forKey: "bg_task_last_execution_time") as? Int64 ?? 0,
+      "success_count": defaults.integer(forKey: "bg_task_success_count"),
+      "failure_count": defaults.integer(forKey: "bg_task_failure_count")
+    ]
+  }
+
+  private func incrementBackgroundTaskCount() {
+    let defaults = UserDefaults.standard
+    let currentCount = defaults.integer(forKey: "bg_task_execution_count")
+    defaults.set(currentCount + 1, forKey: "bg_task_execution_count")
+    defaults.set(Int64(Date().timeIntervalSince1970 * 1000), forKey: "bg_task_last_execution_time")
+    defaults.synchronize()
   }
 
   private func requestNotificationPermission(result: @escaping FlutterResult) {

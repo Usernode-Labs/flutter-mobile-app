@@ -5,6 +5,7 @@ import '../config/notification_config.dart';
 import '../data/notification_state_repository.dart';
 import 'local_notification_service.dart';
 import 'slot_notification_manager.dart';
+import 'platform_alarm_service.dart';
 import '../../features/node/data/repositories/rust_backend_service.dart';
 
 /// Background task service for monitoring slots when app is not in foreground
@@ -105,19 +106,35 @@ void callbackDispatcher() {
       await NotificationStateRepository.instance.initialize();
       await LocalNotificationService.instance.initialize();
 
+      // Initialize platform alarm service for metrics tracking
+      await PlatformAlarmService.instance.initialize();
+
       // Check if notifications are enabled
       if (!NotificationStateRepository.instance.notificationsEnabled) {
         logger.d('Notifications disabled, skipping background task');
+        // Still increment counter to track execution
+        await PlatformAlarmService.instance.incrementBackgroundTaskCount();
         return Future.value(true);
       }
 
       // Perform the background slot monitoring
       await _performSlotMonitoring(logger);
 
+      // Track successful background task execution
+      await PlatformAlarmService.instance.incrementBackgroundTaskCount();
+
       logger.i('Background task completed successfully');
       return Future.value(true);
     } catch (e) {
       logger.e('Background task failed: $e');
+
+      // Track failed background task execution
+      try {
+        await PlatformAlarmService.instance.incrementBackgroundTaskCount();
+      } catch (_) {
+        // Ignore if metrics tracking fails
+      }
+
       return Future.value(false);
     }
   });

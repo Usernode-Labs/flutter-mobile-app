@@ -70,6 +70,9 @@ enum LogTag {
   /// Performance and timing
   performance('PERF'),
 
+  /// Metrics collection and reporting
+  metrics('METRICS'),
+
   /// General/uncategorized
   general('GENERAL');
 

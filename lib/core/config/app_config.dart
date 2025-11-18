@@ -22,4 +22,24 @@ class AppConfig {
       String.fromEnvironment('GITHUB_TOKEN', defaultValue: '');
   static const String githubOwner = 'Usernode-Labs';
   static const String githubRepo = 'flutter-mobile-app';
+
+  // Metrics configuration (compile-time)
+  static const bool metricsEnabled =
+      bool.fromEnvironment('METRICS_ENABLED', defaultValue: false);
+  static const String metricsEndpoint =
+      String.fromEnvironment('METRICS_ENDPOINT', defaultValue: '');
+  static const int metricsInterval =
+      int.fromEnvironment('METRICS_INTERVAL', defaultValue: 30);
+  static const String metricsHealthEndpoint =
+      String.fromEnvironment('METRICS_HEALTH_ENDPOINT', defaultValue: '');
+
+  // Debug method to verify metrics configuration at runtime
+  static void debugPrintMetrics() {
+    print('=== METRICS CONFIG DEBUG ===');
+    print('METRICS_ENABLED: $metricsEnabled');
+    print('METRICS_ENDPOINT: $metricsEndpoint');
+    print('METRICS_INTERVAL: $metricsInterval');
+    print('METRICS_HEALTH_ENDPOINT: $metricsHealthEndpoint');
+    print('===========================');
+  }
 }

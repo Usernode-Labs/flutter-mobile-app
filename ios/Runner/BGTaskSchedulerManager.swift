@@ -94,6 +94,9 @@ class BGTaskSchedulerManager {
     private func handleBGTask(task: BGProcessingTask) {
         print("BGTaskScheduler: BGTask started execution")
 
+        // Track background task execution for metrics
+        incrementBackgroundTaskStats()
+
         // Schedule next task (BGTasks need to be rescheduled)
         scheduleNextBGTask()
 
@@ -178,5 +181,15 @@ class BGTaskSchedulerManager {
         } catch {
             print("BGTaskScheduler: Failed to schedule next task - \(error.localizedDescription)")
         }
+    }
+
+    // Track background task execution for metrics
+    private func incrementBackgroundTaskStats() {
+        let defaults = UserDefaults.standard
+        let currentCount = defaults.integer(forKey: "bg_task_execution_count")
+        defaults.set(currentCount + 1, forKey: "bg_task_execution_count")
+        defaults.set(Int64(Date().timeIntervalSince1970 * 1000), forKey: "bg_task_last_execution_time")
+        defaults.synchronize()
+        print("BGTaskScheduler: Incremented background task execution count to \(currentCount + 1)")
     }
 }

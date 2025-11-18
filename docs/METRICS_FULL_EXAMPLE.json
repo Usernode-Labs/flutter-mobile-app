@@ -1,0 +1,111 @@
+{
+  "event": {
+    "event_type": "health_check",
+    "timestamp": "2025-11-17T10:30:45.123Z"
+  },
+  "app": {
+    "runtime": {
+      "app_state": "foreground",
+      "app_version": "1.0.0",
+      "app_build_number": "123",
+      "app_uptime_ms": 3600000,
+      "keep_alive_mode_active": true,
+      "notifications_enabled": true
+    },
+    "platform": {
+      "platform": "android",
+      "platform_version": "13",
+      "system_architecture": "arm64-v8a"
+    },
+    "device": {
+      "device_id": "abc123def456",
+      "device_manufacturer": "Samsung",
+      "device_model": "SM-G991B",
+      "is_physical_device": true
+    },
+    "battery": {
+      "battery_level": 85,
+      "battery_state": "discharging",
+      "battery_optimization_disabled": true,
+      "power_save_mode": false,
+      "low_power_mode": false
+    },
+    "network": {
+      "network_type": "wifi",
+      "network_connected": true
+    },
+    "permissions": {
+      "permission_notifications": true,
+      "permission_exact_alarms": true,
+      "permission_battery_optimization_exempt": true,
+      "exact_alarms_permission": true,
+      "notification_permission": "authorized"
+    },
+    "foreground_service": {
+      "foreground_service_running": true,
+      "wakelock_held": true
+    }
+  },
+  "node": {
+    "identity": {
+      "peer_id": "12D3KooWABCDEF1234567890"
+    },
+    "status": {
+      "node_running": true,
+      "node_state": "running",
+      "node_sync_status": "synced",
+      "node_best_tip_slot": 123456,
+      "node_best_tip_hash": "3NKxyzABCDEF1234567890",
+      "node_connected_peers": 42
+    },
+    "consensus": {
+      "current_epoch": 50,
+      "current_global_slot": 123456,
+      "current_epoch_won_slots": 5,
+      "current_epoch_produced": 4,
+      "current_epoch_failed": 1,
+      "total_won_slots": 250,
+      "total_blocks_produced": 240,
+      "total_blocks_failed": 10
+    },
+    "blockchain": {
+      "blockchain_height": 123456,
+      "blockchain_latest_block_hash": "3NKxyzABCDEF1234567890",
+      "blockchain_latest_block_slot": 123456,
+      "blockchain_latest_block_timestamp": "2025-11-17T10:30:45.000Z"
+    },
+    "production": {
+      "background_production_enabled": true
+    },
+    "wallet": {
+      "wallet_balance": 1234.56,
+      "wallet_address": "B62qxyzABCDEF1234567890"
+    },
+    "peers": [
+      {
+        "peer_id": "12D3KooWPeer1",
+        "address": "/ip4/192.168.1.100/tcp/8302",
+        "best_tip_height": 123450,
+        "best_tip_global_slot": 123450,
+        "connection_status": "connected",
+        "incoming": false,
+        "time": 1700217045123
+      },
+      {
+        "peer_id": "12D3KooWPeer2",
+        "address": "/ip4/10.0.0.50/tcp/8302",
+        "best_tip_height": 123455,
+        "best_tip_global_slot": 123455,
+        "connection_status": "connected",
+        "incoming": true,
+        "time": 1700217045456
+      },
+      {
+        "peer_id": "12D3KooWPeer3",
+        "connection_status": "connecting",
+        "incoming": false,
+        "time": 1700217045789
+      }
+    ]
+  }
+}

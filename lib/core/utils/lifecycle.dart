@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import '../../features/node/data/repositories/rust_backend_service.dart';
+import '../../features/metrics/domain/services/metrics_collector_service.dart';
 import '../services/epoch_slot_scheduler_service.dart';
 import '../services/platform_alarm_service.dart';
 
@@ -61,6 +62,9 @@ class AppLifecycleLogger with WidgetsBindingObserver {
     );
 
     _logger.i('App lifecycle state changed: ${state.name}');
+
+    // Update metrics collector with new state
+    MetricsCollectorService.instance.updateAppLifecycleState(state);
 
     switch (state) {
       case AppLifecycleState.resumed:

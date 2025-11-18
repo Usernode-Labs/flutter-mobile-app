@@ -1,6 +1,7 @@
 package com.usernode_labs.usernode.alarm
 
 import android.app.Activity
+import android.app.ActivityManager
 import android.app.AlarmManager
 import android.content.Context
 import android.content.Intent
@@ -15,6 +16,7 @@ class AlarmMethodChannelHandler(private val activity: Activity) {
     private val alarmManager: AlarmManager = activity.getSystemService(Context.ALARM_SERVICE) as AlarmManager
     private val alarmScheduler: AlarmScheduler = AlarmScheduler(activity, alarmManager)
     private val foregroundServiceManager: ForegroundServiceManager = ForegroundServiceManager(activity)
+    private val powerManager: PowerManager = activity.getSystemService(Context.POWER_SERVICE) as PowerManager
 
     fun handleMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
@@ -89,6 +91,19 @@ class AlarmMethodChannelHandler(private val activity: Activity) {
             "getDeviceManufacturer" -> {
                 result.success(Build.MANUFACTURER)
             }
+            "isForegroundServiceRunning" -> {
+                result.success(isForegroundServiceRunning())
+            }
+            "isWakelockHeld" -> {
+                result.success(isWakelockHeld())
+            }
+            "getBackgroundTaskStats" -> {
+                result.success(getBackgroundTaskStats())
+            }
+            "incrementBackgroundTaskCount" -> {
+                incrementBackgroundTaskCount()
+                result.success(true)
+            }
             else -> {
                 result.notImplemented()
             }
@@ -124,6 +139,48 @@ class AlarmMethodChannelHandler(private val activity: Activity) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
             activity.startActivity(intent)
+        }
+    }
+
+    private fun isForegroundServiceRunning(): Boolean {
+        val activityManager = activity.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        @Suppress("DEPRECATION")
+        for (service in activityManager.getRunningServices(Int.MAX_VALUE)) {
+            if (SlotMonitoringService::class.java.name == service.service.className) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun isWakelockHeld(): Boolean {
+        // Check if device is holding any partial wakelocks
+        // Note: We can't directly check app-specific wakelocks without root
+        // Return approximate status based on power manager state
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            !powerManager.isDeviceIdleMode && !powerManager.isPowerSaveMode
+        } else {
+            !powerManager.isPowerSaveMode
+        }
+    }
+
+    private fun getBackgroundTaskStats(): Map<String, Any> {
+        val prefs = activity.getSharedPreferences("background_task_stats", Context.MODE_PRIVATE)
+        return mapOf(
+            "execution_count" to prefs.getInt("execution_count", 0),
+            "last_execution_time" to prefs.getLong("last_execution_time", 0),
+            "success_count" to prefs.getInt("success_count", 0),
+            "failure_count" to prefs.getInt("failure_count", 0)
+        )
+    }
+
+    private fun incrementBackgroundTaskCount() {
+        val prefs = activity.getSharedPreferences("background_task_stats", Context.MODE_PRIVATE)
+        val currentCount = prefs.getInt("execution_count", 0)
+        prefs.edit().apply {
+            putInt("execution_count", currentCount + 1)
+            putLong("last_execution_time", System.currentTimeMillis())
+            apply()
         }
     }
 }

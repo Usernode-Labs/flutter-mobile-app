@@ -15,9 +15,15 @@ import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/services/local_notification_service.dart';
 import 'package:crypto_mobile_app/core/services/background_task_service.dart';
 import 'package:crypto_mobile_app/core/data/notification_state_repository.dart';
+import 'package:crypto_mobile_app/features/metrics/domain/services/metrics_collector_service.dart';
+import 'package:crypto_mobile_app/features/metrics/presentation/controllers/metrics_lifecycle_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Debug: Print metrics configuration
+  AppConfig.debugPrintMetrics();
+
   final log = LoggingService();
   await SentryUtil.bootstrap(() async {
     SentryUtil.addBreadcrumb(category: 'app', message: 'startup begin');
@@ -96,6 +102,10 @@ Future<void> _bootstrapAsync(LoggingService log) async {
           : 'backend startForActiveAccount: skipped',
     );
 
+    // Initialize metrics collection service
+    log.info('Initializing metrics collection service', tag: 'MAIN');
+    MetricsCollectorService.instance.initialize();
+
     SentryUtil.addBreadcrumb(category: 'app', message: 'bootstrap end');
   } catch (e, st) {
     log.error('Bootstrap failed: $e', tag: 'MAIN', error: e, stackTrace: st);
@@ -113,6 +123,9 @@ class CryptoMobileApp extends ConsumerWidget {
 
     // Initialize backend lifecycle manager
     ref.watch(backendLifecycleProvider);
+
+    // Initialize metrics lifecycle manager
+    ref.watch(metricsLifecycleProvider);
 
     return MaterialApp.router(
       onGenerateTitle: (ctx) => AppLocalizations.of(ctx).appName,

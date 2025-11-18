@@ -437,6 +437,65 @@ class PlatformAlarmService {
       return null;
     }
   }
+
+  /// Check if foreground service is currently running (Android only)
+  Future<bool> isForegroundServiceRunning() async {
+    if (!Platform.isAndroid) return false;
+    try {
+      final isRunning =
+          await _channel.invokeMethod<bool>('isForegroundServiceRunning');
+      return isRunning ?? false;
+    } catch (e) {
+      _logger.e('Error checking foreground service status: $e');
+      return false;
+    }
+  }
+
+  /// Check if wakelock is currently held (Android only)
+  Future<bool> isWakelockHeld() async {
+    if (!Platform.isAndroid) return false;
+    try {
+      final isHeld = await _channel.invokeMethod<bool>('isWakelockHeld');
+      return isHeld ?? false;
+    } catch (e) {
+      _logger.e('Error checking wakelock status: $e');
+      return false;
+    }
+  }
+
+  /// Get background task execution statistics (Android only)
+  Future<Map<String, dynamic>> getBackgroundTaskStats() async {
+    if (!Platform.isAndroid) {
+      return {
+        'execution_count': 0,
+        'last_execution_time': 0,
+        'success_count': 0,
+        'failure_count': 0,
+      };
+    }
+    try {
+      final stats = await _channel.invokeMethod<Map>('getBackgroundTaskStats');
+      return Map<String, dynamic>.from(stats ?? {});
+    } catch (e) {
+      _logger.e('Error getting background task stats: $e');
+      return {
+        'execution_count': 0,
+        'last_execution_time': 0,
+        'success_count': 0,
+        'failure_count': 0,
+      };
+    }
+  }
+
+  /// Increment background task execution count (Android only)
+  Future<void> incrementBackgroundTaskCount() async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _channel.invokeMethod('incrementBackgroundTaskCount');
+    } catch (e) {
+      _logger.e('Error incrementing background task count: $e');
+    }
+  }
 }
 
 /// Result of an alarm scheduling operation

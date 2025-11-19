@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:crypto_mobile_app/core/config/app_constants.dart';
 import 'package:crypto_mobile_app/features/wallet/data/models/transaction_model.dart';
 
 class WalletService {
@@ -24,7 +25,7 @@ class WalletService {
       title: 'Received from Network',
       subtitle: '',
       amount: 150.00,
-      currency: 'TOKENS',
+      tokenSymbol: AppConstants.defaultTokenSymbol,
       type: TransactionType.receive,
       status: TransactionStatus.completed,
       timestamp: DateTime.now().subtract(const Duration(hours: 2)),
@@ -36,7 +37,7 @@ class WalletService {
       title: 'Node Rewards',
       subtitle: '',
       amount: 25.50,
-      currency: 'TOKENS',
+      tokenSymbol: AppConstants.defaultTokenSymbol,
       type: TransactionType.reward,
       status: TransactionStatus.completed,
       timestamp: DateTime.now().subtract(const Duration(days: 1)),
@@ -48,7 +49,7 @@ class WalletService {
       title: 'Send to Wallet',
       subtitle: '',
       amount: -100.00,
-      currency: 'TOKENS',
+      tokenSymbol: AppConstants.defaultTokenSymbol,
       type: TransactionType.send,
       status: TransactionStatus.completed,
       timestamp: DateTime.now().subtract(const Duration(days: 2)),
@@ -60,7 +61,7 @@ class WalletService {
       title: 'Network Fee',
       subtitle: '',
       amount: -2.50,
-      currency: 'TOKENS',
+      tokenSymbol: AppConstants.defaultTokenSymbol,
       type: TransactionType.fee,
       status: TransactionStatus.pending,
       timestamp: DateTime.now().subtract(const Duration(days: 3)),

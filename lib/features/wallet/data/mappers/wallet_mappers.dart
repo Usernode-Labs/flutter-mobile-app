@@ -11,7 +11,7 @@ extension TransactionModelToDomain on data.TransactionModel {
       title: title,
       subtitle: subtitle,
       amount: amount,
-      currency: currency,
+      tokenSymbol: tokenSymbol,
       type: switch (type) {
         data.TransactionType.receive => domain.TxType.receive,
         data.TransactionType.send => domain.TxType.send,

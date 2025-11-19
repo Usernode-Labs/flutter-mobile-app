@@ -106,61 +106,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             },
           ),
           ListTile(
-            leading: Icon(Icons.attach_money, color: colorScheme.primary),
-            title: const Text('Currency'),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'USD',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurface.withValues(alpha: 0.6),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                const Icon(Icons.chevron_right),
-              ],
-            ),
-            onTap: () {
-              showDialog(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('Currency'),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ListTile(
-                        title: const Text('USD (\$)'),
-                        trailing: const Icon(Icons.check),
-                        onTap: () => Navigator.pop(ctx),
-                      ),
-                      ListTile(
-                        title: const Text('EUR (€)'),
-                        onTap: () {
-                          Navigator.pop(ctx);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text('Currency support coming soon')),
-                          );
-                        },
-                      ),
-                      ListTile(
-                        title: const Text('GBP (£)'),
-                        onTap: () {
-                          Navigator.pop(ctx);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text('Currency support coming soon')),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-          ListTile(
             leading: Icon(Icons.notifications, color: colorScheme.primary),
             title: const Text('Notifications'),
             subtitle: const Text('Manage slot notifications'),

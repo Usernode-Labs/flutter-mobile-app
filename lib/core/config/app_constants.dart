@@ -14,4 +14,8 @@ class AppConstants {
   // TODO: These are temporarily hardcoded; update when backend returns them
   static const int slotsPerEpoch = 720;
   static const int slotDurationMs = 5000;
+
+  // Currency Constants
+  static const String defaultTokenSymbol = 'TKN';
+  static const String defaultFiatCurrency = 'USD';
 }

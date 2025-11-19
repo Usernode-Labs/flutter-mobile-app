@@ -27,6 +27,7 @@ class RustBackendService {
   bool _initialized = false;
   bool _nodeRunning = false;
   String? _instanceId;
+  String? _cachedPeerId;
 
   Node? _node;
   NodeRpcClient? _rpc;
@@ -94,6 +95,14 @@ class RustBackendService {
     _node = builder.build();
     _rpc = _node!.rpc();
 
+    // Cache peer ID once on startup (it doesn't change during node lifetime)
+    try {
+      _cachedPeerId = _node!.peerId().toString();
+    } catch (e) {
+      LoggingService.instance.warn('Failed to cache peer ID: $e', tag: 'RUST');
+      _cachedPeerId = null;
+    }
+
     // Run the node in a background thread.
     _node!.runForeverInNewThread();
     _nodeRunning = true;
@@ -109,6 +118,7 @@ class RustBackendService {
     _nodeRunning = false;
     _node = null;
     _rpc = null;
+    _cachedPeerId = null;
   }
 
   /// Start node if there is an active account; otherwise do nothing.
@@ -155,17 +165,10 @@ class RustBackendService {
   NodeRpcClient? get rpc => _rpc;
 
   /// Get the node's P2P peer ID.
-  /// Returns null if the node is not running.
+  /// Returns the cached peer ID that was retrieved on node startup.
+  /// Returns null if the node is not running or peer ID was not cached.
   String? getPeerId() {
-    if (_node == null) return null;
-
-    try {
-      final peerId = _node!.peerId();
-      return peerId.toString();
-    } catch (e, st) {
-      LoggingService.instance.warn('Failed to get peer ID: $e\$st', tag: 'RUST');
-      return null;
-    }
+    return _cachedPeerId;
   }
 
   /// Convenience helper to fetch node status via RPC.

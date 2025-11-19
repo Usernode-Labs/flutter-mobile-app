@@ -5,6 +5,9 @@ import '../../../../core/services/platform_alarm_service.dart';
 import '../../../../core/services/epoch_slot_scheduler_service.dart';
 import '../../../../core/services/ios_foreground_keepalive_service.dart';
 import '../../../../core/data/slot_production_repository.dart';
+import '../../../../features/node/presentation/controllers/node_raw_status_provider.dart';
+import '../../../../features/node/presentation/controllers/node_data_providers.dart';
+import '../../../../rust/rpc/rpcs_generated/status.dart';
 
 class BackgroundProductionSettingsScreen extends ConsumerStatefulWidget {
   const BackgroundProductionSettingsScreen({super.key});
@@ -114,11 +117,9 @@ class _BackgroundProductionSettingsScreenState
   Widget _buildPlatformInfoCard(ThemeData theme, ColorScheme colorScheme) {
     final isAndroid = Platform.isAndroid;
     final platformName = isAndroid ? 'Android' : 'iOS';
-    final reliability = isAndroid
-        ? '90-95% with exact alarms'
-        : _iosKeepAliveActive
-            ? '99% in foreground mode'
-            : '40-60% with background tasks';
+    final description = isAndroid
+        ? 'Automatically wakes your device using exact alarms to produce blocks at won slot times.'
+        : 'Automatically wakes your device using background tasks to produce blocks at won slot times.';
 
     return Card(
       child: Padding(
@@ -143,7 +144,7 @@ class _BackgroundProductionSettingsScreenState
             ),
             const SizedBox(height: 12),
             Text(
-              'Expected Reliability: $reliability',
+              description,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurface.withValues(alpha: 0.7),
               ),
@@ -373,9 +374,66 @@ class _BackgroundProductionSettingsScreenState
   }
 
   Widget _buildScheduledSlotsSection(ThemeData theme, ColorScheme colorScheme) {
-    final scheduledSlots =
-        EpochSlotSchedulerService.instance.getScheduledSlots();
-    final nextSlot = EpochSlotSchedulerService.instance.getNextSlot();
+    // Get VRF status and won slots from providers
+    final rawStatusAsync = ref.watch(nodeRawStatusProvider);
+    final epochRewardsAsync = ref.watch(nodeEpochRewardsProvider);
+
+    // Unwrap async values
+    final rawStatus = rawStatusAsync.valueOrNull;
+    final epochRewards = epochRewardsAsync.valueOrNull;
+
+    // Get VRF status
+    final vrfEvaluator = rawStatus?.vrfEvaluator;
+    final vrfStatus = vrfEvaluator?.currentEpochVrfEvaluationStatus;
+    final isVrfComplete =
+        vrfStatus == RpcStatusVrfEvaluationStatus.completed;
+    final isVrfCalculating =
+        vrfStatus == RpcStatusVrfEvaluationStatus.evaluating;
+
+    // Get won slots and filter to future only
+    final now = DateTime.now();
+    final allWonSlots = epochRewards?.wonSlots ?? [];
+    final futureSlots = allWonSlots.where((slot) {
+      final slotTime =
+          DateTime.fromMillisecondsSinceEpoch(slot.expectedTimeMs.toInt());
+      return slotTime.isAfter(now);
+    }).toList();
+
+    // Get next slot
+    final nextSlot =
+        futureSlots.isNotEmpty ? futureSlots.first : null;
+
+    // VRF status chip
+    Widget vrfStatusChip;
+    if (vrfStatus == null) {
+      vrfStatusChip = Chip(
+        label: const Text('Loading...'),
+        backgroundColor: Colors.grey.withValues(alpha: 0.2),
+        labelStyle: theme.textTheme.labelSmall,
+      );
+    } else if (isVrfComplete) {
+      vrfStatusChip = Chip(
+        label: const Text('VRF Complete'),
+        backgroundColor: Colors.green.withValues(alpha: 0.2),
+        labelStyle: theme.textTheme.labelSmall?.copyWith(
+          color: Colors.green.shade700,
+        ),
+      );
+    } else if (isVrfCalculating) {
+      vrfStatusChip = Chip(
+        label: const Text('VRF Calculating...'),
+        backgroundColor: Colors.orange.withValues(alpha: 0.2),
+        labelStyle: theme.textTheme.labelSmall?.copyWith(
+          color: Colors.orange.shade700,
+        ),
+      );
+    } else {
+      vrfStatusChip = Chip(
+        label: const Text('VRF Pending'),
+        backgroundColor: Colors.grey.withValues(alpha: 0.2),
+        labelStyle: theme.textTheme.labelSmall,
+      );
+    }
 
     return Card(
       child: Padding(
@@ -385,27 +443,32 @@ class _BackgroundProductionSettingsScreenState
           children: [
             Row(
               children: [
-                Icon(Icons.schedule, color: colorScheme.primary),
+                Icon(Icons.event_available, color: colorScheme.primary),
                 const SizedBox(width: 12),
-                Text(
-                  'Scheduled Slots',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Text(
+                    'Won Slots This Epoch',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
+                vrfStatusChip,
               ],
             ),
             const SizedBox(height: 12),
-            if (scheduledSlots.isEmpty)
+            if (futureSlots.isEmpty)
               Text(
-                'No slots currently scheduled',
+                allWonSlots.isEmpty
+                    ? 'No slots won for this epoch'
+                    : 'No upcoming slots remaining',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
               )
             else ...[
               Text(
-                '${scheduledSlots.length} slot${scheduledSlots.length != 1 ? 's' : ''} scheduled',
+                '${futureSlots.length} upcoming slot${futureSlots.length != 1 ? 's' : ''}',
                 style: theme.textTheme.bodyMedium,
               ),
               if (nextSlot != null) ...[
@@ -427,7 +490,7 @@ class _BackgroundProductionSettingsScreenState
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Slot ${nextSlot.slotNumber}',
+                        'Slot ${nextSlot.globalSlot}',
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                           color: colorScheme.onPrimaryContainer,
@@ -435,7 +498,9 @@ class _BackgroundProductionSettingsScreenState
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _formatDateTime(nextSlot.slotTime),
+                        _formatDateTime(
+                            DateTime.fromMillisecondsSinceEpoch(
+                                nextSlot.expectedTimeMs.toInt())),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colorScheme.onPrimaryContainer,
                         ),

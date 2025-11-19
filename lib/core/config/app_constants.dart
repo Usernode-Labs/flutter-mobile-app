@@ -12,8 +12,8 @@ class AppConstants {
 
   // Blockchain Constants
   // TODO: These are temporarily hardcoded; update when backend returns them
-  static const int slotsPerEpoch = 720;
-  static const int slotDurationMs = 5000;
+  static const int slotsPerEpoch = 240;
+  static const int slotDurationMs = 30000;
 
   // Currency Constants
   static const String defaultTokenSymbol = 'TKN';

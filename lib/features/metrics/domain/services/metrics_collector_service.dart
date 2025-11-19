@@ -221,8 +221,17 @@ class MetricsCollectorService {
 
   /// Collect battery state
   Future<BatteryMetrics> _collectBatteryMetrics() async {
-    final batteryLevel = await _battery.batteryLevel;
-    final batteryState = await _battery.batteryState;
+    // Default values for when battery info is unavailable
+    int batteryLevel = -1; // -1 indicates unavailable
+    BatteryState batteryState = BatteryState.unknown;
+
+    try {
+      batteryLevel = await _battery.batteryLevel;
+      batteryState = await _battery.batteryState;
+    } catch (e) {
+      // Battery info not available on this platform (desktop/simulator)
+      // Use default values
+    }
 
     // Check if battery optimization is disabled (Android)
     bool batteryOptimizationDisabled = false;
@@ -236,10 +245,11 @@ class MetricsCollectorService {
     }
 
     // For power save mode, we'll use battery state as proxy
-    // In a real implementation, you might need platform channels
-    final powerSaveMode =
-        batteryState == BatteryState.charging ? false : batteryLevel < 20;
-    final lowPowerMode = batteryLevel < 20;
+    // Handle unavailable battery level gracefully
+    final powerSaveMode = batteryLevel < 0
+        ? false
+        : (batteryState == BatteryState.charging ? false : batteryLevel < 20);
+    final lowPowerMode = batteryLevel < 0 ? false : batteryLevel < 20;
 
     return BatteryMetrics(
       batteryLevel: batteryLevel,

@@ -2,14 +2,14 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/services/platform_alarm_service.dart';
-import '../../../../core/services/epoch_slot_scheduler_service.dart';
-import '../../../../core/services/ios_foreground_keepalive_service.dart';
-import '../../../../core/data/slot_production_repository.dart';
-import '../../../../features/node/presentation/controllers/node_raw_status_provider.dart';
-import '../../../../features/node/presentation/controllers/node_data_providers.dart';
-import '../../../../rust/rpc/rpcs_generated/status.dart';
-import '../../../../src/rust/rpc/rpcs_generated/epoch_rewards.dart';
+import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
+import 'package:crypto_mobile_app/core/services/epoch_slot_scheduler_service.dart';
+import 'package:crypto_mobile_app/core/services/ios_foreground_keepalive_service.dart';
+import 'package:crypto_mobile_app/core/data/slot_production_repository.dart';
+import 'package:crypto_mobile_app/features/node/presentation/controllers/node_raw_status_provider.dart';
+import 'package:crypto_mobile_app/features/node/presentation/controllers/node_data_providers.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 
 class BackgroundProductionSettingsScreen extends ConsumerStatefulWidget {
   const BackgroundProductionSettingsScreen({super.key});

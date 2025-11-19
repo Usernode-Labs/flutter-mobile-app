@@ -8,6 +8,7 @@ class NodeStatus {
   final int? epoch;
   final int? globalSlot;
   final String? bestTipHash;
+  final String? peerId;
 
   const NodeStatus({
     required this.connectedPeers,
@@ -17,5 +18,6 @@ class NodeStatus {
     required this.epoch,
     required this.globalSlot,
     required this.bestTipHash,
+    this.peerId,
   });
 }

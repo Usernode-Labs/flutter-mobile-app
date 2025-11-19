@@ -154,6 +154,20 @@ class RustBackendService {
   /// Obtain the RPC client for ad-hoc calls.
   NodeRpcClient? get rpc => _rpc;
 
+  /// Get the node's P2P peer ID.
+  /// Returns null if the node is not running.
+  String? getPeerId() {
+    if (_node == null) return null;
+
+    try {
+      final peerId = _node!.peerId();
+      return peerId.toString();
+    } catch (e, st) {
+      LoggingService.instance.warn('Failed to get peer ID: $e\$st', tag: 'RUST');
+      return null;
+    }
+  }
+
   /// Convenience helper to fetch node status via RPC.
   Future<RpcStatusResp?> getStatus() async {
     final r = _rpc;

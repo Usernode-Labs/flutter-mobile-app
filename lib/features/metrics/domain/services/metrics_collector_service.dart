@@ -112,10 +112,11 @@ class MetricsCollectorService {
 
   /// Collect node identity
   Future<IdentityMetrics> _collectIdentityMetrics() async {
-    // Note: peer ID is not exposed in RpcStatusResp currently
-    // Leave as null for now
+    // Get peer ID from backend service
+    final peerId = RustBackendService.instance.getPeerId();
+
     return IdentityMetrics(
-      peerId: null,
+      peerId: peerId,
     );
   }
 

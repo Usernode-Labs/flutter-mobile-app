@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/config/app_constants.dart';
@@ -229,6 +230,61 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     );
   }
 
+  // Helper method to build Node ID row with copy functionality
+  Widget _buildNodeIdRow(BuildContext context, String peerId) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final shortened = _shortenMid(peerId);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.fingerprint,
+            size: 18,
+            color: colorScheme.primary,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'Node ID: ',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              shortened,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontFamily: 'monospace',
+                color: colorScheme.onSurface,
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.copy, size: 18),
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: peerId));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Node ID copied to clipboard'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            },
+            tooltip: 'Copy full Node ID',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildOverviewSection(
       BuildContext context, NodeStatus? statusFromProvider) {
     final theme = Theme.of(context);
@@ -425,6 +481,12 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             ),
           ],
         ),
+
+        // Node ID (peer ID) row
+        if (statusFromProvider?.peerId != null) ...[
+          const SizedBox(height: 12),
+          _buildNodeIdRow(context, statusFromProvider!.peerId!),
+        ],
 
         // Horizontal divider before Produced blocks and Won slots
         Padding(
@@ -1370,6 +1432,12 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
         );
       }).toList(),
     );
+  }
+
+  // Helper method to shorten long strings (e.g., peer IDs) for display
+  String _shortenMid(String s, {int head = 8, int tail = 8}) {
+    if (s.length <= head + tail + 1) return s;
+    return '${s.substring(0, head)}…${s.substring(s.length - tail)}';
   }
 
   @override

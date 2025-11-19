@@ -34,7 +34,7 @@ class MetricsRepository {
         context: {
           'url': url.toString(),
           'peer_id': payload.node.identity.peerId,
-          'node_state': payload.node.status.nodeState,
+          'node_state': payload.node.status?.nodeState ?? 'unknown',
         },
       );
 

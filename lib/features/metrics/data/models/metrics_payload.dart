@@ -25,11 +25,11 @@ class MetricsPayload with _$MetricsPayload {
 class AppMetricsGroup with _$AppMetricsGroup {
   const factory AppMetricsGroup({
     required RuntimeMetrics runtime,
-    required PlatformMetrics platform,
-    required DeviceMetrics device,
-    required BatteryMetrics battery,
-    required NetworkMetrics network,
-    required PermissionsMetrics permissions,
+    PlatformMetrics? platform,
+    DeviceMetrics? device,
+    BatteryMetrics? battery,
+    NetworkMetrics? network,
+    PermissionsMetrics? permissions,
     ForegroundServiceMetrics? foregroundService, // Android only
   }) = _AppMetricsGroup;
 
@@ -37,11 +37,11 @@ class AppMetricsGroup with _$AppMetricsGroup {
 
   Map<String, dynamic> toJson() => {
         'runtime': runtime.toJson(),
-        'platform': platform.toJson(),
-        'device': device.toJson(),
-        'battery': battery.toJson(),
-        'network': network.toJson(),
-        'permissions': permissions.toJson(),
+        if (platform != null) 'platform': platform!.toJson(),
+        if (device != null) 'device': device!.toJson(),
+        if (battery != null) 'battery': battery!.toJson(),
+        if (network != null) 'network': network!.toJson(),
+        if (permissions != null) 'permissions': permissions!.toJson(),
         if (foregroundService != null)
           'foreground_service': foregroundService!.toJson(),
       };
@@ -52,24 +52,24 @@ class AppMetricsGroup with _$AppMetricsGroup {
 class NodeMetricsGroup with _$NodeMetricsGroup {
   const factory NodeMetricsGroup({
     required IdentityMetrics identity,
-    required StatusMetrics status,
-    required ConsensusMetrics consensus,
-    required BlockchainMetrics blockchain,
-    required ProductionMetrics production,
-    required WalletMetrics wallet,
-    required List<PeerMetrics> peers,
+    StatusMetrics? status,
+    ConsensusMetrics? consensus,
+    BlockchainMetrics? blockchain,
+    ProductionMetrics? production,
+    WalletMetrics? wallet,
+    List<PeerMetrics>? peers,
   }) = _NodeMetricsGroup;
 
   const NodeMetricsGroup._();
 
   Map<String, dynamic> toJson() => {
         'identity': identity.toJson(),
-        'status': status.toJson(),
-        'consensus': consensus.toJson(),
-        'blockchain': blockchain.toJson(),
-        'production': production.toJson(),
-        'wallet': wallet.toJson(),
-        'peers': peers.map((p) => p.toJson()).toList(),
+        if (status != null) 'status': status!.toJson(),
+        if (consensus != null) 'consensus': consensus!.toJson(),
+        if (blockchain != null) 'blockchain': blockchain!.toJson(),
+        if (production != null) 'production': production!.toJson(),
+        if (wallet != null) 'wallet': wallet!.toJson(),
+        if (peers != null) 'peers': peers!.map((p) => p.toJson()).toList(),
       };
 }
 
@@ -79,6 +79,7 @@ class EventMetrics with _$EventMetrics {
   const factory EventMetrics({
     required String eventType,
     required String timestamp,
+    Map<String, dynamic>? eventData,
   }) = _EventMetrics;
 
   const EventMetrics._();
@@ -86,6 +87,7 @@ class EventMetrics with _$EventMetrics {
   Map<String, dynamic> toJson() => {
         'event_type': eventType,
         'timestamp': timestamp,
+        if (eventData != null) 'event_data': eventData,
       };
 }
 

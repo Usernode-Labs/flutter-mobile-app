@@ -15,6 +15,7 @@ import 'package:crypto_mobile_app/src/rust/frb_generated.dart';
 import 'package:crypto_mobile_app/src/rust/node.dart';
 import 'package:crypto_mobile_app/src/rust/node/builder.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
+import 'package:crypto_mobile_app/core/models/backend_rpc_response.dart';
 
 /// A small façade around flutter_rust_bridge generated APIs.
 /// Centralizes initialization and access to the Rust node / RPC.
@@ -907,6 +908,56 @@ class RustBackendService {
     }
 
     return response;
+  }
+
+  /// Query backend for epoch information with VRF status awareness
+  ///
+  /// This method combines status and epochRewards calls to provide comprehensive
+  /// epoch information including VRF calculation status (inferred from response).
+  ///
+  /// Returns null if backend is unavailable or calls fail.
+  Future<BackendRPCResponse?> getEpochInfo({int? epoch}) async {
+    try {
+      // First, get current blockchain status to determine current slot
+      final status = await getStatus();
+      if (status?.blockchain == null) {
+        LoggingService.instance
+            .warn('Cannot get epoch info: blockchain status unavailable');
+        return null;
+      }
+
+      final currentSlot = status!.blockchain.bestTip.globalSlot;
+
+      // Query epoch rewards with won slots
+      final epochRewardsResp = await epochRewards(epoch: epoch);
+      if (epochRewardsResp == null) {
+        LoggingService.instance
+            .warn('Cannot get epoch info: epoch rewards unavailable');
+        return null;
+      }
+
+      // Create enhanced response with VRF status
+      final response = BackendRPCResponse.fromEpochRewards(
+        epochRewardsResp,
+        currentSlot: currentSlot,
+      );
+
+      LoggingService.instance.trace(
+        'getEpochInfo: ${response.toString()}',
+        tag: 'RUST',
+      );
+
+      return response;
+    } catch (e, st) {
+      LoggingService.instance.error(
+        'Error getting epoch info: $e',
+        tag: 'RUST',
+        error: e,
+        stackTrace: st,
+      );
+      await SentryUtil.captureError(e, st, tag: 'getEpochInfo');
+      return null;
+    }
   }
 
   /// Dispose bridge resources when the app is exiting.

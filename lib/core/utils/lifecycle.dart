@@ -6,7 +6,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import '../../features/node/data/repositories/rust_backend_service.dart';
 import '../../features/metrics/domain/services/metrics_collector_service.dart';
-import '../services/epoch_slot_scheduler_service.dart';
+import '../services/background_block_production_orchestrator.dart';
 import '../services/platform_alarm_service.dart';
 
 /// Enhanced app lifecycle observer with background block production support
@@ -156,65 +156,18 @@ class AppLifecycleLogger with WidgetsBindingObserver {
   }
 
   /// Check if epoch has changed and reschedule slots if needed
+  ///
+  /// Now uses BackgroundBlockProductionOrchestrator for unified handling
   Future<void> _checkEpochTransition() async {
     try {
-      // Get current epoch from node
-      final rustBackend = RustBackendService.instance;
-      final status = await rustBackend.getStatus();
-
-      if (status == null) {
-        _logger.d('No status available, skipping epoch check');
-        return;
-      }
-
-      final currentEpoch = status.blockchain.bestTip.epoch;
-      _logger.d('Current epoch: $currentEpoch');
-
-      // Get last known epoch
-      final lastEpoch = _prefs?.getInt(_keyLastEpoch);
-
-      if (lastEpoch == null) {
-        // First time - just save current epoch
-        await _prefs?.setInt(_keyLastEpoch, currentEpoch);
-        _logger.d('Saved initial epoch: $currentEpoch');
-        return;
-      }
-
-      if (currentEpoch != lastEpoch) {
-        _logger.i('🔄 Epoch transition detected: $lastEpoch → $currentEpoch');
-
-        SentryUtil.addBreadcrumb(
-          category: 'lifecycle',
-          message: 'epoch transition: $lastEpoch -> $currentEpoch',
-        );
-
-        // Handle epoch transition - reschedule all slots
-        if (EpochSlotSchedulerService.instance.isInitialized) {
-          _logger.i('Rescheduling slots for new epoch $currentEpoch...');
-
-          final result =
-              await EpochSlotSchedulerService.instance.scheduleEpochSlots(
-            epoch: currentEpoch,
-          );
-
-          if (result.success) {
-            _logger.i(
-              '✓ Successfully rescheduled ${result.slotsScheduled} slots for epoch $currentEpoch',
-            );
-
-            // Save new epoch
-            await _prefs?.setInt(_keyLastEpoch, currentEpoch);
-          } else {
-            _logger.e('✗ Failed to reschedule slots: ${result.error}');
-          }
-        } else {
-          _logger.w(
-              'EpochSlotSchedulerService not initialized, skipping rescheduling');
-          // Still save the new epoch
-          await _prefs?.setInt(_keyLastEpoch, currentEpoch);
-        }
+      // The orchestrator now handles epoch transitions automatically!
+      // We just need to trigger a check when the app resumes
+      if (BackgroundBlockProductionOrchestrator.instance.isInitialized) {
+        _logger.i('Notifying orchestrator of app resume...');
+        await BackgroundBlockProductionOrchestrator.instance.onAppResumed();
+        _logger.i('✓ Orchestrator notified, epoch check complete');
       } else {
-        _logger.d('Same epoch, no rescheduling needed');
+        _logger.w('BackgroundBlockProductionOrchestrator not initialized');
       }
     } catch (e) {
       _logger.e('Error checking epoch transition: $e');
@@ -222,16 +175,18 @@ class AppLifecycleLogger with WidgetsBindingObserver {
   }
 
   /// Verify that scheduled alarms still exist (could be cleared by system)
+  ///
+  /// Now uses BackgroundBlockProductionOrchestrator for unified state
   Future<void> _verifyScheduledAlarms() async {
     try {
-      if (!EpochSlotSchedulerService.instance.isInitialized) {
+      if (!BackgroundBlockProductionOrchestrator.instance.isInitialized) {
         _logger.d(
-            'EpochSlotSchedulerService not initialized, skipping alarm verification');
+            'BackgroundBlockProductionOrchestrator not initialized, skipping alarm verification');
         return;
       }
 
       final scheduledSlots =
-          EpochSlotSchedulerService.instance.getScheduledSlots();
+          BackgroundBlockProductionOrchestrator.instance.scheduledSlots;
 
       if (scheduledSlots.isEmpty) {
         _logger.d('No slots scheduled, nothing to verify');

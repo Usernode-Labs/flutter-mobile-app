@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -24,11 +25,26 @@ class _BackgroundProductionSettingsScreenState
   bool _batteryOptDisabled = false;
   String? _deviceManufacturer;
   bool _iosKeepAliveActive = false;
+  Timer? _autoTimer;
+  bool _refreshing = false;
 
   @override
   void initState() {
     super.initState();
     _checkStatus();
+
+    // Periodic auto-refresh every 3 seconds
+    _autoTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (mounted && !_refreshing) {
+        _refreshProviders();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _autoTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _checkStatus() async {
@@ -55,11 +71,27 @@ class _BackgroundProductionSettingsScreenState
       } else if (Platform.isIOS) {
         _iosKeepAliveActive = IOSForegroundKeepAliveService.instance.isActive;
       }
+
+      // Refresh providers to get latest VRF status and won slots
+      await _refreshProviders();
     } catch (e) {
       debugPrint('Error checking status: $e');
     } finally {
       if (mounted) {
         setState(() => _isInitializing = false);
+      }
+    }
+  }
+
+  Future<void> _refreshProviders() async {
+    if (_refreshing) return;
+    _refreshing = true;
+    try {
+      await ref.read(nodeRawStatusProvider.notifier).refresh();
+      await ref.read(nodeEpochRewardsProvider.notifier).refresh();
+    } finally {
+      if (mounted) {
+        _refreshing = false;
       }
     }
   }

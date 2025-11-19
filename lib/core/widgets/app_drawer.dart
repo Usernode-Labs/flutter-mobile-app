@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
+import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
 import 'package:crypto_mobile_app/core/routing/app_router.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 
@@ -117,37 +118,6 @@ class _AppDrawerState extends ConsumerState<AppDrawer> {
               onTap: () => context.push('/background-production-settings'),
             ),
 
-            // Currency
-            ListTile(
-              leading: Icon(Icons.attach_money, color: colorScheme.primary),
-              title: const Text('Currency'),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'USD',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurface.withValues(alpha: 0.6),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.chevron_right),
-                ],
-              ),
-              onTap: () {
-                Navigator.of(context).pop(); // Close drawer
-                _showCurrencyDialog();
-              },
-            ),
-
-            // Metrics
-            item(
-              icon: Icons.analytics_outlined,
-              label: 'Metrics',
-              matchRoute: '/metrics-settings',
-              onTap: () => context.push('/metrics-settings'),
-            ),
-
             const Divider(),
 
             // Developer Section Header
@@ -205,45 +175,6 @@ class _AppDrawerState extends ConsumerState<AppDrawer> {
     );
   }
 
-  void _showCurrencyDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Currency'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              title: const Text('USD (\$)'),
-              trailing: const Icon(Icons.check),
-              onTap: () => Navigator.pop(ctx),
-            ),
-            ListTile(
-              title: const Text('EUR (€)'),
-              onTap: () {
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text('Currency support coming soon')),
-                );
-              },
-            ),
-            ListTile(
-              title: const Text('GBP (£)'),
-              onTap: () {
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text('Currency support coming soon')),
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   void _showBuildInfoDialog(dynamic env) {
     final shortCommit = env.git.commitHash.length >= 7
         ? env.git.commitHash.substring(0, 7)
@@ -276,6 +207,15 @@ class _AppDrawerState extends ConsumerState<AppDrawer> {
             Text('Opt level: ${env.cargo.optLevel}'),
             const SizedBox(height: 6),
             Text('Debug: ${env.cargo.isDebug}'),
+            const Divider(height: 16),
+            Text('P2P Peer ID:'),
+            SelectableText(
+              RustBackendService.instance.getPeerId() ?? 'Not available',
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 11,
+              ),
+            ),
           ],
         ),
         actions: [

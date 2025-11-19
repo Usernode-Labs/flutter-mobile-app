@@ -33,6 +33,22 @@ class AppConfig {
   static const String metricsHealthEndpoint =
       String.fromEnvironment('METRICS_HEALTH_ENDPOINT', defaultValue: '');
 
+  // Block Production configuration (all in seconds)
+  static const int metricsCollectionIntervalSeconds =
+      int.fromEnvironment('METRICS_COLLECTION_INTERVAL_SECONDS', defaultValue: 30);
+  static const int blockProductionWakeBeforeSlotSeconds =
+      int.fromEnvironment('BLOCK_PRODUCTION_WAKE_BEFORE_SLOT_SECONDS', defaultValue: 60);
+  static const int epochMonitorBaseIntervalSeconds =
+      int.fromEnvironment('EPOCH_MONITOR_BASE_INTERVAL_SECONDS', defaultValue: 900);
+
+  // Convert to Duration for convenience
+  static Duration get metricsCollectionInterval =>
+      Duration(seconds: metricsCollectionIntervalSeconds);
+  static Duration get blockProductionWakeBeforeSlot =>
+      Duration(seconds: blockProductionWakeBeforeSlotSeconds);
+  static Duration get epochMonitorBaseInterval =>
+      Duration(seconds: epochMonitorBaseIntervalSeconds);
+
   // Debug method to verify metrics configuration at runtime
   static void debugPrintMetrics() {
     print('=== METRICS CONFIG DEBUG ===');

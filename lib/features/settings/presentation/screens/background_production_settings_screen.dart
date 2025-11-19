@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +6,10 @@ import '../../../../core/services/platform_alarm_service.dart';
 import '../../../../core/services/epoch_slot_scheduler_service.dart';
 import '../../../../core/services/ios_foreground_keepalive_service.dart';
 import '../../../../core/data/slot_production_repository.dart';
+import '../../../../features/node/presentation/controllers/node_raw_status_provider.dart';
+import '../../../../features/node/presentation/controllers/node_data_providers.dart';
+import '../../../../rust/rpc/rpcs_generated/status.dart';
+import '../../../../src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 
 class BackgroundProductionSettingsScreen extends ConsumerStatefulWidget {
   const BackgroundProductionSettingsScreen({super.key});
@@ -16,47 +21,91 @@ class BackgroundProductionSettingsScreen extends ConsumerStatefulWidget {
 
 class _BackgroundProductionSettingsScreenState
     extends ConsumerState<BackgroundProductionSettingsScreen> {
-  bool _isInitializing = true;
   bool _hasPermissions = false;
   bool _batteryOptDisabled = false;
   String? _deviceManufacturer;
   bool _iosKeepAliveActive = false;
+  Timer? _autoTimer;
+  bool _refreshing = false;
 
   @override
   void initState() {
     super.initState();
+    // Run initialization in background without blocking UI
     _checkStatus();
+
+    // Periodic auto-refresh every 3 seconds
+    _autoTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (mounted && !_refreshing) {
+        _refreshProviders();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _autoTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _checkStatus() async {
     if (!mounted) return;
-    setState(() => _isInitializing = true);
 
     try {
-      // Initialize services
+      // Initialize services (non-blocking)
       await PlatformAlarmService.instance.initialize();
       await EpochSlotSchedulerService.instance.initialize();
       await SlotProductionRepository.instance.initialize();
 
-      // Check permissions
-      _hasPermissions = PlatformAlarmService.instance.hasPermissions;
+      if (!mounted) return;
+
+      // Check permissions and update UI
+      final hasPermissions = PlatformAlarmService.instance.hasPermissions;
 
       if (Platform.isAndroid) {
         // Check battery optimization
-        _batteryOptDisabled =
+        final batteryOptDisabled =
             await PlatformAlarmService.instance.isBatteryOptimizationDisabled();
 
         // Get device manufacturer
-        _deviceManufacturer =
+        final deviceManufacturer =
             await PlatformAlarmService.instance.getDeviceManufacturer();
+
+        if (mounted) {
+          setState(() {
+            _hasPermissions = hasPermissions;
+            _batteryOptDisabled = batteryOptDisabled;
+            _deviceManufacturer = deviceManufacturer;
+          });
+        }
       } else if (Platform.isIOS) {
-        _iosKeepAliveActive = IOSForegroundKeepAliveService.instance.isActive;
+        final iosKeepAliveActive =
+            IOSForegroundKeepAliveService.instance.isActive;
+
+        if (mounted) {
+          setState(() {
+            _hasPermissions = hasPermissions;
+            _iosKeepAliveActive = iosKeepAliveActive;
+          });
+        }
       }
+
+      // Refresh providers to get latest VRF status and won slots
+      await _refreshProviders();
     } catch (e) {
       debugPrint('Error checking status: $e');
+    }
+  }
+
+  Future<void> _refreshProviders() async {
+    if (_refreshing) return;
+    _refreshing = true;
+    try {
+      await ref.read(nodeRawStatusProvider.notifier).refresh();
+      await ref.read(nodeEpochRewardsProvider.notifier).refresh();
     } finally {
       if (mounted) {
-        setState(() => _isInitializing = false);
+        _refreshing = false;
       }
     }
   }
@@ -72,53 +121,49 @@ class _BackgroundProductionSettingsScreenState
         elevation: 0,
         backgroundColor: Colors.transparent,
       ),
-      body: _isInitializing
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _checkStatus,
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  // Platform-specific info card
-                  _buildPlatformInfoCard(theme, colorScheme),
-                  const SizedBox(height: 24),
+      body: RefreshIndicator(
+        onRefresh: _checkStatus,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            // Platform-specific info card
+            _buildPlatformInfoCard(theme, colorScheme),
+            const SizedBox(height: 24),
 
-                  // Permissions section
-                  _buildPermissionsSection(theme, colorScheme),
-                  const SizedBox(height: 24),
+            // Permissions section
+            _buildPermissionsSection(theme, colorScheme),
+            const SizedBox(height: 24),
 
-                  // iOS Keep-Alive section (if iOS)
-                  if (Platform.isIOS) ...[
-                    _buildIOSKeepAliveSection(theme, colorScheme),
-                    const SizedBox(height: 24),
-                  ],
+            // iOS Keep-Alive section (if iOS)
+            if (Platform.isIOS) ...[
+              _buildIOSKeepAliveSection(theme, colorScheme),
+              const SizedBox(height: 24),
+            ],
 
-                  // Android Battery section (if Android)
-                  if (Platform.isAndroid) ...[
-                    _buildAndroidBatterySection(theme, colorScheme),
-                    const SizedBox(height: 24),
-                  ],
+            // Android Battery section (if Android)
+            if (Platform.isAndroid) ...[
+              _buildAndroidBatterySection(theme, colorScheme),
+              const SizedBox(height: 24),
+            ],
 
-                  // Scheduled slots section
-                  _buildScheduledSlotsSection(theme, colorScheme),
-                  const SizedBox(height: 24),
+            // Scheduled slots section
+            _buildScheduledSlotsSection(theme, colorScheme),
+            const SizedBox(height: 24),
 
-                  // Statistics card
-                  _buildStatisticsCard(theme, colorScheme),
-                ],
-              ),
-            ),
+            // Statistics card
+            _buildStatisticsCard(theme, colorScheme),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildPlatformInfoCard(ThemeData theme, ColorScheme colorScheme) {
     final isAndroid = Platform.isAndroid;
     final platformName = isAndroid ? 'Android' : 'iOS';
-    final reliability = isAndroid
-        ? '90-95% with exact alarms'
-        : _iosKeepAliveActive
-            ? '99% in foreground mode'
-            : '40-60% with background tasks';
+    final description = isAndroid
+        ? 'Automatically wakes your device using exact alarms to produce blocks at won slot times.'
+        : 'Automatically wakes your device using background tasks to produce blocks at won slot times.';
 
     return Card(
       child: Padding(
@@ -143,7 +188,7 @@ class _BackgroundProductionSettingsScreenState
             ),
             const SizedBox(height: 12),
             Text(
-              'Expected Reliability: $reliability',
+              description,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurface.withValues(alpha: 0.7),
               ),
@@ -373,9 +418,81 @@ class _BackgroundProductionSettingsScreenState
   }
 
   Widget _buildScheduledSlotsSection(ThemeData theme, ColorScheme colorScheme) {
-    final scheduledSlots =
-        EpochSlotSchedulerService.instance.getScheduledSlots();
-    final nextSlot = EpochSlotSchedulerService.instance.getNextSlot();
+    // Get VRF status and won slots from providers
+    final rawStatusAsync = ref.watch(nodeRawStatusProvider);
+    final epochRewardsAsync = ref.watch(nodeEpochRewardsProvider);
+
+    // Unwrap async values
+    final rawStatus = rawStatusAsync.valueOrNull;
+    final epochRewards = epochRewardsAsync.valueOrNull;
+
+    // Get VRF status
+    final vrfEvaluator = rawStatus?.vrfEvaluator;
+    final vrfStatus = vrfEvaluator?.currentEpochVrfEvaluationStatus;
+    final isVrfComplete =
+        vrfStatus != null && vrfStatus == RpcStatusVrfEvaluationStatus.completed;
+    final isVrfCalculating = vrfStatus != null &&
+        vrfStatus == RpcStatusVrfEvaluationStatus.evaluating;
+
+    // Get current epoch from raw status
+    final currentEpoch = rawStatus?.epoch;
+
+    // Validate epoch matches before showing won slots (prevents showing stale data)
+    final allWonSlots = (epochRewards != null &&
+            currentEpoch != null &&
+            epochRewards.epoch == currentEpoch)
+        ? (epochRewards.wonSlots ?? [])
+        : <RpcEpochWonSlot>[];
+
+    // Filter to future slots only, with correct timezone handling
+    final now = DateTime.now();
+    final futureSlots = allWonSlots.where((slot) {
+      try {
+        // Parse timestamp as UTC and convert to local time
+        final slotTime = DateTime.fromMillisecondsSinceEpoch(
+          slot.expectedTimeMs.toInt(),
+          isUtc: true,
+        ).toLocal();
+        return slotTime.isAfter(now);
+      } catch (e) {
+        return false;
+      }
+    }).toList();
+
+    // Get next slot
+    final nextSlot = futureSlots.isNotEmpty ? futureSlots.first : null;
+
+    // VRF status chip
+    Widget vrfStatusChip;
+    if (vrfStatus == null) {
+      vrfStatusChip = Chip(
+        label: const Text('Loading...'),
+        backgroundColor: Colors.grey.withValues(alpha: 0.2),
+        labelStyle: theme.textTheme.labelSmall,
+      );
+    } else if (isVrfComplete) {
+      vrfStatusChip = Chip(
+        label: const Text('VRF Complete'),
+        backgroundColor: Colors.green.withValues(alpha: 0.2),
+        labelStyle: theme.textTheme.labelSmall?.copyWith(
+          color: Colors.green.shade700,
+        ),
+      );
+    } else if (isVrfCalculating) {
+      vrfStatusChip = Chip(
+        label: const Text('VRF Calculating...'),
+        backgroundColor: Colors.orange.withValues(alpha: 0.2),
+        labelStyle: theme.textTheme.labelSmall?.copyWith(
+          color: Colors.orange.shade700,
+        ),
+      );
+    } else {
+      vrfStatusChip = Chip(
+        label: const Text('VRF Pending'),
+        backgroundColor: Colors.grey.withValues(alpha: 0.2),
+        labelStyle: theme.textTheme.labelSmall,
+      );
+    }
 
     return Card(
       child: Padding(
@@ -385,27 +502,32 @@ class _BackgroundProductionSettingsScreenState
           children: [
             Row(
               children: [
-                Icon(Icons.schedule, color: colorScheme.primary),
+                Icon(Icons.event_available, color: colorScheme.primary),
                 const SizedBox(width: 12),
-                Text(
-                  'Scheduled Slots',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Text(
+                    'Won Slots This Epoch',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
+                vrfStatusChip,
               ],
             ),
             const SizedBox(height: 12),
-            if (scheduledSlots.isEmpty)
+            if (futureSlots.isEmpty)
               Text(
-                'No slots currently scheduled',
+                allWonSlots.isEmpty
+                    ? 'No slots won for this epoch'
+                    : 'No upcoming slots remaining',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
               )
             else ...[
               Text(
-                '${scheduledSlots.length} slot${scheduledSlots.length != 1 ? 's' : ''} scheduled',
+                '${futureSlots.length} upcoming slot${futureSlots.length != 1 ? 's' : ''}',
                 style: theme.textTheme.bodyMedium,
               ),
               if (nextSlot != null) ...[
@@ -427,7 +549,7 @@ class _BackgroundProductionSettingsScreenState
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Slot ${nextSlot.slotNumber}',
+                        'Slot ${nextSlot.globalSlot}',
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                           color: colorScheme.onPrimaryContainer,
@@ -435,7 +557,12 @@ class _BackgroundProductionSettingsScreenState
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _formatDateTime(nextSlot.slotTime),
+                        _formatDateTime(
+                          DateTime.fromMillisecondsSinceEpoch(
+                            nextSlot.expectedTimeMs.toInt(),
+                            isUtc: true,
+                          ).toLocal(),
+                        ),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colorScheme.onPrimaryContainer,
                         ),

@@ -18,7 +18,7 @@ class TransactionModel {
   final String title;
   final String subtitle;
   final double amount;
-  final String currency;
+  final String tokenSymbol;
   final TransactionType type;
   final TransactionStatus status;
   final DateTime timestamp;
@@ -30,7 +30,7 @@ class TransactionModel {
     required this.title,
     required this.subtitle,
     required this.amount,
-    required this.currency,
+    required this.tokenSymbol,
     required this.type,
     required this.status,
     required this.timestamp,

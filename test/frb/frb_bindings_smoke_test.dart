@@ -5,13 +5,13 @@
 // backend build to catch binding breaks early. If the dynamic library is not
 // present, these tests will no-op to avoid flakiness in normal Flutter runs.
 
-@Tags(['frb', 'smoke'])
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:crypto_mobile_app/src/rust/lib.dart';
 import 'package:crypto_mobile_app/src/rust/rpc.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart';
+import 'package:crypto_mobile_app/src/rust/node.dart';
 
+@Tags(['frb', 'smoke'])
 void main() {
   group('FRB compile contract (no-load)', () {
     test('buildInfo has expected signature', () {

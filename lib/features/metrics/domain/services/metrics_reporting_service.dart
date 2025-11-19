@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/log_tag.dart';
+import 'package:crypto_mobile_app/core/models/block_production_event.dart';
 import 'package:crypto_mobile_app/features/metrics/data/repositories/metrics_repository.dart';
 import 'package:crypto_mobile_app/features/metrics/domain/services/metrics_collector_service.dart';
 
@@ -9,7 +10,11 @@ import 'package:crypto_mobile_app/features/metrics/domain/services/metrics_colle
 typedef WalletDataCallback = Future<({double? balance, String? address})>
     Function();
 
-/// Service responsible for periodically collecting and reporting metrics
+/// Service responsible for collecting and reporting metrics
+///
+/// Supports both:
+/// - Periodic health checks (timer-based, independent)
+/// - Event-driven metric collection (triggered by block production events)
 class MetricsReportingService {
   MetricsReportingService._();
   static final MetricsReportingService instance = MetricsReportingService._();
@@ -17,6 +22,7 @@ class MetricsReportingService {
   Timer? _reportingTimer;
   MetricsRepository? _repository;
   WalletDataCallback? _walletDataCallback;
+  StreamSubscription<BlockProductionEvent>? _eventSubscription;
   bool _isRunning = false;
   DateTime? _lastReportTime;
   int _successCount = 0;
@@ -39,7 +45,98 @@ class MetricsReportingService {
     _walletDataCallback = callback;
   }
 
+  /// Start listening to block production events
+  ///
+  /// When events are emitted, targeted metrics are collected and reported immediately.
+  void startListeningToEvents(Stream<BlockProductionEvent> eventStream) {
+    _eventSubscription?.cancel();
+
+    _eventSubscription = eventStream.listen(
+      (event) => _handleBlockProductionEvent(event),
+      onError: (error) {
+        LoggingService.instance.error(
+          'Error in block production event stream',
+          tag: LogTag.metrics,
+          error: error,
+        );
+      },
+    );
+
+    LoggingService.instance.info(
+      'Started listening to block production events for metrics',
+      tag: LogTag.metrics,
+    );
+  }
+
+  /// Stop listening to block production events
+  void stopListeningToEvents() {
+    _eventSubscription?.cancel();
+    _eventSubscription = null;
+  }
+
+  /// Handle a block production event by collecting and reporting targeted metrics
+  Future<void> _handleBlockProductionEvent(BlockProductionEvent event) async {
+    if (!_isRunning || _repository == null) return;
+
+    try {
+      LoggingService.instance.trace(
+        'Handling block production event: ${event.eventType}',
+        tag: LogTag.metrics,
+      );
+
+      // Fetch wallet data if needed
+      double? walletBalance;
+      String? walletAddress;
+
+      if (_walletDataCallback != null) {
+        try {
+          final walletData = await _walletDataCallback!();
+          walletBalance = walletData.balance;
+          walletAddress = walletData.address;
+        } catch (e) {
+          // Continue without wallet data
+        }
+      }
+
+      // Collect targeted metrics for this event
+      final payload = await MetricsCollectorService.instance.collectMetricsForEvent(
+        event,
+        walletBalance: walletBalance,
+        walletAddress: walletAddress,
+      );
+
+      // Send metrics to API
+      final success = await _repository!.sendMetrics(payload);
+
+      if (success) {
+        _successCount++;
+        _lastReportTime = DateTime.now();
+        LoggingService.instance.trace(
+          'Event metrics reported successfully',
+          tag: LogTag.metrics,
+          context: {
+            'event_type': event.eventType,
+          },
+        );
+      } else {
+        _failureCount++;
+      }
+    } catch (e, stackTrace) {
+      _failureCount++;
+      LoggingService.instance.error(
+        'Error reporting event metrics',
+        tag: LogTag.metrics,
+        error: e,
+        stackTrace: stackTrace,
+        context: {'event_type': event.eventType},
+      );
+    }
+  }
+
   /// Start metrics reporting using configuration from environment variables
+  ///
+  /// This starts the periodic health check timer. To enable event-driven metrics,
+  /// also call startListeningToEvents() with the orchestrator's event stream.
   Future<void> start() async {
     if (_isRunning) {
       LoggingService.instance.warn(
@@ -66,16 +163,15 @@ class MetricsReportingService {
       return;
     }
 
-    // Clamp interval to valid range
-    final intervalSeconds = AppConfig.metricsInterval.clamp(1, 3600);
-    final intervalDuration = Duration(seconds: intervalSeconds);
+    // Use the new configuration for metrics collection interval
+    final intervalDuration = AppConfig.metricsCollectionInterval;
 
     LoggingService.instance.info(
       'Starting metrics reporting',
       tag: LogTag.metrics,
       context: {
         'endpoint': AppConfig.metricsEndpoint,
-        'interval_seconds': intervalSeconds,
+        'interval_seconds': AppConfig.metricsCollectionIntervalSeconds,
       },
     );
 
@@ -121,6 +217,7 @@ class MetricsReportingService {
 
     _reportingTimer?.cancel();
     _reportingTimer = null;
+    stopListeningToEvents();
     _repository?.dispose();
     _repository = null;
     _isRunning = false;
@@ -199,7 +296,7 @@ class MetricsReportingService {
           tag: LogTag.metrics,
           context: {
             'peer_id': payload.node.identity.peerId,
-            'node_state': payload.node.status.nodeState,
+            'node_state': payload.node.status?.nodeState ?? 'unknown',
           },
         );
       } else {

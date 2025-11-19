@@ -328,7 +328,7 @@ class TransactionTile extends StatelessWidget {
               ),
             ),
             Text(
-              transaction.currency,
+              transaction.tokenSymbol,
               style: theme.textTheme.bodySmall?.copyWith(fontSize: 10),
             ),
           ],

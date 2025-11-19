@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
+import 'package:crypto_mobile_app/core/models/block_production_event.dart';
 import 'package:crypto_mobile_app/features/metrics/data/models/metrics_payload.dart';
 import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
@@ -12,6 +13,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 /// Service responsible for collecting all metrics from various sources
+///
+/// Supports both periodic health checks and event-driven metric collection.
 class MetricsCollectorService {
   MetricsCollectorService._();
   static final MetricsCollectorService instance = MetricsCollectorService._();
@@ -36,14 +39,69 @@ class MetricsCollectorService {
     _appLifecycleState = state;
   }
 
-  /// Collect all metrics and return a complete payload
-  Future<MetricsPayload> collectMetrics({
+  /// Collect metrics for a specific block production event
+  ///
+  /// This performs targeted metric collection based on event type:
+  /// - app_wake_up: Lightweight metrics (battery, time, slot info)
+  /// - slot_produced/failed: Production-specific metrics
+  /// - health_check: Full metrics
+  /// - etc.
+  Future<MetricsPayload> collectMetricsForEvent(
+    BlockProductionEvent event, {
     double? walletBalance,
     String? walletAddress,
   }) async {
+    // Determine which metrics to collect based on event type
+    final collectFull = event.eventType == 'health_check' ||
+        event.eventType == 'epoch_transition' ||
+        event.eventType == 'app_resumed';
+
+    final collectLightweight = event.eventType == 'app_wake_up';
+
+    final collectProduction = event.eventType == 'slot_monitoring_start' ||
+        event.eventType == 'slot_produced' ||
+        event.eventType == 'slot_failed';
+
+    return await collectMetrics(
+      eventType: event.eventType,
+      eventData: event.toJson(),
+      walletBalance: walletBalance,
+      walletAddress: walletAddress,
+      collectFull: collectFull,
+      collectLightweight: collectLightweight,
+      collectProduction: collectProduction,
+    );
+  }
+
+  /// Collect all metrics and return a complete payload
+  Future<MetricsPayload> collectMetrics({
+    String eventType = 'health_check',
+    Map<String, dynamic>? eventData,
+    double? walletBalance,
+    String? walletAddress,
+    bool collectFull = true,
+    bool collectLightweight = false,
+    bool collectProduction = false,
+  }) async {
+    // For lightweight collection (app_wake_up), only collect essential metrics
+    if (collectLightweight) {
+      return await _collectLightweightMetrics(eventType, eventData);
+    }
+
+    // For production events, collect production-focused metrics
+    if (collectProduction) {
+      return await _collectProductionFocusedMetrics(
+        eventType,
+        eventData,
+        walletBalance,
+        walletAddress,
+      );
+    }
+
+    // For full collection, collect everything
     // Collect all metrics in parallel for efficiency
     final results = await Future.wait([
-      _collectEventMetrics(),
+      _collectEventMetrics(eventType, eventData),
       _collectRuntimeMetrics(),
       _collectPlatformMetrics(),
       _collectDeviceMetrics(),
@@ -103,19 +161,126 @@ class MetricsCollectorService {
   }
 
   /// Collect event metadata
-  Future<EventMetrics> _collectEventMetrics() async {
+  Future<EventMetrics> _collectEventMetrics(
+    String eventType,
+    Map<String, dynamic>? eventData,
+  ) async {
     return EventMetrics(
-      eventType: 'health_check',
+      eventType: eventType,
       timestamp: DateTime.now().toUtc().toIso8601String(),
+      eventData: eventData,
+    );
+  }
+
+  /// Collect lightweight metrics for app_wake_up events
+  ///
+  /// This is PROOF that the alarm fired! Only collects essential metrics.
+  Future<MetricsPayload> _collectLightweightMetrics(
+    String eventType,
+    Map<String, dynamic>? eventData,
+  ) async {
+    final event = await _collectEventMetrics(eventType, eventData);
+    final runtime = await _collectRuntimeMetrics();
+
+    // Get battery level (lightweight)
+    int batteryLevel = 0;
+    try {
+      batteryLevel = await _battery.batteryLevel;
+    } catch (e) {
+      // Battery info not available
+    }
+
+    final battery = BatteryMetrics(
+      batteryLevel: batteryLevel,
+      batteryState: 'unknown', // Skip detailed collection for lightweight
+      batteryOptimizationDisabled: false,
+      powerSaveMode: false,
+      lowPowerMode: false,
+    );
+
+    // Minimal app metrics
+    final app = AppMetricsGroup(
+      runtime: runtime,
+      platform: null, // Skip for lightweight
+      device: null, // Skip for lightweight
+      battery: battery,
+      network: null, // Skip for lightweight
+      permissions: null, // Skip for lightweight
+      foregroundService: null, // Skip for lightweight
+    );
+
+    // Minimal node metrics
+    final identity = await _collectIdentityMetrics();
+    final node = NodeMetricsGroup(
+      identity: identity,
+      status: null, // Skip for lightweight
+      consensus: null, // Skip for lightweight
+      blockchain: null, // Skip for lightweight
+      production: null, // Skip for lightweight
+      wallet: null, // Skip for lightweight
+      peers: null, // Skip for lightweight
+    );
+
+    return MetricsPayload(
+      event: event,
+      app: app,
+      node: node,
+    );
+  }
+
+  /// Collect production-focused metrics for slot events
+  Future<MetricsPayload> _collectProductionFocusedMetrics(
+    String eventType,
+    Map<String, dynamic>? eventData,
+    double? walletBalance,
+    String? walletAddress,
+  ) async {
+    final event = await _collectEventMetrics(eventType, eventData);
+    final runtime = await _collectRuntimeMetrics();
+    final battery = await _collectBatteryMetrics();
+
+    // App metrics (reduced set)
+    final app = AppMetricsGroup(
+      runtime: runtime,
+      platform: null, // Skip for production
+      device: null, // Skip for production
+      battery: battery,
+      network: null, // Skip for production
+      permissions: null, // Skip for production
+      foregroundService:
+          Platform.isAndroid ? await _collectForegroundServiceMetrics() : null,
+    );
+
+    // Node metrics (production-focused)
+    final identity = await _collectIdentityMetrics();
+    final status = await _collectStatusMetrics();
+    final consensus = await _collectConsensusMetrics();
+    final production = _collectProductionMetrics(); // Existing method
+
+    final node = NodeMetricsGroup(
+      identity: identity,
+      status: status,
+      consensus: consensus,
+      blockchain: null, // Skip detailed blockchain for production
+      production: production,
+      wallet: null, // Skip wallet for production
+      peers: null, // Skip peers for production
+    );
+
+    return MetricsPayload(
+      event: event,
+      app: app,
+      node: node,
     );
   }
 
   /// Collect node identity
   Future<IdentityMetrics> _collectIdentityMetrics() async {
-    // Note: peer ID is not exposed in RpcStatusResp currently
-    // Leave as null for now
+    // Get peer ID from backend service
+    final peerId = RustBackendService.instance.getPeerId();
+
     return IdentityMetrics(
-      peerId: null,
+      peerId: peerId,
     );
   }
 
@@ -220,8 +385,19 @@ class MetricsCollectorService {
 
   /// Collect battery state
   Future<BatteryMetrics> _collectBatteryMetrics() async {
-    final batteryLevel = await _battery.batteryLevel;
-    final batteryState = await _battery.batteryState;
+    // Default values for when battery info is unavailable
+    int batteryLevel = 0; // 0 when unavailable (API requires >= 0)
+    BatteryState batteryState = BatteryState.unknown;
+    bool batteryAvailable = true;
+
+    try {
+      batteryLevel = await _battery.batteryLevel;
+      batteryState = await _battery.batteryState;
+    } catch (e) {
+      // Battery info not available on this platform (desktop/simulator)
+      // Use default values
+      batteryAvailable = false;
+    }
 
     // Check if battery optimization is disabled (Android)
     bool batteryOptimizationDisabled = false;
@@ -235,10 +411,11 @@ class MetricsCollectorService {
     }
 
     // For power save mode, we'll use battery state as proxy
-    // In a real implementation, you might need platform channels
-    final powerSaveMode =
-        batteryState == BatteryState.charging ? false : batteryLevel < 20;
-    final lowPowerMode = batteryLevel < 20;
+    // Only calculate power modes when battery info is available
+    final powerSaveMode = !batteryAvailable
+        ? false
+        : (batteryState == BatteryState.charging ? false : batteryLevel < 20);
+    final lowPowerMode = !batteryAvailable ? false : batteryLevel < 20;
 
     return BatteryMetrics(
       batteryLevel: batteryLevel,

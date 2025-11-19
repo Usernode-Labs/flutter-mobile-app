@@ -5,6 +5,7 @@ import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
+import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
 import 'package:crypto_mobile_app/core/routing/app_router.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:go_router/go_router.dart';
@@ -106,61 +107,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             },
           ),
           ListTile(
-            leading: Icon(Icons.attach_money, color: colorScheme.primary),
-            title: const Text('Currency'),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'USD',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurface.withValues(alpha: 0.6),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                const Icon(Icons.chevron_right),
-              ],
-            ),
-            onTap: () {
-              showDialog(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('Currency'),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ListTile(
-                        title: const Text('USD (\$)'),
-                        trailing: const Icon(Icons.check),
-                        onTap: () => Navigator.pop(ctx),
-                      ),
-                      ListTile(
-                        title: const Text('EUR (€)'),
-                        onTap: () {
-                          Navigator.pop(ctx);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text('Currency support coming soon')),
-                          );
-                        },
-                      ),
-                      ListTile(
-                        title: const Text('GBP (£)'),
-                        onTap: () {
-                          Navigator.pop(ctx);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text('Currency support coming soon')),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-          ListTile(
             leading: Icon(Icons.notifications, color: colorScheme.primary),
             title: const Text('Notifications'),
             subtitle: const Text('Manage slot notifications'),
@@ -250,6 +196,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       Text('Opt level: ${env.cargo.optLevel}'),
                       const SizedBox(height: 6),
                       Text('Debug: ${env.cargo.isDebug}'),
+                      const Divider(height: 16),
+                      Text('P2P Peer ID:'),
+                      SelectableText(
+                        RustBackendService.instance.getPeerId() ??
+                            'Not available',
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 11,
+                        ),
+                      ),
                     ],
                   ),
                   actions: [

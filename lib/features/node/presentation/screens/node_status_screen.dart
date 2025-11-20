@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
-import 'package:crypto_mobile_app/core/config/app_constants.dart';
+import 'package:crypto_mobile_app/core/config/blockchain_timing.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:crypto_mobile_app/core/widgets/produced_block_card.dart';
@@ -74,9 +74,12 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       // Note: nodeStatusProvider is now derived from nodeRawStatusProvider,
       // so we only need to refresh nodeRawStatusProvider
       await ref.read(nodeRawStatusProvider.notifier).refresh();
-      await ref.refresh(nodeMempoolProvider.future);
-      await ref.refresh(nodeBlockchainProvider.future);
-      await ref.refresh(nodeEpochRewardsProvider.future);
+      // ignore: unused_result
+      ref.refresh(nodeMempoolProvider.future);
+      // ignore: unused_result
+      ref.refresh(nodeBlockchainProvider.future);
+      // ignore: unused_result
+      ref.refresh(nodeEpochRewardsProvider.future);
 
       // Check if still mounted after async operations
       if (!mounted) return;
@@ -517,7 +520,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             final vrfEvaluator =
                 ref.watch(nodeRawStatusProvider).value?.vrfEvaluator;
             final evaluatedSlots = vrfEvaluator?.evaluatedSlotsSinceStart ?? 0;
-            const totalSlotsPerEpoch = AppConstants.slotsPerEpoch;
+            final totalSlotsPerEpoch = BlockchainTiming.slotsPerEpoch;
 
             return Row(
               children: [

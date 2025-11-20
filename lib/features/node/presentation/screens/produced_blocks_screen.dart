@@ -65,7 +65,6 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen> {
     return Scaffold(
       appBar: const AppAppBar(
         title: 'Produced Blocks',
-        showNotifications: false,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),

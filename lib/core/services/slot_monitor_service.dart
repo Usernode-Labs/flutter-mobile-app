@@ -131,8 +131,16 @@ class SlotMonitorService {
       }
 
       // Get node state from block producer status
-      final nodeState = status.blockProducer?.status?.toString() ?? 'idle';
-      final bestTipSlot = status.blockchain.bestTip.globalSlot;
+      final nodeState = status.blockProducer?.status.toString() ?? 'idle';
+
+      // Use backend-provided current global slot
+      final bestTipSlot = status.node.curGlobalSlot;
+      if (bestTipSlot == null) {
+        // TODO: Decide fallback strategy when curGlobalSlot is unavailable
+        _logger.w('curGlobalSlot unavailable from backend, skipping poll');
+        return;
+      }
+
       final currentSlotNumber = _currentSlot!.slotNumber;
 
       // Track state transitions

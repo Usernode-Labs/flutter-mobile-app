@@ -91,12 +91,12 @@ class MetricsRepository {
   /// If no health endpoint is configured, returns true (skip check)
   Future<bool> testConnection() async {
     // Skip health check if no endpoint configured
-    if (_apiHealthEndpoint == null || _apiHealthEndpoint!.isEmpty) {
+    if (_apiHealthEndpoint == null || _apiHealthEndpoint.isEmpty) {
       return true;
     }
 
     try {
-      final url = Uri.parse(_apiHealthEndpoint!);
+      final url = Uri.parse(_apiHealthEndpoint);
 
       final response = await _httpClient.get(
         url,

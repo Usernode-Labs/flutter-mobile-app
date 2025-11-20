@@ -67,7 +67,6 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
     return Scaffold(
       appBar: const AppAppBar(
         title: 'Receive',
-        showNotifications: false,
         showNodeStatus: false,
       ),
       body: _loading

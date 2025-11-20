@@ -55,7 +55,6 @@ class _RewardsBreakdownScreenState
     return Scaffold(
       appBar: const AppAppBar(
         title: 'Rewards Breakdown',
-        showNotifications: false,
         showNodeStatus: false,
       ),
       body: SafeArea(

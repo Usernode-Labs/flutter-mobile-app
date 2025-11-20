@@ -926,7 +926,14 @@ class RustBackendService {
         return null;
       }
 
-      final currentSlot = status!.blockchain.bestTip.globalSlot;
+      // Use backend-provided current global slot
+      final currentSlot = status!.node.curGlobalSlot;
+      if (currentSlot == null) {
+        // TODO: Decide fallback strategy when curGlobalSlot is unavailable
+        LoggingService.instance
+            .warn('Cannot get epoch info: curGlobalSlot unavailable');
+        return null;
+      }
 
       // Query epoch rewards with won slots
       final epochRewardsResp = await epochRewards(epoch: epoch);

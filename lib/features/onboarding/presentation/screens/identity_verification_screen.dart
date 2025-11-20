@@ -93,7 +93,6 @@ class _IdentityVerificationScreenState
         appBar: const AppAppBar(
           title: 'Identity Verification',
           automaticallyImplyLeading: false,
-          showNotifications: false,
           showNodeStatus: false,
         ),
         body: SafeArea(

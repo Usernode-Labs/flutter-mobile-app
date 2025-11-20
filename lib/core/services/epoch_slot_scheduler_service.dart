@@ -6,7 +6,6 @@ import '../../features/node/data/repositories/rust_backend_service.dart';
 import '../config/blockchain_timing.dart';
 import '../data/slot_production_repository.dart';
 import 'platform_alarm_service.dart';
-import 'local_notification_service.dart';
 
 /// Service responsible for epoch-aware scheduling of slot alarms/tasks
 ///
@@ -220,26 +219,12 @@ class EpochSlotSchedulerService {
     }
   }
 
-  /// Send notification about epoch transition
+  /// Log epoch transition
   Future<void> _notifyEpochTransition(int? oldEpoch, int newEpoch) async {
-    try {
-      final title = 'New Epoch Started';
-      final message = oldEpoch != null
-          ? 'Epoch $oldEpoch → $newEpoch. Rescheduling won slots...'
-          : 'Now tracking epoch $newEpoch. Scheduling won slots...';
-
-      // Use local notification service to show notification
-      await LocalNotificationService.instance.showNotification(
-        id: DateTime.now().millisecondsSinceEpoch ~/ 1000, // Unique ID
-        title: title,
-        body: message,
-        isSlotNotification: false, // General notification
-      );
-
-      _logger.i('Sent epoch transition notification');
-    } catch (e) {
-      _logger.w('Failed to send epoch transition notification: $e');
-    }
+    final message = oldEpoch != null
+        ? 'Epoch $oldEpoch → $newEpoch. Rescheduling won slots...'
+        : 'Now tracking epoch $newEpoch. Scheduling won slots...';
+    _logger.i('Epoch transition: $message');
   }
 
   /// Schedule alarms for all won slots in the specified epoch
@@ -539,11 +524,24 @@ class EpochSlotSchedulerService {
         return null;
       }
 
-      final currentGlobalSlot = status!.blockchain.bestTip.globalSlot;
+      // Use backend-provided current global slot
+      final currentGlobalSlot = status!.node.curGlobalSlot;
+      if (currentGlobalSlot == null) {
+        // TODO: Decide fallback strategy when curGlobalSlot is unavailable
+        _logger.w('curGlobalSlot unavailable from backend');
+        return null;
+      }
 
-      // Calculate epoch boundaries
-      final epochStartSlot = _currentEpoch! * BlockchainTiming.slotsPerEpoch;
-      final epochEndSlot = epochStartSlot + BlockchainTiming.slotsPerEpoch;
+      // Use backend-provided epoch upper bound
+      final epochEndSlot = status.vrfEvaluator?.details?.status.whenOrNull(
+        readyToEvaluate: (_, __, ___, upperBound, ____, _____) => upperBound,
+      );
+      if (epochEndSlot == null) {
+        // TODO: Decide fallback strategy when epochUpperBound is unavailable
+        _logger.w('epochUpperBound unavailable from VRF evaluator');
+        return null;
+      }
+
       final slotsUntilEnd = epochEndSlot - currentGlobalSlot;
 
       // Calculate time until epoch ends
@@ -575,10 +573,29 @@ class EpochSlotSchedulerService {
         return null;
       }
 
-      final currentGlobalSlot = status!.blockchain.bestTip.globalSlot;
+      // Use backend-provided current global slot
+      final currentGlobalSlot = status!.node.curGlobalSlot;
+      if (currentGlobalSlot == null) {
+        // TODO: Decide fallback strategy when curGlobalSlot is unavailable
+        _logger.w('curGlobalSlot unavailable from backend');
+        return null;
+      }
+
+      // Use backend-provided epoch boundaries
+      final epochUpperBound = status.vrfEvaluator?.details?.status.whenOrNull(
+        readyToEvaluate: (_, __, ___, upperBound, ____, _____) => upperBound,
+      );
+      if (epochUpperBound == null) {
+        // TODO: Decide fallback strategy when epochUpperBound is unavailable
+        _logger.w('epochUpperBound unavailable from VRF evaluator');
+        return null;
+      }
+
+      // Calculate epoch start from upper bound
+      final epochStartSlot = epochUpperBound - BlockchainTiming.slotsPerEpoch + 1;
 
       // Calculate slot position within epoch
-      final slotInEpoch = currentGlobalSlot % BlockchainTiming.slotsPerEpoch;
+      final slotInEpoch = currentGlobalSlot - epochStartSlot;
       final progress = slotInEpoch / BlockchainTiming.slotsPerEpoch;
 
       return progress.clamp(0.0, 1.0);

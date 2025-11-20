@@ -55,7 +55,6 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
     return Scaffold(
       appBar: const AppAppBar(
         title: 'Mempool Transactions',
-        showNotifications: false,
       ),
       body: RefreshIndicator(
         onRefresh: _refresh,

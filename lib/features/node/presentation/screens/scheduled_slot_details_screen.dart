@@ -20,24 +20,14 @@ class ScheduledSlotDetailsScreen extends StatelessWidget {
     return dateFormat.format(dateTime);
   }
 
-  bool _isPast(BigInt timestampMs) {
-    final dateTime = DateTime.fromMillisecondsSinceEpoch(
-      timestampMs.toInt(),
-      isUtc: true,
-    );
-    return DateTime.now().toUtc().isAfter(dateTime);
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final formattedTime = _formatDateTime(slot.expectedTimeMs);
-    final isPast = _isPast(slot.expectedTimeMs);
 
     return Scaffold(
       appBar: const AppAppBar(
         title: 'Scheduled Slot Details',
-        showNotifications: false,
       ),
       body: SafeArea(
         child: ListView(

@@ -563,7 +563,10 @@ class MetricsCollectorService {
         if (status != null) {
           final bestTip = status.blockchain.bestTip;
           currentEpoch = bestTip.epoch;
-          currentGlobalSlot = bestTip.globalSlot;
+
+          // Use backend-provided current global slot
+          currentGlobalSlot = status.node.curGlobalSlot;
+          // TODO: Decide fallback strategy when curGlobalSlot is unavailable
 
           // TODO: Implement won slots and production tracking
           // This will be implemented in Phase 3

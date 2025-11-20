@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:crypto_mobile_app/core/providers/notifications_provider.dart';
-import 'package:crypto_mobile_app/core/widgets/notification_badge.dart';
 import 'package:crypto_mobile_app/core/widgets/node_status_icon.dart';
 
 /// Unified AppBar component with consistent styling across the app
@@ -14,7 +11,6 @@ class AppAppBar extends ConsumerWidget implements PreferredSizeWidget {
   final PreferredSizeWidget? bottom;
   final Widget? leading;
   final bool centerTitle;
-  final bool showNotifications;
   final bool showNodeStatus;
 
   const AppAppBar({
@@ -25,31 +21,16 @@ class AppAppBar extends ConsumerWidget implements PreferredSizeWidget {
     this.bottom,
     this.leading,
     this.centerTitle = false,
-    this.showNotifications = true,
     this.showNodeStatus = true,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final notificationsState = ref.watch(notificationsProvider);
 
-    // Build default actions with node status icon and notifications icon
+    // Build default actions with node status icon
     final defaultActions = <Widget>[
       if (showNodeStatus) const NodeStatusIcon(),
-      if (showNotifications)
-        IconButton(
-          icon: NotificationBadge(
-            count: notificationsState.unreadCount,
-            child: Icon(
-              notificationsState.unreadCount > 0
-                  ? Icons.notifications
-                  : Icons.notifications_outlined,
-            ),
-          ),
-          onPressed: () => context.push('/notifications'),
-          tooltip: 'Notifications',
-        ),
     ];
 
     // Combine custom actions with default actions

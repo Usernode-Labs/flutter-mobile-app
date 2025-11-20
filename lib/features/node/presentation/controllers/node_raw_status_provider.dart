@@ -20,6 +20,9 @@ class NodeRawStatusView {
   final BlockProgressData? applyProgress;
   final RpcStatusBlockProducer? blockProducer;
   final RpcStatusVrfEvaluator? vrfEvaluator;
+  final RpcStatusNode node;
+  final int slotsInEpoch;
+  final int blockInterval;
 
   const NodeRawStatusView({
     required this.peers,
@@ -29,12 +32,45 @@ class NodeRawStatusView {
     required this.applyProgress,
     required this.blockProducer,
     required this.vrfEvaluator,
+    required this.node,
+    required this.slotsInEpoch,
+    required this.blockInterval,
   });
 
   int? get localBestHeight => localBest?.height;
   int? get networkBestHeight => networkBest?.height;
   int? get epoch => (networkBest ?? localBest)?.epoch;
   int? get globalSlot => (networkBest ?? localBest)?.globalSlot;
+
+  /// Current global slot from backend (node's clock-based slot)
+  int? get currentGlobalSlot => node.curGlobalSlot;
+
+  /// Epoch upper bound (end slot) from VRF evaluator
+  /// Only available when VRF evaluator is in ReadyToEvaluate state
+  int? get epochUpperBound {
+    final details = vrfEvaluator?.details;
+    if (details == null) return null;
+
+    return details.status.whenOrNull(
+      readyToEvaluate: (
+        int evaluationEpoch,
+        int clockEpoch,
+        int currentGlobalSlot,
+        int epochUpperBound,
+        bool isCurrentEpochEvaluated,
+        bool isNextEpochEvaluated,
+      ) => epochUpperBound,
+    );
+  }
+
+  /// Epoch start slot calculated from epoch upper bound
+  /// upperBound is the last slot of epoch, so start = upperBound - slotsPerEpoch + 1
+  int? get epochStartSlot {
+    final upperBound = epochUpperBound;
+    if (upperBound == null) return null;
+    return upperBound - slotsInEpoch + 1;
+  }
+
   String? get bestTipHash {
     try {
       final h = (networkBest ?? localBest)?.hash.toString();
@@ -141,6 +177,9 @@ class NodeRawStatusController extends AsyncNotifier<NodeRawStatusView?> {
         applyProgress: applyProgress,
         blockProducer: status.blockProducer,
         vrfEvaluator: status.vrfEvaluator,
+        node: status.node,
+        slotsInEpoch: status.node.slotsInEpoch,
+        blockInterval: status.node.blockInterval,
       );
     } catch (e, st) {
       LoggingService.instance.error('raw status load failed',

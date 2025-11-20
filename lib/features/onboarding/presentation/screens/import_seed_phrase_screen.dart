@@ -127,7 +127,6 @@ class _ImportSeedPhraseScreenState
     return Scaffold(
       appBar: const AppAppBar(
         title: 'Import from Seed Phrase',
-        showNotifications: false,
         showNodeStatus: false,
       ),
       body: SafeArea(

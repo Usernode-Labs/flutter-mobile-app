@@ -11,7 +11,6 @@ import '../../features/node/data/repositories/rust_backend_service.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 import '../config/app_config.dart';
 import 'platform_alarm_service.dart';
-import 'local_notification_service.dart';
 import 'slot_monitor_service.dart';
 import 'epoch_slot_scheduler_service.dart' as legacy;
 
@@ -472,9 +471,6 @@ class BackgroundBlockProductionOrchestrator {
       productionTime: event.timestamp,
     ));
 
-    // Send success notification
-    _sendSuccessNotification(event.slotNumber);
-
     // Stop foreground service
     _stopForegroundService();
 
@@ -507,9 +503,6 @@ class BackgroundBlockProductionOrchestrator {
       errorDetails: event.error,
     ));
 
-    // Send failure notification
-    _sendFailureNotification(event.slotNumber, reason);
-
     // Stop foreground service
     _stopForegroundService();
 
@@ -522,36 +515,6 @@ class BackgroundBlockProductionOrchestrator {
     _logger.d('Monitoring stopped for slot ${event.slotNumber}');
     _monitoringSubscription?.cancel();
     _monitoringSubscription = null;
-  }
-
-  /// Send success notification
-  Future<void> _sendSuccessNotification(int slotNumber) async {
-    if (!_state.notificationsEnabled) return;
-
-    try {
-      await LocalNotificationService.instance.showNotification(
-        id: slotNumber,
-        title: '🎉 Block Produced',
-        body: 'Successfully produced block for slot $slotNumber',
-      );
-    } catch (e) {
-      _logger.w('Failed to send success notification: $e');
-    }
-  }
-
-  /// Send failure notification
-  Future<void> _sendFailureNotification(int slotNumber, String reason) async {
-    if (!_state.notificationsEnabled) return;
-
-    try {
-      await LocalNotificationService.instance.showNotification(
-        id: slotNumber,
-        title: '⚠️ Slot Missed',
-        body: 'Slot $slotNumber was missed: $reason',
-      );
-    } catch (e) {
-      _logger.w('Failed to send failure notification: $e');
-    }
   }
 
   /// Stop foreground service
@@ -614,15 +577,9 @@ class BackgroundBlockProductionOrchestrator {
           // Schedule alarm via platform service
           final alarmSuccess = await _scheduleSlotAlarm(scheduled);
 
-          // Schedule notification (if enabled)
-          bool notifSuccess = false;
-          if (_state.notificationsEnabled) {
-            notifSuccess = await _scheduleSlotNotification(scheduled);
-          }
-
           if (alarmSuccess) {
             newSlots.add(scheduled.copyWith(
-              notificationScheduled: notifSuccess,
+              notificationScheduled: false,
             ));
             successCount++;
           } else {
@@ -683,37 +640,6 @@ class BackgroundBlockProductionOrchestrator {
     }
   }
 
-  /// Schedule notification for a specific slot
-  ///
-  /// Schedules an "upcoming slot" notification in advance of the slot time.
-  Future<bool> _scheduleSlotNotification(ScheduledSlot slot) async {
-    try {
-      // Schedule notification 15 minutes before slot (configurable later)
-      final notificationTime = slot.slotTime.subtract(const Duration(minutes: 15));
-
-      // Only schedule if notification time is in the future
-      if (notificationTime.isBefore(DateTime.now())) {
-        _logger.d(
-            'Skipping notification for slot ${slot.slotNumber} (notification time already passed)');
-        return false;
-      }
-
-      await LocalNotificationService.instance.scheduleNotification(
-        id: slot.slotNumber,
-        title: '💰 Earning Opportunity',
-        body: 'Block production slot in 15 minutes',
-        scheduledTime: notificationTime,
-        payload: 'slot:${slot.slotNumber}',
-      );
-
-      _logger.d('Scheduled notification for slot ${slot.slotNumber}');
-      return true;
-    } catch (e) {
-      _logger.w('Failed to schedule notification for slot ${slot.slotNumber}: $e');
-      return false;
-    }
-  }
-
   /// Cancel all scheduled slot alarms
   Future<void> _cancelAllSlotAlarms() async {
     try {
@@ -738,12 +664,7 @@ class BackgroundBlockProductionOrchestrator {
       final alarmId = 'slot_${slot.slotNumber}';
       await PlatformAlarmService.instance.cancelAlarm(alarmId);
 
-      // Cancel notification if it was scheduled
-      if (slot.notificationScheduled) {
-        await LocalNotificationService.instance.cancelNotification(slot.slotNumber);
-      }
-
-      _logger.d('Cancelled alarm and notification for slot ${slot.slotNumber}');
+      _logger.d('Cancelled alarm for slot ${slot.slotNumber}');
     } catch (e) {
       _logger.e('Error cancelling slot alarm: $e');
     }

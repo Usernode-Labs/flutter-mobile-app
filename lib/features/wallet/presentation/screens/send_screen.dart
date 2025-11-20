@@ -183,7 +183,6 @@ class _SendScreenState extends State<SendScreen> {
     return Scaffold(
         appBar: const AppAppBar(
           title: 'Send',
-          showNotifications: false,
           showNodeStatus: false,
         ),
         body: SafeArea(

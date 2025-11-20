@@ -57,7 +57,6 @@ class _AccountModeSelectionScreenState
         appBar: const AppAppBar(
           title: 'Account Setup',
           automaticallyImplyLeading: false,
-          showNotifications: false,
           showNodeStatus: false,
         ),
         body: SafeArea(

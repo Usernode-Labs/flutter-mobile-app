@@ -29,6 +29,7 @@ class SlotMonitorService {
   String? _lastNodeState;
   int? _lastBestTipSlot;
   DateTime? _monitoringStartTime;
+  int _pollAttemptCount = 0;
 
   /// Stream of monitoring events for UI updates
   Stream<SlotMonitoringEvent> get monitoringEvents => _eventController.stream;
@@ -72,6 +73,7 @@ class SlotMonitorService {
     _monitoringStartTime = DateTime.now();
     _lastNodeState = null;
     _lastBestTipSlot = null;
+    _pollAttemptCount = 0;
 
     // Emit monitoring started event
     _eventController.add(SlotMonitoringEvent(
@@ -123,17 +125,61 @@ class SlotMonitorService {
   Future<void> _pollNodeStatus() async {
     if (!_isMonitoring || _currentSlot == null) return;
 
+    _pollAttemptCount++;
+    _logger.d('Poll attempt #$_pollAttemptCount for slot ${_currentSlot!.slotNumber}');
+
     try {
       final status = await RustBackendService.instance.getStatus();
       if (status == null) {
         _logger.w('No status available from Rust backend');
+
+        // Emit monitoring poll event (failed)
+        _eventController.add(SlotMonitoringEvent(
+          type: MonitoringEventType.poll,
+          slotNumber: _currentSlot!.slotNumber,
+          timestamp: DateTime.now(),
+          pollAttempt: _pollAttemptCount,
+          nodeState: 'unknown',
+          success: false,
+        ));
         return;
       }
 
       // Get node state from block producer status
-      final nodeState = status.blockProducer?.status?.toString() ?? 'idle';
-      final bestTipSlot = status.blockchain.bestTip.globalSlot;
+      final nodeState = status.blockProducer?.status.toString() ?? 'idle';
+
+      // Use backend-provided current global slot
+      final bestTipSlot = status.node.curGlobalSlot;
+      if (bestTipSlot == null) {
+        // TODO: Decide fallback strategy when curGlobalSlot is unavailable
+        _logger.w('curGlobalSlot unavailable from backend, skipping poll');
+
+        // Emit monitoring poll event (failed)
+        _eventController.add(SlotMonitoringEvent(
+          type: MonitoringEventType.poll,
+          slotNumber: _currentSlot!.slotNumber,
+          timestamp: DateTime.now(),
+          pollAttempt: _pollAttemptCount,
+          nodeState: nodeState,
+          success: false,
+        ));
+        return;
+      }
+
       final currentSlotNumber = _currentSlot!.slotNumber;
+
+      _logger.d('Poll #$_pollAttemptCount - Node: $nodeState, BestTip: $bestTipSlot, Target: $currentSlotNumber');
+
+      // Emit monitoring poll event (successful)
+      _eventController.add(SlotMonitoringEvent(
+        type: MonitoringEventType.poll,
+        slotNumber: currentSlotNumber,
+        timestamp: DateTime.now(),
+        pollAttempt: _pollAttemptCount,
+        nodeState: nodeState,
+        bestTipSlot: bestTipSlot,
+        success: true,
+      ));
 
       // Track state transitions
       if (_lastNodeState != nodeState) {
@@ -310,6 +356,7 @@ class SlotMonitorService {
 enum MonitoringEventType {
   started,
   stopped,
+  poll, // New: Emitted on each status poll attempt
   stateChanged,
   tipAdvanced,
   slotProduced,
@@ -326,6 +373,8 @@ class SlotMonitoringEvent {
   final int? bestTipSlot;
   final int? blockHeight;
   final String? error;
+  final int? pollAttempt; // New: Poll attempt number
+  final bool? success; // New: Whether the poll was successful
 
   SlotMonitoringEvent({
     required this.type,
@@ -335,6 +384,8 @@ class SlotMonitoringEvent {
     this.bestTipSlot,
     this.blockHeight,
     this.error,
+    this.pollAttempt,
+    this.success,
   });
 
   @override
@@ -347,6 +398,8 @@ class SlotMonitoringEvent {
         '${bestTipSlot != null ? ", tip: $bestTipSlot" : ""}'
         '${blockHeight != null ? ", height: $blockHeight" : ""}'
         '${error != null ? ", error: $error" : ""}'
+        '${pollAttempt != null ? ", poll: #$pollAttempt" : ""}'
+        '${success != null ? ", success: $success" : ""}'
         ')';
   }
 }

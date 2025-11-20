@@ -7,7 +7,6 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:crypto_mobile_app/src/rust/lib.dart';
-import 'package:crypto_mobile_app/src/rust/rpc.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart';
 import 'package:crypto_mobile_app/src/rust/node.dart';
 

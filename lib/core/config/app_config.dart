@@ -34,12 +34,15 @@ class AppConfig {
       String.fromEnvironment('METRICS_HEALTH_ENDPOINT', defaultValue: '');
 
   // Block Production configuration (all in seconds)
-  static const int metricsCollectionIntervalSeconds =
-      int.fromEnvironment('METRICS_COLLECTION_INTERVAL_SECONDS', defaultValue: 30);
-  static const int blockProductionWakeBeforeSlotSeconds =
-      int.fromEnvironment('BLOCK_PRODUCTION_WAKE_BEFORE_SLOT_SECONDS', defaultValue: 60);
-  static const int epochMonitorBaseIntervalSeconds =
-      int.fromEnvironment('EPOCH_MONITOR_BASE_INTERVAL_SECONDS', defaultValue: 900);
+  static const int metricsCollectionIntervalSeconds = int.fromEnvironment(
+      'METRICS_COLLECTION_INTERVAL_SECONDS',
+      defaultValue: 30);
+  static const int blockProductionWakeBeforeSlotSeconds = int.fromEnvironment(
+      'BLOCK_PRODUCTION_WAKE_BEFORE_SLOT_SECONDS',
+      defaultValue: 60);
+  static const int epochMonitorBaseIntervalSeconds = int.fromEnvironment(
+      'EPOCH_MONITOR_BASE_INTERVAL_SECONDS',
+      defaultValue: 900);
 
   // Convert to Duration for convenience
   static Duration get metricsCollectionInterval =>
@@ -48,14 +51,4 @@ class AppConfig {
       Duration(seconds: blockProductionWakeBeforeSlotSeconds);
   static Duration get epochMonitorBaseInterval =>
       Duration(seconds: epochMonitorBaseIntervalSeconds);
-
-  // Debug method to verify metrics configuration at runtime
-  static void debugPrintMetrics() {
-    print('=== METRICS CONFIG DEBUG ===');
-    print('METRICS_ENABLED: $metricsEnabled');
-    print('METRICS_ENDPOINT: $metricsEndpoint');
-    print('METRICS_INTERVAL: $metricsInterval');
-    print('METRICS_HEALTH_ENDPOINT: $metricsHealthEndpoint');
-    print('===========================');
-  }
 }

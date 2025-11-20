@@ -2,8 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/features/rewards/data/epoch_rewards_cache_repository.dart';
 import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
-import 'package:crypto_mobile_app/core/providers/notifications_provider.dart';
-import 'package:crypto_mobile_app/core/models/app_notification.dart';
 
 class EpochRewardsUiState {
   final EpochRewardsSnapshot? snapshot;
@@ -110,29 +108,8 @@ class EpochRewardsUiController extends AsyncNotifier<EpochRewardsUiState?> {
     if (_previousEarnedSoFar != null && earnedSoFar > _previousEarnedSoFar!) {
       final diff = earnedSoFar - _previousEarnedSoFar!;
       LoggingService.instance.trace(
-          'Reward increased by $diff TKN, sending notification',
+          'Reward increased by $diff TKN',
           tag: 'EPOCH_REWARDS_UI');
-
-      // Get notifications controller and add notification
-      try {
-        final notificationsController =
-            ref.read(notificationsProvider.notifier);
-        notificationsController.addNotification(
-          AppNotification.create(
-            title: 'Reward Earned',
-            message: 'Earned $diff TKN in epoch $epoch',
-            type: NotificationType.rewardEarned,
-            data: {
-              'amount': diff.toString(),
-              'epoch': epoch,
-              'totalEarned': earnedSoFar.toString(),
-            },
-          ),
-        );
-      } catch (e, st) {
-        LoggingService.instance.error('Failed to send notification',
-            tag: 'EPOCH_REWARDS_UI', error: e, stackTrace: st);
-      }
     }
     _previousEarnedSoFar = earnedSoFar;
   }

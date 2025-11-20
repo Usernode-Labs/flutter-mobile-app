@@ -10,11 +10,6 @@ class AppConstants {
   static const Duration mediumAnimation = Duration(milliseconds: 500);
   static const Duration longAnimation = Duration(seconds: 1);
 
-  // Blockchain Constants
-  // TODO: These are temporarily hardcoded; update when backend returns them
-  static const int slotsPerEpoch = 240;
-  static const int slotDurationMs = 30000;
-
   // Currency Constants
   static const String defaultTokenSymbol = 'TKN';
   static const String defaultFiatCurrency = 'USD';

@@ -150,7 +150,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return Scaffold(
       appBar: const AppAppBar(
         title: 'Profile',
-        showNotifications: true,
         showNodeStatus: false,
       ),
       drawer: const AppDrawer(),

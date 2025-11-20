@@ -40,88 +40,156 @@ class BootRescheduleService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        Log.i(TAG, "BootRescheduleService created")
+        val bootTime = System.currentTimeMillis()
+        Log.i(TAG, "[BootRescheduleService] Service onCreate() - Boot time: $bootTime")
+        Log.d(TAG, "[BootRescheduleService] Android API: ${Build.VERSION.SDK_INT}, Manufacturer: ${Build.MANUFACTURER}")
 
         // Start as foreground service with notification
-        startForeground(NOTIFICATION_ID, createNotification())
+        try {
+            startForeground(NOTIFICATION_ID, createNotification())
+            Log.d(TAG, "[BootRescheduleService] Started as foreground service")
+        } catch (e: Exception) {
+            Log.e(TAG, "[BootRescheduleService] Failed to start foreground service", e)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.i(TAG, "BootRescheduleService started")
+        Log.i(TAG, "[BootRescheduleService] ✓ onStartCommand() - StartId: $startId, Time: ${System.currentTimeMillis()}")
+        Log.d(TAG, "[BootRescheduleService] Timeout limit: ${TIMEOUT_MS}ms")
+
+        // Send boot reschedule started event to Flutter
+        Log.d(TAG, "[BootRescheduleService] Sending android_boot_reschedule_started event to Flutter")
+        AlarmMethodChannelHandler.getInstance()?.sendEventToFlutter("android_boot_reschedule_started", emptyMap())
 
         // Launch rescheduling in background
         serviceScope.launch {
+            val startTime = System.currentTimeMillis()
+            Log.d(TAG, "[BootRescheduleService] Launching reschedule coroutine...")
+
             try {
                 withTimeout(TIMEOUT_MS) {
                     rescheduleAlarms()
                 }
+                val duration = System.currentTimeMillis() - startTime
+                Log.i(TAG, "[BootRescheduleService] Rescheduling completed in ${duration}ms")
             } catch (e: TimeoutCancellationException) {
-                Log.e(TAG, "Rescheduling timed out after ${TIMEOUT_MS}ms")
+                val duration = System.currentTimeMillis() - startTime
+                Log.e(TAG, "[BootRescheduleService] ✗ Rescheduling timed out after ${duration}ms (limit: ${TIMEOUT_MS}ms)")
             } catch (e: Exception) {
-                Log.e(TAG, "Error during rescheduling", e)
+                val duration = System.currentTimeMillis() - startTime
+                Log.e(TAG, "[BootRescheduleService] ✗ Error during rescheduling after ${duration}ms", e)
             } finally {
                 stopSelfAndCleanup()
             }
         }
 
+        Log.d(TAG, "[BootRescheduleService] Returning START_NOT_STICKY")
         return START_NOT_STICKY
     }
 
-    override fun onBind(intent: Intent?): IBinder? = null
+    override fun onBind(intent: Intent?): IBinder? {
+        Log.d(TAG, "[BootRescheduleService] onBind() called (returning null)")
+        return null
+    }
 
     override fun onDestroy() {
         super.onDestroy()
+        Log.i(TAG, "[BootRescheduleService] onDestroy() - Cleaning up resources")
+
         serviceScope.cancel()
+        Log.d(TAG, "[BootRescheduleService] Service scope cancelled")
+
         flutterEngine?.destroy()
         flutterEngine = null
-        Log.i(TAG, "BootRescheduleService destroyed")
+        Log.d(TAG, "[BootRescheduleService] Flutter engine destroyed")
+
+        Log.i(TAG, "[BootRescheduleService] ✗ Service destroyed")
     }
 
     private suspend fun rescheduleAlarms() = withContext(Dispatchers.Main) {
-        Log.i(TAG, "Starting alarm rescheduling...")
+        Log.i(TAG, "[BootRescheduleService] Starting alarm rescheduling process...")
 
         // Create a Flutter engine in background
+        Log.d(TAG, "[BootRescheduleService] Creating Flutter engine...")
         flutterEngine = FlutterEngine(applicationContext)
+        Log.d(TAG, "[BootRescheduleService] Flutter engine created")
 
         // Execute Dart entrypoint
+        Log.d(TAG, "[BootRescheduleService] Executing Dart entrypoint...")
         flutterEngine?.dartExecutor?.executeDartEntrypoint(
             DartExecutor.DartEntrypoint.createDefault()
         )
+        Log.d(TAG, "[BootRescheduleService] Dart entrypoint executed")
 
         // Wait for engine to initialize
+        Log.d(TAG, "[BootRescheduleService] Waiting 2s for Flutter engine initialization...")
         delay(2000)
+        Log.d(TAG, "[BootRescheduleService] Flutter engine should be ready")
 
         // Create method channel to communicate with Flutter
+        Log.d(TAG, "[BootRescheduleService] Creating method channel...")
         val channel = MethodChannel(
             flutterEngine!!.dartExecutor.binaryMessenger,
             "com.usernode.app/alarm"
         )
+        Log.d(TAG, "[BootRescheduleService] Method channel created")
 
         // Call Flutter to reschedule alarms
+        Log.d(TAG, "[BootRescheduleService] Invoking rescheduleAfterBoot method...")
+        var slotsRescheduled = 0
+        var rescheduleSuccess = false
+
         suspendCancellableCoroutine<Unit> { continuation ->
             channel.invokeMethod("rescheduleAfterBoot", null, object : MethodChannel.Result {
                 override fun success(result: Any?) {
-                    Log.i(TAG, "✓ Alarms rescheduled successfully")
+                    Log.i(TAG, "[BootRescheduleService] ✓ Alarms rescheduled successfully - Result: $result")
+                    rescheduleSuccess = true
+                    // Result might contain number of slots rescheduled
+                    if (result is Int) {
+                        slotsRescheduled = result
+                    }
                     continuation.resume(Unit) {}
                 }
 
                 override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
-                    Log.e(TAG, "✗ Failed to reschedule alarms: $errorMessage")
+                    Log.e(TAG, "[BootRescheduleService] ✗ Failed to reschedule alarms - Code: $errorCode, Message: $errorMessage")
+                    rescheduleSuccess = false
                     continuation.resume(Unit) {}
                 }
 
                 override fun notImplemented() {
-                    Log.w(TAG, "⚠ rescheduleAfterBoot not implemented in Flutter")
+                    Log.w(TAG, "[BootRescheduleService] ⚠ rescheduleAfterBoot not implemented in Flutter")
+                    rescheduleSuccess = false
                     continuation.resume(Unit) {}
                 }
             })
         }
+
+        // Send boot reschedule completed event to Flutter
+        Log.d(TAG, "[BootRescheduleService] Sending android_boot_reschedule_completed event to Flutter")
+        val eventData = mapOf(
+            "slotsRescheduled" to slotsRescheduled,
+            "success" to rescheduleSuccess
+        )
+        AlarmMethodChannelHandler.getInstance()?.sendEventToFlutter("android_boot_reschedule_completed", eventData)
     }
 
     private fun stopSelfAndCleanup() {
-        Log.i(TAG, "Stopping service and cleaning up...")
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
+        Log.i(TAG, "[BootRescheduleService] Stopping service and cleaning up...")
+
+        try {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            Log.d(TAG, "[BootRescheduleService] Foreground service stopped")
+        } catch (e: Exception) {
+            Log.e(TAG, "[BootRescheduleService] Error stopping foreground", e)
+        }
+
+        try {
+            stopSelf()
+            Log.d(TAG, "[BootRescheduleService] stopSelf() called")
+        } catch (e: Exception) {
+            Log.e(TAG, "[BootRescheduleService] Error calling stopSelf()", e)
+        }
     }
 
     private fun createNotification(): Notification {

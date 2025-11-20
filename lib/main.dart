@@ -12,27 +12,26 @@ import 'package:crypto_mobile_app/core/routing/app_router.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/utils/lifecycle.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
-import 'package:crypto_mobile_app/core/services/local_notification_service.dart';
-import 'package:crypto_mobile_app/core/services/background_task_service.dart';
-import 'package:crypto_mobile_app/core/data/notification_state_repository.dart';
 import 'package:crypto_mobile_app/features/metrics/domain/services/metrics_collector_service.dart';
 import 'package:crypto_mobile_app/features/metrics/presentation/controllers/metrics_lifecycle_provider.dart';
+import 'package:crypto_mobile_app/core/config/blockchain_timing.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Debug: Print metrics configuration
-  AppConfig.debugPrintMetrics();
 
   final log = LoggingService();
   await SentryUtil.bootstrap(() async {
     SentryUtil.addBreadcrumb(category: 'app', message: 'startup begin');
     log.info('App started', tag: 'MAIN');
 
+    // Create provider container and initialize blockchain timing
+    final container = ProviderContainer();
+    BlockchainTiming.initialize(container);
+
     // Render UI immediately; perform heavy bootstrap asynchronously.
     log.info('Running app UI', tag: 'MAIN');
     SentryUtil.addBreadcrumb(category: 'app', message: 'runApp');
-    runApp(const ProviderScope(child: CryptoMobileApp()));
+    runApp(UncontrolledProviderScope(container: container, child: const CryptoMobileApp()));
     // Track lifecycle changes for breadcrumbs/diagnostics
     AppLifecycleLogger.register();
 
@@ -61,35 +60,6 @@ Future<void> _bootstrapAsync(LoggingService log) async {
         'Feature flags loaded: ${FeatureFlags.ordered.where(FeatureFlags.isEnabled).toList()}',
         tag: 'MAIN',
       );
-    }
-
-    // Initialize notification services
-    log.info('Initializing notification services', tag: 'MAIN');
-    await NotificationStateRepository.instance.initialize();
-    final notificationInitialized =
-        await LocalNotificationService.instance.initialize();
-    log.info('Notification service initialized: $notificationInitialized',
-        tag: 'MAIN');
-
-    if (notificationInitialized) {
-      // Request permissions
-      final permissionsGranted =
-          await LocalNotificationService.instance.requestPermissions();
-      log.info('Notification permissions granted: $permissionsGranted',
-          tag: 'MAIN');
-
-      // Initialize background tasks
-      final backgroundInitialized =
-          await BackgroundTaskService.instance.initialize();
-      log.info('Background task service initialized: $backgroundInitialized',
-          tag: 'MAIN');
-
-      if (backgroundInitialized &&
-          NotificationStateRepository.instance.notificationsEnabled) {
-        // Register periodic background task for slot monitoring
-        await BackgroundTaskService.instance.registerSlotMonitoringTask();
-        log.info('Slot monitoring background task registered', tag: 'MAIN');
-      }
     }
 
     // Initialize FRB only; start backend only if an account exists

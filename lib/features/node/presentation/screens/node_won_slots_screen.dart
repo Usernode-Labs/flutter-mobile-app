@@ -88,7 +88,6 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
     return Scaffold(
       appBar: const AppAppBar(
         title: 'Won Slots',
-        showNotifications: false,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),

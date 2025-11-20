@@ -80,7 +80,6 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
     return Scaffold(
       appBar: const AppAppBar(
         title: 'Block Details',
-        showNotifications: false,
         showNodeStatus: false,
       ),
       body: SafeArea(

@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:logger/logger.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import '../../features/node/data/repositories/rust_backend_service.dart';
@@ -19,10 +18,6 @@ class AppLifecycleLogger with WidgetsBindingObserver {
   static AppLifecycleLogger? _instance;
 
   final Logger _logger = Logger();
-  SharedPreferences? _prefs;
-
-  // Key for storing last known epoch
-  static const String _keyLastEpoch = 'lifecycle_last_epoch';
 
   // Track if we're currently handling resume to avoid concurrent processing
   bool _isHandlingResume = false;
@@ -32,9 +27,6 @@ class AppLifecycleLogger with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(_instance!);
     SentryUtil.addBreadcrumb(
         category: 'lifecycle', message: 'observer registered');
-
-    // Initialize SharedPreferences
-    _instance!._initializePrefs();
   }
 
   static void unregister() {
@@ -42,15 +34,6 @@ class AppLifecycleLogger with WidgetsBindingObserver {
       WidgetsBinding.instance.removeObserver(_instance!);
       SentryUtil.addBreadcrumb(
           category: 'lifecycle', message: 'observer removed');
-    }
-  }
-
-  Future<void> _initializePrefs() async {
-    try {
-      _prefs = await SharedPreferences.getInstance();
-      _logger.d('Lifecycle SharedPreferences initialized');
-    } catch (e) {
-      _logger.e('Error initializing SharedPreferences: $e');
     }
   }
 

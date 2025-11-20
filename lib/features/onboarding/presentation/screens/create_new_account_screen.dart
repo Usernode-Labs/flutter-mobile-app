@@ -101,7 +101,6 @@ class _CreateNewAccountScreenState
     return Scaffold(
       appBar: const AppAppBar(
         title: 'Create New Account',
-        showNotifications: false,
         showNodeStatus: false,
       ),
       body: SafeArea(

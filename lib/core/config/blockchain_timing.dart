@@ -1,8 +1,39 @@
-import 'app_constants.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:crypto_mobile_app/features/node/presentation/controllers/node_raw_status_provider.dart';
+
+/// Configuration for blockchain timing parameters.
+class BlockchainTimingConfig {
+  final int slotsPerEpoch;
+  final int slotDurationMs;
+
+  const BlockchainTimingConfig({
+    required this.slotsPerEpoch,
+    required this.slotDurationMs,
+  });
+}
+
+/// Provider that exposes blockchain timing configuration from the node status.
+final blockchainTimingConfigProvider = Provider<BlockchainTimingConfig>((ref) {
+  final rawStatus = ref.watch(nodeRawStatusProvider);
+  return rawStatus.when(
+    data: (data) {
+      if (data == null) {
+        throw StateError('Node status not available. Cannot determine blockchain timing configuration.');
+      }
+      return BlockchainTimingConfig(
+        slotsPerEpoch: data.slotsInEpoch,
+        slotDurationMs: data.blockInterval,
+      );
+    },
+    loading: () => throw StateError('Node status is loading. Blockchain timing configuration not yet available.'),
+    error: (_, __) => throw StateError('Failed to load node status. Cannot determine blockchain timing configuration.'),
+  );
+});
 
 /// Centralized blockchain timing configuration.
 ///
-/// All timing values are derived from the base blockchain constants:
+/// All timing values are derived from the blockchain timing configuration
+/// provided by the backend node status:
 /// - slotDurationMs: Duration of each slot in milliseconds
 /// - slotsPerEpoch: Number of slots in an epoch
 ///
@@ -11,9 +42,29 @@ class BlockchainTiming {
   // Private constructor to prevent instantiation
   BlockchainTiming._();
 
-  // Base constants from AppConstants
-  static int get slotDurationMs => AppConstants.slotDurationMs;
-  static int get slotsPerEpoch => AppConstants.slotsPerEpoch;
+  // ProviderContainer for accessing blockchain timing configuration
+  static ProviderContainer? _container;
+
+  /// Initialize BlockchainTiming with a ProviderContainer.
+  /// This must be called during app startup before accessing any timing values.
+  static void initialize(ProviderContainer container) {
+    _container = container;
+  }
+
+  // Base constants from backend node status
+  static int get slotDurationMs {
+    if (_container == null) {
+      throw StateError('BlockchainTiming not initialized. Call BlockchainTiming.initialize() first.');
+    }
+    return _container!.read(blockchainTimingConfigProvider).slotDurationMs;
+  }
+
+  static int get slotsPerEpoch {
+    if (_container == null) {
+      throw StateError('BlockchainTiming not initialized. Call BlockchainTiming.initialize() first.');
+    }
+    return _container!.read(blockchainTimingConfigProvider).slotsPerEpoch;
+  }
 
   /// How far in advance to schedule alarms before slot time.
   /// Current: 12 slots = 1 minute (with 5s slots)

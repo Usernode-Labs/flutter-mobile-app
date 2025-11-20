@@ -17,7 +17,10 @@ class MainActivity: FlutterActivity() {
 
         alarmHandler = AlarmMethodChannelHandler(this)
 
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
+        val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
+        alarmHandler.setMethodChannel(channel)
+
+        channel.setMethodCallHandler { call, result ->
             alarmHandler.handleMethodCall(call, result)
         }
     }
@@ -33,6 +36,16 @@ class MainActivity: FlutterActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         handleAlarmIntent(intent)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Check and notify permission status when app resumes
+        // This catches permission changes made in system settings
+        if (::alarmHandler.isInitialized) {
+            alarmHandler.checkAndNotifyExactAlarmPermission()
+            alarmHandler.checkAndNotifyBatteryOptimization()
+        }
     }
 
     private fun handleAlarmIntent(intent: Intent?) {

@@ -171,7 +171,6 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
     return Scaffold(
       appBar: const AppAppBar(
         title: 'Wallet',
-        showNotifications: true,
       ),
       drawer: const AppDrawer(),
       body: Stack(

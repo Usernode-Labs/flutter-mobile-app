@@ -100,15 +100,6 @@ class _AppDrawerState extends ConsumerState<AppDrawer> {
               ),
             ),
 
-            // Notifications
-            item(
-              icon: Icons.notifications,
-              label: 'Notifications',
-              subtitle: 'Manage slot notifications',
-              matchRoute: '/notification-settings',
-              onTap: () => context.push('/notification-settings'),
-            ),
-
             // Background Block Production
             item(
               icon: Icons.widgets,

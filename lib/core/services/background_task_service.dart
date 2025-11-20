@@ -1,10 +1,6 @@
 import 'dart:io';
 import 'package:workmanager/workmanager.dart';
 import 'package:logger/logger.dart';
-import '../config/notification_config.dart';
-import '../data/notification_state_repository.dart';
-import 'local_notification_service.dart';
-import 'slot_notification_manager.dart';
 import 'platform_alarm_service.dart';
 import '../../features/node/data/repositories/rust_backend_service.dart';
 
@@ -52,9 +48,9 @@ class BackgroundTaskService {
       }
 
       await Workmanager().registerPeriodicTask(
-        NotificationConfig.backgroundTaskName,
-        NotificationConfig.backgroundTaskName,
-        frequency: NotificationConfig.backgroundTaskFrequency,
+        'slot_monitoring_task',
+        'slot_monitoring_task',
+        frequency: const Duration(minutes: 15),
         constraints: Constraints(
           networkType: NetworkType.connected,
           requiresBatteryNotLow: false,
@@ -102,20 +98,8 @@ void callbackDispatcher() {
     logger.i('Background task started: $task');
 
     try {
-      // Initialize required services in the background isolate
-      await NotificationStateRepository.instance.initialize();
-      await LocalNotificationService.instance.initialize();
-
       // Initialize platform alarm service for metrics tracking
       await PlatformAlarmService.instance.initialize();
-
-      // Check if notifications are enabled
-      if (!NotificationStateRepository.instance.notificationsEnabled) {
-        logger.d('Notifications disabled, skipping background task');
-        // Still increment counter to track execution
-        await PlatformAlarmService.instance.incrementBackgroundTaskCount();
-        return Future.value(true);
-      }
 
       // Perform the background slot monitoring
       await _performSlotMonitoring(logger);
@@ -145,10 +129,6 @@ Future<void> _performSlotMonitoring(Logger logger) async {
   try {
     logger.d('Background slot monitoring started');
 
-    // Always clean up old notifications first
-    await NotificationStateRepository.instance.cleanupOldNotifications();
-    logger.d('Cleaned up old notifications');
-
     // Try to fetch latest epoch data from Rust backend
     // This will only work if backend is running in background
     try {
@@ -176,19 +156,6 @@ Future<void> _performSlotMonitoring(Logger logger) async {
       logger.i(
           'Background: Found ${rewards.wonSlots!.length} won slots for epoch $currentEpoch');
 
-      // Check for epoch change
-      final stateRepo = NotificationStateRepository.instance;
-      final previousEpoch = stateRepo.currentEpoch;
-
-      if (previousEpoch != null && previousEpoch != currentEpoch) {
-        logger.i(
-            'Background: Epoch changed from $previousEpoch to $currentEpoch');
-        // Cancel old notifications from previous epoch
-        await LocalNotificationService.instance.cancelAllNotifications();
-        await stateRepo.clearScheduledNotifications();
-        await stateRepo.setCurrentEpoch(currentEpoch);
-      }
-
       // Get produced slots from blockchain
       final blockchain = await rustBackend.listBlockchain(
         limit: 100,
@@ -205,16 +172,8 @@ Future<void> _performSlotMonitoring(Logger logger) async {
 
       logger.d('Background: Found ${producedSlots.length} produced slots');
 
-      // Schedule notifications for upcoming slots
-      await SlotNotificationManager.instance.scheduleNotificationsForSlots(
-        wonSlots: rewards.wonSlots!,
-        producedSlots: producedSlots,
-        epoch: currentEpoch,
-        rewardPerBlock: rewards.rewardPerBlock,
-      );
-
       logger.i(
-          'Background: Successfully scheduled notifications for epoch $currentEpoch');
+          'Background: Successfully completed monitoring for epoch $currentEpoch');
     } on Exception catch (e) {
       logger.w('Background: Rust backend not available or failed: $e');
       // This is expected when app is fully closed - backend may not be running

@@ -14,7 +14,6 @@ import 'package:crypto_mobile_app/features/node/presentation/screens/node_won_sl
 import 'package:crypto_mobile_app/features/node/presentation/screens/produced_blocks_screen.dart';
 import 'package:crypto_mobile_app/features/node/presentation/screens/block_details_screen.dart';
 import 'package:crypto_mobile_app/features/node/presentation/screens/mempool_details_screen.dart';
-import 'package:crypto_mobile_app/features/node/presentation/screens/notification_details_screen.dart';
 import 'package:crypto_mobile_app/features/node/presentation/screens/slot_production_stats_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/presentation/screens/dapps_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/presentation/screens/wallet_screen.dart';
@@ -22,15 +21,12 @@ import 'package:crypto_mobile_app/features/wallet/presentation/screens/send_scre
 import 'package:crypto_mobile_app/features/wallet/presentation/screens/receive_screen.dart';
 import 'package:crypto_mobile_app/features/profile/presentation/screens/profile_screen.dart';
 import 'package:crypto_mobile_app/features/settings/presentation/screens/settings_screen.dart';
-import 'package:crypto_mobile_app/features/settings/presentation/screens/notification_settings_screen.dart';
 import 'package:crypto_mobile_app/features/settings/presentation/screens/background_production_settings_screen.dart';
-import 'package:crypto_mobile_app/features/notifications/presentation/screens/notifications_screen.dart';
 import 'package:crypto_mobile_app/features/rewards/presentation/screens/rewards_breakdown_screen.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
-import 'package:crypto_mobile_app/core/models/notification_payload.dart';
 
 class AppRoutes {
   static const splash = '/splash';
@@ -109,16 +105,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const SettingsScreen(),
       ),
       GoRoute(
-        path: '/notification-settings',
-        builder: (context, state) => const NotificationSettingsScreen(),
-      ),
-      GoRoute(
         path: '/background-production-settings',
         builder: (context, state) => const BackgroundProductionSettingsScreen(),
-      ),
-      GoRoute(
-        path: '/notifications',
-        builder: (context, state) => const NotificationsScreen(),
       ),
       GoRoute(
         path: '/send',
@@ -177,13 +165,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/main/node/mempool',
             builder: (context, state) => const MempoolDetailsScreen(),
-          ),
-          GoRoute(
-            path: '/main/node/notification-details',
-            builder: (context, state) {
-              final payload = state.extra as NotificationPayload;
-              return NotificationDetailsScreen(payload: payload);
-            },
           ),
           GoRoute(
             path: '/main/dapps',

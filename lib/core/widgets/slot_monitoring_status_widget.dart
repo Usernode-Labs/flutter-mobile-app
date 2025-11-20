@@ -311,6 +311,8 @@ class _SlotMonitoringStatusWidgetState
         return Icons.play_arrow;
       case MonitoringEventType.stopped:
         return Icons.stop;
+      case MonitoringEventType.poll:
+        return Icons.refresh;
       case MonitoringEventType.stateChanged:
         return Icons.sync;
       case MonitoringEventType.tipAdvanced:
@@ -330,6 +332,8 @@ class _SlotMonitoringStatusWidgetState
         return 'Monitoring started for slot ${event.slotNumber}';
       case MonitoringEventType.stopped:
         return 'Monitoring stopped';
+      case MonitoringEventType.poll:
+        return 'Poll #${event.pollAttempt ?? 0} - Node: ${event.nodeState ?? "unknown"}, Tip: ${event.bestTipSlot ?? "?"}';
       case MonitoringEventType.stateChanged:
         return 'Node state: ${event.nodeState ?? "unknown"}';
       case MonitoringEventType.tipAdvanced:

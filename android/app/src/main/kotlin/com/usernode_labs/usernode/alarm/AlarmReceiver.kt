@@ -12,7 +12,7 @@ class AlarmReceiver : BroadcastReceiver() {
     }
 
     override fun onReceive(context: Context, intent: Intent) {
-        Log.i(TAG, "Alarm received: ${intent.action}")
+        Log.i(TAG, "[AlarmReceiver] Broadcast received - Action: ${intent.action}, Time: ${System.currentTimeMillis()}")
 
         when (intent.action) {
             "com.usernode.app.SLOT_ALARM" -> {
@@ -21,30 +21,65 @@ class AlarmReceiver : BroadcastReceiver() {
             Intent.ACTION_BOOT_COMPLETED -> {
                 handleBootCompleted(context)
             }
+            else -> {
+                Log.w(TAG, "[AlarmReceiver] Unknown action received: ${intent.action}")
+            }
         }
     }
 
     private fun handleSlotAlarm(context: Context, intent: Intent) {
-        val alarmId = intent.getStringExtra("alarmId") ?: return
+        val alarmId = intent.getStringExtra("alarmId")
         val slotNumber = intent.getIntExtra("slotNumber", -1)
-        if (slotNumber == -1) return
+        val scheduledTimeMs = intent.getLongExtra("alarmTimeMs", -1L)
 
-        Log.i(TAG, "Slot alarm fired for slot $slotNumber")
+        Log.d(TAG, "[AlarmReceiver] Slot alarm details - ID: $alarmId, Slot: $slotNumber, Scheduled: $scheduledTimeMs")
+
+        if (alarmId == null) {
+            Log.e(TAG, "[AlarmReceiver] Missing alarmId in intent")
+            return
+        }
+        if (slotNumber == -1) {
+            Log.e(TAG, "[AlarmReceiver] Missing or invalid slotNumber in intent")
+            return
+        }
+
+        val currentTime = System.currentTimeMillis()
+        val latencyMs = if (scheduledTimeMs > 0) currentTime - scheduledTimeMs else 0L
+        Log.i(TAG, "[AlarmReceiver] ✓ Slot alarm FIRED for slot $slotNumber (latency: ${latencyMs}ms)")
+
+        // Send event to Flutter
+        Log.d(TAG, "[AlarmReceiver] Sending android_alarm_fired event to Flutter")
+        val eventData = mapOf(
+            "alarmId" to alarmId,
+            "slotNumber" to slotNumber,
+            "batteryLevel" to 0, // TODO: Get actual battery level
+            "networkState" to "unknown" // TODO: Get actual network state
+        )
+        AlarmMethodChannelHandler.getInstance()?.sendEventToFlutter("android_alarm_fired", eventData)
 
         // Start foreground service to keep app alive during monitoring
+        Log.d(TAG, "[AlarmReceiver] Starting SlotMonitoringService")
         val serviceIntent = Intent(context, SlotMonitoringService::class.java).apply {
             action = SlotMonitoringService.ACTION_START_MONITORING
             putExtra("alarmId", alarmId)
             putExtra("slotNumber", slotNumber)
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            context.startForegroundService(serviceIntent)
-        } else {
-            context.startService(serviceIntent)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                Log.d(TAG, "[AlarmReceiver] Using startForegroundService (API >= 26)")
+                context.startForegroundService(serviceIntent)
+            } else {
+                Log.d(TAG, "[AlarmReceiver] Using startService (API < 26)")
+                context.startService(serviceIntent)
+            }
+            Log.d(TAG, "[AlarmReceiver] SlotMonitoringService start command sent")
+        } catch (e: Exception) {
+            Log.e(TAG, "[AlarmReceiver] Failed to start SlotMonitoringService", e)
         }
 
         // Also try to launch the app if possible
+        Log.d(TAG, "[AlarmReceiver] Attempting to launch app")
         try {
             val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
             launchIntent?.let {
@@ -52,9 +87,10 @@ class AlarmReceiver : BroadcastReceiver() {
                 it.putExtra("slotNumber", slotNumber)
                 it.putExtra("fromAlarm", true)
                 context.startActivity(it)
-            }
+                Log.d(TAG, "[AlarmReceiver] App launch intent sent")
+            } ?: Log.w(TAG, "[AlarmReceiver] Launch intent is null")
         } catch (e: Exception) {
-            Log.w(TAG, "Could not launch app from alarm", e)
+            Log.w(TAG, "[AlarmReceiver] Could not launch app from alarm", e)
         }
     }
 

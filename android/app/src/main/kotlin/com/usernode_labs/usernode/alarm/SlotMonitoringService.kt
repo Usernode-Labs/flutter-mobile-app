@@ -25,54 +25,103 @@ class SlotMonitoringService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        Log.i(TAG, "SlotMonitoringService created")
+        Log.i(TAG, "[SlotMonitoringService] Service onCreate() - Time: ${System.currentTimeMillis()}")
+        Log.d(TAG, "[SlotMonitoringService] Process ID: ${android.os.Process.myPid()}, Thread ID: ${android.os.Process.myTid()}")
         createNotificationChannel()
+        Log.d(TAG, "[SlotMonitoringService] Notification channel created")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.i(TAG, "SlotMonitoringService onStartCommand: ${intent?.action}")
+        val currentTime = System.currentTimeMillis()
+        Log.i(TAG, "[SlotMonitoringService] onStartCommand() - Action: ${intent?.action}, StartId: $startId, Time: $currentTime")
 
-        when (intent?.action) {
+        if (intent == null) {
+            Log.w(TAG, "[SlotMonitoringService] Received null intent in onStartCommand")
+            return START_STICKY
+        }
+
+        when (intent.action) {
             ACTION_START_MONITORING -> {
                 val slotNumber = intent.getIntExtra("slotNumber", -1)
+                val alarmId = intent.getStringExtra("alarmId")
+                Log.d(TAG, "[SlotMonitoringService] START_MONITORING - Slot: $slotNumber, AlarmId: $alarmId")
+
                 if (slotNumber != -1) {
                     startMonitoring(slotNumber)
+                } else {
+                    Log.e(TAG, "[SlotMonitoringService] Invalid slot number in START_MONITORING intent")
                 }
             }
             ACTION_STOP_MONITORING -> {
+                Log.d(TAG, "[SlotMonitoringService] STOP_MONITORING action received")
                 stopMonitoring()
+            }
+            else -> {
+                Log.w(TAG, "[SlotMonitoringService] Unknown action: ${intent.action}")
             }
         }
 
+        Log.d(TAG, "[SlotMonitoringService] Returning START_STICKY")
         return START_STICKY
     }
 
     private fun startMonitoring(slotNumber: Int) {
         currentSlotNumber = slotNumber
-        Log.i(TAG, "Starting foreground monitoring for slot $slotNumber")
+        Log.i(TAG, "[SlotMonitoringService] ✓ Starting foreground monitoring for slot $slotNumber")
 
         val notification = createNotification(
             title = "Block Production Monitoring",
             message = "Monitoring slot $slotNumber for block production"
         )
 
-        startForeground(NOTIFICATION_ID, notification)
+        try {
+            startForeground(NOTIFICATION_ID, notification)
+            Log.d(TAG, "[SlotMonitoringService] Foreground service started with notification ID $NOTIFICATION_ID")
+
+            // Send event to Flutter
+            Log.d(TAG, "[SlotMonitoringService] Sending android_foreground_service_started event to Flutter")
+            val eventData = mapOf("slotNumber" to slotNumber)
+            AlarmMethodChannelHandler.getInstance()?.sendEventToFlutter("android_foreground_service_started", eventData)
+        } catch (e: Exception) {
+            Log.e(TAG, "[SlotMonitoringService] Failed to start foreground service", e)
+        }
     }
 
     private fun stopMonitoring() {
-        Log.i(TAG, "Stopping foreground monitoring")
+        val slotBeingStopped = currentSlotNumber
+        Log.i(TAG, "[SlotMonitoringService] Stopping foreground monitoring for slot $slotBeingStopped")
+
+        try {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            Log.d(TAG, "[SlotMonitoringService] Foreground service stopped, notification removed")
+
+            // Send event to Flutter
+            Log.d(TAG, "[SlotMonitoringService] Sending android_foreground_service_stopped event to Flutter")
+            val eventData = mapOf("slotNumber" to slotBeingStopped)
+            AlarmMethodChannelHandler.getInstance()?.sendEventToFlutter("android_foreground_service_stopped", eventData)
+        } catch (e: Exception) {
+            Log.e(TAG, "[SlotMonitoringService] Error stopping foreground", e)
+        }
+
         currentSlotNumber = null
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
+
+        try {
+            stopSelf()
+            Log.d(TAG, "[SlotMonitoringService] Service stopSelf() called")
+        } catch (e: Exception) {
+            Log.e(TAG, "[SlotMonitoringService] Error calling stopSelf()", e)
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? {
+        Log.d(TAG, "[SlotMonitoringService] onBind() called (returning null)")
         return null
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        Log.i(TAG, "SlotMonitoringService destroyed")
+        Log.i(TAG, "[SlotMonitoringService] ✗ Service onDestroy() - Slot: $currentSlotNumber, Time: ${System.currentTimeMillis()}")
+        Log.d(TAG, "[SlotMonitoringService] Service destroyed, monitoring ended")
     }
 
     private fun createNotificationChannel() {

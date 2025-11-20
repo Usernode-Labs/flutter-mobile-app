@@ -5,6 +5,10 @@ import 'package:logger/logger.dart';
 /// Callback type for handling boot reschedule events
 typedef BootRescheduleCallback = Future<void> Function();
 
+/// Callback type for handling native block production events
+typedef NativeEventCallback = void Function(
+    String eventType, Map<String, dynamic> eventData);
+
 /// Abstract interface for platform-specific alarm/wake-up scheduling
 ///
 /// Android: Uses AlarmManager with exact alarms and Foreground Service
@@ -21,6 +25,9 @@ class PlatformAlarmService {
 
   /// Callback to invoke when device reboots and alarms need to be rescheduled
   BootRescheduleCallback? _onBootReschedule;
+
+  /// Callback to invoke when native platform sends a block production event
+  NativeEventCallback? _onNativeEvent;
 
   /// Initialize the platform alarm service
   Future<bool> initialize() async {
@@ -55,9 +62,45 @@ class PlatformAlarmService {
     switch (call.method) {
       case 'rescheduleAfterBoot':
         return await _handleRescheduleAfterBoot();
+      case 'onBlockProductionEvent':
+        return _handleNativeEvent(call.arguments);
       default:
         _logger.w('Unknown method call: ${call.method}');
         throw MissingPluginException('Method ${call.method} not implemented');
+    }
+  }
+
+  /// Handle a native block production event from platform code
+  void _handleNativeEvent(dynamic arguments) {
+    try {
+      if (arguments == null) {
+        _logger.w('Received null arguments for onBlockProductionEvent');
+        return;
+      }
+
+      final Map<String, dynamic> args = Map<String, dynamic>.from(arguments);
+      final String? eventType = args['eventType'] as String?;
+      final Map<String, dynamic>? eventData =
+          args['eventData'] != null
+              ? Map<String, dynamic>.from(args['eventData'])
+              : null;
+
+      if (eventType == null) {
+        _logger.w('Received native event with null eventType');
+        return;
+      }
+
+      _logger.d('Native event received: $eventType');
+
+      if (_onNativeEvent == null) {
+        _logger.w('No native event callback registered for event: $eventType');
+        return;
+      }
+
+      // Invoke the registered callback
+      _onNativeEvent!(eventType, eventData ?? {});
+    } catch (e) {
+      _logger.e('Error handling native event: $e');
     }
   }
 
@@ -65,6 +108,12 @@ class PlatformAlarmService {
   void setBootRescheduleCallback(BootRescheduleCallback callback) {
     _onBootReschedule = callback;
     _logger.d('Boot reschedule callback registered');
+  }
+
+  /// Set the callback to invoke when native platform sends an event
+  void setNativeEventCallback(NativeEventCallback callback) {
+    _onNativeEvent = callback;
+    _logger.d('Native event callback registered');
   }
 
   /// Handle alarm rescheduling after device reboot

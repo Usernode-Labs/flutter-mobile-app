@@ -100,7 +100,7 @@ Accept: application/json
     "status": {
       "node_running": true,                         // MANDATORY (boolean)
       "node_state": "running",                      // MANDATORY (string: "running"|"stopped"|"error")
-      "node_sync_status": "synced",                 // OPTIONAL (string: "synced"|"syncing"|null)
+      "node_sync_status": "synced",                 // OPTIONAL (string: "synced"|"syncing"|"connecting"|null)
       "node_best_tip_slot": 123456,                 // OPTIONAL (integer|null)
       "node_best_tip_hash": "3NKxyz...",           // OPTIONAL (string|null)
       "node_connected_peers": 42                    // MANDATORY (integer)

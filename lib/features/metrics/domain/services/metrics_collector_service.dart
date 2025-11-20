@@ -8,6 +8,7 @@ import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_s
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:logger/logger.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -19,6 +20,7 @@ class MetricsCollectorService {
   MetricsCollectorService._();
   static final MetricsCollectorService instance = MetricsCollectorService._();
 
+  final Logger _logger = Logger();
   final Battery _battery = Battery();
   final Connectivity _connectivity = Connectivity();
   final DeviceInfoPlugin _deviceInfo = DeviceInfoPlugin();
@@ -42,25 +44,24 @@ class MetricsCollectorService {
   /// Collect metrics for a specific block production event
   ///
   /// This performs targeted metric collection based on event type:
-  /// - app_wake_up: Lightweight metrics (battery, time, slot info)
-  /// - slot_produced/failed: Production-specific metrics
-  /// - health_check: Full metrics
-  /// - etc.
+  /// - Full: health_check, epoch_transition, app_resumed, app_suspended, android_boot_reschedule_completed
+  /// - Lightweight: app_wake_up, android_alarm_fired, ios_notification_delivered, ios_bgtask_executed
+  /// - Production: slot_monitoring_start, slot_produced, slot_failed, monitoring_poll, block_production_detected, node_start_*
+  /// - Minimal: alarm_scheduled, alarm_cancelled, service/permission events
   Future<MetricsPayload> collectMetricsForEvent(
     BlockProductionEvent event, {
     double? walletBalance,
     String? walletAddress,
   }) async {
+    _logger.d('Collecting metrics for event: ${event.eventType}');
+
     // Determine which metrics to collect based on event type
-    final collectFull = event.eventType == 'health_check' ||
-        event.eventType == 'epoch_transition' ||
-        event.eventType == 'app_resumed';
+    final collectFull = _shouldCollectFull(event.eventType);
+    final collectLightweight = _shouldCollectLightweight(event.eventType);
+    final collectProduction = _shouldCollectProduction(event.eventType);
+    final collectMinimal = _shouldCollectMinimal(event.eventType);
 
-    final collectLightweight = event.eventType == 'app_wake_up';
-
-    final collectProduction = event.eventType == 'slot_monitoring_start' ||
-        event.eventType == 'slot_produced' ||
-        event.eventType == 'slot_failed';
+    _logger.d('Strategy - Full: $collectFull, Lightweight: $collectLightweight, Production: $collectProduction, Minimal: $collectMinimal');
 
     return await collectMetrics(
       eventType: event.eventType,
@@ -70,7 +71,55 @@ class MetricsCollectorService {
       collectFull: collectFull,
       collectLightweight: collectLightweight,
       collectProduction: collectProduction,
+      collectMinimal: collectMinimal,
     );
+  }
+
+  /// Determine if full metrics should be collected
+  bool _shouldCollectFull(String eventType) {
+    return eventType == 'health_check' ||
+        eventType == 'epoch_transition' ||
+        eventType == 'app_resumed' ||
+        eventType == 'app_suspended' ||
+        eventType == 'android_boot_reschedule_completed';
+  }
+
+  /// Determine if lightweight metrics should be collected
+  bool _shouldCollectLightweight(String eventType) {
+    return eventType == 'app_wake_up' ||
+        eventType == 'android_alarm_fired' ||
+        eventType == 'ios_notification_delivered' ||
+        eventType == 'ios_bgtask_executed';
+  }
+
+  /// Determine if production-focused metrics should be collected
+  bool _shouldCollectProduction(String eventType) {
+    return eventType == 'slot_monitoring_start' ||
+        eventType == 'slot_produced' ||
+        eventType == 'slot_failed' ||
+        eventType == 'monitoring_poll' ||
+        eventType == 'block_production_detected' ||
+        eventType == 'node_start_initiated' ||
+        eventType == 'node_start_completed' ||
+        eventType == 'node_start_failed';
+  }
+
+  /// Determine if minimal metrics should be collected
+  bool _shouldCollectMinimal(String eventType) {
+    return eventType == 'alarm_scheduled' ||
+        eventType == 'alarm_cancelled' ||
+        eventType == 'android_foreground_service_started' ||
+        eventType == 'android_foreground_service_stopped' ||
+        eventType == 'android_boot_reschedule_started' ||
+        eventType == 'android_exact_alarm_permission_granted' ||
+        eventType == 'android_exact_alarm_permission_denied' ||
+        eventType == 'android_battery_optimization_disabled' ||
+        eventType == 'ios_notification_scheduled' ||
+        eventType == 'ios_notification_tapped' ||
+        eventType == 'ios_bgtask_scheduled' ||
+        eventType == 'ios_bgtask_expired' ||
+        eventType == 'ios_notification_permission_granted' ||
+        eventType == 'ios_notification_permission_denied';
   }
 
   /// Collect all metrics and return a complete payload
@@ -82,14 +131,23 @@ class MetricsCollectorService {
     bool collectFull = true,
     bool collectLightweight = false,
     bool collectProduction = false,
+    bool collectMinimal = false,
   }) async {
+    // For minimal collection (permission/scheduling events), only collect event + runtime
+    if (collectMinimal) {
+      _logger.d('Using minimal collection strategy');
+      return await _collectMinimalMetrics(eventType, eventData);
+    }
+
     // For lightweight collection (app_wake_up), only collect essential metrics
     if (collectLightweight) {
+      _logger.d('Using lightweight collection strategy');
       return await _collectLightweightMetrics(eventType, eventData);
     }
 
     // For production events, collect production-focused metrics
     if (collectProduction) {
+      _logger.d('Using production-focused collection strategy');
       return await _collectProductionFocusedMetrics(
         eventType,
         eventData,
@@ -97,6 +155,8 @@ class MetricsCollectorService {
         walletAddress,
       );
     }
+
+    _logger.d('Using full collection strategy');
 
     // For full collection, collect everything
     // Collect all metrics in parallel for efficiency
@@ -219,6 +279,54 @@ class MetricsCollectorService {
       production: null, // Skip for lightweight
       wallet: null, // Skip for lightweight
       peers: null, // Skip for lightweight
+    );
+
+    return MetricsPayload(
+      event: event,
+      app: app,
+      node: node,
+    );
+  }
+
+  /// Collect minimal metrics for permission/scheduling events
+  ///
+  /// This is the most lightweight collection - only event + runtime + identity.
+  /// Used for tracking events that don't require context (permissions, alarms scheduled).
+  Future<MetricsPayload> _collectMinimalMetrics(
+    String eventType,
+    Map<String, dynamic>? eventData,
+  ) async {
+    _logger.d('Collecting minimal metrics - Event: $eventType');
+
+    final event = await _collectEventMetrics(eventType, eventData);
+    final runtime = await _collectRuntimeMetrics();
+
+    _logger.d('Event timestamp: ${event.timestamp}');
+    _logger.d('App state: ${runtime.appState}');
+
+    // Minimal app metrics - only runtime
+    final app = AppMetricsGroup(
+      runtime: runtime,
+      platform: null,
+      device: null,
+      battery: null,
+      network: null,
+      permissions: null,
+      foregroundService: null,
+    );
+
+    // Minimal node metrics - only identity
+    final identity = await _collectIdentityMetrics();
+    _logger.d('Peer ID: ${identity.peerId}');
+
+    final node = NodeMetricsGroup(
+      identity: identity,
+      status: null,
+      consensus: null,
+      blockchain: null,
+      production: null,
+      wallet: null,
+      peers: null,
     );
 
     return MetricsPayload(
@@ -511,9 +619,20 @@ class MetricsCollectorService {
       try {
         final status = await RustBackendService.instance.getStatus();
         if (status != null) {
+          // Count connected peers first
+          connectedPeers = status.peers
+              .where(
+                  (p) => p.connectionStatus == PeerConnectionStatus.connected)
+              .length;
+
           // Determine sync status based on blockchain sync state
           final syncBlocks = status.blockchain.sync.blocks;
-          if (syncBlocks != null) {
+
+          // Check if we're still connecting (no peers or no sync data)
+          if (connectedPeers == 0 || syncBlocks == null) {
+            syncStatus = 'connecting';
+          } else {
+            // We have peers and sync data - check sync progress
             final totalBlocks = syncBlocks.applyProgress.done +
                 syncBlocks.applyProgress.pending +
                 syncBlocks.applyProgress.idle;
@@ -529,12 +648,6 @@ class MetricsCollectorService {
           final bestTip = status.blockchain.bestTip;
           bestTipSlot = bestTip.globalSlot;
           bestTipHash = bestTip.hash.toString();
-
-          // Count connected peers
-          connectedPeers = status.peers
-              .where(
-                  (p) => p.connectionStatus == PeerConnectionStatus.connected)
-              .length;
         }
       } catch (_) {
         // Error getting status, node might be starting

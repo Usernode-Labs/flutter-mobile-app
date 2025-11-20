@@ -8,6 +8,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import android.util.Log
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
@@ -17,6 +18,50 @@ class AlarmMethodChannelHandler(private val activity: Activity) {
     private val alarmScheduler: AlarmScheduler = AlarmScheduler(activity, alarmManager)
     private val foregroundServiceManager: ForegroundServiceManager = ForegroundServiceManager(activity)
     private val powerManager: PowerManager = activity.getSystemService(Context.POWER_SERVICE) as PowerManager
+
+    private var methodChannel: MethodChannel? = null
+
+    companion object {
+        private const val TAG = "AlarmMethodChannelHandler"
+
+        // Singleton instance for accessing from services/receivers
+        @Volatile
+        private var instance: AlarmMethodChannelHandler? = null
+
+        fun getInstance(): AlarmMethodChannelHandler? = instance
+
+        internal fun setInstance(handler: AlarmMethodChannelHandler) {
+            instance = handler
+        }
+    }
+
+    init {
+        setInstance(this)
+        Log.d(TAG, "[AlarmMethodChannelHandler] Handler initialized")
+    }
+
+    /// Set the method channel for bidirectional communication
+    fun setMethodChannel(channel: MethodChannel) {
+        methodChannel = channel
+        Log.d(TAG, "[AlarmMethodChannelHandler] Method channel set")
+    }
+
+    /// Send a block production event to Flutter
+    fun sendEventToFlutter(eventType: String, eventData: Map<String, Any?>) {
+        if (methodChannel == null) {
+            Log.w(TAG, "[AlarmMethodChannelHandler] Cannot send event '$eventType' - method channel not set")
+            return
+        }
+
+        Log.d(TAG, "[AlarmMethodChannelHandler] Sending event to Flutter: $eventType")
+
+        val args = mapOf(
+            "eventType" to eventType,
+            "eventData" to eventData
+        )
+
+        methodChannel?.invokeMethod("onBlockProductionEvent", args)
+    }
 
     fun handleMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
@@ -123,6 +168,23 @@ class AlarmMethodChannelHandler(private val activity: Activity) {
             if (!alarmManager.canScheduleExactAlarms()) {
                 val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
                 activity.startActivity(intent)
+            } else {
+                // Permission already granted
+                Log.d(TAG, "[AlarmMethodChannelHandler] Exact alarm permission already granted")
+                sendEventToFlutter("android_exact_alarm_permission_granted", emptyMap())
+            }
+        }
+    }
+
+    // Call this method to check and notify permission status
+    fun checkAndNotifyExactAlarmPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val hasPermission = alarmManager.canScheduleExactAlarms()
+            Log.d(TAG, "[AlarmMethodChannelHandler] Exact alarm permission check: $hasPermission")
+            if (hasPermission) {
+                sendEventToFlutter("android_exact_alarm_permission_granted", emptyMap())
+            } else {
+                sendEventToFlutter("android_exact_alarm_permission_denied", emptyMap())
             }
         }
     }
@@ -139,6 +201,17 @@ class AlarmMethodChannelHandler(private val activity: Activity) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
             activity.startActivity(intent)
+        }
+    }
+
+    // Call this method to check and notify battery optimization status
+    fun checkAndNotifyBatteryOptimization() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val isDisabled = powerManager.isIgnoringBatteryOptimizations(activity.packageName)
+            Log.d(TAG, "[AlarmMethodChannelHandler] Battery optimization disabled: $isDisabled")
+            if (isDisabled) {
+                sendEventToFlutter("android_battery_optimization_disabled", emptyMap())
+            }
         }
     }
 

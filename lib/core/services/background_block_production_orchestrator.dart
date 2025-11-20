@@ -79,9 +79,16 @@ class BackgroundBlockProductionOrchestrator {
       _logger.i('Loaded state: ${_state.toString()}');
 
       // Start epoch monitoring
+      _logger.d('Starting epoch monitoring');
       _startEpochMonitoring();
 
+      // Register native event callback
+      _logger.d('Registering native event callback');
+      PlatformAlarmService.instance.setNativeEventCallback(_handleNativeEvent);
+      _logger.d('Native event callback registered with PlatformAlarmService');
+
       // Perform initial epoch check
+      _logger.d('Performing initial epoch check');
       await _checkEpochTransition();
 
       _initialized = true;
@@ -193,11 +200,22 @@ class BackgroundBlockProductionOrchestrator {
         _logger.i('VRF complete! Scheduling ${epochInfo.wonSlots.length} won slots');
         final slotsScheduled = await _scheduleSlots(epochInfo.wonSlots);
 
-        // Emit epoch transition event
+        // Get next alarm time (first scheduled slot)
+        DateTime? nextAlarmTime;
+        if (_state.scheduledSlots.isNotEmpty) {
+          nextAlarmTime = _state.scheduledSlots
+              .map((s) => s.alarmTime)
+              .reduce((a, b) => a.isBefore(b) ? a : b);
+          _logger.d('Next alarm scheduled for: $nextAlarmTime');
+        }
+
+        // Emit epoch transition event with enhanced metadata
         _emitEvent(BlockProductionEpochTransitionEvent(
           previousEpoch: oldEpoch ?? 0,
           newEpoch: newEpoch,
           slotsScheduled: slotsScheduled,
+          vrfStatus: epochInfo.vrfStatus.displayName,
+          nextAlarmTime: nextAlarmTime,
         ));
       } else {
         _logger.i(
@@ -208,6 +226,7 @@ class BackgroundBlockProductionOrchestrator {
           previousEpoch: oldEpoch ?? 0,
           newEpoch: newEpoch,
           slotsScheduled: 0,
+          vrfStatus: epochInfo.vrfStatus.displayName,
         ));
       }
 
@@ -322,8 +341,19 @@ class BackgroundBlockProductionOrchestrator {
       int batteryLevel = 0;
       try {
         batteryLevel = await _battery.batteryLevel;
+        _logger.d('Battery level: $batteryLevel%');
       } catch (e) {
         _logger.w('Could not get battery level: $e');
+      }
+
+      // Calculate alarm latency (find scheduled slot)
+      final scheduledSlot = _state.scheduledSlots
+          .where((s) => s.slotNumber == slotNumber)
+          .firstOrNull;
+      int? alarmLatencyMs;
+      if (scheduledSlot != null) {
+        alarmLatencyMs = now.difference(scheduledSlot.alarmTime).inMilliseconds;
+        _logger.d('Alarm latency: ${alarmLatencyMs}ms');
       }
 
       // Start foreground service (Android)
@@ -339,11 +369,15 @@ class BackgroundBlockProductionOrchestrator {
         // Continue anyway - not critical
       }
 
-      // Emit app wake-up event (PROOF that alarm worked!)
+      // Emit app wake-up event with enhanced metadata (PROOF that alarm worked!)
       _emitEvent(BlockProductionAppWakeUpEvent(
         slotNumber: slotNumber,
         alarmTime: now,
         batteryLevel: batteryLevel,
+        alarmLatencyMs: alarmLatencyMs,
+        deviceState: 'active', // Could be enhanced with actual device state
+        networkStatus: 'unknown', // Could be enhanced with network_info package
+        wakeSource: 'alarm', // Default to alarm
       ));
 
       // Find the scheduled slot
@@ -422,11 +456,259 @@ class BackgroundBlockProductionOrchestrator {
     }
   }
 
+  /// Handle native events from platform code (Android/iOS)
+  ///
+  /// This receives events forwarded from native code via PlatformAlarmService
+  void _handleNativeEvent(String eventType, Map<String, dynamic> eventData) {
+    _logger.d('Handling native event: $eventType with data: $eventData');
+
+    try {
+      switch (eventType) {
+        case 'android_alarm_fired':
+          _handleAndroidAlarmFiredEvent(eventData);
+          break;
+        case 'android_foreground_service_started':
+          _handleAndroidForegroundServiceStartedEvent(eventData);
+          break;
+        case 'android_foreground_service_stopped':
+          _handleAndroidForegroundServiceStoppedEvent(eventData);
+          break;
+        // TODO: Uncomment when events are defined in block_production_event.dart
+        // case 'android_boot_reschedule_started':
+        //   _handleAndroidBootRescheduleStartedEvent(eventData);
+        //   break;
+        // case 'android_boot_reschedule_completed':
+        //   _handleAndroidBootRescheduleCompletedEvent(eventData);
+        //   break;
+        case 'android_exact_alarm_permission_granted':
+          _handleAndroidExactAlarmPermissionGrantedEvent(eventData);
+          break;
+        case 'android_exact_alarm_permission_denied':
+          _handleAndroidExactAlarmPermissionDeniedEvent(eventData);
+          break;
+        // TODO: Uncomment when event is defined in block_production_event.dart
+        // case 'android_battery_optimization_disabled':
+        //   _handleAndroidBatteryOptimizationDisabledEvent(eventData);
+        //   break;
+        case 'ios_notification_scheduled':
+          _handleIosNotificationScheduledEvent(eventData);
+          break;
+        // TODO: Uncomment when event is defined in block_production_event.dart
+        // case 'ios_notification_delivered':
+        //   _handleIosNotificationDeliveredEvent(eventData);
+        //   break;
+        case 'ios_notification_tapped':
+          _handleIosNotificationTappedEvent(eventData);
+          break;
+        case 'ios_bgtask_scheduled':
+          _handleIosBgtaskScheduledEvent(eventData);
+          break;
+        case 'ios_bgtask_executed':
+          _handleIosBgtaskExecutedEvent(eventData);
+          break;
+        // TODO: Uncomment when event is defined in block_production_event.dart
+        // case 'ios_bgtask_expired':
+        //   _handleIosBgtaskExpiredEvent(eventData);
+        //   break;
+        case 'ios_notification_permission_granted':
+          _handleIosNotificationPermissionGrantedEvent(eventData);
+          break;
+        case 'ios_notification_permission_denied':
+          _handleIosNotificationPermissionDeniedEvent(eventData);
+          break;
+        default:
+          _logger.w('Unknown native event type: $eventType');
+      }
+    } catch (e, st) {
+      _logger.e('Error handling native event: $e', error: e, stackTrace: st);
+    }
+  }
+
+  // Android native event handlers
+
+  void _handleAndroidAlarmFiredEvent(Map<String, dynamic> data) {
+    final alarmId = data['alarmId'] as String?;
+    final slotNumber = data['slotNumber'] as int?;
+    final batteryLevel = data['batteryLevel'] as int?;
+    final networkState = data['networkState'] as String?;
+
+    if (slotNumber == null) {
+      _logger.w('Android alarm fired event missing slotNumber');
+      return;
+    }
+
+    _logger.d('Android alarm fired for slot $slotNumber');
+
+    _emitEvent(BlockProductionAndroidAlarmFiredEvent(
+      alarmId: alarmId ?? 'unknown',
+      slotNumber: slotNumber,
+      batteryLevel: batteryLevel ?? 0,
+      networkState: networkState,
+    ));
+  }
+
+  void _handleAndroidForegroundServiceStartedEvent(Map<String, dynamic> data) {
+    final slotNumber = data['slotNumber'] as int? ?? 0;
+    final wakeLockAcquired = data['wakeLockAcquired'] as bool? ?? false;
+
+    _logger.d('Android foreground service started for slot $slotNumber');
+
+    _emitEvent(BlockProductionAndroidForegroundServiceStartedEvent(
+      slotNumber: slotNumber,
+      wakeLockAcquired: wakeLockAcquired,
+    ));
+  }
+
+  void _handleAndroidForegroundServiceStoppedEvent(Map<String, dynamic> data) {
+    final slotNumber = data['slotNumber'] as int? ?? 0;
+    final reason = data['reason'] as String? ?? 'unknown';
+
+    _logger.d('Android foreground service stopped for slot $slotNumber');
+
+    _emitEvent(BlockProductionAndroidForegroundServiceStoppedEvent(
+      slotNumber: slotNumber,
+      reason: reason,
+    ));
+  }
+
+  // TODO: These events don't exist in block_production_event.dart yet
+  // void _handleAndroidBootRescheduleStartedEvent(Map<String, dynamic> data) {
+  //   _logger.d('Android boot reschedule started');
+  //   _emitEvent(BlockProductionAndroidBootRescheduleStartedEvent());
+  // }
+
+  // void _handleAndroidBootRescheduleCompletedEvent(Map<String, dynamic> data) {
+  //   final slotsRescheduled = data['slotsRescheduled'] as int?;
+  //   final success = data['success'] as bool?;
+  //   _logger.d('Android boot reschedule completed - Slots: $slotsRescheduled, Success: $success');
+  //   _emitEvent(BlockProductionAndroidBootRescheduleCompletedEvent(
+  //     slotsRescheduled: slotsRescheduled ?? 0,
+  //     success: success ?? false,
+  //   ));
+  // }
+
+  void _handleAndroidExactAlarmPermissionGrantedEvent(Map<String, dynamic> data) {
+    _logger.d('Android exact alarm permission granted');
+
+    _emitEvent(BlockProductionAndroidExactAlarmPermissionGrantedEvent());
+  }
+
+  void _handleAndroidExactAlarmPermissionDeniedEvent(Map<String, dynamic> data) {
+    _logger.d('Android exact alarm permission denied');
+
+    _emitEvent(BlockProductionAndroidExactAlarmPermissionDeniedEvent());
+  }
+
+  // TODO: This event doesn't exist in block_production_event.dart yet
+  // void _handleAndroidBatteryOptimizationDisabledEvent(Map<String, dynamic> data) {
+  //   _logger.d('Android battery optimization disabled');
+  //   _emitEvent(BlockProductionAndroidBatteryOptimizationDisabledEvent());
+  // }
+
+  // iOS native event handlers
+
+  void _handleIosNotificationScheduledEvent(Map<String, dynamic> data) {
+    final slotNumber = data['slotNumber'] as int?;
+    final scheduledTime = data['scheduledTime'] as int?;
+
+    _logger.d('iOS notification scheduled for slot $slotNumber');
+
+    _emitEvent(BlockProductionIosNotificationScheduledEvent(
+      slotNumber: slotNumber ?? 0,
+      scheduledTime: scheduledTime != null
+          ? DateTime.fromMillisecondsSinceEpoch(scheduledTime)
+          : DateTime.now(),
+    ));
+  }
+
+  // TODO: This event doesn't exist in block_production_event.dart yet
+  // void _handleIosNotificationDeliveredEvent(Map<String, dynamic> data) {
+  //   final slotNumber = data['slotNumber'] as int?;
+  //   _logger.d('iOS notification delivered for slot $slotNumber');
+  //   _emitEvent(BlockProductionIosNotificationDeliveredEvent(
+  //     slotNumber: slotNumber ?? 0,
+  //   ));
+  // }
+
+  void _handleIosNotificationTappedEvent(Map<String, dynamic> data) {
+    final slotNumber = data['slotNumber'] as int?;
+
+    _logger.d('iOS notification tapped for slot $slotNumber');
+
+    _emitEvent(BlockProductionIosNotificationTappedEvent(
+      slotNumber: slotNumber ?? 0,
+    ));
+  }
+
+  void _handleIosBgtaskScheduledEvent(Map<String, dynamic> data) {
+    final slotNumber = data['slotNumber'] as int?;
+    final scheduledTime = data['scheduledTime'] as int?;
+
+    _logger.d('iOS BGTask scheduled for slot $slotNumber');
+
+    _emitEvent(BlockProductionIosBgtaskScheduledEvent(
+      slotNumber: slotNumber ?? 0,
+      scheduledTime: scheduledTime != null
+          ? DateTime.fromMillisecondsSinceEpoch(scheduledTime)
+          : DateTime.now(),
+    ));
+  }
+
+  void _handleIosBgtaskExecutedEvent(Map<String, dynamic> data) {
+    final slotNumber = data['slotNumber'] as int?;
+    final executionDuration = data['executionDuration'] as int?;
+
+    _logger.d('iOS BGTask executed for slot $slotNumber');
+
+    _emitEvent(BlockProductionIosBgtaskExecutedEvent(
+      slotNumber: slotNumber ?? 0,
+      executionDuration: executionDuration ?? 0,
+    ));
+  }
+
+  // TODO: This event doesn't exist in block_production_event.dart yet
+  // void _handleIosBgtaskExpiredEvent(Map<String, dynamic> data) {
+  //   final slotNumber = data['slotNumber'] as int?;
+  //   _logger.d('iOS BGTask expired for slot $slotNumber');
+  //   _emitEvent(BlockProductionIosBgtaskExpiredEvent(
+  //     slotNumber: slotNumber ?? 0,
+  //   ));
+  // }
+
+  void _handleIosNotificationPermissionGrantedEvent(Map<String, dynamic> data) {
+    final alertsEnabled = data['alertsEnabled'] as bool? ?? true;
+    final soundEnabled = data['soundEnabled'] as bool? ?? true;
+    final badgeEnabled = data['badgeEnabled'] as bool? ?? true;
+
+    _logger.d('iOS notification permission granted');
+
+    _emitEvent(BlockProductionIosNotificationPermissionGrantedEvent(
+      alertsEnabled: alertsEnabled,
+      soundEnabled: soundEnabled,
+      badgeEnabled: badgeEnabled,
+    ));
+  }
+
+  void _handleIosNotificationPermissionDeniedEvent(Map<String, dynamic> data) {
+    _logger.d('iOS notification permission denied');
+
+    _emitEvent(BlockProductionIosNotificationPermissionDeniedEvent());
+  }
+
   /// Handle monitoring events from SlotMonitorService
   void _handleMonitoringEvent(SlotMonitoringEvent event) {
     _logger.d('Monitoring event: ${event.type} for slot ${event.slotNumber}');
 
     switch (event.type) {
+      case MonitoringEventType.poll:
+        // Forward poll events to metrics system
+        _emitEvent(BlockProductionMonitoringPollEvent(
+          slotNumber: event.slotNumber,
+          pollAttempt: event.pollAttempt ?? 0,
+          nodeState: event.nodeState ?? 'unknown',
+          success: event.success ?? false,
+        ));
+        break;
       case MonitoringEventType.slotProduced:
         _handleSlotProduced(event);
         break;
@@ -629,6 +911,14 @@ class BackgroundBlockProductionOrchestrator {
 
       if (success) {
         _logger.i('Successfully scheduled alarm for slot ${slot.slotNumber}');
+
+        // Emit alarm scheduled event
+        _emitEvent(BlockProductionAlarmScheduledEvent(
+          slotNumber: slot.slotNumber,
+          alarmTime: slot.alarmTime,
+          platform: 'flutter', // Will be android or ios from native
+          alarmId: alarmId,
+        ));
       } else {
         _logger.w('Failed to schedule alarm for slot ${slot.slotNumber}');
       }

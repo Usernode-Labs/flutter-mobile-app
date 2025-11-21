@@ -473,30 +473,27 @@ class BackgroundBlockProductionOrchestrator {
         case 'android_foreground_service_stopped':
           _handleAndroidForegroundServiceStoppedEvent(eventData);
           break;
-        // TODO: Uncomment when events are defined in block_production_event.dart
-        // case 'android_boot_reschedule_started':
-        //   _handleAndroidBootRescheduleStartedEvent(eventData);
-        //   break;
-        // case 'android_boot_reschedule_completed':
-        //   _handleAndroidBootRescheduleCompletedEvent(eventData);
-        //   break;
+        case 'android_boot_reschedule_started':
+          _handleAndroidBootRescheduleStartedEvent(eventData);
+          break;
+        case 'android_boot_reschedule_completed':
+          _handleAndroidBootRescheduleCompletedEvent(eventData);
+          break;
         case 'android_exact_alarm_permission_granted':
           _handleAndroidExactAlarmPermissionGrantedEvent(eventData);
           break;
         case 'android_exact_alarm_permission_denied':
           _handleAndroidExactAlarmPermissionDeniedEvent(eventData);
           break;
-        // TODO: Uncomment when event is defined in block_production_event.dart
-        // case 'android_battery_optimization_disabled':
-        //   _handleAndroidBatteryOptimizationDisabledEvent(eventData);
-        //   break;
+        case 'android_battery_optimization_disabled':
+          _handleAndroidBatteryOptimizationDisabledEvent(eventData);
+          break;
         case 'ios_notification_scheduled':
           _handleIosNotificationScheduledEvent(eventData);
           break;
-        // TODO: Uncomment when event is defined in block_production_event.dart
-        // case 'ios_notification_delivered':
-        //   _handleIosNotificationDeliveredEvent(eventData);
-        //   break;
+        case 'ios_notification_delivered':
+          _handleIosNotificationDeliveredEvent(eventData);
+          break;
         case 'ios_notification_tapped':
           _handleIosNotificationTappedEvent(eventData);
           break;
@@ -506,10 +503,9 @@ class BackgroundBlockProductionOrchestrator {
         case 'ios_bgtask_executed':
           _handleIosBgtaskExecutedEvent(eventData);
           break;
-        // TODO: Uncomment when event is defined in block_production_event.dart
-        // case 'ios_bgtask_expired':
-        //   _handleIosBgtaskExpiredEvent(eventData);
-        //   break;
+        case 'ios_bgtask_expired':
+          _handleIosBgtaskExpiredEvent(eventData);
+          break;
         case 'ios_notification_permission_granted':
           _handleIosNotificationPermissionGrantedEvent(eventData);
           break;
@@ -574,21 +570,20 @@ class BackgroundBlockProductionOrchestrator {
     ));
   }
 
-  // TODO: These events don't exist in block_production_event.dart yet
-  // void _handleAndroidBootRescheduleStartedEvent(Map<String, dynamic> data) {
-  //   _logger.d('Android boot reschedule started');
-  //   _emitEvent(BlockProductionAndroidBootRescheduleStartedEvent());
-  // }
+  void _handleAndroidBootRescheduleStartedEvent(Map<String, dynamic> data) {
+    _logger.d('Android boot reschedule started');
+    _emitEvent(BlockProductionAndroidBootRescheduleStartedEvent());
+  }
 
-  // void _handleAndroidBootRescheduleCompletedEvent(Map<String, dynamic> data) {
-  //   final slotsRescheduled = data['slotsRescheduled'] as int?;
-  //   final success = data['success'] as bool?;
-  //   _logger.d('Android boot reschedule completed - Slots: $slotsRescheduled, Success: $success');
-  //   _emitEvent(BlockProductionAndroidBootRescheduleCompletedEvent(
-  //     slotsRescheduled: slotsRescheduled ?? 0,
-  //     success: success ?? false,
-  //   ));
-  // }
+  void _handleAndroidBootRescheduleCompletedEvent(Map<String, dynamic> data) {
+    final slotsRescheduled = data['slotsRescheduled'] as int?;
+    final success = data['success'] as bool?;
+    _logger.d('Android boot reschedule completed - Slots: $slotsRescheduled, Success: $success');
+    _emitEvent(BlockProductionAndroidBootRescheduleCompletedEvent(
+      slotsRescheduled: slotsRescheduled ?? 0,
+      success: success ?? false,
+    ));
+  }
 
   void _handleAndroidExactAlarmPermissionGrantedEvent(Map<String, dynamic> data) {
     _logger.d('Android exact alarm permission granted');
@@ -602,11 +597,10 @@ class BackgroundBlockProductionOrchestrator {
     _emitEvent(BlockProductionAndroidExactAlarmPermissionDeniedEvent());
   }
 
-  // TODO: This event doesn't exist in block_production_event.dart yet
-  // void _handleAndroidBatteryOptimizationDisabledEvent(Map<String, dynamic> data) {
-  //   _logger.d('Android battery optimization disabled');
-  //   _emitEvent(BlockProductionAndroidBatteryOptimizationDisabledEvent());
-  // }
+  void _handleAndroidBatteryOptimizationDisabledEvent(Map<String, dynamic> data) {
+    _logger.d('Android battery optimization disabled');
+    _emitEvent(BlockProductionAndroidBatteryOptimizationDisabledEvent());
+  }
 
   // iOS native event handlers
 
@@ -624,14 +618,13 @@ class BackgroundBlockProductionOrchestrator {
     ));
   }
 
-  // TODO: This event doesn't exist in block_production_event.dart yet
-  // void _handleIosNotificationDeliveredEvent(Map<String, dynamic> data) {
-  //   final slotNumber = data['slotNumber'] as int?;
-  //   _logger.d('iOS notification delivered for slot $slotNumber');
-  //   _emitEvent(BlockProductionIosNotificationDeliveredEvent(
-  //     slotNumber: slotNumber ?? 0,
-  //   ));
-  // }
+  void _handleIosNotificationDeliveredEvent(Map<String, dynamic> data) {
+    final slotNumber = data['slotNumber'] as int?;
+    _logger.d('iOS notification delivered for slot $slotNumber');
+    _emitEvent(BlockProductionIosNotificationDeliveredEvent(
+      slotNumber: slotNumber ?? 0,
+    ));
+  }
 
   void _handleIosNotificationTappedEvent(Map<String, dynamic> data) {
     final slotNumber = data['slotNumber'] as int?;
@@ -669,14 +662,13 @@ class BackgroundBlockProductionOrchestrator {
     ));
   }
 
-  // TODO: This event doesn't exist in block_production_event.dart yet
-  // void _handleIosBgtaskExpiredEvent(Map<String, dynamic> data) {
-  //   final slotNumber = data['slotNumber'] as int?;
-  //   _logger.d('iOS BGTask expired for slot $slotNumber');
-  //   _emitEvent(BlockProductionIosBgtaskExpiredEvent(
-  //     slotNumber: slotNumber ?? 0,
-  //   ));
-  // }
+  void _handleIosBgtaskExpiredEvent(Map<String, dynamic> data) {
+    final slotNumber = data['slotNumber'] as int?;
+    _logger.d('iOS BGTask expired for slot $slotNumber');
+    _emitEvent(BlockProductionIosBgtaskExpiredEvent(
+      slotNumber: slotNumber ?? 0,
+    ));
+  }
 
   void _handleIosNotificationPermissionGrantedEvent(Map<String, dynamic> data) {
     final alertsEnabled = data['alertsEnabled'] as bool? ?? true;

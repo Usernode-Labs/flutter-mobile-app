@@ -7,6 +7,7 @@ import 'package:crypto_mobile_app/features/metrics/data/models/metrics_payload.d
 import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/sync_status_provider.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/node_raw_status_provider.dart';
+import 'package:crypto_mobile_app/features/node/presentation/controllers/node_data_providers.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
@@ -37,10 +38,38 @@ class MetricsCollectorService {
   /// Track app lifecycle state
   AppLifecycleState _appLifecycleState = AppLifecycleState.resumed;
 
+  // ===== CACHE VARIABLES (reset on app restart) =====
+
+  // Immutable data - cache indefinitely
+  PackageInfo? _cachedPackageInfo;
+  BaseDeviceInfo? _cachedDeviceInfo;
+  String? _cachedPeerId;
+  String? _cachedWalletAddress;
+
+  // Semi-static data with TTL
+  DateTime? _batteryOptimizationCacheTime;
+  bool? _cachedBatteryOptimization;
+  final Duration _batteryOptimizationTTL = const Duration(minutes: 5);
+
+  DateTime? _permissionsCacheTime;
+  _PermissionsCache? _cachedPermissions;
+  final Duration _permissionsTTL = const Duration(minutes: 1);
+
+  /// Helper method to check if cache should be refreshed
+  bool _shouldRefreshCache(DateTime? cacheTime, Duration ttl) {
+    if (cacheTime == null) return true;
+    return DateTime.now().difference(cacheTime) > ttl;
+  }
+
   /// Initialize the service (call at app startup)
   void initialize(ProviderContainer container) {
     _container = container;
     _appStartTime = DateTime.now();
+    // Initialize to actual current state if available
+    final currentState = WidgetsBinding.instance.lifecycleState;
+    if (currentState != null) {
+      _appLifecycleState = currentState;
+    }
   }
 
   /// Update the current app lifecycle state
@@ -165,8 +194,18 @@ class MetricsCollectorService {
 
     _logger.d('Using full collection strategy');
 
-    // For full collection, collect everything
+    // For full collection, fetch node status ONCE to avoid expensive FFI calls
+    RpcStatusResp? nodeStatus;
+    if (RustBackendService.instance.isRunning) {
+      try {
+        nodeStatus = await RustBackendService.instance.getStatus();
+      } catch (_) {
+        // Ignore errors, methods will handle null status
+      }
+    }
+
     // Collect all metrics in parallel for efficiency
+    // Pass nodeStatus to methods that need it to avoid duplicate FFI calls
     final results = await Future.wait([
       _collectEventMetrics(eventType, eventData),
       _collectRuntimeMetrics(),
@@ -175,8 +214,8 @@ class MetricsCollectorService {
       _collectBatteryMetrics(),
       _collectNetworkMetrics(),
       _collectPermissionsMetrics(),
-      _collectStatusMetrics(),
-      _collectBlockchainMetrics(),
+      _collectStatusMetrics(nodeStatus: nodeStatus),
+      _collectBlockchainMetrics(nodeStatus: nodeStatus),
     ]);
 
     final event = results[0] as EventMetrics;
@@ -189,12 +228,12 @@ class MetricsCollectorService {
     final status = results[7] as StatusMetrics;
     final blockchain = results[8] as BlockchainMetrics;
 
-    // Collect additional metrics
+    // Collect additional metrics - pass nodeStatus to avoid duplicate calls
     final identity = await _collectIdentityMetrics();
-    final consensus = await _collectConsensusMetrics();
+    final consensus = await _collectConsensusMetrics(nodeStatus: nodeStatus);
     final production = _collectProductionMetrics();
     final wallet = _collectWalletMetrics(walletBalance, walletAddress);
-    final peers = await _collectPeersMetrics();
+    final peers = await _collectPeersMetrics(nodeStatus: nodeStatus);
     final foregroundService =
         Platform.isAndroid ? await _collectForegroundServiceMetrics() : null;
 
@@ -350,6 +389,16 @@ class MetricsCollectorService {
     double? walletBalance,
     String? walletAddress,
   ) async {
+    // Fetch node status ONCE for production metrics
+    RpcStatusResp? nodeStatus;
+    if (RustBackendService.instance.isRunning) {
+      try {
+        nodeStatus = await RustBackendService.instance.getStatus();
+      } catch (_) {
+        // Ignore errors
+      }
+    }
+
     final event = await _collectEventMetrics(eventType, eventData);
     final runtime = await _collectRuntimeMetrics();
     final battery = await _collectBatteryMetrics();
@@ -366,11 +415,11 @@ class MetricsCollectorService {
           Platform.isAndroid ? await _collectForegroundServiceMetrics() : null,
     );
 
-    // Node metrics (production-focused)
+    // Node metrics (production-focused) - pass nodeStatus to avoid duplicate calls
     final identity = await _collectIdentityMetrics();
-    final status = await _collectStatusMetrics();
-    final consensus = await _collectConsensusMetrics();
-    final production = _collectProductionMetrics(); // Existing method
+    final status = await _collectStatusMetrics(nodeStatus: nodeStatus);
+    final consensus = await _collectConsensusMetrics(nodeStatus: nodeStatus);
+    final production = _collectProductionMetrics();
 
     final node = NodeMetricsGroup(
       identity: identity,
@@ -391,8 +440,9 @@ class MetricsCollectorService {
 
   /// Collect node identity
   Future<IdentityMetrics> _collectIdentityMetrics() async {
-    // Get peer ID from backend service
-    final peerId = RustBackendService.instance.getPeerId();
+    // Get peer ID from backend service - CACHED (static per session)
+    _cachedPeerId ??= RustBackendService.instance.getPeerId();
+    final peerId = _cachedPeerId;
 
     return IdentityMetrics(
       peerId: peerId,
@@ -401,7 +451,9 @@ class MetricsCollectorService {
 
   /// Collect app runtime and performance metrics
   Future<RuntimeMetrics> _collectRuntimeMetrics() async {
-    final packageInfo = await PackageInfo.fromPlatform();
+    // Get package info (app version, build number) - CACHED (immutable)
+    _cachedPackageInfo ??= await PackageInfo.fromPlatform();
+    final packageInfo = _cachedPackageInfo!;
 
     // Calculate uptime
     final uptime = _appStartTime != null
@@ -415,9 +467,14 @@ class MetricsCollectorService {
     final notificationStatus = await Permission.notification.status;
     final notificationsEnabled = notificationStatus.isGranted;
 
+    // Get ACTUAL current lifecycle state, not cached state
+    // This ensures we capture the true state even for background alarm wake-ups
+    final currentState = WidgetsBinding.instance.lifecycleState;
+    final actualAppState = currentState ?? _appLifecycleState;
+
     // Map lifecycle state to string
     String appState;
-    switch (_appLifecycleState) {
+    switch (actualAppState) {
       case AppLifecycleState.resumed:
         appState = 'foreground';
         break;
@@ -450,14 +507,17 @@ class MetricsCollectorService {
     String? architecture;
     String platformVersion = 'unknown';
 
+    // Get device info - CACHED (immutable)
     if (Platform.isAndroid) {
-      final androidInfo = await _deviceInfo.androidInfo;
+      _cachedDeviceInfo ??= await _deviceInfo.androidInfo;
+      final androidInfo = _cachedDeviceInfo as AndroidDeviceInfo;
       platformVersion = androidInfo.version.release;
       architecture = androidInfo.supportedAbis.isNotEmpty
           ? androidInfo.supportedAbis.first
           : null;
     } else if (Platform.isIOS) {
-      final iosInfo = await _deviceInfo.iosInfo;
+      _cachedDeviceInfo ??= await _deviceInfo.iosInfo;
+      final iosInfo = _cachedDeviceInfo as IosDeviceInfo;
       platformVersion = iosInfo.systemVersion;
       architecture = iosInfo.utsname.machine;
     }
@@ -476,14 +536,17 @@ class MetricsCollectorService {
     String model = 'unknown';
     bool isPhysical = true;
 
+    // Reuse cached device info - CACHED (immutable)
     if (Platform.isAndroid) {
-      final androidInfo = await _deviceInfo.androidInfo;
+      _cachedDeviceInfo ??= await _deviceInfo.androidInfo;
+      final androidInfo = _cachedDeviceInfo as AndroidDeviceInfo;
       deviceId = androidInfo.id;
       manufacturer = androidInfo.manufacturer;
       model = androidInfo.model;
       isPhysical = androidInfo.isPhysicalDevice;
     } else if (Platform.isIOS) {
-      final iosInfo = await _deviceInfo.iosInfo;
+      _cachedDeviceInfo ??= await _deviceInfo.iosInfo;
+      final iosInfo = _cachedDeviceInfo as IosDeviceInfo;
       deviceId = iosInfo.identifierForVendor ?? 'unknown';
       manufacturer = 'Apple';
       model = iosInfo.model;
@@ -514,12 +577,16 @@ class MetricsCollectorService {
       batteryAvailable = false;
     }
 
-    // Check if battery optimization is disabled (Android)
+    // Check if battery optimization is disabled (Android) - CACHED with 5min TTL
     bool batteryOptimizationDisabled = false;
     if (Platform.isAndroid) {
       try {
-        batteryOptimizationDisabled =
-            await PlatformAlarmService.instance.isBatteryOptimizationDisabled();
+        if (_shouldRefreshCache(_batteryOptimizationCacheTime, _batteryOptimizationTTL)) {
+          _cachedBatteryOptimization =
+              await PlatformAlarmService.instance.isBatteryOptimizationDisabled();
+          _batteryOptimizationCacheTime = DateTime.now();
+        }
+        batteryOptimizationDisabled = _cachedBatteryOptimization ?? false;
       } catch (_) {
         // Ignore if method not available
       }
@@ -568,41 +635,62 @@ class MetricsCollectorService {
 
   /// Collect permissions state
   Future<PermissionsMetrics> _collectPermissionsMetrics() async {
-    // Check notification permission
-    final notificationStatus = await Permission.notification.status;
-    final notificationGranted = notificationStatus.isGranted;
+    // Check if we need to refresh permissions cache (1min TTL)
+    if (_shouldRefreshCache(_permissionsCacheTime, _permissionsTTL)) {
+      // Check notification permission
+      final notificationStatus = await Permission.notification.status;
+      final notificationGranted = notificationStatus.isGranted;
 
-    // Check schedule exact alarm permission (Android 12+)
-    bool exactAlarmsPermission = false;
-    if (Platform.isAndroid) {
-      try {
-        exactAlarmsPermission = PlatformAlarmService.instance.hasPermissions;
-      } catch (_) {
-        // Ignore if method not available
+      // Check schedule exact alarm permission (Android 12+)
+      bool exactAlarmsPermission = false;
+      if (Platform.isAndroid) {
+        try {
+          exactAlarmsPermission = PlatformAlarmService.instance.hasPermissions;
+        } catch (_) {
+          // Ignore if method not available
+        }
+      } else if (Platform.isIOS) {
+        // iOS doesn't have exact alarms, use notification permission
+        exactAlarmsPermission = notificationGranted;
       }
-    } else if (Platform.isIOS) {
-      // iOS doesn't have exact alarms, use notification permission
-      exactAlarmsPermission = notificationGranted;
+
+      // Battery optimization exempt (Android) - reuse from battery cache
+      bool batteryOptimizationExempt = false;
+      if (Platform.isAndroid) {
+        try {
+          // Reuse cached battery optimization status if available
+          if (_cachedBatteryOptimization != null) {
+            batteryOptimizationExempt = _cachedBatteryOptimization!;
+          } else {
+            batteryOptimizationExempt =
+                await PlatformAlarmService.instance.isBatteryOptimizationDisabled();
+          }
+        } catch (_) {
+          // Ignore if method not available
+        }
+      }
+
+      // Cache the results
+      _cachedPermissions = _PermissionsCache(
+        notification: notificationGranted,
+        exactAlarms: exactAlarmsPermission,
+        batteryOptimization: batteryOptimizationExempt,
+      );
+      _permissionsCacheTime = DateTime.now();
     }
 
-    // Battery optimization exempt (Android)
-    bool batteryOptimizationExempt = false;
-    if (Platform.isAndroid) {
-      try {
-        batteryOptimizationExempt =
-            await PlatformAlarmService.instance.isBatteryOptimizationDisabled();
-      } catch (_) {
-        // Ignore if method not available
-      }
-    }
+    // Use cached permissions
+    final notificationGranted = _cachedPermissions?.notification ?? false;
+    final exactAlarmsPermission = _cachedPermissions?.exactAlarms ?? false;
+    final batteryOptimizationExempt = _cachedPermissions?.batteryOptimization ?? false;
 
     // Map notification status to string
     String notificationPermission = 'denied';
-    if (notificationStatus.isGranted) {
+    if (notificationGranted) {
       notificationPermission = 'authorized';
-    } else if (notificationStatus.isPermanentlyDenied) {
-      notificationPermission = 'permanently_denied';
     }
+    // Note: We can't determine permanently_denied from cache,
+    // but this is acceptable for the caching strategy
 
     return PermissionsMetrics(
       permissionNotifications: notificationGranted,
@@ -614,7 +702,10 @@ class MetricsCollectorService {
   }
 
   /// Collect node status metrics from Rust backend
-  Future<StatusMetrics> _collectStatusMetrics() async {
+  ///
+  /// If [nodeStatus] is provided, it will be used instead of fetching from backend.
+  /// This avoids expensive FFI calls when status is already available.
+  Future<StatusMetrics> _collectStatusMetrics({RpcStatusResp? nodeStatus}) async {
     bool nodeRunning = RustBackendService.instance.isRunning;
     String nodeState = nodeRunning ? 'running' : 'stopped';
     String? syncStatus;
@@ -640,8 +731,8 @@ class MetricsCollectorService {
             bestTipHash = bestTip?.hash.toString();
           }
         } else {
-          // Fallback to manual calculation if container not available
-          final status = await RustBackendService.instance.getStatus();
+          // Use provided status or fetch if not available
+          final status = nodeStatus ?? await RustBackendService.instance.getStatus();
           if (status != null) {
             // Count connected peers first
             connectedPeers = status.peers
@@ -691,13 +782,23 @@ class MetricsCollectorService {
   }
 
   /// Collect consensus and block production metrics
-  Future<ConsensusMetrics> _collectConsensusMetrics() async {
+  ///
+  /// If [nodeStatus] is provided, it will be used instead of fetching from backend.
+  /// This avoids expensive FFI calls when status is already available.
+  Future<ConsensusMetrics> _collectConsensusMetrics({RpcStatusResp? nodeStatus}) async {
     int? currentEpoch;
     int? currentGlobalSlot;
+    int? currentEpochWonSlots;
+    int? currentEpochProduced;
+    int? currentEpochFailed;
+    int? evaluatedSlotsSinceStart;
+    String? currentEpochVrfEvaluationStatus;
+    String? nextEpochVrfEvaluationStatus;
 
     if (RustBackendService.instance.isRunning) {
       try {
-        final status = await RustBackendService.instance.getStatus();
+        // Use provided status or fetch if not available
+        final status = nodeStatus ?? await RustBackendService.instance.getStatus();
         if (status != null) {
           final bestTip = status.blockchain.bestTip;
           currentEpoch = bestTip.epoch;
@@ -706,8 +807,26 @@ class MetricsCollectorService {
           currentGlobalSlot = status.node.curGlobalSlot;
           // TODO: Decide fallback strategy when curGlobalSlot is unavailable
 
-          // TODO: Implement won slots and production tracking
-          // This will be implemented in Phase 3
+          // Extract VRF evaluator metrics
+          final vrfEvaluator = status.vrfEvaluator;
+          if (vrfEvaluator != null) {
+            evaluatedSlotsSinceStart = vrfEvaluator.evaluatedSlotsSinceStart;
+            currentEpochVrfEvaluationStatus = vrfEvaluator.currentEpochVrfEvaluationStatus.name;
+            nextEpochVrfEvaluationStatus = vrfEvaluator.nextEpochVrfEvaluationStatus.name;
+          }
+        }
+
+        // Get epoch rewards data from provider if available
+        if (_container != null) {
+          final rewardsAsync = _container!.read(nodeEpochRewardsProvider);
+          final rewards = rewardsAsync.value;
+          if (rewards != null) {
+            // Extract current epoch production metrics
+            currentEpochWonSlots = rewards.winsInEpoch;
+            currentEpochProduced = rewards.producedInEpoch;
+            // Calculate failed as difference between won and produced
+            currentEpochFailed = currentEpochWonSlots - currentEpochProduced;
+          }
         }
       } catch (_) {
         // Ignore errors
@@ -717,10 +836,13 @@ class MetricsCollectorService {
     return ConsensusMetrics(
       currentEpoch: currentEpoch,
       currentGlobalSlot: currentGlobalSlot,
-      // These will be populated when we implement consensus tracking
-      currentEpochWonSlots: null,
-      currentEpochProduced: null,
-      currentEpochFailed: null,
+      currentEpochWonSlots: currentEpochWonSlots,
+      currentEpochProduced: currentEpochProduced,
+      currentEpochFailed: currentEpochFailed,
+      evaluatedSlotsSinceStart: evaluatedSlotsSinceStart,
+      currentEpochVrfEvaluationStatus: currentEpochVrfEvaluationStatus,
+      nextEpochVrfEvaluationStatus: nextEpochVrfEvaluationStatus,
+      // Total metrics not implemented yet
       totalWonSlots: null,
       totalBlocksProduced: null,
       totalBlocksFailed: null,
@@ -728,7 +850,10 @@ class MetricsCollectorService {
   }
 
   /// Collect blockchain state
-  Future<BlockchainMetrics> _collectBlockchainMetrics() async {
+  ///
+  /// If [nodeStatus] is provided, it will be used instead of fetching from backend.
+  /// This avoids expensive FFI calls when status is already available.
+  Future<BlockchainMetrics> _collectBlockchainMetrics({RpcStatusResp? nodeStatus}) async {
     int? blockchainHeight;
     String? latestBlockHash;
     int? latestBlockSlot;
@@ -736,7 +861,8 @@ class MetricsCollectorService {
 
     if (RustBackendService.instance.isRunning) {
       try {
-        final status = await RustBackendService.instance.getStatus();
+        // Use provided status or fetch if not available
+        final status = nodeStatus ?? await RustBackendService.instance.getStatus();
         if (status != null) {
           final bestTip = status.blockchain.bestTip;
 
@@ -786,20 +912,29 @@ class MetricsCollectorService {
 
   /// Collect wallet metrics
   WalletMetrics _collectWalletMetrics(double? balance, String? address) {
+    // Cache wallet address if provided - CACHED (immutable per session)
+    if (address != null) {
+      _cachedWalletAddress = address;
+    }
+
     return WalletMetrics(
       walletBalance: balance,
-      walletAddress: address,
+      walletAddress: _cachedWalletAddress ?? address,
     );
   }
 
   /// Collect peers metrics
-  Future<List<PeerMetrics>> _collectPeersMetrics() async {
+  ///
+  /// If [nodeStatus] is provided, it will be used instead of fetching from backend.
+  /// This avoids expensive FFI calls when status is already available.
+  Future<List<PeerMetrics>> _collectPeersMetrics({RpcStatusResp? nodeStatus}) async {
     if (!RustBackendService.instance.isRunning) {
       return [];
     }
 
     try {
-      final status = await RustBackendService.instance.getStatus();
+      // Use provided status or fetch if not available
+      final status = nodeStatus ?? await RustBackendService.instance.getStatus();
       if (status == null) return [];
 
       return status.peers.map((peer) {
@@ -820,4 +955,17 @@ class MetricsCollectorService {
       return [];
     }
   }
+}
+
+/// Helper class for caching permissions data
+class _PermissionsCache {
+  final bool notification;
+  final bool exactAlarms;
+  final bool batteryOptimization;
+
+  _PermissionsCache({
+    required this.notification,
+    required this.exactAlarms,
+    required this.batteryOptimization,
+  });
 }

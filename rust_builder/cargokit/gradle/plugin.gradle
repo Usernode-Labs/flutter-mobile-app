@@ -136,7 +136,10 @@ class CargoKitPlugin implements Plugin<Project> {
 
             // Optionally restrict to arm64-only to speed up and avoid
             // unsupported architectures in native builds.
-            def onlyArm64 = System.getenv("CARGOKIT_ONLY_ANDROID_ARM64")
+            def onlyArm64 = project.findProperty("cargokitOnlyAndroidArm64")
+            if (onlyArm64 == null || onlyArm64.toString().trim().isEmpty()) {
+                onlyArm64 = System.getenv("CARGOKIT_ONLY_ANDROID_ARM64")
+            }
             if (onlyArm64 != null && onlyArm64.toString().trim() == "1") {
                 platforms.clear()
                 platforms.add("android-arm64")

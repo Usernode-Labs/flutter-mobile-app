@@ -43,8 +43,16 @@ class MainActivity: FlutterActivity() {
         // Check and notify permission status when app resumes
         // This catches permission changes made in system settings
         if (::alarmHandler.isInitialized) {
+            alarmHandler.checkAndNotifyPostNotificationsPermission()
             alarmHandler.checkAndNotifyExactAlarmPermission()
             alarmHandler.checkAndNotifyBatteryOptimization()
+        }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (::alarmHandler.isInitialized) {
+            alarmHandler.onRequestPermissionsResult(requestCode, permissions, grantResults)
         }
     }
 

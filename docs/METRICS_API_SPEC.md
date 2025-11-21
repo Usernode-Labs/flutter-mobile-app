@@ -25,11 +25,26 @@ Accept: application/json
 ### Top Level (All MANDATORY)
 ```json
 {
-  "event": { ... },      // MANDATORY - Event metadata
-  "app": { ... },        // MANDATORY - App-related metrics
-  "node": { ... }        // MANDATORY - Node-related metrics
+  "event": { ... },      // MANDATORY - Event metadata (event_type, timestamp)
+  "app": { ... },        // MANDATORY - App-related metrics (collection strategy varies by event type)
+  "node": { ... }        // MANDATORY - Node-related metrics (collection strategy varies by event type)
 }
 ```
+
+### Event Types
+
+The metrics system supports **42 distinct event types** organized into two collection strategies:
+
+1. **Periodic Health Checks** (`health_check`) - Full metrics collected every 5 seconds
+2. **Event-Driven Metrics** (41 event types) - Targeted metrics triggered by specific blockchain/system events
+
+**Collection Strategies by Event Type:**
+- **Full Metrics**: Complete app + node state (health_check, epoch_transition, app lifecycle events)
+- **Lightweight Metrics**: Battery + timestamp only (android_alarm_fired, ios_notification_delivered)
+- **Production-Focused**: Node status + consensus (slot_produced, slot_failed, monitoring_poll)
+- **Minimal Metrics**: Event + peer ID only (permissions, service lifecycle)
+
+**See [METRICS_EVENTS.md](./METRICS_EVENTS.md) for complete catalog of all 42 event types with collection strategies.**
 
 ---
 
@@ -38,7 +53,7 @@ Accept: application/json
 ```json
 {
   "event": {
-    "event_type": "health_check",                    // MANDATORY (string)
+    "event_type": "health_check",                    // MANDATORY (string) - One of 42 event types (see METRICS_EVENTS.md)
     "timestamp": "2025-11-17T10:30:45.123Z"         // MANDATORY (ISO 8601 string)
   },
 
@@ -203,7 +218,7 @@ Metrics are configured via **environment variables** at compile-time using `--da
 |----------|------|---------|-------------|
 | `METRICS_ENABLED` | boolean | `false` | Enable/disable metrics collection |
 | `METRICS_ENDPOINT` | string | `''` (empty) | Full metrics endpoint URL (e.g., https://api.example.com/v1/metrics) |
-| `METRICS_INTERVAL` | integer | `30` | Reporting interval in seconds (1-3600) |
+| `METRICS_COLLECTION_INTERVAL_SECONDS` | integer | `5` | Periodic health check interval in seconds (1-3600) |
 
 ### Configuration Method
 
@@ -211,7 +226,7 @@ Metrics are configured via **environment variables** at compile-time using `--da
    ```bash
    METRICS_ENABLED=true
    METRICS_ENDPOINT=https://metrics.myapp.com/v1/metrics
-   METRICS_INTERVAL=30
+   METRICS_COLLECTION_INTERVAL_SECONDS=5
    ```
 
 2. **Build with environment variables:**

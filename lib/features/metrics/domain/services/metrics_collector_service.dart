@@ -5,9 +5,12 @@ import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/models/block_production_event.dart';
 import 'package:crypto_mobile_app/features/metrics/data/models/metrics_payload.dart';
 import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
+import 'package:crypto_mobile_app/features/node/presentation/controllers/sync_status_provider.dart';
+import 'package:crypto_mobile_app/features/node/presentation/controllers/node_raw_status_provider.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logger/logger.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -25,6 +28,9 @@ class MetricsCollectorService {
   final Connectivity _connectivity = Connectivity();
   final DeviceInfoPlugin _deviceInfo = DeviceInfoPlugin();
 
+  /// Provider container for accessing node status providers
+  static ProviderContainer? _container;
+
   /// Track app startup time
   DateTime? _appStartTime;
 
@@ -32,7 +38,8 @@ class MetricsCollectorService {
   AppLifecycleState _appLifecycleState = AppLifecycleState.resumed;
 
   /// Initialize the service (call at app startup)
-  void initialize() {
+  void initialize(ProviderContainer container) {
+    _container = container;
     _appStartTime = DateTime.now();
   }
 
@@ -617,37 +624,55 @@ class MetricsCollectorService {
 
     if (nodeRunning) {
       try {
-        final status = await RustBackendService.instance.getStatus();
-        if (status != null) {
-          // Count connected peers first
-          connectedPeers = status.peers
-              .where(
-                  (p) => p.connectionStatus == PeerConnectionStatus.connected)
-              .length;
+        // Use existing sync status provider if container is available
+        if (_container != null) {
+          // Read sync status from provider (reuses UI logic)
+          final syncStatusValue = _container!.read(syncStatusProvider);
+          syncStatus = syncStatusValue.state.name; // 'connecting', 'syncing', 'synced', 'error'
+          connectedPeers = syncStatusValue.connectedPeers;
 
-          // Determine sync status based on blockchain sync state
-          final syncBlocks = status.blockchain.sync.blocks;
-
-          // Check if we're still connecting (no peers or no sync data)
-          if (connectedPeers == 0 || syncBlocks == null) {
-            syncStatus = 'connecting';
-          } else {
-            // We have peers and sync data - check sync progress
-            final totalBlocks = syncBlocks.applyProgress.done +
-                syncBlocks.applyProgress.pending +
-                syncBlocks.applyProgress.idle;
-            if (totalBlocks == BigInt.zero ||
-                syncBlocks.applyProgress.done == totalBlocks) {
-              syncStatus = 'synced';
-            } else {
-              syncStatus = 'syncing';
-            }
+          // Get best tip data from raw provider
+          final rawAsync = _container!.read(nodeRawStatusProvider);
+          final raw = rawAsync.value;
+          if (raw != null) {
+            final bestTip = raw.localBest;
+            bestTipSlot = bestTip?.globalSlot;
+            bestTipHash = bestTip?.hash.toString();
           }
+        } else {
+          // Fallback to manual calculation if container not available
+          final status = await RustBackendService.instance.getStatus();
+          if (status != null) {
+            // Count connected peers first
+            connectedPeers = status.peers
+                .where(
+                    (p) => p.connectionStatus == PeerConnectionStatus.connected)
+                .length;
 
-          // Best tip info from blockchain
-          final bestTip = status.blockchain.bestTip;
-          bestTipSlot = bestTip.globalSlot;
-          bestTipHash = bestTip.hash.toString();
+            // Determine sync status based on blockchain sync state
+            final syncBlocks = status.blockchain.sync.blocks;
+
+            // Check if we're still connecting (no peers or no sync data)
+            if (connectedPeers == 0 || syncBlocks == null) {
+              syncStatus = 'connecting';
+            } else {
+              // We have peers and sync data - check sync progress
+              final totalBlocks = syncBlocks.applyProgress.done +
+                  syncBlocks.applyProgress.pending +
+                  syncBlocks.applyProgress.idle;
+              if (totalBlocks == BigInt.zero ||
+                  syncBlocks.applyProgress.done == totalBlocks) {
+                syncStatus = 'synced';
+              } else {
+                syncStatus = 'syncing';
+              }
+            }
+
+            // Best tip info from blockchain
+            final bestTip = status.blockchain.bestTip;
+            bestTipSlot = bestTip.globalSlot;
+            bestTipHash = bestTip.hash.toString();
+          }
         }
       } catch (_) {
         // Error getting status, node might be starting

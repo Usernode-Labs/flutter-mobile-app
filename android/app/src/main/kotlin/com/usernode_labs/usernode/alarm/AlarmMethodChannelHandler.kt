@@ -1,14 +1,19 @@
 package com.usernode_labs.usernode.alarm
 
+import android.Manifest
 import android.app.Activity
 import android.app.ActivityManager
 import android.app.AlarmManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
@@ -23,6 +28,7 @@ class AlarmMethodChannelHandler(private val activity: Activity) {
 
     companion object {
         private const val TAG = "AlarmMethodChannelHandler"
+        private const val REQUEST_POST_NOTIFICATIONS = 1001
 
         // Singleton instance for accessing from services/receivers
         @Volatile
@@ -70,6 +76,17 @@ class AlarmMethodChannelHandler(private val activity: Activity) {
             }
             "requestExactAlarmPermission" -> {
                 requestExactAlarmPermission()
+                result.success(true)
+            }
+            "hasPostNotificationsPermission" -> {
+                result.success(hasPostNotificationsPermission())
+            }
+            "requestPostNotificationsPermission" -> {
+                requestPostNotificationsPermission()
+                result.success(true)
+            }
+            "requestBatteryOptimizationExemption" -> {
+                requestBatteryOptimizationExemption()
                 result.success(true)
             }
             "scheduleExactAlarm" -> {
@@ -189,6 +206,68 @@ class AlarmMethodChannelHandler(private val activity: Activity) {
         }
     }
 
+    private fun hasPostNotificationsPermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.checkSelfPermission(
+                activity,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true // Not required before Android 13
+        }
+    }
+
+    private fun requestPostNotificationsPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (!hasPostNotificationsPermission()) {
+                Log.d(TAG, "[AlarmMethodChannelHandler] Requesting POST_NOTIFICATIONS permission")
+                ActivityCompat.requestPermissions(
+                    activity,
+                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                    REQUEST_POST_NOTIFICATIONS
+                )
+            } else {
+                // Permission already granted
+                Log.d(TAG, "[AlarmMethodChannelHandler] POST_NOTIFICATIONS permission already granted")
+                sendEventToFlutter("android_post_notifications_permission_granted", emptyMap())
+            }
+        } else {
+            // Not required before Android 13
+            sendEventToFlutter("android_post_notifications_permission_granted", emptyMap())
+        }
+    }
+
+    // Call this method to check and notify POST_NOTIFICATIONS permission status
+    fun checkAndNotifyPostNotificationsPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val hasPermission = hasPostNotificationsPermission()
+            Log.d(TAG, "[AlarmMethodChannelHandler] POST_NOTIFICATIONS permission check: $hasPermission")
+            if (hasPermission) {
+                sendEventToFlutter("android_post_notifications_permission_granted", emptyMap())
+            } else {
+                sendEventToFlutter("android_post_notifications_permission_denied", emptyMap())
+            }
+        } else {
+            // Not required before Android 13
+            sendEventToFlutter("android_post_notifications_permission_granted", emptyMap())
+        }
+    }
+
+    // Handle permission request result
+    fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+        when (requestCode) {
+            REQUEST_POST_NOTIFICATIONS -> {
+                val granted = grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
+                Log.d(TAG, "[AlarmMethodChannelHandler] POST_NOTIFICATIONS permission result: $granted")
+                if (granted) {
+                    sendEventToFlutter("android_post_notifications_permission_granted", emptyMap())
+                } else {
+                    sendEventToFlutter("android_post_notifications_permission_denied", emptyMap())
+                }
+            }
+        }
+    }
+
     private fun isBatteryOptimizationDisabled(): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val powerManager = activity.getSystemService(Context.POWER_SERVICE) as PowerManager
@@ -201,6 +280,29 @@ class AlarmMethodChannelHandler(private val activity: Activity) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
             activity.startActivity(intent)
+        }
+    }
+
+    private fun requestBatteryOptimizationExemption() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (!powerManager.isIgnoringBatteryOptimizations(activity.packageName)) {
+                Log.d(TAG, "[AlarmMethodChannelHandler] Requesting battery optimization exemption")
+                try {
+                    // Direct exemption request - shows app-specific dialog
+                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                        data = Uri.parse("package:${activity.packageName}")
+                    }
+                    activity.startActivity(intent)
+                } catch (e: Exception) {
+                    Log.e(TAG, "[AlarmMethodChannelHandler] Failed to request battery optimization exemption", e)
+                    // Fallback to general settings page
+                    openBatteryOptimizationSettings()
+                }
+            } else {
+                // Already exempted
+                Log.d(TAG, "[AlarmMethodChannelHandler] Battery optimization already disabled")
+                sendEventToFlutter("android_battery_optimization_disabled", emptyMap())
+            }
         }
     }
 

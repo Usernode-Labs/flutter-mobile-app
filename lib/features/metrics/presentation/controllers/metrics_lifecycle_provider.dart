@@ -2,6 +2,7 @@ import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/features/metrics/domain/services/metrics_reporting_service.dart';
+import 'package:crypto_mobile_app/core/services/background_block_production_orchestrator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Provider that manages the lifecycle of metrics reporting
@@ -20,6 +21,16 @@ final metricsLifecycleProvider = Provider<void>((ref) {
 
     // Start the metrics reporting service
     MetricsReportingService.instance.start();
+
+    // Connect to orchestrator event stream for event-driven metrics
+    MetricsReportingService.instance.startListeningToEvents(
+      BackgroundBlockProductionOrchestrator.instance.events,
+    );
+
+    LoggingService.instance.debug(
+      'Connected metrics reporting to block production events',
+      tag: LogTag.metrics,
+    );
   } else {
     LoggingService.instance.debug(
       'Metrics disabled or not configured',

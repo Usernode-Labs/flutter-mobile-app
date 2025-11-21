@@ -707,3 +707,72 @@ class BlockProductionIosBackgroundRefreshStatusCheckedEvent
         'status': status,
       };
 }
+
+/// Event emitted when Android boot reschedule starts
+class BlockProductionAndroidBootRescheduleStartedEvent
+    extends BlockProductionEvent {
+  BlockProductionAndroidBootRescheduleStartedEvent({
+    super.timestamp,
+  }) : super(eventType: 'android_boot_reschedule_started');
+}
+
+/// Event emitted when Android boot reschedule completes
+class BlockProductionAndroidBootRescheduleCompletedEvent
+    extends BlockProductionEvent {
+  final int slotsRescheduled;
+  final bool success;
+
+  BlockProductionAndroidBootRescheduleCompletedEvent({
+    required this.slotsRescheduled,
+    required this.success,
+    super.timestamp,
+  }) : super(eventType: 'android_boot_reschedule_completed');
+
+  @override
+  Map<String, dynamic> toJson() => {
+        ...super.toJson(),
+        'slotsRescheduled': slotsRescheduled,
+        'success': success,
+      };
+}
+
+/// Event emitted when Android battery optimization is disabled
+class BlockProductionAndroidBatteryOptimizationDisabledEvent
+    extends BlockProductionEvent {
+  BlockProductionAndroidBatteryOptimizationDisabledEvent({
+    super.timestamp,
+  }) : super(eventType: 'android_battery_optimization_disabled');
+}
+
+/// Event emitted when iOS notification is delivered
+class BlockProductionIosNotificationDeliveredEvent
+    extends BlockProductionEvent {
+  final int slotNumber;
+
+  BlockProductionIosNotificationDeliveredEvent({
+    required this.slotNumber,
+    super.timestamp,
+  }) : super(eventType: 'ios_notification_delivered');
+
+  @override
+  Map<String, dynamic> toJson() => {
+        ...super.toJson(),
+        'slotNumber': slotNumber,
+      };
+}
+
+/// Event emitted when iOS background task expires
+class BlockProductionIosBgtaskExpiredEvent extends BlockProductionEvent {
+  final int slotNumber;
+
+  BlockProductionIosBgtaskExpiredEvent({
+    required this.slotNumber,
+    super.timestamp,
+  }) : super(eventType: 'ios_bgtask_expired');
+
+  @override
+  Map<String, dynamic> toJson() => {
+        ...super.toJson(),
+        'slotNumber': slotNumber,
+      };
+}

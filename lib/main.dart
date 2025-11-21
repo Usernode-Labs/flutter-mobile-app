@@ -16,6 +16,7 @@ import 'package:crypto_mobile_app/features/metrics/domain/services/metrics_colle
 import 'package:crypto_mobile_app/features/metrics/presentation/controllers/metrics_lifecycle_provider.dart';
 import 'package:crypto_mobile_app/core/config/blockchain_timing.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
+import 'package:crypto_mobile_app/core/services/background_block_production_orchestrator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Future<void> main() async {
@@ -39,11 +40,11 @@ Future<void> main() async {
 
     // Kick off non-blocking bootstrap work (feature flags, backend, etc).
     // ignore: unawaited_futures
-    _bootstrapAsync(log);
+    _bootstrapAsync(log, container);
   });
 }
 
-Future<void> _bootstrapAsync(LoggingService log) async {
+Future<void> _bootstrapAsync(LoggingService log, ProviderContainer container) async {
   try {
     SentryUtil.addBreadcrumb(category: 'app', message: 'bootstrap begin');
     log.info('Initializing application', tag: 'MAIN');
@@ -76,7 +77,11 @@ Future<void> _bootstrapAsync(LoggingService log) async {
 
     // Initialize metrics collection service
     log.info('Initializing metrics collection service', tag: 'MAIN');
-    MetricsCollectorService.instance.initialize();
+    MetricsCollectorService.instance.initialize(container);
+
+    // Initialize background block production orchestrator
+    log.info('Initializing background block production orchestrator', tag: 'MAIN');
+    await BackgroundBlockProductionOrchestrator.instance.initialize();
 
     // Request permissions at startup (if not already requested)
     await _requestPermissionsAtStartup(log);

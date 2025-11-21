@@ -545,6 +545,9 @@ class BackgroundBlockProductionOrchestrator {
       batteryLevel: batteryLevel ?? 0,
       networkState: networkState,
     ));
+
+    // Trigger slot monitoring when Android alarm fires
+    handleSlotWakeUp(slotNumber);
   }
 
   void _handleAndroidForegroundServiceStartedEvent(Map<String, dynamic> data) {

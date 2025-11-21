@@ -7,6 +7,7 @@ import 'package:crypto_mobile_app/features/metrics/data/models/metrics_payload.d
 import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/sync_status_provider.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/node_raw_status_provider.dart';
+import 'package:crypto_mobile_app/features/node/presentation/controllers/node_data_providers.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
@@ -787,6 +788,9 @@ class MetricsCollectorService {
   Future<ConsensusMetrics> _collectConsensusMetrics({RpcStatusResp? nodeStatus}) async {
     int? currentEpoch;
     int? currentGlobalSlot;
+    int? currentEpochWonSlots;
+    int? currentEpochProduced;
+    int? currentEpochFailed;
 
     if (RustBackendService.instance.isRunning) {
       try {
@@ -799,9 +803,19 @@ class MetricsCollectorService {
           // Use backend-provided current global slot
           currentGlobalSlot = status.node.curGlobalSlot;
           // TODO: Decide fallback strategy when curGlobalSlot is unavailable
+        }
 
-          // TODO: Implement won slots and production tracking
-          // This will be implemented in Phase 3
+        // Get epoch rewards data from provider if available
+        if (_container != null) {
+          final rewardsAsync = _container!.read(nodeEpochRewardsProvider);
+          final rewards = rewardsAsync.value;
+          if (rewards != null) {
+            // Extract current epoch production metrics
+            currentEpochWonSlots = rewards.winsInEpoch;
+            currentEpochProduced = rewards.producedInEpoch;
+            // Calculate failed as difference between won and produced
+            currentEpochFailed = currentEpochWonSlots - currentEpochProduced;
+          }
         }
       } catch (_) {
         // Ignore errors
@@ -811,10 +825,10 @@ class MetricsCollectorService {
     return ConsensusMetrics(
       currentEpoch: currentEpoch,
       currentGlobalSlot: currentGlobalSlot,
-      // These will be populated when we implement consensus tracking
-      currentEpochWonSlots: null,
-      currentEpochProduced: null,
-      currentEpochFailed: null,
+      currentEpochWonSlots: currentEpochWonSlots,
+      currentEpochProduced: currentEpochProduced,
+      currentEpochFailed: currentEpochFailed,
+      // Total metrics not implemented yet
       totalWonSlots: null,
       totalBlocksProduced: null,
       totalBlocksFailed: null,

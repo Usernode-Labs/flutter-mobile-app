@@ -791,6 +791,9 @@ class MetricsCollectorService {
     int? currentEpochWonSlots;
     int? currentEpochProduced;
     int? currentEpochFailed;
+    int? evaluatedSlotsSinceStart;
+    String? currentEpochVrfEvaluationStatus;
+    String? nextEpochVrfEvaluationStatus;
 
     if (RustBackendService.instance.isRunning) {
       try {
@@ -803,6 +806,14 @@ class MetricsCollectorService {
           // Use backend-provided current global slot
           currentGlobalSlot = status.node.curGlobalSlot;
           // TODO: Decide fallback strategy when curGlobalSlot is unavailable
+
+          // Extract VRF evaluator metrics
+          final vrfEvaluator = status.vrfEvaluator;
+          if (vrfEvaluator != null) {
+            evaluatedSlotsSinceStart = vrfEvaluator.evaluatedSlotsSinceStart;
+            currentEpochVrfEvaluationStatus = vrfEvaluator.currentEpochVrfEvaluationStatus.name;
+            nextEpochVrfEvaluationStatus = vrfEvaluator.nextEpochVrfEvaluationStatus.name;
+          }
         }
 
         // Get epoch rewards data from provider if available
@@ -828,6 +839,9 @@ class MetricsCollectorService {
       currentEpochWonSlots: currentEpochWonSlots,
       currentEpochProduced: currentEpochProduced,
       currentEpochFailed: currentEpochFailed,
+      evaluatedSlotsSinceStart: evaluatedSlotsSinceStart,
+      currentEpochVrfEvaluationStatus: currentEpochVrfEvaluationStatus,
+      nextEpochVrfEvaluationStatus: nextEpochVrfEvaluationStatus,
       // Total metrics not implemented yet
       totalWonSlots: null,
       totalBlocksProduced: null,

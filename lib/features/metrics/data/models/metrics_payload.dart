@@ -281,6 +281,9 @@ class ConsensusMetrics with _$ConsensusMetrics {
     int? totalWonSlots,
     int? totalBlocksProduced,
     int? totalBlocksFailed,
+    int? evaluatedSlotsSinceStart,
+    String? currentEpochVrfEvaluationStatus,
+    String? nextEpochVrfEvaluationStatus,
   }) = _ConsensusMetrics;
 
   const ConsensusMetrics._();
@@ -298,6 +301,12 @@ class ConsensusMetrics with _$ConsensusMetrics {
         if (totalBlocksProduced != null)
           'total_blocks_produced': totalBlocksProduced,
         if (totalBlocksFailed != null) 'total_blocks_failed': totalBlocksFailed,
+        if (evaluatedSlotsSinceStart != null)
+          'evaluated_slots_since_start': evaluatedSlotsSinceStart,
+        if (currentEpochVrfEvaluationStatus != null)
+          'current_epoch_vrf_evaluation_status': currentEpochVrfEvaluationStatus,
+        if (nextEpochVrfEvaluationStatus != null)
+          'next_epoch_vrf_evaluation_status': nextEpochVrfEvaluationStatus,
       };
 }
 

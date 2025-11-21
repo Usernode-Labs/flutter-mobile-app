@@ -2921,6 +2921,11 @@ mixin _$ConsensusMetrics {
   int? get totalWonSlots => throw _privateConstructorUsedError;
   int? get totalBlocksProduced => throw _privateConstructorUsedError;
   int? get totalBlocksFailed => throw _privateConstructorUsedError;
+  int? get evaluatedSlotsSinceStart => throw _privateConstructorUsedError;
+  String? get currentEpochVrfEvaluationStatus =>
+      throw _privateConstructorUsedError;
+  String? get nextEpochVrfEvaluationStatus =>
+      throw _privateConstructorUsedError;
 
   /// Create a copy of ConsensusMetrics
   /// with the given fields replaced by the non-null parameter values.
@@ -2943,7 +2948,10 @@ abstract class $ConsensusMetricsCopyWith<$Res> {
       int? currentEpochFailed,
       int? totalWonSlots,
       int? totalBlocksProduced,
-      int? totalBlocksFailed});
+      int? totalBlocksFailed,
+      int? evaluatedSlotsSinceStart,
+      String? currentEpochVrfEvaluationStatus,
+      String? nextEpochVrfEvaluationStatus});
 }
 
 /// @nodoc
@@ -2969,6 +2977,9 @@ class _$ConsensusMetricsCopyWithImpl<$Res, $Val extends ConsensusMetrics>
     Object? totalWonSlots = freezed,
     Object? totalBlocksProduced = freezed,
     Object? totalBlocksFailed = freezed,
+    Object? evaluatedSlotsSinceStart = freezed,
+    Object? currentEpochVrfEvaluationStatus = freezed,
+    Object? nextEpochVrfEvaluationStatus = freezed,
   }) {
     return _then(_value.copyWith(
       currentEpoch: freezed == currentEpoch
@@ -3003,6 +3014,19 @@ class _$ConsensusMetricsCopyWithImpl<$Res, $Val extends ConsensusMetrics>
           ? _value.totalBlocksFailed
           : totalBlocksFailed // ignore: cast_nullable_to_non_nullable
               as int?,
+      evaluatedSlotsSinceStart: freezed == evaluatedSlotsSinceStart
+          ? _value.evaluatedSlotsSinceStart
+          : evaluatedSlotsSinceStart // ignore: cast_nullable_to_non_nullable
+              as int?,
+      currentEpochVrfEvaluationStatus: freezed ==
+              currentEpochVrfEvaluationStatus
+          ? _value.currentEpochVrfEvaluationStatus
+          : currentEpochVrfEvaluationStatus // ignore: cast_nullable_to_non_nullable
+              as String?,
+      nextEpochVrfEvaluationStatus: freezed == nextEpochVrfEvaluationStatus
+          ? _value.nextEpochVrfEvaluationStatus
+          : nextEpochVrfEvaluationStatus // ignore: cast_nullable_to_non_nullable
+              as String?,
     ) as $Val);
   }
 }
@@ -3023,7 +3047,10 @@ abstract class _$$ConsensusMetricsImplCopyWith<$Res>
       int? currentEpochFailed,
       int? totalWonSlots,
       int? totalBlocksProduced,
-      int? totalBlocksFailed});
+      int? totalBlocksFailed,
+      int? evaluatedSlotsSinceStart,
+      String? currentEpochVrfEvaluationStatus,
+      String? nextEpochVrfEvaluationStatus});
 }
 
 /// @nodoc
@@ -3047,6 +3074,9 @@ class __$$ConsensusMetricsImplCopyWithImpl<$Res>
     Object? totalWonSlots = freezed,
     Object? totalBlocksProduced = freezed,
     Object? totalBlocksFailed = freezed,
+    Object? evaluatedSlotsSinceStart = freezed,
+    Object? currentEpochVrfEvaluationStatus = freezed,
+    Object? nextEpochVrfEvaluationStatus = freezed,
   }) {
     return _then(_$ConsensusMetricsImpl(
       currentEpoch: freezed == currentEpoch
@@ -3081,6 +3111,19 @@ class __$$ConsensusMetricsImplCopyWithImpl<$Res>
           ? _value.totalBlocksFailed
           : totalBlocksFailed // ignore: cast_nullable_to_non_nullable
               as int?,
+      evaluatedSlotsSinceStart: freezed == evaluatedSlotsSinceStart
+          ? _value.evaluatedSlotsSinceStart
+          : evaluatedSlotsSinceStart // ignore: cast_nullable_to_non_nullable
+              as int?,
+      currentEpochVrfEvaluationStatus: freezed ==
+              currentEpochVrfEvaluationStatus
+          ? _value.currentEpochVrfEvaluationStatus
+          : currentEpochVrfEvaluationStatus // ignore: cast_nullable_to_non_nullable
+              as String?,
+      nextEpochVrfEvaluationStatus: freezed == nextEpochVrfEvaluationStatus
+          ? _value.nextEpochVrfEvaluationStatus
+          : nextEpochVrfEvaluationStatus // ignore: cast_nullable_to_non_nullable
+              as String?,
     ));
   }
 }
@@ -3096,7 +3139,10 @@ class _$ConsensusMetricsImpl extends _ConsensusMetrics {
       this.currentEpochFailed,
       this.totalWonSlots,
       this.totalBlocksProduced,
-      this.totalBlocksFailed})
+      this.totalBlocksFailed,
+      this.evaluatedSlotsSinceStart,
+      this.currentEpochVrfEvaluationStatus,
+      this.nextEpochVrfEvaluationStatus})
       : super._();
 
   @override
@@ -3115,10 +3161,16 @@ class _$ConsensusMetricsImpl extends _ConsensusMetrics {
   final int? totalBlocksProduced;
   @override
   final int? totalBlocksFailed;
+  @override
+  final int? evaluatedSlotsSinceStart;
+  @override
+  final String? currentEpochVrfEvaluationStatus;
+  @override
+  final String? nextEpochVrfEvaluationStatus;
 
   @override
   String toString() {
-    return 'ConsensusMetrics(currentEpoch: $currentEpoch, currentGlobalSlot: $currentGlobalSlot, currentEpochWonSlots: $currentEpochWonSlots, currentEpochProduced: $currentEpochProduced, currentEpochFailed: $currentEpochFailed, totalWonSlots: $totalWonSlots, totalBlocksProduced: $totalBlocksProduced, totalBlocksFailed: $totalBlocksFailed)';
+    return 'ConsensusMetrics(currentEpoch: $currentEpoch, currentGlobalSlot: $currentGlobalSlot, currentEpochWonSlots: $currentEpochWonSlots, currentEpochProduced: $currentEpochProduced, currentEpochFailed: $currentEpochFailed, totalWonSlots: $totalWonSlots, totalBlocksProduced: $totalBlocksProduced, totalBlocksFailed: $totalBlocksFailed, evaluatedSlotsSinceStart: $evaluatedSlotsSinceStart, currentEpochVrfEvaluationStatus: $currentEpochVrfEvaluationStatus, nextEpochVrfEvaluationStatus: $nextEpochVrfEvaluationStatus)';
   }
 
   @override
@@ -3141,7 +3193,18 @@ class _$ConsensusMetricsImpl extends _ConsensusMetrics {
             (identical(other.totalBlocksProduced, totalBlocksProduced) ||
                 other.totalBlocksProduced == totalBlocksProduced) &&
             (identical(other.totalBlocksFailed, totalBlocksFailed) ||
-                other.totalBlocksFailed == totalBlocksFailed));
+                other.totalBlocksFailed == totalBlocksFailed) &&
+            (identical(
+                    other.evaluatedSlotsSinceStart, evaluatedSlotsSinceStart) ||
+                other.evaluatedSlotsSinceStart == evaluatedSlotsSinceStart) &&
+            (identical(other.currentEpochVrfEvaluationStatus,
+                    currentEpochVrfEvaluationStatus) ||
+                other.currentEpochVrfEvaluationStatus ==
+                    currentEpochVrfEvaluationStatus) &&
+            (identical(other.nextEpochVrfEvaluationStatus,
+                    nextEpochVrfEvaluationStatus) ||
+                other.nextEpochVrfEvaluationStatus ==
+                    nextEpochVrfEvaluationStatus));
   }
 
   @override
@@ -3154,7 +3217,10 @@ class _$ConsensusMetricsImpl extends _ConsensusMetrics {
       currentEpochFailed,
       totalWonSlots,
       totalBlocksProduced,
-      totalBlocksFailed);
+      totalBlocksFailed,
+      evaluatedSlotsSinceStart,
+      currentEpochVrfEvaluationStatus,
+      nextEpochVrfEvaluationStatus);
 
   /// Create a copy of ConsensusMetrics
   /// with the given fields replaced by the non-null parameter values.
@@ -3175,7 +3241,10 @@ abstract class _ConsensusMetrics extends ConsensusMetrics {
       final int? currentEpochFailed,
       final int? totalWonSlots,
       final int? totalBlocksProduced,
-      final int? totalBlocksFailed}) = _$ConsensusMetricsImpl;
+      final int? totalBlocksFailed,
+      final int? evaluatedSlotsSinceStart,
+      final String? currentEpochVrfEvaluationStatus,
+      final String? nextEpochVrfEvaluationStatus}) = _$ConsensusMetricsImpl;
   const _ConsensusMetrics._() : super._();
 
   @override
@@ -3194,6 +3263,12 @@ abstract class _ConsensusMetrics extends ConsensusMetrics {
   int? get totalBlocksProduced;
   @override
   int? get totalBlocksFailed;
+  @override
+  int? get evaluatedSlotsSinceStart;
+  @override
+  String? get currentEpochVrfEvaluationStatus;
+  @override
+  String? get nextEpochVrfEvaluationStatus;
 
   /// Create a copy of ConsensusMetrics
   /// with the given fields replaced by the non-null parameter values.

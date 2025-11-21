@@ -14,6 +14,21 @@ See detailed checklist below for all completed items.
 
 ---
 
+## Unified Orchestrator Architecture
+
+**BackgroundBlockProductionOrchestrator** (`lib/core/services/background_block_production_orchestrator.dart`) serves as the unified coordinator for all background block production activities:
+
+- **Event-Driven Design**: Emits BlockProductionEvent stream for metrics, logging, and UI updates
+- **Platform-Agnostic Core**: Coordinates Android alarms and iOS BGTasks through platform services
+- **Automatic Permission Requests**: Triggers startup permission requests for POST_NOTIFICATIONS, SCHEDULE_EXACT_ALARM, and battery optimization
+- **Metrics Integration**: Connected to MetricsReportingService for real-time event-driven metrics collection
+- **Slot Monitoring Trigger**: On Android alarm fire, automatically calls handleSlotWakeUp() to start slot monitoring
+- **Lifecycle Management**: Initializes at app startup, maintains state across app lifecycle
+
+**See Also**: [PERMISSIONS.md](./PERMISSIONS.md) for complete permission flow documentation
+
+---
+
 ## Executive Summary
 
 **Architecture**: Scheduled discrete wake-ups (NOT continuous operation)
@@ -185,6 +200,15 @@ Android 12+ restricts starting FGS from the background. Our approach:
 4. If background start fails → fallback to expedited WorkManager
 
 ### Exact Alarm Permission Flow
+
+**Startup Permission Requests (Automatic)**:
+- Permissions are automatically requested at app startup (one-time on first launch)
+- POST_NOTIFICATIONS (Android 13+), SCHEDULE_EXACT_ALARM (Android 12+), and battery optimization exemption
+- Managed by `_requestPermissionsAtStartup()` in `main.dart`
+- Uses SharedPreferences flag to avoid repeated requests on subsequent launches
+- See [PERMISSIONS.md](./PERMISSIONS.md) for complete flow documentation
+
+**Manual Permission Request** (from Background Production Settings):
 
 On Android 12+:
 1. Check if `canScheduleExactAlarms()` returns true

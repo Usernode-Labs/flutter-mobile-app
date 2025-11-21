@@ -135,13 +135,28 @@ MetricsReportingService.instance.startListeningToEvents(
 
 ## Configuration Changes
 
+### Startup Permission Requests (New)
+
+Permissions are now automatically requested at app startup:
+- **POST_NOTIFICATIONS** (Android 13+): Required for slot notifications
+- **SCHEDULE_EXACT_ALARM** (Android 12+): Required for precise slot wake-ups
+- **Battery Optimization Exemption**: Prevents Android from killing background tasks
+
+Managed by `_requestPermissionsAtStartup()` in `main.dart`. One-time request on first launch.
+
+**See**: [PERMISSIONS.md](./PERMISSIONS.md) for complete documentation.
+
 ### Environment Variables (New)
 
 Add these to your `.env` file:
 
 ```bash
-# Metrics Collection Interval (seconds)
-METRICS_COLLECTION_INTERVAL_SECONDS=30
+# Metrics Collection Interval (seconds) - updated from 30 to 5
+METRICS_COLLECTION_INTERVAL_SECONDS=5
+
+# Metrics endpoint configuration
+METRICS_ENABLED=true
+METRICS_ENDPOINT=https://your-metrics-api.com/v1/metrics
 
 # Wake up N seconds before slot time
 BLOCK_PRODUCTION_WAKE_BEFORE_SLOT_SECONDS=60

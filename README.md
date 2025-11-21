@@ -128,14 +128,17 @@ This is **not a light client** - it's a full validator node with consensus parti
 
 ### Block Production & Rewards
 
+- **Unified Orchestrator**: BackgroundBlockProductionOrchestrator coordinates all background production activities
+- **Startup Permission Requests**: Automatic one-time permission requests at app launch (POST_NOTIFICATIONS, SCHEDULE_EXACT_ALARM, battery optimization)
 - **Slot Calculator**: Calculate won slots for current epoch
 - **Slot Scheduler**: Schedule alarms for upcoming block production windows
 - **Slot Monitor**: Real-time monitoring during block production (5-minute windows)
 - **Background Production** (Platform-specific):
-  - **Android**: Exact alarms + Foreground Service
+  - **Android**: Exact alarms + Foreground Service with automatic slot monitoring trigger
   - **iOS**: Three-tier approach (Foreground Keep-Alive, BGTask + Notifications)
 - Production statistics and success rate tracking
 - Reward tracking and epoch-based analytics
+- **Event-Driven Metrics**: 42 distinct event types tracking alarm execution, slot monitoring, and block production
 
 ### Advanced Notifications
 
@@ -151,6 +154,11 @@ This is **not a light client** - it's a full validator node with consensus parti
 - Historical data visualization (Limited since the node does not keep the full history of transactions and blocks)
 - Performance monitoring
 - Production success rate analytics
+- **Comprehensive Metrics System**:
+  - Event-driven + periodic health check metrics (every 5 seconds)
+  - 42 distinct event types with targeted collection strategies
+  - Real-time reporting to centralized API endpoint
+  - Tracks app state, device info, battery, network, node status, consensus, and production events
 
 ### Platform-Specific Optimizations
 
@@ -170,6 +178,13 @@ For detailed documentation on specific features and workflows, refer to the foll
 - **[Background Block Production Overview](docs/background-block-production.md)** - Comprehensive guide to background block production system, architecture, and platform-specific implementations
 - **[Android Background Block Production Flow](docs/android_background_block_production_flow.md)** - Detailed flow diagram and implementation details for Android
 - **[iOS Background Block Production Flow](docs/ios_background_block_production_flow.md)** - Detailed flow diagram and implementation details for iOS
+- **[App Permissions Guide](docs/PERMISSIONS.md)** - Runtime permissions required for background block production, startup permission flow, and troubleshooting
+
+### Metrics & Monitoring
+
+- **[Metrics Feature Overview](docs/METRICS_FEATURE.md)** - Complete guide to metrics collection, event-driven architecture, and targeted collection strategies
+- **[Metrics Events Catalog](docs/METRICS_EVENTS.md)** - Comprehensive documentation of all 42 metrics event types organized by collection strategy
+- **[Metrics API Specification](docs/METRICS_API_SPEC.md)** - API endpoint specifications, payload structure, and configuration guide
 
 ### Development & Architecture
 
@@ -1138,6 +1153,9 @@ The following environment variables are used in production builds:
 | `USE_RESULT_PROVIDERS` | Enable result providers           | No       | `true`, `false`             |
 | `ENABLED_FEATURES`     | Comma-separated enabled features  | No       | `feature1,feature2`         |
 | `DISABLED_FEATURES`    | Comma-separated disabled features | No       | `feature3,feature4`         |
+| `METRICS_ENABLED` | Enable metrics collection | No | `true`, `false` |
+| `METRICS_ENDPOINT` | Metrics API endpoint URL | No | `https://metrics.example.com/v1/metrics` |
+| `METRICS_COLLECTION_INTERVAL_SECONDS` | Periodic health check interval in seconds | No | `5` (default: 5) |
 
 ### Local Development .env File
 
@@ -1156,6 +1174,9 @@ GITHUB_TOKEN=
 USE_RESULT_PROVIDERS=true
 ENABLED_FEATURES=
 DISABLED_FEATURES=
+METRICS_ENABLED=false
+METRICS_ENDPOINT=
+METRICS_COLLECTION_INTERVAL_SECONDS=5
 ```
 
 ### Production/CI Environment Setup

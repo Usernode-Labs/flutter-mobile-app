@@ -23,12 +23,15 @@ This document summarizes the complete implementation of the unified background b
 - **VRF-aware**: Only schedules when VRF calculation complete
 - **Smart polling**: Adapts interval based on VRF status (2-15 minutes)
 - **State persistence**: Single source of truth via SharedPreferences
+- **Startup permissions**: Automatic one-time permission requests (POST_NOTIFICATIONS, SCHEDULE_EXACT_ALARM, battery optimization)
+- **Slot monitoring trigger**: Android alarm fires → automatically calls handleSlotWakeUp() to start monitoring
 
 ### 3. Event Architecture ✅
-- **8 event types**: Complete production lifecycle visibility
-- **Targeted metrics**: Different collection per event type
+- **42 event types**: Complete production lifecycle visibility across all platforms
+- **Targeted metrics**: Different collection strategies per event type (Full, Lightweight, Production-Focused, Minimal)
 - **Stream-based**: Real-time event broadcasting
 - **Decoupled**: Metrics service subscribes to events, not tightly coupled
+- **Comprehensive catalog**: See METRICS_EVENTS.md for all event types
 
 ### 4. Configuration ✅
 - **Environment-based**: All timing values in .env
@@ -280,7 +283,7 @@ Future<int> _scheduleSlots(List<RpcEpochWonSlot> wonSlots) async {
 
 **Modified**:
 - `lib/core/config/app_config.dart`
-  - Added `METRICS_COLLECTION_INTERVAL_SECONDS` (default: 30)
+  - Added `METRICS_COLLECTION_INTERVAL_SECONDS` (default: 5)
   - Added `BLOCK_PRODUCTION_WAKE_BEFORE_SLOT_SECONDS` (default: 60)
   - Added `EPOCH_MONITOR_BASE_INTERVAL_SECONDS` (default: 900)
   - Added Duration getters for convenience
@@ -291,13 +294,20 @@ Future<int> _scheduleSlots(List<RpcEpochWonSlot> wonSlots) async {
   - Documented all timing parameters
   - Explained smart polling behavior
 
+- `lib/main.dart`
+  - Added `_requestPermissionsAtStartup()` for automatic permission requests
+  - Integrated BackgroundBlockProductionOrchestrator initialization
+  - Connected MetricsCollectorService with ProviderContainer (for sync status provider reuse)
+
 **Configuration Values**:
 
 | Variable | Default | Range | Purpose |
 |----------|---------|-------|---------|
-| `METRICS_COLLECTION_INTERVAL_SECONDS` | 30 | 1-3600 | Periodic health check interval |
+| `METRICS_COLLECTION_INTERVAL_SECONDS` | 5 | 1-3600 | Periodic health check interval (updated from 30s) |
 | `BLOCK_PRODUCTION_WAKE_BEFORE_SLOT_SECONDS` | 60 | 30-300 | Time to wake before slot |
 | `EPOCH_MONITOR_BASE_INTERVAL_SECONDS` | 900 | 60-1800 | Base epoch check interval |
+| `METRICS_ENABLED` | false | - | Enable/disable metrics collection |
+| `METRICS_ENDPOINT` | '' | - | Metrics API endpoint URL |
 
 **Smart Polling Intervals** (auto-adjusted based on VRF status):
 - VRF not started: 15 minutes (900s)
@@ -340,6 +350,49 @@ Future<int> _scheduleSlots(List<RpcEpochWonSlot> wonSlots) async {
 - Trace logging
 
 **Result**: Complete testing framework with debugging support
+
+---
+
+### Phase 9: Recent Enhancements ✅
+
+**Implemented**: January 2025 (post-initial release)
+
+**Critical Bug Fixes**:
+1. **Android Slot Monitoring Not Starting**:
+   - **Problem**: `_handleAndroidAlarmFiredEvent()` emitted event but never called `handleSlotWakeUp()`
+   - **Impact**: Foreground service started but slot monitoring never began, blocks never produced
+   - **Fix**: Added single line `handleSlotWakeUp(slotNumber);` in event handler
+   - **Result**: Complete flow now works: alarm → foreground service → slot monitoring → block production
+
+2. **Sync Status Drift Between UI and Metrics**:
+   - **Problem**: MetricsCollectorService recalculated sync status, treating `syncBlocks == null` as "connecting"
+   - **Reality**: When node synced, `syncBlocks` often null (no active sync operation)
+   - **Impact**: UI showed "Synced", metrics reported "Connecting" to backend
+   - **Fix**: Reuse existing `syncStatusProvider` by passing ProviderContainer to MetricsCollectorService
+   - **Result**: UI and metrics always match (single source of truth)
+
+3. **Missing Event Stream Connection**:
+   - **Problem**: `MetricsReportingService.startListeningToEvents()` existed but was never called
+   - **Impact**: Only periodic health-check metrics sent, no event-driven metrics
+   - **Fix**: Connected event stream in `metrics_lifecycle_provider.dart`
+   - **Result**: Full 42-event metrics now working
+
+4. **Wrong Environment Variable Name**:
+   - **Problem**: Using `METRICS_INTERVAL` instead of `METRICS_COLLECTION_INTERVAL_SECONDS`
+   - **Impact**: Configuration not applied correctly
+   - **Fix**: Updated .env to use correct variable name
+   - **Result**: Metrics frequency configurable (now 5 seconds by default)
+
+**Documentation Updates**:
+- Created `PERMISSIONS.md` - Comprehensive permission guide with startup flow
+- Created `METRICS_EVENTS.md` - Complete catalog of all 42 event types
+- Updated `METRICS_FEATURE.md` - Added event-driven architecture section
+- Updated `METRICS_API_SPEC.md` - Added event types and collection strategies
+- Updated `README.md` - Added orchestrator, permissions, and metrics sections
+- Updated `background-block-production.md` - Added orchestrator and startup permissions
+- Updated `BACKGROUND_PRODUCTION_MIGRATION.md` - Added permission section, updated metrics interval
+
+**Result**: Complete system reliability with comprehensive documentation
 
 ---
 

@@ -7,7 +7,7 @@ The metrics collection feature enables the app to automatically collect and repo
 ## Features
 
 - **Compile-Time Configuration**: Metrics configured via environment variables at build time
-- **Periodic Reporting**: Metrics sent every X seconds (configurable via METRICS_INTERVAL, default: 30 seconds)
+- **Event-Driven + Periodic Reporting**: Metrics sent on specific events (alarm fired, slot produced, etc.) plus periodic health checks (configurable via METRICS_COLLECTION_INTERVAL_SECONDS, default: 5 seconds)
 - **Cross-Platform**: Works on both Android and iOS, in all app states (foreground, background, terminated)
 - **Comprehensive Metrics**: Collects 15 categories of metrics including app state, device info, battery, network, permissions, node status, blockchain data, and more
 - **Failed Upload Handling**: Failed metrics are dropped (no retry mechanism)
@@ -43,6 +43,30 @@ The metrics collection feature enables the app to automatically collect and repo
    - Real-time statistics display
    - Manual send functionality for testing
 
+### Event-Driven Architecture
+
+The metrics system uses **two collection strategies**:
+
+1. **Periodic Health Checks** (Timer-based)
+   - Triggered every 5 seconds by default (configurable via `METRICS_COLLECTION_INTERVAL_SECONDS`)
+   - Collects **full metrics** with all 15 categories for comprehensive system state
+   - Runs in all app states (foreground, background, terminated)
+
+2. **Event-Driven Metrics** (Reactive)
+   - Triggered by specific BlockProductionEvent emissions from BackgroundBlockProductionOrchestrator
+   - Uses **targeted collection strategies** based on event type for optimal performance:
+     - **Full**: Complete system state for critical events (epoch_transition, app lifecycle)
+     - **Lightweight**: Battery + timestamp only for alarm proof-of-life (android_alarm_fired, ios_notification_delivered)
+     - **Production-Focused**: Node status + consensus for slot monitoring (slot_produced, slot_failed, monitoring_poll)
+     - **Minimal**: Event + peer ID only for lifecycle events (permissions, service start/stop)
+   - Connected via `MetricsReportingService.startListeningToEvents()` in metrics_lifecycle_provider.dart
+   - Listens to BackgroundBlockProductionOrchestrator.instance.events stream
+   - Enables real-time tracking of **42 distinct event types**
+
+**Complete Event Catalog**: See [METRICS_EVENTS.md](./METRICS_EVENTS.md) for comprehensive documentation of all 42 event types organized by collection strategy.
+
+**Sync Status Collection**: The metrics collector reuses the existing `syncStatusProvider` from the UI layer (via ProviderContainer) to ensure consistency between displayed sync status and reported metrics. This eliminates calculation drift and handles all edge cases (null syncBlocks, peer height fallback, etc.).
+
 ### Platform Integration
 
 #### Android
@@ -68,8 +92,10 @@ The metrics collection feature enables the app to automatically collect and repo
 
 ## Metrics Categories
 
+The following categories are collected for **periodic health checks** (full metrics). Event-driven metrics use targeted strategies documented in [METRICS_EVENTS.md](./METRICS_EVENTS.md).
+
 ### 1. Event Metadata
-- Event type (health_check)
+- Event type (health_check for periodic, or specific event type for event-driven)
 - Timestamp (ISO8601)
 - Peer ID (if available)
 
@@ -150,7 +176,7 @@ Metrics are configured at **compile-time** using environment variables:
    ```bash
    METRICS_ENABLED=true
    METRICS_ENDPOINT=https://metrics.myapp.com/v1/metrics
-   METRICS_INTERVAL=30
+   METRICS_COLLECTION_INTERVAL_SECONDS=5
    ```
 
 2. **Build with environment variables:**
@@ -161,7 +187,7 @@ Metrics are configured at **compile-time** using environment variables:
 3. **Environment Variables:**
    - `METRICS_ENABLED` (boolean, default: `false`) - Enable/disable metrics collection
    - `METRICS_ENDPOINT` (string, default: `''`) - Full metrics endpoint URL
-   - `METRICS_INTERVAL` (integer, default: `30`) - Reporting interval in seconds (1-3600)
+   - `METRICS_COLLECTION_INTERVAL_SECONDS` (integer, default: `5`) - Periodic health check interval in seconds (1-3600)
 
 ### Viewing Configuration
 
@@ -215,7 +241,7 @@ Expected Response: HTTP 200-299 (any 2xx status code is considered success)
    ```bash
    METRICS_ENABLED=true
    METRICS_ENDPOINT=https://metrics.myapp.com/v1/metrics
-   METRICS_INTERVAL=30
+   METRICS_COLLECTION_INTERVAL_SECONDS=5
    ```
 
 2. Build the app with environment variables:
@@ -262,7 +288,7 @@ Check your metrics API logs to verify reports are being received:
    - Verify `.env` file contains correct values
    - Ensure `METRICS_ENABLED=true`
    - Verify `METRICS_ENDPOINT` is not empty
-   - Confirm `METRICS_INTERVAL` is valid (1-3600 seconds)
+   - Confirm `METRICS_COLLECTION_INTERVAL_SECONDS` is valid (1-3600 seconds)
 
 2. **Rebuild the App**
    - Environment variables are compile-time, not runtime

@@ -31,8 +31,8 @@ class BlockProductionEpochTransitionEvent extends BlockProductionEvent {
     required this.slotsScheduled,
     this.vrfStatus,
     this.nextAlarmTime,
-    DateTime? timestamp,
-  }) : super(eventType: 'epoch_transition', timestamp: timestamp);
+    super.timestamp,
+  }) : super(eventType: 'epoch_transition');
 
   @override
   Map<String, dynamic> toJson() => {
@@ -66,8 +66,8 @@ class BlockProductionAppWakeUpEvent extends BlockProductionEvent {
     this.deviceState,
     this.networkStatus,
     this.wakeSource,
-    DateTime? timestamp,
-  }) : super(eventType: 'app_wake_up', timestamp: timestamp);
+    super.timestamp,
+  }) : super(eventType: 'app_wake_up');
 
   @override
   Map<String, dynamic> toJson() => {
@@ -96,8 +96,8 @@ class BlockProductionMonitoringStartEvent extends BlockProductionEvent {
     required this.nodeState,
     this.currentEpoch,
     this.foregroundServiceActive,
-    DateTime? timestamp,
-  }) : super(eventType: 'slot_monitoring_start', timestamp: timestamp);
+    super.timestamp,
+  }) : super(eventType: 'slot_monitoring_start');
 
   @override
   Map<String, dynamic> toJson() => {
@@ -127,8 +127,8 @@ class BlockProductionSlotProducedEvent extends BlockProductionEvent {
     required this.productionTime,
     this.nodeState,
     this.consensusState,
-    DateTime? timestamp,
-  }) : super(eventType: 'slot_produced', timestamp: timestamp);
+    super.timestamp,
+  }) : super(eventType: 'slot_produced');
 
   @override
   Map<String, dynamic> toJson() => {
@@ -156,8 +156,8 @@ class BlockProductionSlotFailedEvent extends BlockProductionEvent {
     this.errorDetails,
     this.nodeState,
     this.consensusState,
-    DateTime? timestamp,
-  }) : super(eventType: 'slot_failed', timestamp: timestamp);
+    super.timestamp,
+  }) : super(eventType: 'slot_failed');
 
   @override
   Map<String, dynamic> toJson() => {
@@ -183,8 +183,8 @@ class BlockProductionBlockProductionDetectedEvent
     required this.blockHash,
     required this.blockHeight,
     required this.detectionTime,
-    DateTime? timestamp,
-  }) : super(eventType: 'block_production_detected', timestamp: timestamp);
+    super.timestamp,
+  }) : super(eventType: 'block_production_detected');
 
   @override
   Map<String, dynamic> toJson() => {
@@ -204,8 +204,8 @@ class BlockProductionNodeStartInitiatedEvent extends BlockProductionEvent {
   BlockProductionNodeStartInitiatedEvent({
     required this.reason,
     required this.slotNumber,
-    DateTime? timestamp,
-  }) : super(eventType: 'node_start_initiated', timestamp: timestamp);
+    super.timestamp,
+  }) : super(eventType: 'node_start_initiated');
 
   @override
   Map<String, dynamic> toJson() => {
@@ -225,8 +225,8 @@ class BlockProductionNodeStartCompletedEvent extends BlockProductionEvent {
     required this.slotNumber,
     required this.startDurationMs,
     required this.peerId,
-    DateTime? timestamp,
-  }) : super(eventType: 'node_start_completed', timestamp: timestamp);
+    super.timestamp,
+  }) : super(eventType: 'node_start_completed');
 
   @override
   Map<String, dynamic> toJson() => {
@@ -247,8 +247,8 @@ class BlockProductionNodeStartFailedEvent extends BlockProductionEvent {
     required this.slotNumber,
     required this.errorMessage,
     required this.attemptDurationMs,
-    DateTime? timestamp,
-  }) : super(eventType: 'node_start_failed', timestamp: timestamp);
+    super.timestamp,
+  }) : super(eventType: 'node_start_failed');
 
   @override
   Map<String, dynamic> toJson() => {
@@ -269,8 +269,8 @@ class BlockProductionAppResumedEvent extends BlockProductionEvent {
     required this.currentEpoch,
     required this.nodeRunning,
     required this.scheduledSlotsCount,
-    DateTime? timestamp,
-  }) : super(eventType: 'app_resumed', timestamp: timestamp);
+    super.timestamp,
+  }) : super(eventType: 'app_resumed');
 
   @override
   Map<String, dynamic> toJson() => {
@@ -291,8 +291,8 @@ class BlockProductionErrorEvent extends BlockProductionEvent {
     required this.errorType,
     required this.errorMessage,
     this.stackTrace,
-    DateTime? timestamp,
-  }) : super(eventType: 'error', timestamp: timestamp);
+    super.timestamp,
+  }) : super(eventType: 'error');
 
   @override
   Map<String, dynamic> toJson() => {
@@ -313,8 +313,8 @@ class BlockProductionHealthCheckEvent extends BlockProductionEvent {
     required this.currentEpoch,
     required this.scheduledSlotsCount,
     required this.nodeRunning,
-    DateTime? timestamp,
-  }) : super(eventType: 'health_check', timestamp: timestamp);
+    super.timestamp,
+  }) : super(eventType: 'health_check');
 
   @override
   Map<String, dynamic> toJson() => {
@@ -341,8 +341,8 @@ class BlockProductionAlarmScheduledEvent extends BlockProductionEvent {
     required this.alarmTime,
     required this.platform,
     this.alarmId,
-    DateTime? timestamp,
-  }) : super(eventType: 'alarm_scheduled', timestamp: timestamp);
+    super.timestamp,
+  }) : super(eventType: 'alarm_scheduled');
 
   @override
   Map<String, dynamic> toJson() => {
@@ -366,8 +366,8 @@ class BlockProductionMonitoringPollEvent extends BlockProductionEvent {
     required this.pollAttempt,
     required this.nodeState,
     required this.success,
-    DateTime? timestamp,
-  }) : super(eventType: 'monitoring_poll', timestamp: timestamp);
+    super.timestamp,
+  }) : super(eventType: 'monitoring_poll');
 
   @override
   Map<String, dynamic> toJson() => {
@@ -389,8 +389,8 @@ class BlockProductionAlarmMissedEvent extends BlockProductionEvent {
     required this.slotNumber,
     required this.expectedAlarmTime,
     required this.minutesPastExpected,
-    DateTime? timestamp,
-  }) : super(eventType: 'alarm_missed', timestamp: timestamp);
+    super.timestamp,
+  }) : super(eventType: 'alarm_missed');
 
   @override
   Map<String, dynamic> toJson() => {
@@ -417,8 +417,8 @@ class BlockProductionAndroidAlarmFiredEvent extends BlockProductionEvent {
     required this.slotNumber,
     required this.batteryLevel,
     this.networkState,
-    DateTime? timestamp,
-  }) : super(eventType: 'android_alarm_fired', timestamp: timestamp);
+    super.timestamp,
+  }) : super(eventType: 'android_alarm_fired');
 
   @override
   Map<String, dynamic> toJson() => {
@@ -439,10 +439,8 @@ class BlockProductionAndroidForegroundServiceStartedEvent
   BlockProductionAndroidForegroundServiceStartedEvent({
     required this.slotNumber,
     required this.wakeLockAcquired,
-    DateTime? timestamp,
-  }) : super(
-            eventType: 'android_foreground_service_started',
-            timestamp: timestamp);
+    super.timestamp,
+  }) : super(eventType: 'android_foreground_service_started');
 
   @override
   Map<String, dynamic> toJson() => {
@@ -461,10 +459,8 @@ class BlockProductionAndroidForegroundServiceStoppedEvent
   BlockProductionAndroidForegroundServiceStoppedEvent({
     required this.slotNumber,
     required this.reason,
-    DateTime? timestamp,
-  }) : super(
-            eventType: 'android_foreground_service_stopped',
-            timestamp: timestamp);
+    super.timestamp,
+  }) : super(eventType: 'android_foreground_service_stopped');
 
   @override
   Map<String, dynamic> toJson() => {
@@ -483,9 +479,8 @@ class BlockProductionAndroidBootAlarmRescheduledEvent
   BlockProductionAndroidBootAlarmRescheduledEvent({
     required this.alarmsRescheduled,
     required this.slotNumbers,
-    DateTime? timestamp,
-  }) : super(
-            eventType: 'android_boot_alarm_rescheduled', timestamp: timestamp);
+    super.timestamp,
+  }) : super(eventType: 'android_boot_alarm_rescheduled');
 
   @override
   Map<String, dynamic> toJson() => {
@@ -508,8 +503,8 @@ class BlockProductionIosNotificationScheduledEvent
   BlockProductionIosNotificationScheduledEvent({
     required this.slotNumber,
     required this.scheduledTime,
-    DateTime? timestamp,
-  }) : super(eventType: 'ios_notification_scheduled', timestamp: timestamp);
+    super.timestamp,
+  }) : super(eventType: 'ios_notification_scheduled');
 
   @override
   Map<String, dynamic> toJson() => {
@@ -525,8 +520,8 @@ class BlockProductionIosNotificationTappedEvent extends BlockProductionEvent {
 
   BlockProductionIosNotificationTappedEvent({
     required this.slotNumber,
-    DateTime? timestamp,
-  }) : super(eventType: 'ios_notification_tapped', timestamp: timestamp);
+    super.timestamp,
+  }) : super(eventType: 'ios_notification_tapped');
 
   @override
   Map<String, dynamic> toJson() => {
@@ -543,8 +538,8 @@ class BlockProductionIosBgtaskScheduledEvent extends BlockProductionEvent {
   BlockProductionIosBgtaskScheduledEvent({
     required this.slotNumber,
     required this.scheduledTime,
-    DateTime? timestamp,
-  }) : super(eventType: 'ios_bgtask_scheduled', timestamp: timestamp);
+    super.timestamp,
+  }) : super(eventType: 'ios_bgtask_scheduled');
 
   @override
   Map<String, dynamic> toJson() => {
@@ -562,8 +557,8 @@ class BlockProductionIosBgtaskExecutedEvent extends BlockProductionEvent {
   BlockProductionIosBgtaskExecutedEvent({
     required this.slotNumber,
     required this.executionDuration,
-    DateTime? timestamp,
-  }) : super(eventType: 'ios_bgtask_executed', timestamp: timestamp);
+    super.timestamp,
+  }) : super(eventType: 'ios_bgtask_executed');
 
   @override
   Map<String, dynamic> toJson() => {
@@ -581,30 +576,24 @@ class BlockProductionIosBgtaskExecutedEvent extends BlockProductionEvent {
 class BlockProductionAndroidExactAlarmPermissionRequestedEvent
     extends BlockProductionEvent {
   BlockProductionAndroidExactAlarmPermissionRequestedEvent({
-    DateTime? timestamp,
-  }) : super(
-            eventType: 'android_exact_alarm_permission_requested',
-            timestamp: timestamp);
+    super.timestamp,
+  }) : super(eventType: 'android_exact_alarm_permission_requested');
 }
 
 /// Event emitted when Android exact alarm permission is granted
 class BlockProductionAndroidExactAlarmPermissionGrantedEvent
     extends BlockProductionEvent {
   BlockProductionAndroidExactAlarmPermissionGrantedEvent({
-    DateTime? timestamp,
-  }) : super(
-            eventType: 'android_exact_alarm_permission_granted',
-            timestamp: timestamp);
+    super.timestamp,
+  }) : super(eventType: 'android_exact_alarm_permission_granted');
 }
 
 /// Event emitted when Android exact alarm permission is denied
 class BlockProductionAndroidExactAlarmPermissionDeniedEvent
     extends BlockProductionEvent {
   BlockProductionAndroidExactAlarmPermissionDeniedEvent({
-    DateTime? timestamp,
-  }) : super(
-            eventType: 'android_exact_alarm_permission_denied',
-            timestamp: timestamp);
+    super.timestamp,
+  }) : super(eventType: 'android_exact_alarm_permission_denied');
 }
 
 /// Event emitted when battery optimization status is checked
@@ -616,10 +605,8 @@ class BlockProductionAndroidBatteryOptimizationCheckedEvent
   BlockProductionAndroidBatteryOptimizationCheckedEvent({
     required this.isOptimized,
     required this.isWhitelisted,
-    DateTime? timestamp,
-  }) : super(
-            eventType: 'android_battery_optimization_checked',
-            timestamp: timestamp);
+    super.timestamp,
+  }) : super(eventType: 'android_battery_optimization_checked');
 
   @override
   Map<String, dynamic> toJson() => {
@@ -633,40 +620,32 @@ class BlockProductionAndroidBatteryOptimizationCheckedEvent
 class BlockProductionAndroidBatteryOptimizationRequestedEvent
     extends BlockProductionEvent {
   BlockProductionAndroidBatteryOptimizationRequestedEvent({
-    DateTime? timestamp,
-  }) : super(
-            eventType: 'android_battery_optimization_requested',
-            timestamp: timestamp);
+    super.timestamp,
+  }) : super(eventType: 'android_battery_optimization_requested');
 }
 
 /// Event emitted when Android notification permission is requested
 class BlockProductionAndroidNotificationPermissionRequestedEvent
     extends BlockProductionEvent {
   BlockProductionAndroidNotificationPermissionRequestedEvent({
-    DateTime? timestamp,
-  }) : super(
-            eventType: 'android_notification_permission_requested',
-            timestamp: timestamp);
+    super.timestamp,
+  }) : super(eventType: 'android_notification_permission_requested');
 }
 
 /// Event emitted when Android notification permission is granted
 class BlockProductionAndroidNotificationPermissionGrantedEvent
     extends BlockProductionEvent {
   BlockProductionAndroidNotificationPermissionGrantedEvent({
-    DateTime? timestamp,
-  }) : super(
-            eventType: 'android_notification_permission_granted',
-            timestamp: timestamp);
+    super.timestamp,
+  }) : super(eventType: 'android_notification_permission_granted');
 }
 
 /// Event emitted when Android notification permission is denied
 class BlockProductionAndroidNotificationPermissionDeniedEvent
     extends BlockProductionEvent {
   BlockProductionAndroidNotificationPermissionDeniedEvent({
-    DateTime? timestamp,
-  }) : super(
-            eventType: 'android_notification_permission_denied',
-            timestamp: timestamp);
+    super.timestamp,
+  }) : super(eventType: 'android_notification_permission_denied');
 }
 
 // ============================================================================
@@ -677,10 +656,8 @@ class BlockProductionAndroidNotificationPermissionDeniedEvent
 class BlockProductionIosNotificationPermissionRequestedEvent
     extends BlockProductionEvent {
   BlockProductionIosNotificationPermissionRequestedEvent({
-    DateTime? timestamp,
-  }) : super(
-            eventType: 'ios_notification_permission_requested',
-            timestamp: timestamp);
+    super.timestamp,
+  }) : super(eventType: 'ios_notification_permission_requested');
 }
 
 /// Event emitted when iOS notification permission is granted
@@ -694,10 +671,8 @@ class BlockProductionIosNotificationPermissionGrantedEvent
     required this.alertsEnabled,
     required this.soundEnabled,
     required this.badgeEnabled,
-    DateTime? timestamp,
-  }) : super(
-            eventType: 'ios_notification_permission_granted',
-            timestamp: timestamp);
+    super.timestamp,
+  }) : super(eventType: 'ios_notification_permission_granted');
 
   @override
   Map<String, dynamic> toJson() => {
@@ -712,10 +687,8 @@ class BlockProductionIosNotificationPermissionGrantedEvent
 class BlockProductionIosNotificationPermissionDeniedEvent
     extends BlockProductionEvent {
   BlockProductionIosNotificationPermissionDeniedEvent({
-    DateTime? timestamp,
-  }) : super(
-            eventType: 'ios_notification_permission_denied',
-            timestamp: timestamp);
+    super.timestamp,
+  }) : super(eventType: 'ios_notification_permission_denied');
 }
 
 /// Event emitted when iOS background refresh status is checked
@@ -725,10 +698,8 @@ class BlockProductionIosBackgroundRefreshStatusCheckedEvent
 
   BlockProductionIosBackgroundRefreshStatusCheckedEvent({
     required this.status,
-    DateTime? timestamp,
-  }) : super(
-            eventType: 'ios_background_refresh_status_checked',
-            timestamp: timestamp);
+    super.timestamp,
+  }) : super(eventType: 'ios_background_refresh_status_checked');
 
   @override
   Map<String, dynamic> toJson() => {

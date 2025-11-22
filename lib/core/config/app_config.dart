@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class AppConfig {
   final String environment;
   final bool verboseLogging;
@@ -51,4 +53,48 @@ class AppConfig {
       Duration(seconds: blockProductionWakeBeforeSlotSeconds);
   static Duration get epochMonitorBaseInterval =>
       Duration(seconds: epochMonitorBaseIntervalSeconds);
+
+  // Demo accounts configuration (JSON object with account metadata)
+  static const String _demoAccountsJson =
+      String.fromEnvironment('DEMO_ACCOUNTS_JSON', defaultValue: '{"accounts":[]}');
+
+  static List<DemoAccount> get demoAccounts {
+    try {
+      final decoded = jsonDecode(_demoAccountsJson);
+      if (decoded is Map && decoded['accounts'] is List) {
+        final accounts = decoded['accounts'] as List;
+        return accounts.map((acc) => DemoAccount.fromJson(acc as Map<String, dynamic>)).toList();
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+}
+
+/// Demo account model with metadata
+class DemoAccount {
+  final String secretKeyHex;
+  final String publicKeyHex;
+  final String publicKeyHashBech32m;
+  final int amount;
+  final String tier;
+
+  DemoAccount({
+    required this.secretKeyHex,
+    required this.publicKeyHex,
+    required this.publicKeyHashBech32m,
+    required this.amount,
+    required this.tier,
+  });
+
+  factory DemoAccount.fromJson(Map<String, dynamic> json) {
+    return DemoAccount(
+      secretKeyHex: json['secret_key_hex'] as String,
+      publicKeyHex: json['public_key_hex'] as String,
+      publicKeyHashBech32m: json['public_key_hash_bech32m'] as String,
+      amount: json['amount'] as int,
+      tier: json['tier'] as String,
+    );
+  }
 }

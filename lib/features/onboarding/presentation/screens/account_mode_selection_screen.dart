@@ -33,7 +33,7 @@ class _AccountModeSelectionScreenState
 
       // Navigate using GoRouter with mnemonic as URL parameter
       final encodedMnemonic = Uri.encodeComponent(mnemonic);
-      context.go('/create-new-account?mnemonic=$encodedMnemonic');
+      context.push('/create-new-account?mnemonic=$encodedMnemonic');
     } catch (e) {
       if (!mounted) return;
       setState(() => _generatingMnemonic = false);
@@ -44,7 +44,15 @@ class _AccountModeSelectionScreenState
   }
 
   void _navigateToImportSeed() {
-    context.go('/import-seed-phrase');
+    context.push('/import-seed-phrase');
+  }
+
+  void _navigateToImportPrivateKey() {
+    context.push('/import-private-key');
+  }
+
+  void _navigateToDemoAccounts() {
+    context.push('/use-demo-accounts');
   }
 
   @override
@@ -100,6 +108,22 @@ class _AccountModeSelectionScreenState
                   subtitle:
                       'Restore your wallet using your existing 12-word recovery phrase.',
                   onTap: _navigateToImportSeed,
+                ),
+                const SizedBox(height: 12),
+                _ModeCard(
+                  icon: Icons.vpn_key,
+                  title: 'Import from Private Key',
+                  subtitle:
+                      'Import your account using a hex-encoded private key.',
+                  onTap: _navigateToImportPrivateKey,
+                ),
+                const SizedBox(height: 12),
+                _ModeCard(
+                  icon: Icons.science_outlined,
+                  title: 'Use Demo Account',
+                  subtitle:
+                      'Quickly set up a pre-configured account for testing purposes.',
+                  onTap: _navigateToDemoAccounts,
                 ),
               ],
             ),

@@ -16,6 +16,7 @@ import 'package:crypto_mobile_app/src/rust/node.dart';
 import 'package:crypto_mobile_app/src/rust/node/builder.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/core/models/backend_rpc_response.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 /// A small façade around flutter_rust_bridge generated APIs.
 /// Centralizes initialization and access to the Rust node / RPC.
@@ -69,11 +70,25 @@ class RustBackendService {
 
   /// Build and start the Rust node, then expose an RPC client.
   /// Safe to call multiple times; subsequent calls are no-ops.
-  Future<void> startNode({int? httpPort}) async {
+  Future<void> startNode({int? httpPort, String? privateKeyHex}) async {
     if (!_initialized) {
       await init();
     }
     if (_nodeRunning) return;
+
+    // Validate private key is provided
+    if (privateKeyHex == null || privateKeyHex.isEmpty) {
+      LoggingService.instance.error(
+        'Cannot start node: private key not provided',
+        tag: 'RUST'
+      );
+      await SentryUtil.captureMessage(
+        'Node start failed: missing private key',
+        level: SentryLevel.error,
+      );
+      throw ArgumentError('Private key required to start node');
+    }
+
     LoggingService.instance.trace(
         'Starting node${httpPort != null ? ' on $httpPort' : ''}',
         tag: 'RUST');
@@ -88,9 +103,12 @@ class RustBackendService {
       builder.httpServer(port: httpPort);
     }
 
-    builder.blockProducerHex(
-        skHex:
-            "f065204f7232abb3adc4621e2d92d401c91a0f3ad77905426efb8fcbc44ce29c");
+    // SECURITY: Do NOT log the actual key value, only its length
+    LoggingService.instance.trace(
+      'Configuring block producer with user private key (length: ${privateKeyHex.length})',
+      tag: 'RUST'
+    );
+    builder.blockProducerHex(skHex: privateKeyHex);
     builder.mempoolAutoinsertInterval(secs: BigInt.from(1));
 
     _node = builder.build();
@@ -107,6 +125,8 @@ class RustBackendService {
     // Run the node in a background thread.
     _node!.runForeverInNewThread();
     _nodeRunning = true;
+
+    LoggingService.instance.info('Node started with user account block producer', tag: 'RUST');
   }
 
   Future<void> stopNode() async {
@@ -137,8 +157,41 @@ class RustBackendService {
           category: 'backend', message: 'no accounts; skipping start');
       return false;
     }
-    LoggingService.instance
-        .debug('Account exists - proceeding with node start', tag: 'RUST');
+
+    // Retrieve active account
+    LoggingService.instance.debug('Retrieving active account...', tag: 'RUST');
+    final account = await repo.getActive();
+
+    if (account == null) {
+      LoggingService.instance.error('Failed to retrieve active account', tag: 'RUST');
+      await SentryUtil.captureMessage(
+        'Node start failed: no active account found',
+        level: SentryLevel.warning,
+      );
+      return false;
+    }
+
+    LoggingService.instance.debug('Active account: ${account.id} (${account.name})', tag: 'RUST');
+
+    // Get private key for active account
+    LoggingService.instance.trace('Retrieving private key for account ${account.id}...', tag: 'RUST');
+    final privateKey = await repo.getPrivateKey(account.id);
+
+    if (privateKey == null || privateKey.isEmpty) {
+      LoggingService.instance.error(
+        'Cannot start node: private key unavailable for account ${account.id}',
+        tag: 'RUST'
+      );
+      await SentryUtil.captureMessage(
+        'Node start failed: private key unavailable',
+        level: SentryLevel.error,
+      );
+      return false;
+    }
+
+    // SECURITY: Only log key length, not value
+    LoggingService.instance.trace('Private key retrieved (length: ${privateKey.length})', tag: 'RUST');
+
     if (!_initialized) {
       await init();
     }
@@ -146,10 +199,23 @@ class RustBackendService {
       LoggingService.instance.trace('Node already running', tag: 'RUST');
       return true;
     }
-    await startNode();
-    LoggingService.instance.trace('startForActiveAccount done', tag: 'RUST');
-    await SentryUtil.captureMessage('Backend started for active account');
-    return true;
+
+    // Start node with user's private key
+    try {
+      await startNode(privateKeyHex: privateKey);
+      LoggingService.instance.trace('startForActiveAccount done', tag: 'RUST');
+      await SentryUtil.captureMessage('Backend started for active account ${account.id}');
+      return true;
+    } catch (e, st) {
+      LoggingService.instance.error(
+        'Failed to start node with account ${account.id}',
+        tag: 'RUST',
+        error: e,
+        stackTrace: st
+      );
+      await SentryUtil.captureError(e, st, tag: 'startNode');
+      return false;
+    }
   }
 
   /// Restart node using current active account context.

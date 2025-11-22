@@ -11,6 +11,7 @@ class AccountMeta {
   final bool backupConfirmed;
   final bool identityVerified;
   final DateTime? identityVerifiedAt;
+  final bool isDemo;
 
   const AccountMeta({
     required this.id,
@@ -23,6 +24,7 @@ class AccountMeta {
     required this.backupConfirmed,
     this.identityVerified = false,
     this.identityVerifiedAt,
+    this.isDemo = false,
   });
 
   AccountMeta copyWith({
@@ -30,6 +32,7 @@ class AccountMeta {
     bool? backupConfirmed,
     bool? identityVerified,
     DateTime? identityVerifiedAt,
+    bool? isDemo,
   }) =>
       AccountMeta(
         id: id,
@@ -42,6 +45,7 @@ class AccountMeta {
         backupConfirmed: backupConfirmed ?? this.backupConfirmed,
         identityVerified: identityVerified ?? this.identityVerified,
         identityVerifiedAt: identityVerifiedAt ?? this.identityVerifiedAt,
+        isDemo: isDemo ?? this.isDemo,
       );
 
   Map<String, dynamic> toJson() => {
@@ -55,6 +59,7 @@ class AccountMeta {
         'backupConfirmed': backupConfirmed,
         'identityVerified': identityVerified,
         'identityVerifiedAt': identityVerifiedAt?.toIso8601String(),
+        'isDemo': isDemo,
       };
 
   static AccountMeta fromJson(Map<String, dynamic> json) => AccountMeta(
@@ -70,6 +75,7 @@ class AccountMeta {
         identityVerifiedAt: json['identityVerifiedAt'] != null
             ? DateTime.parse(json['identityVerifiedAt'] as String)
             : null,
+        isDemo: (json['isDemo'] as bool? ?? false),
       );
 
   @override

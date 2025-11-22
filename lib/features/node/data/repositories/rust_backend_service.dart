@@ -78,10 +78,8 @@ class RustBackendService {
 
     // Validate private key is provided
     if (privateKeyHex == null || privateKeyHex.isEmpty) {
-      LoggingService.instance.error(
-        'Cannot start node: private key not provided',
-        tag: 'RUST'
-      );
+      LoggingService.instance
+          .error('Cannot start node: private key not provided', tag: 'RUST');
       await SentryUtil.captureMessage(
         'Node start failed: missing private key',
         level: SentryLevel.error,
@@ -105,9 +103,8 @@ class RustBackendService {
 
     // SECURITY: Do NOT log the actual key value, only its length
     LoggingService.instance.trace(
-      'Configuring block producer with user private key (length: ${privateKeyHex.length})',
-      tag: 'RUST'
-    );
+        'Configuring block producer with user private key (length: ${privateKeyHex.length})',
+        tag: 'RUST');
     builder.blockProducerHex(skHex: privateKeyHex);
     builder.mempoolAutoinsertInterval(secs: BigInt.from(1));
 
@@ -126,7 +123,8 @@ class RustBackendService {
     _node!.runForeverInNewThread();
     _nodeRunning = true;
 
-    LoggingService.instance.info('Node started with user account block producer', tag: 'RUST');
+    LoggingService.instance
+        .info('Node started with user account block producer', tag: 'RUST');
   }
 
   Future<void> stopNode() async {
@@ -163,7 +161,8 @@ class RustBackendService {
     final account = await repo.getActive();
 
     if (account == null) {
-      LoggingService.instance.error('Failed to retrieve active account', tag: 'RUST');
+      LoggingService.instance
+          .error('Failed to retrieve active account', tag: 'RUST');
       await SentryUtil.captureMessage(
         'Node start failed: no active account found',
         level: SentryLevel.warning,
@@ -171,17 +170,19 @@ class RustBackendService {
       return false;
     }
 
-    LoggingService.instance.debug('Active account: ${account.id} (${account.name})', tag: 'RUST');
+    LoggingService.instance
+        .debug('Active account: ${account.id} (${account.name})', tag: 'RUST');
 
     // Get private key for active account
-    LoggingService.instance.trace('Retrieving private key for account ${account.id}...', tag: 'RUST');
+    LoggingService.instance.trace(
+        'Retrieving private key for account ${account.id}...',
+        tag: 'RUST');
     final privateKey = await repo.getPrivateKey(account.id);
 
     if (privateKey == null || privateKey.isEmpty) {
       LoggingService.instance.error(
-        'Cannot start node: private key unavailable for account ${account.id}',
-        tag: 'RUST'
-      );
+          'Cannot start node: private key unavailable for account ${account.id}',
+          tag: 'RUST');
       await SentryUtil.captureMessage(
         'Node start failed: private key unavailable',
         level: SentryLevel.error,
@@ -190,7 +191,9 @@ class RustBackendService {
     }
 
     // SECURITY: Only log key length, not value
-    LoggingService.instance.trace('Private key retrieved (length: ${privateKey.length})', tag: 'RUST');
+    LoggingService.instance.trace(
+        'Private key retrieved (length: ${privateKey.length})',
+        tag: 'RUST');
 
     if (!_initialized) {
       await init();
@@ -204,15 +207,15 @@ class RustBackendService {
     try {
       await startNode(privateKeyHex: privateKey);
       LoggingService.instance.trace('startForActiveAccount done', tag: 'RUST');
-      await SentryUtil.captureMessage('Backend started for active account ${account.id}');
+      await SentryUtil.captureMessage(
+          'Backend started for active account ${account.id}');
       return true;
     } catch (e, st) {
       LoggingService.instance.error(
-        'Failed to start node with account ${account.id}',
-        tag: 'RUST',
-        error: e,
-        stackTrace: st
-      );
+          'Failed to start node with account ${account.id}',
+          tag: 'RUST',
+          error: e,
+          stackTrace: st);
       await SentryUtil.captureError(e, st, tag: 'startNode');
       return false;
     }
@@ -632,7 +635,7 @@ class RustBackendService {
 
       SentryUtil.addBreadcrumb(
         category: 'rpc',
-        message: 'listBlockchain ok',
+        message: 'listBlockchain  ok',
         data: {
           'totalBlocks': totalBlocks.toString(),
           'itemsCount': itemsCount,
@@ -746,9 +749,8 @@ class RustBackendService {
   Future<RpcEpochRewardsResp?> epochRewards({
     int? epoch,
   }) async {
-    LoggingService.instance.trace(
-        'epochRewards called with params: epoch=$epoch',
-        tag: 'RUST');
+    LoggingService.instance
+        .trace('epochRewards called with params: epoch=$epoch', tag: 'RUST');
     SentryUtil.addBreadcrumb(
       category: 'rpc',
       message: 'epochRewards called',

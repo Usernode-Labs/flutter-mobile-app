@@ -107,6 +107,7 @@ jobs:
           METRICS_ENDPOINT=${{ secrets.PROD_METRICS_ENDPOINT }}
           METRICS_HEALTH_ENDPOINT=${{ secrets.PROD_METRICS_HEALTH_ENDPOINT }}
           METRICS_INTERVAL=${{ secrets.PROD_METRICS_INTERVAL }}
+          DEMO_ACCOUNT_PRIVATE_KEYS=${{ secrets.PROD_DEMO_ACCOUNT_PRIVATE_KEYS }}
           EOF
           else
             cat > .env << EOF
@@ -122,6 +123,7 @@ jobs:
           METRICS_ENDPOINT=${{ secrets.NONPROD_METRICS_ENDPOINT }}
           METRICS_HEALTH_ENDPOINT=${{ secrets.NONPROD_METRICS_HEALTH_ENDPOINT }}
           METRICS_INTERVAL=${{ secrets.NONPROD_METRICS_INTERVAL }}
+          DEMO_ACCOUNT_PRIVATE_KEYS=${{ secrets.NONPROD_DEMO_ACCOUNT_PRIVATE_KEYS }}
           EOF
           fi
           echo "✅ Created .env file with ${{ steps.env_config.outputs.env_type }} secrets"

@@ -218,11 +218,62 @@ class AccountsRepository {
     }
   }
 
+  /// Import an account from a hex-encoded private key.
+  Future<AccountMeta?> importFromPrivateKey({
+    required String name,
+    required String privateKeyHex,
+    bool isDemo = false,
+  }) async {
+    LoggingService.instance.trace(
+        'importFromPrivateKey - start (name: $name, isDemo: $isDemo)',
+        tag: 'ACCOUNTS_REPO');
+
+    try {
+      // Use Rust backend to derive public key and address from private key
+      final accountExport = accountFromPrivateKey(
+        privateKeyHex: privateKeyHex.trim(),
+      );
+
+      // Extract keys from AccountExport
+      final privateKey = accountExport.secretKeyHex;
+      final publicKey = accountExport.publicKeyHex;
+      final address = accountExport.publicKeyHashHex;
+
+      LoggingService.instance.trace('Private key length: ${privateKey.length}',
+          tag: 'ACCOUNTS_REPO');
+      LoggingService.instance.trace('Public key length: ${publicKey.length}',
+          tag: 'ACCOUNTS_REPO');
+      LoggingService.instance.trace('Address: $address', tag: 'ACCOUNTS_REPO');
+
+      final result = await _persistNew(
+        name: name,
+        address: address,
+        publicKey: publicKey,
+        privateKey: privateKey,
+        derivationPath: 'imported', // Mark as imported rather than HD path
+        isDemo: isDemo,
+      );
+      LoggingService.instance.trace(
+          'importFromPrivateKey - success (account id: ${result.id})',
+          tag: 'ACCOUNTS_REPO');
+      return result;
+    } catch (e, stackTrace) {
+      LoggingService.instance.error(
+          'importFromPrivateKey - FAILED with exception',
+          tag: 'ACCOUNTS_REPO',
+          error: e,
+          stackTrace: stackTrace);
+      return null;
+    }
+  }
+
   Future<AccountMeta> _persistNew({
     required String name,
     required String address,
     required String publicKey,
     required String privateKey,
+    String? derivationPath,
+    bool isDemo = false,
   }) async {
     LoggingService.instance.trace(
         '_persistNew - start (name: $name, address: $address)',
@@ -239,11 +290,12 @@ class AccountsRepository {
       id: id,
       name: name,
       createdAt: DateTime.now(),
-      derivationPath: '$_kPathPrefix$index',
+      derivationPath: derivationPath ?? '$_kPathPrefix$index',
       hdIndex: index,
       address: address,
       publicKey: publicKey,
       backupConfirmed: true, // Imported accounts assumed backed up by user
+      isDemo: isDemo,
     );
 
     LoggingService.instance

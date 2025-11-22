@@ -71,7 +71,4 @@ lib/src/rust
 rust
 ios/build/
 ios/Podfile.lock
-pubspec.lock
-ios/Podfile.lock
-pubspec.lock
 rust_builder/cargokit/build_tool/pubspec.lock

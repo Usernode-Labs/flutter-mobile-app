@@ -190,7 +190,7 @@ class AccountsRepository {
       final privateKey = accountExport.secretKeyHex;
       final publicKey = accountExport.publicKeyHex;
       final address =
-          accountExport.publicKeyHashHex; // Use hex format for consistency
+          accountExport.publicKeyHashBech32M; // Use bech32m format
 
       LoggingService.instance.trace('Private key length: ${privateKey.length}',
           tag: 'ACCOUNTS_REPO');
@@ -237,7 +237,7 @@ class AccountsRepository {
       // Extract keys from AccountExport
       final privateKey = accountExport.secretKeyHex;
       final publicKey = accountExport.publicKeyHex;
-      final address = accountExport.publicKeyHashHex;
+      final address = accountExport.publicKeyHashBech32M;
 
       LoggingService.instance.trace('Private key length: ${privateKey.length}',
           tag: 'ACCOUNTS_REPO');

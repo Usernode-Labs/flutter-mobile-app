@@ -240,6 +240,7 @@ class RustBackendService {
 
   /// Convenience helper to fetch node status via RPC.
   Future<RpcStatusResp?> getStatus() async {
+    LoggingService.instance.trace('getStatus called', tag: 'RUST');
     final r = _rpc;
     if (r == null) return null;
 
@@ -652,6 +653,9 @@ class RustBackendService {
     bool? idsOnly,
     TransactionHash? cursorAfter,
   }) async {
+    LoggingService.instance.trace(
+        'listMempool called with params: owner=${owner != null ? '[PublicKeyHash]' : 'null'}, limit=$limit, idsOnly=$idsOnly, cursorAfter=${cursorAfter != null ? '[TransactionHash]' : 'null'}',
+        tag: 'RUST');
     final r = _rpc;
     if (r == null) return null;
 
@@ -742,6 +746,9 @@ class RustBackendService {
   Future<RpcEpochRewardsResp?> epochRewards({
     int? epoch,
   }) async {
+    LoggingService.instance.trace(
+        'epochRewards called with params: epoch=$epoch',
+        tag: 'RUST');
     SentryUtil.addBreadcrumb(
       category: 'rpc',
       message: 'epochRewards called',
@@ -848,6 +855,9 @@ class RustBackendService {
     required PublicKeyHash owner,
     int? limit,
   }) async {
+    LoggingService.instance.trace(
+        'listUtxosByOwner called with params: owner=[PublicKeyHash], limit=$limit',
+        tag: 'RUST');
     final r = _rpc;
     if (r == null) return null;
 
@@ -912,6 +922,9 @@ class RustBackendService {
     required BigInt amount,
     required PublicKeyHash toPkHash,
   }) async {
+    LoggingService.instance.trace(
+        'transferFunds called with params: fromPkHash=[PublicKeyHash], amount=$amount, toPkHash=[PublicKeyHash]',
+        tag: 'RUST');
     final r = _rpc;
     if (r == null) return null;
 

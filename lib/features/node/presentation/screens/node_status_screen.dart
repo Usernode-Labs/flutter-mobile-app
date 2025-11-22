@@ -240,7 +240,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     final shortened = _shortenMid(peerId);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.all(0),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(8),
@@ -249,37 +249,37 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
         children: [
           Icon(
             Icons.fingerprint,
-            size: 18,
+            size: 16,
             color: colorScheme.primary,
           ),
           const SizedBox(width: 8),
           Text(
-            'Node ID: ',
-            style: theme.textTheme.bodyMedium?.copyWith(
+            'Peer ID: ',
+            style: theme.textTheme.bodySmall?.copyWith(
               color: colorScheme.onSurfaceVariant,
             ),
           ),
           Expanded(
             child: Text(
               shortened,
-              style: theme.textTheme.bodyMedium?.copyWith(
+              style: theme.textTheme.bodySmall?.copyWith(
                 fontFamily: 'monospace',
                 color: colorScheme.onSurface,
               ),
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.copy, size: 18),
+            icon: const Icon(Icons.copy, size: 16),
             onPressed: () {
               Clipboard.setData(ClipboardData(text: peerId));
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Node ID copied to clipboard'),
+                  content: Text('Peer ID copied to clipboard'),
                   duration: Duration(seconds: 2),
                 ),
               );
             },
-            tooltip: 'Copy full Node ID',
+            tooltip: 'Copy full Peer ID',
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
           ),
@@ -364,6 +364,12 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       children: [
         _buildSectionHeader(context, 'Overview'),
         const SizedBox(height: 12),
+
+        // Peer ID row
+        if (statusFromProvider?.peerId != null) ...[
+          _buildNodeIdRow(context, statusFromProvider!.peerId!),
+          const SizedBox(height: 12),
+        ],
 
         // Status line
         Row(
@@ -475,21 +481,16 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
               child: _buildCompactInfoCard(
                 context,
                 icon: Icons.access_time,
-                label: 'Epoch',
-                value: '${statusFromProvider?.epoch ?? _bestTipEpoch ?? 'N/A'}',
-                subtitle: 'Slot ${statusFromProvider?.globalSlot ?? _bestTipGlobalSlot ?? 'N/A'}',
+                label: 'Cur. Epoch',
+                value: '${statusFromProvider?.currentEpoch ?? 'N/A'}',
+                subtitle:
+                    'Cur. Slot ${statusFromProvider?.currentGlobalSlot ?? 'N/A'}',
                 color: colorScheme.primary,
                 colorScheme: colorScheme,
               ),
             ),
           ],
         ),
-
-        // Node ID (peer ID) row
-        if (statusFromProvider?.peerId != null) ...[
-          const SizedBox(height: 12),
-          _buildNodeIdRow(context, statusFromProvider!.peerId!),
-        ],
 
         // Horizontal divider before Produced blocks and Won slots
         Padding(
@@ -525,16 +526,29 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             return Row(
               children: [
                 Expanded(
-                  child: _buildCompactInfoCard(
+                  child: _buildMultiLineInfoCard(
                     context,
-                    icon: Icons.check_circle_outline,
-                    label: 'Produced',
-                    value:
-                        '', // Value shown only in subtitle to avoid repetition
-                    subtitle: produced == 1 ? '1 block' : '$produced blocks',
-                    color: colorScheme.tertiary, // Match Peers icon color
+                    icon: Icons.analytics,
+                    label: 'VRF',
+                    lines: () {
+                      // Display VRF status directly from provider
+                      final vrfStatus = vrfEvaluator?.currentEpochVrfEvaluationStatus;
+                      final statusText = switch (vrfStatus) {
+                        RpcStatusVrfEvaluationStatus.pending => 'Pending',
+                        RpcStatusVrfEvaluationStatus.evaluating => 'Evaluating',
+                        RpcStatusVrfEvaluationStatus.completed => 'Completed',
+                        _ => 'N/A',
+                      };
+
+                      return [
+                        'Status: $statusText',
+                        'Total: ${NumberFormat('#,###').format(totalSlotsPerEpoch)}',
+                        'Evaluated: ${NumberFormat('#,###').format(evaluatedSlots)}',
+                        'Won: ${NumberFormat('#,###').format(wonSlots)}',
+                      ];
+                    }(),
+                    color: colorScheme.tertiary,
                     colorScheme: colorScheme,
-                    onTap: () => context.push('/main/node/produced-blocks'),
                     useGradient: false,
                   ),
                 ),
@@ -543,11 +557,11 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                   child: _buildMultiLineInfoCard(
                     context,
                     icon: Icons.emoji_events,
-                    label: 'Slots',
+                    label: 'Slots/Blocks',
                     lines: [
                       'Total: ${NumberFormat('#,###').format(totalSlotsPerEpoch)}',
-                      'Evaluated: ${NumberFormat('#,###').format(evaluatedSlots)}',
                       'Won: ${NumberFormat('#,###').format(wonSlots)}',
+                      'Produced: ${NumberFormat('#,###').format(produced)}',
                     ],
                     color: const Color(0xFFF9A825),
                     colorScheme: colorScheme,
@@ -584,18 +598,18 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
                   final height = displayBestTip.height;
                   final hash = displayBestTip.hash.toString();
-                  final producer = displayBestTip.producerPubkey;
+                  final epoch = raw?.epoch ?? _bestTipEpoch;
+                  final slot = raw?.globalSlot ?? _bestTipGlobalSlot;
 
                   final formattedHeight =
                       'Height ${NumberFormat('#,###').format(height)}';
+                  final epochText = 'Epoch ${epoch ?? 'N/A'}';
+                  final slotText = 'Slot ${slot ?? 'N/A'}';
                   final truncatedHash = hash.length > 16
                       ? '${hash.substring(0, 8)}...${hash.substring(hash.length - 8)}'
                       : hash;
-                  final truncatedProducer = producer.length > 16
-                      ? '${producer.substring(0, 6)}...${producer.substring(producer.length - 4)}'
-                      : producer;
 
-                  return [formattedHeight, truncatedHash, truncatedProducer];
+                  return [formattedHeight, epochText, slotText, truncatedHash];
                 }(),
                 color: colorScheme.tertiary,
                 colorScheme: colorScheme,

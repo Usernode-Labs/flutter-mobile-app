@@ -22,6 +22,8 @@ final nodeStatusProvider = Provider<AsyncValue<NodeStatus?>>((ref) {
         networkBestHeight: raw.networkBestHeight,
         epoch: raw.epoch,
         globalSlot: raw.globalSlot,
+        currentEpoch: raw.currentEpoch,
+        currentGlobalSlot: raw.currentGlobalSlot,
         bestTipHash: raw.bestTipHash,
         peerId: peerId,
       ));

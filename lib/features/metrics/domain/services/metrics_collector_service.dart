@@ -824,8 +824,18 @@ class MetricsCollectorService {
             // Extract current epoch production metrics
             currentEpochWonSlots = rewards.winsInEpoch;
             currentEpochProduced = rewards.producedInEpoch;
-            // Calculate failed as difference between won and produced
-            currentEpochFailed = currentEpochWonSlots - currentEpochProduced;
+
+            // Count future slots (slots that haven't occurred yet)
+            int slotsInFuture = 0;
+            if (rewards.wonSlots != null && currentGlobalSlot != null) {
+              slotsInFuture = rewards.wonSlots!
+                  .where((slot) => slot.globalSlot > currentGlobalSlot!)
+                  .length;
+            }
+
+            // Calculate failed as: won - future - produced
+            // This excludes future slots from being counted as failed
+            currentEpochFailed = currentEpochWonSlots - slotsInFuture - currentEpochProduced;
           }
         }
       } catch (_) {

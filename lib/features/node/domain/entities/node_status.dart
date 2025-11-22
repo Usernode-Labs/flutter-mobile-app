@@ -7,6 +7,8 @@ class NodeStatus {
   final int? networkBestHeight;
   final int? epoch;
   final int? globalSlot;
+  final int? currentEpoch;
+  final int? currentGlobalSlot;
   final String? bestTipHash;
   final String? peerId;
 
@@ -17,6 +19,8 @@ class NodeStatus {
     required this.networkBestHeight,
     required this.epoch,
     required this.globalSlot,
+    required this.currentEpoch,
+    required this.currentGlobalSlot,
     required this.bestTipHash,
     this.peerId,
   });

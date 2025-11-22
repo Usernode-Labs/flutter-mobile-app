@@ -42,6 +42,9 @@ class NodeRawStatusView {
   int? get epoch => (networkBest ?? localBest)?.epoch;
   int? get globalSlot => (networkBest ?? localBest)?.globalSlot;
 
+  /// Current epoch from backend (node's clock-based epoch)
+  int? get currentEpoch => node.curEpoch;
+
   /// Current global slot from backend (node's clock-based slot)
   int? get currentGlobalSlot => node.curGlobalSlot;
 

@@ -70,6 +70,8 @@ class NodeRepositoryImpl implements NodeRepository {
         networkBestHeight: networkBest?.height,
         epoch: display?.epoch,
         globalSlot: display?.globalSlot,
+        currentEpoch: s.node.curEpoch,
+        currentGlobalSlot: s.node.curGlobalSlot,
         bestTipHash: bestTipHash,
       ));
     } catch (e) {

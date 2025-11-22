@@ -50,5 +50,15 @@
         <string>be.tramckrijte.workmanager.slot_monitoring_task</string>
         <string>com.usernode.app.slotmonitoring</string>
     </array>
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationPortraitUpsideDown</string>
+    </array>
+    <key>UISupportedInterfaceOrientations~ipad</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationPortraitUpsideDown</string>
+    </array>
 </dict>
 </plist>

@@ -25,7 +25,8 @@ class BlockProductionStateRepository {
       final stateJson = prefs.getString(_keyState);
 
       if (stateJson == null) {
-        _logger.d('No persisted block production state found, using initial state');
+        _logger.d(
+            'No persisted block production state found, using initial state');
         return BlockProductionState.initial();
       }
 
@@ -35,7 +36,8 @@ class BlockProductionStateRepository {
       _logger.i('Loaded block production state: ${state.toString()}');
       return state;
     } catch (e, st) {
-      _logger.e('Error loading block production state: $e', error: e, stackTrace: st);
+      _logger.e('Error loading block production state: $e',
+          error: e, stackTrace: st);
       // Return initial state on error
       return BlockProductionState.initial();
     }
@@ -50,7 +52,8 @@ class BlockProductionStateRepository {
 
       _logger.d('Saved block production state: ${state.toString()}');
     } catch (e, st) {
-      _logger.e('Error saving block production state: $e', error: e, stackTrace: st);
+      _logger.e('Error saving block production state: $e',
+          error: e, stackTrace: st);
       // Don't rethrow - state persistence failures shouldn't break the app
     }
   }
@@ -62,7 +65,8 @@ class BlockProductionStateRepository {
       await prefs.remove(_keyState);
       _logger.i('Cleared block production state');
     } catch (e, st) {
-      _logger.e('Error clearing block production state: $e', error: e, stackTrace: st);
+      _logger.e('Error clearing block production state: $e',
+          error: e, stackTrace: st);
     }
   }
 

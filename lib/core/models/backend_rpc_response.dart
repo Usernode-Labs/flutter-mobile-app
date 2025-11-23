@@ -1,4 +1,5 @@
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'vrf_status.dart';
 
 /// Enhanced response from backend RPC that includes VRF calculation status
@@ -52,17 +53,29 @@ class BackendRPCResponse {
 
   /// Create a BackendRPCResponse from the existing RpcEpochRewardsResp
   ///
-  /// This factory infers VRF status based on the response:
-  /// - If wonSlots is present and non-empty: VRF is complete
-  /// - If wonSlots is null or empty: VRF status is unknown (assumed complete for backwards compatibility)
+  /// Maps the backend's actual VRF status to the Flutter VRF status:
+  /// - RpcStatusVrfEvaluationStatus.pending → VRFStatus.notStarted
+  /// - RpcStatusVrfEvaluationStatus.evaluating → VRFStatus.inProgress
+  /// - RpcStatusVrfEvaluationStatus.completed → VRFStatus.complete
+  ///
+  /// Requires [statusResp] to access the actual VRF evaluator status from backend.
   factory BackendRPCResponse.fromEpochRewards(
     RpcEpochRewardsResp epochRewards, {
     required int currentSlot,
-    VRFStatus? overrideStatus,
+    required RpcStatusResp? statusResp,
   }) {
-    // Infer VRF status from the response
-    final VRFStatus status = overrideStatus ??
-      (epochRewards.wonSlots != null ? VRFStatus.complete : VRFStatus.complete);
+    // Map backend VRF status to Flutter VRF status
+    VRFStatus status = VRFStatus.notStarted;
+
+    if (statusResp?.vrfEvaluator != null) {
+      final backendStatus =
+          statusResp!.vrfEvaluator!.currentEpochVrfEvaluationStatus;
+      status = switch (backendStatus) {
+        RpcStatusVrfEvaluationStatus.pending => VRFStatus.notStarted,
+        RpcStatusVrfEvaluationStatus.evaluating => VRFStatus.inProgress,
+        RpcStatusVrfEvaluationStatus.completed => VRFStatus.complete,
+      };
+    }
 
     final double? progress = status == VRFStatus.complete ? 1.0 : null;
 
@@ -80,7 +93,8 @@ class BackendRPCResponse {
   }
 
   /// Check if VRF calculation is complete and slots can be scheduled
-  bool get canScheduleSlots => vrfStatus.canScheduleSlots && wonSlots.isNotEmpty;
+  bool get canScheduleSlots =>
+      vrfStatus.canScheduleSlots && wonSlots.isNotEmpty;
 
   /// Check if there are any won slots in this epoch
   bool get hasWonSlots => wonSlots.isNotEmpty;

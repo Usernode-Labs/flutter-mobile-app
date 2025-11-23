@@ -126,7 +126,8 @@ class SlotMonitorService {
     if (!_isMonitoring || _currentSlot == null) return;
 
     _pollAttemptCount++;
-    _logger.d('Poll attempt #$_pollAttemptCount for slot ${_currentSlot!.slotNumber}');
+    _logger.d(
+        'Poll attempt #$_pollAttemptCount for slot ${_currentSlot!.slotNumber}');
 
     try {
       final status = await RustBackendService.instance.getStatus();
@@ -168,7 +169,8 @@ class SlotMonitorService {
 
       final currentSlotNumber = _currentSlot!.slotNumber;
 
-      _logger.d('Poll #$_pollAttemptCount - Node: $nodeState, BestTip: $bestTipSlot, Target: $currentSlotNumber');
+      _logger.d(
+          'Poll #$_pollAttemptCount - Node: $nodeState, BestTip: $bestTipSlot, Target: $currentSlotNumber');
 
       // Emit monitoring poll event (successful)
       _eventController.add(SlotMonitoringEvent(

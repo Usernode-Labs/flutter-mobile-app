@@ -42,8 +42,7 @@ class BackgroundBlockProductionOrchestrator {
   StreamSubscription<SlotMonitoringEvent>? _monitoringSubscription;
 
   // Event stream for metrics and observers
-  final _eventController =
-      StreamController<BlockProductionEvent>.broadcast();
+  final _eventController = StreamController<BlockProductionEvent>.broadcast();
   Stream<BlockProductionEvent> get events => _eventController.stream;
 
   // Configuration from AppConfig (.env variables)
@@ -92,7 +91,8 @@ class BackgroundBlockProductionOrchestrator {
       await _checkEpochTransition();
 
       _initialized = true;
-      _logger.i('BackgroundBlockProductionOrchestrator initialized successfully');
+      _logger
+          .i('BackgroundBlockProductionOrchestrator initialized successfully');
       return true;
     } catch (e, st) {
       _logger.e('Error initializing BackgroundBlockProductionOrchestrator: $e',
@@ -153,9 +153,11 @@ class BackgroundBlockProductionOrchestrator {
       _state = _state.copyWith(currentVrfStatus: epochInfo.vrfStatus);
 
       // Check if epoch has changed
-      if (_state.currentEpoch == 0 || epochInfo.currentEpoch != _state.currentEpoch) {
+      if (_state.currentEpoch == 0 ||
+          epochInfo.currentEpoch != _state.currentEpoch) {
         final oldEpoch = _state.currentEpoch;
-        _logger.i('Epoch transition detected: $oldEpoch → ${epochInfo.currentEpoch}');
+        _logger.i(
+            'Epoch transition detected: $oldEpoch → ${epochInfo.currentEpoch}');
         await _handleEpochTransition(oldEpoch, epochInfo);
       } else {
         _logger.d('No epoch change (still epoch ${epochInfo.currentEpoch})');
@@ -168,7 +170,8 @@ class BackgroundBlockProductionOrchestrator {
       // Persist updated state
       await _stateRepository.save(_state);
     } catch (e, st) {
-      _logger.e('Error checking epoch transition: $e', error: e, stackTrace: st);
+      _logger.e('Error checking epoch transition: $e',
+          error: e, stackTrace: st);
       _emitEvent(BlockProductionErrorEvent(
         errorType: 'epoch_check',
         errorMessage: e.toString(),
@@ -191,13 +194,15 @@ class BackgroundBlockProductionOrchestrator {
 
       // Cancel old epoch alarms
       if (_state.scheduledSlots.isNotEmpty) {
-        _logger.i('Cancelling ${_state.scheduledSlots.length} alarms from old epoch');
+        _logger.i(
+            'Cancelling ${_state.scheduledSlots.length} alarms from old epoch');
         await _cancelAllSlotAlarms();
       }
 
       // Check if VRF is complete and we can schedule slots
       if (epochInfo.canScheduleSlots) {
-        _logger.i('VRF complete! Scheduling ${epochInfo.wonSlots.length} won slots');
+        _logger.i(
+            'VRF complete! Scheduling ${epochInfo.wonSlots.length} won slots');
         final slotsScheduled = await _scheduleSlots(epochInfo.wonSlots);
 
         // Get next alarm time (first scheduled slot)
@@ -233,7 +238,8 @@ class BackgroundBlockProductionOrchestrator {
       // Persist state
       await _stateRepository.save(_state);
     } catch (e, st) {
-      _logger.e('Error handling epoch transition: $e', error: e, stackTrace: st);
+      _logger.e('Error handling epoch transition: $e',
+          error: e, stackTrace: st);
       _emitEvent(BlockProductionErrorEvent(
         errorType: 'epoch_transition',
         errorMessage: e.toString(),
@@ -429,7 +435,8 @@ class BackgroundBlockProductionOrchestrator {
 
       // Listen to monitoring events
       _monitoringSubscription?.cancel();
-      _monitoringSubscription = SlotMonitorService.instance.monitoringEvents.listen(
+      _monitoringSubscription =
+          SlotMonitorService.instance.monitoringEvents.listen(
         _handleMonitoringEvent,
         onError: (error) {
           _logger.e('Error in monitoring event stream: $error');
@@ -578,26 +585,30 @@ class BackgroundBlockProductionOrchestrator {
   void _handleAndroidBootRescheduleCompletedEvent(Map<String, dynamic> data) {
     final slotsRescheduled = data['slotsRescheduled'] as int?;
     final success = data['success'] as bool?;
-    _logger.d('Android boot reschedule completed - Slots: $slotsRescheduled, Success: $success');
+    _logger.d(
+        'Android boot reschedule completed - Slots: $slotsRescheduled, Success: $success');
     _emitEvent(BlockProductionAndroidBootRescheduleCompletedEvent(
       slotsRescheduled: slotsRescheduled ?? 0,
       success: success ?? false,
     ));
   }
 
-  void _handleAndroidExactAlarmPermissionGrantedEvent(Map<String, dynamic> data) {
+  void _handleAndroidExactAlarmPermissionGrantedEvent(
+      Map<String, dynamic> data) {
     _logger.d('Android exact alarm permission granted');
 
     _emitEvent(BlockProductionAndroidExactAlarmPermissionGrantedEvent());
   }
 
-  void _handleAndroidExactAlarmPermissionDeniedEvent(Map<String, dynamic> data) {
+  void _handleAndroidExactAlarmPermissionDeniedEvent(
+      Map<String, dynamic> data) {
     _logger.d('Android exact alarm permission denied');
 
     _emitEvent(BlockProductionAndroidExactAlarmPermissionDeniedEvent());
   }
 
-  void _handleAndroidBatteryOptimizationDisabledEvent(Map<String, dynamic> data) {
+  void _handleAndroidBatteryOptimizationDisabledEvent(
+      Map<String, dynamic> data) {
     _logger.d('Android battery optimization disabled');
     _emitEvent(BlockProductionAndroidBatteryOptimizationDisabledEvent());
   }
@@ -736,7 +747,8 @@ class BackgroundBlockProductionOrchestrator {
       error: null,
     );
 
-    final updatedHistory = Map<int, BlockProductionResult>.from(_state.productionHistory);
+    final updatedHistory =
+        Map<int, BlockProductionResult>.from(_state.productionHistory);
     updatedHistory[event.slotNumber] = result;
     _state = _state.copyWith(productionHistory: updatedHistory);
 
@@ -769,7 +781,8 @@ class BackgroundBlockProductionOrchestrator {
       error: reason,
     );
 
-    final updatedHistory = Map<int, BlockProductionResult>.from(_state.productionHistory);
+    final updatedHistory =
+        Map<int, BlockProductionResult>.from(_state.productionHistory);
     updatedHistory[event.slotNumber] = result;
     _state = _state.copyWith(productionHistory: updatedHistory);
 
@@ -863,7 +876,8 @@ class BackgroundBlockProductionOrchestrator {
             failureCount++;
           }
         } else {
-          _logger.d('Skipping past slot $slotNumber (alarm time already passed)');
+          _logger
+              .d('Skipping past slot $slotNumber (alarm time already passed)');
         }
       }
 

@@ -1024,10 +1024,11 @@ class RustBackendService {
         return null;
       }
 
-      // Create enhanced response with VRF status
+      // Create enhanced response with actual VRF status from backend
       final response = BackendRPCResponse.fromEpochRewards(
         epochRewardsResp,
         currentSlot: currentSlot,
+        statusResp: status,
       );
 
       LoggingService.instance.trace(

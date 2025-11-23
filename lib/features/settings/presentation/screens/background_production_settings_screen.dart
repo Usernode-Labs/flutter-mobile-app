@@ -429,8 +429,8 @@ class _BackgroundProductionSettingsScreenState
     // Get VRF status
     final vrfEvaluator = rawStatus?.vrfEvaluator;
     final vrfStatus = vrfEvaluator?.currentEpochVrfEvaluationStatus;
-    final isVrfComplete =
-        vrfStatus != null && vrfStatus == RpcStatusVrfEvaluationStatus.completed;
+    final isVrfComplete = vrfStatus != null &&
+        vrfStatus == RpcStatusVrfEvaluationStatus.completed;
     final isVrfCalculating = vrfStatus != null &&
         vrfStatus == RpcStatusVrfEvaluationStatus.evaluating;
 

@@ -80,10 +80,9 @@ class PlatformAlarmService {
 
       final Map<String, dynamic> args = Map<String, dynamic>.from(arguments);
       final String? eventType = args['eventType'] as String?;
-      final Map<String, dynamic>? eventData =
-          args['eventData'] != null
-              ? Map<String, dynamic>.from(args['eventData'])
-              : null;
+      final Map<String, dynamic>? eventData = args['eventData'] != null
+          ? Map<String, dynamic>.from(args['eventData'])
+          : null;
 
       if (eventType == null) {
         _logger.w('Received native event with null eventType');
@@ -221,9 +220,9 @@ class PlatformAlarmService {
         await _channel.invokeMethod('requestPostNotificationsPermission');
         // Wait a bit for the permission dialog to be processed
         await Future.delayed(const Duration(milliseconds: 500));
-        hasNotifications =
-            await _channel.invokeMethod<bool>('hasPostNotificationsPermission') ??
-                false;
+        hasNotifications = await _channel
+                .invokeMethod<bool>('hasPostNotificationsPermission') ??
+            false;
       }
 
       // 2. Request SCHEDULE_EXACT_ALARM (Android 12+)
@@ -247,9 +246,9 @@ class PlatformAlarmService {
         await _channel.invokeMethod('requestBatteryOptimizationExemption');
         // This may open a dialog or settings
         await Future.delayed(const Duration(milliseconds: 500));
-        hasBatteryExemption =
-            await _channel.invokeMethod<bool>('isBatteryOptimizationDisabled') ??
-                false;
+        hasBatteryExemption = await _channel
+                .invokeMethod<bool>('isBatteryOptimizationDisabled') ??
+            false;
       }
 
       // Update permissions granted status
@@ -288,7 +287,8 @@ class PlatformAlarmService {
 
   /// Check if POST_NOTIFICATIONS permission is granted (Android 13+)
   Future<bool> hasPostNotificationsPermission() async {
-    if (!Platform.isAndroid) return true; // iOS handles notifications separately
+    if (!Platform.isAndroid)
+      return true; // iOS handles notifications separately
     try {
       return await _channel
               .invokeMethod<bool>('hasPostNotificationsPermission') ??
@@ -323,7 +323,8 @@ class PlatformAlarmService {
       await Future.delayed(const Duration(milliseconds: 500));
       return await isBatteryOptimizationDisabled();
     } on PlatformException catch (e) {
-      _logger.e('Error requesting battery optimization exemption: ${e.message}');
+      _logger
+          .e('Error requesting battery optimization exemption: ${e.message}');
       return false;
     }
   }

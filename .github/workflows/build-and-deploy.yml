@@ -445,18 +445,6 @@ jobs:
           ruby-version: "3.2"
           bundler-cache: true
 
-      - name: Cache CocoaPods
-        id: cache-pods
-        uses: actions/cache@v4
-        with:
-          path: |
-            ios/Pods
-            ~/Library/Caches/CocoaPods
-          key: ${{ runner.os }}-pods-${{ hashFiles('ios/Podfile.lock') }}-${{ hashFiles('ios/Podfile') }}
-          restore-keys: |
-            ${{ runner.os }}-pods-${{ hashFiles('ios/Podfile.lock') }}-
-            ${{ runner.os }}-pods-
-
       - name: Cache Xcode DerivedData
         uses: actions/cache@v4
         with:
@@ -469,12 +457,8 @@ jobs:
       - name: Install CocoaPods dependencies
         run: |
           cd ios
-          if [ ! -d "Pods" ] || [ -f "Podfile.lock" ] && [ "Podfile.lock" -nt "Pods/Manifest.lock" ] || [ "${{ steps.cache-pods.outputs.cache-hit }}" != "true" ]; then
-            pod install
-            echo "✅ Pod install complete"
-          else
-            echo "✅ Pods are up to date (cache hit), skipping installation"
-          fi
+          pod install
+          echo "✅ Pod install complete"
 
       - name: Import signing certificate
         env:

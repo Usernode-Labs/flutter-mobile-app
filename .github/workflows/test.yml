@@ -55,7 +55,7 @@ jobs:
     secrets: inherit
 
   unit-tests:
-    name: Unit Tests
+    name: Code Analysis and Tests
     runs-on: ubuntu-20.04-16core2
     needs: [determine-frb-rev, setup-rust-tools-android]
     steps:

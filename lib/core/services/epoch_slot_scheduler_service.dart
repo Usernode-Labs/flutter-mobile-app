@@ -592,7 +592,8 @@ class EpochSlotSchedulerService {
       }
 
       // Calculate epoch start from upper bound
-      final epochStartSlot = epochUpperBound - BlockchainTiming.slotsPerEpoch + 1;
+      final epochStartSlot =
+          epochUpperBound - BlockchainTiming.slotsPerEpoch + 1;
 
       // Calculate slot position within epoch
       final slotInEpoch = currentGlobalSlot - epochStartSlot;

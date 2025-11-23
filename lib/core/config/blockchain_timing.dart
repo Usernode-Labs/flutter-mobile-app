@@ -18,15 +18,18 @@ final blockchainTimingConfigProvider = Provider<BlockchainTimingConfig>((ref) {
   return rawStatus.when(
     data: (data) {
       if (data == null) {
-        throw StateError('Node status not available. Cannot determine blockchain timing configuration.');
+        throw StateError(
+            'Node status not available. Cannot determine blockchain timing configuration.');
       }
       return BlockchainTimingConfig(
         slotsPerEpoch: data.slotsInEpoch,
         slotDurationMs: data.blockInterval,
       );
     },
-    loading: () => throw StateError('Node status is loading. Blockchain timing configuration not yet available.'),
-    error: (_, __) => throw StateError('Failed to load node status. Cannot determine blockchain timing configuration.'),
+    loading: () => throw StateError(
+        'Node status is loading. Blockchain timing configuration not yet available.'),
+    error: (_, __) => throw StateError(
+        'Failed to load node status. Cannot determine blockchain timing configuration.'),
   );
 });
 
@@ -54,14 +57,16 @@ class BlockchainTiming {
   // Base constants from backend node status
   static int get slotDurationMs {
     if (_container == null) {
-      throw StateError('BlockchainTiming not initialized. Call BlockchainTiming.initialize() first.');
+      throw StateError(
+          'BlockchainTiming not initialized. Call BlockchainTiming.initialize() first.');
     }
     return _container!.read(blockchainTimingConfigProvider).slotDurationMs;
   }
 
   static int get slotsPerEpoch {
     if (_container == null) {
-      throw StateError('BlockchainTiming not initialized. Call BlockchainTiming.initialize() first.');
+      throw StateError(
+          'BlockchainTiming not initialized. Call BlockchainTiming.initialize() first.');
     }
     return _container!.read(blockchainTimingConfigProvider).slotsPerEpoch;
   }

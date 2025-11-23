@@ -107,9 +107,8 @@ class EpochRewardsUiController extends AsyncNotifier<EpochRewardsUiState?> {
   void _checkAndNotifyRewardIncrease(BigInt earnedSoFar, int epoch) {
     if (_previousEarnedSoFar != null && earnedSoFar > _previousEarnedSoFar!) {
       final diff = earnedSoFar - _previousEarnedSoFar!;
-      LoggingService.instance.trace(
-          'Reward increased by $diff TKN',
-          tag: 'EPOCH_REWARDS_UI');
+      LoggingService.instance
+          .trace('Reward increased by $diff TKN', tag: 'EPOCH_REWARDS_UI');
     }
     _previousEarnedSoFar = earnedSoFar;
   }

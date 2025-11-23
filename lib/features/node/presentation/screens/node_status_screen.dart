@@ -532,7 +532,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                     label: 'VRF',
                     lines: () {
                       // Display VRF status directly from provider
-                      final vrfStatus = vrfEvaluator?.currentEpochVrfEvaluationStatus;
+                      final vrfStatus =
+                          vrfEvaluator?.currentEpochVrfEvaluationStatus;
                       final statusText = switch (vrfStatus) {
                         RpcStatusVrfEvaluationStatus.pending => 'Pending',
                         RpcStatusVrfEvaluationStatus.evaluating => 'Evaluating',

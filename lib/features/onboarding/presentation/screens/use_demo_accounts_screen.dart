@@ -301,7 +301,8 @@ class _UseDemoAccountsScreenState extends ConsumerState<UseDemoAccountsScreen> {
                                         vertical: 2,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: theme.colorScheme.primaryContainer,
+                                        color:
+                                            theme.colorScheme.primaryContainer,
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(

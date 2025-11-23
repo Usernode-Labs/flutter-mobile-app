@@ -189,8 +189,7 @@ class AccountsRepository {
       // Extract keys from AccountExport
       final privateKey = accountExport.secretKeyHex;
       final publicKey = accountExport.publicKeyHex;
-      final address =
-          accountExport.publicKeyHashBech32M; // Use bech32m format
+      final address = accountExport.publicKeyHashBech32M; // Use bech32m format
 
       LoggingService.instance.trace('Private key length: ${privateKey.length}',
           tag: 'ACCOUNTS_REPO');

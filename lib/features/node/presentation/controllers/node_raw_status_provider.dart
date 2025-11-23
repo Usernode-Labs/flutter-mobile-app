@@ -62,7 +62,8 @@ class NodeRawStatusView {
         int epochUpperBound,
         bool isCurrentEpochEvaluated,
         bool isNextEpochEvaluated,
-      ) => epochUpperBound,
+      ) =>
+          epochUpperBound,
     );
   }
 

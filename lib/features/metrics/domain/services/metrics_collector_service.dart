@@ -97,7 +97,8 @@ class MetricsCollectorService {
     final collectProduction = _shouldCollectProduction(event.eventType);
     final collectMinimal = _shouldCollectMinimal(event.eventType);
 
-    _logger.d('Strategy - Full: $collectFull, Lightweight: $collectLightweight, Production: $collectProduction, Minimal: $collectMinimal');
+    _logger.d(
+        'Strategy - Full: $collectFull, Lightweight: $collectLightweight, Production: $collectProduction, Minimal: $collectMinimal');
 
     return await collectMetrics(
       eventType: event.eventType,
@@ -581,9 +582,10 @@ class MetricsCollectorService {
     bool batteryOptimizationDisabled = false;
     if (Platform.isAndroid) {
       try {
-        if (_shouldRefreshCache(_batteryOptimizationCacheTime, _batteryOptimizationTTL)) {
-          _cachedBatteryOptimization =
-              await PlatformAlarmService.instance.isBatteryOptimizationDisabled();
+        if (_shouldRefreshCache(
+            _batteryOptimizationCacheTime, _batteryOptimizationTTL)) {
+          _cachedBatteryOptimization = await PlatformAlarmService.instance
+              .isBatteryOptimizationDisabled();
           _batteryOptimizationCacheTime = DateTime.now();
         }
         batteryOptimizationDisabled = _cachedBatteryOptimization ?? false;
@@ -662,8 +664,8 @@ class MetricsCollectorService {
           if (_cachedBatteryOptimization != null) {
             batteryOptimizationExempt = _cachedBatteryOptimization!;
           } else {
-            batteryOptimizationExempt =
-                await PlatformAlarmService.instance.isBatteryOptimizationDisabled();
+            batteryOptimizationExempt = await PlatformAlarmService.instance
+                .isBatteryOptimizationDisabled();
           }
         } catch (_) {
           // Ignore if method not available
@@ -682,7 +684,8 @@ class MetricsCollectorService {
     // Use cached permissions
     final notificationGranted = _cachedPermissions?.notification ?? false;
     final exactAlarmsPermission = _cachedPermissions?.exactAlarms ?? false;
-    final batteryOptimizationExempt = _cachedPermissions?.batteryOptimization ?? false;
+    final batteryOptimizationExempt =
+        _cachedPermissions?.batteryOptimization ?? false;
 
     // Map notification status to string
     String notificationPermission = 'denied';
@@ -705,7 +708,8 @@ class MetricsCollectorService {
   ///
   /// If [nodeStatus] is provided, it will be used instead of fetching from backend.
   /// This avoids expensive FFI calls when status is already available.
-  Future<StatusMetrics> _collectStatusMetrics({RpcStatusResp? nodeStatus}) async {
+  Future<StatusMetrics> _collectStatusMetrics(
+      {RpcStatusResp? nodeStatus}) async {
     bool nodeRunning = RustBackendService.instance.isRunning;
     String nodeState = nodeRunning ? 'running' : 'stopped';
     String? syncStatus;
@@ -719,7 +723,8 @@ class MetricsCollectorService {
         if (_container != null) {
           // Read sync status from provider (reuses UI logic)
           final syncStatusValue = _container!.read(syncStatusProvider);
-          syncStatus = syncStatusValue.state.name; // 'connecting', 'syncing', 'synced', 'error'
+          syncStatus = syncStatusValue
+              .state.name; // 'connecting', 'syncing', 'synced', 'error'
           connectedPeers = syncStatusValue.connectedPeers;
 
           // Get best tip data from raw provider
@@ -732,7 +737,8 @@ class MetricsCollectorService {
           }
         } else {
           // Use provided status or fetch if not available
-          final status = nodeStatus ?? await RustBackendService.instance.getStatus();
+          final status =
+              nodeStatus ?? await RustBackendService.instance.getStatus();
           if (status != null) {
             // Count connected peers first
             connectedPeers = status.peers
@@ -785,7 +791,8 @@ class MetricsCollectorService {
   ///
   /// If [nodeStatus] is provided, it will be used instead of fetching from backend.
   /// This avoids expensive FFI calls when status is already available.
-  Future<ConsensusMetrics> _collectConsensusMetrics({RpcStatusResp? nodeStatus}) async {
+  Future<ConsensusMetrics> _collectConsensusMetrics(
+      {RpcStatusResp? nodeStatus}) async {
     int? currentEpoch;
     int? currentGlobalSlot;
     int? currentEpochWonSlots;
@@ -798,7 +805,8 @@ class MetricsCollectorService {
     if (RustBackendService.instance.isRunning) {
       try {
         // Use provided status or fetch if not available
-        final status = nodeStatus ?? await RustBackendService.instance.getStatus();
+        final status =
+            nodeStatus ?? await RustBackendService.instance.getStatus();
         if (status != null) {
           final bestTip = status.blockchain.bestTip;
           currentEpoch = bestTip.epoch;
@@ -811,8 +819,10 @@ class MetricsCollectorService {
           final vrfEvaluator = status.vrfEvaluator;
           if (vrfEvaluator != null) {
             evaluatedSlotsSinceStart = vrfEvaluator.evaluatedSlotsSinceStart;
-            currentEpochVrfEvaluationStatus = vrfEvaluator.currentEpochVrfEvaluationStatus.name;
-            nextEpochVrfEvaluationStatus = vrfEvaluator.nextEpochVrfEvaluationStatus.name;
+            currentEpochVrfEvaluationStatus =
+                vrfEvaluator.currentEpochVrfEvaluationStatus.name;
+            nextEpochVrfEvaluationStatus =
+                vrfEvaluator.nextEpochVrfEvaluationStatus.name;
           }
         }
 
@@ -835,7 +845,8 @@ class MetricsCollectorService {
 
             // Calculate failed as: won - future - produced
             // This excludes future slots from being counted as failed
-            currentEpochFailed = currentEpochWonSlots - slotsInFuture - currentEpochProduced;
+            currentEpochFailed =
+                currentEpochWonSlots - slotsInFuture - currentEpochProduced;
           }
         }
       } catch (_) {
@@ -863,7 +874,8 @@ class MetricsCollectorService {
   ///
   /// If [nodeStatus] is provided, it will be used instead of fetching from backend.
   /// This avoids expensive FFI calls when status is already available.
-  Future<BlockchainMetrics> _collectBlockchainMetrics({RpcStatusResp? nodeStatus}) async {
+  Future<BlockchainMetrics> _collectBlockchainMetrics(
+      {RpcStatusResp? nodeStatus}) async {
     int? blockchainHeight;
     String? latestBlockHash;
     int? latestBlockSlot;
@@ -872,7 +884,8 @@ class MetricsCollectorService {
     if (RustBackendService.instance.isRunning) {
       try {
         // Use provided status or fetch if not available
-        final status = nodeStatus ?? await RustBackendService.instance.getStatus();
+        final status =
+            nodeStatus ?? await RustBackendService.instance.getStatus();
         if (status != null) {
           final bestTip = status.blockchain.bestTip;
 
@@ -937,14 +950,16 @@ class MetricsCollectorService {
   ///
   /// If [nodeStatus] is provided, it will be used instead of fetching from backend.
   /// This avoids expensive FFI calls when status is already available.
-  Future<List<PeerMetrics>> _collectPeersMetrics({RpcStatusResp? nodeStatus}) async {
+  Future<List<PeerMetrics>> _collectPeersMetrics(
+      {RpcStatusResp? nodeStatus}) async {
     if (!RustBackendService.instance.isRunning) {
       return [];
     }
 
     try {
       // Use provided status or fetch if not available
-      final status = nodeStatus ?? await RustBackendService.instance.getStatus();
+      final status =
+          nodeStatus ?? await RustBackendService.instance.getStatus();
       if (status == null) return [];
 
       return status.peers.map((peer) {

@@ -68,7 +68,8 @@ class BackendRPCResponse {
     VRFStatus status = VRFStatus.notStarted;
 
     if (statusResp?.vrfEvaluator != null) {
-      final backendStatus = statusResp!.vrfEvaluator!.currentEpochVrfEvaluationStatus;
+      final backendStatus =
+          statusResp!.vrfEvaluator!.currentEpochVrfEvaluationStatus;
       status = switch (backendStatus) {
         RpcStatusVrfEvaluationStatus.pending => VRFStatus.notStarted,
         RpcStatusVrfEvaluationStatus.evaluating => VRFStatus.inProgress,
@@ -92,7 +93,8 @@ class BackendRPCResponse {
   }
 
   /// Check if VRF calculation is complete and slots can be scheduled
-  bool get canScheduleSlots => vrfStatus.canScheduleSlots && wonSlots.isNotEmpty;
+  bool get canScheduleSlots =>
+      vrfStatus.canScheduleSlots && wonSlots.isNotEmpty;
 
   /// Check if there are any won slots in this epoch
   bool get hasWonSlots => wonSlots.isNotEmpty;

@@ -41,7 +41,8 @@ Future<void> main() async {
     // Render UI immediately; perform heavy bootstrap asynchronously.
     log.info('Running app UI', tag: 'MAIN');
     SentryUtil.addBreadcrumb(category: 'app', message: 'runApp');
-    runApp(UncontrolledProviderScope(container: container, child: const CryptoMobileApp()));
+    runApp(UncontrolledProviderScope(
+        container: container, child: const CryptoMobileApp()));
     // Track lifecycle changes for breadcrumbs/diagnostics
     AppLifecycleLogger.register();
 
@@ -51,7 +52,8 @@ Future<void> main() async {
   });
 }
 
-Future<void> _bootstrapAsync(LoggingService log, ProviderContainer container) async {
+Future<void> _bootstrapAsync(
+    LoggingService log, ProviderContainer container) async {
   try {
     SentryUtil.addBreadcrumb(category: 'app', message: 'bootstrap begin');
     log.info('Initializing application', tag: 'MAIN');
@@ -87,7 +89,8 @@ Future<void> _bootstrapAsync(LoggingService log, ProviderContainer container) as
     MetricsCollectorService.instance.initialize(container);
 
     // Initialize background block production orchestrator
-    log.info('Initializing background block production orchestrator', tag: 'MAIN');
+    log.info('Initializing background block production orchestrator',
+        tag: 'MAIN');
     await BackgroundBlockProductionOrchestrator.instance.initialize();
 
     // Request permissions at startup (if not already requested)
@@ -105,15 +108,18 @@ Future<void> _requestPermissionsAtStartup(LoggingService log) async {
   try {
     // Check if we've already requested permissions to avoid annoying users
     final prefs = await SharedPreferences.getInstance();
-    final hasRequestedPermissions = prefs.getBool('has_requested_permissions_at_startup') ?? false;
+    final hasRequestedPermissions =
+        prefs.getBool('has_requested_permissions_at_startup') ?? false;
 
     if (hasRequestedPermissions) {
-      log.info('Permissions already requested at startup previously', tag: 'PERMISSIONS');
+      log.info('Permissions already requested at startup previously',
+          tag: 'PERMISSIONS');
       return;
     }
 
     log.info('Requesting permissions at startup...', tag: 'PERMISSIONS');
-    SentryUtil.addBreadcrumb(category: 'permissions', message: 'startup request begin');
+    SentryUtil.addBreadcrumb(
+        category: 'permissions', message: 'startup request begin');
 
     // Initialize platform alarm service
     await PlatformAlarmService.instance.initialize();
@@ -136,7 +142,8 @@ Future<void> _requestPermissionsAtStartup(LoggingService log) async {
       data: {'granted': granted},
     );
   } catch (e, st) {
-    log.error('Error requesting permissions at startup: $e', tag: 'PERMISSIONS', error: e, stackTrace: st);
+    log.error('Error requesting permissions at startup: $e',
+        tag: 'PERMISSIONS', error: e, stackTrace: st);
     await SentryUtil.captureError(e, st, tag: 'permissions_startup');
   }
 }

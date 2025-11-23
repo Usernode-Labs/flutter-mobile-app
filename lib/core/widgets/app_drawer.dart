@@ -297,7 +297,8 @@ class _AppDrawerState extends ConsumerState<AppDrawer> {
         Future.delayed(const Duration(milliseconds: 500), () {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('All accounts deleted successfully')),
+              const SnackBar(
+                  content: Text('All accounts deleted successfully')),
             );
           }
         });

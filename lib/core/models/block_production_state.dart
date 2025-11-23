@@ -127,8 +127,7 @@ class BlockProductionState {
 
   Map<String, dynamic> toJson() => {
         'currentEpoch': currentEpoch,
-        'scheduledSlots':
-            scheduledSlots.map((slot) => slot.toJson()).toList(),
+        'scheduledSlots': scheduledSlots.map((slot) => slot.toJson()).toList(),
         'productionHistory': productionHistory.map(
           (key, value) => MapEntry(key.toString(), value.toJson()),
         ),

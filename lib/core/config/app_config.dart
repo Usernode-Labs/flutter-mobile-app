@@ -55,15 +55,18 @@ class AppConfig {
       Duration(seconds: epochMonitorBaseIntervalSeconds);
 
   // Demo accounts configuration (JSON object with account metadata)
-  static const String _demoAccountsJson =
-      String.fromEnvironment('DEMO_ACCOUNTS_JSON', defaultValue: '{"accounts":[]}');
+  static const String _demoAccountsJson = String.fromEnvironment(
+      'DEMO_ACCOUNTS_JSON',
+      defaultValue: '{"accounts":[]}');
 
   static List<DemoAccount> get demoAccounts {
     try {
       final decoded = jsonDecode(_demoAccountsJson);
       if (decoded is Map && decoded['accounts'] is List) {
         final accounts = decoded['accounts'] as List;
-        return accounts.map((acc) => DemoAccount.fromJson(acc as Map<String, dynamic>)).toList();
+        return accounts
+            .map((acc) => DemoAccount.fromJson(acc as Map<String, dynamic>))
+            .toList();
       }
       return [];
     } catch (e) {

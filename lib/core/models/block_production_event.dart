@@ -22,7 +22,8 @@ class BlockProductionEpochTransitionEvent extends BlockProductionEvent {
   final int previousEpoch;
   final int newEpoch;
   final int slotsScheduled;
-  final String? vrfStatus; // Enhanced: VRF status (e.g., 'complete', 'in_progress')
+  final String?
+      vrfStatus; // Enhanced: VRF status (e.g., 'complete', 'in_progress')
   final DateTime? nextAlarmTime; // Enhanced: When is the next alarm scheduled
 
   BlockProductionEpochTransitionEvent({
@@ -56,7 +57,8 @@ class BlockProductionAppWakeUpEvent extends BlockProductionEvent {
   final int? alarmLatencyMs; // Enhanced: How late was the alarm (ms)
   final String? deviceState; // Enhanced: 'locked', 'unlocked', 'doze', etc.
   final String? networkStatus; // Enhanced: 'wifi', 'cellular', 'none'
-  final String? wakeSource; // Enhanced: 'alarm', 'notification', 'bgtask', 'user'
+  final String?
+      wakeSource; // Enhanced: 'alarm', 'notification', 'bgtask', 'user'
 
   BlockProductionAppWakeUpEvent({
     required this.slotNumber,
@@ -88,7 +90,8 @@ class BlockProductionMonitoringStartEvent extends BlockProductionEvent {
   final DateTime slotTime;
   final String nodeState;
   final int? currentEpoch; // Enhanced: Current epoch number
-  final bool? foregroundServiceActive; // Enhanced: Android foreground service status
+  final bool?
+      foregroundServiceActive; // Enhanced: Android foreground service status
 
   BlockProductionMonitoringStartEvent({
     required this.slotNumber,
@@ -171,8 +174,7 @@ class BlockProductionSlotFailedEvent extends BlockProductionEvent {
 }
 
 /// Event emitted when block production is detected for a slot
-class BlockProductionBlockProductionDetectedEvent
-    extends BlockProductionEvent {
+class BlockProductionBlockProductionDetectedEvent extends BlockProductionEvent {
   final int slotNumber;
   final String blockHash;
   final int blockHeight;

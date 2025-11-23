@@ -99,7 +99,8 @@ class MetricsReportingService {
       }
 
       // Collect targeted metrics for this event
-      final payload = await MetricsCollectorService.instance.collectMetricsForEvent(
+      final payload =
+          await MetricsCollectorService.instance.collectMetricsForEvent(
         event,
         walletBalance: walletBalance,
         walletAddress: walletAddress,

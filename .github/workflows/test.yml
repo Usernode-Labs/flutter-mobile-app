@@ -82,7 +82,7 @@ jobs:
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: "stable"
-          cache: true
+          cache: false
 
       - name: Restore cargo binaries from cache
         uses: actions/cache/restore@v4
@@ -144,7 +144,7 @@ jobs:
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: "stable"
-          cache: true
+          cache: false
 
       - name: Restore cargo binaries from cache
         uses: actions/cache/restore@v4
@@ -184,7 +184,7 @@ jobs:
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: "stable"
-          cache: true
+          cache: false
 
       - name: Install dependencies
         run: flutter pub get
@@ -222,7 +222,7 @@ jobs:
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: "stable"
-          cache: true
+          cache: false
 
       - name: Restore cargo binaries from cache
         uses: actions/cache/restore@v4

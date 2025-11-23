@@ -116,135 +116,8 @@ jobs:
           flags: unittests
           name: codecov-unit
 
-  widget-tests:
-    name: Widget Tests
-    runs-on: ubuntu-20.04-16core2
-    needs: [determine-frb-rev, setup-rust-tools-android]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Checkout usernode repository
-        uses: actions/checkout@v4
-        with:
-          repository: Usernode-Labs/usernode
-          path: usernode
-          token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
-
-      - name: Move usernode repository next to workspace
-        run: |
-          TARGET_DIR="../usernode"
-          if [ -d "$TARGET_DIR" ]; then
-            rm -rf "$TARGET_DIR"
-          fi
-          mv usernode "$TARGET_DIR"
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: "stable"
-          cache: false
-
-      - name: Restore cargo binaries from cache
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            ~/.cargo/bin/cargo-expand
-            ~/.cargo/bin/flutter_rust_bridge_codegen
-          key: ${{ runner.os }}-cargo-bins-${{ needs.determine-frb-rev.outputs.frb_rev }}-v2
-
-      - name: Cache FRB generated code
-        uses: actions/cache@v4
-        with:
-          path: |
-            lib/src/rust/frb_generated.dart
-            lib/src/rust/api
-          key: ${{ runner.os }}-frb-gen-${{ needs.determine-frb-rev.outputs.frb_rev }}-${{ needs.determine-frb-rev.outputs.usernode_sha }}
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Generate flutter_rust_bridge bindings
-        run: flutter_rust_bridge_codegen generate
-
       - name: Run widget tests
         run: flutter test --coverage test/widget_test.dart --reporter expanded
-
-  integration-tests:
-    name: Integration Tests
-    runs-on: macos-latest
-    if: github.event_name != 'schedule'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: "stable"
-          cache: false
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Run iOS integration tests
-        run: |
-          echo "Will come later..."
-
-  coverage-report:
-    name: Coverage Report
-    runs-on: ubuntu-20.04-16core2
-    needs:
-      [determine-frb-rev, setup-rust-tools-android, unit-tests, widget-tests]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Checkout usernode repository
-        uses: actions/checkout@v4
-        with:
-          repository: Usernode-Labs/usernode
-          path: usernode
-          token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
-
-      - name: Move usernode repository next to workspace
-        run: |
-          TARGET_DIR="../usernode"
-          if [ -d "$TARGET_DIR" ]; then
-            rm -rf "$TARGET_DIR"
-          fi
-          mv usernode "$TARGET_DIR"
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: "stable"
-          cache: false
-
-      - name: Restore cargo binaries from cache
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            ~/.cargo/bin/cargo-expand
-            ~/.cargo/bin/flutter_rust_bridge_codegen
-          key: ${{ runner.os }}-cargo-bins-${{ needs.determine-frb-rev.outputs.frb_rev }}-v2
-
-      - name: Cache FRB generated code
-        uses: actions/cache@v4
-        with:
-          path: |
-            lib/src/rust/frb_generated.dart
-            lib/src/rust/api
-          key: ${{ runner.os }}-frb-gen-${{ needs.determine-frb-rev.outputs.frb_rev }}-${{ needs.determine-frb-rev.outputs.usernode_sha }}
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Generate flutter_rust_bridge bindings
-        run: flutter_rust_bridge_codegen generate
 
       - name: Generate coverage
         run: flutter test --coverage
@@ -265,11 +138,15 @@ jobs:
             echo "✅ Coverage is above 70%"
           fi
 
-  test-summary:
-    name: Test Summary
-    runs-on: ubuntu-20.04-16core2
-    steps:
       - name: Check results
         run: |
           echo "⏭️  All tests temporarily disabled"
           echo "✅ No tests to run"
+
+      - name: Run iOS integration tests
+        run: |
+          echo "Will come later..."
+
+      - name: Run Android integration tests
+        run: |
+          echo "Will come later..."

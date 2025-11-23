@@ -512,15 +512,6 @@ jobs:
           ruby-version: "3.2"
           bundler-cache: true
 
-      - name: Cache Xcode DerivedData
-        uses: actions/cache@v4
-        with:
-          path: ~/Library/Developer/Xcode/DerivedData
-          key: ${{ runner.os }}-xcode-${{ hashFiles('ios/**/*.{swift,m,h}', 'ios/Podfile.lock') }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-xcode-${{ hashFiles('ios/**/*.{swift,m,h}', 'ios/Podfile.lock') }}-
-            ${{ runner.os }}-xcode-
-
       - name: Install CocoaPods dependencies
         run: |
           cd ios

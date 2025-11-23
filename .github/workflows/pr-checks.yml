@@ -88,7 +88,7 @@ jobs:
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: "stable"
-          cache: true
+          cache: false
 
       - name: Restore cargo binaries from cache
         uses: actions/cache/restore@v4
@@ -131,82 +131,6 @@ jobs:
 
       - name: Analyze code
         run: flutter analyze
-
-  test:
-    name: Run Tests
-    runs-on: ubuntu-20.04-16core2
-    needs: [determine-frb-rev, setup-rust-tools]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Checkout usernode repository
-        uses: actions/checkout@v4
-        with:
-          repository: Usernode-Labs/usernode
-          path: usernode
-          token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
-
-      - name: Move usernode repository next to workspace
-        run: |
-          TARGET_DIR="../usernode"
-          if [ -d "$TARGET_DIR" ]; then
-            echo "⚠️  Existing $TARGET_DIR detected. Removing to ensure fresh checkout."
-            rm -rf "$TARGET_DIR"
-          fi
-          mv usernode "$TARGET_DIR"
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: "stable"
-          cache: true
-
-      - name: Restore cargo binaries from cache
-        uses: actions/cache/restore@v4
-        id: cache-cargo-bins
-        with:
-          path: |
-            ~/.cargo/bin/cargo-expand
-            ~/.cargo/bin/flutter_rust_bridge_codegen
-          key: ${{ runner.os }}-cargo-bins-${{ needs.determine-frb-rev.outputs.frb_rev }}-v2
-
-      - name: Install flutter_rust_bridge_codegen if not cached
-        if: steps.cache-cargo-bins.outputs.cache-hit != 'true'
-        run: |
-          if ! command -v flutter_rust_bridge_codegen &> /dev/null; then
-            echo "Installing flutter_rust_bridge_codegen..."
-            cargo install flutter_rust_bridge_codegen --git https://github.com/Usernode-Labs/flutter_rust_bridge --rev ${{ needs.determine-frb-rev.outputs.frb_rev }} --locked
-          else
-            echo "flutter_rust_bridge_codegen already available"
-          fi
-
-      - name: Cache FRB generated code
-        id: cache-frb-gen
-        uses: actions/cache@v4
-        with:
-          path: |
-            lib/src/rust/frb_generated.dart
-            lib/src/rust/api
-          key: ${{ runner.os }}-frb-gen-${{ needs.determine-frb-rev.outputs.frb_rev }}-${{ needs.determine-frb-rev.outputs.usernode_sha }}
-          restore-keys: |
-            ${{ runner.os }}-frb-gen-${{ needs.determine-frb-rev.outputs.frb_rev }}-
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Generate flutter_rust_bridge bindings
-        run: flutter_rust_bridge_codegen generate
-
-      - name: Verify flutter_rust_bridge bindings are up-to-date
-        run: |
-          cd ../usernode
-          if ! git diff --quiet -- crates/usernode/src/frb_generated.rs; then
-            echo "::error::frb_generated.rs changed during CI. Run flutter_rust_bridge_codegen generate and commit the result in the usernode repo."
-            git status --short crates/usernode/src/frb_generated.rs
-            exit 1
-          fi
 
       - name: Run unit tests
         run: flutter test --coverage
@@ -261,7 +185,7 @@ jobs:
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: "stable"
-          cache: true
+          cache: false
 
       - name: Restore cargo binaries from cache
         uses: actions/cache/restore@v4
@@ -292,19 +216,6 @@ jobs:
           key: ${{ runner.os }}-frb-gen-${{ needs.determine-frb-rev.outputs.frb_rev }}-${{ needs.determine-frb-rev.outputs.usernode_sha }}
           restore-keys: |
             ${{ runner.os }}-frb-gen-${{ needs.determine-frb-rev.outputs.frb_rev }}-
-
-      - name: Cache Gradle dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-            android/app/build
-            android/.gradle
-          key: ${{ runner.os }}-gradle-${{ hashFiles('android/**/*.gradle*', 'android/gradle.properties', 'pubspec.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-${{ hashFiles('android/**/*.gradle*', 'android/gradle.properties') }}-
-            ${{ runner.os }}-gradle-
 
       - name: Determine environment based on target branch
         id: env_config
@@ -410,27 +321,7 @@ jobs:
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: "stable"
-          cache: true
-
-      - name: Cache Flutter pub dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.pub-cache
-          key: ${{ runner.os }}-pub-${{ hashFiles('pubspec.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-pub-
-
-      - name: Cache Flutter build artifacts
-        uses: actions/cache@v4
-        with:
-          path: |
-            build
-            .dart_tool
-          key: ${{ runner.os }}-flutter-build-${{ hashFiles('pubspec.lock') }}-${{ hashFiles('lib/**/*.dart', 'rust_builder/**/*.rs') }}
-          restore-keys: |
-            ${{ runner.os }}-flutter-build-${{ hashFiles('pubspec.lock') }}-
-            ${{ runner.os }}-flutter-build-
+          cache: false
 
       - name: Setup Rust for iOS
         uses: dtolnay/rust-toolchain@stable

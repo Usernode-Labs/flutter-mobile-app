@@ -3,6 +3,7 @@ import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import 'package:crypto_mobile_app/core/models/block_production_event.dart';
+import 'package:crypto_mobile_app/features/metrics/data/models/metrics_payload.dart';
 import 'package:crypto_mobile_app/features/metrics/data/repositories/metrics_repository.dart';
 import 'package:crypto_mobile_app/features/metrics/domain/services/metrics_collector_service.dart';
 
@@ -105,29 +106,10 @@ class MetricsReportingService {
         walletAddress: walletAddress,
       );
 
-      // Send metrics to API
-      final success = await _repository!.sendMetrics(payload);
-
-      if (success) {
-        _successCount++;
-        _lastReportTime = DateTime.now();
-        _log.trace(
-          'Event metrics reported successfully',
-          context: {
-            'event_type': event.eventType,
-          },
-        );
-      } else {
-        _failureCount++;
-      }
-    } catch (e, stackTrace) {
-      _failureCount++;
-      _log.error(
-        'Error reporting event metrics',
-        error: e,
-        stackTrace: stackTrace,
-        context: {'event_type': event.eventType},
-      );
+      // Fire and forget - send metrics without blocking
+      _sendMetricsAsync(payload, eventType: event.eventType);
+    } catch (e) {
+      _log.debug('Error collecting event metrics: $e');
     }
   }
 
@@ -273,33 +255,35 @@ class MetricsReportingService {
         walletAddress: walletAddress,
       );
 
-      // Send metrics to API
-      final success = await _repository!.sendMetrics(payload);
+      // Fire and forget - send metrics without blocking
+      _sendMetricsAsync(payload);
+    } catch (e) {
+      _log.debug('Error collecting metrics: $e');
+    }
+  }
 
+  /// Send metrics asynchronously without blocking the caller
+  ///
+  /// This is a fire-and-forget operation - errors are logged but not propagated.
+  void _sendMetricsAsync(MetricsPayload payload, {String? eventType}) {
+    if (_repository == null) return;
+
+    // Use unawaited future to explicitly indicate fire-and-forget
+    _repository!.sendMetrics(payload).then((success) {
       if (success) {
         _successCount++;
         _lastReportTime = DateTime.now();
         _log.trace(
-          'Metrics reported successfully',
-          context: {
-            'peer_id': payload.node.identity.peerId,
-            'node_state': payload.node.status?.nodeState ?? 'unknown',
-          },
+          'Metrics sent',
+          context: eventType != null ? {'event_type': eventType} : null,
         );
       } else {
         _failureCount++;
-        _log.debug(
-          'Failed to report metrics',
-        );
       }
-    } catch (e, stackTrace) {
+    }).catchError((e) {
       _failureCount++;
-      _log.error(
-        'Error reporting metrics',
-        error: e,
-        stackTrace: stackTrace,
-      );
-    }
+      _log.debug('Metrics send error: $e');
+    });
   }
 
   /// Get current metrics stats

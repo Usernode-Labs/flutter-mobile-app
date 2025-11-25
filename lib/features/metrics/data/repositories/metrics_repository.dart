@@ -72,13 +72,9 @@ class MetricsRepository {
         // Drop failed metrics (per user requirement)
         return false;
       }
-    } catch (e, stackTrace) {
-      // Log but don't rethrow - drop failed metrics per user requirement
-      _log.error(
-        'Error sending metrics',
-        error: e,
-        stackTrace: stackTrace,
-      );
+    } catch (e) {
+      // Log at debug level - network failures are expected and non-critical
+      _log.debug('Metrics send failed: $e');
       return false;
     }
   }

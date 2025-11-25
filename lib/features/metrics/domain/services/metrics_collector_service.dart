@@ -562,6 +562,8 @@ class MetricsCollectorService {
           final vrfEvaluator = rawStatus.vrfEvaluator;
           if (vrfEvaluator != null) {
             evaluatedCurrentEpoch = vrfEvaluator.details?.evaluatedCurrentEpoch;
+            currentEpochWonSlots =
+                vrfEvaluator.details?.wonSlotsCurrentEpoch.toInt();
             currentEpochVrfEvaluationStatus =
                 vrfEvaluator.currentEpochVrfEvaluationStatus.name;
             nextEpochVrfEvaluationStatus =
@@ -575,7 +577,7 @@ class MetricsCollectorService {
           final rewards = rewardsAsync.value;
           if (rewards != null) {
             // Extract current epoch production metrics
-            currentEpochWonSlots = rewards.winsInEpoch;
+            currentEpochWonSlots ??= rewards.winsInEpoch;
             currentEpochProduced = rewards.producedInEpoch;
 
             // Count future slots (slots that haven't occurred yet)

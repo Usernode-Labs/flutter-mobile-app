@@ -152,6 +152,8 @@ class NodeStatusController extends AsyncNotifier<NodeStatusState?> {
             'latestEvaluatedGlobalSlot': vrf.details!.latestEvaluatedGlobalSlot,
             'readinessCheckDue': vrf.details!.readinessCheckDue,
             'wonSlotsCached': vrf.details!.wonSlotsCached.toString(),
+            'wonSlotsCurrentEpoch': vrf.details!.wonSlotsCurrentEpoch.toString(),
+            'wonSlotsNextEpoch': vrf.details!.wonSlotsNextEpoch.toString(),
             'slotsPerEpoch': vrf.details!.slotsPerEpoch,
             'clockEpoch': vrf.details!.clockEpoch,
             'evaluatedCurrentEpoch': vrf.details!.evaluatedCurrentEpoch,

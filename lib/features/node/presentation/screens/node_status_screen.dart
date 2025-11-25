@@ -515,6 +515,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             final vrfEvaluator =
                 ref.watch(nodeStatusProvider).value?.vrfEvaluator;
             final evaluatedSlots = vrfEvaluator?.details?.evaluatedCurrentEpoch ?? 0;
+            final vrfWonSlots = vrfEvaluator?.details?.wonSlotsCurrentEpoch.toInt() ?? 0;
             final totalSlotsPerEpoch = BlockchainTiming.slotsPerEpoch;
 
             return Row(
@@ -539,7 +540,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                         'Status: $statusText',
                         'Total: ${NumberFormat('#,###').format(totalSlotsPerEpoch)}',
                         'Evaluated: ${NumberFormat('#,###').format(evaluatedSlots)}',
-                        'Won: ${NumberFormat('#,###').format(wonSlots)}',
+                        'Won: ${NumberFormat('#,###').format(vrfWonSlots)}',
                       ];
                     }(),
                     color: colorScheme.tertiary,

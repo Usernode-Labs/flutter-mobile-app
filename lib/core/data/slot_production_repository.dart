@@ -1,6 +1,9 @@
 import 'dart:convert';
-import 'package:logger/logger.dart';
+import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+final _log = LoggingService.instance.withTag(LogTag.node);
 
 /// Repository for persisting and tracking slot production statistics
 ///
@@ -10,7 +13,6 @@ class SlotProductionRepository {
   static final SlotProductionRepository instance = SlotProductionRepository._();
   SlotProductionRepository._();
 
-  final Logger _logger = Logger();
   SharedPreferences? _prefs;
   bool _initialized = false;
 
@@ -27,7 +29,7 @@ class SlotProductionRepository {
     if (_initialized) return true;
 
     try {
-      _logger.i('SlotProductionRepository initializing...');
+      _log.info('SlotProductionRepository initializing...');
       _prefs = await SharedPreferences.getInstance();
 
       // Load persisted records
@@ -35,12 +37,12 @@ class SlotProductionRepository {
       await _loadStats();
 
       _initialized = true;
-      _logger.i(
+      _log.info(
         'SlotProductionRepository initialized with ${_records.length} records',
       );
       return true;
     } catch (e) {
-      _logger.e('Error initializing SlotProductionRepository: $e');
+      _log.error('Error initializing SlotProductionRepository: $e');
       return false;
     }
   }
@@ -65,9 +67,9 @@ class SlotProductionRepository {
       _records.add(record);
       await _persistRecords();
 
-      _logger.d('Recorded won slot: $slotNumber');
+      _log.debug('Recorded won slot: $slotNumber');
     } catch (e) {
-      _logger.e('Error recording won slot: $e');
+      _log.error('Error recording won slot: $e');
     }
   }
 
@@ -90,13 +92,13 @@ class SlotProductionRepository {
           attemptTime: attemptTime,
         );
       } else {
-        _logger.w('No won slot record found for slot $slotNumber');
+        _log.warn('No won slot record found for slot $slotNumber');
       }
 
       await _persistRecords();
-      _logger.d('Recorded production attempt for slot: $slotNumber');
+      _log.debug('Recorded production attempt for slot: $slotNumber');
     } catch (e) {
-      _logger.e('Error recording production attempt: $e');
+      _log.error('Error recording production attempt: $e');
     }
   }
 
@@ -120,15 +122,15 @@ class SlotProductionRepository {
           blockHeight: blockHeight,
         );
       } else {
-        _logger.w('No record found for slot $slotNumber');
+        _log.warn('No record found for slot $slotNumber');
       }
 
       await _persistRecords();
       await _updateStats(success: true);
 
-      _logger.i('Recorded production success for slot: $slotNumber');
+      _log.info('Recorded production success for slot: $slotNumber');
     } catch (e) {
-      _logger.e('Error recording production success: $e');
+      _log.error('Error recording production success: $e');
     }
   }
 
@@ -152,15 +154,15 @@ class SlotProductionRepository {
           failureReason: reason,
         );
       } else {
-        _logger.w('No record found for slot $slotNumber');
+        _log.warn('No record found for slot $slotNumber');
       }
 
       await _persistRecords();
       await _updateStats(success: false);
 
-      _logger.i('Recorded production failure for slot: $slotNumber');
+      _log.info('Recorded production failure for slot: $slotNumber');
     } catch (e) {
-      _logger.e('Error recording production failure: $e');
+      _log.error('Error recording production failure: $e');
     }
   }
 
@@ -241,7 +243,7 @@ class SlotProductionRepository {
     try {
       final recordsJson = _prefs?.getString(_recordsKey);
       if (recordsJson == null) {
-        _logger.d('No persisted records found');
+        _log.debug('No persisted records found');
         return;
       }
 
@@ -251,9 +253,9 @@ class SlotProductionRepository {
         recordsList.map((json) => SlotProductionRecord.fromJson(json)),
       );
 
-      _logger.d('Loaded ${_records.length} persisted records');
+      _log.debug('Loaded ${_records.length} persisted records');
     } catch (e) {
-      _logger.e('Error loading records: $e');
+      _log.error('Error loading records: $e');
     }
   }
 
@@ -271,7 +273,7 @@ class SlotProductionRepository {
       );
       await _prefs?.setString(_recordsKey, recordsJson);
     } catch (e) {
-      _logger.e('Error persisting records: $e');
+      _log.error('Error persisting records: $e');
     }
   }
 
@@ -285,9 +287,9 @@ class SlotProductionRepository {
       }
 
       _cachedStats = SlotProductionStats.fromJson(jsonDecode(statsJson));
-      _logger.d('Loaded persisted stats');
+      _log.debug('Loaded persisted stats');
     } catch (e) {
-      _logger.e('Error loading stats: $e');
+      _log.error('Error loading stats: $e');
       _calculateStats();
     }
   }
@@ -300,7 +302,7 @@ class SlotProductionRepository {
       final statsJson = jsonEncode(_cachedStats!.toJson());
       await _prefs?.setString(_statsKey, statsJson);
     } catch (e) {
-      _logger.e('Error persisting stats: $e');
+      _log.error('Error persisting stats: $e');
     }
   }
 
@@ -311,7 +313,7 @@ class SlotProductionRepository {
     await _prefs?.remove(_recordsKey);
     await _prefs?.remove(_statsKey);
     _calculateStats();
-    _logger.i('Cleared all production records and stats');
+    _log.info('Cleared all production records and stats');
   }
 
   /// Clear records older than a certain date
@@ -324,7 +326,7 @@ class SlotProductionRepository {
     _calculateStats();
     await _persistStats();
 
-    _logger.i('Cleared ${before - after} old records');
+    _log.info('Cleared ${before - after} old records');
   }
 }
 

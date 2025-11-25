@@ -1,12 +1,15 @@
 import 'dart:io';
 import 'package:flutter/widgets.dart';
-import 'package:logger/logger.dart';
+import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import '../../features/node/data/repositories/rust_backend_service.dart';
 import '../../features/metrics/domain/services/metrics_collector_service.dart';
 import '../services/background_block_production_orchestrator.dart';
 import '../services/platform_alarm_service.dart';
+
+final _log = LoggingService.instance.withTag(LogTag.lifecycle);
 
 /// Enhanced app lifecycle observer with background block production support
 ///
@@ -16,8 +19,6 @@ import '../services/platform_alarm_service.dart';
 /// - Node restart on Android if not running
 class AppLifecycleLogger with WidgetsBindingObserver {
   static AppLifecycleLogger? _instance;
-
-  final Logger _logger = Logger();
 
   // Track if we're currently handling resume to avoid concurrent processing
   bool _isHandlingResume = false;
@@ -44,7 +45,7 @@ class AppLifecycleLogger with WidgetsBindingObserver {
       message: 'state: ${state.name}',
     );
 
-    _logger.i('App lifecycle state changed: ${state.name}');
+    _log.info('App lifecycle state changed: ${state.name}');
 
     // Update metrics collector with new state
     MetricsCollectorService.instance.updateAppLifecycleState(state);
@@ -67,14 +68,14 @@ class AppLifecycleLogger with WidgetsBindingObserver {
   /// Handle app resumed - check for epoch changes and verify alarms
   Future<void> _handleAppResumed() async {
     if (_isHandlingResume) {
-      _logger.d('Already handling resume, skipping');
+      _log.debug('Already handling resume, skipping');
       return;
     }
 
     _isHandlingResume = true;
 
     try {
-      _logger.i('Handling app resume...');
+      _log.info('Handling app resume...');
 
       // 1. Check and restart node if needed (Android only)
       if (Platform.isAndroid) {
@@ -87,9 +88,9 @@ class AppLifecycleLogger with WidgetsBindingObserver {
       // 3. Verify scheduled alarms still exist
       await _verifyScheduledAlarms();
 
-      _logger.i('App resume handling complete');
+      _log.info('App resume handling complete');
     } catch (e) {
-      _logger.e('Error handling app resume: $e');
+      _log.error('Error handling app resume: $e');
       SentryUtil.addBreadcrumb(
         category: 'lifecycle',
         message: 'resume error: $e',
@@ -102,7 +103,7 @@ class AppLifecycleLogger with WidgetsBindingObserver {
 
   /// Handle app paused - no special handling needed for now
   void _handleAppPaused() {
-    _logger.d('App paused');
+    _log.debug('App paused');
     // iOS could stop node after 30s here in the future if needed
   }
 
@@ -112,18 +113,18 @@ class AppLifecycleLogger with WidgetsBindingObserver {
       final rustBackend = RustBackendService.instance;
 
       if (!rustBackend.isRunning) {
-        _logger.w('Node not running on resume, restarting...');
+        _log.warn('Node not running on resume, restarting...');
 
         await rustBackend.startNode();
 
         if (rustBackend.isRunning) {
-          _logger.i('✓ Node successfully restarted');
+          _log.info('✓ Node successfully restarted');
           SentryUtil.addBreadcrumb(
             category: 'lifecycle',
             message: 'node restarted on resume',
           );
         } else {
-          _logger.e('✗ Failed to restart node');
+          _log.error('✗ Failed to restart node');
           SentryUtil.addBreadcrumb(
             category: 'lifecycle',
             message: 'failed to restart node',
@@ -131,10 +132,10 @@ class AppLifecycleLogger with WidgetsBindingObserver {
           );
         }
       } else {
-        _logger.d('Node already running');
+        _log.debug('Node already running');
       }
     } catch (e) {
-      _logger.e('Error ensuring node running: $e');
+      _log.error('Error ensuring node running: $e');
     }
   }
 
@@ -146,14 +147,14 @@ class AppLifecycleLogger with WidgetsBindingObserver {
       // The orchestrator now handles epoch transitions automatically!
       // We just need to trigger a check when the app resumes
       if (BackgroundBlockProductionOrchestrator.instance.isInitialized) {
-        _logger.i('Notifying orchestrator of app resume...');
+        _log.info('Notifying orchestrator of app resume...');
         await BackgroundBlockProductionOrchestrator.instance.onAppResumed();
-        _logger.i('✓ Orchestrator notified, epoch check complete');
+        _log.info('✓ Orchestrator notified, epoch check complete');
       } else {
-        _logger.w('BackgroundBlockProductionOrchestrator not initialized');
+        _log.warn('BackgroundBlockProductionOrchestrator not initialized');
       }
     } catch (e) {
-      _logger.e('Error checking epoch transition: $e');
+      _log.error('Error checking epoch transition: $e');
     }
   }
 
@@ -163,7 +164,7 @@ class AppLifecycleLogger with WidgetsBindingObserver {
   Future<void> _verifyScheduledAlarms() async {
     try {
       if (!BackgroundBlockProductionOrchestrator.instance.isInitialized) {
-        _logger.d(
+        _log.debug(
             'BackgroundBlockProductionOrchestrator not initialized, skipping alarm verification');
         return;
       }
@@ -172,17 +173,17 @@ class AppLifecycleLogger with WidgetsBindingObserver {
           BackgroundBlockProductionOrchestrator.instance.scheduledSlots;
 
       if (scheduledSlots.isEmpty) {
-        _logger.d('No slots scheduled, nothing to verify');
+        _log.debug('No slots scheduled, nothing to verify');
         return;
       }
 
-      _logger.d('Verifying ${scheduledSlots.length} scheduled alarms...');
+      _log.debug('Verifying ${scheduledSlots.length} scheduled alarms...');
 
       // Check if alarms still exist via platform alarm service
       final hasPermission = PlatformAlarmService.instance.hasPermissions;
 
       if (!hasPermission) {
-        _logger.w(
+        _log.warn(
             '⚠️  Exact alarm permission lost! Alarms may have been cleared.');
 
         SentryUtil.addBreadcrumb(
@@ -200,12 +201,12 @@ class AppLifecycleLogger with WidgetsBindingObserver {
       if (Platform.isAndroid) {
         // Android alarms persist through app restarts but are lost on device reboot
         // The system will call our BOOT_COMPLETED receiver to handle rescheduling
-        _logger.d('Alarm verification complete (Android)');
+        _log.debug('Alarm verification complete (Android)');
       } else {
-        _logger.d('Alarm verification skipped (iOS - no verification API)');
+        _log.debug('Alarm verification skipped (iOS - no verification API)');
       }
     } catch (e) {
-      _logger.e('Error verifying scheduled alarms: $e');
+      _log.error('Error verifying scheduled alarms: $e');
     }
   }
 }

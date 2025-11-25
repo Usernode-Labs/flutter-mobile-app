@@ -3,6 +3,6 @@ import 'package:crypto_mobile_app/core/result.dart';
 
 abstract class NodeRepository {
   Future<void> init();
-  Future<bool> startForActiveAccount();
+  Future<bool> startNode();
   Future<Result<NodeStatus?>> getStatus();
 }

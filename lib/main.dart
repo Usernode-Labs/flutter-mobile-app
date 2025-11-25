@@ -76,12 +76,12 @@ Future<void> _bootstrapAsync(
 
     // Initialize FRB only; start backend only if an account exists
     await RustBackendService.instance.init();
-    final started = await RustBackendService.instance.startForActiveAccount();
-    log.info('Backend startForActiveAccount => $started', tag: 'MAIN');
+    final started = await RustBackendService.instance.startNode();
+    log.info('Backend startNode => $started', tag: 'MAIN');
     await SentryUtil.captureMessage(
       started
-          ? 'backend startForActiveAccount: started'
-          : 'backend startForActiveAccount: skipped',
+          ? 'backend startNode: started'
+          : 'backend startNode: skipped',
     );
 
     // Initialize metrics collection service

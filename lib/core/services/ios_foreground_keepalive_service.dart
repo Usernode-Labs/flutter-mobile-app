@@ -1,6 +1,9 @@
 import 'dart:async';
-import 'package:logger/logger.dart';
+import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+
+final _log = LoggingService.instance.withTag(LogTag.node);
 
 /// iOS Foreground Keep-Alive Service (Tier 1 Strategy)
 ///
@@ -14,7 +17,6 @@ class IOSForegroundKeepAliveService {
       IOSForegroundKeepAliveService._();
   IOSForegroundKeepAliveService._();
 
-  final Logger _logger = Logger();
   bool _isKeepAliveActive = false;
   Timer? _keepAliveTimer;
 
@@ -26,12 +28,12 @@ class IOSForegroundKeepAliveService {
   /// - App is in foreground
   Future<bool> startKeepAlive() async {
     if (_isKeepAliveActive) {
-      _logger.d('Keep-alive already active');
+      _log.debug('Keep-alive already active');
       return true;
     }
 
     try {
-      _logger.i('Starting iOS foreground keep-alive mode');
+      _log.info('Starting iOS foreground keep-alive mode');
 
       // Enable wakelock to prevent screen from sleeping
       await WakelockPlus.enable();
@@ -43,11 +45,11 @@ class IOSForegroundKeepAliveService {
       );
 
       _isKeepAliveActive = true;
-      _logger.i('Keep-alive mode activated');
+      _log.info('Keep-alive mode activated');
 
       return true;
     } catch (e) {
-      _logger.e('Error starting keep-alive: $e');
+      _log.error('Error starting keep-alive: $e');
       return false;
     }
   }
@@ -57,7 +59,7 @@ class IOSForegroundKeepAliveService {
     if (!_isKeepAliveActive) return;
 
     try {
-      _logger.i('Stopping iOS foreground keep-alive mode');
+      _log.info('Stopping iOS foreground keep-alive mode');
 
       // Disable wakelock
       await WakelockPlus.disable();
@@ -67,9 +69,9 @@ class IOSForegroundKeepAliveService {
       _keepAliveTimer = null;
 
       _isKeepAliveActive = false;
-      _logger.i('Keep-alive mode deactivated');
+      _log.info('Keep-alive mode deactivated');
     } catch (e) {
-      _logger.e('Error stopping keep-alive: $e');
+      _log.error('Error stopping keep-alive: $e');
     }
   }
 
@@ -78,7 +80,7 @@ class IOSForegroundKeepAliveService {
 
   /// Heartbeat to keep app active
   void _heartbeat() {
-    _logger.d('Keep-alive heartbeat');
+    _log.debug('Keep-alive heartbeat');
     // This periodic call helps prevent iOS from suspending the app
   }
 
@@ -87,7 +89,7 @@ class IOSForegroundKeepAliveService {
   /// Guided Access locks the device to a single app, preventing
   /// accidental exits during block production.
   Future<void> showGuidedAccessInstructions() async {
-    _logger.i('User should enable Guided Access for maximum reliability');
+    _log.info('User should enable Guided Access for maximum reliability');
     // UI should show instructions:
     // 1. Triple-click home/side button
     // 2. Enable Guided Access
@@ -101,7 +103,7 @@ class IOSForegroundKeepAliveService {
       // For now, return true as placeholder
       return true;
     } catch (e) {
-      _logger.w('Could not check charging status: $e');
+      _log.warn('Could not check charging status: $e');
       return false;
     }
   }

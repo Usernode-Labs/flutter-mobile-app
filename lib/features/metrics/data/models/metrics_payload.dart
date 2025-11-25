@@ -281,7 +281,7 @@ class ConsensusMetrics with _$ConsensusMetrics {
     int? totalWonSlots,
     int? totalBlocksProduced,
     int? totalBlocksFailed,
-    int? evaluatedSlotsSinceStart,
+    int? evaluatedCurrentEpoch,
     String? currentEpochVrfEvaluationStatus,
     String? nextEpochVrfEvaluationStatus,
   }) = _ConsensusMetrics;
@@ -301,8 +301,8 @@ class ConsensusMetrics with _$ConsensusMetrics {
         if (totalBlocksProduced != null)
           'total_blocks_produced': totalBlocksProduced,
         if (totalBlocksFailed != null) 'total_blocks_failed': totalBlocksFailed,
-        if (evaluatedSlotsSinceStart != null)
-          'evaluated_slots_since_start': evaluatedSlotsSinceStart,
+        if (evaluatedCurrentEpoch != null)
+          'evaluated_current_epoch': evaluatedCurrentEpoch,
         if (currentEpochVrfEvaluationStatus != null)
           'current_epoch_vrf_evaluation_status':
               currentEpochVrfEvaluationStatus,

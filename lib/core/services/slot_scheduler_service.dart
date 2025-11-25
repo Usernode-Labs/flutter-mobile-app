@@ -1,6 +1,9 @@
-import 'package:logger/logger.dart';
+import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import '../../features/node/data/repositories/rust_backend_service.dart';
 import 'platform_alarm_service.dart';
+
+final _log = LoggingService.instance.withTag(LogTag.node);
 
 /// Service responsible for scheduling alarms/tasks for won slots
 ///
@@ -10,8 +13,6 @@ import 'platform_alarm_service.dart';
 class SlotSchedulerService {
   static final SlotSchedulerService instance = SlotSchedulerService._();
   SlotSchedulerService._();
-
-  final Logger _logger = Logger();
 
   bool _initialized = false;
   List<ScheduledSlot> _scheduledSlots = [];
@@ -24,23 +25,23 @@ class SlotSchedulerService {
     if (_initialized) return true;
 
     try {
-      _logger.i('SlotSchedulerService initializing...');
+      _log.info('SlotSchedulerService initializing...');
 
       // Load any previously scheduled slots from persistence
       await _loadPersistedSlots();
 
       // Register boot reschedule callback with PlatformAlarmService
       PlatformAlarmService.instance.setBootRescheduleCallback(() async {
-        _logger.i('Boot reschedule callback invoked - rescheduling all slots');
+        _log.info('Boot reschedule callback invoked - rescheduling all slots');
         await scheduleDailySlots();
       });
 
       _initialized = true;
-      _logger.i(
+      _log.info(
           'SlotSchedulerService initialized with ${_scheduledSlots.length} persisted slots');
       return true;
     } catch (e) {
-      _logger.e('Error initializing SlotSchedulerService: $e');
+      _log.error('Error initializing SlotSchedulerService: $e');
       return false;
     }
   }
@@ -54,7 +55,7 @@ class SlotSchedulerService {
     Duration advanceTime = const Duration(minutes: 2),
   }) async {
     if (!_initialized) {
-      _logger.w('Cannot schedule slots: service not initialized');
+      _log.warn('Cannot schedule slots: service not initialized');
       return SchedulingResult(
         success: false,
         error: 'Service not initialized',
@@ -62,12 +63,12 @@ class SlotSchedulerService {
     }
 
     try {
-      _logger.i('Querying won slots for epoch ${epoch ?? "current"}...');
+      _log.info('Querying won slots for epoch ${epoch ?? "current"}...');
 
       // Query Rust backend for won slots
       final rpc = RustBackendService.instance.rpc;
       if (rpc == null) {
-        _logger.w('RPC service not available');
+        _log.warn('RPC service not available');
         return SchedulingResult(
           success: false,
           error: 'RPC service not available',
@@ -82,7 +83,7 @@ class SlotSchedulerService {
       if (epochData == null ||
           epochData.wonSlots == null ||
           epochData.wonSlots!.isEmpty) {
-        _logger.i('No won slots found for epoch ${epochData?.epoch ?? epoch}');
+        _log.info('No won slots found for epoch ${epochData?.epoch ?? epoch}');
         return SchedulingResult(
           success: true,
           slotsScheduled: 0,
@@ -90,7 +91,7 @@ class SlotSchedulerService {
         );
       }
 
-      _logger.i('Found ${epochData.wonSlots!.length} won slots');
+      _log.info('Found ${epochData.wonSlots!.length} won slots');
 
       // Clear old scheduled slots
       await cancelAllSlots();
@@ -123,14 +124,14 @@ class SlotSchedulerService {
             failureCount++;
           }
         } else {
-          _logger.d('Skipping past slot ${wonSlot.globalSlot}');
+          _log.debug('Skipping past slot ${wonSlot.globalSlot}');
         }
       }
 
       _scheduledSlots = newSlots;
       await _persistSlots();
 
-      _logger.i(
+      _log.info(
         'Scheduled $successCount slots successfully, $failureCount failures',
       );
 
@@ -141,7 +142,7 @@ class SlotSchedulerService {
         message: 'Scheduled $successCount slots for epoch ${epochData.epoch}',
       );
     } catch (e) {
-      _logger.e('Error scheduling daily slots: $e');
+      _log.error('Error scheduling daily slots: $e');
       return SchedulingResult(
         success: false,
         error: e.toString(),
@@ -152,7 +153,7 @@ class SlotSchedulerService {
   /// Schedule alarm for a specific slot
   Future<bool> _scheduleSlotAlarm(ScheduledSlot slot) async {
     try {
-      _logger.d(
+      _log.debug(
         'Scheduling alarm for slot ${slot.slotNumber} at ${slot.alarmTime}',
       );
 
@@ -169,14 +170,14 @@ class SlotSchedulerService {
       );
 
       if (success) {
-        _logger.i('Successfully scheduled alarm for slot ${slot.slotNumber}');
+        _log.info('Successfully scheduled alarm for slot ${slot.slotNumber}');
       } else {
-        _logger.w('Failed to schedule alarm for slot ${slot.slotNumber}');
+        _log.warn('Failed to schedule alarm for slot ${slot.slotNumber}');
       }
 
       return success;
     } catch (e) {
-      _logger.e('Error scheduling slot alarm: $e');
+      _log.error('Error scheduling slot alarm: $e');
       return false;
     }
   }
@@ -184,7 +185,7 @@ class SlotSchedulerService {
   /// Cancel all scheduled slot alarms
   Future<void> cancelAllSlots() async {
     try {
-      _logger.i('Cancelling ${_scheduledSlots.length} scheduled slots');
+      _log.info('Cancelling ${_scheduledSlots.length} scheduled slots');
 
       for (final slot in _scheduledSlots) {
         await _cancelSlotAlarm(slot);
@@ -193,9 +194,9 @@ class SlotSchedulerService {
       _scheduledSlots.clear();
       await _persistSlots();
 
-      _logger.i('All slots cancelled');
+      _log.info('All slots cancelled');
     } catch (e) {
-      _logger.e('Error cancelling all slots: $e');
+      _log.error('Error cancelling all slots: $e');
     }
   }
 
@@ -204,9 +205,9 @@ class SlotSchedulerService {
     try {
       final alarmId = 'slot_${slot.slotNumber}';
       await PlatformAlarmService.instance.cancelAlarm(alarmId);
-      _logger.d('Cancelled alarm for slot ${slot.slotNumber}');
+      _log.debug('Cancelled alarm for slot ${slot.slotNumber}');
     } catch (e) {
-      _logger.e('Error cancelling slot alarm: $e');
+      _log.error('Error cancelling slot alarm: $e');
     }
   }
 
@@ -243,25 +244,22 @@ class SlotSchedulerService {
   /// Load persisted slots from storage
   Future<void> _loadPersistedSlots() async {
     try {
-      // TODO: Implement slot persistence using shared_preferences or hive
       _scheduledSlots = [];
     } catch (e) {
-      _logger.e('Error loading persisted slots: $e');
+      _log.error('Error loading persisted slots: $e');
     }
   }
 
   /// Persist current slots to storage
   Future<void> _persistSlots() async {
-    try {
-      // TODO: Implement slot persistence
-    } catch (e) {
-      _logger.e('Error persisting slots: $e');
+    try {} catch (e) {
+      _log.error('Error persisting slots: $e');
     }
   }
 
   /// Handle epoch transition - reschedule all slots
   Future<void> handleEpochTransition() async {
-    _logger.i('Handling epoch transition, rescheduling slots...');
+    _log.info('Handling epoch transition, rescheduling slots...');
     await scheduleDailySlots();
   }
 }

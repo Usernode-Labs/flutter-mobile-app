@@ -73,11 +73,7 @@ class _IdentityVerificationScreenState
     }
   }
 
-  Future<void> _skipForLater() async {
-    // Invalidate provider to update router state before navigation
-    ref.invalidate(hasAnyAccountProvider);
-    await Future.delayed(const Duration(milliseconds: 100));
-
+  void _skipForLater() {
     if (!mounted) return;
     context.go('/main/home');
   }

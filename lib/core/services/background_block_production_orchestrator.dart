@@ -1,6 +1,7 @@
 import 'dart:async';
-import 'package:logger/logger.dart';
 import 'package:battery_plus/battery_plus.dart';
+import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import '../models/block_production_state.dart';
 import '../models/block_production_event.dart';
 import '../models/backend_rpc_response.dart';
@@ -13,6 +14,8 @@ import '../config/app_config.dart';
 import 'platform_alarm_service.dart';
 import 'slot_monitor_service.dart';
 import 'epoch_slot_scheduler_service.dart' as legacy;
+
+final _log = LoggingService.instance.withTag(LogTag.node);
 
 /// Unified orchestrator for background block production
 ///
@@ -31,7 +34,6 @@ class BackgroundBlockProductionOrchestrator {
       BackgroundBlockProductionOrchestrator._();
   BackgroundBlockProductionOrchestrator._();
 
-  final Logger _logger = Logger();
   final _stateRepository = BlockProductionStateRepository.instance;
   final _battery = Battery();
 
@@ -66,36 +68,36 @@ class BackgroundBlockProductionOrchestrator {
   /// This loads persisted state and starts epoch monitoring.
   Future<bool> initialize() async {
     if (_initialized) {
-      _logger.i('BackgroundBlockProductionOrchestrator already initialized');
+      _log.info('BackgroundBlockProductionOrchestrator already initialized');
       return true;
     }
 
     try {
-      _logger.i('Initializing BackgroundBlockProductionOrchestrator...');
+      _log.info('Initializing BackgroundBlockProductionOrchestrator...');
 
       // Load persisted state
       _state = await _stateRepository.load();
-      _logger.i('Loaded state: ${_state.toString()}');
+      _log.info('Loaded state: ${_state.toString()}');
 
       // Start epoch monitoring
-      _logger.d('Starting epoch monitoring');
+      _log.debug('Starting epoch monitoring');
       _startEpochMonitoring();
 
       // Register native event callback
-      _logger.d('Registering native event callback');
+      _log.debug('Registering native event callback');
       PlatformAlarmService.instance.setNativeEventCallback(_handleNativeEvent);
-      _logger.d('Native event callback registered with PlatformAlarmService');
+      _log.debug('Native event callback registered with PlatformAlarmService');
 
       // Perform initial epoch check
-      _logger.d('Performing initial epoch check');
+      _log.debug('Performing initial epoch check');
       await _checkEpochTransition();
 
       _initialized = true;
-      _logger
-          .i('BackgroundBlockProductionOrchestrator initialized successfully');
+      LoggingService.instance.info(
+          'BackgroundBlockProductionOrchestrator initialized successfully');
       return true;
     } catch (e, st) {
-      _logger.e('Error initializing BackgroundBlockProductionOrchestrator: $e',
+      _log.error('Error initializing BackgroundBlockProductionOrchestrator: $e',
           error: e, stackTrace: st);
       return false;
     }
@@ -104,11 +106,11 @@ class BackgroundBlockProductionOrchestrator {
   /// Start periodic epoch monitoring with smart intervals
   void _startEpochMonitoring() {
     if (_epochMonitoringTimer != null && _epochMonitoringTimer!.isActive) {
-      _logger.d('Epoch monitoring already active');
+      _log.debug('Epoch monitoring already active');
       return;
     }
 
-    _logger.i(
+    _log.info(
         'Starting epoch monitoring (base interval: $_baseEpochCheckInterval)');
 
     // Initial check uses base interval
@@ -120,7 +122,7 @@ class BackgroundBlockProductionOrchestrator {
   /// Stop epoch monitoring
   void _stopEpochMonitoring() {
     if (_epochMonitoringTimer != null) {
-      _logger.i('Stopping epoch monitoring');
+      _log.info('Stopping epoch monitoring');
       _epochMonitoringTimer!.cancel();
       _epochMonitoringTimer = null;
     }
@@ -132,7 +134,7 @@ class BackgroundBlockProductionOrchestrator {
   /// and adjusts its behavior based on VRF calculation status.
   Future<void> _checkEpochTransition() async {
     try {
-      _logger.d('Checking for epoch transition...');
+      _log.debug('Checking for epoch transition...');
 
       final now = DateTime.now();
       _state = _state.copyWith(lastEpochCheck: now);
@@ -141,13 +143,13 @@ class BackgroundBlockProductionOrchestrator {
       final epochInfo = await RustBackendService.instance.getEpochInfo();
 
       if (epochInfo == null) {
-        _logger.w('Failed to get epoch info from backend');
+        _log.warn('Failed to get epoch info from backend');
         // Schedule retry in 5 minutes on error
         _rescheduleEpochCheck(const Duration(minutes: 5));
         return;
       }
 
-      _logger.d('Backend epoch info: ${epochInfo.toString()}');
+      _log.debug('Backend epoch info: ${epochInfo.toString()}');
 
       // Update VRF status in state
       _state = _state.copyWith(currentVrfStatus: epochInfo.vrfStatus);
@@ -156,11 +158,11 @@ class BackgroundBlockProductionOrchestrator {
       if (_state.currentEpoch == 0 ||
           epochInfo.currentEpoch != _state.currentEpoch) {
         final oldEpoch = _state.currentEpoch;
-        _logger.i(
+        _log.info(
             'Epoch transition detected: $oldEpoch → ${epochInfo.currentEpoch}');
         await _handleEpochTransition(oldEpoch, epochInfo);
       } else {
-        _logger.d('No epoch change (still epoch ${epochInfo.currentEpoch})');
+        _log.debug('No epoch change (still epoch ${epochInfo.currentEpoch})');
       }
 
       // Calculate next check interval based on VRF status and epoch progress
@@ -170,7 +172,7 @@ class BackgroundBlockProductionOrchestrator {
       // Persist updated state
       await _stateRepository.save(_state);
     } catch (e, st) {
-      _logger.e('Error checking epoch transition: $e',
+      _log.error('Error checking epoch transition: $e',
           error: e, stackTrace: st);
       _emitEvent(BlockProductionErrorEvent(
         errorType: 'epoch_check',
@@ -187,21 +189,21 @@ class BackgroundBlockProductionOrchestrator {
       int? oldEpoch, BackendRPCResponse epochInfo) async {
     try {
       final newEpoch = epochInfo.currentEpoch;
-      _logger.i('Handling epoch transition to epoch $newEpoch');
+      _log.info('Handling epoch transition to epoch $newEpoch');
 
       // Update epoch in state
       _state = _state.copyWith(currentEpoch: newEpoch);
 
       // Cancel old epoch alarms
       if (_state.scheduledSlots.isNotEmpty) {
-        _logger.i(
+        _log.info(
             'Cancelling ${_state.scheduledSlots.length} alarms from old epoch');
         await _cancelAllSlotAlarms();
       }
 
       // Check if VRF is complete and we can schedule slots
       if (epochInfo.canScheduleSlots) {
-        _logger.i(
+        _log.info(
             'VRF complete! Scheduling ${epochInfo.wonSlots.length} won slots');
         final slotsScheduled = await _scheduleSlots(epochInfo.wonSlots);
 
@@ -211,7 +213,7 @@ class BackgroundBlockProductionOrchestrator {
           nextAlarmTime = _state.scheduledSlots
               .map((s) => s.alarmTime)
               .reduce((a, b) => a.isBefore(b) ? a : b);
-          _logger.d('Next alarm scheduled for: $nextAlarmTime');
+          _log.debug('Next alarm scheduled for: $nextAlarmTime');
         }
 
         // Emit epoch transition event with enhanced metadata
@@ -223,7 +225,7 @@ class BackgroundBlockProductionOrchestrator {
           nextAlarmTime: nextAlarmTime,
         ));
       } else {
-        _logger.i(
+        _log.info(
             'VRF not complete yet (status: ${epochInfo.vrfStatus.displayName}), will check again');
 
         // Emit epoch transition event with no slots scheduled yet
@@ -238,7 +240,7 @@ class BackgroundBlockProductionOrchestrator {
       // Persist state
       await _stateRepository.save(_state);
     } catch (e, st) {
-      _logger.e('Error handling epoch transition: $e',
+      _log.error('Error handling epoch transition: $e',
           error: e, stackTrace: st);
       _emitEvent(BlockProductionErrorEvent(
         errorType: 'epoch_transition',
@@ -262,7 +264,7 @@ class BackgroundBlockProductionOrchestrator {
       // Check 5 minutes before epoch is expected to end
       // For now, use a long interval since we don't calculate exact epoch end time yet
       final longInterval = const Duration(hours: 1); // Simplified for Phase 2
-      _logger.d(
+      _log.debug(
           'VRF complete, scheduling next check in ${longInterval.inMinutes} minutes');
       return longInterval;
     }
@@ -271,7 +273,7 @@ class BackgroundBlockProductionOrchestrator {
     if (epochInfo.vrfEstimatedTimeRemaining != null) {
       final interval = epochInfo.vrfEstimatedTimeRemaining! +
           const Duration(minutes: 1); // 1 min buffer
-      _logger.d(
+      _log.debug(
           'VRF ETA available, scheduling next check in ${interval.inMinutes} minutes');
       return interval;
     }
@@ -289,19 +291,19 @@ class BackgroundBlockProductionOrchestrator {
         interval = const Duration(minutes: 2); // Check in 2 minutes
       }
 
-      _logger.d(
+      _log.debug(
           'VRF progress ${(progress * 100).toStringAsFixed(1)}%, next check in ${interval.inMinutes} minutes');
       return interval;
     }
 
     // If VRF not started, check in 10 minutes
     if (epochInfo.vrfStatus == VRFStatus.notStarted) {
-      _logger.d('VRF not started, scheduling next check in 10 minutes');
+      _log.debug('VRF not started, scheduling next check in 10 minutes');
       return const Duration(minutes: 10);
     }
 
     // Fallback to base interval
-    _logger.d(
+    _log.debug(
         'Using base interval for next check: ${_baseEpochCheckInterval.inMinutes} minutes');
     return _baseEpochCheckInterval;
   }
@@ -309,7 +311,7 @@ class BackgroundBlockProductionOrchestrator {
   /// Reschedule the epoch monitoring timer with a new interval
   void _rescheduleEpochCheck(Duration interval) {
     _stopEpochMonitoring();
-    _logger.d('Rescheduling epoch check in ${interval.inMinutes} minutes');
+    _log.debug('Rescheduling epoch check in ${interval.inMinutes} minutes');
     _epochMonitoringTimer = Timer.periodic(interval, (_) {
       _checkEpochTransition();
     });
@@ -320,7 +322,7 @@ class BackgroundBlockProductionOrchestrator {
   /// This is called when the app comes back to the foreground.
   /// It performs an immediate epoch check.
   Future<void> onAppResumed() async {
-    _logger.i('App resumed, performing immediate epoch check');
+    _log.info('App resumed, performing immediate epoch check');
 
     // Emit app resumed event
     _emitEvent(BlockProductionAppResumedEvent(
@@ -338,7 +340,7 @@ class BackgroundBlockProductionOrchestrator {
   /// This is called when a platform alarm fires for a scheduled slot.
   Future<void> handleSlotWakeUp(int slotNumber) async {
     try {
-      _logger.i('Slot wake-up for slot $slotNumber');
+      _log.info('Slot wake-up for slot $slotNumber');
 
       final now = DateTime.now();
       _state = _state.copyWith(lastWakeUp: now);
@@ -347,9 +349,9 @@ class BackgroundBlockProductionOrchestrator {
       int batteryLevel = 0;
       try {
         batteryLevel = await _battery.batteryLevel;
-        _logger.d('Battery level: $batteryLevel%');
+        _log.debug('Battery level: $batteryLevel%');
       } catch (e) {
-        _logger.w('Could not get battery level: $e');
+        _log.warn('Could not get battery level: $e');
       }
 
       // Calculate alarm latency (find scheduled slot)
@@ -359,7 +361,7 @@ class BackgroundBlockProductionOrchestrator {
       int? alarmLatencyMs;
       if (scheduledSlot != null) {
         alarmLatencyMs = now.difference(scheduledSlot.alarmTime).inMilliseconds;
-        _logger.d('Alarm latency: ${alarmLatencyMs}ms');
+        _log.debug('Alarm latency: ${alarmLatencyMs}ms');
       }
 
       // Start foreground service (Android)
@@ -369,9 +371,9 @@ class BackgroundBlockProductionOrchestrator {
           message: 'Monitoring slot $slotNumber',
           slotNumber: slotNumber,
         );
-        _logger.d('Started foreground service');
+        _log.debug('Started foreground service');
       } catch (e) {
-        _logger.w('Error starting foreground service: $e');
+        _log.warn('Error starting foreground service: $e');
         // Continue anyway - not critical
       }
 
@@ -403,7 +405,7 @@ class BackgroundBlockProductionOrchestrator {
       // Persist state
       await _stateRepository.save(_state);
     } catch (e, st) {
-      _logger.e('Error handling slot wake-up: $e', error: e, stackTrace: st);
+      _log.error('Error handling slot wake-up: $e', error: e, stackTrace: st);
       _emitEvent(BlockProductionErrorEvent(
         errorType: 'slot_wake_up',
         errorMessage: e.toString(),
@@ -415,7 +417,7 @@ class BackgroundBlockProductionOrchestrator {
   /// Start monitoring a slot for block production
   Future<void> _startSlotMonitoring(ScheduledSlot slot) async {
     try {
-      _logger.i('Starting slot monitoring for slot ${slot.slotNumber}');
+      _log.info('Starting slot monitoring for slot ${slot.slotNumber}');
 
       // Get node state for the monitoring start event
       String nodeState = 'unknown';
@@ -423,7 +425,7 @@ class BackgroundBlockProductionOrchestrator {
         final status = await RustBackendService.instance.getStatus();
         nodeState = status?.blockProducer?.status.toString() ?? 'unknown';
       } catch (e) {
-        _logger.w('Could not get node state: $e');
+        _log.warn('Could not get node state: $e');
       }
 
       // Emit monitoring start event
@@ -439,7 +441,7 @@ class BackgroundBlockProductionOrchestrator {
           SlotMonitorService.instance.monitoringEvents.listen(
         _handleMonitoringEvent,
         onError: (error) {
-          _logger.e('Error in monitoring event stream: $error');
+          _log.error('Error in monitoring event stream: $error');
         },
       );
 
@@ -452,9 +454,10 @@ class BackgroundBlockProductionOrchestrator {
       );
       await SlotMonitorService.instance.startMonitoringSlot(legacySlot);
 
-      _logger.i('Slot monitoring started successfully');
+      _log.info('Slot monitoring started successfully');
     } catch (e, st) {
-      _logger.e('Error starting slot monitoring: $e', error: e, stackTrace: st);
+      _log.error('Error starting slot monitoring: $e',
+          error: e, stackTrace: st);
       _emitEvent(BlockProductionErrorEvent(
         errorType: 'monitoring_start',
         errorMessage: e.toString(),
@@ -467,7 +470,7 @@ class BackgroundBlockProductionOrchestrator {
   ///
   /// This receives events forwarded from native code via PlatformAlarmService
   void _handleNativeEvent(String eventType, Map<String, dynamic> eventData) {
-    _logger.d('Handling native event: $eventType with data: $eventData');
+    _log.debug('Handling native event: $eventType with data: $eventData');
 
     try {
       switch (eventType) {
@@ -520,10 +523,10 @@ class BackgroundBlockProductionOrchestrator {
           _handleIosNotificationPermissionDeniedEvent(eventData);
           break;
         default:
-          _logger.w('Unknown native event type: $eventType');
+          _log.warn('Unknown native event type: $eventType');
       }
     } catch (e, st) {
-      _logger.e('Error handling native event: $e', error: e, stackTrace: st);
+      _log.error('Error handling native event: $e', error: e, stackTrace: st);
     }
   }
 
@@ -536,11 +539,11 @@ class BackgroundBlockProductionOrchestrator {
     final networkState = data['networkState'] as String?;
 
     if (slotNumber == null) {
-      _logger.w('Android alarm fired event missing slotNumber');
+      _log.warn('Android alarm fired event missing slotNumber');
       return;
     }
 
-    _logger.d('Android alarm fired for slot $slotNumber');
+    _log.debug('Android alarm fired for slot $slotNumber');
 
     _emitEvent(BlockProductionAndroidAlarmFiredEvent(
       alarmId: alarmId ?? 'unknown',
@@ -557,7 +560,7 @@ class BackgroundBlockProductionOrchestrator {
     final slotNumber = data['slotNumber'] as int? ?? 0;
     final wakeLockAcquired = data['wakeLockAcquired'] as bool? ?? false;
 
-    _logger.d('Android foreground service started for slot $slotNumber');
+    _log.debug('Android foreground service started for slot $slotNumber');
 
     _emitEvent(BlockProductionAndroidForegroundServiceStartedEvent(
       slotNumber: slotNumber,
@@ -569,7 +572,7 @@ class BackgroundBlockProductionOrchestrator {
     final slotNumber = data['slotNumber'] as int? ?? 0;
     final reason = data['reason'] as String? ?? 'unknown';
 
-    _logger.d('Android foreground service stopped for slot $slotNumber');
+    _log.debug('Android foreground service stopped for slot $slotNumber');
 
     _emitEvent(BlockProductionAndroidForegroundServiceStoppedEvent(
       slotNumber: slotNumber,
@@ -578,14 +581,14 @@ class BackgroundBlockProductionOrchestrator {
   }
 
   void _handleAndroidBootRescheduleStartedEvent(Map<String, dynamic> data) {
-    _logger.d('Android boot reschedule started');
+    _log.debug('Android boot reschedule started');
     _emitEvent(BlockProductionAndroidBootRescheduleStartedEvent());
   }
 
   void _handleAndroidBootRescheduleCompletedEvent(Map<String, dynamic> data) {
     final slotsRescheduled = data['slotsRescheduled'] as int?;
     final success = data['success'] as bool?;
-    _logger.d(
+    _log.debug(
         'Android boot reschedule completed - Slots: $slotsRescheduled, Success: $success');
     _emitEvent(BlockProductionAndroidBootRescheduleCompletedEvent(
       slotsRescheduled: slotsRescheduled ?? 0,
@@ -595,21 +598,21 @@ class BackgroundBlockProductionOrchestrator {
 
   void _handleAndroidExactAlarmPermissionGrantedEvent(
       Map<String, dynamic> data) {
-    _logger.d('Android exact alarm permission granted');
+    _log.debug('Android exact alarm permission granted');
 
     _emitEvent(BlockProductionAndroidExactAlarmPermissionGrantedEvent());
   }
 
   void _handleAndroidExactAlarmPermissionDeniedEvent(
       Map<String, dynamic> data) {
-    _logger.d('Android exact alarm permission denied');
+    _log.debug('Android exact alarm permission denied');
 
     _emitEvent(BlockProductionAndroidExactAlarmPermissionDeniedEvent());
   }
 
   void _handleAndroidBatteryOptimizationDisabledEvent(
       Map<String, dynamic> data) {
-    _logger.d('Android battery optimization disabled');
+    _log.debug('Android battery optimization disabled');
     _emitEvent(BlockProductionAndroidBatteryOptimizationDisabledEvent());
   }
 
@@ -619,7 +622,7 @@ class BackgroundBlockProductionOrchestrator {
     final slotNumber = data['slotNumber'] as int?;
     final scheduledTime = data['scheduledTime'] as int?;
 
-    _logger.d('iOS notification scheduled for slot $slotNumber');
+    _log.debug('iOS notification scheduled for slot $slotNumber');
 
     _emitEvent(BlockProductionIosNotificationScheduledEvent(
       slotNumber: slotNumber ?? 0,
@@ -631,7 +634,7 @@ class BackgroundBlockProductionOrchestrator {
 
   void _handleIosNotificationDeliveredEvent(Map<String, dynamic> data) {
     final slotNumber = data['slotNumber'] as int?;
-    _logger.d('iOS notification delivered for slot $slotNumber');
+    _log.debug('iOS notification delivered for slot $slotNumber');
     _emitEvent(BlockProductionIosNotificationDeliveredEvent(
       slotNumber: slotNumber ?? 0,
     ));
@@ -640,7 +643,7 @@ class BackgroundBlockProductionOrchestrator {
   void _handleIosNotificationTappedEvent(Map<String, dynamic> data) {
     final slotNumber = data['slotNumber'] as int?;
 
-    _logger.d('iOS notification tapped for slot $slotNumber');
+    _log.debug('iOS notification tapped for slot $slotNumber');
 
     _emitEvent(BlockProductionIosNotificationTappedEvent(
       slotNumber: slotNumber ?? 0,
@@ -651,7 +654,7 @@ class BackgroundBlockProductionOrchestrator {
     final slotNumber = data['slotNumber'] as int?;
     final scheduledTime = data['scheduledTime'] as int?;
 
-    _logger.d('iOS BGTask scheduled for slot $slotNumber');
+    _log.debug('iOS BGTask scheduled for slot $slotNumber');
 
     _emitEvent(BlockProductionIosBgtaskScheduledEvent(
       slotNumber: slotNumber ?? 0,
@@ -665,7 +668,7 @@ class BackgroundBlockProductionOrchestrator {
     final slotNumber = data['slotNumber'] as int?;
     final executionDuration = data['executionDuration'] as int?;
 
-    _logger.d('iOS BGTask executed for slot $slotNumber');
+    _log.debug('iOS BGTask executed for slot $slotNumber');
 
     _emitEvent(BlockProductionIosBgtaskExecutedEvent(
       slotNumber: slotNumber ?? 0,
@@ -675,7 +678,7 @@ class BackgroundBlockProductionOrchestrator {
 
   void _handleIosBgtaskExpiredEvent(Map<String, dynamic> data) {
     final slotNumber = data['slotNumber'] as int?;
-    _logger.d('iOS BGTask expired for slot $slotNumber');
+    _log.debug('iOS BGTask expired for slot $slotNumber');
     _emitEvent(BlockProductionIosBgtaskExpiredEvent(
       slotNumber: slotNumber ?? 0,
     ));
@@ -686,7 +689,7 @@ class BackgroundBlockProductionOrchestrator {
     final soundEnabled = data['soundEnabled'] as bool? ?? true;
     final badgeEnabled = data['badgeEnabled'] as bool? ?? true;
 
-    _logger.d('iOS notification permission granted');
+    _log.debug('iOS notification permission granted');
 
     _emitEvent(BlockProductionIosNotificationPermissionGrantedEvent(
       alertsEnabled: alertsEnabled,
@@ -696,14 +699,14 @@ class BackgroundBlockProductionOrchestrator {
   }
 
   void _handleIosNotificationPermissionDeniedEvent(Map<String, dynamic> data) {
-    _logger.d('iOS notification permission denied');
+    _log.debug('iOS notification permission denied');
 
     _emitEvent(BlockProductionIosNotificationPermissionDeniedEvent());
   }
 
   /// Handle monitoring events from SlotMonitorService
   void _handleMonitoringEvent(SlotMonitoringEvent event) {
-    _logger.d('Monitoring event: ${event.type} for slot ${event.slotNumber}');
+    _log.debug('Monitoring event: ${event.type} for slot ${event.slotNumber}');
 
     switch (event.type) {
       case MonitoringEventType.poll:
@@ -735,7 +738,7 @@ class BackgroundBlockProductionOrchestrator {
 
   /// Handle successful slot production
   void _handleSlotProduced(SlotMonitoringEvent event) {
-    _logger.i('Slot ${event.slotNumber} produced successfully!');
+    _log.info('Slot ${event.slotNumber} produced successfully!');
 
     // Update state with production result
     final result = BlockProductionResult(
@@ -769,7 +772,7 @@ class BackgroundBlockProductionOrchestrator {
 
   /// Handle failed slot production
   void _handleSlotFailed(SlotMonitoringEvent event, String reason) {
-    _logger.w('Slot ${event.slotNumber} failed: $reason');
+    _log.warn('Slot ${event.slotNumber} failed: $reason');
 
     // Update state with production result
     final result = BlockProductionResult(
@@ -802,7 +805,7 @@ class BackgroundBlockProductionOrchestrator {
 
   /// Handle monitoring stopped event
   void _handleMonitoringStopped(SlotMonitoringEvent event) {
-    _logger.d('Monitoring stopped for slot ${event.slotNumber}');
+    _log.debug('Monitoring stopped for slot ${event.slotNumber}');
     _monitoringSubscription?.cancel();
     _monitoringSubscription = null;
   }
@@ -811,9 +814,9 @@ class BackgroundBlockProductionOrchestrator {
   Future<void> _stopForegroundService() async {
     try {
       await PlatformAlarmService.instance.stopForegroundService();
-      _logger.d('Stopped foreground service');
+      _log.debug('Stopped foreground service');
     } catch (e) {
-      _logger.w('Error stopping foreground service: $e');
+      _log.warn('Error stopping foreground service: $e');
     }
   }
 
@@ -829,7 +832,7 @@ class BackgroundBlockProductionOrchestrator {
   /// Returns the number of successfully scheduled slots.
   Future<int> _scheduleSlots(List<RpcEpochWonSlot> wonSlots) async {
     try {
-      _logger.i('Scheduling ${wonSlots.length} won slots');
+      _log.info('Scheduling ${wonSlots.length} won slots');
 
       final List<ScheduledSlot> newSlots = [];
       int successCount = 0;
@@ -849,9 +852,9 @@ class BackgroundBlockProductionOrchestrator {
             epoch: _state.currentEpoch,
             slotTime: slotTime,
           );
-          _logger.d('Recorded won slot $slotNumber to statistics');
+          _log.debug('Recorded won slot $slotNumber to statistics');
         } catch (e) {
-          _logger.w('Failed to record won slot $slotNumber: $e');
+          _log.warn('Failed to record won slot $slotNumber: $e');
         }
 
         // Only schedule future slots
@@ -876,21 +879,21 @@ class BackgroundBlockProductionOrchestrator {
             failureCount++;
           }
         } else {
-          _logger
-              .d('Skipping past slot $slotNumber (alarm time already passed)');
+          LoggingService.instance.debug(
+              'Skipping past slot $slotNumber (alarm time already passed)');
         }
       }
 
       // Update state with new scheduled slots
       _state = _state.copyWith(scheduledSlots: newSlots);
 
-      _logger.i(
+      _log.info(
         'Scheduled $successCount slots successfully, $failureCount failures',
       );
 
       return successCount;
     } catch (e, st) {
-      _logger.e('Error scheduling slots: $e', error: e, stackTrace: st);
+      _log.error('Error scheduling slots: $e', error: e, stackTrace: st);
       _emitEvent(BlockProductionErrorEvent(
         errorType: 'slot_scheduling',
         errorMessage: e.toString(),
@@ -903,7 +906,7 @@ class BackgroundBlockProductionOrchestrator {
   /// Schedule platform alarm for a specific slot
   Future<bool> _scheduleSlotAlarm(ScheduledSlot slot) async {
     try {
-      _logger.d(
+      _log.debug(
         'Scheduling alarm for slot ${slot.slotNumber} at ${slot.alarmTime}',
       );
 
@@ -919,7 +922,7 @@ class BackgroundBlockProductionOrchestrator {
       );
 
       if (success) {
-        _logger.i('Successfully scheduled alarm for slot ${slot.slotNumber}');
+        _log.info('Successfully scheduled alarm for slot ${slot.slotNumber}');
 
         // Emit alarm scheduled event
         _emitEvent(BlockProductionAlarmScheduledEvent(
@@ -929,12 +932,12 @@ class BackgroundBlockProductionOrchestrator {
           alarmId: alarmId,
         ));
       } else {
-        _logger.w('Failed to schedule alarm for slot ${slot.slotNumber}');
+        _log.warn('Failed to schedule alarm for slot ${slot.slotNumber}');
       }
 
       return success;
     } catch (e) {
-      _logger.e('Error scheduling slot alarm: $e');
+      _log.error('Error scheduling slot alarm: $e');
       return false;
     }
   }
@@ -942,7 +945,7 @@ class BackgroundBlockProductionOrchestrator {
   /// Cancel all scheduled slot alarms
   Future<void> _cancelAllSlotAlarms() async {
     try {
-      _logger.i('Cancelling ${_state.scheduledSlots.length} scheduled slots');
+      _log.info('Cancelling ${_state.scheduledSlots.length} scheduled slots');
 
       for (final slot in _state.scheduledSlots) {
         await _cancelSlotAlarm(slot);
@@ -951,9 +954,9 @@ class BackgroundBlockProductionOrchestrator {
       // Clear scheduled slots from state
       _state = _state.copyWith(scheduledSlots: []);
 
-      _logger.i('All slots cancelled');
+      _log.info('All slots cancelled');
     } catch (e) {
-      _logger.e('Error cancelling all slots: $e');
+      _log.error('Error cancelling all slots: $e');
     }
   }
 
@@ -963,15 +966,15 @@ class BackgroundBlockProductionOrchestrator {
       final alarmId = 'slot_${slot.slotNumber}';
       await PlatformAlarmService.instance.cancelAlarm(alarmId);
 
-      _logger.d('Cancelled alarm for slot ${slot.slotNumber}');
+      _log.debug('Cancelled alarm for slot ${slot.slotNumber}');
     } catch (e) {
-      _logger.e('Error cancelling slot alarm: $e');
+      _log.error('Error cancelling slot alarm: $e');
     }
   }
 
   /// Emit an event to the event stream
   void _emitEvent(BlockProductionEvent event) {
-    _logger.d('Emitting event: ${event.eventType}');
+    _log.debug('Emitting event: ${event.eventType}');
     if (!_eventController.isClosed) {
       _eventController.add(event);
     }
@@ -984,7 +987,7 @@ class BackgroundBlockProductionOrchestrator {
 
   /// Dispose the orchestrator
   void dispose() {
-    _logger.i('Disposing BackgroundBlockProductionOrchestrator');
+    _log.info('Disposing BackgroundBlockProductionOrchestrator');
     _stopEpochMonitoring();
     _monitoringSubscription?.cancel();
     _eventController.close();

@@ -2921,7 +2921,7 @@ mixin _$ConsensusMetrics {
   int? get totalWonSlots => throw _privateConstructorUsedError;
   int? get totalBlocksProduced => throw _privateConstructorUsedError;
   int? get totalBlocksFailed => throw _privateConstructorUsedError;
-  int? get evaluatedSlotsSinceStart => throw _privateConstructorUsedError;
+  int? get evaluatedCurrentEpoch => throw _privateConstructorUsedError;
   String? get currentEpochVrfEvaluationStatus =>
       throw _privateConstructorUsedError;
   String? get nextEpochVrfEvaluationStatus =>
@@ -2949,7 +2949,7 @@ abstract class $ConsensusMetricsCopyWith<$Res> {
       int? totalWonSlots,
       int? totalBlocksProduced,
       int? totalBlocksFailed,
-      int? evaluatedSlotsSinceStart,
+      int? evaluatedCurrentEpoch,
       String? currentEpochVrfEvaluationStatus,
       String? nextEpochVrfEvaluationStatus});
 }
@@ -2977,7 +2977,7 @@ class _$ConsensusMetricsCopyWithImpl<$Res, $Val extends ConsensusMetrics>
     Object? totalWonSlots = freezed,
     Object? totalBlocksProduced = freezed,
     Object? totalBlocksFailed = freezed,
-    Object? evaluatedSlotsSinceStart = freezed,
+    Object? evaluatedCurrentEpoch = freezed,
     Object? currentEpochVrfEvaluationStatus = freezed,
     Object? nextEpochVrfEvaluationStatus = freezed,
   }) {
@@ -3014,9 +3014,9 @@ class _$ConsensusMetricsCopyWithImpl<$Res, $Val extends ConsensusMetrics>
           ? _value.totalBlocksFailed
           : totalBlocksFailed // ignore: cast_nullable_to_non_nullable
               as int?,
-      evaluatedSlotsSinceStart: freezed == evaluatedSlotsSinceStart
-          ? _value.evaluatedSlotsSinceStart
-          : evaluatedSlotsSinceStart // ignore: cast_nullable_to_non_nullable
+      evaluatedCurrentEpoch: freezed == evaluatedCurrentEpoch
+          ? _value.evaluatedCurrentEpoch
+          : evaluatedCurrentEpoch // ignore: cast_nullable_to_non_nullable
               as int?,
       currentEpochVrfEvaluationStatus: freezed ==
               currentEpochVrfEvaluationStatus
@@ -3048,7 +3048,7 @@ abstract class _$$ConsensusMetricsImplCopyWith<$Res>
       int? totalWonSlots,
       int? totalBlocksProduced,
       int? totalBlocksFailed,
-      int? evaluatedSlotsSinceStart,
+      int? evaluatedCurrentEpoch,
       String? currentEpochVrfEvaluationStatus,
       String? nextEpochVrfEvaluationStatus});
 }
@@ -3074,7 +3074,7 @@ class __$$ConsensusMetricsImplCopyWithImpl<$Res>
     Object? totalWonSlots = freezed,
     Object? totalBlocksProduced = freezed,
     Object? totalBlocksFailed = freezed,
-    Object? evaluatedSlotsSinceStart = freezed,
+    Object? evaluatedCurrentEpoch = freezed,
     Object? currentEpochVrfEvaluationStatus = freezed,
     Object? nextEpochVrfEvaluationStatus = freezed,
   }) {
@@ -3111,9 +3111,9 @@ class __$$ConsensusMetricsImplCopyWithImpl<$Res>
           ? _value.totalBlocksFailed
           : totalBlocksFailed // ignore: cast_nullable_to_non_nullable
               as int?,
-      evaluatedSlotsSinceStart: freezed == evaluatedSlotsSinceStart
-          ? _value.evaluatedSlotsSinceStart
-          : evaluatedSlotsSinceStart // ignore: cast_nullable_to_non_nullable
+      evaluatedCurrentEpoch: freezed == evaluatedCurrentEpoch
+          ? _value.evaluatedCurrentEpoch
+          : evaluatedCurrentEpoch // ignore: cast_nullable_to_non_nullable
               as int?,
       currentEpochVrfEvaluationStatus: freezed ==
               currentEpochVrfEvaluationStatus
@@ -3140,7 +3140,7 @@ class _$ConsensusMetricsImpl extends _ConsensusMetrics {
       this.totalWonSlots,
       this.totalBlocksProduced,
       this.totalBlocksFailed,
-      this.evaluatedSlotsSinceStart,
+      this.evaluatedCurrentEpoch,
       this.currentEpochVrfEvaluationStatus,
       this.nextEpochVrfEvaluationStatus})
       : super._();
@@ -3162,7 +3162,7 @@ class _$ConsensusMetricsImpl extends _ConsensusMetrics {
   @override
   final int? totalBlocksFailed;
   @override
-  final int? evaluatedSlotsSinceStart;
+  final int? evaluatedCurrentEpoch;
   @override
   final String? currentEpochVrfEvaluationStatus;
   @override
@@ -3170,7 +3170,7 @@ class _$ConsensusMetricsImpl extends _ConsensusMetrics {
 
   @override
   String toString() {
-    return 'ConsensusMetrics(currentEpoch: $currentEpoch, currentGlobalSlot: $currentGlobalSlot, currentEpochWonSlots: $currentEpochWonSlots, currentEpochProduced: $currentEpochProduced, currentEpochFailed: $currentEpochFailed, totalWonSlots: $totalWonSlots, totalBlocksProduced: $totalBlocksProduced, totalBlocksFailed: $totalBlocksFailed, evaluatedSlotsSinceStart: $evaluatedSlotsSinceStart, currentEpochVrfEvaluationStatus: $currentEpochVrfEvaluationStatus, nextEpochVrfEvaluationStatus: $nextEpochVrfEvaluationStatus)';
+    return 'ConsensusMetrics(currentEpoch: $currentEpoch, currentGlobalSlot: $currentGlobalSlot, currentEpochWonSlots: $currentEpochWonSlots, currentEpochProduced: $currentEpochProduced, currentEpochFailed: $currentEpochFailed, totalWonSlots: $totalWonSlots, totalBlocksProduced: $totalBlocksProduced, totalBlocksFailed: $totalBlocksFailed, evaluatedCurrentEpoch: $evaluatedCurrentEpoch, currentEpochVrfEvaluationStatus: $currentEpochVrfEvaluationStatus, nextEpochVrfEvaluationStatus: $nextEpochVrfEvaluationStatus)';
   }
 
   @override
@@ -3194,9 +3194,8 @@ class _$ConsensusMetricsImpl extends _ConsensusMetrics {
                 other.totalBlocksProduced == totalBlocksProduced) &&
             (identical(other.totalBlocksFailed, totalBlocksFailed) ||
                 other.totalBlocksFailed == totalBlocksFailed) &&
-            (identical(
-                    other.evaluatedSlotsSinceStart, evaluatedSlotsSinceStart) ||
-                other.evaluatedSlotsSinceStart == evaluatedSlotsSinceStart) &&
+            (identical(other.evaluatedCurrentEpoch, evaluatedCurrentEpoch) ||
+                other.evaluatedCurrentEpoch == evaluatedCurrentEpoch) &&
             (identical(other.currentEpochVrfEvaluationStatus,
                     currentEpochVrfEvaluationStatus) ||
                 other.currentEpochVrfEvaluationStatus ==
@@ -3218,7 +3217,7 @@ class _$ConsensusMetricsImpl extends _ConsensusMetrics {
       totalWonSlots,
       totalBlocksProduced,
       totalBlocksFailed,
-      evaluatedSlotsSinceStart,
+      evaluatedCurrentEpoch,
       currentEpochVrfEvaluationStatus,
       nextEpochVrfEvaluationStatus);
 
@@ -3242,7 +3241,7 @@ abstract class _ConsensusMetrics extends ConsensusMetrics {
       final int? totalWonSlots,
       final int? totalBlocksProduced,
       final int? totalBlocksFailed,
-      final int? evaluatedSlotsSinceStart,
+      final int? evaluatedCurrentEpoch,
       final String? currentEpochVrfEvaluationStatus,
       final String? nextEpochVrfEvaluationStatus}) = _$ConsensusMetricsImpl;
   const _ConsensusMetrics._() : super._();
@@ -3264,7 +3263,7 @@ abstract class _ConsensusMetrics extends ConsensusMetrics {
   @override
   int? get totalBlocksFailed;
   @override
-  int? get evaluatedSlotsSinceStart;
+  int? get evaluatedCurrentEpoch;
   @override
   String? get currentEpochVrfEvaluationStatus;
   @override

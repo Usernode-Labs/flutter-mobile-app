@@ -1,6 +1,9 @@
 import 'dart:io';
 import 'package:flutter/services.dart';
-import 'package:logger/logger.dart';
+import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/utils/log_tag.dart';
+
+final _log = LoggingService.instance.withTag(LogTag.node);
 
 /// Callback type for handling boot reschedule events
 typedef BootRescheduleCallback = Future<void> Function();
@@ -17,7 +20,6 @@ class PlatformAlarmService {
   static final PlatformAlarmService instance = PlatformAlarmService._();
   PlatformAlarmService._();
 
-  final Logger _logger = Logger();
   static const MethodChannel _channel = MethodChannel('com.usernode.app/alarm');
 
   bool _initialized = false;
@@ -34,7 +36,7 @@ class PlatformAlarmService {
     if (_initialized) return true;
 
     try {
-      _logger.i(
+      _log.info(
           'PlatformAlarmService initializing for ${Platform.operatingSystem}...');
 
       // Set up method call handler for platform->Flutter calls
@@ -47,17 +49,17 @@ class PlatformAlarmService {
       }
 
       _initialized = true;
-      _logger.i('PlatformAlarmService initialized');
+      _log.info('PlatformAlarmService initialized');
       return true;
     } catch (e) {
-      _logger.e('Error initializing PlatformAlarmService: $e');
+      _log.error('Error initializing PlatformAlarmService: $e');
       return false;
     }
   }
 
   /// Handle method calls from platform (Android/iOS)
   Future<dynamic> _handleMethodCall(MethodCall call) async {
-    _logger.d('Method call from platform: ${call.method}');
+    _log.debug('Method call from platform: ${call.method}');
 
     switch (call.method) {
       case 'rescheduleAfterBoot':
@@ -65,7 +67,7 @@ class PlatformAlarmService {
       case 'onBlockProductionEvent':
         return _handleNativeEvent(call.arguments);
       default:
-        _logger.w('Unknown method call: ${call.method}');
+        _log.warn('Unknown method call: ${call.method}');
         throw MissingPluginException('Method ${call.method} not implemented');
     }
   }
@@ -74,7 +76,7 @@ class PlatformAlarmService {
   void _handleNativeEvent(dynamic arguments) {
     try {
       if (arguments == null) {
-        _logger.w('Received null arguments for onBlockProductionEvent');
+        _log.warn('Received null arguments for onBlockProductionEvent');
         return;
       }
 
@@ -85,53 +87,53 @@ class PlatformAlarmService {
           : null;
 
       if (eventType == null) {
-        _logger.w('Received native event with null eventType');
+        _log.warn('Received native event with null eventType');
         return;
       }
 
-      _logger.d('Native event received: $eventType');
+      _log.debug('Native event received: $eventType');
 
       if (_onNativeEvent == null) {
-        _logger.w('No native event callback registered for event: $eventType');
+        _log.warn('No native event callback registered for event: $eventType');
         return;
       }
 
       // Invoke the registered callback
       _onNativeEvent!(eventType, eventData ?? {});
     } catch (e) {
-      _logger.e('Error handling native event: $e');
+      _log.error('Error handling native event: $e');
     }
   }
 
   /// Set the callback to invoke when device reboots
   void setBootRescheduleCallback(BootRescheduleCallback callback) {
     _onBootReschedule = callback;
-    _logger.d('Boot reschedule callback registered');
+    _log.debug('Boot reschedule callback registered');
   }
 
   /// Set the callback to invoke when native platform sends an event
   void setNativeEventCallback(NativeEventCallback callback) {
     _onNativeEvent = callback;
-    _logger.d('Native event callback registered');
+    _log.debug('Native event callback registered');
   }
 
   /// Handle alarm rescheduling after device reboot
   Future<void> _handleRescheduleAfterBoot() async {
     try {
-      _logger.i(
+      _log.info(
           'Handling rescheduleAfterBoot - device rebooted, restoring alarms...');
 
       if (_onBootReschedule == null) {
-        _logger.w('No boot reschedule callback registered!');
+        _log.warn('No boot reschedule callback registered!');
         return;
       }
 
       // Invoke the registered callback
       await _onBootReschedule!();
 
-      _logger.i('✓ Boot reschedule callback completed');
+      _log.info('✓ Boot reschedule callback completed');
     } catch (e) {
-      _logger.e('Error in rescheduleAfterBoot: $e');
+      _log.error('Error in rescheduleAfterBoot: $e');
       rethrow;
     }
   }
@@ -149,16 +151,16 @@ class PlatformAlarmService {
       _permissionsGranted = hasNotifications && hasExactAlarm;
 
       if (!hasNotifications) {
-        _logger.w('Android POST_NOTIFICATIONS permission not granted');
+        _log.warn('Android POST_NOTIFICATIONS permission not granted');
       }
       if (!hasExactAlarm) {
-        _logger.w('Android exact alarm permission not granted');
+        _log.warn('Android exact alarm permission not granted');
       }
       if (_permissionsGranted) {
-        _logger.i('All Android permissions granted');
+        _log.info('All Android permissions granted');
       }
     } on PlatformException catch (e) {
-      _logger.e('Error initializing Android alarm service: ${e.message}');
+      _log.error('Error initializing Android alarm service: ${e.message}');
     }
   }
 
@@ -168,14 +170,14 @@ class PlatformAlarmService {
       // BGTasks are already registered in AppDelegate.didFinishLaunchingWithOptions
       // Apple requires BGTaskScheduler.register() to be called BEFORE app launch completes
       // Calling it again here would violate this requirement and cause main thread blocking
-      _logger.i(
+      _log.info(
           'iOS background tasks already registered during app launch (AppDelegate)');
 
       // Just mark as ready - no need to call native code again
       _permissionsGranted = true;
-      _logger.i('iOS alarm service initialized successfully');
+      _log.info('iOS alarm service initialized successfully');
     } on PlatformException catch (e) {
-      _logger.e('Error initializing iOS alarm service: ${e.message}');
+      _log.error('Error initializing iOS alarm service: ${e.message}');
     }
   }
 
@@ -188,7 +190,7 @@ class PlatformAlarmService {
   /// iOS: Requests notification permissions (if not already granted)
   Future<bool> requestPermissions() async {
     if (!_initialized) {
-      _logger.w('Cannot request permissions: service not initialized');
+      _log.warn('Cannot request permissions: service not initialized');
       return false;
     }
 
@@ -200,7 +202,7 @@ class PlatformAlarmService {
       }
       return false;
     } catch (e) {
-      _logger.e('Error requesting permissions: $e');
+      _log.error('Error requesting permissions: $e');
       return false;
     }
   }
@@ -208,7 +210,7 @@ class PlatformAlarmService {
   /// Request Android permissions (POST_NOTIFICATIONS, SCHEDULE_EXACT_ALARM, Battery Optimization)
   Future<bool> _requestAndroidPermissions() async {
     try {
-      _logger.i('Requesting Android permissions...');
+      _log.info('Requesting Android permissions...');
 
       // 1. Request POST_NOTIFICATIONS first (Android 13+)
       bool hasNotifications =
@@ -216,7 +218,7 @@ class PlatformAlarmService {
               false;
 
       if (!hasNotifications) {
-        _logger.i('Requesting POST_NOTIFICATIONS permission...');
+        _log.info('Requesting POST_NOTIFICATIONS permission...');
         await _channel.invokeMethod('requestPostNotificationsPermission');
         // Wait a bit for the permission dialog to be processed
         await Future.delayed(const Duration(milliseconds: 500));
@@ -230,7 +232,7 @@ class PlatformAlarmService {
           await _channel.invokeMethod<bool>('hasExactAlarmPermission') ?? false;
 
       if (!hasExactAlarm) {
-        _logger.i('Requesting SCHEDULE_EXACT_ALARM permission...');
+        _log.info('Requesting SCHEDULE_EXACT_ALARM permission...');
         await _channel.invokeMethod('requestExactAlarmPermission');
         // This opens settings, so we'll need to wait for user to return
         // The permission check will happen when app resumes
@@ -242,7 +244,7 @@ class PlatformAlarmService {
               false;
 
       if (!hasBatteryExemption) {
-        _logger.i('Requesting battery optimization exemption...');
+        _log.info('Requesting battery optimization exemption...');
         await _channel.invokeMethod('requestBatteryOptimizationExemption');
         // This may open a dialog or settings
         await Future.delayed(const Duration(milliseconds: 500));
@@ -254,12 +256,12 @@ class PlatformAlarmService {
       // Update permissions granted status
       _permissionsGranted = hasNotifications && hasExactAlarm;
 
-      _logger.i(
+      _log.info(
           'Permissions status - Notifications: $hasNotifications, Exact Alarm: $hasExactAlarm, Battery: $hasBatteryExemption');
 
       return _permissionsGranted;
     } on PlatformException catch (e) {
-      _logger.e('Error requesting Android permissions: ${e.message}');
+      _log.error('Error requesting Android permissions: ${e.message}');
       return false;
     }
   }
@@ -273,28 +275,30 @@ class PlatformAlarmService {
       _permissionsGranted = granted;
 
       if (granted) {
-        _logger.i('iOS notification permission granted');
+        _log.info('iOS notification permission granted');
       } else {
-        _logger.w('iOS notification permission denied');
+        _log.warn('iOS notification permission denied');
       }
 
       return granted;
     } on PlatformException catch (e) {
-      _logger.e('Error requesting iOS permissions: ${e.message}');
+      _log.error('Error requesting iOS permissions: ${e.message}');
       return false;
     }
   }
 
   /// Check if POST_NOTIFICATIONS permission is granted (Android 13+)
   Future<bool> hasPostNotificationsPermission() async {
-    if (!Platform.isAndroid)
+    if (!Platform.isAndroid) {
       return true; // iOS handles notifications separately
+    }
+
     try {
       return await _channel
               .invokeMethod<bool>('hasPostNotificationsPermission') ??
           false;
     } on PlatformException catch (e) {
-      _logger.e('Error checking POST_NOTIFICATIONS permission: ${e.message}');
+      _log.error('Error checking POST_NOTIFICATIONS permission: ${e.message}');
       return false;
     }
   }
@@ -306,7 +310,7 @@ class PlatformAlarmService {
       return await _channel.invokeMethod<bool>('hasExactAlarmPermission') ??
           false;
     } on PlatformException catch (e) {
-      _logger.e('Error checking exact alarm permission: ${e.message}');
+      _log.error('Error checking exact alarm permission: ${e.message}');
       return false;
     }
   }
@@ -323,8 +327,8 @@ class PlatformAlarmService {
       await Future.delayed(const Duration(milliseconds: 500));
       return await isBatteryOptimizationDisabled();
     } on PlatformException catch (e) {
-      _logger
-          .e('Error requesting battery optimization exemption: ${e.message}');
+      LoggingService.instance.error(
+          'Error requesting battery optimization exemption: ${e.message}');
       return false;
     }
   }
@@ -340,12 +344,12 @@ class PlatformAlarmService {
     Map<String, dynamic>? data,
   }) async {
     if (!_initialized) {
-      _logger.w('Cannot schedule alarm: service not initialized');
+      _log.warn('Cannot schedule alarm: service not initialized');
       return false;
     }
 
     if (!_permissionsGranted) {
-      _logger.w('Cannot schedule alarm: permissions not granted');
+      _log.warn('Cannot schedule alarm: permissions not granted');
       return false;
     }
 
@@ -365,7 +369,7 @@ class PlatformAlarmService {
 
       return false;
     } catch (e) {
-      _logger.e('Error scheduling alarm: $e');
+      _log.error('Error scheduling alarm: $e');
       return false;
     }
   }
@@ -378,15 +382,15 @@ class PlatformAlarmService {
               false;
 
       if (success) {
-        _logger.i(
+        _log.info(
             'Android exact alarm scheduled for slot ${params['slotNumber']}');
       } else {
-        _logger.w('Failed to schedule Android exact alarm');
+        _log.warn('Failed to schedule Android exact alarm');
       }
 
       return success;
     } on PlatformException catch (e) {
-      _logger.e('Error scheduling Android alarm: ${e.message}');
+      _log.error('Error scheduling Android alarm: ${e.message}');
       return false;
     }
   }
@@ -399,14 +403,14 @@ class PlatformAlarmService {
               false;
 
       if (success) {
-        _logger.i('iOS BGTask scheduled for slot ${params['slotNumber']}');
+        _log.info('iOS BGTask scheduled for slot ${params['slotNumber']}');
       } else {
-        _logger.w('Failed to schedule iOS BGTask');
+        _log.warn('Failed to schedule iOS BGTask');
       }
 
       return success;
     } on PlatformException catch (e) {
-      _logger.e('Error scheduling iOS BGTask: ${e.message}');
+      _log.error('Error scheduling iOS BGTask: ${e.message}');
       return false;
     }
   }
@@ -414,7 +418,7 @@ class PlatformAlarmService {
   /// Cancel a specific alarm
   Future<bool> cancelAlarm(String alarmId) async {
     if (!_initialized) {
-      _logger.w('Cannot cancel alarm: service not initialized');
+      _log.warn('Cannot cancel alarm: service not initialized');
       return false;
     }
 
@@ -424,14 +428,14 @@ class PlatformAlarmService {
           false;
 
       if (success) {
-        _logger.d('Alarm cancelled: $alarmId');
+        _log.debug('Alarm cancelled: $alarmId');
       } else {
-        _logger.w('Failed to cancel alarm: $alarmId');
+        _log.warn('Failed to cancel alarm: $alarmId');
       }
 
       return success;
     } on PlatformException catch (e) {
-      _logger.e('Error cancelling alarm: ${e.message}');
+      _log.error('Error cancelling alarm: ${e.message}');
       return false;
     }
   }
@@ -439,7 +443,7 @@ class PlatformAlarmService {
   /// Cancel all scheduled alarms
   Future<bool> cancelAllAlarms() async {
     if (!_initialized) {
-      _logger.w('Cannot cancel alarms: service not initialized');
+      _log.warn('Cannot cancel alarms: service not initialized');
       return false;
     }
 
@@ -448,14 +452,14 @@ class PlatformAlarmService {
           await _channel.invokeMethod<bool>('cancelAllAlarms') ?? false;
 
       if (success) {
-        _logger.i('All alarms cancelled');
+        _log.info('All alarms cancelled');
       } else {
-        _logger.w('Failed to cancel all alarms');
+        _log.warn('Failed to cancel all alarms');
       }
 
       return success;
     } on PlatformException catch (e) {
-      _logger.e('Error cancelling all alarms: ${e.message}');
+      _log.error('Error cancelling all alarms: ${e.message}');
       return false;
     }
   }
@@ -470,7 +474,7 @@ class PlatformAlarmService {
     required int slotNumber,
   }) async {
     if (!Platform.isAndroid) {
-      _logger.d('Foreground service is Android-only');
+      _log.debug('Foreground service is Android-only');
       return false;
     }
 
@@ -486,14 +490,14 @@ class PlatformAlarmService {
               false;
 
       if (success) {
-        _logger.i('Foreground service started for slot $slotNumber');
+        _log.info('Foreground service started for slot $slotNumber');
       } else {
-        _logger.w('Failed to start foreground service');
+        _log.warn('Failed to start foreground service');
       }
 
       return success;
     } on PlatformException catch (e) {
-      _logger.e('Error starting foreground service: ${e.message}');
+      _log.error('Error starting foreground service: ${e.message}');
       return false;
     }
   }
@@ -501,7 +505,7 @@ class PlatformAlarmService {
   /// Stop foreground service (Android only)
   Future<bool> stopForegroundService() async {
     if (!Platform.isAndroid) {
-      _logger.d('Foreground service is Android-only');
+      _log.debug('Foreground service is Android-only');
       return false;
     }
 
@@ -510,14 +514,14 @@ class PlatformAlarmService {
           await _channel.invokeMethod<bool>('stopForegroundService') ?? false;
 
       if (success) {
-        _logger.i('Foreground service stopped');
+        _log.info('Foreground service stopped');
       } else {
-        _logger.w('Failed to stop foreground service');
+        _log.warn('Failed to stop foreground service');
       }
 
       return success;
     } on PlatformException catch (e) {
-      _logger.e('Error stopping foreground service: ${e.message}');
+      _log.error('Error stopping foreground service: ${e.message}');
       return false;
     }
   }
@@ -531,14 +535,14 @@ class PlatformAlarmService {
           await _channel.invokeMethod<bool>('openBatterySettings') ?? false;
 
       if (success) {
-        _logger.i('Opened battery optimization settings');
+        _log.info('Opened battery optimization settings');
       } else {
-        _logger.w('Failed to open battery optimization settings');
+        _log.warn('Failed to open battery optimization settings');
       }
 
       return success;
     } on PlatformException catch (e) {
-      _logger.e('Error opening battery settings: ${e.message}');
+      _log.error('Error opening battery settings: ${e.message}');
       return false;
     }
   }
@@ -554,7 +558,7 @@ class PlatformAlarmService {
               .invokeMethod<bool>('isBatteryOptimizationDisabled') ??
           false;
     } on PlatformException catch (e) {
-      _logger.e('Error checking battery optimization: ${e.message}');
+      _log.error('Error checking battery optimization: ${e.message}');
       return false;
     }
   }
@@ -570,7 +574,7 @@ class PlatformAlarmService {
     try {
       return await _channel.invokeMethod<String>('getDeviceManufacturer');
     } on PlatformException catch (e) {
-      _logger.e('Error getting device manufacturer: ${e.message}');
+      _log.error('Error getting device manufacturer: ${e.message}');
       return null;
     }
   }
@@ -583,7 +587,7 @@ class PlatformAlarmService {
           await _channel.invokeMethod<bool>('isForegroundServiceRunning');
       return isRunning ?? false;
     } catch (e) {
-      _logger.e('Error checking foreground service status: $e');
+      _log.error('Error checking foreground service status: $e');
       return false;
     }
   }
@@ -595,7 +599,7 @@ class PlatformAlarmService {
       final isHeld = await _channel.invokeMethod<bool>('isWakelockHeld');
       return isHeld ?? false;
     } catch (e) {
-      _logger.e('Error checking wakelock status: $e');
+      _log.error('Error checking wakelock status: $e');
       return false;
     }
   }
@@ -614,7 +618,7 @@ class PlatformAlarmService {
       final stats = await _channel.invokeMethod<Map>('getBackgroundTaskStats');
       return Map<String, dynamic>.from(stats ?? {});
     } catch (e) {
-      _logger.e('Error getting background task stats: $e');
+      _log.error('Error getting background task stats: $e');
       return {
         'execution_count': 0,
         'last_execution_time': 0,
@@ -630,7 +634,7 @@ class PlatformAlarmService {
     try {
       await _channel.invokeMethod('incrementBackgroundTaskCount');
     } catch (e) {
-      _logger.e('Error incrementing background task count: $e');
+      _log.error('Error incrementing background task count: $e');
     }
   }
 }

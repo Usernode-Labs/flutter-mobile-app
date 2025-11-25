@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:crypto_mobile_app/features/node/presentation/controllers/sync_status_provider.dart';
-import 'package:crypto_mobile_app/features/node/presentation/controllers/node_raw_status_provider.dart';
+import 'package:crypto_mobile_app/features/node/presentation/controllers/node_status_provider.dart';
 import 'package:crypto_mobile_app/features/node/presentation/widgets/node_status_summary_modal.dart';
 
 /// Icon button that displays current node sync status in the app bar
@@ -17,12 +16,12 @@ class NodeStatusIcon extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final syncStatus = ref.watch(syncStatusProvider);
-    final nodeRawAsync = ref.watch(nodeRawStatusProvider);
+    final statusAsync = ref.watch(nodeStatusProvider);
 
-    // Determine if there's a provider-level error
-    final providerHasError = nodeRawAsync.when(
-      data: (raw) => raw == null,
+    // Extract sync status and determine if there's a provider-level error
+    final syncStatus = statusAsync.valueOrNull?.syncStatus;
+    final providerHasError = statusAsync.when(
+      data: (status) => status == null,
       loading: () => false,
       error: (_, __) => true,
     );
@@ -32,7 +31,7 @@ class NodeStatusIcon extends ConsumerWidget {
     final Color color;
     final bool shouldRotate;
 
-    if (providerHasError || syncStatus.hasError) {
+    if (providerHasError || syncStatus == null || syncStatus.hasError) {
       // Error state
       icon = Icons.error;
       color = colorScheme.error;
@@ -62,7 +61,7 @@ class NodeStatusIcon extends ConsumerWidget {
       onPressed: () {
         showNodeStatusSummaryModal(context);
       },
-      tooltip: syncStatus.label,
+      tooltip: syncStatus?.label ?? 'Node status',
     );
   }
 }

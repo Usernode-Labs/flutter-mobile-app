@@ -1,9 +1,12 @@
-import 'package:logger/logger.dart';
+import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import '../config/blockchain_timing.dart';
 import '../data/slot_production_repository.dart';
 import 'epoch_slot_scheduler_service.dart';
 import 'slot_monitor_service.dart';
 import 'platform_alarm_service.dart';
+
+final _log = LoggingService.instance.withTag(LogTag.node);
 
 /// Service that handles callbacks when platform alarms fire
 ///
@@ -13,15 +16,13 @@ class AlarmCallbackService {
   static final AlarmCallbackService instance = AlarmCallbackService._();
   AlarmCallbackService._();
 
-  final Logger _logger = Logger();
-
   /// Handle alarm callback for a specific slot
   ///
   /// This is called when a platform alarm fires, either from:
   /// - Android: AlarmReceiver + SlotMonitoringService
   /// - iOS: BGProcessingTask handler
   Future<void> handleAlarmCallback(int slotNumber) async {
-    _logger.i('Alarm callback received for slot $slotNumber');
+    _log.info('Alarm callback received for slot $slotNumber');
 
     try {
       // Start foreground service on Android to keep app alive
@@ -36,7 +37,7 @@ class AlarmCallbackService {
             throw StateError('Slot $slotNumber not found in schedule'),
       );
 
-      _logger.i('Starting monitoring for slot ${targetSlot.slotNumber}');
+      _log.info('Starting monitoring for slot ${targetSlot.slotNumber}');
       await SlotMonitorService.instance.startMonitoringSlot(targetSlot);
 
       // Record production attempt to statistics repository
@@ -45,16 +46,16 @@ class AlarmCallbackService {
           slotNumber: slotNumber,
           attemptTime: DateTime.now(),
         );
-        _logger.d('Recorded production attempt for slot $slotNumber');
+        _log.debug('Recorded production attempt for slot $slotNumber');
       } catch (e) {
-        _logger
-            .w('Failed to record production attempt for slot $slotNumber: $e');
+        LoggingService.instance.warn(
+            'Failed to record production attempt for slot $slotNumber: $e');
       }
 
       // Listen for monitoring completion
       _setupMonitoringCompletionListener(slotNumber);
     } catch (e) {
-      _logger.e('Error handling alarm callback: $e');
+      _log.error('Error handling alarm callback: $e');
     }
   }
 
@@ -69,10 +70,10 @@ class AlarmCallbackService {
       );
 
       if (success) {
-        _logger.i('Foreground service started for slot $slotNumber');
+        _log.info('Foreground service started for slot $slotNumber');
       }
     } catch (e) {
-      _logger.w('Could not start foreground service: $e');
+      _log.warn('Could not start foreground service: $e');
     }
   }
 
@@ -100,9 +101,9 @@ class AlarmCallbackService {
   Future<void> _stopForegroundService() async {
     try {
       await PlatformAlarmService.instance.stopForegroundService();
-      _logger.i('Foreground service stopped');
+      _log.info('Foreground service stopped');
     } catch (e) {
-      _logger.w('Error stopping foreground service: $e');
+      _log.warn('Error stopping foreground service: $e');
     }
   }
 
@@ -111,7 +112,7 @@ class AlarmCallbackService {
   /// This should be called during app startup to ensure callbacks
   /// are ready to handle alarm events.
   Future<bool> initialize() async {
-    _logger.i('AlarmCallbackService initialized');
+    _log.info('AlarmCallbackService initialized');
     return true;
   }
 }

@@ -1,21 +1,23 @@
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:battery_plus/battery_plus.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/models/block_production_event.dart';
 import 'package:crypto_mobile_app/features/metrics/data/models/metrics_payload.dart';
 import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
-import 'package:crypto_mobile_app/features/node/presentation/controllers/sync_status_provider.dart';
-import 'package:crypto_mobile_app/features/node/presentation/controllers/node_raw_status_provider.dart';
-import 'package:crypto_mobile_app/features/node/presentation/controllers/node_data_providers.dart';
-import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
+import 'package:crypto_mobile_app/features/node/presentation/controllers/node_status_provider.dart';
+import 'package:crypto_mobile_app/features/node/presentation/controllers/epoch_rewards_provider.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:logger/logger.dart';
+import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+
+final _log = LoggingService.instance.withTag(LogTag.metrics);
 
 /// Service responsible for collecting all metrics from various sources
 ///
@@ -24,7 +26,6 @@ class MetricsCollectorService {
   MetricsCollectorService._();
   static final MetricsCollectorService instance = MetricsCollectorService._();
 
-  final Logger _logger = Logger();
   final Battery _battery = Battery();
   final Connectivity _connectivity = Connectivity();
   final DeviceInfoPlugin _deviceInfo = DeviceInfoPlugin();
@@ -79,134 +80,45 @@ class MetricsCollectorService {
 
   /// Collect metrics for a specific block production event
   ///
-  /// This performs targeted metric collection based on event type:
-  /// - Full: health_check, epoch_transition, app_resumed, app_suspended, android_boot_reschedule_completed
-  /// - Lightweight: app_wake_up, android_alarm_fired, ios_notification_delivered, ios_bgtask_executed
-  /// - Production: slot_monitoring_start, slot_produced, slot_failed, monitoring_poll, block_production_detected, node_start_*
-  /// - Minimal: alarm_scheduled, alarm_cancelled, service/permission events
+  /// Always collects full metrics for all event types, providing complete
+  /// visibility into app health, node performance, and block production.
   Future<MetricsPayload> collectMetricsForEvent(
     BlockProductionEvent event, {
     double? walletBalance,
     String? walletAddress,
   }) async {
-    _logger.d('Collecting metrics for event: ${event.eventType}');
-
-    // Determine which metrics to collect based on event type
-    final collectFull = _shouldCollectFull(event.eventType);
-    final collectLightweight = _shouldCollectLightweight(event.eventType);
-    final collectProduction = _shouldCollectProduction(event.eventType);
-    final collectMinimal = _shouldCollectMinimal(event.eventType);
-
-    _logger.d(
-        'Strategy - Full: $collectFull, Lightweight: $collectLightweight, Production: $collectProduction, Minimal: $collectMinimal');
+    _log.debug('Collecting full metrics for event: ${event.eventType}');
 
     return await collectMetrics(
       eventType: event.eventType,
       eventData: event.toJson(),
       walletBalance: walletBalance,
       walletAddress: walletAddress,
-      collectFull: collectFull,
-      collectLightweight: collectLightweight,
-      collectProduction: collectProduction,
-      collectMinimal: collectMinimal,
     );
   }
 
-  /// Determine if full metrics should be collected
-  bool _shouldCollectFull(String eventType) {
-    return eventType == 'health_check' ||
-        eventType == 'epoch_transition' ||
-        eventType == 'app_resumed' ||
-        eventType == 'app_suspended' ||
-        eventType == 'android_boot_reschedule_completed';
-  }
-
-  /// Determine if lightweight metrics should be collected
-  bool _shouldCollectLightweight(String eventType) {
-    return eventType == 'app_wake_up' ||
-        eventType == 'android_alarm_fired' ||
-        eventType == 'ios_notification_delivered' ||
-        eventType == 'ios_bgtask_executed';
-  }
-
-  /// Determine if production-focused metrics should be collected
-  bool _shouldCollectProduction(String eventType) {
-    return eventType == 'slot_monitoring_start' ||
-        eventType == 'slot_produced' ||
-        eventType == 'slot_failed' ||
-        eventType == 'monitoring_poll' ||
-        eventType == 'block_production_detected' ||
-        eventType == 'node_start_initiated' ||
-        eventType == 'node_start_completed' ||
-        eventType == 'node_start_failed';
-  }
-
-  /// Determine if minimal metrics should be collected
-  bool _shouldCollectMinimal(String eventType) {
-    return eventType == 'alarm_scheduled' ||
-        eventType == 'alarm_cancelled' ||
-        eventType == 'android_foreground_service_started' ||
-        eventType == 'android_foreground_service_stopped' ||
-        eventType == 'android_boot_reschedule_started' ||
-        eventType == 'android_exact_alarm_permission_granted' ||
-        eventType == 'android_exact_alarm_permission_denied' ||
-        eventType == 'android_battery_optimization_disabled' ||
-        eventType == 'ios_notification_scheduled' ||
-        eventType == 'ios_notification_tapped' ||
-        eventType == 'ios_bgtask_scheduled' ||
-        eventType == 'ios_bgtask_expired' ||
-        eventType == 'ios_notification_permission_granted' ||
-        eventType == 'ios_notification_permission_denied';
-  }
-
   /// Collect all metrics and return a complete payload
+  ///
+  /// Always collects full metrics for comprehensive system state visibility.
   Future<MetricsPayload> collectMetrics({
     String eventType = 'health_check',
     Map<String, dynamic>? eventData,
     double? walletBalance,
     String? walletAddress,
-    bool collectFull = true,
-    bool collectLightweight = false,
-    bool collectProduction = false,
-    bool collectMinimal = false,
   }) async {
-    // For minimal collection (permission/scheduling events), only collect event + runtime
-    if (collectMinimal) {
-      _logger.d('Using minimal collection strategy');
-      return await _collectMinimalMetrics(eventType, eventData);
-    }
-
-    // For lightweight collection (app_wake_up), only collect essential metrics
-    if (collectLightweight) {
-      _logger.d('Using lightweight collection strategy');
-      return await _collectLightweightMetrics(eventType, eventData);
-    }
-
-    // For production events, collect production-focused metrics
-    if (collectProduction) {
-      _logger.d('Using production-focused collection strategy');
-      return await _collectProductionFocusedMetrics(
-        eventType,
-        eventData,
-        walletBalance,
-        walletAddress,
-      );
-    }
-
-    _logger.d('Using full collection strategy');
-
-    // For full collection, fetch node status ONCE to avoid expensive FFI calls
-    RpcStatusResp? nodeStatus;
-    if (RustBackendService.instance.isRunning) {
+    // For full collection, fetch node status ONCE from provider to avoid expensive FFI calls
+    NodeStatusState? rawStatus;
+    if (_container != null && RustBackendService.instance.isRunning) {
       try {
-        nodeStatus = await RustBackendService.instance.getStatus();
+        final rawStatusAsync = _container!.read(nodeStatusProvider);
+        rawStatus = rawStatusAsync.valueOrNull;
       } catch (_) {
         // Ignore errors, methods will handle null status
       }
     }
 
     // Collect all metrics in parallel for efficiency
-    // Pass nodeStatus to methods that need it to avoid duplicate FFI calls
+    // Pass rawStatus to methods that need it to avoid duplicate FFI calls
     final results = await Future.wait([
       _collectEventMetrics(eventType, eventData),
       _collectRuntimeMetrics(),
@@ -215,8 +127,8 @@ class MetricsCollectorService {
       _collectBatteryMetrics(),
       _collectNetworkMetrics(),
       _collectPermissionsMetrics(),
-      _collectStatusMetrics(nodeStatus: nodeStatus),
-      _collectBlockchainMetrics(nodeStatus: nodeStatus),
+      _collectStatusMetrics(rawStatus: rawStatus),
+      _collectBlockchainMetrics(rawStatus: rawStatus),
     ]);
 
     final event = results[0] as EventMetrics;
@@ -229,12 +141,12 @@ class MetricsCollectorService {
     final status = results[7] as StatusMetrics;
     final blockchain = results[8] as BlockchainMetrics;
 
-    // Collect additional metrics - pass nodeStatus to avoid duplicate calls
+    // Collect additional metrics - pass rawStatus to avoid duplicate calls
     final identity = await _collectIdentityMetrics();
-    final consensus = await _collectConsensusMetrics(nodeStatus: nodeStatus);
+    final consensus = await _collectConsensusMetrics(rawStatus: rawStatus);
     final production = _collectProductionMetrics();
     final wallet = _collectWalletMetrics(walletBalance, walletAddress);
-    final peers = await _collectPeersMetrics(nodeStatus: nodeStatus);
+    final peers = await _collectPeersMetrics(rawStatus: rawStatus);
     final foregroundService =
         Platform.isAndroid ? await _collectForegroundServiceMetrics() : null;
 
@@ -276,166 +188,6 @@ class MetricsCollectorService {
       eventType: eventType,
       timestamp: DateTime.now().toUtc().toIso8601String(),
       eventData: eventData,
-    );
-  }
-
-  /// Collect lightweight metrics for app_wake_up events
-  ///
-  /// This is PROOF that the alarm fired! Only collects essential metrics.
-  Future<MetricsPayload> _collectLightweightMetrics(
-    String eventType,
-    Map<String, dynamic>? eventData,
-  ) async {
-    final event = await _collectEventMetrics(eventType, eventData);
-    final runtime = await _collectRuntimeMetrics();
-
-    // Get battery level (lightweight)
-    int batteryLevel = 0;
-    try {
-      batteryLevel = await _battery.batteryLevel;
-    } catch (e) {
-      // Battery info not available
-    }
-
-    final battery = BatteryMetrics(
-      batteryLevel: batteryLevel,
-      batteryState: 'unknown', // Skip detailed collection for lightweight
-      batteryOptimizationDisabled: false,
-      powerSaveMode: false,
-      lowPowerMode: false,
-    );
-
-    // Minimal app metrics
-    final app = AppMetricsGroup(
-      runtime: runtime,
-      platform: null, // Skip for lightweight
-      device: null, // Skip for lightweight
-      battery: battery,
-      network: null, // Skip for lightweight
-      permissions: null, // Skip for lightweight
-      foregroundService: null, // Skip for lightweight
-    );
-
-    // Minimal node metrics
-    final identity = await _collectIdentityMetrics();
-    final node = NodeMetricsGroup(
-      identity: identity,
-      status: null, // Skip for lightweight
-      consensus: null, // Skip for lightweight
-      blockchain: null, // Skip for lightweight
-      production: null, // Skip for lightweight
-      wallet: null, // Skip for lightweight
-      peers: null, // Skip for lightweight
-    );
-
-    return MetricsPayload(
-      event: event,
-      app: app,
-      node: node,
-    );
-  }
-
-  /// Collect minimal metrics for permission/scheduling events
-  ///
-  /// This is the most lightweight collection - only event + runtime + identity.
-  /// Used for tracking events that don't require context (permissions, alarms scheduled).
-  Future<MetricsPayload> _collectMinimalMetrics(
-    String eventType,
-    Map<String, dynamic>? eventData,
-  ) async {
-    _logger.d('Collecting minimal metrics - Event: $eventType');
-
-    final event = await _collectEventMetrics(eventType, eventData);
-    final runtime = await _collectRuntimeMetrics();
-
-    _logger.d('Event timestamp: ${event.timestamp}');
-    _logger.d('App state: ${runtime.appState}');
-
-    // Minimal app metrics - only runtime
-    final app = AppMetricsGroup(
-      runtime: runtime,
-      platform: null,
-      device: null,
-      battery: null,
-      network: null,
-      permissions: null,
-      foregroundService: null,
-    );
-
-    // Minimal node metrics - only identity
-    final identity = await _collectIdentityMetrics();
-    _logger.d('Peer ID: ${identity.peerId}');
-
-    final node = NodeMetricsGroup(
-      identity: identity,
-      status: null,
-      consensus: null,
-      blockchain: null,
-      production: null,
-      wallet: null,
-      peers: null,
-    );
-
-    return MetricsPayload(
-      event: event,
-      app: app,
-      node: node,
-    );
-  }
-
-  /// Collect production-focused metrics for slot events
-  Future<MetricsPayload> _collectProductionFocusedMetrics(
-    String eventType,
-    Map<String, dynamic>? eventData,
-    double? walletBalance,
-    String? walletAddress,
-  ) async {
-    // Fetch node status ONCE for production metrics
-    RpcStatusResp? nodeStatus;
-    if (RustBackendService.instance.isRunning) {
-      try {
-        nodeStatus = await RustBackendService.instance.getStatus();
-      } catch (_) {
-        // Ignore errors
-      }
-    }
-
-    final event = await _collectEventMetrics(eventType, eventData);
-    final runtime = await _collectRuntimeMetrics();
-    final battery = await _collectBatteryMetrics();
-
-    // App metrics (reduced set)
-    final app = AppMetricsGroup(
-      runtime: runtime,
-      platform: null, // Skip for production
-      device: null, // Skip for production
-      battery: battery,
-      network: null, // Skip for production
-      permissions: null, // Skip for production
-      foregroundService:
-          Platform.isAndroid ? await _collectForegroundServiceMetrics() : null,
-    );
-
-    // Node metrics (production-focused) - pass nodeStatus to avoid duplicate calls
-    final identity = await _collectIdentityMetrics();
-    final status = await _collectStatusMetrics(nodeStatus: nodeStatus);
-    final consensus = await _collectConsensusMetrics(nodeStatus: nodeStatus);
-    final production = _collectProductionMetrics();
-
-    final node = NodeMetricsGroup(
-      identity: identity,
-      status: status,
-      consensus: consensus,
-      blockchain: null, // Skip detailed blockchain for production
-      production: production,
-      wallet: null, // Skip wallet for production
-      peers: null, // Skip peers for production
-    );
-
-    return MetricsPayload(
-      event: event,
-      app: app,
-      node: node,
     );
   }
 
@@ -706,10 +458,10 @@ class MetricsCollectorService {
 
   /// Collect node status metrics from Rust backend
   ///
-  /// If [nodeStatus] is provided, it will be used instead of fetching from backend.
+  /// If [rawStatus] is provided, it will be used instead of fetching from backend.
   /// This avoids expensive FFI calls when status is already available.
   Future<StatusMetrics> _collectStatusMetrics(
-      {RpcStatusResp? nodeStatus}) async {
+      {NodeStatusState? rawStatus}) async {
     bool nodeRunning = RustBackendService.instance.isRunning;
     String nodeState = nodeRunning ? 'running' : 'stopped';
     String? syncStatus;
@@ -722,43 +474,37 @@ class MetricsCollectorService {
         // Use existing sync status provider if container is available
         if (_container != null) {
           // Read sync status from provider (reuses UI logic)
-          final syncStatusValue = _container!.read(syncStatusProvider);
-          syncStatus = syncStatusValue
-              .state.name; // 'connecting', 'syncing', 'synced', 'error'
-          connectedPeers = syncStatusValue.connectedPeers;
+          final statusAsync = _container!.read(nodeStatusProvider);
+          final statusValue = statusAsync.valueOrNull;
+          if (statusValue != null) {
+            syncStatus = statusValue.syncStatus.state
+                .name; // 'connecting', 'syncing', 'synced', 'error'
+            connectedPeers = statusValue.connectedPeers;
 
-          // Get best tip data from raw provider
-          final rawAsync = _container!.read(nodeRawStatusProvider);
-          final raw = rawAsync.value;
-          if (raw != null) {
-            final bestTip = raw.localBest;
+            // Get best tip data
+            final bestTip = statusValue.localBest;
             bestTipSlot = bestTip?.globalSlot;
             bestTipHash = bestTip?.hash.toString();
           }
         } else {
-          // Use provided status or fetch if not available
-          final status =
-              nodeStatus ?? await RustBackendService.instance.getStatus();
-          if (status != null) {
-            // Count connected peers first
-            connectedPeers = status.peers
-                .where(
-                    (p) => p.connectionStatus == PeerConnectionStatus.connected)
-                .length;
+          // Use provided rawStatus
+          if (rawStatus != null) {
+            // Count connected peers from rawStatus
+            connectedPeers = rawStatus.connectedPeers;
 
             // Determine sync status based on blockchain sync state
-            final syncBlocks = status.blockchain.sync.blocks;
+            final applyProgress = rawStatus.applyProgress;
 
             // Check if we're still connecting (no peers or no sync data)
-            if (connectedPeers == 0 || syncBlocks == null) {
+            if (connectedPeers == 0 || applyProgress == null) {
               syncStatus = 'connecting';
             } else {
               // We have peers and sync data - check sync progress
-              final totalBlocks = syncBlocks.applyProgress.done +
-                  syncBlocks.applyProgress.pending +
-                  syncBlocks.applyProgress.idle;
+              final totalBlocks = applyProgress.done +
+                  applyProgress.pending +
+                  applyProgress.idle;
               if (totalBlocks == BigInt.zero ||
-                  syncBlocks.applyProgress.done == totalBlocks) {
+                  applyProgress.done == totalBlocks) {
                 syncStatus = 'synced';
               } else {
                 syncStatus = 'syncing';
@@ -766,9 +512,9 @@ class MetricsCollectorService {
             }
 
             // Best tip info from blockchain
-            final bestTip = status.blockchain.bestTip;
-            bestTipSlot = bestTip.globalSlot;
-            bestTipHash = bestTip.hash.toString();
+            final bestTip = rawStatus.networkBest ?? rawStatus.localBest;
+            bestTipSlot = bestTip?.globalSlot;
+            bestTipHash = bestTip?.hash.toString();
           }
         }
       } catch (_) {
@@ -789,36 +535,35 @@ class MetricsCollectorService {
 
   /// Collect consensus and block production metrics
   ///
-  /// If [nodeStatus] is provided, it will be used instead of fetching from backend.
+  /// If [rawStatus] is provided, it will be used instead of fetching from backend.
   /// This avoids expensive FFI calls when status is already available.
   Future<ConsensusMetrics> _collectConsensusMetrics(
-      {RpcStatusResp? nodeStatus}) async {
+      {NodeStatusState? rawStatus}) async {
     int? currentEpoch;
     int? currentGlobalSlot;
     int? currentEpochWonSlots;
     int? currentEpochProduced;
     int? currentEpochFailed;
-    int? evaluatedSlotsSinceStart;
+    int? evaluatedCurrentEpoch;
     String? currentEpochVrfEvaluationStatus;
     String? nextEpochVrfEvaluationStatus;
 
     if (RustBackendService.instance.isRunning) {
       try {
-        // Use provided status or fetch if not available
-        final status =
-            nodeStatus ?? await RustBackendService.instance.getStatus();
-        if (status != null) {
-          final bestTip = status.blockchain.bestTip;
-          currentEpoch = bestTip.epoch;
+        // Use provided rawStatus
+        if (rawStatus != null) {
+          final bestTip = rawStatus.networkBest ?? rawStatus.localBest;
+          currentEpoch = bestTip?.epoch;
 
           // Use backend-provided current global slot
-          currentGlobalSlot = status.node.curGlobalSlot;
-          // TODO: Decide fallback strategy when curGlobalSlot is unavailable
+          currentGlobalSlot = rawStatus.currentGlobalSlot;
 
           // Extract VRF evaluator metrics
-          final vrfEvaluator = status.vrfEvaluator;
+          final vrfEvaluator = rawStatus.vrfEvaluator;
           if (vrfEvaluator != null) {
-            evaluatedSlotsSinceStart = vrfEvaluator.evaluatedSlotsSinceStart;
+            evaluatedCurrentEpoch = vrfEvaluator.details?.evaluatedCurrentEpoch;
+            currentEpochWonSlots =
+                vrfEvaluator.details?.wonSlotsCurrentEpoch.toInt();
             currentEpochVrfEvaluationStatus =
                 vrfEvaluator.currentEpochVrfEvaluationStatus.name;
             nextEpochVrfEvaluationStatus =
@@ -828,25 +573,30 @@ class MetricsCollectorService {
 
         // Get epoch rewards data from provider if available
         if (_container != null) {
-          final rewardsAsync = _container!.read(nodeEpochRewardsProvider);
+          final rewardsAsync = _container!.read(epochRewardsProvider);
           final rewards = rewardsAsync.value;
           if (rewards != null) {
             // Extract current epoch production metrics
-            currentEpochWonSlots = rewards.winsInEpoch;
+            currentEpochWonSlots ??= rewards.winsInEpoch;
             currentEpochProduced = rewards.producedInEpoch;
 
             // Count future slots (slots that haven't occurred yet)
             int slotsInFuture = 0;
-            if (rewards.wonSlots != null && currentGlobalSlot != null) {
-              slotsInFuture = rewards.wonSlots!
-                  .where((slot) => slot.globalSlot > currentGlobalSlot!)
+            if (currentGlobalSlot != null) {
+              final currentSlot = currentGlobalSlot;
+              slotsInFuture = rewards.wonSlots
+                  .where((slot) => slot.globalSlot > currentSlot)
                   .length;
             }
 
             // Calculate failed as: won - future - produced
             // This excludes future slots from being counted as failed
-            currentEpochFailed =
-                currentEpochWonSlots - slotsInFuture - currentEpochProduced;
+            // Use max(0, ...) to ensure failed count is never negative
+            currentEpochFailed = math.max(
+                0,
+                (currentEpochWonSlots ?? 0) -
+                    slotsInFuture -
+                    (currentEpochProduced ?? 0));
           }
         }
       } catch (_) {
@@ -860,7 +610,7 @@ class MetricsCollectorService {
       currentEpochWonSlots: currentEpochWonSlots,
       currentEpochProduced: currentEpochProduced,
       currentEpochFailed: currentEpochFailed,
-      evaluatedSlotsSinceStart: evaluatedSlotsSinceStart,
+      evaluatedCurrentEpoch: evaluatedCurrentEpoch,
       currentEpochVrfEvaluationStatus: currentEpochVrfEvaluationStatus,
       nextEpochVrfEvaluationStatus: nextEpochVrfEvaluationStatus,
       // Total metrics not implemented yet
@@ -872,10 +622,10 @@ class MetricsCollectorService {
 
   /// Collect blockchain state
   ///
-  /// If [nodeStatus] is provided, it will be used instead of fetching from backend.
+  /// If [rawStatus] is provided, it will be used instead of fetching from backend.
   /// This avoids expensive FFI calls when status is already available.
   Future<BlockchainMetrics> _collectBlockchainMetrics(
-      {RpcStatusResp? nodeStatus}) async {
+      {NodeStatusState? rawStatus}) async {
     int? blockchainHeight;
     String? latestBlockHash;
     int? latestBlockSlot;
@@ -883,20 +633,20 @@ class MetricsCollectorService {
 
     if (RustBackendService.instance.isRunning) {
       try {
-        // Use provided status or fetch if not available
-        final status =
-            nodeStatus ?? await RustBackendService.instance.getStatus();
-        if (status != null) {
-          final bestTip = status.blockchain.bestTip;
+        // Use provided rawStatus
+        if (rawStatus != null) {
+          final bestTip = rawStatus.networkBest ?? rawStatus.localBest;
 
-          blockchainHeight = bestTip.height;
-          latestBlockHash = bestTip.hash.toString();
-          latestBlockSlot = bestTip.globalSlot;
+          blockchainHeight = bestTip?.height;
+          latestBlockHash = bestTip?.hash.toString();
+          latestBlockSlot = bestTip?.globalSlot;
           // Convert timestamp (assuming it's in milliseconds since epoch)
-          latestBlockTimestamp = DateTime.fromMillisecondsSinceEpoch(
-            bestTip.timestamp.toInt(),
-            isUtc: true,
-          ).toIso8601String();
+          if (bestTip?.timestamp != null) {
+            latestBlockTimestamp = DateTime.fromMillisecondsSinceEpoch(
+              bestTip!.timestamp.toInt(),
+              isUtc: true,
+            ).toIso8601String();
+          }
         }
       } catch (_) {
         // Ignore errors
@@ -948,21 +698,19 @@ class MetricsCollectorService {
 
   /// Collect peers metrics
   ///
-  /// If [nodeStatus] is provided, it will be used instead of fetching from backend.
+  /// If [rawStatus] is provided, it will be used instead of fetching from backend.
   /// This avoids expensive FFI calls when status is already available.
   Future<List<PeerMetrics>> _collectPeersMetrics(
-      {RpcStatusResp? nodeStatus}) async {
+      {NodeStatusState? rawStatus}) async {
     if (!RustBackendService.instance.isRunning) {
       return [];
     }
 
     try {
-      // Use provided status or fetch if not available
-      final status =
-          nodeStatus ?? await RustBackendService.instance.getStatus();
-      if (status == null) return [];
+      // Use provided rawStatus
+      if (rawStatus == null) return [];
 
-      return status.peers.map((peer) {
+      return rawStatus.peers.map((peer) {
         return PeerMetrics(
           peerId: peer.peerId.toString(),
           address: peer.address,

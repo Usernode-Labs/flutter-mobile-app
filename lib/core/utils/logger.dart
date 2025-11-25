@@ -51,10 +51,13 @@ class LoggingService {
   // Per-tag log level configuration (can be overridden at runtime)
   static final Map<LogTag, Level> _tagLevels = {
     // Example: Show all RUST logs
-    LogTag.rust: Level.debug,
+    LogTag.rust: Level.info,
     // Example: Only warnings+ for providers
     LogTag.provider: Level.warning,
     // Default for others is handled in _AppLogFilter
+    LogTag.metrics: Level.debug,
+    LogTag.router: Level.error,
+    LogTag.home: Level.error,
   };
 
   /// Log a trace-level message
@@ -121,6 +124,15 @@ class LoggingService {
     return LogTimer._(name, tag ?? LogTag.performance, this);
   }
 
+  /// Create a tagged logger for cleaner per-file usage
+  ///
+  /// Example:
+  /// ```dart
+  /// final _log = LoggingService.instance.withTag(LogTag.node);
+  /// _log.debug('message');  // Automatically tagged with NODE
+  /// ```
+  TaggedLogger withTag(dynamic tag) => TaggedLogger._(tag, this);
+
   void _log(
     Level level,
     String message, {
@@ -137,22 +149,21 @@ class LoggingService {
     switch (level) {
       case Level.trace:
         _logger.t(formatted);
-        break;
-      case Level.verbose:
       case Level.debug:
         _logger.d(formatted);
-        break;
       case Level.info:
         _logger.i(formatted);
-        break;
       case Level.warning:
         _logger.w(formatted);
-        break;
       case Level.error:
       case Level.fatal:
-      case Level.wtf:
       case Level.all:
       case Level.off:
+      // ignore: deprecated_member_use
+      case Level.verbose:
+      // ignore: deprecated_member_use
+      case Level.wtf:
+      // ignore: deprecated_member_use
       case Level.nothing:
         // Handled by error() method or should not log
         break;
@@ -223,8 +234,9 @@ class LoggingService {
   SentryLevel _levelToSentryLevel(Level level) {
     switch (level) {
       case Level.trace:
-      case Level.verbose:
       case Level.debug:
+      // ignore: deprecated_member_use
+      case Level.verbose:
         return SentryLevel.debug;
       case Level.info:
         return SentryLevel.info;
@@ -232,10 +244,12 @@ class LoggingService {
         return SentryLevel.warning;
       case Level.error:
       case Level.fatal:
+      // ignore: deprecated_member_use
       case Level.wtf:
         return SentryLevel.fatal;
       case Level.all:
       case Level.off:
+      // ignore: deprecated_member_use
       case Level.nothing:
         return SentryLevel.info;
     }
@@ -287,6 +301,48 @@ class LogTimer {
   Duration get elapsed => DateTime.now().difference(_startTime);
 }
 
+/// Logger wrapper with a pre-bound tag for cleaner per-file usage.
+///
+/// Usage:
+/// ```dart
+/// final _log = LoggingService.instance.withTag(LogTag.node);
+/// _log.debug('message');  // Automatically tagged with NODE
+/// ```
+class TaggedLogger {
+  final dynamic _tag;
+  final LoggingService _service;
+
+  TaggedLogger._(this._tag, this._service);
+
+  void trace(String message, {Map<String, dynamic>? context}) =>
+      _service.trace(message, tag: _tag, context: context);
+
+  void debug(String message, {Map<String, dynamic>? context}) =>
+      _service.debug(message, tag: _tag, context: context);
+
+  void info(String message, {Map<String, dynamic>? context}) =>
+      _service.info(message, tag: _tag, context: context);
+
+  void warn(String message, {Map<String, dynamic>? context}) =>
+      _service.warn(message, tag: _tag, context: context);
+
+  void error(
+    String message, {
+    Object? error,
+    StackTrace? stackTrace,
+    Map<String, dynamic>? context,
+  }) =>
+      _service.error(
+        message,
+        tag: _tag,
+        error: error,
+        stackTrace: stackTrace,
+        context: context,
+      );
+
+  LogTimer startTimer(String name) => _service.startTimer(name, tag: _tag);
+}
+
 /// Custom log filter with tag-based and environment-based filtering
 class _AppLogFilter extends LogFilter {
   @override
@@ -318,12 +374,12 @@ class _CustomLogPrinter extends LogPrinter {
   _CustomLogPrinter();
 
   static final _levelEmojis = {
-    Level.trace: '🔍',
-    Level.debug: '🐛',
-    Level.info: 'ℹ️ ',
-    Level.warning: '⚠️ ',
-    Level.error: '❌',
-    Level.fatal: '💀',
+    Level.trace: '[TRACE]',
+    Level.debug: '[DEBUG]',
+    Level.info: '[INFO]',
+    Level.warning: '[WARN] ⚠️',
+    Level.error: '[ERROR] ❌',
+    Level.fatal: '[FATAL] 💀',
   };
 
   @override

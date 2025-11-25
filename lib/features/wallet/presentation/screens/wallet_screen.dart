@@ -68,7 +68,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(AppLocalizations.of(context).backendStarting)),
       );
-      await RustBackendService.instance.startForActiveAccount();
+      await RustBackendService.instance.startNode();
     }
     // Prime UTXO provider
     // ignore: unused_result

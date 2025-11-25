@@ -1,7 +1,10 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:logger/logger.dart';
+import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import '../models/block_production_state.dart';
+
+final _log = LoggingService.instance.withTag(LogTag.node);
 
 /// Repository for persisting and loading BlockProductionState
 ///
@@ -9,8 +12,6 @@ import '../models/block_production_state.dart';
 /// replacing the scattered SharedPreferences keys used by the old services.
 class BlockProductionStateRepository {
   static const String _keyState = 'block_production_state';
-
-  final Logger _logger = Logger();
 
   BlockProductionStateRepository._();
   static final BlockProductionStateRepository instance =
@@ -25,7 +26,7 @@ class BlockProductionStateRepository {
       final stateJson = prefs.getString(_keyState);
 
       if (stateJson == null) {
-        _logger.d(
+        _log.debug(
             'No persisted block production state found, using initial state');
         return BlockProductionState.initial();
       }
@@ -33,10 +34,10 @@ class BlockProductionStateRepository {
       final stateMap = jsonDecode(stateJson) as Map<String, dynamic>;
       final state = BlockProductionState.fromJson(stateMap);
 
-      _logger.i('Loaded block production state: ${state.toString()}');
+      _log.info('Loaded block production state: ${state.toString()}');
       return state;
     } catch (e, st) {
-      _logger.e('Error loading block production state: $e',
+      _log.error('Error loading block production state: $e',
           error: e, stackTrace: st);
       // Return initial state on error
       return BlockProductionState.initial();
@@ -50,9 +51,9 @@ class BlockProductionStateRepository {
       final stateJson = jsonEncode(state.toJson());
       await prefs.setString(_keyState, stateJson);
 
-      _logger.d('Saved block production state: ${state.toString()}');
+      _log.debug('Saved block production state: ${state.toString()}');
     } catch (e, st) {
-      _logger.e('Error saving block production state: $e',
+      _log.error('Error saving block production state: $e',
           error: e, stackTrace: st);
       // Don't rethrow - state persistence failures shouldn't break the app
     }
@@ -63,9 +64,9 @@ class BlockProductionStateRepository {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_keyState);
-      _logger.i('Cleared block production state');
+      _log.info('Cleared block production state');
     } catch (e, st) {
-      _logger.e('Error clearing block production state: $e',
+      _log.error('Error clearing block production state: $e',
           error: e, stackTrace: st);
     }
   }

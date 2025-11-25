@@ -68,7 +68,7 @@ class _CreateNewAccountScreenState
 
       // Start backend for new account
       try {
-        await RustBackendService.instance.startForActiveAccount();
+        await RustBackendService.instance.startNode();
         LoggingService.instance
             .debug('Backend started successfully', tag: 'CREATE_ACCOUNT');
       } catch (e) {

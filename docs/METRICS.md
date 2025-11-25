@@ -22,26 +22,18 @@ The metrics system enables automatic collection and reporting of app health, nod
 ### Features
 
 - **Compile-Time Configuration**: Configured via environment variables at build time
-- **Dual Collection Strategy**: Periodic health checks (every 30 seconds by default) + event-driven metrics
+- **Dual Collection Triggers**: Periodic health checks (every 30 seconds by default) + event-driven metrics
 - **Cross-Platform**: Works on Android and iOS, in all app states
 - **42 Event Types**: Complete production lifecycle visibility
-- **Targeted Collection**: Different metrics per event type for optimal performance
+- **Full Collection**: Complete system state for all events
 - **No Retry**: Failed uploads are dropped immediately (no storage overhead)
 
-### Collection Strategies
+### Collection Strategy
 
-1. **Periodic Health Checks** (Timer-based)
-   - Triggered every 30 seconds by default (configurable)
-   - Collects full metrics with all categories
-   - Comprehensive system state snapshot
-
-2. **Event-Driven Metrics** (Reactive)
-   - Triggered by `BlockProductionEvent` emissions
-   - Uses targeted collection per event type:
-     - **Full**: Complete system state (epoch_transition, app lifecycle)
-     - **Lightweight**: Battery + timestamp only (android_alarm_fired, app_wake_up)
-     - **Production-Focused**: Node status + consensus (slot_produced, slot_failed)
-     - **Minimal**: Event + peer ID only (permissions, service lifecycle)
+All metrics collection uses the **Full strategy**, which collects complete app and node state for comprehensive analysis:
+- **Periodic Health Checks**: Triggered every 30 seconds by default (configurable)
+- **Event-Driven Metrics**: Triggered immediately by all `BlockProductionEvent` emissions
+- **Full Collection**: All metrics categories collected for every event (device info, battery, network, permissions, node state, VRF, blockchain, peers, wallet)
 
 ---
 
@@ -66,8 +58,7 @@ The metrics system enables automatic collection and reporting of app health, nod
                ▼
 ┌─────────────────────────────────────┐
 │  MetricsCollectorService             │
-│  - Collects targeted metrics        │
-│  - Full / Lightweight / Production  │
+│  - Collects full metrics            │
 │  - Parallel collection              │
 └──────────────┬──────────────────────┘
                │
@@ -94,11 +85,9 @@ The metrics system enables automatic collection and reporting of app health, nod
 
 ## Event Types
 
-The system supports **42 distinct event types** organized by collection strategy.
+The system supports **42 distinct event types**. All events collect full metrics (device info, battery, network, permissions, node state, VRF, blockchain, peers, wallet).
 
-### Full Metrics Collection (5 events)
-
-Collects complete app + node state for analysis.
+### Health & Lifecycle (5 events)
 
 | Event Type | When | Purpose |
 |------------|------|---------|
@@ -108,9 +97,7 @@ Collects complete app + node state for analysis.
 | `app_suspended` | App goes to background | Not yet implemented |
 | `android_boot_reschedule_completed` | Alarms rescheduled after reboot | Not yet implemented |
 
-### Lightweight Metrics Collection (4 events)
-
-Minimal overhead - proves alarm system works.
+### Alarm & Background Execution (4 events)
 
 | Event Type | When | Purpose |
 |------------|------|---------|
@@ -135,9 +122,7 @@ Minimal overhead - proves alarm system works.
 }
 ```
 
-### Production-Focused Metrics Collection (9 events)
-
-Track block production performance.
+### Block Production (9 events)
 
 | Event Type | When | Purpose |
 |------------|------|---------|
@@ -166,9 +151,7 @@ Track block production performance.
 }
 ```
 
-### Minimal Metrics Collection (24 events)
-
-Record events without context overhead.
+### System Events (24 events)
 
 **Alarm Events:**
 - `alarm_scheduled` - Alarm/notification scheduled

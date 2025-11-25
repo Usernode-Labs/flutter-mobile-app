@@ -1,11 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:logger/logger.dart';
+import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../features/node/data/repositories/rust_backend_service.dart';
 import '../config/blockchain_timing.dart';
 import '../data/slot_production_repository.dart';
 import 'platform_alarm_service.dart';
+
+final _log = LoggingService.instance.withTag(LogTag.node);
 
 /// Service responsible for epoch-aware scheduling of slot alarms/tasks
 ///
@@ -19,8 +22,6 @@ class EpochSlotSchedulerService {
   static final EpochSlotSchedulerService instance =
       EpochSlotSchedulerService._();
   EpochSlotSchedulerService._();
-
-  final Logger _logger = Logger();
 
   bool _initialized = false;
   int? _currentEpoch;
@@ -50,14 +51,14 @@ class EpochSlotSchedulerService {
     if (_initialized) return true;
 
     try {
-      _logger.i('EpochSlotSchedulerService initializing...');
+      _log.info('EpochSlotSchedulerService initializing...');
 
       // Load persisted state
       await _loadPersistedState();
 
       // Register boot reschedule callback with PlatformAlarmService
       PlatformAlarmService.instance.setBootRescheduleCallback(() async {
-        _logger.i(
+        _log.info(
             'Boot reschedule callback invoked - checking epoch and rescheduling');
         await _checkForEpochTransition();
       });
@@ -69,11 +70,11 @@ class EpochSlotSchedulerService {
       await _checkForEpochTransition();
 
       _initialized = true;
-      _logger.i(
+      _log.info(
           'EpochSlotSchedulerService initialized with ${_scheduledSlots.length} persisted slots, current epoch: $_currentEpoch');
       return true;
     } catch (e) {
-      _logger.e('Error initializing EpochSlotSchedulerService: $e');
+      _log.error('Error initializing EpochSlotSchedulerService: $e');
       return false;
     }
   }
@@ -81,11 +82,11 @@ class EpochSlotSchedulerService {
   /// Start periodic monitoring for epoch transitions
   void startEpochMonitoring() {
     if (_epochMonitoringTimer != null && _epochMonitoringTimer!.isActive) {
-      _logger.d('Epoch monitoring already active');
+      _log.debug('Epoch monitoring already active');
       return;
     }
 
-    _logger.i('Starting epoch monitoring (interval: $_epochCheckInterval)');
+    _log.info('Starting epoch monitoring (interval: $_epochCheckInterval)');
     _epochMonitoringTimer = Timer.periodic(_epochCheckInterval, (_) {
       _checkForEpochTransition();
     });
@@ -94,7 +95,7 @@ class EpochSlotSchedulerService {
   /// Stop periodic epoch monitoring
   void stopEpochMonitoring() {
     if (_epochMonitoringTimer != null) {
-      _logger.i('Stopping epoch monitoring');
+      _log.info('Stopping epoch monitoring');
       _epochMonitoringTimer!.cancel();
       _epochMonitoringTimer = null;
     }
@@ -109,7 +110,7 @@ class EpochSlotSchedulerService {
   Future<void> _adjustEpochMonitoringFrequency() async {
     final progress = await getEpochProgress();
     if (progress == null) {
-      _logger.d('Cannot adjust epoch monitoring: progress unknown');
+      _log.debug('Cannot adjust epoch monitoring: progress unknown');
       return;
     }
 
@@ -124,7 +125,7 @@ class EpochSlotSchedulerService {
 
       if (diff > 60000) {
         // More than 1 minute difference
-        _logger.i('Adjusting epoch check interval based on progress: '
+        _log.info('Adjusting epoch check interval based on progress: '
             '${(progress * 100).toStringAsFixed(1)}% - '
             'new interval: ${newInterval.inMinutes} min '
             '(was ${currentInterval.inMinutes} min)');
@@ -141,13 +142,13 @@ class EpochSlotSchedulerService {
   /// Check if epoch has transitioned and handle accordingly
   Future<void> _checkForEpochTransition() async {
     try {
-      _logger.d('Checking for epoch transition...');
+      _log.debug('Checking for epoch transition...');
       _lastEpochCheck = DateTime.now();
 
       // Query current epoch from Rust backend
       final rpc = RustBackendService.instance.rpc;
       if (rpc == null) {
-        _logger.w('RPC service not available for epoch check');
+        _log.warn('RPC service not available for epoch check');
         return;
       }
 
@@ -157,20 +158,20 @@ class EpochSlotSchedulerService {
       );
 
       if (epochData == null) {
-        _logger.w('Failed to get epoch data from backend');
+        _log.warn('Failed to get epoch data from backend');
         return;
       }
 
       final newEpoch = epochData.epoch;
-      _logger
-          .d('Backend reports epoch: $newEpoch, tracked epoch: $_currentEpoch');
+      LoggingService.instance.debug(
+          'Backend reports epoch: $newEpoch, tracked epoch: $_currentEpoch');
 
       // Check if epoch has changed
       if (_currentEpoch == null || newEpoch != _currentEpoch) {
-        _logger.i('Epoch transition detected: $_currentEpoch → $newEpoch');
+        _log.info('Epoch transition detected: $_currentEpoch → $newEpoch');
         await _handleEpochTransition(newEpoch);
       } else {
-        _logger.d('No epoch change detected (still epoch $newEpoch)');
+        _log.debug('No epoch change detected (still epoch $newEpoch)');
       }
 
       // Adjust monitoring frequency based on epoch progress
@@ -179,21 +180,21 @@ class EpochSlotSchedulerService {
       // Persist last check time
       await _persistState();
     } catch (e) {
-      _logger.e('Error checking for epoch transition: $e');
+      _log.error('Error checking for epoch transition: $e');
     }
   }
 
   /// Handle epoch transition event
   Future<void> _handleEpochTransition(int newEpoch) async {
     try {
-      _logger.i('Handling epoch transition to epoch $newEpoch');
+      _log.info('Handling epoch transition to epoch $newEpoch');
 
       final oldEpoch = _currentEpoch;
       _currentEpoch = newEpoch;
 
       // Cancel all old epoch alarms
       if (_scheduledSlots.isNotEmpty) {
-        _logger.i('Cancelling ${_scheduledSlots.length} alarms from old epoch');
+        _log.info('Cancelling ${_scheduledSlots.length} alarms from old epoch');
         await cancelAllSlots();
       }
 
@@ -201,21 +202,21 @@ class EpochSlotSchedulerService {
       await _notifyEpochTransition(oldEpoch, newEpoch);
 
       // Auto-reschedule slots for new epoch
-      _logger.i('Auto-rescheduling slots for new epoch $newEpoch');
+      _log.info('Auto-rescheduling slots for new epoch $newEpoch');
       final result = await scheduleEpochSlots(epoch: newEpoch);
 
       if (result.success) {
-        _logger.i(
+        _log.info(
             'Successfully rescheduled ${result.slotsScheduled} slots for epoch $newEpoch');
       } else {
-        _logger.e(
+        _log.error(
             'Failed to reschedule slots for epoch $newEpoch: ${result.error}');
       }
 
       // Persist updated epoch
       await _persistState();
     } catch (e) {
-      _logger.e('Error handling epoch transition: $e');
+      _log.error('Error handling epoch transition: $e');
     }
   }
 
@@ -224,7 +225,7 @@ class EpochSlotSchedulerService {
     final message = oldEpoch != null
         ? 'Epoch $oldEpoch → $newEpoch. Rescheduling won slots...'
         : 'Now tracking epoch $newEpoch. Scheduling won slots...';
-    _logger.i('Epoch transition: $message');
+    _log.info('Epoch transition: $message');
   }
 
   /// Schedule alarms for all won slots in the specified epoch
@@ -237,7 +238,7 @@ class EpochSlotSchedulerService {
   }) async {
     advanceTime ??= BlockchainTiming.alarmAdvanceTime;
     if (!_initialized) {
-      _logger.w('Cannot schedule slots: service not initialized');
+      _log.warn('Cannot schedule slots: service not initialized');
       return SchedulingResult(
         success: false,
         error: 'Service not initialized',
@@ -245,12 +246,12 @@ class EpochSlotSchedulerService {
     }
 
     try {
-      _logger.i('Querying won slots for epoch ${epoch ?? "current"}...');
+      _log.info('Querying won slots for epoch ${epoch ?? "current"}...');
 
       // Query Rust backend for won slots
       final rpc = RustBackendService.instance.rpc;
       if (rpc == null) {
-        _logger.w('RPC service not available');
+        _log.warn('RPC service not available');
         return SchedulingResult(
           success: false,
           error: 'RPC service not available',
@@ -265,7 +266,7 @@ class EpochSlotSchedulerService {
       if (epochData == null ||
           epochData.wonSlots == null ||
           epochData.wonSlots!.isEmpty) {
-        _logger.i('No won slots found for epoch ${epochData?.epoch ?? epoch}');
+        _log.info('No won slots found for epoch ${epochData?.epoch ?? epoch}');
 
         // Update current epoch even if no slots won
         if (epochData != null) {
@@ -280,7 +281,7 @@ class EpochSlotSchedulerService {
         );
       }
 
-      _logger.i(
+      _log.info(
           'Found ${epochData.wonSlots!.length} won slots for epoch ${epochData.epoch}');
 
       // Update current epoch
@@ -307,9 +308,9 @@ class EpochSlotSchedulerService {
             epoch: epochData.epoch,
             slotTime: slotTime,
           );
-          _logger.d('Recorded won slot ${wonSlot.globalSlot} to statistics');
+          _log.debug('Recorded won slot ${wonSlot.globalSlot} to statistics');
         } catch (e) {
-          _logger.w('Failed to record won slot ${wonSlot.globalSlot}: $e');
+          _log.warn('Failed to record won slot ${wonSlot.globalSlot}: $e');
         }
 
         // Only schedule future slots
@@ -329,14 +330,14 @@ class EpochSlotSchedulerService {
             failureCount++;
           }
         } else {
-          _logger.d('Skipping past slot ${wonSlot.globalSlot}');
+          _log.debug('Skipping past slot ${wonSlot.globalSlot}');
         }
       }
 
       _scheduledSlots = newSlots;
       await _persistState();
 
-      _logger.i(
+      _log.info(
         'Scheduled $successCount slots successfully, $failureCount failures for epoch ${epochData.epoch}',
       );
 
@@ -347,7 +348,7 @@ class EpochSlotSchedulerService {
         message: 'Scheduled $successCount slots for epoch ${epochData.epoch}',
       );
     } catch (e) {
-      _logger.e('Error scheduling epoch slots: $e');
+      _log.error('Error scheduling epoch slots: $e');
       return SchedulingResult(
         success: false,
         error: e.toString(),
@@ -358,7 +359,7 @@ class EpochSlotSchedulerService {
   /// Schedule alarm for a specific slot
   Future<bool> _scheduleSlotAlarm(ScheduledSlot slot) async {
     try {
-      _logger.d(
+      _log.debug(
         'Scheduling alarm for slot ${slot.slotNumber} at ${slot.alarmTime}',
       );
 
@@ -375,14 +376,14 @@ class EpochSlotSchedulerService {
       );
 
       if (success) {
-        _logger.i('Successfully scheduled alarm for slot ${slot.slotNumber}');
+        _log.info('Successfully scheduled alarm for slot ${slot.slotNumber}');
       } else {
-        _logger.w('Failed to schedule alarm for slot ${slot.slotNumber}');
+        _log.warn('Failed to schedule alarm for slot ${slot.slotNumber}');
       }
 
       return success;
     } catch (e) {
-      _logger.e('Error scheduling slot alarm: $e');
+      _log.error('Error scheduling slot alarm: $e');
       return false;
     }
   }
@@ -390,7 +391,7 @@ class EpochSlotSchedulerService {
   /// Cancel all scheduled slot alarms
   Future<void> cancelAllSlots() async {
     try {
-      _logger.i('Cancelling ${_scheduledSlots.length} scheduled slots');
+      _log.info('Cancelling ${_scheduledSlots.length} scheduled slots');
 
       for (final slot in _scheduledSlots) {
         await _cancelSlotAlarm(slot);
@@ -399,9 +400,9 @@ class EpochSlotSchedulerService {
       _scheduledSlots.clear();
       await _persistState();
 
-      _logger.i('All slots cancelled');
+      _log.info('All slots cancelled');
     } catch (e) {
-      _logger.e('Error cancelling all slots: $e');
+      _log.error('Error cancelling all slots: $e');
     }
   }
 
@@ -410,9 +411,9 @@ class EpochSlotSchedulerService {
     try {
       final alarmId = 'slot_${slot.slotNumber}';
       await PlatformAlarmService.instance.cancelAlarm(alarmId);
-      _logger.d('Cancelled alarm for slot ${slot.slotNumber}');
+      _log.debug('Cancelled alarm for slot ${slot.slotNumber}');
     } catch (e) {
-      _logger.e('Error cancelling slot alarm: $e');
+      _log.error('Error cancelling slot alarm: $e');
     }
   }
 
@@ -453,7 +454,7 @@ class EpochSlotSchedulerService {
 
       // Load current epoch
       _currentEpoch = prefs.getInt(_prefKeyCurrentEpoch);
-      _logger.d('Loaded persisted epoch: $_currentEpoch');
+      _log.debug('Loaded persisted epoch: $_currentEpoch');
 
       // Load scheduled slots
       final slotsJson = prefs.getString(_prefKeyScheduledSlots);
@@ -462,17 +463,17 @@ class EpochSlotSchedulerService {
         _scheduledSlots = slotsList
             .map((json) => ScheduledSlot.fromJson(json as Map<String, dynamic>))
             .toList();
-        _logger.d('Loaded ${_scheduledSlots.length} persisted slots');
+        _log.debug('Loaded ${_scheduledSlots.length} persisted slots');
       }
 
       // Load last check time
       final lastCheckMs = prefs.getInt(_prefKeyLastCheck);
       if (lastCheckMs != null) {
         _lastEpochCheck = DateTime.fromMillisecondsSinceEpoch(lastCheckMs);
-        _logger.d('Last epoch check was at: $_lastEpochCheck');
+        _log.debug('Last epoch check was at: $_lastEpochCheck');
       }
     } catch (e) {
-      _logger.e('Error loading persisted state: $e');
+      _log.error('Error loading persisted state: $e');
     }
   }
 
@@ -500,10 +501,10 @@ class EpochSlotSchedulerService {
         );
       }
 
-      _logger.d(
+      _log.debug(
           'Persisted state: epoch $_currentEpoch, ${_scheduledSlots.length} slots');
     } catch (e) {
-      _logger.e('Error persisting state: $e');
+      _log.error('Error persisting state: $e');
     }
   }
 
@@ -512,14 +513,14 @@ class EpochSlotSchedulerService {
   /// Returns null if current epoch is unknown or backend is unavailable.
   Future<DateTime?> getEpochEndTime() async {
     if (_currentEpoch == null) {
-      _logger.d('Cannot calculate epoch end time: current epoch unknown');
+      _log.debug('Cannot calculate epoch end time: current epoch unknown');
       return null;
     }
 
     try {
       final status = await RustBackendService.instance.getStatus();
       if (status?.blockchain == null) {
-        _logger.w(
+        _log.warn(
             'Cannot calculate epoch end time: blockchain status unavailable');
         return null;
       }
@@ -527,8 +528,7 @@ class EpochSlotSchedulerService {
       // Use backend-provided current global slot
       final currentGlobalSlot = status!.node.curGlobalSlot;
       if (currentGlobalSlot == null) {
-        // TODO: Decide fallback strategy when curGlobalSlot is unavailable
-        _logger.w('curGlobalSlot unavailable from backend');
+        _log.warn('curGlobalSlot unavailable from backend');
         return null;
       }
 
@@ -537,8 +537,7 @@ class EpochSlotSchedulerService {
         readyToEvaluate: (_, __, ___, upperBound, ____, _____) => upperBound,
       );
       if (epochEndSlot == null) {
-        // TODO: Decide fallback strategy when epochUpperBound is unavailable
-        _logger.w('epochUpperBound unavailable from VRF evaluator');
+        _log.warn('epochUpperBound unavailable from VRF evaluator');
         return null;
       }
 
@@ -551,7 +550,7 @@ class EpochSlotSchedulerService {
 
       return epochEndTime;
     } catch (e) {
-      _logger.e('Error calculating epoch end time: $e');
+      _log.error('Error calculating epoch end time: $e');
       return null;
     }
   }
@@ -561,14 +560,14 @@ class EpochSlotSchedulerService {
   /// Returns null if current epoch is unknown or backend is unavailable.
   Future<double?> getEpochProgress() async {
     if (_currentEpoch == null) {
-      _logger.d('Cannot calculate epoch progress: current epoch unknown');
+      _log.debug('Cannot calculate epoch progress: current epoch unknown');
       return null;
     }
 
     try {
       final status = await RustBackendService.instance.getStatus();
       if (status?.blockchain == null) {
-        _logger.w(
+        _log.warn(
             'Cannot calculate epoch progress: blockchain status unavailable');
         return null;
       }
@@ -576,8 +575,7 @@ class EpochSlotSchedulerService {
       // Use backend-provided current global slot
       final currentGlobalSlot = status!.node.curGlobalSlot;
       if (currentGlobalSlot == null) {
-        // TODO: Decide fallback strategy when curGlobalSlot is unavailable
-        _logger.w('curGlobalSlot unavailable from backend');
+        _log.warn('curGlobalSlot unavailable from backend');
         return null;
       }
 
@@ -586,8 +584,7 @@ class EpochSlotSchedulerService {
         readyToEvaluate: (_, __, ___, upperBound, ____, _____) => upperBound,
       );
       if (epochUpperBound == null) {
-        // TODO: Decide fallback strategy when epochUpperBound is unavailable
-        _logger.w('epochUpperBound unavailable from VRF evaluator');
+        _log.warn('epochUpperBound unavailable from VRF evaluator');
         return null;
       }
 
@@ -601,7 +598,7 @@ class EpochSlotSchedulerService {
 
       return progress.clamp(0.0, 1.0);
     } catch (e) {
-      _logger.e('Error calculating epoch progress: $e');
+      _log.error('Error calculating epoch progress: $e');
       return null;
     }
   }

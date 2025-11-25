@@ -25,7 +25,8 @@ typedef ListBlockchainFn = Future<RpcListBlockchainResp?> Function(
     {int? limit, bool? fromTip});
 typedef ListMempoolFn = Future<RpcListMempoolResp?> Function();
 typedef EpochRewardsFn = Future<RpcEpochRewardsResp?> Function({int? epoch});
-typedef GetStatusFn = Future<RpcStatusResp?> Function();
+typedef GetStatusFn = Future<RpcStatusResp?> Function(
+    {bool? includeLastReorg, bool includeVrfDetails});
 typedef BuildEnvFn = BuildInfo Function();
 typedef ListUtxosByOwnerFn = Future<RpcListUtxosByOwnerResp?> Function(
     {required PublicKeyHash owner, int? limit});
@@ -51,7 +52,7 @@ void main() {
       expect(f, isNotNull);
     });
 
-    test('getStatus()', () {
+    test('getStatus({bool? includeLastReorg, bool? includeVrfDetails})', () {
       final GetStatusFn f = RustBackendService.instance.getStatus;
       expect(f, isNotNull);
     });

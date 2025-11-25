@@ -3,8 +3,11 @@ import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import 'package:crypto_mobile_app/core/models/block_production_event.dart';
+import 'package:crypto_mobile_app/features/metrics/data/models/metrics_payload.dart';
 import 'package:crypto_mobile_app/features/metrics/data/repositories/metrics_repository.dart';
 import 'package:crypto_mobile_app/features/metrics/domain/services/metrics_collector_service.dart';
+
+final _log = LoggingService.instance.withTag(LogTag.metrics);
 
 /// Callback type for fetching wallet data
 typedef WalletDataCallback = Future<({double? balance, String? address})>
@@ -54,17 +57,15 @@ class MetricsReportingService {
     _eventSubscription = eventStream.listen(
       (event) => _handleBlockProductionEvent(event),
       onError: (error) {
-        LoggingService.instance.error(
+        _log.error(
           'Error in block production event stream',
-          tag: LogTag.metrics,
           error: error,
         );
       },
     );
 
-    LoggingService.instance.info(
+    _log.trace(
       'Started listening to block production events for metrics',
-      tag: LogTag.metrics,
     );
   }
 
@@ -79,9 +80,8 @@ class MetricsReportingService {
     if (!_isRunning || _repository == null) return;
 
     try {
-      LoggingService.instance.trace(
+      _log.debug(
         'Handling block production event: ${event.eventType}',
-        tag: LogTag.metrics,
       );
 
       // Fetch wallet data if needed
@@ -106,31 +106,10 @@ class MetricsReportingService {
         walletAddress: walletAddress,
       );
 
-      // Send metrics to API
-      final success = await _repository!.sendMetrics(payload);
-
-      if (success) {
-        _successCount++;
-        _lastReportTime = DateTime.now();
-        LoggingService.instance.trace(
-          'Event metrics reported successfully',
-          tag: LogTag.metrics,
-          context: {
-            'event_type': event.eventType,
-          },
-        );
-      } else {
-        _failureCount++;
-      }
-    } catch (e, stackTrace) {
-      _failureCount++;
-      LoggingService.instance.error(
-        'Error reporting event metrics',
-        tag: LogTag.metrics,
-        error: e,
-        stackTrace: stackTrace,
-        context: {'event_type': event.eventType},
-      );
+      // Fire and forget - send metrics without blocking
+      _sendMetricsAsync(payload, eventType: event.eventType);
+    } catch (e) {
+      _log.debug('Error collecting event metrics: $e');
     }
   }
 
@@ -140,26 +119,23 @@ class MetricsReportingService {
   /// also call startListeningToEvents() with the orchestrator's event stream.
   Future<void> start() async {
     if (_isRunning) {
-      LoggingService.instance.warn(
+      _log.warn(
         'Metrics reporting already running',
-        tag: LogTag.metrics,
       );
       return;
     }
 
     // Check if metrics are enabled in environment
     if (!AppConfig.metricsEnabled) {
-      LoggingService.instance.info(
+      _log.warn(
         'Metrics reporting is disabled in environment',
-        tag: LogTag.metrics,
       );
       return;
     }
 
     if (AppConfig.metricsEndpoint.isEmpty) {
-      LoggingService.instance.warn(
+      _log.warn(
         'Cannot start metrics reporting: API endpoint not configured',
-        tag: LogTag.metrics,
       );
       return;
     }
@@ -167,9 +143,8 @@ class MetricsReportingService {
     // Use the new configuration for metrics collection interval
     final intervalDuration = AppConfig.metricsCollectionInterval;
 
-    LoggingService.instance.info(
+    _log.trace(
       'Starting metrics reporting',
-      tag: LogTag.metrics,
       context: {
         'endpoint': AppConfig.metricsEndpoint,
         'interval_seconds': AppConfig.metricsCollectionIntervalSeconds,
@@ -187,9 +162,8 @@ class MetricsReportingService {
     // Test connection
     final connected = await _repository!.testConnection();
     if (!connected) {
-      LoggingService.instance.warn(
+      _log.warn(
         'Failed to connect to metrics API',
-        tag: LogTag.metrics,
         context: {'endpoint': AppConfig.metricsEndpoint},
       );
       // Continue anyway - connection might be restored later
@@ -207,9 +181,8 @@ class MetricsReportingService {
   Future<void> stop() async {
     if (!_isRunning) return;
 
-    LoggingService.instance.info(
+    _log.debug(
       'Stopping metrics reporting',
-      tag: LogTag.metrics,
       context: {
         'success_count': _successCount,
         'failure_count': _failureCount,
@@ -227,9 +200,8 @@ class MetricsReportingService {
   /// Manually trigger a metrics report (outside of periodic schedule)
   Future<void> reportNow() async {
     if (!_isRunning) {
-      LoggingService.instance.warn(
+      _log.warn(
         'Cannot report metrics: service not running',
-        tag: LogTag.metrics,
       );
       return;
     }
@@ -245,9 +217,8 @@ class MetricsReportingService {
       _reportMetrics();
     });
 
-    LoggingService.instance.debug(
+    _log.trace(
       'Periodic metrics reporting started',
-      tag: LogTag.metrics,
       context: {'interval': interval.toString()},
     );
   }
@@ -257,9 +228,8 @@ class MetricsReportingService {
     if (_repository == null) return;
 
     try {
-      LoggingService.instance.trace(
+      _log.trace(
         'Collecting and reporting metrics',
-        tag: LogTag.metrics,
       );
 
       // Fetch wallet data if callback is set
@@ -272,9 +242,8 @@ class MetricsReportingService {
           walletBalance = walletData.balance;
           walletAddress = walletData.address;
         } catch (e) {
-          LoggingService.instance.warn(
+          _log.warn(
             'Error fetching wallet data: $e',
-            tag: LogTag.metrics,
           );
           // Continue without wallet data
         }
@@ -286,36 +255,35 @@ class MetricsReportingService {
         walletAddress: walletAddress,
       );
 
-      // Send metrics to API
-      final success = await _repository!.sendMetrics(payload);
+      // Fire and forget - send metrics without blocking
+      _sendMetricsAsync(payload);
+    } catch (e) {
+      _log.debug('Error collecting metrics: $e');
+    }
+  }
 
+  /// Send metrics asynchronously without blocking the caller
+  ///
+  /// This is a fire-and-forget operation - errors are logged but not propagated.
+  void _sendMetricsAsync(MetricsPayload payload, {String? eventType}) {
+    if (_repository == null) return;
+
+    // Use unawaited future to explicitly indicate fire-and-forget
+    _repository!.sendMetrics(payload).then((success) {
       if (success) {
         _successCount++;
         _lastReportTime = DateTime.now();
-        LoggingService.instance.trace(
-          'Metrics reported successfully',
-          tag: LogTag.metrics,
-          context: {
-            'peer_id': payload.node.identity.peerId,
-            'node_state': payload.node.status?.nodeState ?? 'unknown',
-          },
+        _log.trace(
+          'Metrics sent',
+          context: eventType != null ? {'event_type': eventType} : null,
         );
       } else {
         _failureCount++;
-        LoggingService.instance.debug(
-          'Failed to report metrics',
-          tag: LogTag.metrics,
-        );
       }
-    } catch (e, stackTrace) {
+    }).catchError((e) {
       _failureCount++;
-      LoggingService.instance.error(
-        'Error reporting metrics',
-        tag: LogTag.metrics,
-        error: e,
-        stackTrace: stackTrace,
-      );
-    }
+      _log.debug('Metrics send error: $e');
+    });
   }
 
   /// Get current metrics stats

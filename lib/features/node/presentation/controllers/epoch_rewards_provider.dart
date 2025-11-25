@@ -42,8 +42,8 @@ class EpochRewardsController extends AsyncNotifier<EpochRewardsState?> {
 
   @override
   Future<EpochRewardsState?> build() async {
-    // Depend on status to get epoch value
-    final statusAsync = ref.watch(nodeStatusProvider);
+    // Read status to get epoch value (use read, not watch, to avoid rebuilds on every status update)
+    final statusAsync = ref.read(nodeStatusProvider);
     final epoch = statusAsync.value?.epoch;
 
     final cache = EpochRewardsCacheRepository();

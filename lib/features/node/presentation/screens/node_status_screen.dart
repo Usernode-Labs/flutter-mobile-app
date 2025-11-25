@@ -78,8 +78,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       ref.refresh(nodeMempoolProvider.future);
       // ignore: unused_result
       ref.refresh(nodeBlockchainProvider.future);
-      // ignore: unused_result
-      ref.refresh(epochRewardsProvider.future);
+      await ref.read(epochRewardsProvider.notifier).refresh();
 
       // Check if still mounted after async operations
       if (!mounted) return;

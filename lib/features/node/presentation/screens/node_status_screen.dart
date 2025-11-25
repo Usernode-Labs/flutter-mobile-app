@@ -9,14 +9,15 @@ import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:crypto_mobile_app/core/widgets/produced_block_card.dart';
 import 'package:crypto_mobile_app/core/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'node_peers_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/node_status_provider.dart';
-import 'package:crypto_mobile_app/features/node/domain/entities/node_status.dart';
+import 'package:crypto_mobile_app/features/node/presentation/controllers/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/node_data_providers.dart';
-import 'package:crypto_mobile_app/features/node/presentation/controllers/node_raw_status_provider.dart';
-import 'package:crypto_mobile_app/features/node/presentation/controllers/sync_status_provider.dart';
+
+final _log = LoggingService.instance.withTag(LogTag.node);
 
 class NodeStatusScreen extends ConsumerStatefulWidget {
   const NodeStatusScreen({super.key});
@@ -71,29 +72,28 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     });
     try {
       // Refresh providers
-      // Note: nodeStatusProvider is now derived from nodeRawStatusProvider,
-      // so we only need to refresh nodeRawStatusProvider
-      await ref.read(nodeRawStatusProvider.notifier).refresh();
+      // Refresh all providers
+      await ref.read(nodeStatusProvider.notifier).refresh();
       // ignore: unused_result
       ref.refresh(nodeMempoolProvider.future);
       // ignore: unused_result
       ref.refresh(nodeBlockchainProvider.future);
       // ignore: unused_result
-      ref.refresh(nodeEpochRewardsProvider.future);
+      ref.refresh(epochRewardsProvider.future);
 
       // Check if still mounted after async operations
       if (!mounted) return;
 
-      // Get the raw status for UI state
-      final raw = ref.read(nodeRawStatusProvider).value;
-      if (raw != null) {
-        final localBestTip = raw.localBest;
-        final networkBestTip = raw.networkBest;
+      // Get the status for UI state
+      final status = ref.read(nodeStatusProvider).value;
+      if (status != null) {
+        final localBestTip = status.localBest;
+        final networkBestTip = status.networkBest;
         final displayBestTip = networkBestTip ?? localBestTip;
 
         if (!mounted) return;
         setState(() {
-          _peers = raw.peers;
+          _peers = status.peers;
           _currentBlockHeight = localBestTip?.height;
           _networkBestTipHeight = networkBestTip?.height;
           _bestTipGlobalSlot = displayBestTip?.globalSlot;
@@ -101,7 +101,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
           _lastChecked = DateTime.now();
 
           // Cache rewards data
-          final rewardsData = ref.read(nodeEpochRewardsProvider).value;
+          final rewardsData = ref.read(epochRewardsProvider).value;
           if (rewardsData != null) {
             _producedInEpoch = rewardsData.producedInEpoch;
             _winsInEpoch = rewardsData.winsInEpoch;
@@ -111,15 +111,12 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       }
     } on StateError catch (e, st) {
       // Happens if a late timer tick fires after disposal; just log quietly.
-      LoggingService.instance
-          .debug('Skipped refresh on disposed node screen', tag: 'NODE');
-      LoggingService.instance
-          .debug('StateError during refresh: $e', tag: 'NODE');
-      LoggingService.instance.debug('Stack trace: $st', tag: 'NODE');
+      LoggingService.instance.debug('Skipped refresh on disposed node screen');
+      LoggingService.instance.debug('StateError during refresh: $e');
+      _log.debug('Stack trace: $st');
       return;
     } catch (e, st) {
-      LoggingService.instance
-          .error('Refresh failed', tag: 'NODE', error: e, stackTrace: st);
+      LoggingService.instance.error('Refresh failed', error: e, stackTrace: st);
       if (mounted) {
         setState(() {
           _error = e.toString();
@@ -289,18 +286,18 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   }
 
   Widget _buildOverviewSection(
-      BuildContext context, NodeStatus? statusFromProvider) {
+      BuildContext context, NodeStatusState? statusFromProvider) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final sync = ref.watch(syncStatusProvider);
-    final isSynced = sync.isSynced;
+    final sync = statusFromProvider?.syncStatus;
+    final isSynced = sync?.isSynced ?? false;
 
     // Calculate sync percentage - now based on applied blocks progress from sync status
-    final syncPercentage = sync.progress;
+    final syncPercentage = sync?.progress ?? 0.0;
 
     // Determine what to display for block counts
     String blockDisplayText;
-    if (sync.isConnecting) {
+    if (sync == null || sync.isConnecting) {
       // Don't show block count when connecting
       blockDisplayText = '';
     } else if (sync.appliedBlocks != null && sync.targetBlocks != null) {
@@ -325,14 +322,10 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       connectedPeers = statusFromProvider.connectedPeers;
       totalPeers = statusFromProvider.totalPeers;
     } else {
-      final raw = ref.watch(nodeRawStatusProvider).value;
-      if (raw != null) {
-        int c = 0;
-        for (final p in raw.peers) {
-          if (p.connectionStatus == PeerConnectionStatus.connected) c++;
-        }
-        connectedPeers = c;
-        totalPeers = raw.peers.length;
+      final status = ref.watch(nodeStatusProvider).value;
+      if (status != null) {
+        connectedPeers = status.connectedPeers;
+        totalPeers = status.totalPeers;
       } else {
         connectedPeers = 0;
         totalPeers = 0;
@@ -345,7 +338,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     final String statusLabel;
     final Color accentColor;
 
-    if (sync.isConnecting) {
+    if (sync == null || sync.isConnecting) {
       statusIcon = Icons.hourglass_empty;
       statusLabel = 'Connecting';
       accentColor = colorScheme.outline;
@@ -464,9 +457,10 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                     : colorScheme.error.withValues(alpha: 0.7),
                 colorScheme: colorScheme,
                 onTap: () {
-                  final raw = ref.read(nodeRawStatusProvider).value;
-                  final peers =
-                      (raw?.peers.isNotEmpty == true) ? raw!.peers : _peers;
+                  final status = ref.read(nodeStatusProvider).value;
+                  final peers = (status?.peers.isNotEmpty == true)
+                      ? status!.peers
+                      : _peers;
                   if (peers.isEmpty) return;
                   Navigator.of(context).push(
                     MaterialPageRoute(
@@ -503,12 +497,12 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
           builder: (context) {
             // Extract values first
             final produced =
-                ref.watch(nodeEpochRewardsProvider).value?.producedInEpoch ??
+                ref.watch(epochRewardsProvider).value?.producedInEpoch ??
                     _producedInEpoch ??
                     0;
             var wonSlots =
-                ref.watch(nodeEpochRewardsProvider).value?.wonSlots?.length ??
-                    ref.watch(nodeEpochRewardsProvider).value?.winsInEpoch ??
+                ref.watch(epochRewardsProvider).value?.wonSlots.length ??
+                    ref.watch(epochRewardsProvider).value?.winsInEpoch ??
                     _winsInEpoch ??
                     0;
 
@@ -519,7 +513,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
             // Get VRF evaluator data for slots information
             final vrfEvaluator =
-                ref.watch(nodeRawStatusProvider).value?.vrfEvaluator;
+                ref.watch(nodeStatusProvider).value?.vrfEvaluator;
             final evaluatedSlots = vrfEvaluator?.evaluatedSlotsSinceStart ?? 0;
             final totalSlotsPerEpoch = BlockchainTiming.slotsPerEpoch;
 
@@ -590,17 +584,17 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                 icon: Icons.toll,
                 label: 'Best Tip',
                 lines: () {
-                  final raw = ref.watch(nodeRawStatusProvider).value;
-                  final localBestTip = raw?.localBest;
-                  final networkBestTip = raw?.networkBest;
+                  final status = ref.watch(nodeStatusProvider).value;
+                  final localBestTip = status?.localBest;
+                  final networkBestTip = status?.networkBest;
                   final displayBestTip = networkBestTip ?? localBestTip;
 
                   if (displayBestTip == null) return ['N/A'];
 
                   final height = displayBestTip.height;
                   final hash = displayBestTip.hash.toString();
-                  final epoch = raw?.epoch ?? _bestTipEpoch;
-                  final slot = raw?.globalSlot ?? _bestTipGlobalSlot;
+                  final epoch = status?.epoch ?? _bestTipEpoch;
+                  final slot = status?.globalSlot ?? _bestTipGlobalSlot;
 
                   final formattedHeight =
                       'Height ${NumberFormat('#,###').format(height)}';
@@ -922,9 +916,9 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   Widget _buildSyncDetailsSubsection(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final raw = ref.watch(nodeRawStatusProvider).value;
-    final fetchProgress = raw?.fetchProgress;
-    final applyProgress = raw?.applyProgress;
+    final status = ref.watch(nodeStatusProvider).value;
+    final fetchProgress = status?.fetchProgress;
+    final applyProgress = status?.applyProgress;
 
     // Calculate percentages
     double fetchPercentage = 0.0;
@@ -1397,8 +1391,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final blockchain = ref.watch(nodeBlockchainProvider).value;
-    final raw = ref.watch(nodeRawStatusProvider).value;
-    final rewards = ref.watch(nodeEpochRewardsProvider).value;
+    final status = ref.watch(nodeStatusProvider).value;
+    final rewards = ref.watch(epochRewardsProvider).value;
 
     if (blockchain == null || blockchain.items.isEmpty) {
       return Center(
@@ -1416,7 +1410,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
     // Display blocks from the blockchain
     final blocks = blockchain.items.take(10).toList();
-    final bestTipSlot = raw?.globalSlot ?? _bestTipGlobalSlot;
+    final bestTipSlot = status?.globalSlot ?? _bestTipGlobalSlot;
     final rewardPerBlock =
         rewards?.rewardPerBlock ?? _rewardPerBlock ?? BigInt.zero;
 

@@ -5,7 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/core/widgets/produced_block_card.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/node_data_providers.dart';
-import 'package:crypto_mobile_app/features/node/presentation/controllers/node_raw_status_provider.dart';
+import 'package:crypto_mobile_app/features/node/presentation/controllers/epoch_rewards_provider.dart';
+import 'package:crypto_mobile_app/features/node/presentation/controllers/node_status_provider.dart';
 
 class ProducedBlocksScreen extends ConsumerStatefulWidget {
   const ProducedBlocksScreen({super.key});
@@ -41,7 +42,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen> {
     try {
       await Future.wait([
         ref.read(nodeBlockchainProvider.notifier).refresh(),
-        ref.read(nodeRawStatusProvider.notifier).refresh(),
+        ref.read(nodeStatusProvider.notifier).refresh(),
       ]);
     } finally {
       if (mounted) {
@@ -55,8 +56,8 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final blockchainAsync = ref.watch(nodeBlockchainProvider);
-    final raw = ref.watch(nodeRawStatusProvider).value;
-    final rewardsAsync = ref.watch(nodeEpochRewardsProvider);
+    final status = ref.watch(nodeStatusProvider).value;
+    final rewardsAsync = ref.watch(epochRewardsProvider);
 
     final blockchain = blockchainAsync.value;
     final rewards = rewardsAsync.value;
@@ -84,7 +85,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen> {
             );
           }
 
-          final bestTipSlot = raw?.globalSlot;
+          final bestTipSlot = status?.globalSlot;
           final items = blockchain.items.take(100).toList();
 
           return ListView.separated(

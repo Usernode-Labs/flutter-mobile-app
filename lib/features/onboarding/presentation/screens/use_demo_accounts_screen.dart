@@ -288,10 +288,13 @@ class _UseDemoAccountsScreenState extends ConsumerState<UseDemoAccountsScreen> {
                                 ),
                                 title: Row(
                                   children: [
-                                    Text(
-                                      account.tierDisplay,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
+                                    Flexible(
+                                      child: Text(
+                                        account.tierDisplay,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                     const SizedBox(width: 8),

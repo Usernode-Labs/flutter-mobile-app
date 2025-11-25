@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/features/profile/domain/entities/user_tier.dart';
 import 'package:crypto_mobile_app/features/profile/domain/services/points_calculator.dart';
-import 'package:crypto_mobile_app/features/rewards/presentation/controllers/epoch_rewards_provider.dart';
+import 'package:crypto_mobile_app/features/node/presentation/controllers/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
 
 /// User tier provider that calculates tier/points/multiplier for current and next epoch
@@ -11,7 +11,7 @@ class UserTierController extends Notifier<UserTierState> {
   @override
   UserTierState build() {
     // Watch epoch rewards to reactively update when blocks are produced
-    final rewardsAsync = ref.watch(epochRewardsUiProvider);
+    final rewardsAsync = ref.watch(epochRewardsProvider);
 
     // Extract data from rewards (if available)
     final blocksProduced = rewardsAsync.value?.snapshot != null

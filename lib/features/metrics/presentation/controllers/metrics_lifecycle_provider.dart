@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
-import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import 'package:crypto_mobile_app/features/metrics/domain/services/metrics_reporting_service.dart';
 import 'package:crypto_mobile_app/core/services/background_block_production_orchestrator.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
@@ -11,14 +11,15 @@ import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_s
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+final _log = LoggingService.instance.withTag(LogTag.metrics);
+
 /// Provider that manages the lifecycle of metrics reporting
 /// Starts metrics service at initialization if enabled in environment
 final metricsLifecycleProvider = Provider<void>((ref) {
   // Start metrics service on initialization if enabled
   if (AppConfig.metricsEnabled && AppConfig.metricsEndpoint.isNotEmpty) {
-    LoggingService.instance.debug(
+    _log.debug(
       'Metrics enabled in environment - starting service',
-      tag: LogTag.metrics,
       context: {
         'endpoint': AppConfig.metricsEndpoint,
         'interval_seconds': AppConfig.metricsInterval,
@@ -36,14 +37,12 @@ final metricsLifecycleProvider = Provider<void>((ref) {
       BackgroundBlockProductionOrchestrator.instance.events,
     );
 
-    LoggingService.instance.debug(
+    _log.debug(
       'Connected metrics reporting to block production events',
-      tag: LogTag.metrics,
     );
   } else {
-    LoggingService.instance.debug(
+    _log.debug(
       'Metrics disabled or not configured',
-      tag: LogTag.metrics,
       context: {
         'enabled': AppConfig.metricsEnabled,
         'endpoint_configured': AppConfig.metricsEndpoint.isNotEmpty,
@@ -78,9 +77,8 @@ Future<({double? balance, String? address})> _fetchWalletData() async {
 
     // Only fetch UTXOs if address is in UTXO format (starts with 'ut')
     if (!activeAccount.address.startsWith('ut')) {
-      LoggingService.instance.debug(
+      _log.debug(
         'Account address not in UTXO format, skipping balance calculation',
-        tag: LogTag.metrics,
         context: {'address': activeAccount.address},
       );
       return (balance: null, address: activeAccount.address);
@@ -109,9 +107,8 @@ Future<({double? balance, String? address})> _fetchWalletData() async {
         }
       } catch (e) {
         // Skip this UTXO if parsing fails, but log for debugging
-        LoggingService.instance.debug(
+        _log.debug(
           'Failed to parse UTXO for balance calculation',
-          tag: LogTag.metrics,
           context: {'error': e.toString()},
         );
       }
@@ -121,9 +118,8 @@ Future<({double? balance, String? address})> _fetchWalletData() async {
     const decimals = 8;
     final balanceDouble = totalBalance.toDouble() / pow(10, decimals);
 
-    LoggingService.instance.debug(
+    _log.debug(
       'Calculated wallet balance from UTXOs',
-      tag: LogTag.metrics,
       context: {
         'utxo_count': utxos.length,
         'raw_balance': totalBalance.toString(),
@@ -137,9 +133,8 @@ Future<({double? balance, String? address})> _fetchWalletData() async {
     );
   } catch (e) {
     // Log error but don't fail metrics collection
-    LoggingService.instance.warn(
+    _log.warn(
       'Failed to fetch wallet data for metrics',
-      tag: LogTag.metrics,
       context: {'error': e.toString()},
     );
     return (balance: null, address: null);

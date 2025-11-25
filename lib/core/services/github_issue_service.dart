@@ -3,15 +3,15 @@ import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:http/http.dart' as http;
-import 'package:logger/logger.dart';
+import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-
 import '../config/app_config.dart';
 
-class GitHubIssueService {
-  final Logger _logger;
+final _log = LoggingService.instance.withTag(LogTag.general);
 
-  GitHubIssueService({Logger? logger}) : _logger = logger ?? Logger();
+class GitHubIssueService {
+  GitHubIssueService();
 
   /// Creates a GitHub issue with the provided feedback
   Future<bool> createIssue({
@@ -24,7 +24,7 @@ class GitHubIssueService {
     try {
       final token = AppConfig.githubToken;
       if (token.isEmpty) {
-        _logger.e('GitHub token not configured');
+        _log.error('GitHub token not configured');
         return false;
       }
 
@@ -57,7 +57,7 @@ class GitHubIssueService {
       if (response.statusCode == 201) {
         final issueData = jsonDecode(response.body);
         final issueNumber = issueData['number'];
-        _logger.i('GitHub issue created successfully: #$issueNumber');
+        _log.info('GitHub issue created successfully: #$issueNumber');
 
         // Upload screenshots if provided
         if (screenshots != null && screenshots.isNotEmpty) {
@@ -66,13 +66,13 @@ class GitHubIssueService {
 
         return true;
       } else {
-        _logger.e(
+        _log.error(
           'Failed to create GitHub issue: ${response.statusCode} - ${response.body}',
         );
         return false;
       }
     } catch (e, stackTrace) {
-      _logger.e('Error creating GitHub issue',
+      _log.error('Error creating GitHub issue',
           error: e, stackTrace: stackTrace);
       return false;
     }
@@ -184,7 +184,7 @@ class GitHubIssueService {
         );
       }
     } catch (e) {
-      _logger.e('Error uploading screenshots', error: e);
+      _log.error('Error uploading screenshots', error: e);
     }
   }
 }

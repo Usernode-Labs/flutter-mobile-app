@@ -1,9 +1,12 @@
 import 'dart:async';
-import 'package:logger/logger.dart';
+import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import '../../features/node/data/repositories/rust_backend_service.dart';
 import '../config/blockchain_timing.dart';
 import '../data/slot_production_repository.dart';
 import 'epoch_slot_scheduler_service.dart';
+
+final _log = LoggingService.instance.withTag(LogTag.node);
 
 /// Service responsible for monitoring slot production status in real-time
 ///
@@ -13,7 +16,6 @@ class SlotMonitorService {
   static final SlotMonitorService instance = SlotMonitorService._();
   SlotMonitorService._();
 
-  final Logger _logger = Logger();
   bool _initialized = false;
   bool _isMonitoring = false;
   Timer? _monitoringTimer;
@@ -39,12 +41,12 @@ class SlotMonitorService {
     if (_initialized) return true;
 
     try {
-      _logger.i('SlotMonitorService initializing...');
+      _log.info('SlotMonitorService initializing...');
       _initialized = true;
-      _logger.i('SlotMonitorService initialized');
+      _log.info('SlotMonitorService initialized');
       return true;
     } catch (e) {
-      _logger.e('Error initializing SlotMonitorService: $e');
+      _log.error('Error initializing SlotMonitorService: $e');
       return false;
     }
   }
@@ -55,19 +57,19 @@ class SlotMonitorService {
   /// to track block production state transitions.
   Future<void> startMonitoringSlot(ScheduledSlot slot) async {
     if (!_initialized) {
-      _logger.w('Cannot start monitoring: service not initialized');
+      _log.warn('Cannot start monitoring: service not initialized');
       return;
     }
 
     if (_isMonitoring && _currentSlot?.slotNumber == slot.slotNumber) {
-      _logger.d('Already monitoring slot ${slot.slotNumber}');
+      _log.debug('Already monitoring slot ${slot.slotNumber}');
       return;
     }
 
     // Stop any existing monitoring
     await stopMonitoring();
 
-    _logger.i('Starting monitoring for slot ${slot.slotNumber}');
+    _log.info('Starting monitoring for slot ${slot.slotNumber}');
     _currentSlot = slot;
     _isMonitoring = true;
     _monitoringStartTime = DateTime.now();
@@ -96,7 +98,7 @@ class SlotMonitorService {
   Future<void> stopMonitoring() async {
     if (!_isMonitoring) return;
 
-    _logger.i('Stopping slot monitoring');
+    _log.info('Stopping slot monitoring');
     _monitoringTimer?.cancel();
     _monitoringTimer = null;
     _isMonitoring = false;
@@ -126,13 +128,13 @@ class SlotMonitorService {
     if (!_isMonitoring || _currentSlot == null) return;
 
     _pollAttemptCount++;
-    _logger.d(
+    _log.debug(
         'Poll attempt #$_pollAttemptCount for slot ${_currentSlot!.slotNumber}');
 
     try {
       final status = await RustBackendService.instance.getStatus();
       if (status == null) {
-        _logger.w('No status available from Rust backend');
+        _log.warn('No status available from Rust backend');
 
         // Emit monitoring poll event (failed)
         _eventController.add(SlotMonitoringEvent(
@@ -152,8 +154,7 @@ class SlotMonitorService {
       // Use backend-provided current global slot
       final bestTipSlot = status.node.curGlobalSlot;
       if (bestTipSlot == null) {
-        // TODO: Decide fallback strategy when curGlobalSlot is unavailable
-        _logger.w('curGlobalSlot unavailable from backend, skipping poll');
+        _log.warn('curGlobalSlot unavailable from backend, skipping poll');
 
         // Emit monitoring poll event (failed)
         _eventController.add(SlotMonitoringEvent(
@@ -169,7 +170,7 @@ class SlotMonitorService {
 
       final currentSlotNumber = _currentSlot!.slotNumber;
 
-      _logger.d(
+      _log.debug(
           'Poll #$_pollAttemptCount - Node: $nodeState, BestTip: $bestTipSlot, Target: $currentSlotNumber');
 
       // Emit monitoring poll event (successful)
@@ -185,7 +186,7 @@ class SlotMonitorService {
 
       // Track state transitions
       if (_lastNodeState != nodeState) {
-        _logger.d(
+        _log.debug(
           'Node state transition: ${_lastNodeState ?? "unknown"} → $nodeState',
         );
 
@@ -201,7 +202,7 @@ class SlotMonitorService {
 
       // Check if best tip advanced
       if (_lastBestTipSlot != null && bestTipSlot > _lastBestTipSlot!) {
-        _logger.d('Best tip advanced: $_lastBestTipSlot → $bestTipSlot');
+        _log.debug('Best tip advanced: $_lastBestTipSlot → $bestTipSlot');
 
         _eventController.add(SlotMonitoringEvent(
           type: MonitoringEventType.tipAdvanced,
@@ -223,7 +224,7 @@ class SlotMonitorService {
           _currentSlot!.slotTime.add(BlockchainTiming.monitoringTimeout);
 
       if (now.isAfter(timeoutTime)) {
-        _logger.w('Monitoring timeout for slot $currentSlotNumber');
+        _log.warn('Monitoring timeout for slot $currentSlotNumber');
 
         _eventController.add(SlotMonitoringEvent(
           type: MonitoringEventType.timeout,
@@ -238,16 +239,16 @@ class SlotMonitorService {
             failedTime: now,
             reason: 'Monitoring timeout',
           );
-          _logger.d('Recorded production failure for slot $currentSlotNumber');
+          _log.debug('Recorded production failure for slot $currentSlotNumber');
         } catch (e) {
-          _logger.w(
+          _log.warn(
               'Failed to record production failure for slot $currentSlotNumber: $e');
         }
 
         await stopMonitoring();
       }
     } catch (e) {
-      _logger.e('Error polling node status: $e');
+      _log.error('Error polling node status: $e');
 
       _eventController.add(SlotMonitoringEvent(
         type: MonitoringEventType.error,
@@ -276,7 +277,7 @@ class SlotMonitorService {
       );
 
       // Found it! Slot was successfully produced
-      _logger.i('SUCCESS: Slot $slotNumber was produced!');
+      _log.info('SUCCESS: Slot $slotNumber was produced!');
 
       _eventController.add(SlotMonitoringEvent(
         type: MonitoringEventType.slotProduced,
@@ -292,19 +293,19 @@ class SlotMonitorService {
           blockHeight: ourBlock.height,
           producedTime: DateTime.now(),
         );
-        _logger.d('Recorded production success for slot $slotNumber');
+        _log.debug('Recorded production success for slot $slotNumber');
       } catch (e) {
-        _logger
-            .w('Failed to record production success for slot $slotNumber: $e');
+        LoggingService.instance.warn(
+            'Failed to record production success for slot $slotNumber: $e');
       }
 
       // Stop monitoring this slot
       await stopMonitoring();
     } on StateError {
       // Slot not found in blockchain - still waiting or failed
-      _logger.d('Slot $slotNumber not yet in blockchain');
+      _log.debug('Slot $slotNumber not yet in blockchain');
     } catch (e) {
-      _logger.e('Error checking slot production: $e');
+      _log.error('Error checking slot production: $e');
     }
   }
 
@@ -314,14 +315,14 @@ class SlotMonitorService {
   /// a slot monitoring window (2 minutes before slot time).
   Future<void> autoStartMonitoring() async {
     if (!_initialized) {
-      _logger.w('Cannot auto-start monitoring: service not initialized');
+      _log.warn('Cannot auto-start monitoring: service not initialized');
       return;
     }
 
     // Check if we should be monitoring any slots right now
     final nextSlot = EpochSlotSchedulerService.instance.getNextSlot();
     if (nextSlot == null) {
-      _logger.d('No upcoming slots to monitor');
+      _log.debug('No upcoming slots to monitor');
       return;
     }
 
@@ -335,7 +336,7 @@ class SlotMonitorService {
 
     // Check if we're in the monitoring window
     if (now.isAfter(monitoringStartTime) && now.isBefore(monitoringEndTime)) {
-      _logger.i('Auto-starting monitoring for slot ${nextSlot.slotNumber}');
+      _log.info('Auto-starting monitoring for slot ${nextSlot.slotNumber}');
       await startMonitoringSlot(nextSlot);
     }
   }

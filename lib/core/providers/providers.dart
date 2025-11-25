@@ -10,6 +10,9 @@ import 'package:crypto_mobile_app/src/rust/lib.dart' as rust;
 import 'package:crypto_mobile_app/core/theme/theme_mode.dart';
 import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/utils/log_tag.dart';
+
+final _log = LoggingService.instance.withTag(LogTag.provider);
 
 // Repositories
 final walletRepositoryProvider = Provider<WalletRepository>((ref) {
@@ -22,12 +25,10 @@ final nodeRepositoryProvider = Provider<NodeRepository>((ref) {
 
 // Derived async providers
 final hasAnyAccountProvider = FutureProvider<bool>((ref) async {
-  LoggingService.instance
-      .debug('hasAnyAccountProvider: evaluating...', tag: 'PROVIDER');
+  LoggingService.instance.debug('hasAnyAccountProvider: evaluating...');
   final repo = await AccountsRepository.create();
   final result = await repo.hasAny();
-  LoggingService.instance
-      .debug('hasAnyAccountProvider: result = $result', tag: 'PROVIDER');
+  LoggingService.instance.debug('hasAnyAccountProvider: result = $result');
   return result;
 });
 
@@ -42,15 +43,13 @@ final backendLifecycleProvider = Provider<void>((ref) {
 
       // Account created/imported: false → true
       if (!prevHasAccount && nextHasAccount) {
-        LoggingService.instance.trace('Account created - starting backend',
-            tag: 'BACKEND_LIFECYCLE');
+        _log.trace('Account created - starting backend');
         await RustBackendService.instance.startForActiveAccount();
       }
 
       // Account deleted: true → false
       if (prevHasAccount && !nextHasAccount) {
-        LoggingService.instance.trace('Account deleted - stopping backend',
-            tag: 'BACKEND_LIFECYCLE');
+        _log.trace('Account deleted - stopping backend');
         await RustBackendService.instance.stopNode();
       }
     },

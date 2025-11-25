@@ -74,7 +74,16 @@ enum LogTag {
   metrics('METRICS'),
 
   /// General/uncategorized
-  general('GENERAL');
+  general('GENERAL'),
+
+  /// Home screen operations
+  home('HOME'),
+
+  /// App routing
+  router('ROUTER'),
+
+  /// App drawer/navigation menu
+  drawer('DRAWER');
 
   const LogTag(this.value);
 

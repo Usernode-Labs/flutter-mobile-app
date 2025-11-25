@@ -28,7 +28,10 @@ import 'package:crypto_mobile_app/features/rewards/presentation/screens/rewards_
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
+
+final _log = LoggingService.instance.withTag(LogTag.router);
 
 class AppRoutes {
   static const splash = '/splash';
@@ -208,15 +211,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       final currentLocation = state.matchedLocation;
 
-      LoggingService.instance.trace(
-          'Redirect guard called - location: $currentLocation, hasAny: $hasAny',
-          tag: 'ROUTER');
+      _log.trace(
+          'Redirect guard called - location: $currentLocation, hasAny: $hasAny');
 
       // Still loading account state
       if (hasAny == null) {
-        LoggingService.instance.trace(
-            'Account state loading - allowing navigation',
-            tag: 'ROUTER');
+        _log.trace('Account state loading - allowing navigation');
         return null;
       }
 
@@ -227,17 +227,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ];
 
       final isPublicRoute = publicRoutes.contains(currentLocation);
-      LoggingService.instance.trace(
-          'Route $currentLocation is ${isPublicRoute ? "public" : "private"}',
-          tag: 'ROUTER');
+      _log.trace(
+          'Route $currentLocation is ${isPublicRoute ? "public" : "private"}');
 
       // No account exists
       if (!hasAny) {
-        LoggingService.instance.trace('No account exists', tag: 'ROUTER');
+        _log.trace('No account exists');
         // Splash should redirect to onboarding (transient route)
         if (currentLocation == AppRoutes.splash) {
-          LoggingService.instance
-              .debug('Redirecting splash to onboarding', tag: 'ROUTER');
+          LoggingService.instance.trace('Redirecting splash to onboarding');
           return AppRoutes.onboarding;
         }
         // Allow onboarding and account setup routes
@@ -247,18 +245,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             currentLocation == '/import-private-key' ||
             currentLocation == '/use-demo-accounts' ||
             currentLocation == '/identity-verification') {
-          LoggingService.instance
-              .debug('Allowing onboarding route', tag: 'ROUTER');
+          LoggingService.instance.trace('Allowing onboarding route');
           return null;
         }
         // Redirect all other routes to onboarding
         LoggingService.instance
-            .debug('Redirecting private route to onboarding', tag: 'ROUTER');
+            .trace('Redirecting private route to onboarding');
         return AppRoutes.onboarding;
       }
 
       // Account exists
-      LoggingService.instance.trace('Account exists', tag: 'ROUTER');
+      _log.trace('Account exists');
 
       // Allow identity verification and account setup during onboarding flow
       if (currentLocation == '/identity-verification' ||
@@ -266,8 +263,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           currentLocation == '/import-seed-phrase' ||
           currentLocation == '/import-private-key' ||
           currentLocation == '/use-demo-accounts') {
-        LoggingService.instance
-            .debug('Allowing onboarding flow route', tag: 'ROUTER');
+        LoggingService.instance.trace('Allowing onboarding flow route');
         return null;
       }
 
@@ -275,13 +271,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (currentLocation == AppRoutes.splash ||
           currentLocation == AppRoutes.onboarding) {
         LoggingService.instance
-            .debug('Redirecting $currentLocation to /main/home', tag: 'ROUTER');
+            .trace('Redirecting $currentLocation to /main/home');
         return '/main/home';
       }
 
       // Allow all other routes when account exists
-      LoggingService.instance
-          .debug('Allowing route: $currentLocation', tag: 'ROUTER');
+      LoggingService.instance.trace('Allowing route: $currentLocation');
       return null;
     },
   );

@@ -4,9 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/node_data_providers.dart';
+import 'package:crypto_mobile_app/features/node/presentation/controllers/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 import 'package:intl/intl.dart';
+
+final _log = LoggingService.instance.withTag(LogTag.node);
 
 enum SlotStatus { produced, missed, pending }
 
@@ -65,7 +69,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
     _refreshing = true;
     try {
       await Future.wait([
-        ref.read(nodeEpochRewardsProvider.notifier).refresh(),
+        ref.read(epochRewardsProvider.notifier).refresh(),
         ref.read(nodeBlockchainProvider.notifier).refresh(),
       ]);
     } finally {
@@ -79,7 +83,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final rewardsAsync = ref.watch(nodeEpochRewardsProvider);
+    final rewardsAsync = ref.watch(epochRewardsProvider);
     final blockchainAsync = ref.watch(nodeBlockchainProvider);
 
     final rewards = rewardsAsync.value;
@@ -111,11 +115,10 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
               .where((b) => b.epoch == rewards.epoch)
               .map((b) => b.globalSlot)
               .toSet();
-          final wonSlots = rewards.wonSlots ?? [];
+          final wonSlots = rewards.wonSlots;
 
-          LoggingService.instance.trace(
-              'Epoch: ${rewards.epoch}, Won slots count: ${wonSlots.length}, Produced slots count: ${producedSlots.length}',
-              tag: 'WON_SLOTS_SCREEN');
+          _log.trace(
+              'Epoch: ${rewards.epoch}, Won slots count: ${wonSlots.length}, Produced slots count: ${producedSlots.length}');
 
           if (wonSlots.isEmpty) {
             return Center(

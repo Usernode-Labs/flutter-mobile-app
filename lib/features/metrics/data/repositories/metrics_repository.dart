@@ -4,6 +4,8 @@ import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import 'package:crypto_mobile_app/features/metrics/data/models/metrics_payload.dart';
 import 'package:http/http.dart' as http;
 
+final _log = LoggingService.instance.withTag(LogTag.metrics);
+
 /// Repository for sending metrics to the centralized API
 class MetricsRepository {
   MetricsRepository({
@@ -28,9 +30,8 @@ class MetricsRepository {
 
       final jsonPayload = payload.toJson();
 
-      LoggingService.instance.trace(
+      _log.trace(
         'Sending metrics to API',
-        tag: LogTag.metrics,
         context: {
           'url': url.toString(),
           'peer_id': payload.node.identity.peerId,
@@ -55,16 +56,14 @@ class MetricsRepository {
       );
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        LoggingService.instance.trace(
+        _log.trace(
           'Metrics sent successfully',
-          tag: LogTag.metrics,
           context: {'status_code': response.statusCode},
         );
         return true;
       } else {
-        LoggingService.instance.warn(
+        _log.warn(
           'Failed to send metrics',
-          tag: LogTag.metrics,
           context: {
             'status_code': response.statusCode,
             'response_body': response.body,
@@ -75,9 +74,8 @@ class MetricsRepository {
       }
     } catch (e, stackTrace) {
       // Log but don't rethrow - drop failed metrics per user requirement
-      LoggingService.instance.error(
+      _log.error(
         'Error sending metrics',
-        tag: LogTag.metrics,
         error: e,
         stackTrace: stackTrace,
       );
@@ -123,9 +121,8 @@ class MetricsRepository {
 
       return false;
     } catch (e) {
-      LoggingService.instance.warn(
+      _log.warn(
         'API connection test failed: $e',
-        tag: LogTag.metrics,
       );
       return false;
     }

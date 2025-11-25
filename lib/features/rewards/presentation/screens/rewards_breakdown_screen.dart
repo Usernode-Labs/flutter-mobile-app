@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -6,7 +8,7 @@ import 'package:crypto_mobile_app/core/widgets/won_slot_item.dart';
 import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
-import 'package:crypto_mobile_app/features/node/presentation/controllers/sync_status_provider.dart';
+import 'package:crypto_mobile_app/features/node/presentation/controllers/node_status_provider.dart';
 
 class RewardsBreakdownScreen extends ConsumerStatefulWidget {
   const RewardsBreakdownScreen({super.key});
@@ -95,8 +97,10 @@ class _RewardsBreakdownScreenState
                           // Sync status banner
                           Consumer(
                             builder: (context, ref, _) {
-                              final syncStatus = ref.watch(syncStatusProvider);
-                              if (!syncStatus.isSynced) {
+                              final statusAsync = ref.watch(nodeStatusProvider);
+                              final syncStatus =
+                                  statusAsync.valueOrNull?.syncStatus;
+                              if (syncStatus != null && !syncStatus.isSynced) {
                                 return Column(
                                   children: [
                                     Container(
@@ -162,7 +166,7 @@ class _RewardsBreakdownScreenState
                             colorScheme,
                             'Won Slots',
                             '${_epochRewards!.winsInEpoch} slots won this epoch',
-                            '${_epochRewards!.winsInEpoch - _epochRewards!.producedInEpoch} remaining',
+                            '${math.max(0, _epochRewards!.winsInEpoch - _epochRewards!.producedInEpoch)} remaining',
                             Icons.emoji_events,
                           ),
                           const SizedBox(height: 8),

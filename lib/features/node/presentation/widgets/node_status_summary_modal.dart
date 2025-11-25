@@ -2,8 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:crypto_mobile_app/features/node/presentation/controllers/sync_status_provider.dart';
-import 'package:crypto_mobile_app/features/node/presentation/controllers/node_raw_status_provider.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/node_status_provider.dart';
 
 /// Shows a bottom sheet with node status summary
@@ -40,7 +38,7 @@ class _NodeStatusSummaryModalState
     // Auto-refresh every 3 seconds while modal is open
     _refreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       if (mounted) {
-        ref.read(nodeRawStatusProvider.notifier).refresh();
+        ref.read(nodeStatusProvider.notifier).refresh();
       }
     });
   }
@@ -55,9 +53,9 @@ class _NodeStatusSummaryModalState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final syncStatus = ref.watch(syncStatusProvider);
-    final nodeStatusAsync = ref.watch(nodeStatusProvider);
-    final nodeRawAsync = ref.watch(nodeRawStatusProvider);
+    final statusAsync = ref.watch(nodeStatusProvider);
+    final nodeStatus = statusAsync.valueOrNull;
+    final syncStatus = nodeStatus?.syncStatus;
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -84,8 +82,23 @@ class _NodeStatusSummaryModalState
           const SizedBox(height: 16),
 
           // Sync Status Card
-          nodeStatusAsync.when(
-            data: (nodeStatus) {
+          statusAsync.when(
+            data: (status) {
+              if (syncStatus == null) {
+                // Loading state
+                return _StatusCard(
+                  icon: Icons.hourglass_empty,
+                  iconColor: colorScheme.outline,
+                  title: 'Sync Status',
+                  child: Center(
+                    child: Text(
+                      'Loading...',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ),
+                );
+              }
+
               final currentHeight = syncStatus.localHeight ?? 0;
               final networkHeight = syncStatus.networkHeight ?? currentHeight;
               final syncPercentage = syncStatus.progress;
@@ -217,13 +230,11 @@ class _NodeStatusSummaryModalState
             },
             loading: () {
               // Check if we have previous data to avoid blinking
-              final previousData = nodeStatusAsync.valueOrNull;
-              if (previousData != null) {
-                final currentHeight = previousData.localBestHeight ?? 0;
+              if (nodeStatus != null && syncStatus != null) {
+                final currentHeight = nodeStatus.localBestHeight ?? 0;
                 final networkHeight =
-                    previousData.networkBestHeight ?? currentHeight;
-                final syncPercentage =
-                    networkHeight > 0 ? (currentHeight / networkHeight) : 1.0;
+                    nodeStatus.networkBestHeight ?? currentHeight;
+                final syncPercentage = syncStatus.progress;
 
                 final accentColor = syncStatus.isSynced
                     ? colorScheme.tertiary
@@ -367,10 +378,10 @@ class _NodeStatusSummaryModalState
           Row(
             children: [
               Expanded(
-                child: nodeRawAsync.when(
-                  data: (raw) {
-                    final connectedPeers = raw?.connectedPeers ?? 0;
-                    final totalPeers = raw?.totalPeers ?? 0;
+                child: statusAsync.when(
+                  data: (status) {
+                    final connectedPeers = status?.connectedPeers ?? 0;
+                    final totalPeers = status?.totalPeers ?? 0;
                     final peerHealthy =
                         connectedPeers > 0 && connectedPeers == totalPeers;
 
@@ -401,10 +412,9 @@ class _NodeStatusSummaryModalState
                   },
                   loading: () {
                     // Check if we have previous data to avoid blinking
-                    final previousData = nodeRawAsync.valueOrNull;
-                    if (previousData != null) {
-                      final connectedPeers = previousData.connectedPeers;
-                      final totalPeers = previousData.totalPeers;
+                    if (nodeStatus != null) {
+                      final connectedPeers = nodeStatus.connectedPeers;
+                      final totalPeers = nodeStatus.totalPeers;
                       final peerHealthy =
                           connectedPeers > 0 && connectedPeers == totalPeers;
 
@@ -472,10 +482,10 @@ class _NodeStatusSummaryModalState
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: nodeStatusAsync.when(
-                  data: (nodeStatus) {
-                    final epoch = nodeStatus?.epoch;
-                    final globalSlot = nodeStatus?.globalSlot;
+                child: statusAsync.when(
+                  data: (status) {
+                    final epoch = status?.epoch;
+                    final globalSlot = status?.globalSlot;
 
                     return _StatusCard(
                       icon: Icons.access_time,
@@ -502,10 +512,9 @@ class _NodeStatusSummaryModalState
                   },
                   loading: () {
                     // Check if we have previous data to avoid blinking
-                    final previousData = nodeStatusAsync.valueOrNull;
-                    if (previousData != null) {
-                      final epoch = previousData.epoch;
-                      final globalSlot = previousData.globalSlot;
+                    if (nodeStatus != null) {
+                      final epoch = nodeStatus.epoch;
+                      final globalSlot = nodeStatus.globalSlot;
 
                       return _StatusCard(
                         icon: Icons.access_time,

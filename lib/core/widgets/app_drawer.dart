@@ -8,6 +8,9 @@ import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_rep
 import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
 import 'package:crypto_mobile_app/core/routing/app_router.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/utils/log_tag.dart';
+
+final _log = LoggingService.instance.withTag(LogTag.drawer);
 
 class AppDrawer extends ConsumerStatefulWidget {
   const AppDrawer({super.key});
@@ -281,16 +284,14 @@ class _AppDrawerState extends ConsumerState<AppDrawer> {
       if (!mounted) return;
 
       // Invalidate the provider (backend will stop automatically via backendLifecycleProvider)
-      LoggingService.instance
-          .debug('Invalidating hasAnyAccountProvider', tag: 'DRAWER');
+      LoggingService.instance.debug('Invalidating hasAnyAccountProvider');
       ref.invalidate(hasAnyAccountProvider);
 
       // Wait for next frame before navigating to avoid race condition
-      LoggingService.instance.debug('Waiting for next frame...', tag: 'DRAWER');
+      _log.debug('Waiting for next frame...');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        LoggingService.instance
-            .debug('Navigating to onboarding screen', tag: 'DRAWER');
+        LoggingService.instance.debug('Navigating to onboarding screen');
         context.go(AppRoutes.onboarding);
 
         // Show success message after navigation
@@ -304,8 +305,7 @@ class _AppDrawerState extends ConsumerState<AppDrawer> {
         });
       });
     } catch (e, st) {
-      LoggingService.instance.error('Failed to delete account',
-          tag: 'DRAWER', error: e, stackTrace: st);
+      _log.error('Failed to delete account', error: e, stackTrace: st);
       if (!mounted) return;
 
       // Provide more specific error message

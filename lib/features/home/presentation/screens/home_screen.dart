@@ -12,11 +12,10 @@ import 'package:crypto_mobile_app/core/widgets/boost_tier_hero_card.dart';
 import 'package:crypto_mobile_app/core/widgets/invite_friends_hero_card.dart';
 import 'package:crypto_mobile_app/core/widgets/tier_dialog.dart';
 import 'package:crypto_mobile_app/core/widgets/produced_block_card.dart';
-import 'package:crypto_mobile_app/features/rewards/presentation/controllers/epoch_rewards_provider.dart';
-import 'package:crypto_mobile_app/features/node/presentation/controllers/sync_status_provider.dart';
+import 'package:crypto_mobile_app/features/node/presentation/controllers/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/features/node/domain/entities/sync_status.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/node_data_providers.dart';
-import 'package:crypto_mobile_app/features/node/presentation/controllers/node_raw_status_provider.dart';
+import 'package:crypto_mobile_app/features/node/presentation/controllers/node_status_provider.dart';
 import 'package:crypto_mobile_app/features/node/presentation/screens/scheduled_slot_details_screen.dart';
 import 'package:crypto_mobile_app/core/widgets/won_slot_item.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -25,6 +24,8 @@ import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_rep
 import 'package:crypto_mobile_app/features/wallet/data/models/account.dart';
 import 'package:crypto_mobile_app/features/profile/presentation/controllers/user_tier_provider.dart';
 import 'package:crypto_mobile_app/features/profile/domain/entities/user_tier.dart';
+
+final _log = LoggingService.instance.withTag(LogTag.home);
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -65,8 +66,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         _account = account;
       });
     } catch (e, st) {
-      LoggingService.instance.error('Failed to load account',
-          tag: LogTag.ui, error: e, stackTrace: st);
+      _log.error('Failed to load account', error: e, stackTrace: st);
     }
   }
 
@@ -76,18 +76,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _refreshing = true;
     });
     try {
-      LoggingService.instance.trace(
-          'Refreshing epoch rewards, blockchain, and sync status',
-          tag: LogTag.rewards);
+      _log.trace('Refreshing epoch rewards, blockchain, and sync status');
       // Use refresh() instead of invalidate() to avoid blinking
       await Future.wait<void>([
-        ref.read(epochRewardsUiProvider.notifier).refresh(),
+        ref.read(epochRewardsProvider.notifier).refresh(),
         ref.read(nodeBlockchainProvider.notifier).refresh(),
-        ref.read(nodeRawStatusProvider.notifier).refresh(),
+        ref.read(nodeStatusProvider.notifier).refresh(),
       ]);
     } catch (e, st) {
-      LoggingService.instance.error('Failed to refresh data',
-          tag: LogTag.rewards, error: e, stackTrace: st);
+      _log.error('Failed to refresh data', error: e, stackTrace: st);
     } finally {
       if (mounted) {
         setState(() => _refreshing = false);
@@ -144,8 +141,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _handleRewardsUiChange(
-    AsyncValue<EpochRewardsUiState?>? previous,
-    AsyncValue<EpochRewardsUiState?> next,
+    AsyncValue<EpochRewardsState?>? previous,
+    AsyncValue<EpochRewardsState?> next,
   ) {
     if (!mounted) {
       return;
@@ -169,9 +166,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    ref.listen<SyncStatus>(syncStatusProvider, _handleSyncStatusChange);
-    ref.listen<AsyncValue<EpochRewardsUiState?>>(
-      epochRewardsUiProvider,
+    ref.listen<AsyncValue<NodeStatusState?>>(nodeStatusProvider,
+        (previous, next) {
+      _handleSyncStatusChange(
+        previous?.valueOrNull?.syncStatus,
+        next.valueOrNull?.syncStatus ?? SyncStatus.connecting(),
+      );
+    });
+    ref.listen<AsyncValue<EpochRewardsState?>>(
+      epochRewardsProvider,
       _handleRewardsUiChange,
     );
 
@@ -379,11 +382,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                 // Sync disclaimer banner - shown before rewards card
                 Consumer(builder: (ctx, ref, _) {
-                  final syncStatus = ref.watch(syncStatusProvider);
-                  final rewardsAsync = ref.watch(epochRewardsUiProvider);
+                  final statusAsync = ref.watch(nodeStatusProvider);
+                  final syncStatus = statusAsync.valueOrNull?.syncStatus;
+                  final rewardsAsync = ref.watch(epochRewardsProvider);
                   final ui = rewardsAsync.value;
 
-                  if (!syncStatus.isSynced && ui != null) {
+                  if (syncStatus != null &&
+                      !syncStatus.isSynced &&
+                      ui != null) {
                     return Padding(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                       child: Container(
@@ -429,8 +435,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Consumer(builder: (ctx, ref, _) {
-                      final syncStatus = ref.watch(syncStatusProvider);
-                      final rewardsAsync = ref.watch(epochRewardsUiProvider);
+                      final statusAsync = ref.watch(nodeStatusProvider);
+                      final syncStatus = statusAsync.valueOrNull?.syncStatus ??
+                          SyncStatus.connecting();
+                      final rewardsAsync = ref.watch(epochRewardsProvider);
 
                       // Show skeleton when not synced or loading
                       return rewardsAsync.when(
@@ -510,8 +518,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                 // Scheduled Activity (Upcoming Won Slots)
                 Consumer(builder: (ctx, ref, _) {
-                  final syncStatus = ref.watch(syncStatusProvider);
-                  final rewardsUiAsync = ref.watch(epochRewardsUiProvider);
+                  final statusAsync = ref.watch(nodeStatusProvider);
+                  final syncStatus = statusAsync.valueOrNull?.syncStatus ??
+                      SyncStatus.connecting();
+                  final rewardsUiAsync = ref.watch(epochRewardsProvider);
 
                   return rewardsUiAsync.when(
                     loading: () =>
@@ -615,9 +625,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 // Recent produced blocks
                 Consumer(
                   builder: (context, ref, _) {
-                    final syncStatus = ref.watch(syncStatusProvider);
+                    final statusAsync = ref.watch(nodeStatusProvider);
+                    final syncStatus = statusAsync.valueOrNull?.syncStatus ??
+                        SyncStatus.connecting();
                     final blockchainAsync = ref.watch(nodeBlockchainProvider);
-                    final rewardsAsync = ref.watch(epochRewardsUiProvider);
+                    final rewardsAsync = ref.watch(epochRewardsProvider);
                     final blockchain = blockchainAsync.value;
                     final rewards = rewardsAsync.value?.snapshot;
 

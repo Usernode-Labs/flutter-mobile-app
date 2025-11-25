@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:logger/logger.dart';
+import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/feedback_model.dart';
@@ -9,13 +9,10 @@ import 'feedback_repository.dart';
 class FeedbackQueueRepository {
   static const String _queueKey = 'feedback_queue';
   final FeedbackRepository _feedbackRepository;
-  final Logger _logger;
 
   FeedbackQueueRepository({
     FeedbackRepository? feedbackRepository,
-    Logger? logger,
-  })  : _feedbackRepository = feedbackRepository ?? FeedbackRepository(),
-        _logger = logger ?? Logger();
+  }) : _feedbackRepository = feedbackRepository ?? FeedbackRepository();
 
   /// Adds feedback to the offline queue
   Future<void> queueFeedback(FeedbackModel feedback) async {
@@ -27,9 +24,9 @@ class FeedbackQueueRepository {
       final jsonList = queue.map((f) => f.toJson()).toList();
       await prefs.setString(_queueKey, jsonEncode(jsonList));
 
-      _logger.i('Feedback queued for later submission');
+      LoggingService.instance.info('Feedback queued for later submission');
     } catch (e) {
-      _logger.e('Error queuing feedback', error: e);
+      LoggingService.instance.error('Error queuing feedback', error: e);
     }
   }
 
@@ -48,7 +45,7 @@ class FeedbackQueueRepository {
           .map((json) => FeedbackModel.fromJson(json as Map<String, dynamic>))
           .toList();
     } catch (e) {
-      _logger.e('Error getting feedback queue', error: e);
+      LoggingService.instance.error('Error getting feedback queue', error: e);
       return [];
     }
   }
@@ -62,7 +59,8 @@ class FeedbackQueueRepository {
         return;
       }
 
-      _logger.i('Processing ${queue.length} queued feedback items');
+      LoggingService.instance
+          .info('Processing ${queue.length} queued feedback items');
 
       final failedItems = <FeedbackModel>[];
 
@@ -77,14 +75,17 @@ class FeedbackQueueRepository {
       final prefs = await SharedPreferences.getInstance();
       if (failedItems.isEmpty) {
         await prefs.remove(_queueKey);
-        _logger.i('All queued feedback submitted successfully');
+        LoggingService.instance
+            .info('All queued feedback submitted successfully');
       } else {
         final jsonList = failedItems.map((f) => f.toJson()).toList();
         await prefs.setString(_queueKey, jsonEncode(jsonList));
-        _logger.w('${failedItems.length} feedback items failed to submit');
+        LoggingService.instance
+            .warn('${failedItems.length} feedback items failed to submit');
       }
     } catch (e) {
-      _logger.e('Error processing feedback queue', error: e);
+      LoggingService.instance
+          .error('Error processing feedback queue', error: e);
     }
   }
 

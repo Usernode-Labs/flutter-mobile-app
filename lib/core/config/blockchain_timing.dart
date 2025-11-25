@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:crypto_mobile_app/features/node/presentation/controllers/node_raw_status_provider.dart';
+import 'package:crypto_mobile_app/features/node/presentation/controllers/node_status_provider.dart';
 
 /// Configuration for blockchain timing parameters.
 class BlockchainTimingConfig {
@@ -14,8 +14,8 @@ class BlockchainTimingConfig {
 
 /// Provider that exposes blockchain timing configuration from the node status.
 final blockchainTimingConfigProvider = Provider<BlockchainTimingConfig>((ref) {
-  final rawStatus = ref.watch(nodeRawStatusProvider);
-  return rawStatus.when(
+  final status = ref.watch(nodeStatusProvider);
+  return status.when(
     data: (data) {
       if (data == null) {
         throw StateError(

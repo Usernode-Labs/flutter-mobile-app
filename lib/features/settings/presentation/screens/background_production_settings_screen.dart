@@ -2,12 +2,13 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/services/epoch_slot_scheduler_service.dart';
 import 'package:crypto_mobile_app/core/services/ios_foreground_keepalive_service.dart';
 import 'package:crypto_mobile_app/core/data/slot_production_repository.dart';
-import 'package:crypto_mobile_app/features/node/presentation/controllers/node_raw_status_provider.dart';
-import 'package:crypto_mobile_app/features/node/presentation/controllers/node_data_providers.dart';
+import 'package:crypto_mobile_app/features/node/presentation/controllers/node_status_provider.dart';
+import 'package:crypto_mobile_app/features/node/presentation/controllers/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 
@@ -93,7 +94,7 @@ class _BackgroundProductionSettingsScreenState
       // Refresh providers to get latest VRF status and won slots
       await _refreshProviders();
     } catch (e) {
-      debugPrint('Error checking status: $e');
+      LoggingService.instance.debug('Error checking status: $e');
     }
   }
 
@@ -101,8 +102,8 @@ class _BackgroundProductionSettingsScreenState
     if (_refreshing) return;
     _refreshing = true;
     try {
-      await ref.read(nodeRawStatusProvider.notifier).refresh();
-      await ref.read(nodeEpochRewardsProvider.notifier).refresh();
+      await ref.read(nodeStatusProvider.notifier).refresh();
+      await ref.read(epochRewardsProvider.notifier).refresh();
     } finally {
       if (mounted) {
         _refreshing = false;
@@ -419,15 +420,15 @@ class _BackgroundProductionSettingsScreenState
 
   Widget _buildScheduledSlotsSection(ThemeData theme, ColorScheme colorScheme) {
     // Get VRF status and won slots from providers
-    final rawStatusAsync = ref.watch(nodeRawStatusProvider);
-    final epochRewardsAsync = ref.watch(nodeEpochRewardsProvider);
+    final statusAsync = ref.watch(nodeStatusProvider);
+    final epochRewardsAsync = ref.watch(epochRewardsProvider);
 
     // Unwrap async values
-    final rawStatus = rawStatusAsync.valueOrNull;
+    final status = statusAsync.valueOrNull;
     final epochRewards = epochRewardsAsync.valueOrNull;
 
     // Get VRF status
-    final vrfEvaluator = rawStatus?.vrfEvaluator;
+    final vrfEvaluator = status?.vrfEvaluator;
     final vrfStatus = vrfEvaluator?.currentEpochVrfEvaluationStatus;
     final isVrfComplete = vrfStatus != null &&
         vrfStatus == RpcStatusVrfEvaluationStatus.completed;
@@ -435,13 +436,13 @@ class _BackgroundProductionSettingsScreenState
         vrfStatus == RpcStatusVrfEvaluationStatus.evaluating;
 
     // Get current epoch from raw status
-    final currentEpoch = rawStatus?.epoch;
+    final currentEpoch = status?.epoch;
 
     // Validate epoch matches before showing won slots (prevents showing stale data)
     final allWonSlots = (epochRewards != null &&
             currentEpoch != null &&
             epochRewards.epoch == currentEpoch)
-        ? (epochRewards.wonSlots ?? [])
+        ? epochRewards.wonSlots
         : <RpcEpochWonSlot>[];
 
     // Filter to future slots only, with correct timezone handling

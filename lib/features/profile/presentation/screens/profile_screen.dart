@@ -13,7 +13,7 @@ import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_s
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/features/profile/presentation/controllers/user_tier_provider.dart';
-import 'package:crypto_mobile_app/features/node/presentation/controllers/sync_status_provider.dart';
+import 'package:crypto_mobile_app/features/node/presentation/controllers/node_status_provider.dart';
 
 /// Profile Screen - User profile, identity, rewards, and settings
 ///
@@ -297,8 +297,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         // Sync status banner
                         Consumer(
                           builder: (context, ref, _) {
-                            final syncStatus = ref.watch(syncStatusProvider);
-                            if (!syncStatus.isSynced && _rewards != null) {
+                            final statusAsync = ref.watch(nodeStatusProvider);
+                            final syncStatus =
+                                statusAsync.valueOrNull?.syncStatus;
+                            if (syncStatus != null &&
+                                !syncStatus.isSynced &&
+                                _rewards != null) {
                               return Column(
                                 children: [
                                   Container(

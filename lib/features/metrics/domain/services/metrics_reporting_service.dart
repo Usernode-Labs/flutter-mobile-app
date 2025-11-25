@@ -161,7 +161,7 @@ class MetricsReportingService {
     // Use the new configuration for metrics collection interval
     final intervalDuration = AppConfig.metricsCollectionInterval;
 
-    _log.debug(
+    _log.trace(
       'Starting metrics reporting',
       context: {
         'endpoint': AppConfig.metricsEndpoint,
@@ -235,7 +235,7 @@ class MetricsReportingService {
       _reportMetrics();
     });
 
-    _log.debug(
+    _log.trace(
       'Periodic metrics reporting started',
       context: {'interval': interval.toString()},
     );

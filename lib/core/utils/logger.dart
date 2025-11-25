@@ -55,8 +55,9 @@ class LoggingService {
     // Example: Only warnings+ for providers
     LogTag.provider: Level.warning,
     // Default for others is handled in _AppLogFilter
-
-    LogTag.metrics: Level.debug
+    LogTag.metrics: Level.debug,
+    LogTag.router: Level.error,
+    LogTag.home: Level.error,
   };
 
   /// Log a trace-level message
@@ -373,12 +374,12 @@ class _CustomLogPrinter extends LogPrinter {
   _CustomLogPrinter();
 
   static final _levelEmojis = {
-    Level.trace: '🔍',
-    Level.debug: '🐛',
-    Level.info: 'ℹ️ ',
-    Level.warning: '⚠️ ',
-    Level.error: '❌',
-    Level.fatal: '💀',
+    Level.trace: '[TRACE]',
+    Level.debug: '[DEBUG]',
+    Level.info: '[INFO]',
+    Level.warning: '[WARN] ⚠️',
+    Level.error: '[ERROR] ❌',
+    Level.fatal: '[FATAL] 💀',
   };
 
   @override

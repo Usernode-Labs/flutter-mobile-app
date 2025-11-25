@@ -98,7 +98,7 @@ class _ImportSeedPhraseScreenState
 
       // Start backend for new account
       try {
-        await RustBackendService.instance.startForActiveAccount();
+        await RustBackendService.instance.startNode();
         LoggingService.instance
             .debug('Backend started successfully', tag: 'IMPORT_SEED');
       } catch (e) {

@@ -71,63 +71,108 @@ class RustBackendService {
     }
   }
 
-  /// Build and start the Rust node, then expose an RPC client.
-  /// Safe to call multiple times; subsequent calls are no-ops.
-  Future<void> startNode({int? httpPort, String? privateKeyHex}) async {
+  /// Start the node using the active account's private key.
+  /// Returns true if started successfully, false if no account or error.
+  /// Safe to call multiple times; subsequent calls return true if already running.
+  Future<bool> startNode({int? httpPort}) async {
     if (!_initialized) {
       await init();
     }
-    if (_nodeRunning) return;
+    if (_nodeRunning) {
+      _log.trace('Node already running');
+      return true;
+    }
 
-    // Validate private key is provided
-    if (privateKeyHex == null || privateKeyHex.isEmpty) {
-      LoggingService.instance
-          .error('Cannot start node: private key not provided');
+    // Get active account
+    final repo = await AccountsRepository.create();
+    _log.trace('Checking if any accounts exist...');
+    final hasAny = await repo.hasAny();
+    _log.trace('Account check result: hasAny = $hasAny');
+    if (!hasAny) {
+      _log.trace('No accounts found - skipping node start');
+      SentryUtil.addBreadcrumb(
+          category: 'backend', message: 'no accounts; skipping start');
+      return false;
+    }
+
+    // Retrieve active account
+    _log.debug('Retrieving active account...');
+    final account = await repo.getActive();
+
+    if (account == null) {
+      _log.error('Failed to retrieve active account');
       await SentryUtil.captureMessage(
-        'Node start failed: missing private key',
+        'Node start failed: no active account found',
+        level: SentryLevel.warning,
+      );
+      return false;
+    }
+
+    _log.debug('Active account: ${account.id} (${account.name})');
+
+    // Get private key for active account
+    _log.trace('Retrieving private key for account ${account.id}...');
+    final privateKeyHex = await repo.getPrivateKey(account.id);
+
+    if (privateKeyHex == null || privateKeyHex.isEmpty) {
+      _log.error(
+        'Cannot start node: private key unavailable for account ${account.id}',
+      );
+      await SentryUtil.captureMessage(
+        'Node start failed: private key unavailable',
         level: SentryLevel.error,
       );
-      throw ArgumentError('Private key required to start node');
+      return false;
     }
 
-    _log.trace(
-      'Starting node${httpPort != null ? ' on $httpPort' : ''}',
-    );
-    SentryUtil.addBreadcrumb(
-      category: 'backend',
-      message: 'Starting node',
-      data: {'httpPort': httpPort},
-    );
+    // SECURITY: Only log key length, not value
+    _log.trace('Private key retrieved (length: ${privateKeyHex.length})');
 
-    final builder = NodeBuilder();
-    if (httpPort != null) {
-      builder.httpServer(port: httpPort);
-    }
-
-    // SECURITY: Do NOT log the actual key value, only its length
-    _log.trace(
-      'Configuring block producer with user private key (length: ${privateKeyHex.length})',
-    );
-    builder.blockProducerHex(skHex: privateKeyHex);
-    builder.mempoolAutoinsertInterval(secs: BigInt.from(1));
-
-    _node = builder.build();
-    _rpc = _node!.rpc();
-
-    // Cache peer ID once on startup (it doesn't change during node lifetime)
+    // Start node
     try {
-      _cachedPeerId = _node!.peerId().toString();
-    } catch (e) {
-      _log.warn('Failed to cache peer ID: $e');
-      _cachedPeerId = null;
+      _log.trace('Starting node${httpPort != null ? ' on $httpPort' : ''}');
+      SentryUtil.addBreadcrumb(
+        category: 'backend',
+        message: 'Starting node',
+        data: {'httpPort': httpPort},
+      );
+
+      final builder = NodeBuilder();
+      if (httpPort != null) {
+        builder.httpServer(port: httpPort);
+      }
+
+      _log.trace(
+        'Configuring block producer with user private key (length: ${privateKeyHex.length})',
+      );
+      builder.blockProducerHex(skHex: privateKeyHex);
+      builder.mempoolAutoinsertInterval(secs: BigInt.from(1));
+
+      _node = builder.build();
+      _rpc = _node!.rpc();
+
+      // Cache peer ID once on startup (it doesn't change during node lifetime)
+      try {
+        _cachedPeerId = _node!.peerId().toString();
+      } catch (e) {
+        _log.warn('Failed to cache peer ID: $e');
+        _cachedPeerId = null;
+      }
+
+      // Run the node in a background thread.
+      _node!.runForeverInNewThread();
+      _nodeRunning = true;
+
+      _log.info('Node started with user account block producer');
+      await SentryUtil.captureMessage(
+          'Backend started for active account ${account.id}');
+      return true;
+    } catch (e, st) {
+      _log.error('Failed to start node with account ${account.id}',
+          error: e, stackTrace: st);
+      await SentryUtil.captureError(e, st, tag: 'startNode');
+      return false;
     }
-
-    // Run the node in a background thread.
-    _node!.runForeverInNewThread();
-    _nodeRunning = true;
-
-    LoggingService.instance
-        .info('Node started with user account block producer');
   }
 
   Future<void> stopNode() async {
@@ -143,87 +188,12 @@ class RustBackendService {
     _cachedPeerId = null;
   }
 
-  /// Start node if there is an active account; otherwise do nothing.
-  Future<bool> startForActiveAccount() async {
-    final repo = await AccountsRepository.create();
-    LoggingService.instance.trace('Checking if any accounts exist...');
-    final hasAny = await repo.hasAny();
-    LoggingService.instance.trace('Account check result: hasAny = $hasAny');
-    if (!hasAny) {
-      LoggingService.instance.trace('No accounts found - skipping node start');
-      SentryUtil.addBreadcrumb(
-          category: 'backend', message: 'no accounts; skipping start');
-      return false;
-    }
-
-    // Retrieve active account
-    _log.debug('Retrieving active account...');
-    final account = await repo.getActive();
-
-    if (account == null) {
-      LoggingService.instance.error('Failed to retrieve active account');
-      await SentryUtil.captureMessage(
-        'Node start failed: no active account found',
-        level: SentryLevel.warning,
-      );
-      return false;
-    }
-
-    LoggingService.instance
-        .debug('Active account: ${account.id} (${account.name})');
-
-    // Get private key for active account
-    _log.trace(
-      'Retrieving private key for account ${account.id}...',
-    );
-    final privateKey = await repo.getPrivateKey(account.id);
-
-    if (privateKey == null || privateKey.isEmpty) {
-      _log.error(
-        'Cannot start node: private key unavailable for account ${account.id}',
-      );
-      await SentryUtil.captureMessage(
-        'Node start failed: private key unavailable',
-        level: SentryLevel.error,
-      );
-      return false;
-    }
-
-    // SECURITY: Only log key length, not value
-    _log.trace(
-      'Private key retrieved (length: ${privateKey.length})',
-    );
-
-    if (!_initialized) {
-      await init();
-    }
-    if (_nodeRunning) {
-      _log.trace('Node already running');
-      return true;
-    }
-
-    // Start node with user's private key
-    try {
-      await startNode(privateKeyHex: privateKey);
-      _log.trace('startForActiveAccount done');
-      await SentryUtil.captureMessage(
-          'Backend started for active account ${account.id}');
-      return true;
-    } catch (e, st) {
-      _log.error('Failed to start node with account ${account.id}',
-          error: e, stackTrace: st);
-      await SentryUtil.captureError(e, st, tag: 'startNode');
-      return false;
-    }
-  }
-
   /// Restart node using current active account context.
-  Future<void> restartForActiveAccount() async {
-    LoggingService.instance.info('Restarting node for active account');
-    SentryUtil.addBreadcrumb(
-        category: 'backend', message: 'restartForActiveAccount');
+  Future<void> restartNode() async {
+    _log.info('Restarting node');
+    SentryUtil.addBreadcrumb(category: 'backend', message: 'restartNode');
     await stopNode();
-    await startForActiveAccount();
+    await startNode();
   }
 
   /// Obtain the RPC client for ad-hoc calls.
@@ -237,7 +207,10 @@ class RustBackendService {
   }
 
   /// Convenience helper to fetch node status via RPC.
-  Future<RpcStatusResp?> getStatus() async {
+  Future<RpcStatusResp?> getStatus({
+    bool? includeLastReorg,
+    bool includeVrfDetails = true,
+  }) async {
     _log.trace('getStatus called');
     final r = _rpc;
     if (r == null) return null;
@@ -245,7 +218,10 @@ class RustBackendService {
     // Call into FRB with defensive handling for panics / transport errors.
     RpcStatusResp? status;
     try {
-      status = await r.status();
+      status = await r.status(
+        includeLastReorg: includeLastReorg,
+        includeVrfDetails: includeVrfDetails,
+      );
     } on PanicException catch (e, st) {
       // FRB surfaced a Rust-side panic (e.g., stdout transport failure in process mode).
       _log.error('FRB panic during getStatus', error: e, stackTrace: st);

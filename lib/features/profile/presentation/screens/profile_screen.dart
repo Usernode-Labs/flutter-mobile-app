@@ -9,8 +9,7 @@ import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:crypto_mobile_app/core/widgets/account_tier_hero_card.dart';
 import 'package:crypto_mobile_app/features/wallet/data/models/account.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
-import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
-import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
+import 'package:crypto_mobile_app/features/node/presentation/controllers/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/features/profile/presentation/controllers/user_tier_provider.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/node_status_provider.dart';
@@ -33,7 +32,6 @@ class ProfileScreen extends ConsumerStatefulWidget {
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   AccountMeta? _account;
   bool _isLoading = true;
-  RpcEpochRewardsResp? _rewards;
   String? _privateKey;
   bool _showPrivateKey = false;
 
@@ -46,7 +44,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   void initState() {
     super.initState();
     _loadAccount();
-    _loadRewards();
   }
 
   @override
@@ -79,22 +76,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       });
     } catch (e, st) {
       LoggingService.instance.error('Failed to load private key',
-          tag: 'PROFILE', error: e, stackTrace: st);
-    }
-  }
-
-  Future<void> _loadRewards() async {
-    try {
-      LoggingService.instance.debug('Loading epoch rewards', tag: 'PROFILE');
-      final rewards = await RustBackendService.instance.epochRewards();
-      if (!mounted) return;
-      setState(() {
-        _rewards = rewards;
-      });
-      LoggingService.instance
-          .debug('Epoch rewards loaded: ${rewards != null}', tag: 'PROFILE');
-    } catch (e, st) {
-      LoggingService.instance.error('Failed to load epoch rewards',
           tag: 'PROFILE', error: e, stackTrace: st);
     }
   }
@@ -290,20 +271,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   icon: Icons.card_giftcard,
                   colorScheme: colorScheme,
                   theme: theme,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      children: [
-                        // Sync status banner
-                        Consumer(
-                          builder: (context, ref, _) {
-                            final statusAsync = ref.watch(nodeStatusProvider);
-                            final syncStatus =
-                                statusAsync.valueOrNull?.syncStatus;
+                  child: Consumer(
+                    builder: (context, ref, _) {
+                      final rewardsAsync = ref.watch(epochRewardsProvider);
+                      final rewards = rewardsAsync.valueOrNull?.rawData;
+                      final statusAsync = ref.watch(nodeStatusProvider);
+                      final syncStatus = statusAsync.valueOrNull?.syncStatus;
+
+                      return Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          children: [
+                            // Sync status banner
                             if (syncStatus != null &&
                                 !syncStatus.isSynced &&
-                                _rewards != null) {
-                              return Column(
+                                rewards != null)
+                              Column(
                                 children: [
                                   Container(
                                     width: double.infinity,
@@ -343,148 +326,146 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                   ),
                                   const SizedBox(height: 16),
                                 ],
-                              );
-                            }
-                            return const SizedBox.shrink();
-                          },
-                        ),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Epoch',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.onSurface
-                                        .withValues(alpha: 0.6),
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  _rewards != null ? '${_rewards!.epoch}' : '—',
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  'Blocks Produced',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.onSurface
-                                        .withValues(alpha: 0.6),
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  _rewards != null
-                                      ? '${_rewards!.producedInEpoch}'
-                                      : '—',
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        const Divider(),
-                        const SizedBox(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Earned So Far',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.onSurface
-                                        .withValues(alpha: 0.6),
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  _rewards != null
-                                      ? _formatTokenAmount(
-                                          _rewards!.earnedSoFar)
-                                      : '—',
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: colorScheme.tertiary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  'Expected Total',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.onSurface
-                                        .withValues(alpha: 0.6),
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  _rewards != null
-                                      ? _formatTokenAmount(
-                                          _rewards!.expectedTotal)
-                                      : '—',
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: colorScheme.primary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        if (_rewards != null) ...[
-                          const SizedBox(height: 16),
-                          const Divider(),
-                          const SizedBox(height: 16),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Reward per Block:',
-                                style: theme.textTheme.bodyMedium,
                               ),
-                              Text(
-                                _formatTokenAmount(_rewards!.rewardPerBlock),
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Epoch',
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        color: colorScheme.onSurface
+                                            .withValues(alpha: 0.6),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      rewards != null ? '${rewards.epoch}' : '—',
+                                      style: theme.textTheme.titleMedium?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Slot Wins in Epoch:',
-                                style: theme.textTheme.bodyMedium,
-                              ),
-                              Text(
-                                '${_rewards!.winsInEpoch}',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      'Blocks Produced',
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        color: colorScheme.onSurface
+                                            .withValues(alpha: 0.6),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      rewards != null
+                                          ? '${rewards.producedInEpoch}'
+                                          : '—',
+                                      style: theme.textTheme.titleMedium?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
                                 ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            const Divider(),
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Earned So Far',
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        color: colorScheme.onSurface
+                                            .withValues(alpha: 0.6),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      rewards != null
+                                          ? _formatTokenAmount(
+                                              rewards.earnedSoFar)
+                                          : '—',
+                                      style: theme.textTheme.titleMedium?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: colorScheme.tertiary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      'Expected Total',
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        color: colorScheme.onSurface
+                                            .withValues(alpha: 0.6),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      rewards != null
+                                          ? _formatTokenAmount(
+                                              rewards.expectedTotal)
+                                          : '—',
+                                      style: theme.textTheme.titleMedium?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: colorScheme.primary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            if (rewards != null) ...[
+                              const SizedBox(height: 16),
+                              const Divider(),
+                              const SizedBox(height: 16),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Reward per Block:',
+                                    style: theme.textTheme.bodyMedium,
+                                  ),
+                                  Text(
+                                    _formatTokenAmount(rewards.rewardPerBlock),
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Slot Wins in Epoch:',
+                                    style: theme.textTheme.bodyMedium,
+                                  ),
+                                  Text(
+                                    '${rewards.winsInEpoch}',
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
-                          ),
-                        ],
-                      ],
-                    ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                 ),
 

@@ -5,7 +5,7 @@ import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
-import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
+import 'package:crypto_mobile_app/features/node/presentation/controllers/node_status_provider.dart';
 import 'package:crypto_mobile_app/core/routing/app_router.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:go_router/go_router.dart';
@@ -190,7 +190,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       const Divider(height: 16),
                       Text('P2P Peer ID:'),
                       SelectableText(
-                        RustBackendService.instance.getPeerId() ??
+                        ref.watch(nodeStatusProvider).value?.peerId ??
                             'Not available',
                         style: const TextStyle(
                           fontFamily: 'monospace',

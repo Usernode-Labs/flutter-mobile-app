@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/log_tag.dart';
@@ -135,6 +137,29 @@ class NodeStatusController extends AsyncNotifier<NodeStatusState?> {
     try {
       final status = await RustBackendService.instance.getStatus();
       if (status == null) return null;
+
+      // Log VRF response for debugging
+      final vrf = status.vrfEvaluator;
+      if (vrf != null) {
+        final vrfJson = {
+          'statusTimeMs': vrf.statusTimeMs.toString(),
+          'evaluatedSlotsSinceStart': vrf.evaluatedSlotsSinceStart,
+          'currentEpochVrfEvaluationStatus': vrf.currentEpochVrfEvaluationStatus.name,
+          'nextEpochVrfEvaluationStatus': vrf.nextEpochVrfEvaluationStatus.name,
+          'details': vrf.details != null ? {
+            'status': vrf.details!.status.toString(),
+            'lastEvaluatedEpoch': vrf.details!.lastEvaluatedEpoch,
+            'latestEvaluatedGlobalSlot': vrf.details!.latestEvaluatedGlobalSlot,
+            'readinessCheckDue': vrf.details!.readinessCheckDue,
+            'wonSlotsCached': vrf.details!.wonSlotsCached.toString(),
+            'slotsPerEpoch': vrf.details!.slotsPerEpoch,
+            'clockEpoch': vrf.details!.clockEpoch,
+            'evaluatedCurrentEpoch': vrf.details!.evaluatedCurrentEpoch,
+            'evaluatedNextEpoch': vrf.details!.evaluatedNextEpoch,
+          } : null,
+        };
+        _log.debug('VRF response: ${jsonEncode(vrfJson)}');
+      }
 
       // Extract raw status data
       RpcStatusBlockInfo? localBest;

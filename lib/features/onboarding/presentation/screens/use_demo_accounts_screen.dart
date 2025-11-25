@@ -153,7 +153,7 @@ class _UseDemoAccountsScreenState extends ConsumerState<UseDemoAccountsScreen> {
 
       // Start backend for new account
       try {
-        await RustBackendService.instance.startForActiveAccount();
+        await RustBackendService.instance.startNode();
       } catch (e) {
         LoggingService.instance.error(
           'Failed to start backend',

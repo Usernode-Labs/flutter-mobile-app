@@ -544,7 +544,7 @@ class MetricsCollectorService {
     int? currentEpochWonSlots;
     int? currentEpochProduced;
     int? currentEpochFailed;
-    int? evaluatedSlotsSinceStart;
+    int? evaluatedCurrentEpoch;
     String? currentEpochVrfEvaluationStatus;
     String? nextEpochVrfEvaluationStatus;
 
@@ -561,7 +561,7 @@ class MetricsCollectorService {
           // Extract VRF evaluator metrics
           final vrfEvaluator = rawStatus.vrfEvaluator;
           if (vrfEvaluator != null) {
-            evaluatedSlotsSinceStart = vrfEvaluator.evaluatedSlotsSinceStart;
+            evaluatedCurrentEpoch = vrfEvaluator.details?.evaluatedCurrentEpoch;
             currentEpochVrfEvaluationStatus =
                 vrfEvaluator.currentEpochVrfEvaluationStatus.name;
             nextEpochVrfEvaluationStatus =
@@ -608,7 +608,7 @@ class MetricsCollectorService {
       currentEpochWonSlots: currentEpochWonSlots,
       currentEpochProduced: currentEpochProduced,
       currentEpochFailed: currentEpochFailed,
-      evaluatedSlotsSinceStart: evaluatedSlotsSinceStart,
+      evaluatedCurrentEpoch: evaluatedCurrentEpoch,
       currentEpochVrfEvaluationStatus: currentEpochVrfEvaluationStatus,
       nextEpochVrfEvaluationStatus: nextEpochVrfEvaluationStatus,
       // Total metrics not implemented yet

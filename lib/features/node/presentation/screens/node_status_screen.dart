@@ -514,7 +514,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             // Get VRF evaluator data for slots information
             final vrfEvaluator =
                 ref.watch(nodeStatusProvider).value?.vrfEvaluator;
-            final evaluatedSlots = vrfEvaluator?.evaluatedSlotsSinceStart ?? 0;
+            final evaluatedSlots = vrfEvaluator?.details?.evaluatedCurrentEpoch ?? 0;
             final totalSlotsPerEpoch = BlockchainTiming.slotsPerEpoch;
 
             return Row(

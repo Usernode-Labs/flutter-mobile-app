@@ -21,9 +21,9 @@ class NodeRepositoryImpl implements NodeRepository {
   }
 
   @override
-  Future<bool> startForActiveAccount() async {
+  Future<bool> startNode() async {
     try {
-      return await RustBackendService.instance.startForActiveAccount();
+      return await RustBackendService.instance.startNode();
     } catch (e) {
       return false;
     }

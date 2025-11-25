@@ -778,9 +778,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     dynamic snapshot, // EpochRewardsSnapshot? but avoid import type bleed here
     bool isLoading,
   ) {
-    LoggingService.instance.trace(
-        'Building rewards section with snapshot: $snapshot',
-        tag: 'HOME_SCREEN');
+    _log.trace('Building rewards section with snapshot: $snapshot');
     BigInt? earned;
     BigInt? expected;
     int? epoch;
@@ -789,12 +787,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     BigInt? rewardPerBlock;
     if (snapshot != null) {
       try {
-        LoggingService.instance.trace(
-            'Snapshot earnedSoFar raw: ${snapshot.earnedSoFar}',
-            tag: 'HOME_SCREEN');
-        LoggingService.instance.trace(
-            'Snapshot expectedTotal raw: ${snapshot.expectedTotal}',
-            tag: 'HOME_SCREEN');
+        _log.trace('Snapshot earnedSoFar raw: ${snapshot.earnedSoFar}');
+        _log.trace('Snapshot expectedTotal raw: ${snapshot.expectedTotal}');
         earned = BigInt.parse(snapshot.earnedSoFar as String);
         expected = BigInt.parse(snapshot.expectedTotal as String);
         epoch = snapshot.epoch as int;
@@ -805,15 +799,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           wins = produced;
         }
         rewardPerBlock = BigInt.parse(snapshot.rewardPerBlock as String);
-        LoggingService.instance.trace(
-            'Parsed earned: $earned, expected: $expected, epoch: $epoch',
-            tag: 'HOME_SCREEN');
-      } catch (e) {
-        LoggingService.instance.error('Error parsing snapshot',
-            tag: 'HOME_SCREEN', error: e, stackTrace: StackTrace.current);
+        _log.trace('Parsed earned: $earned, expected: $expected, epoch: $epoch');
+      } catch (e, st) {
+        _log.error('Error parsing snapshot', error: e, stackTrace: st);
       }
     } else {
-      LoggingService.instance.trace('Snapshot is null', tag: 'HOME_SCREEN');
+      _log.trace('Snapshot is null');
     }
 
     final showAmountSkeleton = isLoading || earned == null || expected == null;

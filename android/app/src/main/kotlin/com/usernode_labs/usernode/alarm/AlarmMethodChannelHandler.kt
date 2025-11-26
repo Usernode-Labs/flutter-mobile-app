@@ -143,6 +143,41 @@ class AlarmMethodChannelHandler(private val activity: Activity) {
                 val success = foregroundServiceManager.stopForegroundService()
                 result.success(success)
             }
+            "startPersistentForegroundService" -> {
+                Log.d(TAG, "[AlarmMethodChannelHandler] Starting persistent foreground service")
+                val intent = Intent(activity, SlotMonitoringService::class.java).apply {
+                    action = SlotMonitoringService.ACTION_START_PERSISTENT
+                }
+                try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        activity.startForegroundService(intent)
+                    } else {
+                        activity.startService(intent)
+                    }
+                    result.success(true)
+                } catch (e: Exception) {
+                    Log.e(TAG, "[AlarmMethodChannelHandler] Failed to start persistent foreground service", e)
+                    result.success(false)
+                }
+            }
+            "stopPersistentForegroundService" -> {
+                Log.d(TAG, "[AlarmMethodChannelHandler] Stopping persistent foreground service")
+                val intent = Intent(activity, SlotMonitoringService::class.java).apply {
+                    action = SlotMonitoringService.ACTION_STOP_PERSISTENT
+                }
+                try {
+                    activity.startService(intent)
+                    result.success(true)
+                } catch (e: Exception) {
+                    Log.e(TAG, "[AlarmMethodChannelHandler] Failed to stop persistent foreground service", e)
+                    result.success(false)
+                }
+            }
+            "isPersistentForegroundRunning" -> {
+                val isRunning = SlotMonitoringService.isPersistentModeActive
+                Log.d(TAG, "[AlarmMethodChannelHandler] isPersistentForegroundRunning: $isRunning")
+                result.success(isRunning)
+            }
             "isBatteryOptimizationDisabled" -> {
                 result.success(isBatteryOptimizationDisabled())
             }

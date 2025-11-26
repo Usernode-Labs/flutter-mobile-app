@@ -172,7 +172,7 @@ class DeviceMetrics with _$DeviceMetrics {
 @freezed
 class BatteryMetrics with _$BatteryMetrics {
   const factory BatteryMetrics({
-    required int batteryLevel,
+    int? batteryLevel,
     required String batteryState,
     required bool batteryOptimizationDisabled,
     required bool powerSaveMode,
@@ -182,7 +182,7 @@ class BatteryMetrics with _$BatteryMetrics {
   const BatteryMetrics._();
 
   Map<String, dynamic> toJson() => {
-        'battery_level': batteryLevel,
+        if (batteryLevel != null) 'battery_level': batteryLevel,
         'battery_state': batteryState,
         'battery_optimization_disabled': batteryOptimizationDisabled,
         'power_save_mode': powerSaveMode,

@@ -6,20 +6,24 @@ This directory contains third-party decentralized applications (dApps) that inte
 
 Each dApp should follow this standardized structure:
 
-```
-dapps/
-└── your_dapp_name/
-    ├── dapp_manifest.yaml          # dApp metadata and configuration
-    ├── data/                        # Data layer
-    │   ├── models/                  # Data models
-    │   ├── repositories/            # Data repositories
-    │   └── datasources/             # External data sources
-    ├── domain/                      # Business logic layer
-    │   ├── entities/                # Business entities
-    │   └── usecases/                # Use cases
-    └── presentation/                # UI layer
-        ├── screens/                 # dApp screens
-        └── widgets/                 # dApp-specific widgets
+```mermaid
+flowchart TB
+    dapps["📁 dapps/"]
+    dapps --> dapp["📁 your_dapp_name/"]
+    dapp --> manifest["📄 dapp_manifest.yaml<br/>dApp metadata and configuration"]
+    dapp --> data["📁 data/<br/>Data layer"]
+    dapp --> domain["📁 domain/<br/>Business logic layer"]
+    dapp --> presentation["📁 presentation/<br/>UI layer"]
+
+    data --> models["📁 models/<br/>Data models"]
+    data --> repos["📁 repositories/<br/>Data repositories"]
+    data --> datasources["📁 datasources/<br/>External data sources"]
+
+    domain --> entities["📁 entities/<br/>Business entities"]
+    domain --> usecases["📁 usecases/<br/>Use cases"]
+
+    presentation --> screens["📁 screens/<br/>dApp screens"]
+    presentation --> widgets["📁 widgets/<br/>dApp-specific widgets"]
 ```
 
 ## dApp Manifest
@@ -103,13 +107,15 @@ Use the platform's state management solution (currently none, but will use River
 
 Create tests in a `test/` directory within your dApp:
 
-```
-your_dapp_name/
-├── test/
-│   ├── data/
-│   ├── domain/
-│   └── presentation/
-└── ...
+```mermaid
+flowchart TB
+    dapp["📁 your_dapp_name/"]
+    dapp --> test["📁 test/"]
+    dapp --> etc["..."]
+
+    test --> data["📁 data/"]
+    test --> domain["📁 domain/"]
+    test --> presentation["📁 presentation/"]
 ```
 
 ## Example dApp

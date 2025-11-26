@@ -15,13 +15,21 @@ class SlotMonitoringService : Service() {
         private const val TAG = "SlotMonitoringService"
         const val ACTION_START_MONITORING = "com.usernode.app.START_MONITORING"
         const val ACTION_STOP_MONITORING = "com.usernode.app.STOP_MONITORING"
+        const val ACTION_START_PERSISTENT = "com.usernode.app.START_PERSISTENT"
+        const val ACTION_STOP_PERSISTENT = "com.usernode.app.STOP_PERSISTENT"
 
         private const val NOTIFICATION_ID = 1001
         private const val CHANNEL_ID = "slot_monitoring_channel"
         private const val CHANNEL_NAME = "Slot Monitoring"
+
+        // Track persistent mode state globally so it can be queried
+        @Volatile
+        var isPersistentModeActive = false
+            private set
     }
 
     private var currentSlotNumber: Int? = null
+    private var isPersistentMode = false
 
     override fun onCreate() {
         super.onCreate()
@@ -55,6 +63,14 @@ class SlotMonitoringService : Service() {
             ACTION_STOP_MONITORING -> {
                 Log.d(TAG, "[SlotMonitoringService] STOP_MONITORING action received")
                 stopMonitoring()
+            }
+            ACTION_START_PERSISTENT -> {
+                Log.d(TAG, "[SlotMonitoringService] START_PERSISTENT action received")
+                startPersistentMode()
+            }
+            ACTION_STOP_PERSISTENT -> {
+                Log.d(TAG, "[SlotMonitoringService] STOP_PERSISTENT action received")
+                stopPersistentMode()
             }
             else -> {
                 Log.w(TAG, "[SlotMonitoringService] Unknown action: ${intent.action}")
@@ -104,6 +120,54 @@ class SlotMonitoringService : Service() {
         }
 
         currentSlotNumber = null
+
+        try {
+            stopSelf()
+            Log.d(TAG, "[SlotMonitoringService] Service stopSelf() called")
+        } catch (e: Exception) {
+            Log.e(TAG, "[SlotMonitoringService] Error calling stopSelf()", e)
+        }
+    }
+
+    private fun startPersistentMode() {
+        isPersistentMode = true
+        isPersistentModeActive = true
+        Log.i(TAG, "[SlotMonitoringService] ✓ Starting persistent foreground mode")
+
+        val notification = createNotification(
+            title = "Block Production Active",
+            message = "Monitoring for block production opportunities"
+        )
+
+        try {
+            startForeground(NOTIFICATION_ID, notification)
+            Log.d(TAG, "[SlotMonitoringService] Persistent foreground service started with notification ID $NOTIFICATION_ID")
+
+            // Send event to Flutter
+            Log.d(TAG, "[SlotMonitoringService] Sending android_persistent_foreground_started event to Flutter")
+            AlarmMethodChannelHandler.getInstance()?.sendEventToFlutter("android_persistent_foreground_started", mapOf<String, Any?>())
+        } catch (e: Exception) {
+            Log.e(TAG, "[SlotMonitoringService] Failed to start persistent foreground service", e)
+            isPersistentMode = false
+            isPersistentModeActive = false
+        }
+    }
+
+    private fun stopPersistentMode() {
+        Log.i(TAG, "[SlotMonitoringService] Stopping persistent foreground mode")
+        isPersistentMode = false
+        isPersistentModeActive = false
+
+        try {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            Log.d(TAG, "[SlotMonitoringService] Persistent foreground service stopped, notification removed")
+
+            // Send event to Flutter
+            Log.d(TAG, "[SlotMonitoringService] Sending android_persistent_foreground_stopped event to Flutter")
+            AlarmMethodChannelHandler.getInstance()?.sendEventToFlutter("android_persistent_foreground_stopped", mapOf<String, Any?>())
+        } catch (e: Exception) {
+            Log.e(TAG, "[SlotMonitoringService] Error stopping persistent foreground", e)
+        }
 
         try {
             stopSelf()

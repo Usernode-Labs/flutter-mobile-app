@@ -1907,7 +1907,7 @@ abstract class _DeviceMetrics extends DeviceMetrics {
 
 /// @nodoc
 mixin _$BatteryMetrics {
-  int get batteryLevel => throw _privateConstructorUsedError;
+  int? get batteryLevel => throw _privateConstructorUsedError;
   String get batteryState => throw _privateConstructorUsedError;
   bool get batteryOptimizationDisabled => throw _privateConstructorUsedError;
   bool get powerSaveMode => throw _privateConstructorUsedError;
@@ -1927,7 +1927,7 @@ abstract class $BatteryMetricsCopyWith<$Res> {
       _$BatteryMetricsCopyWithImpl<$Res, BatteryMetrics>;
   @useResult
   $Res call(
-      {int batteryLevel,
+      {int? batteryLevel,
       String batteryState,
       bool batteryOptimizationDisabled,
       bool powerSaveMode,
@@ -1949,17 +1949,17 @@ class _$BatteryMetricsCopyWithImpl<$Res, $Val extends BatteryMetrics>
   @pragma('vm:prefer-inline')
   @override
   $Res call({
-    Object? batteryLevel = null,
+    Object? batteryLevel = freezed,
     Object? batteryState = null,
     Object? batteryOptimizationDisabled = null,
     Object? powerSaveMode = null,
     Object? lowPowerMode = null,
   }) {
     return _then(_value.copyWith(
-      batteryLevel: null == batteryLevel
+      batteryLevel: freezed == batteryLevel
           ? _value.batteryLevel
           : batteryLevel // ignore: cast_nullable_to_non_nullable
-              as int,
+              as int?,
       batteryState: null == batteryState
           ? _value.batteryState
           : batteryState // ignore: cast_nullable_to_non_nullable
@@ -1989,7 +1989,7 @@ abstract class _$$BatteryMetricsImplCopyWith<$Res>
   @override
   @useResult
   $Res call(
-      {int batteryLevel,
+      {int? batteryLevel,
       String batteryState,
       bool batteryOptimizationDisabled,
       bool powerSaveMode,
@@ -2009,17 +2009,17 @@ class __$$BatteryMetricsImplCopyWithImpl<$Res>
   @pragma('vm:prefer-inline')
   @override
   $Res call({
-    Object? batteryLevel = null,
+    Object? batteryLevel = freezed,
     Object? batteryState = null,
     Object? batteryOptimizationDisabled = null,
     Object? powerSaveMode = null,
     Object? lowPowerMode = null,
   }) {
     return _then(_$BatteryMetricsImpl(
-      batteryLevel: null == batteryLevel
+      batteryLevel: freezed == batteryLevel
           ? _value.batteryLevel
           : batteryLevel // ignore: cast_nullable_to_non_nullable
-              as int,
+              as int?,
       batteryState: null == batteryState
           ? _value.batteryState
           : batteryState // ignore: cast_nullable_to_non_nullable
@@ -2044,7 +2044,7 @@ class __$$BatteryMetricsImplCopyWithImpl<$Res>
 
 class _$BatteryMetricsImpl extends _BatteryMetrics {
   const _$BatteryMetricsImpl(
-      {required this.batteryLevel,
+      {this.batteryLevel,
       required this.batteryState,
       required this.batteryOptimizationDisabled,
       required this.powerSaveMode,
@@ -2052,7 +2052,7 @@ class _$BatteryMetricsImpl extends _BatteryMetrics {
       : super._();
 
   @override
-  final int batteryLevel;
+  final int? batteryLevel;
   @override
   final String batteryState;
   @override
@@ -2102,7 +2102,7 @@ class _$BatteryMetricsImpl extends _BatteryMetrics {
 
 abstract class _BatteryMetrics extends BatteryMetrics {
   const factory _BatteryMetrics(
-      {required final int batteryLevel,
+      {final int? batteryLevel,
       required final String batteryState,
       required final bool batteryOptimizationDisabled,
       required final bool powerSaveMode,
@@ -2110,7 +2110,7 @@ abstract class _BatteryMetrics extends BatteryMetrics {
   const _BatteryMetrics._() : super._();
 
   @override
-  int get batteryLevel;
+  int? get batteryLevel;
   @override
   String get batteryState;
   @override

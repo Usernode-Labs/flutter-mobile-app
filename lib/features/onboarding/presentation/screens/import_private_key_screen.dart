@@ -7,6 +7,7 @@ import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_rep
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/src/rust/account.dart';
 import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
+import 'package:crypto_mobile_app/core/providers/providers.dart';
 
 class ImportPrivateKeyScreen extends ConsumerStatefulWidget {
   const ImportPrivateKeyScreen({super.key});
@@ -101,6 +102,9 @@ class _ImportPrivateKeyScreenState
 
       LoggingService.instance.debug('Import successful, starting backend',
           tag: 'IMPORT_PRIVATE_KEY');
+
+      // Invalidate provider to update router state
+      ref.invalidate(hasAnyAccountProvider);
 
       // Start backend for new account
       try {

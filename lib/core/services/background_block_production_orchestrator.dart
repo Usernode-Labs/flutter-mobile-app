@@ -348,10 +348,12 @@ class BackgroundBlockProductionOrchestrator {
       // Get battery level
       int batteryLevel = 0;
       try {
+        _log.debug('Attempting to get battery level for wake-up event...');
         batteryLevel = await _battery.batteryLevel;
-        _log.debug('Battery level: $batteryLevel%');
-      } catch (e) {
+        _log.debug('Battery level for wake-up: $batteryLevel%');
+      } catch (e, stackTrace) {
         _log.warn('Could not get battery level: $e');
+        _log.debug('Battery error stacktrace: $stackTrace');
       }
 
       // Calculate alarm latency (find scheduled slot)

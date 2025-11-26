@@ -175,65 +175,72 @@ gem "fastlane"
 
 ### Before Optimization
 
-```
-build-ios job (sequential):
-├─ Checkout (1-2 min)
-├─ Usernode setup (1-2 min)
-├─ Flutter setup (3-5 min)
-├─ Rust setup (3-5 min)
-├─ Cargo install cargo-expand (5-8 min) ← BOTTLENECK
-├─ Cargo install frb_codegen (10-17 min) ← MAJOR BOTTLENECK
-├─ FRB codegen (2-3 min)
-├─ CocoaPods install (3-5 min)
-├─ Fastlane install (1 min)
-├─ Flutter build ios (5-8 min)
-├─ Fastlane build + upload (5-10 min) ← Rebuilds again!
-└─ Total: 40-70 minutes
+```mermaid
+flowchart TB
+    subgraph Before["build-ios job - sequential - 40-70 min total"]
+        A["Checkout - 1-2 min"] --> B["Usernode setup - 1-2 min"]
+        B --> C["Flutter setup - 3-5 min"]
+        C --> D["Rust setup - 3-5 min"]
+        D --> E["Cargo install cargo-expand - 5-8 min ⚠️ BOTTLENECK"]
+        E --> F["Cargo install frb_codegen - 10-17 min ⚠️ MAJOR BOTTLENECK"]
+        F --> G["FRB codegen - 2-3 min"]
+        G --> H["CocoaPods install - 3-5 min"]
+        H --> I["Fastlane install - 1 min"]
+        I --> J["Flutter build ios - 5-8 min"]
+        J --> K["Fastlane build + upload - 5-10 min ⚠️ Rebuilds again!"]
+    end
 ```
 
 ### After Optimization (Cold Cache)
 
-```
-determine-frb-rev job (parallel with setup-rust-tools):
-├─ Checkout (1 min)
-└─ Determine versions (1 min)
+```mermaid
+flowchart TB
+    subgraph Parallel["Parallel Jobs"]
+        subgraph FRB["determine-frb-rev job"]
+            P1["Checkout - 1 min"] --> P2["Determine versions - 1 min"]
+        end
+        subgraph Rust["setup-rust-tools job"]
+            R1["Setup Rust - 2 min"] --> R2["Install cargo-binstall - 1 min"]
+            R2 --> R3["Install cargo-expand via binstall - 2 min ✅ Faster!"]
+            R3 --> R4["Install frb_codegen from source - 10-15 min"]
+        end
+    end
 
-setup-rust-tools job (parallel):
-├─ Setup Rust (2 min)
-├─ Install cargo-binstall (1 min)
-├─ Install cargo-expand via binstall (2 min) ← Faster!
-└─ Install frb_codegen from source (10-15 min) ← Still slow first time
+    subgraph Build["build-ios job - 24-40 min total"]
+        B1["Checkout - 1-2 min"] --> B2["Usernode setup - 1-2 min"]
+        B2 --> B3["Flutter setup - 3-5 min"]
+        B3 --> B4["Restore cargo binaries - cache miss, skip"]
+        B4 --> B5["FRB codegen - 2-3 min"]
+        B5 --> B6["CocoaPods install - 3-5 min"]
+        B6 --> B7["Fastlane build + upload - 5-10 min ✅ Only builds once!"]
+    end
 
-build-ios job (sequential after above):
-├─ Checkout (1-2 min)
-├─ Usernode setup (1-2 min)
-├─ Flutter setup (3-5 min)
-├─ Restore cargo binaries (cache miss, skip)
-├─ FRB codegen (2-3 min)
-├─ CocoaPods install (3-5 min)
-├─ Fastlane build + upload (5-10 min) ← Only builds once!
-└─ Total: 24-40 minutes
+    Parallel --> Build
 ```
 
 ### After Optimization (Warm Cache)
 
-```
-determine-frb-rev job:
-└─ ~2 minutes
+```mermaid
+flowchart TB
+    subgraph Parallel["Parallel Jobs"]
+        subgraph FRB["determine-frb-rev job - ~2 min"]
+            P1["Determine versions"]
+        end
+        subgraph Rust["setup-rust-tools job - ~1 min"]
+            R1["Cargo binaries cache HIT! ⚡ Instant!"]
+        end
+    end
 
-setup-rust-tools job:
-├─ Cargo binaries cache HIT! ← Instant!
-└─ ~1 minute
+    subgraph Build["build-ios job - 10-20 min total"]
+        B1["Checkout - 1 min"] --> B2["Usernode cache HIT - 1 min"]
+        B2 --> B3["Flutter cache HIT - 1 min"]
+        B3 --> B4["Cargo binaries cache HIT! ⚡ Saves 15-20 min!"]
+        B4 --> B5["FRB codegen cache HIT! ⚡ Saves 2-3 min!"]
+        B5 --> B6["CocoaPods cache HIT! ⚡ Saves 3-5 min!"]
+        B6 --> B7["Fastlane build + upload - 5-10 min"]
+    end
 
-build-ios job:
-├─ Checkout (1 min)
-├─ Usernode cache HIT (1 min)
-├─ Flutter cache HIT (1 min)
-├─ Cargo binaries cache HIT! (instant) ← Saves 15-20 min!
-├─ FRB codegen cache HIT! (instant) ← Saves 2-3 min!
-├─ CocoaPods cache HIT! (instant) ← Saves 3-5 min!
-├─ Fastlane build + upload (5-10 min)
-└─ Total: 10-20 minutes
+    Parallel --> Build
 ```
 
 ---

@@ -653,6 +653,7 @@ User must:
 ## Related Documentation
 
 - [METRICS.md](./METRICS.md) - Metrics system with 42 event types
+- [METRICS_FIELDS_REFERENCE.md](./METRICS_FIELDS_REFERENCE.md) - Detailed JSON field reference with iOS/Android platform differences
 - [DEVELOPMENT.md](./DEVELOPMENT.md) - Developer guidelines and repository structure
 
 ---

@@ -37,10 +37,10 @@ class _BackgroundProductionSettingsScreenState
     // Run initialization in background without blocking UI
     _checkStatus();
 
-    // Periodic auto-refresh every 3 seconds
+    // Periodic auto-refresh every 3 seconds (all settings including permissions)
     _autoTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       if (mounted && !_refreshing) {
-        _refreshProviders();
+        _checkStatus();
       }
     });
   }

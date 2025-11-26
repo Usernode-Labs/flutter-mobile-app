@@ -175,16 +175,13 @@ For detailed documentation on specific features and workflows, refer to the foll
 
 ### Background Block Production
 
-- **[Background Block Production Overview](docs/background-block-production.md)** - Comprehensive guide to background block production system, architecture, and platform-specific implementations
-- **[Android Background Block Production Flow](docs/android_background_block_production_flow.md)** - Detailed flow diagram and implementation details for Android
-- **[iOS Background Block Production Flow](docs/ios_background_block_production_flow.md)** - Detailed flow diagram and implementation details for iOS
-- **[App Permissions Guide](docs/PERMISSIONS.md)** - Runtime permissions required for background block production, startup permission flow, and troubleshooting
+- **[Background Block Production](docs/BACKGROUND_PRODUCTION.md)** - Comprehensive guide to background block production system, architecture, and platform-specific implementations
+- **[Android Background Block Production Workflow](docs/ANDROID_BACKGROUND_BLOCK_PRODUCTION_WORKFLOW.md)** - Detailed flow diagram and implementation details for Android
 
 ### Metrics & Monitoring
 
-- **[Metrics Feature Overview](docs/METRICS_FEATURE.md)** - Complete guide to metrics collection, event-driven architecture, and targeted collection strategies
-- **[Metrics Events Catalog](docs/METRICS_EVENTS.md)** - Comprehensive documentation of all 42 metrics event types organized by collection strategy
-- **[Metrics API Specification](docs/METRICS_API_SPEC.md)** - API endpoint specifications, payload structure, and configuration guide
+- **[Metrics Documentation](docs/METRICS.md)** - Complete metrics system documentation including event types, API specs, and configuration
+- **[Metrics Fields Reference](docs/METRICS_FIELDS_REFERENCE.md)** - Detailed JSON field reference with iOS/Android platform differences
 
 ### Development & Architecture
 

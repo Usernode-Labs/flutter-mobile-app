@@ -480,7 +480,6 @@ Check your API logs to verify:
 
 - [BACKGROUND_PRODUCTION.md](./BACKGROUND_PRODUCTION.md) - Background production architecture and event flow
 - [METRICS_FIELDS_REFERENCE.md](./METRICS_FIELDS_REFERENCE.md) - Detailed JSON field reference with iOS/Android platform differences
-- [DEVELOPMENT.md](./DEVELOPMENT.md) - Developer guidelines
 
 ---
 

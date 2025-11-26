@@ -371,6 +371,10 @@ The app monitors permission status and emits events:
 
 ## Configuration
 
+### Settings Screen
+
+The Background Block Production settings screen provides comprehensive status and configuration options. The settings automatically refresh every 3 seconds to keep permission status, VRF state, and scheduled slots up-to-date.
+
 ### Environment Variables
 
 Configure block production via `.env` file:
@@ -643,7 +647,6 @@ User must:
 
 - [METRICS.md](./METRICS.md) - Metrics system with 42 event types
 - [METRICS_FIELDS_REFERENCE.md](./METRICS_FIELDS_REFERENCE.md) - Detailed JSON field reference with iOS/Android platform differences
-- [DEVELOPMENT.md](./DEVELOPMENT.md) - Developer guidelines and repository structure
 
 ---
 

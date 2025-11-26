@@ -7,6 +7,7 @@ import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_rep
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/src/rust/account.dart';
 import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
+import 'package:crypto_mobile_app/core/providers/providers.dart';
 
 class ImportSeedPhraseScreen extends ConsumerStatefulWidget {
   const ImportSeedPhraseScreen({super.key});
@@ -96,6 +97,9 @@ class _ImportSeedPhraseScreenState
       LoggingService.instance
           .debug('Import successful, starting backend', tag: 'IMPORT_SEED');
 
+      // Invalidate provider to update router state
+      ref.invalidate(hasAnyAccountProvider);
+
       // Start backend for new account
       try {
         await RustBackendService.instance.startNode();
@@ -107,8 +111,6 @@ class _ImportSeedPhraseScreenState
       }
 
       // Navigate to identity verification screen
-      // Provider will be invalidated when user proceeds/skips verification
-      // This prevents router redirect race condition
       if (!mounted) return;
       context.go('/identity-verification?accountId=${result.id}');
     } catch (e) {

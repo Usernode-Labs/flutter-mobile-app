@@ -5,6 +5,7 @@ import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
+import 'package:crypto_mobile_app/core/providers/providers.dart';
 
 class CreateNewAccountScreen extends ConsumerStatefulWidget {
   final String mnemonic;
@@ -66,6 +67,9 @@ class _CreateNewAccountScreenState
       LoggingService.instance
           .debug('Import successful, starting backend', tag: 'CREATE_ACCOUNT');
 
+      // Invalidate provider to update router state
+      ref.invalidate(hasAnyAccountProvider);
+
       // Start backend for new account
       try {
         await RustBackendService.instance.startNode();
@@ -77,8 +81,6 @@ class _CreateNewAccountScreenState
       }
 
       // Navigate to identity verification screen
-      // Provider will be invalidated when user proceeds/skips verification
-      // This prevents router redirect race condition
       if (!mounted) return;
       context.go('/identity-verification?accountId=${result.id}');
       LoggingService.instance

@@ -24,57 +24,34 @@ The Android background block production system supports **two modes**:
 
 ## Architecture Diagram
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Settings Screen (UI)                         │
-│  ┌─────────────────────┐  ┌──────────────────────────────────┐ │
-│  │ Event-Driven Mode   │  │ Persistent Foreground Mode       │ │
-│  │ (Default)           │  │ (Toggle in Settings)             │ │
-│  └─────────┬───────────┘  └─────────────┬────────────────────┘ │
-└────────────┼────────────────────────────┼──────────────────────┘
-             │                            │
-             ▼                            ▼
-┌────────────────────────┐  ┌─────────────────────────────────────┐
-│ BackgroundBlockProd-   │  │ AndroidForegroundKeepAliveService   │
-│ uctionOrchestrator     │  │ - startKeepAlive()                  │
-│ - Epoch monitoring     │  │ - stopKeepAlive()                   │
-│ - Slot scheduling      │  │ - WakelockPlus integration          │
-└────────────┬───────────┘  └─────────────┬───────────────────────┘
-             │                            │
-             ▼                            ▼
-┌─────────────────────────────────────────────────────────────────┐
-│              PlatformAlarmService (Dart)                        │
-│  - scheduleAlarm()                   - startPersistentForeground│
-│  - startForegroundService()          - stopPersistentForeground │
-│  - MethodChannel: "com.usernode.app/alarm"                      │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-              MethodChannel Communication
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│           AlarmMethodChannelHandler (Kotlin)                    │
-│  - scheduleExactAlarm          - startPersistentForegroundSvc   │
-│  - startForegroundService      - stopPersistentForegroundSvc    │
-│  - cancelAlarm                 - isPersistentForegroundRunning  │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-             ┌───────────────┴───────────────┐
-             │                               │
-             ▼                               ▼
-┌────────────────────────┐     ┌─────────────────────────────────┐
-│    AlarmScheduler      │     │    SlotMonitoringService        │
-│  - Exact alarms        │     │  - ACTION_START_MONITORING      │
-│  - setExactAndAllow-   │     │  - ACTION_STOP_MONITORING       │
-│    WhileIdle()         │     │  - ACTION_START_PERSISTENT      │
-└────────────┬───────────┘     │  - ACTION_STOP_PERSISTENT       │
-             │                 └─────────────────────────────────┘
-             ▼
-┌────────────────────────┐
-│    AlarmReceiver       │
-│  - SLOT_ALARM          │
-│  - BOOT_COMPLETED      │
-└────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph UI["Settings Screen - UI"]
+        EventMode["Event-Driven Mode<br/>Default"]
+        PersistMode["Persistent Foreground Mode<br/>Toggle in Settings"]
+    end
+
+    subgraph Flutter["Flutter Layer"]
+        Orchestrator["BackgroundBlockProductionOrchestrator<br/>Epoch monitoring<br/>Slot scheduling"]
+        KeepAlive["AndroidForegroundKeepAliveService<br/>startKeepAlive()<br/>stopKeepAlive()<br/>WakelockPlus integration"]
+        PlatformAlarm["PlatformAlarmService - Dart<br/>scheduleAlarm() / startForegroundService()<br/>startPersistentForeground / stopPersistentForeground<br/>MethodChannel: com.usernode.app/alarm"]
+    end
+
+    subgraph Android["Android Native - Kotlin"]
+        ChannelHandler["AlarmMethodChannelHandler<br/>scheduleExactAlarm / startForegroundService / cancelAlarm<br/>startPersistentForegroundSvc / stopPersistentForegroundSvc<br/>isPersistentForegroundRunning"]
+        AlarmScheduler["AlarmScheduler<br/>Exact alarms<br/>setExactAndAllowWhileIdle()"]
+        SlotService["SlotMonitoringService<br/>ACTION_START_MONITORING<br/>ACTION_STOP_MONITORING<br/>ACTION_START_PERSISTENT<br/>ACTION_STOP_PERSISTENT"]
+        AlarmReceiver["AlarmReceiver<br/>SLOT_ALARM<br/>BOOT_COMPLETED"]
+    end
+
+    EventMode --> Orchestrator
+    PersistMode --> KeepAlive
+    Orchestrator --> PlatformAlarm
+    KeepAlive --> PlatformAlarm
+    PlatformAlarm -->|"MethodChannel"| ChannelHandler
+    ChannelHandler --> AlarmScheduler
+    ChannelHandler --> SlotService
+    AlarmScheduler --> AlarmReceiver
 ```
 
 ---
@@ -83,86 +60,79 @@ The Android background block production system supports **two modes**:
 
 ### Workflow
 
-```
-1. App Initialization
-   └─> BackgroundBlockProductionOrchestrator.initialize()
-       └─> Start epoch monitoring timer
+```mermaid
+flowchart TB
+    subgraph Step1["1. App Initialization"]
+        A1["BackgroundBlockProductionOrchestrator.initialize()"] --> A2["Start epoch monitoring timer"]
+    end
 
-2. Epoch Monitoring (every N minutes, VRF-aware)
-   └─> Query RustBackendService.getEpochInfo()
-       └─> If VRF complete: Schedule alarms for won slots
-       └─> If VRF in progress: Retry in 2-10 min
+    subgraph Step2["2. Epoch Monitoring - every N minutes, VRF-aware"]
+        B1["Query RustBackendService.getEpochInfo()"]
+        B1 --> B2{"VRF Status?"}
+        B2 -->|Complete| B3["Schedule alarms for won slots"]
+        B2 -->|In Progress| B4["Retry in 2-10 min"]
+    end
 
-3. Alarm Scheduling
-   └─> PlatformAlarmService.scheduleAlarm()
-       └─> AlarmManager.setExactAndAllowWhileIdle()
-           └─> Save alarm ID to SharedPreferences
+    subgraph Step3["3. Alarm Scheduling"]
+        C1["PlatformAlarmService.scheduleAlarm()"] --> C2["AlarmManager.setExactAndAllowWhileIdle()"]
+        C2 --> C3["Save alarm ID to SharedPreferences"]
+    end
 
-4. Alarm Fires
-   └─> AlarmReceiver.onReceive(SLOT_ALARM)
-       └─> Start SlotMonitoringService (foreground)
-       └─> Send "android_alarm_fired" to Flutter
-       └─> handleSlotWakeUp() in Orchestrator
+    subgraph Step4["4. Alarm Fires"]
+        D1["AlarmReceiver.onReceive(SLOT_ALARM)"] --> D2["Start SlotMonitoringService - foreground"]
+        D2 --> D3["Send 'android_alarm_fired' to Flutter"]
+        D3 --> D4["handleSlotWakeUp() in Orchestrator"]
+    end
 
-5. Slot Monitoring (~2 minutes)
-   └─> SlotMonitorService polls backend every 10s
-       └─> Detect block production success/failure
-       └─> Stop foreground service when done
+    subgraph Step5["5. Slot Monitoring - ~2 minutes"]
+        E1["SlotMonitorService polls backend every 10s"] --> E2["Detect block production success/failure"]
+        E2 --> E3["Stop foreground service when done"]
+    end
 
-6. Boot Recovery
-   └─> AlarmReceiver receives BOOT_COMPLETED
-       └─> BootRescheduleService starts
-       └─> Creates headless Flutter engine
-       └─> Calls rescheduleAfterBoot()
+    subgraph Step6["6. Boot Recovery"]
+        F1["AlarmReceiver receives BOOT_COMPLETED"] --> F2["BootRescheduleService starts"]
+        F2 --> F3["Creates headless Flutter engine"]
+        F3 --> F4["Calls rescheduleAfterBoot()"]
+    end
+
+    Step1 --> Step2
+    Step2 --> Step3
+    Step3 --> Step4
+    Step4 --> Step5
 ```
 
 ### Sequence Diagram: Alarm Scheduling
 
-```
-Flutter                    Android Native
-  │                             │
-  │  scheduleExactAlarm()       │
-  ├────────────────────────────>│
-  │                             │  AlarmMethodChannelHandler
-  │                             │        │
-  │                             │        │  AlarmScheduler
-  │                             │        │       │
-  │                             │        ├──────>│ scheduleExactAlarm()
-  │                             │        │       │
-  │                             │        │       │  AlarmManager
-  │                             │        │       │       │
-  │                             │        │       ├──────>│ setExactAndAllowWhileIdle()
-  │                             │        │       │<──────┤
-  │                             │        │<──────┤
-  │                             │<───────┤
-  │<────────────────────────────┤ success
-  │                             │
+```mermaid
+sequenceDiagram
+    participant F as Flutter
+    participant H as AlarmMethodChannelHandler
+    participant S as AlarmScheduler
+    participant M as AlarmManager
+
+    F->>H: scheduleExactAlarm()
+    H->>S: scheduleExactAlarm()
+    S->>M: setExactAndAllowWhileIdle()
+    M-->>S:
+    S-->>H:
+    H-->>F: success
 ```
 
 ### Sequence Diagram: Alarm Firing
 
-```
-AlarmManager              AlarmReceiver           SlotMonitoringService        Flutter
-     │                         │                          │                       │
-     │  broadcast              │                          │                       │
-     ├────────────────────────>│                          │                       │
-     │                         │                          │                       │
-     │                         │  startForegroundService  │                       │
-     │                         ├─────────────────────────>│                       │
-     │                         │                          │                       │
-     │                         │                          │  startForeground()    │
-     │                         │                          ├───────────────────────│
-     │                         │                          │                       │
-     │                         │  sendEventToFlutter("android_alarm_fired")       │
-     │                         ├──────────────────────────────────────────────────>│
-     │                         │                          │                       │
-     │                         │                          │  sendEventToFlutter   │
-     │                         │                          │  ("foreground_started")│
-     │                         │                          ├──────────────────────>│
-     │                         │                          │                       │
-     │                         │                          │                       │  handleSlotWakeUp()
-     │                         │                          │                       ├────────────────────
-     │                         │                          │                       │
+```mermaid
+sequenceDiagram
+    participant AM as AlarmManager
+    participant AR as AlarmReceiver
+    participant SMS as SlotMonitoringService
+    participant F as Flutter
+
+    AM->>AR: broadcast
+    AR->>SMS: startForegroundService
+    SMS->>SMS: startForeground()
+    AR->>F: sendEventToFlutter("android_alarm_fired")
+    SMS->>F: sendEventToFlutter("foreground_started")
+    F->>F: handleSlotWakeUp()
 ```
 
 ---
@@ -179,60 +149,57 @@ When enabled via the Settings toggle, this mode:
 
 ### Workflow
 
-```
-1. User Enables Toggle in Settings
-   └─> AndroidForegroundKeepAliveService.startKeepAlive()
+```mermaid
+flowchart TB
+    subgraph Step1["1. User Enables Toggle in Settings"]
+        A1["AndroidForegroundKeepAliveService.startKeepAlive()"]
+    end
 
-2. Start Keep-Alive
-   └─> PlatformAlarmService.startPersistentForegroundService()
-       └─> AlarmMethodChannelHandler handles method call
-           └─> SlotMonitoringService.ACTION_START_PERSISTENT
-               └─> startForeground() with persistent notification
-   └─> WakelockPlus.enable()
-   └─> Start heartbeat timer (every 30s)
+    subgraph Step2["2. Start Keep-Alive"]
+        B1["PlatformAlarmService.startPersistentForegroundService()"]
+        B1 --> B2["AlarmMethodChannelHandler handles method call"]
+        B2 --> B3["SlotMonitoringService.ACTION_START_PERSISTENT"]
+        B3 --> B4["startForeground() with persistent notification"]
+        B5["WakelockPlus.enable()"]
+        B6["Start heartbeat timer - every 30s"]
+    end
 
-3. Running State
-   └─> Service keeps app alive continuously
-   └─> Notification: "Block Production Active"
-   └─> Event-driven alarms still work alongside
+    subgraph Step3["3. Running State"]
+        C1["Service keeps app alive continuously"]
+        C2["Notification: 'Block Production Active'"]
+        C3["Event-driven alarms still work alongside"]
+    end
 
-4. User Disables Toggle
-   └─> AndroidForegroundKeepAliveService.stopKeepAlive()
-       └─> stopPersistentForegroundService()
-       └─> WakelockPlus.disable()
-       └─> Cancel heartbeat timer
+    subgraph Step4["4. User Disables Toggle"]
+        D1["AndroidForegroundKeepAliveService.stopKeepAlive()"]
+        D1 --> D2["stopPersistentForegroundService()"]
+        D2 --> D3["WakelockPlus.disable()"]
+        D3 --> D4["Cancel heartbeat timer"]
+    end
+
+    Step1 --> Step2
+    Step2 --> Step3
+    Step3 --> Step4
 ```
 
 ### Sequence Diagram: Starting Persistent Mode
 
-```
-Settings UI          AndroidForeground-       PlatformAlarm-        SlotMonitoring-
-                     KeepAliveService         Service               Service
-     │                     │                       │                      │
-     │  toggle ON          │                       │                      │
-     ├────────────────────>│                       │                      │
-     │                     │                       │                      │
-     │                     │  startPersistent-     │                      │
-     │                     │  ForegroundService()  │                      │
-     │                     ├──────────────────────>│                      │
-     │                     │                       │                      │
-     │                     │                       │  MethodChannel       │
-     │                     │                       │  "startPersistent-   │
-     │                     │                       │   ForegroundService" │
-     │                     │                       ├─────────────────────>│
-     │                     │                       │                      │
-     │                     │                       │                      │  startPersistentMode()
-     │                     │                       │                      ├──────────────────────
-     │                     │                       │                      │  startForeground()
-     │                     │                       │                      │
-     │                     │                       │<─────────────────────┤ success
-     │                     │<──────────────────────┤                      │
-     │                     │                       │                      │
-     │                     │  WakelockPlus.enable()│                      │
-     │                     ├───────────────────────│                      │
-     │                     │                       │                      │
-     │<────────────────────┤ success               │                      │
-     │                     │                       │                      │
+```mermaid
+sequenceDiagram
+    participant UI as Settings UI
+    participant KA as AndroidForegroundKeepAliveService
+    participant PA as PlatformAlarmService
+    participant SMS as SlotMonitoringService
+
+    UI->>KA: toggle ON
+    KA->>PA: startPersistentForegroundService()
+    PA->>SMS: MethodChannel "startPersistentForegroundService"
+    SMS->>SMS: startPersistentMode()
+    SMS->>SMS: startForeground()
+    SMS-->>PA: success
+    PA-->>KA: success
+    KA->>KA: WakelockPlus.enable()
+    KA-->>UI: success
 ```
 
 ---

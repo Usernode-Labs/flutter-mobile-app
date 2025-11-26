@@ -49,38 +49,30 @@ The background block production system enables the app to reliably wake up and p
 
 The `BackgroundBlockProductionOrchestrator` serves as the central coordinator:
 
-```
-┌────────────────────────────────────────────┐
-│  BackgroundBlockProductionOrchestrator     │
-│                                            │
-│  - VRF-aware epoch monitoring             │
-│  - Smart polling intervals (2-15 min)     │
-│  - Atomic alarm + notification scheduling │
-│  - Slot wake-up handling                  │
-│  - Production monitoring integration      │
-│  - Event stream emission                  │
-│                                            │
-│  Single State: BlockProductionState       │
-│  Single Repo: BlockProductionStateRepo    │
-└────────┬───────────────────────────────────┘
-         │
-         │ Event Stream
-         ├──> epoch_transition
-         ├──> app_wake_up (PROOF!)
-         ├──> monitoring_start
-         ├──> slot_produced
-         ├──> slot_failed
-         ├──> app_resumed
-         ├──> error
-         └──> health_check
-                 │
-                 ▼
-┌─────────────────────────────────────┐
-│  MetricsReportingService            │
-│  - Listens to events                │
-│  - Triggers targeted collection     │
-│  - Periodic health checks (30s)     │
-└─────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph Orchestrator["BackgroundBlockProductionOrchestrator"]
+        Features["VRF-aware epoch monitoring<br/>Smart polling intervals - 2-15 min<br/>Atomic alarm + notification scheduling<br/>Slot wake-up handling<br/>Production monitoring integration<br/>Event stream emission"]
+        State["Single State: BlockProductionState<br/>Single Repo: BlockProductionStateRepo"]
+    end
+
+    subgraph Events["Event Stream"]
+        E1["epoch_transition"]
+        E2["app_wake_up - PROOF!"]
+        E3["monitoring_start"]
+        E4["slot_produced"]
+        E5["slot_failed"]
+        E6["app_resumed"]
+        E7["error"]
+        E8["health_check"]
+    end
+
+    subgraph Metrics["MetricsReportingService"]
+        M1["Listens to events<br/>Triggers targeted collection<br/>Periodic health checks - 30s"]
+    end
+
+    Orchestrator --> Events
+    Events --> Metrics
 ```
 
 ### Old vs New Architecture
@@ -142,17 +134,17 @@ This adaptive approach saves battery while remaining responsive to epoch transit
 
 #### Android Flow
 
-```
-Alarm fires (1 min before slot)
-  └─> AlarmReceiver.onReceive()
-       └─> Start SlotMonitoringService (FGS)
-            └─> Post notification
-                 └─> Launch app if needed
-                      └─> handleSlotWakeUp()
-                           └─> SlotMonitorService starts monitoring
-                                └─> Poll node status every 10s
-                                     └─> Block produced or timeout
-                                          └─> Stop FGS
+```mermaid
+flowchart TB
+    A["Alarm fires<br/>1 min before slot"] --> B["AlarmReceiver.onReceive()"]
+    B --> C["Start SlotMonitoringService - FGS"]
+    C --> D["Post notification"]
+    D --> E["Launch app if needed"]
+    E --> F["handleSlotWakeUp()"]
+    F --> G["SlotMonitorService starts monitoring"]
+    G --> H["Poll node status every 10s"]
+    H --> I["Block produced or timeout"]
+    I --> J["Stop FGS"]
 ```
 
 #### Android 12+ Requirements
@@ -234,15 +226,15 @@ iOS has fundamental limitations for background execution, requiring a three-tier
 
 #### iOS Flow
 
-```
-User enables background production
-  └─> Schedule BGTask + Notification
-       └─> Option A: User enables Keep-Alive
-            └─> App stays foreground → 99% reliability
-       └─> Option B: Notification fires
-            └─> User taps → App opens → Monitoring starts → 80-90%
-       └─> Option C: BGTask fires (maybe)
-            └─> 30s limit → Minimal impact → 40-60%
+```mermaid
+flowchart TB
+    A["User enables background production"] --> B["Schedule BGTask + Notification"]
+    B --> C["Option A: User enables Keep-Alive"]
+    B --> D["Option B: Notification fires"]
+    B --> E["Option C: BGTask fires - maybe"]
+    C --> C1["App stays foreground → 99% reliability"]
+    D --> D1["User taps → App opens → Monitoring starts → 80-90%"]
+    E --> E1["30s limit → Minimal impact → 40-60%"]
 ```
 
 #### iOS Permissions
@@ -351,18 +343,15 @@ See [startup flow diagram](#startup-permission-flow) for details.
 
 ### Startup Permission Flow
 
-```
-App Startup
-  └─> Check 'has_requested_permissions_at_startup'
-       ├─> If FALSE (first launch):
-       │    ├─> [Android] Request POST_NOTIFICATIONS
-       │    ├─> [Android] Request SCHEDULE_EXACT_ALARM (opens Settings)
-       │    ├─> [Android] Request Battery Optimization Exemption
-       │    ├─> [iOS] Request Notifications
-       │    └─> Set flag = TRUE
-       │
-       └─> If TRUE (subsequent launches):
-            └─> Skip permission requests
+```mermaid
+flowchart TB
+    A["App Startup"] --> B{"Check 'has_requested_permissions_at_startup'"}
+    B -->|FALSE - first launch| C["[Android] Request POST_NOTIFICATIONS"]
+    C --> D["[Android] Request SCHEDULE_EXACT_ALARM<br/>opens Settings"]
+    D --> E["[Android] Request Battery Optimization Exemption"]
+    E --> F["[iOS] Request Notifications"]
+    F --> G["Set flag = TRUE"]
+    B -->|TRUE - subsequent launches| H["Skip permission requests"]
 ```
 
 ### Permission Status Monitoring

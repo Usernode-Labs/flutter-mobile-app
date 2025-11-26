@@ -41,34 +41,27 @@ All metrics collection uses the **Full strategy**, which collects complete app a
 
 ### Components
 
-```
-┌────────────────────────────────────────────┐
-│  BackgroundBlockProductionOrchestrator     │
-│  Emits BlockProductionEvent                │
-└────────┬───────────────────────────────────┘
-         │ Event Stream
-         ▼
-┌─────────────────────────────────────┐
-│  MetricsReportingService            │
-│  - Listens to events                │
-│  - Determines collection strategy   │
-│  - Periodic timer (30s default)     │
-└──────────────┬──────────────────────┘
-               │
-               ▼
-┌─────────────────────────────────────┐
-│  MetricsCollectorService             │
-│  - Collects full metrics            │
-│  - Parallel collection              │
-└──────────────┬──────────────────────┘
-               │
-               ▼
-┌─────────────────────────────────────┐
-│  MetricsRepository                   │
-│  - Sends to API backend             │
-│  - 10-second timeout                │
-│  - Drops failed requests            │
-└─────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph Orchestrator["BackgroundBlockProductionOrchestrator"]
+        O1["Emits BlockProductionEvent"]
+    end
+
+    subgraph Reporting["MetricsReportingService"]
+        R1["Listens to events<br/>Determines collection strategy<br/>Periodic timer - 30s default"]
+    end
+
+    subgraph Collector["MetricsCollectorService"]
+        C1["Collects full metrics<br/>Parallel collection"]
+    end
+
+    subgraph Repository["MetricsRepository"]
+        Repo1["Sends to API backend<br/>10-second timeout<br/>Drops failed requests"]
+    end
+
+    Orchestrator -->|"Event Stream"| Reporting
+    Reporting --> Collector
+    Collector --> Repository
 ```
 
 ### Service Roles

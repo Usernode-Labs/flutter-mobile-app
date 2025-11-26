@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/src/rust/account.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
+import 'package:crypto_mobile_app/core/feature_flags.dart';
 
 class AccountModeSelectionScreen extends StatefulWidget {
   const AccountModeSelectionScreen({super.key});
@@ -15,6 +16,11 @@ class AccountModeSelectionScreen extends StatefulWidget {
 class _AccountModeSelectionScreenState
     extends State<AccountModeSelectionScreen> {
   bool _generatingMnemonic = false;
+
+  @override
+  void initState() {
+    super.initState();
+  }
 
   Future<void> _navigateToCreateNew() async {
     setState(() => _generatingMnemonic = true);
@@ -55,9 +61,76 @@ class _AccountModeSelectionScreenState
     context.push('/use-demo-accounts');
   }
 
+  void _navigateToImportAPIAccount() {
+    context.push('/import-api-account');
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    final createNewAccount = _ModeCard(
+                  icon: Icons.add_circle_outline,
+                  title: 'Create New Account',
+                  subtitle:
+                      'Creates a new wallet with a secure recovery phrase you\'ll need to save.',
+                  loading: _generatingMnemonic,
+                  onTap: _generatingMnemonic ? null : _navigateToCreateNew,
+                );
+    
+    final importFromSeed = _ModeCard(
+      icon: Icons.file_download_outlined,
+      title: 'Import from Seed Phrase',
+      subtitle:
+          'Restore your wallet using your existing 12-word recovery phrase.',
+      onTap: _navigateToImportSeed,
+    );
+    
+    final importFromPrivateKey = _ModeCard(
+      icon: Icons.vpn_key,
+      title: 'Import from Private Key',
+      subtitle:
+          'Import your account using a hex-encoded private key.',
+      onTap: _navigateToImportPrivateKey,
+    );
+    
+    final useDemoAccounts = _ModeCard(
+      icon: Icons.science_outlined,
+      title: 'Use Demo Account',
+      subtitle:
+          'Quickly set up a pre-configured account for testing purposes.',
+      onTap: _navigateToDemoAccounts,
+    );
+
+    final createNewAccountFromAPI = _ModeCard(
+      icon: Icons.download, 
+      title: "Import Pre-configured Account", 
+      subtitle: "Import a pre-configured account from the API",
+      onTap: _navigateToImportAPIAccount,
+    );
+
+    final onlyApiAccounts = const bool.fromEnvironment('ONLY_API_ACCOUNTS', defaultValue: false);
+
+    List<Widget> options = [];
+    if (onlyApiAccounts){ 
+      options = [
+                const SizedBox(height: 24),
+                createNewAccountFromAPI,
+      ];
+    } else {
+      options = [
+                const SizedBox(height: 24),
+                createNewAccount,
+                const SizedBox(height: 12),
+                importFromSeed,
+                const SizedBox(height: 12),
+                importFromPrivateKey,
+                const SizedBox(height: 12),
+                useDemoAccounts,
+                const SizedBox(height: 12),
+                createNewAccountFromAPI,
+      ];
+    }
 
     return PopScope(
       canPop: false,
@@ -92,39 +165,7 @@ class _AccountModeSelectionScreenState
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
-                _ModeCard(
-                  icon: Icons.add_circle_outline,
-                  title: 'Create New Account',
-                  subtitle:
-                      'Creates a new wallet with a secure recovery phrase you\'ll need to save.',
-                  loading: _generatingMnemonic,
-                  onTap: _generatingMnemonic ? null : _navigateToCreateNew,
-                ),
-                const SizedBox(height: 12),
-                _ModeCard(
-                  icon: Icons.file_download_outlined,
-                  title: 'Import from Seed Phrase',
-                  subtitle:
-                      'Restore your wallet using your existing 12-word recovery phrase.',
-                  onTap: _navigateToImportSeed,
-                ),
-                const SizedBox(height: 12),
-                _ModeCard(
-                  icon: Icons.vpn_key,
-                  title: 'Import from Private Key',
-                  subtitle:
-                      'Import your account using a hex-encoded private key.',
-                  onTap: _navigateToImportPrivateKey,
-                ),
-                const SizedBox(height: 12),
-                _ModeCard(
-                  icon: Icons.science_outlined,
-                  title: 'Use Demo Account',
-                  subtitle:
-                      'Quickly set up a pre-configured account for testing purposes.',
-                  onTap: _navigateToDemoAccounts,
-                ),
+                ...options
               ],
             ),
           ),

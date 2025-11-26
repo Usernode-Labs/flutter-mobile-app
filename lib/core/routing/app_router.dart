@@ -9,6 +9,7 @@ import 'package:crypto_mobile_app/features/onboarding/presentation/screens/impor
 import 'package:crypto_mobile_app/features/onboarding/presentation/screens/import_private_key_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/presentation/screens/use_demo_accounts_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/presentation/screens/identity_verification_screen.dart';
+import 'package:crypto_mobile_app/features/onboarding/presentation/screens/import-api-account.dart';
 import 'package:crypto_mobile_app/core/main_app.dart';
 import 'package:crypto_mobile_app/features/home/presentation/screens/home_screen.dart';
 import 'package:crypto_mobile_app/features/node/presentation/screens/node_status_screen.dart';
@@ -101,6 +102,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/import-private-key',
         builder: (context, state) => const ImportPrivateKeyScreen(),
+      ),
+      GoRoute(
+        path: '/import-api-account',
+        builder: (context, state)  => const ImportAPIAccountScreen(),
       ),
       GoRoute(
         path: '/use-demo-accounts',
@@ -243,6 +248,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             currentLocation == '/create-new-account' ||
             currentLocation == '/import-seed-phrase' ||
             currentLocation == '/import-private-key' ||
+            currentLocation == '/import-api-account' ||
             currentLocation == '/use-demo-accounts' ||
             currentLocation == '/identity-verification') {
           LoggingService.instance.trace('Allowing onboarding route');
@@ -262,6 +268,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           currentLocation == '/create-new-account' ||
           currentLocation == '/import-seed-phrase' ||
           currentLocation == '/import-private-key' ||
+          currentLocation == '/import-api-account' ||
           currentLocation == '/use-demo-accounts') {
         LoggingService.instance.trace('Allowing onboarding flow route');
         return null;

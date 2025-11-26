@@ -6,6 +6,7 @@ import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/services/epoch_slot_scheduler_service.dart';
 import 'package:crypto_mobile_app/core/services/ios_foreground_keepalive_service.dart';
+import 'package:crypto_mobile_app/core/services/android_foreground_keepalive_service.dart';
 import 'package:crypto_mobile_app/core/data/slot_production_repository.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/node_status_provider.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/epoch_rewards_provider.dart';
@@ -26,6 +27,7 @@ class _BackgroundProductionSettingsScreenState
   bool _batteryOptDisabled = false;
   String? _deviceManufacturer;
   bool _iosKeepAliveActive = false;
+  bool _androidKeepAliveActive = false;
   Timer? _autoTimer;
   bool _refreshing = false;
 
@@ -72,11 +74,16 @@ class _BackgroundProductionSettingsScreenState
         final deviceManufacturer =
             await PlatformAlarmService.instance.getDeviceManufacturer();
 
+        // Check Android keep-alive status
+        final androidKeepAliveActive =
+            await AndroidForegroundKeepAliveService.instance.refreshState();
+
         if (mounted) {
           setState(() {
             _hasPermissions = hasPermissions;
             _batteryOptDisabled = batteryOptDisabled;
             _deviceManufacturer = deviceManufacturer;
+            _androidKeepAliveActive = androidKeepAliveActive;
           });
         }
       } else if (Platform.isIOS) {
@@ -144,6 +151,12 @@ class _BackgroundProductionSettingsScreenState
             // Android Battery section (if Android)
             if (Platform.isAndroid) ...[
               _buildAndroidBatterySection(theme, colorScheme),
+              const SizedBox(height: 24),
+            ],
+
+            // Android Keep-Alive section (if Android)
+            if (Platform.isAndroid) ...[
+              _buildAndroidKeepAliveSection(theme, colorScheme),
               const SizedBox(height: 24),
             ],
 
@@ -411,6 +424,73 @@ class _BackgroundProductionSettingsScreenState
                   ],
                 ),
               ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAndroidKeepAliveSection(ThemeData theme, ColorScheme colorScheme) {
+    return Card(
+      color: colorScheme.primaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.phonelink_lock,
+                  color: colorScheme.onPrimaryContainer,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Foreground Keep-Alive Mode',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.onPrimaryContainer,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _androidKeepAliveActive
+                  ? 'ACTIVE - Persistent foreground service running (100% reliable)'
+                  : 'INACTIVE - Enable for maximum reliability (higher battery usage)',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onPrimaryContainer,
+              ),
+            ),
+            const SizedBox(height: 12),
+            SwitchListTile(
+              value: _androidKeepAliveActive,
+              onChanged: _toggleAndroidKeepAlive,
+              title: Text(
+                _androidKeepAliveActive ? 'Keep-Alive ON' : 'Keep-Alive OFF',
+                style: TextStyle(color: colorScheme.onPrimaryContainer),
+              ),
+              subtitle: Text(
+                'Keeps foreground service running continuously',
+                style: TextStyle(
+                  color: colorScheme.onPrimaryContainer.withValues(alpha: 0.7),
+                ),
+              ),
+            ),
+            if (_androidKeepAliveActive) ...[
+              const Divider(),
+              Text(
+                'Tips for best results:',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: colorScheme.onPrimaryContainer,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildTip('Connect device to charger for extended use'),
+              _buildTip('Battery optimization is disabled (recommended)'),
+              _buildTip('A persistent notification will be shown'),
             ],
           ],
         ),
@@ -723,6 +803,21 @@ class _BackgroundProductionSettingsScreenState
       await IOSForegroundKeepAliveService.instance.stopKeepAlive();
       if (mounted) {
         setState(() => _iosKeepAliveActive = false);
+      }
+    }
+  }
+
+  Future<void> _toggleAndroidKeepAlive(bool value) async {
+    if (value) {
+      final success =
+          await AndroidForegroundKeepAliveService.instance.startKeepAlive();
+      if (success && mounted) {
+        setState(() => _androidKeepAliveActive = true);
+      }
+    } else {
+      await AndroidForegroundKeepAliveService.instance.stopKeepAlive();
+      if (mounted) {
+        setState(() => _androidKeepAliveActive = false);
       }
     }
   }

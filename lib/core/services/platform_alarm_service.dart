@@ -526,6 +526,73 @@ class PlatformAlarmService {
     }
   }
 
+  /// Start persistent foreground service (Android only)
+  ///
+  /// This keeps the app running continuously in the foreground,
+  /// providing 100% reliability for block production monitoring
+  /// at the cost of higher battery usage.
+  Future<bool> startPersistentForegroundService() async {
+    if (!Platform.isAndroid) {
+      _log.debug('Persistent foreground service is Android-only');
+      return false;
+    }
+
+    try {
+      final success = await _channel
+              .invokeMethod<bool>('startPersistentForegroundService') ??
+          false;
+
+      if (success) {
+        _log.info('Persistent foreground service started');
+      } else {
+        _log.warn('Failed to start persistent foreground service');
+      }
+
+      return success;
+    } on PlatformException catch (e) {
+      _log.error('Error starting persistent foreground service: ${e.message}');
+      return false;
+    }
+  }
+
+  /// Stop persistent foreground service (Android only)
+  Future<bool> stopPersistentForegroundService() async {
+    if (!Platform.isAndroid) {
+      _log.debug('Persistent foreground service is Android-only');
+      return false;
+    }
+
+    try {
+      final success = await _channel
+              .invokeMethod<bool>('stopPersistentForegroundService') ??
+          false;
+
+      if (success) {
+        _log.info('Persistent foreground service stopped');
+      } else {
+        _log.warn('Failed to stop persistent foreground service');
+      }
+
+      return success;
+    } on PlatformException catch (e) {
+      _log.error('Error stopping persistent foreground service: ${e.message}');
+      return false;
+    }
+  }
+
+  /// Check if persistent foreground service is running (Android only)
+  Future<bool> isPersistentForegroundRunning() async {
+    if (!Platform.isAndroid) return false;
+    try {
+      final isRunning =
+          await _channel.invokeMethod<bool>('isPersistentForegroundRunning');
+      return isRunning ?? false;
+    } catch (e) {
+      _log.error('Error checking persistent foreground status: $e');
+      return false;
+    }
+  }
+
   /// Open battery optimization settings
   ///
   /// Helps users exempt the app from battery optimization on OEM devices.

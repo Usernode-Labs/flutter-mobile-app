@@ -4,24 +4,14 @@ import 'package:go_router/go_router.dart';
 
 import 'package:crypto_mobile_app/features/splash/presentation/screens/splash_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/presentation/screens/account_mode_selection_screen.dart';
-import 'package:crypto_mobile_app/features/onboarding/presentation/screens/create_new_account_screen.dart';
-import 'package:crypto_mobile_app/features/onboarding/presentation/screens/import_seed_phrase_screen.dart';
-import 'package:crypto_mobile_app/features/onboarding/presentation/screens/import_private_key_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/presentation/screens/use_demo_accounts_screen.dart';
-import 'package:crypto_mobile_app/features/onboarding/presentation/screens/identity_verification_screen.dart';
 import 'package:crypto_mobile_app/core/main_app.dart';
-import 'package:crypto_mobile_app/features/home/presentation/screens/home_screen.dart';
 import 'package:crypto_mobile_app/features/node/presentation/screens/node_status_screen.dart';
 import 'package:crypto_mobile_app/features/node/presentation/screens/node_won_slots_screen.dart';
 import 'package:crypto_mobile_app/features/node/presentation/screens/produced_blocks_screen.dart';
 import 'package:crypto_mobile_app/features/node/presentation/screens/block_details_screen.dart';
 import 'package:crypto_mobile_app/features/node/presentation/screens/mempool_details_screen.dart';
 import 'package:crypto_mobile_app/features/node/presentation/screens/slot_production_stats_screen.dart';
-import 'package:crypto_mobile_app/features/dapps/presentation/screens/dapps_screen.dart';
-import 'package:crypto_mobile_app/features/wallet/presentation/screens/wallet_screen.dart';
-import 'package:crypto_mobile_app/features/wallet/presentation/screens/send_screen.dart';
-import 'package:crypto_mobile_app/features/wallet/presentation/screens/receive_screen.dart';
-import 'package:crypto_mobile_app/features/profile/presentation/screens/profile_screen.dart';
 import 'package:crypto_mobile_app/features/settings/presentation/screens/settings_screen.dart';
 import 'package:crypto_mobile_app/features/settings/presentation/screens/background_production_settings_screen.dart';
 import 'package:crypto_mobile_app/features/rewards/presentation/screens/rewards_breakdown_screen.dart';
@@ -88,30 +78,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const AccountModeSelectionScreen(),
       ),
       GoRoute(
-        path: '/create-new-account',
-        builder: (context, state) {
-          final mnemonic = state.uri.queryParameters['mnemonic'] ?? '';
-          return CreateNewAccountScreen(mnemonic: mnemonic);
-        },
-      ),
-      GoRoute(
-        path: '/import-seed-phrase',
-        builder: (context, state) => const ImportSeedPhraseScreen(),
-      ),
-      GoRoute(
-        path: '/import-private-key',
-        builder: (context, state) => const ImportPrivateKeyScreen(),
-      ),
-      GoRoute(
         path: '/use-demo-accounts',
         builder: (context, state) => const UseDemoAccountsScreen(),
-      ),
-      GoRoute(
-        path: '/identity-verification',
-        builder: (context, state) {
-          final accountId = state.uri.queryParameters['accountId'];
-          return IdentityVerificationScreen(accountId: accountId);
-        },
       ),
       GoRoute(
         path: '/settings',
@@ -122,33 +90,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const BackgroundProductionSettingsScreen(),
       ),
       GoRoute(
-        path: '/send',
-        builder: (context, state) => const SendScreen(),
-      ),
-      GoRoute(
-        path: '/receive',
-        builder: (context, state) => const ReceiveScreen(),
-      ),
-      GoRoute(
         path: '/rewards',
         builder: (context, state) => const RewardsBreakdownScreen(),
       ),
       // Redirect bare /main to default tab
       GoRoute(
         path: AppRoutes.main,
-        redirect: (context, state) => '/main/home',
+        redirect: (context, state) => '/main/node',
       ),
       ShellRoute(
         builder: (context, state, child) =>
             MainApp(currentLocation: state.matchedLocation, child: child),
         routes: [
-          GoRoute(
-            path: '/main/home',
-            pageBuilder: (context, state) => _buildPageWithFade(
-              state,
-              const HomeScreen(),
-            ),
-          ),
           GoRoute(
             path: '/main/node',
             pageBuilder: (context, state) => _buildPageWithFade(
@@ -180,25 +133,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const MempoolDetailsScreen(),
           ),
           GoRoute(
-            path: '/main/dapps',
+            path: '/main/settings',
             pageBuilder: (context, state) => _buildPageWithFade(
               state,
-              const DAppsScreen(),
-            ),
-          ),
-          // Optional routes for wallet/profile (hidden from bottom nav by flags)
-          GoRoute(
-            path: '/main/wallet',
-            pageBuilder: (context, state) => _buildPageWithFade(
-              state,
-              const WalletScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/main/profile',
-            pageBuilder: (context, state) => _buildPageWithFade(
-              state,
-              const ProfileScreen(),
+              const BackgroundProductionSettingsScreen(),
             ),
           ),
         ],
@@ -238,13 +176,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           LoggingService.instance.trace('Redirecting splash to onboarding');
           return AppRoutes.onboarding;
         }
-        // Allow onboarding and account setup routes
+        // Allow onboarding and demo accounts routes
         if (currentLocation == AppRoutes.onboarding ||
-            currentLocation == '/create-new-account' ||
-            currentLocation == '/import-seed-phrase' ||
-            currentLocation == '/import-private-key' ||
-            currentLocation == '/use-demo-accounts' ||
-            currentLocation == '/identity-verification') {
+            currentLocation == '/use-demo-accounts') {
           LoggingService.instance.trace('Allowing onboarding route');
           return null;
         }
@@ -257,22 +191,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Account exists
       _log.trace('Account exists');
 
-      // Allow identity verification and account setup during onboarding flow
-      if (currentLocation == '/identity-verification' ||
-          currentLocation == '/create-new-account' ||
-          currentLocation == '/import-seed-phrase' ||
-          currentLocation == '/import-private-key' ||
-          currentLocation == '/use-demo-accounts') {
+      // Allow demo accounts route during onboarding flow
+      if (currentLocation == '/use-demo-accounts') {
         LoggingService.instance.trace('Allowing onboarding flow route');
         return null;
       }
 
-      // Redirect from splash and onboarding to home if user already has an account
+      // Redirect from splash and onboarding to node if user already has an account
       if (currentLocation == AppRoutes.splash ||
           currentLocation == AppRoutes.onboarding) {
         LoggingService.instance
-            .trace('Redirecting $currentLocation to /main/home');
-        return '/main/home';
+            .trace('Redirecting $currentLocation to /main/node');
+        return '/main/node';
       }
 
       // Allow all other routes when account exists

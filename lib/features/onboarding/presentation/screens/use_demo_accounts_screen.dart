@@ -166,9 +166,9 @@ class _UseDemoAccountsScreenState extends ConsumerState<UseDemoAccountsScreen> {
         );
       }
 
-      // Navigate to identity verification screen
+      // Navigate to main app
       if (!mounted) return;
-      context.go('/identity-verification?accountId=${result.id}');
+      context.go('/main/node');
     } catch (e) {
       if (!mounted) return;
       setState(() {

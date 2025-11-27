@@ -39,12 +39,6 @@ class TokenRegistry {
     // Add more known tokens here as needed
   };
 
-  /// Get metadata for a token ID
-  /// Returns null if token is not in registry
-  TokenMetadata? getMetadata(String tokenId) {
-    return _registry[tokenId];
-  }
-
   /// Get metadata for a token ID or create a fallback
   TokenMetadata getMetadataOrFallback(String tokenId) {
     final metadata = _registry[tokenId];
@@ -61,21 +55,6 @@ class TokenRegistry {
       decimals: 0,
       icon: null,
     );
-  }
-
-  /// Register a new token in the registry
-  void registerToken(TokenMetadata metadata) {
-    _registry[metadata.tokenId] = metadata;
-  }
-
-  /// Check if a token is registered
-  bool isRegistered(String tokenId) {
-    return _registry.containsKey(tokenId);
-  }
-
-  /// Get all registered tokens
-  List<TokenMetadata> getAllTokens() {
-    return _registry.values.toList();
   }
 
   /// Clear all registered tokens (useful for testing)

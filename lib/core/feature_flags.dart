@@ -8,16 +8,13 @@ import 'package:flutter/services.dart' show rootBundle;
 ///   flutter run --dart-define=ENABLED_FEATURES=home,wallet,dapps,profile
 /// or
 ///   flutter run --dart-define=ENABLED_FEATURES=all
-enum AppFeature { home, wallet, dapps, profile, node }
+enum AppFeature { settings, node }
 
 class FeatureFlags {
   /// Ordered list used to render navigation and related UI deterministically.
   static final List<AppFeature> ordered = [
-    AppFeature.home,
-    AppFeature.wallet,
-    AppFeature.dapps,
-    AppFeature.profile,
     AppFeature.node,
+    AppFeature.settings,
   ];
 
   /// Compute enabled set from compile-time env or fallback defaults.
@@ -98,14 +95,8 @@ class FeatureFlags {
 
   static AppFeature? _fromString(String s) {
     switch (s.toLowerCase()) {
-      case 'home':
-        return AppFeature.home;
-      case 'wallet':
-        return AppFeature.wallet;
-      case 'dapps':
-        return AppFeature.dapps;
-      case 'profile':
-        return AppFeature.profile;
+      case 'settings':
+        return AppFeature.settings;
       case 'node':
         return AppFeature.node;
       default:
@@ -119,11 +110,8 @@ class FeatureFlags {
         String.fromEnvironment('DISABLED_FEATURES', defaultValue: '');
     if (csv.trim().isEmpty) {
       return {
-        AppFeature.home,
-        AppFeature.wallet,
-        AppFeature.dapps,
-        AppFeature.profile,
-        AppFeature.node
+        AppFeature.node,
+        AppFeature.settings,
       };
     }
     final value = csv.trim().toLowerCase();

@@ -3,11 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
-import 'package:crypto_mobile_app/core/config/blockchain_timing.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:crypto_mobile_app/core/widgets/produced_block_card.dart';
-import 'package:crypto_mobile_app/core/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
@@ -16,6 +14,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/node_status_provider.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/node_data_providers.dart';
+import 'package:crypto_mobile_app/features/wallet/presentation/controllers/assets_provider.dart';
+import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
+import 'package:crypto_mobile_app/features/wallet/data/models/account.dart';
 
 final _log = LoggingService.instance.withTag(LogTag.node);
 
@@ -49,18 +50,34 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   // Collapsible section states
   bool _isRecentBlocksExpanded = false;
 
+  // Wallet balance state
+  AccountMeta? _account;
+  bool _balanceHidden = false;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     // Defer provider modifications until after first frame to avoid
     // "modify provider while building" errors when navigating.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _refresh());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refresh();
+      _loadActiveAccount();
+    });
     // Periodic auto-refresh every 3 seconds while this screen is alive.
     _autoTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       if (mounted && !_refreshing) {
         _refresh();
       }
+    });
+  }
+
+  Future<void> _loadActiveAccount() async {
+    final repo = await AccountsRepository.create();
+    final active = await repo.getActive();
+    if (!mounted) return;
+    setState(() {
+      _account = active;
     });
   }
 
@@ -160,6 +177,10 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                 ],
               ),
 
+            // WALLET BALANCE Section
+            _buildWalletBalanceCard(theme),
+            const SizedBox(height: 18),
+
             // OVERVIEW Section (includes Synchronization details)
             _buildOverviewSection(context, ref.watch(nodeStatusProvider).value),
             const SizedBox(height: 18),
@@ -201,6 +222,151 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
         ),
       ),
     );
+  }
+
+  // Wallet balance card widget
+  Widget _buildWalletBalanceCard(ThemeData theme) {
+    final assetsAsync = ref.watch(walletAssetsProvider);
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF6366F1), // Indigo-500
+            Color(0xFF7C3AED), // Purple-600
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF6366F1).withValues(alpha: 0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header row with "Total Balance" and hide button
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  _account != null
+                      ? 'Total Balance (${_shortAddr(_account!.address)})'
+                      : 'Total Balance',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(
+                    _balanceHidden ? Icons.visibility_off : Icons.visibility,
+                    size: 20,
+                  ),
+                  color: Colors.white,
+                  onPressed: () => setState(() => _balanceHidden = !_balanceHidden),
+                  tooltip: _balanceHidden ? 'Show balance' : 'Hide balance',
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+
+            // Balance amount
+            assetsAsync.when(
+              data: (assets) {
+                final totalBalance = assets.fold<BigInt>(
+                    BigInt.zero, (sum, a) => sum + a.totalBalance);
+                final tokenSymbol =
+                    assets.isNotEmpty ? assets.first.tokenSymbol : 'TKN';
+                final formattedBalance =
+                    '${_formatBalance(totalBalance.toDouble())} $tokenSymbol';
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _balanceHidden ? '••••••' : formattedBalance,
+                      style: theme.textTheme.headlineMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        height: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (!_balanceHidden)
+                      Text(
+                        '${assets.length} ${assets.length == 1 ? 'asset' : 'assets'}',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                  ],
+                );
+              },
+              loading: () => Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 200,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: 140,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ],
+              ),
+              error: (e, _) => Row(
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Failed to load balance',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Helper for shortened address display
+  String _shortAddr(String addr) {
+    if (addr.length <= 12) return addr;
+    final start = addr.substring(0, 6);
+    final end = addr.substring(addr.length - 4);
+    return '$start…$end';
+  }
+
+  // Helper for formatting balance
+  String _formatBalance(double amount) {
+    final formatter = NumberFormat('#,##0.##', 'en_US');
+    return formatter.format(amount);
   }
 
   // Helper method for section headers (unused - integrated into cards)
@@ -515,7 +681,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                 ref.watch(nodeStatusProvider).value?.vrfEvaluator;
             final evaluatedSlots = vrfEvaluator?.details?.evaluatedCurrentEpoch ?? 0;
             final vrfWonSlots = vrfEvaluator?.details?.wonSlotsCurrentEpoch.toInt() ?? 0;
-            final totalSlotsPerEpoch = BlockchainTiming.slotsPerEpoch;
+            final totalSlotsPerEpoch = ref.watch(nodeStatusProvider).value?.slotsInEpoch ?? 0;
 
             return Row(
               children: [
@@ -1457,83 +1623,5 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     _autoTimer?.cancel();
     _tabController.dispose();
     super.dispose();
-  }
-}
-
-class SwapPlaceholder extends StatelessWidget {
-  const SwapPlaceholder({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.currency_exchange, size: 48),
-              const SizedBox(height: 12),
-              Text(l10n.swap, style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 6),
-              Text(l10n.tokenSwap,
-                  style: Theme.of(context).textTheme.bodyMedium),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class StatusPlaceholder extends StatelessWidget {
-  const StatusPlaceholder({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.hub, size: 48),
-              const SizedBox(height: 12),
-              Text(l10n.node, style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 6),
-              Text(l10n.nodeStatus,
-                  style: Theme.of(context).textTheme.bodyMedium),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class RewardsPlaceholder extends StatelessWidget {
-  const RewardsPlaceholder({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.card_giftcard, size: 48),
-              const SizedBox(height: 12),
-              Text(l10n.rewards, style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 6),
-              Text(l10n.rewardsAchievements,
-                  style: Theme.of(context).textTheme.bodyMedium),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }

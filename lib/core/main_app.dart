@@ -1,10 +1,7 @@
-import 'package:crypto_mobile_app/features/home/presentation/screens/home_screen.dart';
 import 'package:crypto_mobile_app/features/node/presentation/screens/node_status_screen.dart';
+import 'package:crypto_mobile_app/features/settings/presentation/screens/background_production_settings_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/core/l10n/app_localizations.dart';
-import 'package:crypto_mobile_app/features/wallet/presentation/screens/wallet_screen.dart';
-import 'package:crypto_mobile_app/features/dapps/presentation/screens/dapps_screen.dart';
-import 'package:crypto_mobile_app/features/profile/presentation/screens/profile_screen.dart';
 import 'package:crypto_mobile_app/core/feature_flags.dart';
 import 'package:crypto_mobile_app/features/feedback/presentation/widgets/feedback_fab.dart';
 import 'package:go_router/go_router.dart';
@@ -25,14 +22,8 @@ class _MainAppState extends State<MainApp> {
 
   Widget _screenFor(AppFeature f) {
     switch (f) {
-      case AppFeature.home:
-        return const HomeScreen();
-      case AppFeature.wallet:
-        return const WalletScreen();
-      case AppFeature.dapps:
-        return const DAppsScreen();
-      case AppFeature.profile:
-        return const ProfileScreen();
+      case AppFeature.settings:
+        return const BackgroundProductionSettingsScreen();
       case AppFeature.node:
         return const NodeStatusScreen();
     }
@@ -107,25 +98,10 @@ class _MainAppState extends State<MainApp> {
           destinations: [
             for (final f in active)
               switch (f) {
-                AppFeature.home => NavigationDestination(
-                    icon: const Icon(Icons.home_outlined),
-                    selectedIcon: const Icon(Icons.home),
-                    label: l10n?.home ?? 'Home',
-                  ),
-                AppFeature.wallet => NavigationDestination(
-                    icon: const Icon(Icons.account_balance_wallet_outlined),
-                    selectedIcon: const Icon(Icons.account_balance_wallet),
-                    label: l10n?.wallet ?? 'Wallet',
-                  ),
-                AppFeature.dapps => NavigationDestination(
-                    icon: const Icon(Icons.apps_outlined),
-                    selectedIcon: const Icon(Icons.apps),
-                    label: l10n?.dapps ?? 'dApps',
-                  ),
-                AppFeature.profile => NavigationDestination(
-                    icon: const Icon(Icons.person_outline),
-                    selectedIcon: const Icon(Icons.person),
-                    label: l10n?.profile ?? 'Profile',
+                AppFeature.settings => const NavigationDestination(
+                    icon: Icon(Icons.settings_outlined),
+                    selectedIcon: Icon(Icons.settings),
+                    label: 'Settings',
                   ),
                 AppFeature.node => NavigationDestination(
                     icon: const Icon(Icons.hub_outlined),
@@ -141,16 +117,10 @@ class _MainAppState extends State<MainApp> {
 
   String _pathFor(AppFeature f) {
     switch (f) {
-      case AppFeature.home:
-        return '/main/home';
       case AppFeature.node:
         return '/main/node';
-      case AppFeature.dapps:
-        return '/main/dapps';
-      case AppFeature.wallet:
-        return '/main/wallet';
-      case AppFeature.profile:
-        return '/main/profile';
+      case AppFeature.settings:
+        return '/main/settings';
     }
   }
 }

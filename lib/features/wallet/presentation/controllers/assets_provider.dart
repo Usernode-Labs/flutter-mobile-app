@@ -140,22 +140,7 @@ class WalletAssetsController extends AsyncNotifier<List<AssetSummary>> {
     };
   }
 
-  /// Calculate USD value for a token balance
-  /// TODO: Integrate with price oracle/API
-  double _calculateUsdValue(String tokenId, BigInt balance) {
-    // Mock price data for now
-    // TODO: Replace with actual price feed integration
-    final mockPrices = {
-      'default': 0.00005,
-      '0x0000000000000000000000000000000000000000000000000000000000000000':
-          0.00005,
-    };
-
-    final pricePerToken = mockPrices[tokenId] ?? 0.00005;
-    final balanceAsDouble = balance.toDouble();
-
-    return balanceAsDouble * pricePerToken;
-  }
+  
 
   /// Get 24h price change percentage for a token
   /// TODO: Integrate with price oracle/API

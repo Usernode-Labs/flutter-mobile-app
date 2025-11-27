@@ -1,57 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:crypto_mobile_app/src/rust/account.dart';
-import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 
-class AccountModeSelectionScreen extends StatefulWidget {
+class AccountModeSelectionScreen extends StatelessWidget {
   const AccountModeSelectionScreen({super.key});
 
-  @override
-  State<AccountModeSelectionScreen> createState() =>
-      _AccountModeSelectionScreenState();
-}
-
-class _AccountModeSelectionScreenState
-    extends State<AccountModeSelectionScreen> {
-  bool _generatingMnemonic = false;
-
-  Future<void> _navigateToCreateNew() async {
-    setState(() => _generatingMnemonic = true);
-    try {
-      // Generate 12-word mnemonic before navigating using Rust backend
-      LoggingService.instance.trace(
-          'Generating seed phrase via Rust backend...',
-          tag: 'ONBOARDING');
-      final words = seedPhraseGenerate(wordCount: 12);
-      final mnemonic = words.join(' ');
-      LoggingService.instance.trace(
-          'Seed phrase generated successfully (${words.length} words)',
-          tag: 'ONBOARDING');
-      if (!mounted) return;
-      setState(() => _generatingMnemonic = false);
-
-      // Navigate using GoRouter with mnemonic as URL parameter
-      final encodedMnemonic = Uri.encodeComponent(mnemonic);
-      context.push('/create-new-account?mnemonic=$encodedMnemonic');
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _generatingMnemonic = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to generate recovery phrase: $e')),
-      );
-    }
-  }
-
-  void _navigateToImportSeed() {
-    context.push('/import-seed-phrase');
-  }
-
-  void _navigateToImportPrivateKey() {
-    context.push('/import-private-key');
-  }
-
-  void _navigateToDemoAccounts() {
+  void _navigateToDemoAccounts(BuildContext context) {
     context.push('/use-demo-accounts');
   }
 
@@ -84,7 +38,7 @@ class _AccountModeSelectionScreenState
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Create or import your private and public keys to start using the Usernode blockchain. These keys are your digital identity for all blockchain operations.',
+                      'Select a demo account to start using the Usernode blockchain.',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                         height: 1.5,
@@ -94,36 +48,11 @@ class _AccountModeSelectionScreenState
                 ),
                 const SizedBox(height: 24),
                 _ModeCard(
-                  icon: Icons.add_circle_outline,
-                  title: 'Create New Account',
-                  subtitle:
-                      'Creates a new wallet with a secure recovery phrase you\'ll need to save.',
-                  loading: _generatingMnemonic,
-                  onTap: _generatingMnemonic ? null : _navigateToCreateNew,
-                ),
-                const SizedBox(height: 12),
-                _ModeCard(
-                  icon: Icons.file_download_outlined,
-                  title: 'Import from Seed Phrase',
-                  subtitle:
-                      'Restore your wallet using your existing 12-word recovery phrase.',
-                  onTap: _navigateToImportSeed,
-                ),
-                const SizedBox(height: 12),
-                _ModeCard(
-                  icon: Icons.vpn_key,
-                  title: 'Import from Private Key',
-                  subtitle:
-                      'Import your account using a hex-encoded private key.',
-                  onTap: _navigateToImportPrivateKey,
-                ),
-                const SizedBox(height: 12),
-                _ModeCard(
                   icon: Icons.science_outlined,
                   title: 'Use Demo Account',
                   subtitle:
                       'Quickly set up a pre-configured account for testing purposes.',
-                  onTap: _navigateToDemoAccounts,
+                  onTap: () => _navigateToDemoAccounts(context),
                 ),
               ],
             ),
@@ -138,14 +67,12 @@ class _ModeCard extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
-  final bool loading;
   final VoidCallback? onTap;
 
   const _ModeCard({
     required this.icon,
     required this.title,
     required this.subtitle,
-    this.loading = false,
     this.onTap,
   });
 
@@ -158,7 +85,7 @@ class _ModeCard extends StatelessWidget {
       elevation: 0,
       color: colorScheme.surfaceContainerHighest,
       child: InkWell(
-        onTap: loading ? null : onTap,
+        onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -167,16 +94,7 @@ class _ModeCard extends StatelessWidget {
               CircleAvatar(
                 backgroundColor: colorScheme.surfaceContainerHigh,
                 foregroundColor: colorScheme.onSurfaceVariant,
-                child: loading
-                    ? SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      )
-                    : Icon(icon),
+                child: Icon(icon),
               ),
               const SizedBox(width: 16),
               Expanded(

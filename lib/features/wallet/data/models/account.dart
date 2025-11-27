@@ -9,8 +9,6 @@ class AccountMeta {
   final String address;
   final String publicKey;
   final bool backupConfirmed;
-  final bool identityVerified;
-  final DateTime? identityVerifiedAt;
   final bool isDemo;
 
   const AccountMeta({
@@ -22,16 +20,12 @@ class AccountMeta {
     required this.address,
     required this.publicKey,
     required this.backupConfirmed,
-    this.identityVerified = false,
-    this.identityVerifiedAt,
     this.isDemo = false,
   });
 
   AccountMeta copyWith({
     String? name,
     bool? backupConfirmed,
-    bool? identityVerified,
-    DateTime? identityVerifiedAt,
     bool? isDemo,
   }) =>
       AccountMeta(
@@ -43,8 +37,6 @@ class AccountMeta {
         address: address,
         publicKey: publicKey,
         backupConfirmed: backupConfirmed ?? this.backupConfirmed,
-        identityVerified: identityVerified ?? this.identityVerified,
-        identityVerifiedAt: identityVerifiedAt ?? this.identityVerifiedAt,
         isDemo: isDemo ?? this.isDemo,
       );
 
@@ -57,8 +49,6 @@ class AccountMeta {
         'address': address,
         'publicKey': publicKey,
         'backupConfirmed': backupConfirmed,
-        'identityVerified': identityVerified,
-        'identityVerifiedAt': identityVerifiedAt?.toIso8601String(),
         'isDemo': isDemo,
       };
 
@@ -71,10 +61,6 @@ class AccountMeta {
         address: json['address'] as String,
         publicKey: json['publicKey'] as String,
         backupConfirmed: (json['backupConfirmed'] as bool? ?? false),
-        identityVerified: (json['identityVerified'] as bool? ?? false),
-        identityVerifiedAt: json['identityVerifiedAt'] != null
-            ? DateTime.parse(json['identityVerifiedAt'] as String)
-            : null,
         isDemo: (json['isDemo'] as bool? ?? false),
       );
 

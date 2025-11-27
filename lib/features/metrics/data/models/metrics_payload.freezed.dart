@@ -3624,7 +3624,7 @@ abstract class _ProductionMetrics extends ProductionMetrics {
 
 /// @nodoc
 mixin _$WalletMetrics {
-  double? get walletBalance => throw _privateConstructorUsedError;
+  BigInt? get walletBalance => throw _privateConstructorUsedError;
   String? get walletAddress => throw _privateConstructorUsedError;
 
   /// Create a copy of WalletMetrics
@@ -3640,7 +3640,7 @@ abstract class $WalletMetricsCopyWith<$Res> {
           WalletMetrics value, $Res Function(WalletMetrics) then) =
       _$WalletMetricsCopyWithImpl<$Res, WalletMetrics>;
   @useResult
-  $Res call({double? walletBalance, String? walletAddress});
+  $Res call({BigInt? walletBalance, String? walletAddress});
 }
 
 /// @nodoc
@@ -3665,7 +3665,7 @@ class _$WalletMetricsCopyWithImpl<$Res, $Val extends WalletMetrics>
       walletBalance: freezed == walletBalance
           ? _value.walletBalance
           : walletBalance // ignore: cast_nullable_to_non_nullable
-              as double?,
+              as BigInt?,
       walletAddress: freezed == walletAddress
           ? _value.walletAddress
           : walletAddress // ignore: cast_nullable_to_non_nullable
@@ -3682,7 +3682,7 @@ abstract class _$$WalletMetricsImplCopyWith<$Res>
       __$$WalletMetricsImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({double? walletBalance, String? walletAddress});
+  $Res call({BigInt? walletBalance, String? walletAddress});
 }
 
 /// @nodoc
@@ -3705,7 +3705,7 @@ class __$$WalletMetricsImplCopyWithImpl<$Res>
       walletBalance: freezed == walletBalance
           ? _value.walletBalance
           : walletBalance // ignore: cast_nullable_to_non_nullable
-              as double?,
+              as BigInt?,
       walletAddress: freezed == walletAddress
           ? _value.walletAddress
           : walletAddress // ignore: cast_nullable_to_non_nullable
@@ -3721,7 +3721,7 @@ class _$WalletMetricsImpl extends _WalletMetrics {
       : super._();
 
   @override
-  final double? walletBalance;
+  final BigInt? walletBalance;
   @override
   final String? walletAddress;
 
@@ -3755,12 +3755,12 @@ class _$WalletMetricsImpl extends _WalletMetrics {
 
 abstract class _WalletMetrics extends WalletMetrics {
   const factory _WalletMetrics(
-      {final double? walletBalance,
+      {final BigInt? walletBalance,
       final String? walletAddress}) = _$WalletMetricsImpl;
   const _WalletMetrics._() : super._();
 
   @override
-  double? get walletBalance;
+  BigInt? get walletBalance;
   @override
   String? get walletAddress;
 

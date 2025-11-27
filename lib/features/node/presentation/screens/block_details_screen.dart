@@ -289,7 +289,7 @@ class _TimelineItem extends StatelessWidget {
                   height: 20,
                   decoration: BoxDecoration(
                     color: icon == Icons.verified
-                        ? Colors.amber.withOpacity(0.2)
+                        ? Colors.amber.withValues(alpha: 0.2)
                         : theme.colorScheme.onSurface,
                     borderRadius: BorderRadius.circular(20),
                   ),

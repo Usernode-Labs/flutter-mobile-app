@@ -2,8 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:crypto_mobile_app/features/wallet/domain/repositories/wallet_repository.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/wallet_repository_impl.dart';
-import 'package:crypto_mobile_app/features/node/domain/repositories/node_repository.dart';
-import 'package:crypto_mobile_app/features/node/data/repositories/node_repository_impl.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
 import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
 import 'package:crypto_mobile_app/src/rust/lib.dart' as rust;
@@ -17,10 +15,6 @@ final _log = LoggingService.instance.withTag(LogTag.provider);
 // Repositories
 final walletRepositoryProvider = Provider<WalletRepository>((ref) {
   return WalletRepositoryImpl.instance;
-});
-
-final nodeRepositoryProvider = Provider<NodeRepository>((ref) {
-  return NodeRepositoryImpl.instance;
 });
 
 // Derived async providers
@@ -60,12 +54,6 @@ final backendLifecycleProvider = Provider<void>((ref) {
 
 // Build environment from Rust bindings
 final buildEnvProvider = Provider((ref) => rust.buildInfo());
-
-// Feature flag to toggle Result-based providers in UI without breaking defaults.
-final useResultProvidersProvider = Provider<bool>((ref) {
-  const v = bool.fromEnvironment('USE_RESULT_PROVIDERS', defaultValue: false);
-  return v;
-});
 
 // Theme mode controller with persistence
 class ThemeModeController extends StateNotifier<ThemeMode> {

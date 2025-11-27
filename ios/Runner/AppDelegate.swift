@@ -1,7 +1,6 @@
 import UIKit
 import Flutter
 import BackgroundTasks
-import workmanager_apple
 import UserNotifications
 
 @main
@@ -43,12 +42,6 @@ import UserNotifications
       print("[AppDelegate] Method channel '\(alarmChannelName)' configured")
     } else {
       print("[AppDelegate] ⚠ Warning - Could not access FlutterViewController")
-    }
-
-    // Register WorkManager for background tasks
-    print("[AppDelegate] Registering WorkManager plugin callback")
-    WorkmanagerPlugin.setPluginRegistrantCallback { registry in
-        GeneratedPluginRegistrant.register(with: registry)
     }
 
     // Register BGTaskScheduler tasks (MUST be done during app launch)
@@ -96,12 +89,11 @@ import UserNotifications
     }
   }
 
-  // Handle background task performance
+  // Handle background fetch
   override func application(
     _ application: UIApplication,
     performFetchWithCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
   ) {
-    // Let WorkManager handle the callback
     super.application(application, performFetchWithCompletionHandler: completionHandler)
   }
 

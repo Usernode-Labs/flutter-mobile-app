@@ -21,7 +21,6 @@ final _log = LoggingService.instance.withTag(LogTag.node);
 ///
 /// This service consolidates the functionality of:
 /// - EpochSlotSchedulerService (epoch monitoring, slot scheduling)
-/// - AlarmCallbackService (alarm callback handling)
 /// - SlotNotificationManager (notification scheduling)
 ///
 /// It provides a single entry point for all block production logic with:

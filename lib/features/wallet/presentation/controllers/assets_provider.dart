@@ -115,8 +115,8 @@ class WalletAssetsController extends AsyncNotifier<List<AssetSummary>> {
           tokenName: metadata['name'] as String,
           tokenSymbol: metadata['symbol'] as String,
           totalBalance: balance,
-          usdValue: _calculateUsdValue(tokenIdStr, balance),
-          change24h: _getPrice24hChange(tokenIdStr),
+          usdValue: 0.0,
+          change24h: 0,
         );
       }).toList();
 
@@ -138,36 +138,6 @@ class WalletAssetsController extends AsyncNotifier<List<AssetSummary>> {
       'name': metadata.name,
       'symbol': metadata.symbol,
     };
-  }
-
-  /// Calculate USD value for a token balance
-  /// TODO: Integrate with price oracle/API
-  double _calculateUsdValue(String tokenId, BigInt balance) {
-    // Mock price data for now
-    // TODO: Replace with actual price feed integration
-    final mockPrices = {
-      'default': 0.00005,
-      '0x0000000000000000000000000000000000000000000000000000000000000000':
-          0.00005,
-    };
-
-    final pricePerToken = mockPrices[tokenId] ?? 0.00005;
-    final balanceAsDouble = balance.toDouble();
-
-    return balanceAsDouble * pricePerToken;
-  }
-
-  /// Get 24h price change percentage for a token
-  /// TODO: Integrate with price oracle/API
-  double _getPrice24hChange(String tokenId) {
-    // Mock change data for now
-    // TODO: Replace with actual price feed integration
-    final mockChanges = {
-      'default': 2.5,
-      '0x0000000000000000000000000000000000000000000000000000000000000000': 2.5,
-    };
-
-    return mockChanges[tokenId] ?? 0.0;
   }
 }
 

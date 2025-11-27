@@ -89,15 +89,4 @@ class FeedbackQueueRepository {
     }
   }
 
-  /// Gets the number of items in the queue
-  Future<int> getQueueSize() async {
-    final queue = await _getQueue();
-    return queue.length;
-  }
-
-  /// Clears the entire queue
-  Future<void> clearQueue() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_queueKey);
-  }
 }

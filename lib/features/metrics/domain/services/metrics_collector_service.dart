@@ -84,7 +84,7 @@ class MetricsCollectorService {
   /// visibility into app health, node performance, and block production.
   Future<MetricsPayload> collectMetricsForEvent(
     BlockProductionEvent event, {
-    double? walletBalance,
+    BigInt? walletBalance,
     String? walletAddress,
   }) async {
     _log.debug('Collecting full metrics for event: ${event.eventType}');
@@ -103,7 +103,7 @@ class MetricsCollectorService {
   Future<MetricsPayload> collectMetrics({
     String eventType = 'health_check',
     Map<String, dynamic>? eventData,
-    double? walletBalance,
+    BigInt? walletBalance,
     String? walletAddress,
   }) async {
     // For full collection, fetch node status ONCE from provider to avoid expensive FFI calls
@@ -686,7 +686,7 @@ class MetricsCollectorService {
   }
 
   /// Collect wallet metrics
-  WalletMetrics _collectWalletMetrics(double? balance, String? address) {
+  WalletMetrics _collectWalletMetrics(BigInt? balance, String? address) {
     // Cache wallet address if provided - CACHED (immutable per session)
     if (address != null) {
       _cachedWalletAddress = address;

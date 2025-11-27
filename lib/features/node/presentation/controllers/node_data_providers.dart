@@ -57,7 +57,6 @@ class NodeBlockchainController extends AsyncNotifier<RpcListBlockchainResp?> {
     final epoch = status?.epoch;
     final blockProducer = status?.blockProducer?.pubKey;
 
-    state = const AsyncLoading();
     state = await AsyncValue.guard(
         () => _load(epoch: epoch, blockProducer: blockProducer));
   }

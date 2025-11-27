@@ -1,4 +1,4 @@
 {
-  "enabled": ["wallet", "node", "feedback"],
-  "order": ["node", "wallet"]
+  "enabled": ["settings", "node", "feedback"],
+  "order": ["node", "settings"]
 }

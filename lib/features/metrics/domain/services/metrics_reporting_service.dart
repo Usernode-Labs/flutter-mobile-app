@@ -10,7 +10,7 @@ import 'package:crypto_mobile_app/features/metrics/domain/services/metrics_colle
 final _log = LoggingService.instance.withTag(LogTag.metrics);
 
 /// Callback type for fetching wallet data
-typedef WalletDataCallback = Future<({double? balance, String? address})>
+typedef WalletDataCallback = Future<({BigInt? balance, String? address})>
     Function();
 
 /// Service responsible for collecting and reporting metrics
@@ -85,7 +85,7 @@ class MetricsReportingService {
       );
 
       // Fetch wallet data if needed
-      double? walletBalance;
+      BigInt? walletBalance;
       String? walletAddress;
 
       if (_walletDataCallback != null) {
@@ -233,7 +233,7 @@ class MetricsReportingService {
       );
 
       // Fetch wallet data if callback is set
-      double? walletBalance;
+      BigInt? walletBalance;
       String? walletAddress;
 
       if (_walletDataCallback != null) {

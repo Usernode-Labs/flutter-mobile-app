@@ -352,14 +352,14 @@ class ProductionMetrics with _$ProductionMetrics {
 @freezed
 class WalletMetrics with _$WalletMetrics {
   const factory WalletMetrics({
-    double? walletBalance,
+    BigInt? walletBalance,
     String? walletAddress,
   }) = _WalletMetrics;
 
   const WalletMetrics._();
 
   Map<String, dynamic> toJson() => {
-        if (walletBalance != null) 'wallet_balance': walletBalance,
+        if (walletBalance != null) 'wallet_balance': walletBalance!.toInt(),
         if (walletAddress != null) 'wallet_address': walletAddress,
       };
 }

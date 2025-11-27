@@ -15,6 +15,7 @@ import 'package:crypto_mobile_app/features/node/presentation/controllers/node_st
 import 'package:crypto_mobile_app/features/node/presentation/controllers/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/features/node/presentation/controllers/node_data_providers.dart';
 import 'package:crypto_mobile_app/features/wallet/presentation/controllers/assets_provider.dart';
+import 'package:crypto_mobile_app/features/wallet/presentation/controllers/utxo_provider.dart';
 import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
 import 'package:crypto_mobile_app/features/wallet/data/models/account.dart';
 
@@ -43,6 +44,10 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   int? _winsInEpoch;
   BigInt? _rewardPerBlock;
 
+  // Cached wallet balance
+  BigInt? _cachedBalance;
+  String? _cachedTokenSymbol;
+
   Timer? _autoTimer;
   late final TabController _tabController;
   DateTime? _lastChecked;
@@ -52,7 +57,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
   // Wallet balance state
   AccountMeta? _account;
-  bool _balanceHidden = false;
 
   @override
   void initState() {
@@ -79,6 +83,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     setState(() {
       _account = active;
     });
+    // Prime UTXO provider to trigger asset loading
+    ref.read(walletUtxosProvider.future);
   }
 
   Future<void> _refresh() async {
@@ -88,14 +94,13 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       _error = null; // keep content visible; show error inline
     });
     try {
-      // Refresh providers
-      // Refresh all providers
+      // Refresh all providers (using notifier.refresh() to avoid loading state flicker)
       await ref.read(nodeStatusProvider.notifier).refresh();
-      // ignore: unused_result
-      ref.refresh(nodeMempoolProvider.future);
-      // ignore: unused_result
-      ref.refresh(nodeBlockchainProvider.future);
+      await ref.read(nodeMempoolProvider.notifier).refresh();
+      await ref.read(nodeBlockchainProvider.notifier).refresh();
       await ref.read(epochRewardsProvider.notifier).refresh();
+      // Refresh wallet UTXOs to update balance after node syncs (silent to avoid flicker)
+      await ref.read(walletUtxosProvider.notifier).silentRefresh();
 
       // Check if still mounted after async operations
       if (!mounted) return;
@@ -122,6 +127,14 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             _producedInEpoch = rewardsData.producedInEpoch;
             _winsInEpoch = rewardsData.winsInEpoch;
             _rewardPerBlock = rewardsData.rewardPerBlock;
+          }
+
+          // Cache wallet balance
+          final assetsData = ref.read(walletAssetsProvider).value;
+          if (assetsData != null && assetsData.isNotEmpty) {
+            _cachedBalance = assetsData.fold<BigInt>(
+                BigInt.zero, (sum, a) => sum + a.totalBalance);
+            _cachedTokenSymbol = assetsData.first.tokenSymbol;
           }
         });
       }
@@ -182,7 +195,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             const SizedBox(height: 18),
 
             // OVERVIEW Section (includes Synchronization details)
-            _buildOverviewSection(context, ref.watch(nodeStatusProvider).value),
+            _buildOverviewSection(context, ref.read(nodeStatusProvider).value),
             const SizedBox(height: 18),
 
             // RECENT BLOCKS Section (collapsible, separate card)
@@ -226,8 +239,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
   // Wallet balance card widget
   Widget _buildWalletBalanceCard(ThemeData theme) {
-    final assetsAsync = ref.watch(walletAssetsProvider);
-
     return Container(
       decoration: BoxDecoration(
         gradient: const LinearGradient(
@@ -252,101 +263,27 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header row with "Total Balance" and hide button
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  _account != null
-                      ? 'Total Balance (${_shortAddr(_account!.address)})'
-                      : 'Total Balance',
+                  _account != null ? '${_shortAddr(_account!.address)}' : 'NA',
                   style: theme.textTheme.titleSmall?.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                IconButton(
-                  icon: Icon(
-                    _balanceHidden ? Icons.visibility_off : Icons.visibility,
-                    size: 20,
-                  ),
-                  color: Colors.white,
-                  onPressed: () => setState(() => _balanceHidden = !_balanceHidden),
-                  tooltip: _balanceHidden ? 'Show balance' : 'Hide balance',
-                ),
               ],
             ),
             const SizedBox(height: 4),
 
-            // Balance amount
-            assetsAsync.when(
-              data: (assets) {
-                final totalBalance = assets.fold<BigInt>(
-                    BigInt.zero, (sum, a) => sum + a.totalBalance);
-                final tokenSymbol =
-                    assets.isNotEmpty ? assets.first.tokenSymbol : 'TKN';
-                final formattedBalance =
-                    '${_formatBalance(totalBalance.toDouble())} $tokenSymbol';
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _balanceHidden ? '••••••' : formattedBalance,
-                      style: theme.textTheme.headlineMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        height: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    if (!_balanceHidden)
-                      Text(
-                        '${assets.length} ${assets.length == 1 ? 'asset' : 'assets'}',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.9),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                  ],
-                );
-              },
-              loading: () => Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 200,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    width: 140,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-                ],
-              ),
-              error: (e, _) => Row(
-                children: [
-                  const Icon(
-                    Icons.error_outline,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Failed to load balance',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
+            // Balance amount (using cached value to avoid loading flicker)
+            Text(
+              '${_formatBalance((_cachedBalance ?? BigInt.zero).toDouble())} ${_cachedTokenSymbol ?? 'TKN'}',
+              style: theme.textTheme.headlineMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                height: 1.2,
               ),
             ),
           ],
@@ -358,8 +295,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   // Helper for shortened address display
   String _shortAddr(String addr) {
     if (addr.length <= 12) return addr;
-    final start = addr.substring(0, 6);
-    final end = addr.substring(addr.length - 4);
+    final start = addr.substring(0, 10);
+    final end = addr.substring(addr.length - 10);
     return '$start…$end';
   }
 
@@ -487,7 +424,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       connectedPeers = statusFromProvider.connectedPeers;
       totalPeers = statusFromProvider.totalPeers;
     } else {
-      final status = ref.watch(nodeStatusProvider).value;
+      final status = ref.read(nodeStatusProvider).value;
       if (status != null) {
         connectedPeers = status.connectedPeers;
         totalPeers = status.totalPeers;
@@ -662,12 +599,12 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
           builder: (context) {
             // Extract values first
             final produced =
-                ref.watch(epochRewardsProvider).value?.producedInEpoch ??
+                ref.read(epochRewardsProvider).value?.producedInEpoch ??
                     _producedInEpoch ??
                     0;
             var wonSlots =
-                ref.watch(epochRewardsProvider).value?.wonSlots.length ??
-                    ref.watch(epochRewardsProvider).value?.winsInEpoch ??
+                ref.read(epochRewardsProvider).value?.wonSlots.length ??
+                    ref.read(epochRewardsProvider).value?.winsInEpoch ??
                     _winsInEpoch ??
                     0;
 
@@ -678,10 +615,13 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
             // Get VRF evaluator data for slots information
             final vrfEvaluator =
-                ref.watch(nodeStatusProvider).value?.vrfEvaluator;
-            final evaluatedSlots = vrfEvaluator?.details?.evaluatedCurrentEpoch ?? 0;
-            final vrfWonSlots = vrfEvaluator?.details?.wonSlotsCurrentEpoch.toInt() ?? 0;
-            final totalSlotsPerEpoch = ref.watch(nodeStatusProvider).value?.slotsInEpoch ?? 0;
+                ref.read(nodeStatusProvider).value?.vrfEvaluator;
+            final evaluatedSlots =
+                vrfEvaluator?.details?.evaluatedCurrentEpoch ?? 0;
+            final vrfWonSlots =
+                vrfEvaluator?.details?.wonSlotsCurrentEpoch.toInt() ?? 0;
+            final totalSlotsPerEpoch =
+                ref.read(nodeStatusProvider).value?.slotsInEpoch ?? 0;
 
             return Row(
               children: [
@@ -750,7 +690,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                 icon: Icons.toll,
                 label: 'Best Tip',
                 lines: () {
-                  final status = ref.watch(nodeStatusProvider).value;
+                  final status = ref.read(nodeStatusProvider).value;
                   final localBestTip = status?.localBest;
                   final networkBestTip = status?.networkBest;
                   final displayBestTip = networkBestTip ?? localBestTip;
@@ -784,7 +724,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                 icon: Icons.dynamic_feed,
                 label: 'Mempool',
                 lines: () {
-                  final mempool = ref.watch(nodeMempoolProvider).value;
+                  final mempool = ref.read(nodeMempoolProvider).value;
                   if (mempool == null) return ['N/A'];
 
                   final count = mempool.count.toInt();
@@ -1082,7 +1022,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   Widget _buildSyncDetailsSubsection(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final status = ref.watch(nodeStatusProvider).value;
+    final status = ref.read(nodeStatusProvider).value;
     final fetchProgress = status?.fetchProgress;
     final applyProgress = status?.applyProgress;
 
@@ -1299,7 +1239,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   Widget _buildRecentBlocksSection(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final blockchain = ref.watch(nodeBlockchainProvider).value;
+    final blockchain = ref.read(nodeBlockchainProvider).value;
 
     // Don't show section if no blocks available
     if (blockchain == null || blockchain.items.isEmpty) {
@@ -1556,9 +1496,9 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   Widget _buildProducedBlocksTab(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final blockchain = ref.watch(nodeBlockchainProvider).value;
-    final status = ref.watch(nodeStatusProvider).value;
-    final rewards = ref.watch(epochRewardsProvider).value;
+    final blockchain = ref.read(nodeBlockchainProvider).value;
+    final status = ref.read(nodeStatusProvider).value;
+    final rewards = ref.read(epochRewardsProvider).value;
 
     if (blockchain == null || blockchain.items.isEmpty) {
       return Center(

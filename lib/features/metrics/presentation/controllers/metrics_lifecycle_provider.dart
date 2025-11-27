@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:math';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -64,8 +63,8 @@ final metricsLifecycleProvider = Provider<void>((ref) {
 /// Returns a record with balance and address from the active account.
 /// Returns null values if data is unavailable (no active account, errors, etc.)
 ///
-/// Balance is calculated by summing all UTXO amounts from the blockchain.
-Future<({double? balance, String? address})> _fetchWalletData() async {
+/// Balance is the raw BigInt value (smallest unit) from summing all UTXO amounts.
+Future<({BigInt? balance, String? address})> _fetchWalletData() async {
   try {
     // Get active account
     final accountsRepo = await AccountsRepository.create();
@@ -85,6 +84,10 @@ Future<({double? balance, String? address})> _fetchWalletData() async {
     }
 
     // Fetch UTXOs for the active account from blockchain
+    _log.debug(
+      'Fetching UTXOs for metrics',
+      context: {'address': activeAccount.address},
+    );
     final owner = frb_types.publicKeyHashFromString(s: activeAccount.address);
     final utxosResp = await RustBackendService.instance.listUtxosByOwner(
       owner: owner,
@@ -114,21 +117,16 @@ Future<({double? balance, String? address})> _fetchWalletData() async {
       }
     }
 
-    // Convert from smallest unit to token amount (8 decimals, like BTC/crypto standard)
-    const decimals = 8;
-    final balanceDouble = totalBalance.toDouble() / pow(10, decimals);
-
     _log.debug(
       'Calculated wallet balance from UTXOs',
       context: {
         'utxo_count': utxos.length,
         'raw_balance': totalBalance.toString(),
-        'balance': balanceDouble,
       },
     );
 
     return (
-      balance: balanceDouble,
+      balance: totalBalance,
       address: activeAccount.address,
     );
   } catch (e) {

@@ -6,7 +6,7 @@ import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
-import 'package:crypto_mobile_app/src/rust/account.dart';
+import 'package:crypto_mobile_app/features/onboarding/data/repositories/registration_repository.dart';
 
 class ImportAPIAccountScreen extends ConsumerStatefulWidget {
 
@@ -37,9 +37,7 @@ class _ImportAPIAccountScreenState extends ConsumerState<ImportAPIAccountScreen>
     try {
       final contact = _contactController.text.trim();
       final activationCode = _activationCodeController.text.trim();
-      // Placeholder API call: simulate fetching a private key for given contact/code
-      final privateKeyHex =
-          await _requestPrivateKeyFromApiPlaceholder(contact, activationCode);
+      final privateKeyHex = await _requestPrivateKeyFromApi(contact, activationCode);
 
       final repo = await AccountsRepository.create();
       final result = await repo.importFromPrivateKey(
@@ -73,24 +71,28 @@ class _ImportAPIAccountScreenState extends ConsumerState<ImportAPIAccountScreen>
       // Navigate to identity verification screen
       if (!mounted) return;
       context.go('/identity-verification?accountId=${result.id}');
+    } on RegistrationApiException catch (e) {
+      if (!mounted) return;
+      String message = e.message;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Registration failed: $e')),
+      );
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
   }
 
-  Future<String> _requestPrivateKeyFromApiPlaceholder(
-      String contact, String code) async
-      {
-    // Simulate network delay
-    await Future.delayed(const Duration(milliseconds: 500));
-    // Generate a valid account using Rust, then return its private key
-    final words = seedPhraseGenerate(wordCount: 12);
-    final export = accountFromSeed(
-      phrase: words.join(' '),
-      passphrase: null,
-      index: 0,
-    );
-    return export.secretKeyHex;
+  Future<String> _requestPrivateKeyFromApi(String contact, String code) async {
+    final repo = RegistrationRepository();
+    final result = await repo.register(
+      registrationCode: code,
+      identifier: contact);
+    return result.secretKeyHex;
   }
 
   @override

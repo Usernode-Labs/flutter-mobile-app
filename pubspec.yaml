@@ -13,10 +13,7 @@ dependencies:
     sdk: flutter
   intl: any
   flutter_riverpod: "^2.5.1"
-  hooks_riverpod: "^2.5.1"
-  flutter_hooks: "^0.20.5"
   go_router: "^14.2.0"
-  cupertino_icons: "^1.0.2"
   qr_flutter: "^4.1.0"
   rust_lib_crypto_mobile_app:
     path: rust_builder
@@ -28,16 +25,9 @@ dependencies:
   shared_preferences: "^2.2.3"
   flutter_secure_storage: "^9.2.2"
   sentry_flutter: "^9.7.0"
-  uuid: "^4.5.1"
-  timeago: "^3.7.0"
-  skeletonizer: "^2.1.0"
-  flutter_local_notifications: "^17.0.0"
-  workmanager: "^0.9.0"
-  timezone: "^0.9.0"
   http: "^1.1.0"
   package_info_plus: "^9.0.0"
   device_info_plus: "^9.0.0"
-  screenshot: "^2.1.0"
   image_picker: "^1.0.0"
   freezed_annotation: "^2.4.4"
   logger: "^2.0.0"

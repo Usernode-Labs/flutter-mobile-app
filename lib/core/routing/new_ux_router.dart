@@ -9,6 +9,7 @@ import 'package:crypto_mobile_app/features/new_ux/presentation/screens/permissio
 import 'package:crypto_mobile_app/features/new_ux/presentation/screens/permission3_screen.dart';
 import 'package:crypto_mobile_app/features/new_ux/presentation/screens/new_ux_home_shell.dart';
 import 'package:crypto_mobile_app/features/new_ux/presentation/screens/welcome_claim_screen.dart';
+import 'package:crypto_mobile_app/features/new_ux/presentation/screens/slot_assignments_screen.dart';
 import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
 
 String _initialNewUxLocation(Ref ref, bool hasAccount) {
@@ -51,6 +52,10 @@ Provider<GoRouter> newUxRouterProvider(hasAccount) {
           path: '/newux/main',
           builder: (context, state) => const NewUxHomeShell(),
         ),
+      GoRoute(
+        path: '/newux/produced/slot-assignments',
+        builder: (context, state) => const SlotAssignmentsScreen(),
+      ),
       ],
     );
   });

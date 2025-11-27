@@ -11,47 +11,49 @@ import 'package:crypto_mobile_app/features/new_ux/presentation/screens/new_ux_ho
 import 'package:crypto_mobile_app/features/new_ux/presentation/screens/welcome_claim_screen.dart';
 import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
 
-String _initialNewUxLocation(Ref ref) {
+String _initialNewUxLocation(Ref ref, bool hasAccount) {
   print('RustBackendService.instance.isRunning: ${RustBackendService.instance.isRunning}');
-  if (RustBackendService.instance.isRunning) {
+  if (hasAccount) {
     return '/newux/main';
   } else {
     return '/newux/onboarding/welcome';
   }
 }
 
-final newUxRouterProvider = Provider<GoRouter>((ref) {
-  return GoRouter(
-    navigatorKey: appNavigatorKey,
-    observers: SentryUtil.navigatorObservers(),
-    initialLocation: _initialNewUxLocation(ref),
-    routes: [
-      GoRoute(
-        path: '/newux/onboarding/welcome',
-        builder: (context, state) => const WelcomeClaimScreen(),
-      ),
-      GoRoute(
-        path: '/newux/onboarding/import-api',
-        builder: (context, state) => const NewUxOnboardingImportApiScreen(),
-      ),
-      GoRoute(
-        path: '/newux/onboarding/permission1',
-        builder: (context, state) => const Permission1Screen(),
-      ),
-      GoRoute(
-        path: '/newux/onboarding/permission2',
-        builder: (context, state) => const Permission2Screen(),
-      ),
-      GoRoute(
-        path: '/newux/onboarding/permission3',
-        builder: (context, state) => const Permission3Screen(),
-      ),
-      GoRoute(
-        path: '/newux/main',
-        builder: (context, state) => const NewUxHomeShell(),
-      ),
-    ],
-  );
-});
+Provider<GoRouter> newUxRouterProvider(hasAccount) { 
+  return Provider<GoRouter>((ref) {
+    return GoRouter(
+      navigatorKey: appNavigatorKey,
+      observers: SentryUtil.navigatorObservers(),
+      initialLocation: _initialNewUxLocation(ref, hasAccount),
+      routes: [
+        GoRoute(
+          path: '/newux/onboarding/welcome',
+          builder: (context, state) => const WelcomeClaimScreen(),
+        ),
+        GoRoute(
+          path: '/newux/onboarding/import-api',
+          builder: (context, state) => const NewUxOnboardingImportApiScreen(),
+        ),
+        GoRoute(
+          path: '/newux/onboarding/permission1',
+          builder: (context, state) => const Permission1Screen(),
+        ),
+        GoRoute(
+          path: '/newux/onboarding/permission2',
+          builder: (context, state) => const Permission2Screen(),
+        ),
+        GoRoute(
+          path: '/newux/onboarding/permission3',
+          builder: (context, state) => const Permission3Screen(),
+        ),
+        GoRoute(
+          path: '/newux/main',
+          builder: (context, state) => const NewUxHomeShell(),
+        ),
+      ],
+    );
+  });
+}
 
 

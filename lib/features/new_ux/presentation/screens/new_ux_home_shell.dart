@@ -16,18 +16,30 @@ class _NewUxHomeShellState extends State<NewUxHomeShell> {
       body: IndexedStack(
         index: _index,
         children: const [
-          _ColoredBlank(color: Colors.red, label: 'Tab 1'),
-          _ColoredBlank(color: Colors.green, label: 'Tab 2'),
-          _ColoredBlank(color: Colors.blue, label: 'Tab 3'),
+          _ColoredBlank(color: Colors.red, label: 'Produced Blocks'),
+          _ColoredBlank(color: Colors.green, label: 'Node Status'),
+          _ColoredBlank(color: Colors.blue, label: 'Settings'),
         ],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.looks_one), label: 'Tab 1'),
-          NavigationDestination(icon: Icon(Icons.looks_two), label: 'Tab 2'),
-          NavigationDestination(icon: Icon(Icons.looks_3), label: 'Tab 3'),
+          NavigationDestination(
+            icon: Icon(Icons.layers_outlined),
+            selectedIcon: Icon(Icons.layers),
+            label: 'Produced Blocks',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.check_circle_outline),
+            selectedIcon: Icon(Icons.check_circle),
+            label: 'Node Status',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings),
+            label: 'Settings',
+          ),
         ],
       ),
     );

@@ -20,6 +20,7 @@ import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/services/background_block_production_orchestrator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto_mobile_app/core/routing/new_ux_router.dart';
+import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
 
 const bool kNewUx =
     bool.fromEnvironment('NEW_UX', defaultValue: false);
@@ -42,11 +43,15 @@ Future<void> main() async {
     final container = ProviderContainer();
     BlockchainTiming.initialize(container);
 
+    final repo = await AccountsRepository.create();
+    final hasAnyAccounts = await repo.hasAny();
+    print('hasAnyAccounts: $hasAnyAccounts');
+
     // Render UI immediately; perform heavy bootstrap asynchronously.
     log.info('Running app UI', tag: 'MAIN');
     SentryUtil.addBreadcrumb(category: 'app', message: 'runApp');
     runApp(UncontrolledProviderScope(
-        container: container, child: const CryptoMobileApp()));
+        container: container, child: CryptoMobileApp(hasAccount: hasAnyAccounts)));
     // Track lifecycle changes for breadcrumbs/diagnostics
     AppLifecycleLogger.register();
 
@@ -158,12 +163,14 @@ Future<void> _requestPermissionsAtStartup(LoggingService log) async {
 }
 
 class CryptoMobileApp extends ConsumerWidget {
-  const CryptoMobileApp({super.key});
+  const CryptoMobileApp({super.key, required this.hasAccount});
+  final bool hasAccount;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+
     final router = kNewUx
-        ? ref.watch(newUxRouterProvider)
+        ? ref.watch(newUxRouterProvider(hasAccount))
         : ref.watch(appRouterProvider);
     final themeMode = ref.watch(themeModeProvider);
 

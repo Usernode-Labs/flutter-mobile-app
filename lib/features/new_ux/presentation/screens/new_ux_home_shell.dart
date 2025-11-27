@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:crypto_mobile_app/features/new_ux/presentation/screens/produced_blocks_screen.dart';
 
 class NewUxHomeShell extends StatefulWidget {
   const NewUxHomeShell({super.key});
@@ -16,7 +17,7 @@ class _NewUxHomeShellState extends State<NewUxHomeShell> {
       body: IndexedStack(
         index: _index,
         children: const [
-          _ColoredBlank(color: Colors.red, label: 'Produced Blocks'),
+          ProducedBlocksScreen(),
           _ColoredBlank(color: Colors.green, label: 'Node Status'),
           _ColoredBlank(color: Colors.blue, label: 'Settings'),
         ],

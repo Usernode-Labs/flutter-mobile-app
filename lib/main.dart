@@ -19,6 +19,10 @@ import 'package:crypto_mobile_app/core/config/blockchain_timing.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/services/background_block_production_orchestrator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:crypto_mobile_app/core/routing/new_ux_router.dart';
+
+const bool kNewUx =
+    bool.fromEnvironment('NEW_UX', defaultValue: false);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -75,14 +79,16 @@ Future<void> _bootstrapAsync(
     }
 
     // Initialize FRB only; start backend only if an account exists
-    await RustBackendService.instance.init();
-    final started = await RustBackendService.instance.startNode();
-    log.info('Backend startNode => $started', tag: 'MAIN');
-    await SentryUtil.captureMessage(
-      started
-          ? 'backend startNode: started'
-          : 'backend startNode: skipped',
-    );
+    if (!RustBackendService.instance.isRunning) {
+      await RustBackendService.instance.init();
+      final started = await RustBackendService.instance.startNode();
+      log.info('Backend startNode => $started', tag: 'MAIN');
+      await SentryUtil.captureMessage(
+        started
+            ? 'backend startNode: started'
+            : 'backend startNode: skipped',
+      );
+    }
 
     // Initialize metrics collection service
     log.info('Initializing metrics collection service', tag: 'MAIN');
@@ -94,7 +100,10 @@ Future<void> _bootstrapAsync(
     await BackgroundBlockProductionOrchestrator.instance.initialize();
 
     // Request permissions at startup (if not already requested)
-    await _requestPermissionsAtStartup(log);
+    // Skip for NEW_UX; permissions are requested in the onboarding flow (screen 3)
+    if (!kNewUx) {
+      await _requestPermissionsAtStartup(log);
+    }
 
     SentryUtil.addBreadcrumb(category: 'app', message: 'bootstrap end');
   } catch (e, st) {
@@ -153,7 +162,9 @@ class CryptoMobileApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final router = ref.watch(appRouterProvider);
+    final router = kNewUx
+        ? ref.watch(newUxRouterProvider)
+        : ref.watch(appRouterProvider);
     final themeMode = ref.watch(themeModeProvider);
 
     // Initialize backend lifecycle manager

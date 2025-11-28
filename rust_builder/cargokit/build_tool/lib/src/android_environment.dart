@@ -165,6 +165,10 @@ class AndroidEnvironment {
       ranlibKey: ranlibValue,
       rustFlagsKey: rustFlagsValue,
       linkerKey: selfPath,
+      'ANDROID_NDK_HOME': ndkPath,
+      'ANDROID_NDK_ROOT': ndkPath,
+      'ANDROID_HOME': sdkPath,
+      'ANDROID_SDK_ROOT': sdkPath,
       // Recognized by main() so we know when we're acting as a wrapper
       '_CARGOKIT_NDK_LINK_TARGET': targetArg,
       '_CARGOKIT_NDK_LINK_CLANG': ccValue,

@@ -1,6 +1,8 @@
 /// This is copied from Cargokit (which is the official way to use it currently)
 /// Details: https://fzyzcjy.github.io/flutter_rust_bridge/manual/integrate/builtin
 
+import 'dart:io';
+
 import 'package:collection/collection.dart';
 import 'package:logging/logging.dart';
 import 'package:path/path.dart' as path;
@@ -139,6 +141,11 @@ class RustBuilder {
   Future<String> build() async {
     final extraArgs = _buildOptions?.flags ?? [];
     final manifestPath = path.join(environment.manifestDir, 'Cargo.toml');
+    final env = Map<String, String>.from(await _buildEnvironment());
+    const tmp = '/tmp/cargokit-tmp';
+    Directory(tmp).createSync(recursive: true);
+    _log.info('TMPDIR for cargo: $tmp');
+    env.addAll({'TMPDIR': tmp, 'TMP': tmp, 'TEMP': tmp});
     runCommand(
       'rustup',
       [
@@ -157,7 +164,7 @@ class RustBuilder {
         '--target-dir',
         environment.targetTempDir,
       ],
-      environment: await _buildEnvironment(),
+      environment: env,
     );
     return path.join(
       environment.targetTempDir,

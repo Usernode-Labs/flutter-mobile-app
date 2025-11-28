@@ -30,7 +30,8 @@ A new Flutter FFI plugin project.
     :name => 'Build Rust library',
     # First argument is relative path to the `rust` folder, second is name of rust library
     :script => <<-BASH,
-sh "$PODS_TARGET_SRCROOT/../cargokit/build_pod.sh" ../../../usernode/crates/usernode usernode
+CRATE_DIR="$(cd "$PODS_ROOT/../../../usernode/crates/usernode" && pwd -P)"
+sh "$PODS_TARGET_SRCROOT/../cargokit/build_pod.sh" "$CRATE_DIR" usernode
 # Xcode links against librust_lib_crypto_mobile_app.a by convention; provide a symlink
 ln -sf "${BUILT_PRODUCTS_DIR}/libusernode.a" "${BUILT_PRODUCTS_DIR}/librust_lib_crypto_mobile_app.a"
 BASH
@@ -46,6 +47,6 @@ BASH
     # Flutter.framework does not contain a i386 slice.
     'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386',
     'OTHER_LDFLAGS' => '$(inherited) -lc++ -force_load ${BUILT_PRODUCTS_DIR}/libusernode.a',
-    'IPHONEOS_DEPLOYMENT_TARGET' => '12.0'
+    'IPHONEOS_DEPLOYMENT_TARGET' => '14.0'
   }
 end

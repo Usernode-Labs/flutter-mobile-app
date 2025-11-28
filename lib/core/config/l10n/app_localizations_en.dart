@@ -18,331 +18,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get initializingNode => 'Initializing node...';
 
   @override
-  String get home => 'Home';
-
-  @override
-  String get wallet => 'Wallet';
-
-  @override
   String get node => 'Node';
-
-  @override
-  String get dapps => 'dApps';
-
-  @override
-  String get profile => 'Profile';
-
-  @override
-  String get nfcReader => 'NFC Reader';
-
-  @override
-  String get nfcEmptyTitle => 'Scan your ID';
-
-  @override
-  String get nfcEmptySubtitle =>
-      'Use your phone to read your ePassport or eID via NFC.';
-
-  @override
-  String get nfcScanAnother => 'Scan another';
-
-  @override
-  String get nfcManualMrz => 'Enter MRZ manually';
-
-  @override
-  String get nfcStartScan => 'Start NFC scan';
-
-  @override
-  String get mrzTitle => 'Enter MRZ';
-
-  @override
-  String get mrzLine1 => 'MRZ line 1';
-
-  @override
-  String get mrzLine2 => 'MRZ line 2';
-
-  @override
-  String get mrzLine3 => 'MRZ line 3 (optional)';
-
-  @override
-  String get mrzContinue => 'Continue';
-
-  @override
-  String get nfcReading => 'Hold document to the phone...';
-
-  @override
-  String get nfcSave => 'Save';
-
-  @override
-  String get nfcRename => 'Rename';
-
-  @override
-  String get nfcDelete => 'Delete';
-
-  @override
-  String get nfcConfirmDelete => 'Delete this document?';
-
-  @override
-  String get unlockToView => 'Unlock to view private data';
-
-  @override
-  String get biometricsNotAvailable => 'Biometrics not available';
-
-  @override
-  String get nfcNotSupported => 'This device does not support NFC.';
-
-  @override
-  String get nfcTurnOn => 'Please enable NFC in settings.';
-
-  @override
-  String get nfcReadFailed =>
-      'Failed to read document. Check MRZ and try again.';
-
-  @override
-  String get nfcUpdated => 'Document updated';
-
-  @override
-  String get nfcSaved => 'Document saved';
-
-  @override
-  String nodeStatusSynced(String time) {
-    return 'Your Local Node synced in $time';
-  }
-
-  @override
-  String totalNodes(String count) {
-    return '$count Nodes Total';
-  }
-
-  @override
-  String get bringLiquidity => 'Bring your own liquidity';
-
-  @override
-  String get bridgeAssetsDescription =>
-      'Bridge assets to the network within your first week';
-
-  @override
-  String get bridge => 'Bridge';
-
-  @override
-  String get completeVerification => 'Complete verification';
-
-  @override
-  String get verificationDescription =>
-      'This verifies your identity and increases your rewards';
-
-  @override
-  String get verify => 'Verify';
-
-  @override
-  String get stakeTokens => 'Stake your tokens';
-
-  @override
-  String get stakingDescription =>
-      'Lock tokens for a period to earn additional rewards';
-
-  @override
-  String get stake => 'Stake';
-
-  @override
-  String get multiplier => 'Your Multiplier';
-
-  @override
-  String tokensExpected(String count, String days) {
-    return '$count Tokens expected in next $days days';
-  }
-
-  @override
-  String get activity => 'Activity';
-
-  @override
-  String upcomingBlock(String time) {
-    return 'Upcoming block in $time';
-  }
-
-  @override
-  String get scheduledBackground => 'Scheduled in the background';
-
-  @override
-  String get identityProven => 'Identity Proven';
-
-  @override
-  String get depositSuccessful => 'Deposit Successful';
-
-  @override
-  String get comingSoon => 'Coming soon...';
-
-  @override
-  String get walletManagement => 'Wallet Management';
-
-  @override
-  String get crossChainBridge => 'Node status';
-
-  @override
-  String get nodeStatus => 'Node Status';
-
-  @override
-  String get swap => 'Swap';
-
-  @override
-  String get tokenSwap => 'Token Swap';
-
-  @override
-  String get rewards => 'Rewards';
-
-  @override
-  String get rewardsAchievements => 'Rewards & Achievements';
-
-  @override
-  String get yourMultiplier => 'Your Multiplier';
-
-  @override
-  String get createAccountTitle => 'Create Account';
-
-  @override
-  String get recoveryPhraseTitle => 'Your recovery phrase';
-
-  @override
-  String get recoveryPhraseWarning =>
-      'This recovery phrase is the ONLY way to restore your keys and regain access to this account if something goes wrong. Store it securely and never share it.';
-
-  @override
-  String get recoveryPhraseInstruction =>
-      'Write these words down and store them securely. They will NOT be stored by the app and cannot be recovered.';
-
-  @override
-  String get accountNameLabel => 'Account name';
-
-  @override
-  String get accountNameHint => 'e.g., Account 1';
-
-  @override
-  String get accountNameExplain =>
-      'This name is only stored on your device to help you identify the account. It does not affect your blockchain address or keys.';
-
-  @override
-  String get seedStoredCheckbox => 'I have securely stored my recovery phrase.';
-
-  @override
-  String get continueButton => 'Continue';
-
-  @override
-  String get send => 'Send';
-
-  @override
-  String get receive => 'Receive';
-
-  @override
-  String get balances => 'Balances';
-
-  @override
-  String get recentTransactions => 'Recent Transactions';
-
-  @override
-  String get copyAddress => 'Copy address';
-
-  @override
-  String get addressCopied => 'Address copied';
-
-  @override
-  String get manageAccounts => 'Manage accounts';
-
-  @override
-  String get selectAccount => 'Select account';
-
-  @override
-  String get selectAccountHint => 'Tap an account to switch';
-
-  @override
-  String get createNewAccount => 'Create new account';
-
-  @override
-  String get importFromSeed => 'Import from seed phrase';
-
-  @override
-  String get importFromPrivateKey => 'Import from private key';
-
-  @override
-  String get deleteAllAccountsDev => 'Delete all accounts (dev)';
-
-  @override
-  String get deleteAllConfirmTitle => 'Delete all accounts?';
-
-  @override
-  String get deleteAllConfirmBody =>
-      'This will remove all stored accounts on this device.';
-
-  @override
-  String get cancel => 'Cancel';
-
-  @override
-  String get delete => 'Delete';
-
-  @override
-  String get generateNewAddress => 'Generate new address';
-
-  @override
-  String get backendStarting => 'Starting backend for your account...';
-
-  @override
-  String get nodeStatusLoading => 'Loading node status...';
-
-  @override
-  String get nodeStatusError => 'Failed to load node status';
-
-  @override
-  String nodePeersCount(String count) {
-    return 'Peers: $count';
-  }
-
-  @override
-  String get refresh => 'Refresh';
-
-  @override
-  String get currentBlockHeightLabel => 'Current block height';
-
-  @override
-  String get nodeStatusLabel => 'Status';
-
-  @override
-  String get peersLabel => 'Peers';
-
-  @override
-  String get mempoolLabel => 'Mempool';
-
-  @override
-  String get evaluatedDiscoveredLabel => 'Evaluated / Discovered Slots';
-
-  @override
-  String get upcoming => 'Upcoming';
-
-  @override
-  String get pastSlots => 'Past Slots';
-
-  @override
-  String get scheduledSlot => 'Scheduled Slot';
-
-  @override
-  String discoveredSlot(String id) {
-    return 'Discovered Slot $id';
-  }
-
-  @override
-  String inTime(String time) {
-    return 'in $time';
-  }
-
-  @override
-  String transactionsSuffix(String count) {
-    return '$count Transactions';
-  }
-
-  @override
-  String checkedAgoSeconds(String seconds) {
-    return 'Checked $seconds seconds ago';
-  }
-
-  @override
-  String get feedback => 'Feedback';
 
   @override
   String get sendFeedback => 'Send Feedback';
@@ -361,15 +37,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get feedbackCategory => 'Category';
-
-  @override
-  String get feedbackBugReport => 'Bug Report';
-
-  @override
-  String get feedbackFeatureRequest => 'Feature Request';
-
-  @override
-  String get feedbackGeneral => 'General Feedback';
 
   @override
   String get feedbackIncludeDeviceInfo => 'Include device information';
@@ -397,4 +64,373 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get feedbackNoScreenshots => 'No screenshots added (optional)';
+
+  @override
+  String get feedbackHelpImprove => 'Help us improve the app';
+
+  @override
+  String feedbackImagePickFailed(String error) {
+    return 'Failed to pick image: $error';
+  }
+
+  @override
+  String get settingsTitle => 'Settings';
+
+  @override
+  String get settingsLanguage => 'Language';
+
+  @override
+  String get settingsLanguageEnglish => 'English';
+
+  @override
+  String get settingsLanguageFrench => 'Français';
+
+  @override
+  String get settingsLanguageSpanish => 'Español';
+
+  @override
+  String get settingsLanguageComingSoon => 'Language support coming soon';
+
+  @override
+  String get settingsBackgroundBlockProduction => 'Background Block Production';
+
+  @override
+  String get settingsBackgroundBlockProductionSubtitle =>
+      'Configure automatic block production';
+
+  @override
+  String get settingsAbout => 'About';
+
+  @override
+  String get settingsBuildInfo => 'Build Info';
+
+  @override
+  String get bgProdWhatIs => 'What is Background Block Production?';
+
+  @override
+  String get bgProdDescription =>
+      'This feature automatically wakes your device to produce blockchain blocks when your node wins a slot. Here\'s how it works:';
+
+  @override
+  String get bgProdVrfSelection => 'VRF Selection';
+
+  @override
+  String get bgProdVrfSelectionDesc =>
+      'Each epoch, the network randomly selects which validators will produce blocks using Verifiable Random Function (VRF)';
+
+  @override
+  String get bgProdSlotScheduling => 'Slot Scheduling';
+
+  @override
+  String get bgProdSlotSchedulingDesc =>
+      'When you win slots, the app schedules alarms to wake your device ~1 minute before each slot';
+
+  @override
+  String get bgProdBlockProduction => 'Block Production';
+
+  @override
+  String get bgProdBlockProductionDesc =>
+      'At slot time, the app monitors your node and ensures the block is produced';
+
+  @override
+  String get bgProdSuccessTracking => 'Success Tracking';
+
+  @override
+  String get bgProdSuccessTrackingDesc =>
+      'Results are recorded to track your reliability over time';
+
+  @override
+  String get bgProdAndroidTitle => 'Android Background Production';
+
+  @override
+  String get bgProdIosTitle => 'iOS Background Production';
+
+  @override
+  String get bgProdAndroidDesc =>
+      'Uses Android\'s exact alarm system (AlarmManager) to wake your device precisely when needed for block production.';
+
+  @override
+  String get bgProdIosDesc =>
+      'Uses a combination of background tasks and keep-alive mode to wake your device for block production.';
+
+  @override
+  String get bgProdReliabilityByMode => 'Reliability by Mode';
+
+  @override
+  String get bgProdDefaultMode => 'Default (Event-Driven)';
+
+  @override
+  String get bgProdDefaultReliability => '90-95%';
+
+  @override
+  String get bgProdDefaultDesc =>
+      'Battery-efficient, wakes only during slot windows';
+
+  @override
+  String get bgProdKeepAliveMode => 'Keep-Alive Mode';
+
+  @override
+  String get bgProdKeepAliveReliability => '100%';
+
+  @override
+  String get bgProdKeepAliveDesc =>
+      'Persistent service, higher battery (~5-10%/hr)';
+
+  @override
+  String get bgProdIosKeepAliveReliability => '99%';
+
+  @override
+  String get bgProdIosKeepAliveDesc =>
+      'App stays awake in foreground, requires charger';
+
+  @override
+  String get bgProdBackgroundOnly => 'Background Only';
+
+  @override
+  String get bgProdBackgroundOnlyReliability => '40-60%';
+
+  @override
+  String get bgProdBackgroundOnlyDesc =>
+      'iOS controls execution, not guaranteed';
+
+  @override
+  String get bgProdLoading => 'Loading...';
+
+  @override
+  String get bgProdVrfComplete => 'VRF Complete';
+
+  @override
+  String get bgProdVrfCalculating => 'VRF Calculating...';
+
+  @override
+  String get bgProdVrfPending => 'VRF Pending';
+
+  @override
+  String get bgProdGrantPermissions => 'Grant Permissions';
+
+  @override
+  String get bgProdOpenBatterySettings => 'Open Battery Settings';
+
+  @override
+  String get onboardingAccountSetup => 'Account Setup';
+
+  @override
+  String get onboardingSetUpYourAccount => 'Set Up Your Account';
+
+  @override
+  String get onboardingSelectDemoAccount =>
+      'Select a demo account to start using the Usernode blockchain.';
+
+  @override
+  String get onboardingUseDemoAccount => 'Use Demo Account';
+
+  @override
+  String get onboardingUseDemoAccountDesc =>
+      'Quickly set up a pre-configured account for testing purposes.';
+
+  @override
+  String get demoNoDemoAccountsAvailable => 'No Demo Accounts Available';
+
+  @override
+  String get demoNotConfigured =>
+      'Demo accounts are not configured in this build.';
+
+  @override
+  String get demoSelectToImport =>
+      'Select a demo account to import for testing purposes.';
+
+  @override
+  String get demoWarning => 'Demo accounts are for development/testing only';
+
+  @override
+  String get demoUseButton => 'Use';
+
+  @override
+  String demoKeyValidationFailedPublicKey(String tier) {
+    return 'Key validation failed: Public key mismatch for $tier account';
+  }
+
+  @override
+  String demoKeyValidationFailedAddress(String tier) {
+    return 'Key validation failed: Address mismatch for $tier account';
+  }
+
+  @override
+  String get demoImportFailed => 'Failed to import demo account';
+
+  @override
+  String demoImportFailedWithError(String error) {
+    return 'Failed to import demo account: $error';
+  }
+
+  @override
+  String get walletNoActiveAccount =>
+      'No active account found. Please create or select an account.';
+
+  @override
+  String get walletInvalidAmount =>
+      'Invalid amount. Enter a whole-number amount.';
+
+  @override
+  String get walletNodeConnectionFailed =>
+      'Failed to connect to node. Please ensure the node is running.';
+
+  @override
+  String walletTransferFailed(String error) {
+    return 'Transfer failed: $error';
+  }
+
+  @override
+  String get walletTransferNotQueued =>
+      'Transfer was not queued. Please try again.';
+
+  @override
+  String get walletTransferFailedTitle => 'Transfer Failed';
+
+  @override
+  String get walletReviewSend => 'Review Send';
+
+  @override
+  String get walletAmount => 'Amount';
+
+  @override
+  String get walletNetworkFee => 'Network fee';
+
+  @override
+  String get walletBack => 'Back';
+
+  @override
+  String get walletSend => 'Send';
+
+  @override
+  String get commonOk => 'OK';
+
+  @override
+  String get walletDone => 'Done';
+
+  @override
+  String get walletPaymentSent => 'Payment Sent';
+
+  @override
+  String get walletTransactionSubmitted =>
+      'Your transaction has been submitted successfully.';
+
+  @override
+  String get nodeStatusTitle => 'Node Status';
+
+  @override
+  String get nodePeerIdCopied => 'Peer ID copied to clipboard';
+
+  @override
+  String get nodeCopyPeerId => 'Copy full Peer ID';
+
+  @override
+  String get nodePeersTitle => 'Node Peers';
+
+  @override
+  String nodePeersSummary(String count, String connected, String connecting) {
+    return '$count Peers  •  $connected Connected  •  $connecting Connecting';
+  }
+
+  @override
+  String get wonSlotsTitle => 'Won Slots';
+
+  @override
+  String get wonSlotsLoadingEpoch => 'Loading epoch data...';
+
+  @override
+  String get wonSlotsEpochUnavailable => 'Epoch data unavailable';
+
+  @override
+  String get wonSlotsNoData => 'No won slots data available';
+
+  @override
+  String get wonSlotsGroupedByHour => 'Grouped by hour';
+
+  @override
+  String get wonSlotsGroupedByDay => 'Grouped by day';
+
+  @override
+  String get wonSlotsWon => 'Won';
+
+  @override
+  String get wonSlotsProduced => 'Produced';
+
+  @override
+  String get wonSlotsMissed => 'Missed';
+
+  @override
+  String get wonSlotsPending => 'Pending';
+
+  @override
+  String get wonSlotsToday => 'Today';
+
+  @override
+  String get producedBlocksTitle => 'Produced Blocks';
+
+  @override
+  String get producedBlocksLoading => 'Loading produced blocks...';
+
+  @override
+  String get producedBlocksNoData => 'No produced blocks available';
+
+  @override
+  String get mempoolTitle => 'Mempool Transactions';
+
+  @override
+  String get mempoolLoadFailed => 'Failed to load mempool';
+
+  @override
+  String get mempoolRetry => 'Retry';
+
+  @override
+  String get mempoolNoTransactions => 'No transactions in mempool';
+
+  @override
+  String get mempoolEmpty => 'The mempool is currently empty';
+
+  @override
+  String get rewardsBreakdownTitle => 'Rewards Breakdown';
+
+  @override
+  String get drawerP2pPeerId => 'P2P Peer ID:';
+
+  @override
+  String get drawerClose => 'Close';
+
+  @override
+  String get commonError => 'Error';
+
+  @override
+  String get buildInfoVersion => 'Version';
+
+  @override
+  String get buildInfoCommit => 'Commit';
+
+  @override
+  String get buildInfoBranch => 'Branch';
+
+  @override
+  String get buildInfoCommitTime => 'Commit time';
+
+  @override
+  String get buildInfoRustc => 'Rustc';
+
+  @override
+  String get buildInfoLlvm => 'LLVM';
+
+  @override
+  String get buildInfoCargoTarget => 'Cargo target';
+
+  @override
+  String get buildInfoFeatures => 'Features';
+
+  @override
+  String get buildInfoOptLevel => 'Opt level';
+
+  @override
+  String get buildInfoDebug => 'Debug';
+
+  @override
+  String get nodeNotAvailable => 'Not available';
 }

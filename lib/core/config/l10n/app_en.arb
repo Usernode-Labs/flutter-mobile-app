@@ -12,259 +12,11 @@
   "@initializingNode": {
     "description": "Loading text on splash screen"
   },
-  "home": "Home",
-  "@home": {
-    "description": "Home tab label"
-  },
-  "wallet": "Wallet",
-  "@wallet": {
-    "description": "Wallet tab label"
-  },
   "node": "Node",
   "@node": {
     "description": "Node tab label"
   },
-  "dapps": "dApps",
-  "@dapps": {
-    "description": "dApps tab label"
-  },
-  "profile": "Profile",
-  "@profile": {
-    "description": "Profile tab label"
-  },
-  "nfcReader": "NFC Reader",
-  "@nfcReader": {
-    "description": "NFC Reader tab label"
-  },
-  "nfcEmptyTitle": "Scan your ID",
-  "@nfcEmptyTitle": {"description": "Title for empty NFC state"},
-  "nfcEmptySubtitle": "Use your phone to read your ePassport or eID via NFC.",
-  "@nfcEmptySubtitle": {"description": "Subtitle for empty NFC state"},
-  "nfcScanAnother": "Scan another",
-  "@nfcScanAnother": {"description": "Action to scan another document"},
-  "nfcManualMrz": "Enter MRZ manually",
-  "@nfcManualMrz": {"description": "Action to open MRZ manual entry"},
-  "nfcStartScan": "Start NFC scan",
-  "@nfcStartScan": {"description": "Start NFC reading"},
-  "mrzTitle": "Enter MRZ",
-  "@mrzTitle": {"description": "MRZ entry screen title"},
-  "mrzLine1": "MRZ line 1",
-  "mrzLine2": "MRZ line 2",
-  "mrzLine3": "MRZ line 3 (optional)",
-  "mrzContinue": "Continue",
-  "@mrzContinue": {"description": "Continue from MRZ entry"},
-  "nfcReading": "Hold document to the phone...",
-  "@nfcReading": {"description": "NFC reading in progress"},
-  "nfcSave": "Save",
-  "@nfcSave": {"description": "Save document"},
-  "nfcRename": "Rename",
-  "@nfcRename": {"description": "Rename document action"},
-  "nfcDelete": "Delete",
-  "@nfcDelete": {"description": "Delete document action"},
-  "nfcConfirmDelete": "Delete this document?",
-  "@nfcConfirmDelete": {"description": "Confirm deletion"},
-  "unlockToView": "Unlock to view private data",
-  "@unlockToView": {"description": "Biometric prompt"},
-  "biometricsNotAvailable": "Biometrics not available",
-  "@biometricsNotAvailable": {"description": "Biometrics unavailable message"},
-  "nfcNotSupported": "This device does not support NFC.",
-  "@nfcNotSupported": {"description": "No NFC hardware"},
-  "nfcTurnOn": "Please enable NFC in settings.",
-  "@nfcTurnOn": {"description": "NFC disabled guidance"},
-  "nfcReadFailed": "Failed to read document. Check MRZ and try again.",
-  "@nfcReadFailed": {"description": "Generic NFC read error"},
-  "nfcUpdated": "Document updated",
-  "@nfcUpdated": {"description": "Rescan overwrite confirmation"},
-  "nfcSaved": "Document saved",
-  "@nfcSaved": {"description": "Saved confirmation"},
-  "nodeStatusSynced": "Your Local Node synced in {time}",
-  "@nodeStatusSynced": {
-    "description": "Node sync status message",
-    "placeholders": {
-      "time": {
-        "type": "String"
-      }
-    }
-  },
-  "totalNodes": "{count} Nodes Total",
-  "@totalNodes": {
-    "description": "Total number of nodes",
-    "placeholders": {
-      "count": {
-        "type": "String"
-      }
-    }
-  },
-  "bringLiquidity": "Bring your own liquidity",
-  "@bringLiquidity": {
-    "description": "Liquidity card title"
-  },
-  "bridgeAssetsDescription": "Bridge assets to the network within your first week",
-  "@bridgeAssetsDescription": {
-    "description": "Bridge assets description"
-  },
-  "bridge": "Node Status",
-  "@bridge": {
-    "description": "Bridge button text"
-  },
-  "completeVerification": "Complete verification",
-  "@completeVerification": {
-    "description": "Verification card title"
-  },
-  "verificationDescription": "This verifies your identity and increases your rewards",
-  "@verificationDescription": {
-    "description": "Verification description"
-  },
-  "verify": "Verify",
-  "@verify": {
-    "description": "Verify button text"
-  },
-  "stakeTokens": "Stake your tokens",
-  "@stakeTokens": {
-    "description": "Staking card title"
-  },
-  "stakingDescription": "Lock tokens for a period to earn additional rewards",
-  "@stakingDescription": {
-    "description": "Staking description"
-  },
-  "stake": "Stake",
-  "@stake": {
-    "description": "Stake button text"
-  },
-  "multiplier": "Your Multiplier",
-  "@multiplier": {
-    "description": "Multiplier section title"
-  },
-  "tokensExpected": "{count} Tokens expected in next {days} days",
-  "@tokensExpected": {
-    "description": "Expected tokens message",
-    "placeholders": {
-      "count": {
-        "type": "String"
-      },
-      "days": {
-        "type": "String"
-      }
-    }
-  },
-  "activity": "Activity",
-  "@activity": {
-    "description": "Activity section title"
-  },
-  "upcomingBlock": "Upcoming block in {time}",
-  "@upcomingBlock": {
-    "description": "Upcoming block message",
-    "placeholders": {
-      "time": {
-        "type": "String"
-      }
-    }
-  },
-  "scheduledBackground": "Scheduled in the background",
-  "@scheduledBackground": {
-    "description": "Background scheduling message"
-  },
-  "identityProven": "Identity Proven",
-  "@identityProven": {
-    "description": "Identity verification success"
-  },
-  "depositSuccessful": "Deposit Successful",
-  "@depositSuccessful": {
-    "description": "Deposit success message"
-  },
-  "comingSoon": "Coming soon...",
-  "@comingSoon": {
-    "description": "Coming soon placeholder text"
-  },
-  "walletManagement": "Wallet Management",
-  "@walletManagement": {
-    "description": "Wallet screen title"
-  },
-  "crossChainBridge": "Node status",
-  "@crossChainBridge": {
-    "description": "Bridge screen title"
-  },
-  "nodeStatus": "Node Status",
-  "@nodeStatus": {
-    "description": "Node status screen title"
-  },
-  "swap": "Swap",
-  "@swap": {
-    "description": "Swap screen title"
-  },
-  "tokenSwap": "Token Swap",
-  "@tokenSwap": {
-    "description": "Token swap screen description"
-  },
-  "rewards": "Rewards",
-  "@rewards": {
-    "description": "Rewards screen title"
-  },
-  "rewardsAchievements": "Rewards & Achievements",
-  "@rewardsAchievements": {
-    "description": "Rewards screen description"
-  },
-  "yourMultiplier": "Your Multiplier",
-  "@yourMultiplier": {
-    "description": "Your Multiplier"
-  },
-  "createAccountTitle": "Create Account",
-  "recoveryPhraseTitle": "Your recovery phrase",
-  "recoveryPhraseWarning": "This recovery phrase is the ONLY way to restore your keys and regain access to this account if something goes wrong. Store it securely and never share it.",
-  "recoveryPhraseInstruction": "Write these words down and store them securely. They will NOT be stored by the app and cannot be recovered.",
-  "accountNameLabel": "Account name",
-  "accountNameHint": "e.g., Account 1",
-  "accountNameExplain": "This name is only stored on your device to help you identify the account. It does not affect your blockchain address or keys.",
-  "seedStoredCheckbox": "I have securely stored my recovery phrase.",
-  "continueButton": "Continue",
-  "send": "Send",
-  "receive": "Receive",
-  "bridge": "Bridge",
-  "balances": "Balances",
-  "recentTransactions": "Recent Transactions",
-  "copyAddress": "Copy address",
-  "addressCopied": "Address copied",
-  "manageAccounts": "Manage accounts",
-  "selectAccount": "Select account",
-  "selectAccountHint": "Tap an account to switch",
-  "createNewAccount": "Create new account",
-  "importFromSeed": "Import from seed phrase",
-  "importFromPrivateKey": "Import from private key",
-  "deleteAllAccountsDev": "Delete all accounts (dev)",
-  "deleteAllConfirmTitle": "Delete all accounts?",
-  "deleteAllConfirmBody": "This will remove all stored accounts on this device.",
-  "cancel": "Cancel",
-  "delete": "Delete",
-  "generateNewAddress": "Generate new address",
-  "backendStarting": "Starting backend for your account...",
-  "nodeStatusLoading": "Loading node status...",
-  "nodeStatusError": "Failed to load node status",
-  "nodePeersCount": "Peers: {count}",
-  "@nodePeersCount": {
-    "placeholders": {"count": {"type": "String"}}
-  },
-  "refresh": "Refresh",
-  "currentBlockHeightLabel": "Current block height",
-  "nodeStatusLabel": "Status",
-  "peersLabel": "Peers",
-  "mempoolLabel": "Mempool",
-  "evaluatedDiscoveredLabel": "Evaluated / Discovered Slots",
-  "upcoming": "Upcoming",
-  "pastSlots": "Past Slots",
-  "scheduledSlot": "Scheduled Slot",
-  "discoveredSlot": "Discovered Slot {id}",
-  "@discoveredSlot": {"placeholders": {"id": {"type": "String"}}},
-  "inTime": "in {time}",
-  "@inTime": {"placeholders": {"time": {"type": "String"}}},
-  "transactionsSuffix": "{count} Transactions",
-  "@transactionsSuffix": {"placeholders": {"count": {"type": "String"}}}
-  ,
-  "checkedAgoSeconds": "Checked {seconds} seconds ago",
-  "@checkedAgoSeconds": {"placeholders": {"seconds": {"type": "String"}}},
-  "feedback": "Feedback",
-  "@feedback": {
-    "description": "Feedback feature label"
-  },
+
   "sendFeedback": "Send Feedback",
   "@sendFeedback": {
     "description": "Send feedback button text"
@@ -288,18 +40,6 @@
   "feedbackCategory": "Category",
   "@feedbackCategory": {
     "description": "Feedback category field label"
-  },
-  "feedbackBugReport": "Bug Report",
-  "@feedbackBugReport": {
-    "description": "Bug report category option"
-  },
-  "feedbackFeatureRequest": "Feature Request",
-  "@feedbackFeatureRequest": {
-    "description": "Feature request category option"
-  },
-  "feedbackGeneral": "General Feedback",
-  "@feedbackGeneral": {
-    "description": "General feedback category option"
   },
   "feedbackIncludeDeviceInfo": "Include device information",
   "@feedbackIncludeDeviceInfo": {
@@ -336,5 +76,487 @@
   "feedbackNoScreenshots": "No screenshots added (optional)",
   "@feedbackNoScreenshots": {
     "description": "Empty screenshots message"
+  },
+  "feedbackHelpImprove": "Help us improve the app",
+  "@feedbackHelpImprove": {
+    "description": "Feedback FAB subtitle"
+  },
+  "feedbackImagePickFailed": "Failed to pick image: {error}",
+  "@feedbackImagePickFailed": {
+    "description": "Image pick error message",
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+
+  "settingsTitle": "Settings",
+  "@settingsTitle": {
+    "description": "Settings screen title"
+  },
+  "settingsLanguage": "Language",
+  "@settingsLanguage": {
+    "description": "Language setting label"
+  },
+  "settingsLanguageEnglish": "English",
+  "@settingsLanguageEnglish": {
+    "description": "English language option"
+  },
+  "settingsLanguageFrench": "Français",
+  "@settingsLanguageFrench": {
+    "description": "French language option"
+  },
+  "settingsLanguageSpanish": "Español",
+  "@settingsLanguageSpanish": {
+    "description": "Spanish language option"
+  },
+  "settingsLanguageComingSoon": "Language support coming soon",
+  "@settingsLanguageComingSoon": {
+    "description": "Language not yet supported message"
+  },
+  "settingsBackgroundBlockProduction": "Background Block Production",
+  "@settingsBackgroundBlockProduction": {
+    "description": "Background block production setting label"
+  },
+  "settingsBackgroundBlockProductionSubtitle": "Configure automatic block production",
+  "@settingsBackgroundBlockProductionSubtitle": {
+    "description": "Background block production setting subtitle"
+  },
+  "settingsAbout": "About",
+  "@settingsAbout": {
+    "description": "About section header"
+  },
+  "settingsBuildInfo": "Build Info",
+  "@settingsBuildInfo": {
+    "description": "Build info setting label"
+  },
+
+  "bgProdWhatIs": "What is Background Block Production?",
+  "@bgProdWhatIs": {
+    "description": "Background production explanation title"
+  },
+  "bgProdDescription": "This feature automatically wakes your device to produce blockchain blocks when your node wins a slot. Here's how it works:",
+  "@bgProdDescription": {
+    "description": "Background production explanation"
+  },
+  "bgProdVrfSelection": "VRF Selection",
+  "@bgProdVrfSelection": {
+    "description": "VRF selection step title"
+  },
+  "bgProdVrfSelectionDesc": "Each epoch, the network randomly selects which validators will produce blocks using Verifiable Random Function (VRF)",
+  "@bgProdVrfSelectionDesc": {
+    "description": "VRF selection step description"
+  },
+  "bgProdSlotScheduling": "Slot Scheduling",
+  "@bgProdSlotScheduling": {
+    "description": "Slot scheduling step title"
+  },
+  "bgProdSlotSchedulingDesc": "When you win slots, the app schedules alarms to wake your device ~1 minute before each slot",
+  "@bgProdSlotSchedulingDesc": {
+    "description": "Slot scheduling step description"
+  },
+  "bgProdBlockProduction": "Block Production",
+  "@bgProdBlockProduction": {
+    "description": "Block production step title"
+  },
+  "bgProdBlockProductionDesc": "At slot time, the app monitors your node and ensures the block is produced",
+  "@bgProdBlockProductionDesc": {
+    "description": "Block production step description"
+  },
+  "bgProdSuccessTracking": "Success Tracking",
+  "@bgProdSuccessTracking": {
+    "description": "Success tracking step title"
+  },
+  "bgProdSuccessTrackingDesc": "Results are recorded to track your reliability over time",
+  "@bgProdSuccessTrackingDesc": {
+    "description": "Success tracking step description"
+  },
+  "bgProdAndroidTitle": "Android Background Production",
+  "@bgProdAndroidTitle": {
+    "description": "Android background production section title"
+  },
+  "bgProdIosTitle": "iOS Background Production",
+  "@bgProdIosTitle": {
+    "description": "iOS background production section title"
+  },
+  "bgProdAndroidDesc": "Uses Android's exact alarm system (AlarmManager) to wake your device precisely when needed for block production.",
+  "@bgProdAndroidDesc": {
+    "description": "Android background production description"
+  },
+  "bgProdIosDesc": "Uses a combination of background tasks and keep-alive mode to wake your device for block production.",
+  "@bgProdIosDesc": {
+    "description": "iOS background production description"
+  },
+  "bgProdReliabilityByMode": "Reliability by Mode",
+  "@bgProdReliabilityByMode": {
+    "description": "Reliability by mode section title"
+  },
+  "bgProdDefaultMode": "Default (Event-Driven)",
+  "@bgProdDefaultMode": {
+    "description": "Default mode label"
+  },
+  "bgProdDefaultReliability": "90-95%",
+  "@bgProdDefaultReliability": {
+    "description": "Default mode reliability"
+  },
+  "bgProdDefaultDesc": "Battery-efficient, wakes only during slot windows",
+  "@bgProdDefaultDesc": {
+    "description": "Default mode description"
+  },
+  "bgProdKeepAliveMode": "Keep-Alive Mode",
+  "@bgProdKeepAliveMode": {
+    "description": "Keep-alive mode label"
+  },
+  "bgProdKeepAliveReliability": "100%",
+  "@bgProdKeepAliveReliability": {
+    "description": "Keep-alive mode reliability"
+  },
+  "bgProdKeepAliveDesc": "Persistent service, higher battery (~5-10%/hr)",
+  "@bgProdKeepAliveDesc": {
+    "description": "Keep-alive mode description"
+  },
+  "bgProdIosKeepAliveReliability": "99%",
+  "@bgProdIosKeepAliveReliability": {
+    "description": "iOS keep-alive mode reliability"
+  },
+  "bgProdIosKeepAliveDesc": "App stays awake in foreground, requires charger",
+  "@bgProdIosKeepAliveDesc": {
+    "description": "iOS keep-alive mode description"
+  },
+  "bgProdBackgroundOnly": "Background Only",
+  "@bgProdBackgroundOnly": {
+    "description": "Background only mode label"
+  },
+  "bgProdBackgroundOnlyReliability": "40-60%",
+  "@bgProdBackgroundOnlyReliability": {
+    "description": "Background only mode reliability"
+  },
+  "bgProdBackgroundOnlyDesc": "iOS controls execution, not guaranteed",
+  "@bgProdBackgroundOnlyDesc": {
+    "description": "Background only mode description"
+  },
+  "bgProdLoading": "Loading...",
+  "@bgProdLoading": {
+    "description": "Loading button state"
+  },
+  "bgProdVrfComplete": "VRF Complete",
+  "@bgProdVrfComplete": {
+    "description": "VRF complete button state"
+  },
+  "bgProdVrfCalculating": "VRF Calculating...",
+  "@bgProdVrfCalculating": {
+    "description": "VRF calculating button state"
+  },
+  "bgProdVrfPending": "VRF Pending",
+  "@bgProdVrfPending": {
+    "description": "VRF pending button state"
+  },
+  "bgProdGrantPermissions": "Grant Permissions",
+  "@bgProdGrantPermissions": {
+    "description": "Grant permissions button"
+  },
+  "bgProdOpenBatterySettings": "Open Battery Settings",
+  "@bgProdOpenBatterySettings": {
+    "description": "Open battery settings button"
+  },
+
+  "onboardingAccountSetup": "Account Setup",
+  "@onboardingAccountSetup": {
+    "description": "Account setup screen title"
+  },
+  "onboardingSetUpYourAccount": "Set Up Your Account",
+  "@onboardingSetUpYourAccount": {
+    "description": "Account setup heading"
+  },
+  "onboardingSelectDemoAccount": "Select a demo account to start using the Usernode blockchain.",
+  "@onboardingSelectDemoAccount": {
+    "description": "Demo account selection instruction"
+  },
+  "onboardingUseDemoAccount": "Use Demo Account",
+  "@onboardingUseDemoAccount": {
+    "description": "Use demo account card title"
+  },
+  "onboardingUseDemoAccountDesc": "Quickly set up a pre-configured account for testing purposes.",
+  "@onboardingUseDemoAccountDesc": {
+    "description": "Use demo account card description"
+  },
+
+  "demoNoDemoAccountsAvailable": "No Demo Accounts Available",
+  "@demoNoDemoAccountsAvailable": {
+    "description": "No demo accounts heading"
+  },
+  "demoNotConfigured": "Demo accounts are not configured in this build.",
+  "@demoNotConfigured": {
+    "description": "Demo accounts not configured message"
+  },
+  "demoSelectToImport": "Select a demo account to import for testing purposes.",
+  "@demoSelectToImport": {
+    "description": "Demo account selection instruction"
+  },
+  "demoWarning": "Demo accounts are for development/testing only",
+  "@demoWarning": {
+    "description": "Demo account warning"
+  },
+  "demoUseButton": "Use",
+  "@demoUseButton": {
+    "description": "Use demo account button"
+  },
+  "demoKeyValidationFailedPublicKey": "Key validation failed: Public key mismatch for {tier} account",
+  "@demoKeyValidationFailedPublicKey": {
+    "description": "Public key validation error",
+    "placeholders": {
+      "tier": {"type": "String"}
+    }
+  },
+  "demoKeyValidationFailedAddress": "Key validation failed: Address mismatch for {tier} account",
+  "@demoKeyValidationFailedAddress": {
+    "description": "Address validation error",
+    "placeholders": {
+      "tier": {"type": "String"}
+    }
+  },
+  "demoImportFailed": "Failed to import demo account",
+  "@demoImportFailed": {
+    "description": "Demo account import failure message"
+  },
+  "demoImportFailedWithError": "Failed to import demo account: {error}",
+  "@demoImportFailedWithError": {
+    "description": "Demo account import failure with error",
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+
+  "walletNoActiveAccount": "No active account found. Please create or select an account.",
+  "@walletNoActiveAccount": {
+    "description": "No active account error"
+  },
+  "walletInvalidAmount": "Invalid amount. Enter a whole-number amount.",
+  "@walletInvalidAmount": {
+    "description": "Invalid amount validation error"
+  },
+  "walletNodeConnectionFailed": "Failed to connect to node. Please ensure the node is running.",
+  "@walletNodeConnectionFailed": {
+    "description": "Node connection failure message"
+  },
+  "walletTransferFailed": "Transfer failed: {error}",
+  "@walletTransferFailed": {
+    "description": "Transfer failure message",
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "walletTransferNotQueued": "Transfer was not queued. Please try again.",
+  "@walletTransferNotQueued": {
+    "description": "Transfer not queued message"
+  },
+  "walletTransferFailedTitle": "Transfer Failed",
+  "@walletTransferFailedTitle": {
+    "description": "Transfer failed dialog title"
+  },
+  "walletReviewSend": "Review Send",
+  "@walletReviewSend": {
+    "description": "Review send screen title"
+  },
+  "walletAmount": "Amount",
+  "@walletAmount": {
+    "description": "Amount label"
+  },
+  "walletNetworkFee": "Network fee",
+  "@walletNetworkFee": {
+    "description": "Network fee label"
+  },
+  "walletBack": "Back",
+  "@walletBack": {
+    "description": "Back button"
+  },
+  "walletSend": "Send",
+  "@walletSend": {
+    "description": "Send button"
+  },
+  "commonOk": "OK",
+  "@commonOk": {
+    "description": "OK button"
+  },
+  "walletDone": "Done",
+  "@walletDone": {
+    "description": "Done button/title"
+  },
+  "walletPaymentSent": "Payment Sent",
+  "@walletPaymentSent": {
+    "description": "Payment sent success title"
+  },
+  "walletTransactionSubmitted": "Your transaction has been submitted successfully.",
+  "@walletTransactionSubmitted": {
+    "description": "Transaction submitted success message"
+  },
+
+  "nodeStatusTitle": "Node Status",
+  "@nodeStatusTitle": {
+    "description": "Node status screen title"
+  },
+  "nodePeerIdCopied": "Peer ID copied to clipboard",
+  "@nodePeerIdCopied": {
+    "description": "Peer ID copied snackbar message"
+  },
+  "nodeCopyPeerId": "Copy full Peer ID",
+  "@nodeCopyPeerId": {
+    "description": "Copy peer ID tooltip"
+  },
+
+  "nodePeersTitle": "Node Peers",
+  "@nodePeersTitle": {
+    "description": "Node peers screen title"
+  },
+  "nodePeersSummary": "{count} Peers  •  {connected} Connected  •  {connecting} Connecting",
+  "@nodePeersSummary": {
+    "description": "Peers summary header",
+    "placeholders": {
+      "count": {"type": "String"},
+      "connected": {"type": "String"},
+      "connecting": {"type": "String"}
+    }
+  },
+
+  "wonSlotsTitle": "Won Slots",
+  "@wonSlotsTitle": {
+    "description": "Won slots screen title"
+  },
+  "wonSlotsLoadingEpoch": "Loading epoch data...",
+  "@wonSlotsLoadingEpoch": {
+    "description": "Loading epoch data message"
+  },
+  "wonSlotsEpochUnavailable": "Epoch data unavailable",
+  "@wonSlotsEpochUnavailable": {
+    "description": "Epoch data unavailable message"
+  },
+  "wonSlotsNoData": "No won slots data available",
+  "@wonSlotsNoData": {
+    "description": "No won slots message"
+  },
+  "wonSlotsGroupedByHour": "Grouped by hour",
+  "@wonSlotsGroupedByHour": {
+    "description": "Grouped by hour subtitle"
+  },
+  "wonSlotsGroupedByDay": "Grouped by day",
+  "@wonSlotsGroupedByDay": {
+    "description": "Grouped by day subtitle"
+  },
+  "wonSlotsWon": "Won",
+  "@wonSlotsWon": {
+    "description": "Won label"
+  },
+  "wonSlotsProduced": "Produced",
+  "@wonSlotsProduced": {
+    "description": "Produced label"
+  },
+  "wonSlotsMissed": "Missed",
+  "@wonSlotsMissed": {
+    "description": "Missed label"
+  },
+  "wonSlotsPending": "Pending",
+  "@wonSlotsPending": {
+    "description": "Pending label"
+  },
+  "wonSlotsToday": "Today",
+  "@wonSlotsToday": {
+    "description": "Today label"
+  },
+
+  "producedBlocksTitle": "Produced Blocks",
+  "@producedBlocksTitle": {
+    "description": "Produced blocks screen title"
+  },
+  "producedBlocksLoading": "Loading produced blocks...",
+  "@producedBlocksLoading": {
+    "description": "Loading produced blocks message"
+  },
+  "producedBlocksNoData": "No produced blocks available",
+  "@producedBlocksNoData": {
+    "description": "No produced blocks message"
+  },
+
+  "mempoolTitle": "Mempool Transactions",
+  "@mempoolTitle": {
+    "description": "Mempool screen title"
+  },
+  "mempoolLoadFailed": "Failed to load mempool",
+  "@mempoolLoadFailed": {
+    "description": "Failed to load mempool message"
+  },
+  "mempoolRetry": "Retry",
+  "@mempoolRetry": {
+    "description": "Retry button"
+  },
+  "mempoolNoTransactions": "No transactions in mempool",
+  "@mempoolNoTransactions": {
+    "description": "No mempool transactions title"
+  },
+  "mempoolEmpty": "The mempool is currently empty",
+  "@mempoolEmpty": {
+    "description": "Mempool empty message"
+  },
+
+  "rewardsBreakdownTitle": "Rewards Breakdown",
+  "@rewardsBreakdownTitle": {
+    "description": "Rewards breakdown screen title"
+  },
+
+  "drawerP2pPeerId": "P2P Peer ID:",
+  "@drawerP2pPeerId": {
+    "description": "P2P peer ID label in drawer"
+  },
+  "drawerClose": "Close",
+  "@drawerClose": {
+    "description": "Close button in drawer"
+  },
+
+  "commonError": "Error",
+  "@commonError": {
+    "description": "Generic error label"
+  },
+
+  "buildInfoVersion": "Version",
+  "@buildInfoVersion": {
+    "description": "Version label in build info"
+  },
+  "buildInfoCommit": "Commit",
+  "@buildInfoCommit": {
+    "description": "Commit label in build info"
+  },
+  "buildInfoBranch": "Branch",
+  "@buildInfoBranch": {
+    "description": "Branch label in build info"
+  },
+  "buildInfoCommitTime": "Commit time",
+  "@buildInfoCommitTime": {
+    "description": "Commit time label in build info"
+  },
+  "buildInfoRustc": "Rustc",
+  "@buildInfoRustc": {
+    "description": "Rust compiler label in build info"
+  },
+  "buildInfoLlvm": "LLVM",
+  "@buildInfoLlvm": {
+    "description": "LLVM label in build info"
+  },
+  "buildInfoCargoTarget": "Cargo target",
+  "@buildInfoCargoTarget": {
+    "description": "Cargo target label in build info"
+  },
+  "buildInfoFeatures": "Features",
+  "@buildInfoFeatures": {
+    "description": "Features label in build info"
+  },
+  "buildInfoOptLevel": "Opt level",
+  "@buildInfoOptLevel": {
+    "description": "Optimization level label in build info"
+  },
+  "buildInfoDebug": "Debug",
+  "@buildInfoDebug": {
+    "description": "Debug label in build info"
+  },
+  "nodeNotAvailable": "Not available",
+  "@nodeNotAvailable": {
+    "description": "Not available fallback text"
   }
 }

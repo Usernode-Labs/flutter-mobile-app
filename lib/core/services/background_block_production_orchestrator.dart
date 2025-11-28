@@ -352,7 +352,7 @@ class BackgroundBlockProductionOrchestrator {
         _log.debug('Battery level for wake-up: $batteryLevel%');
       } catch (e, stackTrace) {
         _log.warn('Could not get battery level: $e');
-        _log.debug('Battery error stacktrace: $stackTrace');
+        _log.trace('Battery error stacktrace: $stackTrace');
       }
 
       // Calculate alarm latency (find scheduled slot)

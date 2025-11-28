@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/core/widgets/won_slot_item.dart';
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 import 'package:crypto_mobile_app/features/node/node_provider.dart';
 import 'package:crypto_mobile_app/features/node/epoch_rewards_provider.dart';
@@ -23,11 +24,12 @@ class _RewardsBreakdownScreenState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context);
     final rewardsAsync = ref.watch(epochRewardsProvider);
 
     return Scaffold(
-      appBar: const AppAppBar(
-        title: 'Rewards Breakdown',
+      appBar: AppAppBar(
+        title: l10n.rewardsBreakdownTitle,
         showNodeStatus: false,
       ),
       body: SafeArea(
@@ -50,7 +52,7 @@ class _RewardsBreakdownScreenState
                 const SizedBox(height: 8),
                 TextButton(
                   onPressed: () => ref.invalidate(epochRewardsProvider),
-                  child: const Text('Retry'),
+                  child: Text(l10n.mempoolRetry),
                 ),
               ],
             ),

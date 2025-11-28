@@ -8,6 +8,7 @@ import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/src/rust/account.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 
 class UseDemoAccountsScreen extends ConsumerStatefulWidget {
   const UseDemoAccountsScreen({super.key});
@@ -86,7 +87,7 @@ class _UseDemoAccountsScreenState extends ConsumerState<UseDemoAccountsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Key validation failed: Public key mismatch for ${account.tier} account',
+              AppLocalizations.of(context).demoKeyValidationFailedPublicKey(account.tier),
             ),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
@@ -107,7 +108,7 @@ class _UseDemoAccountsScreenState extends ConsumerState<UseDemoAccountsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Key validation failed: Address mismatch for ${account.tier} account',
+              AppLocalizations.of(context).demoKeyValidationFailedAddress(account.tier),
             ),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
@@ -140,8 +141,8 @@ class _UseDemoAccountsScreenState extends ConsumerState<UseDemoAccountsScreen> {
           _importingIndex = null;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to import demo account'),
+          SnackBar(
+            content: Text(AppLocalizations.of(context).demoImportFailed),
           ),
         );
         return;
@@ -176,7 +177,7 @@ class _UseDemoAccountsScreenState extends ConsumerState<UseDemoAccountsScreen> {
         _importingIndex = null;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to import demo account: $e')),
+        SnackBar(content: Text(AppLocalizations.of(context).demoImportFailedWithError(e.toString()))),
       );
     }
   }
@@ -184,10 +185,11 @@ class _UseDemoAccountsScreenState extends ConsumerState<UseDemoAccountsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
-      appBar: const AppAppBar(
-        title: 'Use Demo Account',
+      appBar: AppAppBar(
+        title: l10n.onboardingUseDemoAccount,
         showNodeStatus: false,
       ),
       body: SafeArea(
@@ -207,13 +209,13 @@ class _UseDemoAccountsScreenState extends ConsumerState<UseDemoAccountsScreen> {
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'No Demo Accounts Available',
+                            l10n.demoNoDemoAccountsAvailable,
                             style: theme.textTheme.titleLarge,
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Demo accounts are not configured in this build.',
+                            l10n.demoNotConfigured,
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
@@ -237,7 +239,7 @@ class _UseDemoAccountsScreenState extends ConsumerState<UseDemoAccountsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Select a demo account to import for testing purposes.',
+                              l10n.demoSelectToImport,
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 color: theme.colorScheme.onSurfaceVariant,
                               ),
@@ -253,7 +255,7 @@ class _UseDemoAccountsScreenState extends ConsumerState<UseDemoAccountsScreen> {
                                 const SizedBox(width: 4),
                                 Expanded(
                                   child: Text(
-                                    'Demo accounts are for development/testing only',
+                                    l10n.demoWarning,
                                     style: theme.textTheme.bodySmall?.copyWith(
                                       color: theme.colorScheme.primary,
                                       fontWeight: FontWeight.bold,
@@ -336,7 +338,7 @@ class _UseDemoAccountsScreenState extends ConsumerState<UseDemoAccountsScreen> {
                                         onPressed: _importing
                                             ? null
                                             : () => _importDemoAccount(account),
-                                        child: const Text('Use'),
+                                        child: Text(l10n.demoUseButton),
                                       ),
                               ),
                             );

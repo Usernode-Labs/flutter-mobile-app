@@ -3,6 +3,7 @@ import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/features/node/node_provider.dart';
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:go_router/go_router.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -18,10 +19,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final env = ref.watch(buildEnvProvider);
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Settings'),
+        title: Text(l10n.settingsTitle),
         elevation: 0,
         backgroundColor: Colors.transparent,
       ),
@@ -48,12 +50,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           ListTile(
             leading: Icon(Icons.language, color: colorScheme.primary),
-            title: const Text('Language'),
+            title: Text(l10n.settingsLanguage),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'English',
+                  l10n.settingsLanguageEnglish,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
@@ -66,32 +68,32 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               showDialog(
                 context: context,
                 builder: (ctx) => AlertDialog(
-                  title: const Text('Language'),
+                  title: Text(l10n.settingsLanguage),
                   content: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       ListTile(
-                        title: const Text('English'),
+                        title: Text(l10n.settingsLanguageEnglish),
                         trailing: const Icon(Icons.check),
                         onTap: () => Navigator.pop(ctx),
                       ),
                       ListTile(
-                        title: const Text('Français'),
+                        title: Text(l10n.settingsLanguageFrench),
                         onTap: () {
                           Navigator.pop(ctx);
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text('Language support coming soon')),
+                            SnackBar(
+                                content: Text(l10n.settingsLanguageComingSoon)),
                           );
                         },
                       ),
                       ListTile(
-                        title: const Text('Español'),
+                        title: Text(l10n.settingsLanguageSpanish),
                         onTap: () {
                           Navigator.pop(ctx);
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text('Language support coming soon')),
+                            SnackBar(
+                                content: Text(l10n.settingsLanguageComingSoon)),
                           );
                         },
                       ),
@@ -103,8 +105,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           ListTile(
             leading: Icon(Icons.widgets, color: colorScheme.primary),
-            title: const Text('Background Block Production'),
-            subtitle: const Text('Configure automatic block production'),
+            title: Text(l10n.settingsBackgroundBlockProduction),
+            subtitle: Text(l10n.settingsBackgroundBlockProductionSubtitle),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
               context.push('/background-production-settings');
@@ -117,13 +119,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Text(
-              'About',
+              l10n.settingsAbout,
               style: theme.textTheme.titleMedium
                   ?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
           ListTile(
-            title: const Text('Build Info'),
+            title: Text(l10n.settingsBuildInfo),
             trailing: const Icon(Icons.info_outline),
             onTap: () {
               final shortCommit = env.git.commitHash.length >= 7
@@ -132,7 +134,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               showDialog(
                 context: context,
                 builder: (ctx) => AlertDialog(
-                  title: const Text('Build Info'),
+                  title: Text(l10n.settingsBuildInfo),
                   content: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -158,7 +160,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       const SizedBox(height: 6),
                       Text('Debug: ${env.cargo.isDebug}'),
                       const Divider(height: 16),
-                      Text('P2P Peer ID:'),
+                      Text(l10n.drawerP2pPeerId),
                       SelectableText(
                         ref.watch(nodeStatusProvider).value?.peerId ??
                             'Not available',
@@ -172,7 +174,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.of(ctx).pop(),
-                      child: const Text('Close'),
+                      child: Text(l10n.drawerClose),
                     )
                   ],
                 ),

@@ -8,6 +8,7 @@ import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:crypto_mobile_app/core/widgets/produced_block_card.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/log_tag.dart';
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'node_peers_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -162,11 +163,12 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
-      appBar: const AppAppBar(
-        title: 'Node Status',
+      appBar: AppAppBar(
+        title: l10n.nodeStatusTitle,
       ),
       drawer: const AppDrawer(),
       body: RefreshIndicator(
@@ -183,7 +185,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Error', style: TextStyle(color: colorScheme.error)),
+                  Text(l10n.commonError, style: TextStyle(color: colorScheme.error)),
                   const SizedBox(height: 6),
                   Text(_error!, style: theme.textTheme.bodySmall),
                   const SizedBox(height: 16),
@@ -267,7 +269,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  _account != null ? '${_shortAddr(_account!.address)}' : 'NA',
+                  _account != null ? _shortAddr(_account!.address) : 'NA',
                   style: theme.textTheme.titleSmall?.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w500,
@@ -372,13 +374,13 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             onPressed: () {
               Clipboard.setData(ClipboardData(text: peerId));
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Peer ID copied to clipboard'),
-                  duration: Duration(seconds: 2),
+                SnackBar(
+                  content: Text(AppLocalizations.of(context).nodePeerIdCopied),
+                  duration: const Duration(seconds: 2),
                 ),
               );
             },
-            tooltip: 'Copy full Peer ID',
+            tooltip: AppLocalizations.of(context).nodeCopyPeerId,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
           ),

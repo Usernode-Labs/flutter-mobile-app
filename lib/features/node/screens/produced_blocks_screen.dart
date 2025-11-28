@@ -7,6 +7,7 @@ import 'package:crypto_mobile_app/core/widgets/produced_block_card.dart';
 import 'package:crypto_mobile_app/features/node/node_data_providers.dart';
 import 'package:crypto_mobile_app/features/node/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/features/node/node_provider.dart';
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 
 class ProducedBlocksScreen extends ConsumerStatefulWidget {
   const ProducedBlocksScreen({super.key});
@@ -55,6 +56,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context);
     final blockchainAsync = ref.watch(nodeBlockchainProvider);
     final status = ref.watch(nodeStatusProvider).value;
     final rewardsAsync = ref.watch(epochRewardsProvider);
@@ -64,8 +66,8 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen> {
     final rewardPerBlock = rewards?.rewardPerBlock ?? BigInt.zero;
 
     return Scaffold(
-      appBar: const AppAppBar(
-        title: 'Produced Blocks',
+      appBar: AppAppBar(
+        title: l10n.producedBlocksTitle,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -74,8 +76,8 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen> {
             return Center(
               child: Text(
                 blockchainAsync.isLoading
-                    ? 'Loading produced blocks...'
-                    : 'No produced blocks available',
+                    ? l10n.producedBlocksLoading
+                    : l10n.producedBlocksNoData,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: blockchainAsync.isLoading
                       ? colorScheme.onSurfaceVariant

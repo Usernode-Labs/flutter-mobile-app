@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/log_tag.dart';
-import 'package:crypto_mobile_app/core/errors/app_error.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_mempool.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_blockchain.dart';
@@ -27,7 +26,7 @@ class NodeMempoolController extends AsyncNotifier<RpcListMempoolResp?> {
     } catch (e, st) {
       LoggingService.instance
           .error('mempool load failed', error: e, stackTrace: st);
-      throw BackendError('Failed to load mempool', cause: e, stackTrace: st);
+      throw Exception('Failed to load mempool $e');
     }
   }
 }
@@ -72,7 +71,7 @@ class NodeBlockchainController extends AsyncNotifier<RpcListBlockchainResp?> {
       );
     } catch (e, st) {
       _log.error('blockchain load failed', error: e, stackTrace: st);
-      throw BackendError('Failed to load blockchain', cause: e, stackTrace: st);
+      throw Exception('Failed to load blockchain $e');
     }
   }
 }

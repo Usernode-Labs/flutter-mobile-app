@@ -10,6 +10,7 @@ import 'package:crypto_mobile_app/core/services/android_foreground_keepalive_ser
 import 'package:crypto_mobile_app/core/data/slot_production_repository.dart';
 import 'package:crypto_mobile_app/features/node/node_provider.dart';
 import 'package:crypto_mobile_app/features/node/epoch_rewards_provider.dart';
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 
@@ -122,10 +123,11 @@ class _BackgroundProductionSettingsScreenState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Background Block Production'),
+        title: Text(l10n.settingsBackgroundBlockProduction),
         elevation: 0,
         backgroundColor: Colors.transparent,
       ),
@@ -177,6 +179,7 @@ class _BackgroundProductionSettingsScreenState
   }
 
   Widget _buildFeatureOverviewCard(ThemeData theme, ColorScheme colorScheme) {
+    final l10n = AppLocalizations.of(context);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -189,7 +192,7 @@ class _BackgroundProductionSettingsScreenState
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'What is Background Block Production?',
+                    l10n.bgProdWhatIs,
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -199,7 +202,7 @@ class _BackgroundProductionSettingsScreenState
             ),
             const SizedBox(height: 12),
             Text(
-              'This feature automatically wakes your device to produce blockchain blocks when your node wins a slot. Here\'s how it works:',
+              l10n.bgProdDescription,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurface.withValues(alpha: 0.7),
                 height: 1.5,
@@ -208,29 +211,29 @@ class _BackgroundProductionSettingsScreenState
             const SizedBox(height: 16),
             _buildNumberedStep(
               '1',
-              'VRF Selection',
-              'Each epoch, the network randomly selects which validators will produce blocks using Verifiable Random Function (VRF)',
+              l10n.bgProdVrfSelection,
+              l10n.bgProdVrfSelectionDesc,
               colorScheme,
             ),
             const SizedBox(height: 12),
             _buildNumberedStep(
               '2',
-              'Slot Scheduling',
-              'When you win slots, the app schedules alarms to wake your device ~1 minute before each slot',
+              l10n.bgProdSlotScheduling,
+              l10n.bgProdSlotSchedulingDesc,
               colorScheme,
             ),
             const SizedBox(height: 12),
             _buildNumberedStep(
               '3',
-              'Block Production',
-              'At slot time, the app monitors your node and ensures the block is produced',
+              l10n.bgProdBlockProduction,
+              l10n.bgProdBlockProductionDesc,
               colorScheme,
             ),
             const SizedBox(height: 12),
             _buildNumberedStep(
               '4',
-              'Success Tracking',
-              'Results are recorded to track your reliability over time',
+              l10n.bgProdSuccessTracking,
+              l10n.bgProdSuccessTrackingDesc,
               colorScheme,
             ),
           ],
@@ -295,8 +298,8 @@ class _BackgroundProductionSettingsScreenState
   }
 
   Widget _buildPlatformInfoCard(ThemeData theme, ColorScheme colorScheme) {
+    final l10n = AppLocalizations.of(context);
     final isAndroid = Platform.isAndroid;
-    final platformName = isAndroid ? 'Android' : 'iOS';
 
     return Card(
       child: Padding(
@@ -313,7 +316,7 @@ class _BackgroundProductionSettingsScreenState
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    '$platformName Background Production',
+                    isAndroid ? l10n.bgProdAndroidTitle : l10n.bgProdIosTitle,
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -323,9 +326,7 @@ class _BackgroundProductionSettingsScreenState
             ),
             const SizedBox(height: 12),
             Text(
-              isAndroid
-                  ? 'Uses Android\'s exact alarm system (AlarmManager) to wake your device precisely when needed for block production.'
-                  : 'Uses a combination of background tasks and keep-alive mode to wake your device for block production.',
+              isAndroid ? l10n.bgProdAndroidDesc : l10n.bgProdIosDesc,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurface.withValues(alpha: 0.7),
                 height: 1.4,
@@ -343,7 +344,7 @@ class _BackgroundProductionSettingsScreenState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Reliability by Mode',
+                    l10n.bgProdReliabilityByMode,
                     style: theme.textTheme.labelLarge?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
@@ -351,30 +352,30 @@ class _BackgroundProductionSettingsScreenState
                   const SizedBox(height: 12),
                   if (isAndroid) ...[
                     _buildReliabilityRow(
-                      'Default (Event-Driven)',
-                      '90-95%',
-                      'Battery-efficient, wakes only during slot windows',
+                      l10n.bgProdDefaultMode,
+                      l10n.bgProdDefaultReliability,
+                      l10n.bgProdDefaultDesc,
                       Colors.green,
                     ),
                     const SizedBox(height: 8),
                     _buildReliabilityRow(
-                      'Keep-Alive Mode',
-                      '100%',
-                      'Persistent service, higher battery (~5-10%/hr)',
+                      l10n.bgProdKeepAliveMode,
+                      l10n.bgProdKeepAliveReliability,
+                      l10n.bgProdKeepAliveDesc,
                       Colors.blue,
                     ),
                   ] else ...[
                     _buildReliabilityRow(
-                      'Keep-Alive Mode',
-                      '99%',
-                      'App stays awake in foreground, requires charger',
+                      l10n.bgProdKeepAliveMode,
+                      l10n.bgProdIosKeepAliveReliability,
+                      l10n.bgProdIosKeepAliveDesc,
                       Colors.green,
                     ),
                     const SizedBox(height: 8),
                     _buildReliabilityRow(
-                      'Background Only',
-                      '40-60%',
-                      'iOS controls execution, not guaranteed',
+                      l10n.bgProdBackgroundOnly,
+                      l10n.bgProdBackgroundOnlyReliability,
+                      l10n.bgProdBackgroundOnlyDesc,
                       Colors.orange,
                     ),
                   ],
@@ -726,7 +727,7 @@ class _BackgroundProductionSettingsScreenState
               FilledButton.icon(
                 onPressed: _requestPermissions,
                 icon: const Icon(Icons.settings),
-                label: const Text('Grant Permissions'),
+                label: Text(AppLocalizations.of(context).bgProdGrantPermissions),
               ),
             ],
           ],
@@ -1110,7 +1111,7 @@ class _BackgroundProductionSettingsScreenState
               OutlinedButton.icon(
                 onPressed: _openBatterySettings,
                 icon: const Icon(Icons.settings),
-                label: const Text('Open Battery Settings'),
+                label: Text(AppLocalizations.of(context).bgProdOpenBatterySettings),
               ),
             ],
             if (_deviceManufacturer != null &&
@@ -1435,16 +1436,17 @@ class _BackgroundProductionSettingsScreenState
     final nextSlot = futureSlots.isNotEmpty ? futureSlots.first : null;
 
     // VRF status chip
+    final l10n = AppLocalizations.of(context);
     Widget vrfStatusChip;
     if (vrfStatus == null) {
       vrfStatusChip = Chip(
-        label: const Text('Loading...'),
+        label: Text(l10n.bgProdLoading),
         backgroundColor: Colors.grey.withValues(alpha: 0.2),
         labelStyle: theme.textTheme.labelSmall,
       );
     } else if (isVrfComplete) {
       vrfStatusChip = Chip(
-        label: const Text('VRF Complete'),
+        label: Text(l10n.bgProdVrfComplete),
         backgroundColor: Colors.green.withValues(alpha: 0.2),
         labelStyle: theme.textTheme.labelSmall?.copyWith(
           color: Colors.green.shade700,
@@ -1452,7 +1454,7 @@ class _BackgroundProductionSettingsScreenState
       );
     } else if (isVrfCalculating) {
       vrfStatusChip = Chip(
-        label: const Text('VRF Calculating...'),
+        label: Text(l10n.bgProdVrfCalculating),
         backgroundColor: Colors.orange.withValues(alpha: 0.2),
         labelStyle: theme.textTheme.labelSmall?.copyWith(
           color: Colors.orange.shade700,
@@ -1460,7 +1462,7 @@ class _BackgroundProductionSettingsScreenState
       );
     } else {
       vrfStatusChip = Chip(
-        label: const Text('VRF Pending'),
+        label: Text(l10n.bgProdVrfPending),
         backgroundColor: Colors.grey.withValues(alpha: 0.2),
         labelStyle: theme.textTheme.labelSmall,
       );

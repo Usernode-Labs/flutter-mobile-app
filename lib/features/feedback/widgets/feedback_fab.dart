@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/config/design_tokens.dart';
 import '../../../../core/widgets/app_bottom_sheet.dart';
+import '../../../core/config/l10n/app_localizations.dart';
 import 'feedback_form.dart';
 
 class FeedbackFab extends StatelessWidget {
@@ -19,10 +20,11 @@ class FeedbackFab extends StatelessWidget {
   }
 
   void _showFeedbackForm(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     AppBottomSheet.show(
       context: context,
-      title: 'Send Feedback',
-      subtitle: 'Help us improve the app',
+      title: l10n.sendFeedback,
+      subtitle: l10n.feedbackHelpImprove,
       maxHeightFraction: 0.85,
       child: const FeedbackFormContent(),
     );

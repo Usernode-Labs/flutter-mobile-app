@@ -4,6 +4,7 @@ import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as rust_types;
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'send_success_screen.dart';
 
 class ReviewSendScreen extends StatefulWidget {
@@ -77,8 +78,7 @@ class _ReviewSendScreenState extends State<ReviewSendScreen> {
       if (activeAccount == null) {
         if (!mounted) return;
         Navigator.of(context).pop(); // close loading dialog
-        _showErrorDialog(
-            'No active account found. Please create or select an account.');
+        _showErrorDialog(AppLocalizations.of(context).walletNoActiveAccount);
         return;
       }
 
@@ -101,7 +101,7 @@ class _ReviewSendScreenState extends State<ReviewSendScreen> {
       if (amount == null) {
         if (!mounted) return;
         Navigator.of(context).pop();
-        _showErrorDialog('Invalid amount. Enter a whole-number amount.');
+        _showErrorDialog(AppLocalizations.of(context).walletInvalidAmount);
         return;
       }
 
@@ -116,18 +116,17 @@ class _ReviewSendScreenState extends State<ReviewSendScreen> {
       Navigator.of(context).pop(); // close loading dialog
 
       if (response == null) {
-        _showErrorDialog(
-            'Failed to connect to node. Please ensure the node is running.');
+        _showErrorDialog(AppLocalizations.of(context).walletNodeConnectionFailed);
         return;
       }
 
       if (response.error != null) {
-        _showErrorDialog('Transfer failed: ${response.error}');
+        _showErrorDialog(AppLocalizations.of(context).walletTransferFailed(response.error!));
         return;
       }
 
       if (!response.queued) {
-        _showErrorDialog('Transfer was not queued. Please try again.');
+        _showErrorDialog(AppLocalizations.of(context).walletTransferNotQueued);
         return;
       }
 
@@ -140,20 +139,21 @@ class _ReviewSendScreenState extends State<ReviewSendScreen> {
           .error('Transfer failed', tag: 'SEND', error: e, stackTrace: st);
       if (!mounted) return;
       Navigator.of(context).pop(); // close loading dialog
-      _showErrorDialog('Transfer failed: ${e.toString()}');
+      _showErrorDialog(AppLocalizations.of(context).walletTransferFailed(e.toString()));
     }
   }
 
   void _showErrorDialog(String message) {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Transfer Failed'),
+        title: Text(l10n.walletTransferFailedTitle),
         content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
+            child: Text(l10n.commonOk),
           ),
         ],
       ),
@@ -162,13 +162,14 @@ class _ReviewSendScreenState extends State<ReviewSendScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final amountVal = double.tryParse(widget.amount ?? '');
     final feeVal = double.tryParse(widget.networkFee ?? '');
     final totalVal = (amountVal ?? 0) + (feeVal ?? 0);
 
     return Scaffold(
-        appBar: const AppAppBar(
-          title: 'Review Send',
+        appBar: AppAppBar(
+          title: l10n.walletReviewSend,
           showNodeStatus: false,
         ),
         body: SafeArea(
@@ -198,7 +199,7 @@ class _ReviewSendScreenState extends State<ReviewSendScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Amount',
+                          l10n.walletAmount,
                           style:
                               Theme.of(context).textTheme.bodySmall?.copyWith(
                                     color: Theme.of(context)
@@ -214,7 +215,7 @@ class _ReviewSendScreenState extends State<ReviewSendScreen> {
                           _kvRow('Memo', widget.memo!.trim()),
                         if ((widget.networkFee ?? '').isNotEmpty)
                           _kvRow(
-                              'Network fee',
+                              l10n.walletNetworkFee,
                               feeVal != null
                                   ? feeVal.toStringAsFixed(4)
                                   : widget.networkFee!.trim()),
@@ -234,14 +235,14 @@ class _ReviewSendScreenState extends State<ReviewSendScreen> {
                     Expanded(
                       child: OutlinedButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('Back'),
+                        child: Text(l10n.walletBack),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: FilledButton(
                         onPressed: _processAndNavigate,
-                        child: const Text('Send'),
+                        child: Text(l10n.walletSend),
                       ),
                     ),
                   ],

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/features/node/node_data_providers.dart';
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_mempool.dart';
 
 class MempoolDetailsScreen extends ConsumerStatefulWidget {
@@ -50,11 +51,12 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context);
     final mempoolAsync = ref.watch(nodeMempoolProvider);
 
     return Scaffold(
-      appBar: const AppAppBar(
-        title: 'Mempool Transactions',
+      appBar: AppAppBar(
+        title: l10n.mempoolTitle,
       ),
       body: RefreshIndicator(
         onRefresh: _refresh,
@@ -75,7 +77,7 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Failed to load mempool',
+                    l10n.mempoolLoadFailed,
                     style: theme.textTheme.titleMedium?.copyWith(
                       color: colorScheme.error,
                     ),
@@ -92,7 +94,7 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
                   FilledButton.icon(
                     onPressed: _refresh,
                     icon: const Icon(Icons.refresh),
-                    label: const Text('Retry'),
+                    label: Text(l10n.mempoolRetry),
                   ),
                 ],
               ),
@@ -112,14 +114,14 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'No transactions in mempool',
+                      l10n.mempoolNoTransactions,
                       style: theme.textTheme.titleMedium?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'The mempool is currently empty',
+                      l10n.mempoolEmpty,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                       ),

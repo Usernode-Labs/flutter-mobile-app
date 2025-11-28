@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/log_tag.dart';
-import 'package:crypto_mobile_app/core/errors/app_error.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/features/node/models/sync_status.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
@@ -141,10 +140,12 @@ class NodeStatusState {
   Duration get listenerAutoCancel => Duration(milliseconds: blockInterval * 24);
 
   /// Convert slots to Duration
-  Duration slotsToTimer(int slots) => Duration(milliseconds: blockInterval * slots);
+  Duration slotsToTimer(int slots) =>
+      Duration(milliseconds: blockInterval * slots);
 
   /// Convert Duration to slots
-  int durationToSlots(Duration duration) => duration.inMilliseconds ~/ blockInterval;
+  int durationToSlots(Duration duration) =>
+      duration.inMilliseconds ~/ blockInterval;
 
   /// Dynamic epoch check interval based on progress
   static Duration getEpochCheckInterval(double epochProgress) {
@@ -190,21 +191,27 @@ class NodeStatusController extends AsyncNotifier<NodeStatusState?> {
         final vrfJson = {
           'statusTimeMs': vrf.statusTimeMs.toString(),
           'evaluatedSlotsSinceStart': vrf.evaluatedSlotsSinceStart,
-          'currentEpochVrfEvaluationStatus': vrf.currentEpochVrfEvaluationStatus.name,
+          'currentEpochVrfEvaluationStatus':
+              vrf.currentEpochVrfEvaluationStatus.name,
           'nextEpochVrfEvaluationStatus': vrf.nextEpochVrfEvaluationStatus.name,
-          'details': vrf.details != null ? {
-            'status': vrf.details!.status.toString(),
-            'lastEvaluatedEpoch': vrf.details!.lastEvaluatedEpoch,
-            'latestEvaluatedGlobalSlot': vrf.details!.latestEvaluatedGlobalSlot,
-            'readinessCheckDue': vrf.details!.readinessCheckDue,
-            'wonSlotsCached': vrf.details!.wonSlotsCached.toString(),
-            'wonSlotsCurrentEpoch': vrf.details!.wonSlotsCurrentEpoch.toString(),
-            'wonSlotsNextEpoch': vrf.details!.wonSlotsNextEpoch.toString(),
-            'slotsPerEpoch': vrf.details!.slotsPerEpoch,
-            'clockEpoch': vrf.details!.clockEpoch,
-            'evaluatedCurrentEpoch': vrf.details!.evaluatedCurrentEpoch,
-            'evaluatedNextEpoch': vrf.details!.evaluatedNextEpoch,
-          } : null,
+          'details': vrf.details != null
+              ? {
+                  'status': vrf.details!.status.toString(),
+                  'lastEvaluatedEpoch': vrf.details!.lastEvaluatedEpoch,
+                  'latestEvaluatedGlobalSlot':
+                      vrf.details!.latestEvaluatedGlobalSlot,
+                  'readinessCheckDue': vrf.details!.readinessCheckDue,
+                  'wonSlotsCached': vrf.details!.wonSlotsCached.toString(),
+                  'wonSlotsCurrentEpoch':
+                      vrf.details!.wonSlotsCurrentEpoch.toString(),
+                  'wonSlotsNextEpoch':
+                      vrf.details!.wonSlotsNextEpoch.toString(),
+                  'slotsPerEpoch': vrf.details!.slotsPerEpoch,
+                  'clockEpoch': vrf.details!.clockEpoch,
+                  'evaluatedCurrentEpoch': vrf.details!.evaluatedCurrentEpoch,
+                  'evaluatedNextEpoch': vrf.details!.evaluatedNextEpoch,
+                }
+              : null,
         };
         _log.debug('VRF response: ${jsonEncode(vrfJson)}');
       }
@@ -286,8 +293,7 @@ class NodeStatusController extends AsyncNotifier<NodeStatusState?> {
         error: e,
         stackTrace: st,
       );
-      throw BackendError('Failed to load node status',
-          cause: e, stackTrace: st);
+      throw Exception('Failed to load node status $e');
     }
   }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 
 class AccountModeSelectionScreen extends StatelessWidget {
   const AccountModeSelectionScreen({super.key});
@@ -12,12 +13,13 @@ class AccountModeSelectionScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
 
     return PopScope(
       canPop: false,
       child: Scaffold(
-        appBar: const AppAppBar(
-          title: 'Account Setup',
+        appBar: AppAppBar(
+          title: l10n.onboardingAccountSetup,
           automaticallyImplyLeading: false,
           showNodeStatus: false,
         ),
@@ -31,14 +33,14 @@ class AccountModeSelectionScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Set Up Your Account',
+                      l10n.onboardingSetUpYourAccount,
                       style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Select a demo account to start using the Usernode blockchain.',
+                      l10n.onboardingSelectDemoAccount,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                         height: 1.5,
@@ -49,9 +51,8 @@ class AccountModeSelectionScreen extends StatelessWidget {
                 const SizedBox(height: 24),
                 _ModeCard(
                   icon: Icons.science_outlined,
-                  title: 'Use Demo Account',
-                  subtitle:
-                      'Quickly set up a pre-configured account for testing purposes.',
+                  title: l10n.onboardingUseDemoAccount,
+                  subtitle: l10n.onboardingUseDemoAccountDesc,
                   onTap: () => _navigateToDemoAccounts(context),
                 ),
               ],

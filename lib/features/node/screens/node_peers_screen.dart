@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'package:crypto_mobile_app/core/config/theme.dart';
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 
 class NodePeersScreen extends StatelessWidget {
   final List<RpcPeerInfo> peers;
@@ -11,6 +12,7 @@ class NodePeersScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context);
 
     // Calculate peer statistics
     int connected = 0;
@@ -60,8 +62,8 @@ class NodePeersScreen extends StatelessWidget {
       });
 
     return Scaffold(
-      appBar: const AppAppBar(
-        title: 'Node Peers',
+      appBar: AppAppBar(
+        title: l10n.nodePeersTitle,
       ),
       body: SafeArea(
         child: Column(
@@ -79,7 +81,7 @@ class NodePeersScreen extends StatelessWidget {
                 ),
               ),
               child: Text(
-                '${peers.length} Peers  •  $connected Connected  •  $connecting Connecting',
+                l10n.nodePeersSummary(peers.length.toString(), connected.toString(), connecting.toString()),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                   color: colorScheme.onSurface,

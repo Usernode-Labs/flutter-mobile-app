@@ -112,605 +112,11 @@ abstract class AppLocalizations {
   /// **'Initializing node...'**
   String get initializingNode;
 
-  /// Home tab label
-  ///
-  /// In en, this message translates to:
-  /// **'Home'**
-  String get home;
-
-  /// Wallet tab label
-  ///
-  /// In en, this message translates to:
-  /// **'Wallet'**
-  String get wallet;
-
   /// Node tab label
   ///
   /// In en, this message translates to:
   /// **'Node'**
   String get node;
-
-  /// dApps tab label
-  ///
-  /// In en, this message translates to:
-  /// **'dApps'**
-  String get dapps;
-
-  /// Profile tab label
-  ///
-  /// In en, this message translates to:
-  /// **'Profile'**
-  String get profile;
-
-  /// NFC Reader tab label
-  ///
-  /// In en, this message translates to:
-  /// **'NFC Reader'**
-  String get nfcReader;
-
-  /// Title for empty NFC state
-  ///
-  /// In en, this message translates to:
-  /// **'Scan your ID'**
-  String get nfcEmptyTitle;
-
-  /// Subtitle for empty NFC state
-  ///
-  /// In en, this message translates to:
-  /// **'Use your phone to read your ePassport or eID via NFC.'**
-  String get nfcEmptySubtitle;
-
-  /// Action to scan another document
-  ///
-  /// In en, this message translates to:
-  /// **'Scan another'**
-  String get nfcScanAnother;
-
-  /// Action to open MRZ manual entry
-  ///
-  /// In en, this message translates to:
-  /// **'Enter MRZ manually'**
-  String get nfcManualMrz;
-
-  /// Start NFC reading
-  ///
-  /// In en, this message translates to:
-  /// **'Start NFC scan'**
-  String get nfcStartScan;
-
-  /// MRZ entry screen title
-  ///
-  /// In en, this message translates to:
-  /// **'Enter MRZ'**
-  String get mrzTitle;
-
-  /// No description provided for @mrzLine1.
-  ///
-  /// In en, this message translates to:
-  /// **'MRZ line 1'**
-  String get mrzLine1;
-
-  /// No description provided for @mrzLine2.
-  ///
-  /// In en, this message translates to:
-  /// **'MRZ line 2'**
-  String get mrzLine2;
-
-  /// No description provided for @mrzLine3.
-  ///
-  /// In en, this message translates to:
-  /// **'MRZ line 3 (optional)'**
-  String get mrzLine3;
-
-  /// Continue from MRZ entry
-  ///
-  /// In en, this message translates to:
-  /// **'Continue'**
-  String get mrzContinue;
-
-  /// NFC reading in progress
-  ///
-  /// In en, this message translates to:
-  /// **'Hold document to the phone...'**
-  String get nfcReading;
-
-  /// Save document
-  ///
-  /// In en, this message translates to:
-  /// **'Save'**
-  String get nfcSave;
-
-  /// Rename document action
-  ///
-  /// In en, this message translates to:
-  /// **'Rename'**
-  String get nfcRename;
-
-  /// Delete document action
-  ///
-  /// In en, this message translates to:
-  /// **'Delete'**
-  String get nfcDelete;
-
-  /// Confirm deletion
-  ///
-  /// In en, this message translates to:
-  /// **'Delete this document?'**
-  String get nfcConfirmDelete;
-
-  /// Biometric prompt
-  ///
-  /// In en, this message translates to:
-  /// **'Unlock to view private data'**
-  String get unlockToView;
-
-  /// Biometrics unavailable message
-  ///
-  /// In en, this message translates to:
-  /// **'Biometrics not available'**
-  String get biometricsNotAvailable;
-
-  /// No NFC hardware
-  ///
-  /// In en, this message translates to:
-  /// **'This device does not support NFC.'**
-  String get nfcNotSupported;
-
-  /// NFC disabled guidance
-  ///
-  /// In en, this message translates to:
-  /// **'Please enable NFC in settings.'**
-  String get nfcTurnOn;
-
-  /// Generic NFC read error
-  ///
-  /// In en, this message translates to:
-  /// **'Failed to read document. Check MRZ and try again.'**
-  String get nfcReadFailed;
-
-  /// Rescan overwrite confirmation
-  ///
-  /// In en, this message translates to:
-  /// **'Document updated'**
-  String get nfcUpdated;
-
-  /// Saved confirmation
-  ///
-  /// In en, this message translates to:
-  /// **'Document saved'**
-  String get nfcSaved;
-
-  /// Node sync status message
-  ///
-  /// In en, this message translates to:
-  /// **'Your Local Node synced in {time}'**
-  String nodeStatusSynced(String time);
-
-  /// Total number of nodes
-  ///
-  /// In en, this message translates to:
-  /// **'{count} Nodes Total'**
-  String totalNodes(String count);
-
-  /// Liquidity card title
-  ///
-  /// In en, this message translates to:
-  /// **'Bring your own liquidity'**
-  String get bringLiquidity;
-
-  /// Bridge assets description
-  ///
-  /// In en, this message translates to:
-  /// **'Bridge assets to the network within your first week'**
-  String get bridgeAssetsDescription;
-
-  /// Bridge button text
-  ///
-  /// In en, this message translates to:
-  /// **'Bridge'**
-  String get bridge;
-
-  /// Verification card title
-  ///
-  /// In en, this message translates to:
-  /// **'Complete verification'**
-  String get completeVerification;
-
-  /// Verification description
-  ///
-  /// In en, this message translates to:
-  /// **'This verifies your identity and increases your rewards'**
-  String get verificationDescription;
-
-  /// Verify button text
-  ///
-  /// In en, this message translates to:
-  /// **'Verify'**
-  String get verify;
-
-  /// Staking card title
-  ///
-  /// In en, this message translates to:
-  /// **'Stake your tokens'**
-  String get stakeTokens;
-
-  /// Staking description
-  ///
-  /// In en, this message translates to:
-  /// **'Lock tokens for a period to earn additional rewards'**
-  String get stakingDescription;
-
-  /// Stake button text
-  ///
-  /// In en, this message translates to:
-  /// **'Stake'**
-  String get stake;
-
-  /// Multiplier section title
-  ///
-  /// In en, this message translates to:
-  /// **'Your Multiplier'**
-  String get multiplier;
-
-  /// Expected tokens message
-  ///
-  /// In en, this message translates to:
-  /// **'{count} Tokens expected in next {days} days'**
-  String tokensExpected(String count, String days);
-
-  /// Activity section title
-  ///
-  /// In en, this message translates to:
-  /// **'Activity'**
-  String get activity;
-
-  /// Upcoming block message
-  ///
-  /// In en, this message translates to:
-  /// **'Upcoming block in {time}'**
-  String upcomingBlock(String time);
-
-  /// Background scheduling message
-  ///
-  /// In en, this message translates to:
-  /// **'Scheduled in the background'**
-  String get scheduledBackground;
-
-  /// Identity verification success
-  ///
-  /// In en, this message translates to:
-  /// **'Identity Proven'**
-  String get identityProven;
-
-  /// Deposit success message
-  ///
-  /// In en, this message translates to:
-  /// **'Deposit Successful'**
-  String get depositSuccessful;
-
-  /// Coming soon placeholder text
-  ///
-  /// In en, this message translates to:
-  /// **'Coming soon...'**
-  String get comingSoon;
-
-  /// Wallet screen title
-  ///
-  /// In en, this message translates to:
-  /// **'Wallet Management'**
-  String get walletManagement;
-
-  /// Bridge screen title
-  ///
-  /// In en, this message translates to:
-  /// **'Node status'**
-  String get crossChainBridge;
-
-  /// Node status screen title
-  ///
-  /// In en, this message translates to:
-  /// **'Node Status'**
-  String get nodeStatus;
-
-  /// Swap screen title
-  ///
-  /// In en, this message translates to:
-  /// **'Swap'**
-  String get swap;
-
-  /// Token swap screen description
-  ///
-  /// In en, this message translates to:
-  /// **'Token Swap'**
-  String get tokenSwap;
-
-  /// Rewards screen title
-  ///
-  /// In en, this message translates to:
-  /// **'Rewards'**
-  String get rewards;
-
-  /// Rewards screen description
-  ///
-  /// In en, this message translates to:
-  /// **'Rewards & Achievements'**
-  String get rewardsAchievements;
-
-  /// Your Multiplier
-  ///
-  /// In en, this message translates to:
-  /// **'Your Multiplier'**
-  String get yourMultiplier;
-
-  /// No description provided for @createAccountTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Create Account'**
-  String get createAccountTitle;
-
-  /// No description provided for @recoveryPhraseTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Your recovery phrase'**
-  String get recoveryPhraseTitle;
-
-  /// No description provided for @recoveryPhraseWarning.
-  ///
-  /// In en, this message translates to:
-  /// **'This recovery phrase is the ONLY way to restore your keys and regain access to this account if something goes wrong. Store it securely and never share it.'**
-  String get recoveryPhraseWarning;
-
-  /// No description provided for @recoveryPhraseInstruction.
-  ///
-  /// In en, this message translates to:
-  /// **'Write these words down and store them securely. They will NOT be stored by the app and cannot be recovered.'**
-  String get recoveryPhraseInstruction;
-
-  /// No description provided for @accountNameLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Account name'**
-  String get accountNameLabel;
-
-  /// No description provided for @accountNameHint.
-  ///
-  /// In en, this message translates to:
-  /// **'e.g., Account 1'**
-  String get accountNameHint;
-
-  /// No description provided for @accountNameExplain.
-  ///
-  /// In en, this message translates to:
-  /// **'This name is only stored on your device to help you identify the account. It does not affect your blockchain address or keys.'**
-  String get accountNameExplain;
-
-  /// No description provided for @seedStoredCheckbox.
-  ///
-  /// In en, this message translates to:
-  /// **'I have securely stored my recovery phrase.'**
-  String get seedStoredCheckbox;
-
-  /// No description provided for @continueButton.
-  ///
-  /// In en, this message translates to:
-  /// **'Continue'**
-  String get continueButton;
-
-  /// No description provided for @send.
-  ///
-  /// In en, this message translates to:
-  /// **'Send'**
-  String get send;
-
-  /// No description provided for @receive.
-  ///
-  /// In en, this message translates to:
-  /// **'Receive'**
-  String get receive;
-
-  /// No description provided for @balances.
-  ///
-  /// In en, this message translates to:
-  /// **'Balances'**
-  String get balances;
-
-  /// No description provided for @recentTransactions.
-  ///
-  /// In en, this message translates to:
-  /// **'Recent Transactions'**
-  String get recentTransactions;
-
-  /// No description provided for @copyAddress.
-  ///
-  /// In en, this message translates to:
-  /// **'Copy address'**
-  String get copyAddress;
-
-  /// No description provided for @addressCopied.
-  ///
-  /// In en, this message translates to:
-  /// **'Address copied'**
-  String get addressCopied;
-
-  /// No description provided for @manageAccounts.
-  ///
-  /// In en, this message translates to:
-  /// **'Manage accounts'**
-  String get manageAccounts;
-
-  /// No description provided for @selectAccount.
-  ///
-  /// In en, this message translates to:
-  /// **'Select account'**
-  String get selectAccount;
-
-  /// No description provided for @selectAccountHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Tap an account to switch'**
-  String get selectAccountHint;
-
-  /// No description provided for @createNewAccount.
-  ///
-  /// In en, this message translates to:
-  /// **'Create new account'**
-  String get createNewAccount;
-
-  /// No description provided for @importFromSeed.
-  ///
-  /// In en, this message translates to:
-  /// **'Import from seed phrase'**
-  String get importFromSeed;
-
-  /// No description provided for @importFromPrivateKey.
-  ///
-  /// In en, this message translates to:
-  /// **'Import from private key'**
-  String get importFromPrivateKey;
-
-  /// No description provided for @deleteAllAccountsDev.
-  ///
-  /// In en, this message translates to:
-  /// **'Delete all accounts (dev)'**
-  String get deleteAllAccountsDev;
-
-  /// No description provided for @deleteAllConfirmTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Delete all accounts?'**
-  String get deleteAllConfirmTitle;
-
-  /// No description provided for @deleteAllConfirmBody.
-  ///
-  /// In en, this message translates to:
-  /// **'This will remove all stored accounts on this device.'**
-  String get deleteAllConfirmBody;
-
-  /// No description provided for @cancel.
-  ///
-  /// In en, this message translates to:
-  /// **'Cancel'**
-  String get cancel;
-
-  /// No description provided for @delete.
-  ///
-  /// In en, this message translates to:
-  /// **'Delete'**
-  String get delete;
-
-  /// No description provided for @generateNewAddress.
-  ///
-  /// In en, this message translates to:
-  /// **'Generate new address'**
-  String get generateNewAddress;
-
-  /// No description provided for @backendStarting.
-  ///
-  /// In en, this message translates to:
-  /// **'Starting backend for your account...'**
-  String get backendStarting;
-
-  /// No description provided for @nodeStatusLoading.
-  ///
-  /// In en, this message translates to:
-  /// **'Loading node status...'**
-  String get nodeStatusLoading;
-
-  /// No description provided for @nodeStatusError.
-  ///
-  /// In en, this message translates to:
-  /// **'Failed to load node status'**
-  String get nodeStatusError;
-
-  /// No description provided for @nodePeersCount.
-  ///
-  /// In en, this message translates to:
-  /// **'Peers: {count}'**
-  String nodePeersCount(String count);
-
-  /// No description provided for @refresh.
-  ///
-  /// In en, this message translates to:
-  /// **'Refresh'**
-  String get refresh;
-
-  /// No description provided for @currentBlockHeightLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Current block height'**
-  String get currentBlockHeightLabel;
-
-  /// No description provided for @nodeStatusLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Status'**
-  String get nodeStatusLabel;
-
-  /// No description provided for @peersLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Peers'**
-  String get peersLabel;
-
-  /// No description provided for @mempoolLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Mempool'**
-  String get mempoolLabel;
-
-  /// No description provided for @evaluatedDiscoveredLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Evaluated / Discovered Slots'**
-  String get evaluatedDiscoveredLabel;
-
-  /// No description provided for @upcoming.
-  ///
-  /// In en, this message translates to:
-  /// **'Upcoming'**
-  String get upcoming;
-
-  /// No description provided for @pastSlots.
-  ///
-  /// In en, this message translates to:
-  /// **'Past Slots'**
-  String get pastSlots;
-
-  /// No description provided for @scheduledSlot.
-  ///
-  /// In en, this message translates to:
-  /// **'Scheduled Slot'**
-  String get scheduledSlot;
-
-  /// No description provided for @discoveredSlot.
-  ///
-  /// In en, this message translates to:
-  /// **'Discovered Slot {id}'**
-  String discoveredSlot(String id);
-
-  /// No description provided for @inTime.
-  ///
-  /// In en, this message translates to:
-  /// **'in {time}'**
-  String inTime(String time);
-
-  /// No description provided for @transactionsSuffix.
-  ///
-  /// In en, this message translates to:
-  /// **'{count} Transactions'**
-  String transactionsSuffix(String count);
-
-  /// No description provided for @checkedAgoSeconds.
-  ///
-  /// In en, this message translates to:
-  /// **'Checked {seconds} seconds ago'**
-  String checkedAgoSeconds(String seconds);
-
-  /// Feedback feature label
-  ///
-  /// In en, this message translates to:
-  /// **'Feedback'**
-  String get feedback;
 
   /// Send feedback button text
   ///
@@ -747,24 +153,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Category'**
   String get feedbackCategory;
-
-  /// Bug report category option
-  ///
-  /// In en, this message translates to:
-  /// **'Bug Report'**
-  String get feedbackBugReport;
-
-  /// Feature request category option
-  ///
-  /// In en, this message translates to:
-  /// **'Feature Request'**
-  String get feedbackFeatureRequest;
-
-  /// General feedback category option
-  ///
-  /// In en, this message translates to:
-  /// **'General Feedback'**
-  String get feedbackGeneral;
 
   /// Include device info checkbox label
   ///
@@ -819,6 +207,678 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No screenshots added (optional)'**
   String get feedbackNoScreenshots;
+
+  /// Feedback FAB subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Help us improve the app'**
+  String get feedbackHelpImprove;
+
+  /// Image pick error message
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to pick image: {error}'**
+  String feedbackImagePickFailed(String error);
+
+  /// Settings screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get settingsTitle;
+
+  /// Language setting label
+  ///
+  /// In en, this message translates to:
+  /// **'Language'**
+  String get settingsLanguage;
+
+  /// English language option
+  ///
+  /// In en, this message translates to:
+  /// **'English'**
+  String get settingsLanguageEnglish;
+
+  /// French language option
+  ///
+  /// In en, this message translates to:
+  /// **'Français'**
+  String get settingsLanguageFrench;
+
+  /// Spanish language option
+  ///
+  /// In en, this message translates to:
+  /// **'Español'**
+  String get settingsLanguageSpanish;
+
+  /// Language not yet supported message
+  ///
+  /// In en, this message translates to:
+  /// **'Language support coming soon'**
+  String get settingsLanguageComingSoon;
+
+  /// Background block production setting label
+  ///
+  /// In en, this message translates to:
+  /// **'Background Block Production'**
+  String get settingsBackgroundBlockProduction;
+
+  /// Background block production setting subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Configure automatic block production'**
+  String get settingsBackgroundBlockProductionSubtitle;
+
+  /// About section header
+  ///
+  /// In en, this message translates to:
+  /// **'About'**
+  String get settingsAbout;
+
+  /// Build info setting label
+  ///
+  /// In en, this message translates to:
+  /// **'Build Info'**
+  String get settingsBuildInfo;
+
+  /// Background production explanation title
+  ///
+  /// In en, this message translates to:
+  /// **'What is Background Block Production?'**
+  String get bgProdWhatIs;
+
+  /// Background production explanation
+  ///
+  /// In en, this message translates to:
+  /// **'This feature automatically wakes your device to produce blockchain blocks when your node wins a slot. Here\'s how it works:'**
+  String get bgProdDescription;
+
+  /// VRF selection step title
+  ///
+  /// In en, this message translates to:
+  /// **'VRF Selection'**
+  String get bgProdVrfSelection;
+
+  /// VRF selection step description
+  ///
+  /// In en, this message translates to:
+  /// **'Each epoch, the network randomly selects which validators will produce blocks using Verifiable Random Function (VRF)'**
+  String get bgProdVrfSelectionDesc;
+
+  /// Slot scheduling step title
+  ///
+  /// In en, this message translates to:
+  /// **'Slot Scheduling'**
+  String get bgProdSlotScheduling;
+
+  /// Slot scheduling step description
+  ///
+  /// In en, this message translates to:
+  /// **'When you win slots, the app schedules alarms to wake your device ~1 minute before each slot'**
+  String get bgProdSlotSchedulingDesc;
+
+  /// Block production step title
+  ///
+  /// In en, this message translates to:
+  /// **'Block Production'**
+  String get bgProdBlockProduction;
+
+  /// Block production step description
+  ///
+  /// In en, this message translates to:
+  /// **'At slot time, the app monitors your node and ensures the block is produced'**
+  String get bgProdBlockProductionDesc;
+
+  /// Success tracking step title
+  ///
+  /// In en, this message translates to:
+  /// **'Success Tracking'**
+  String get bgProdSuccessTracking;
+
+  /// Success tracking step description
+  ///
+  /// In en, this message translates to:
+  /// **'Results are recorded to track your reliability over time'**
+  String get bgProdSuccessTrackingDesc;
+
+  /// Android background production section title
+  ///
+  /// In en, this message translates to:
+  /// **'Android Background Production'**
+  String get bgProdAndroidTitle;
+
+  /// iOS background production section title
+  ///
+  /// In en, this message translates to:
+  /// **'iOS Background Production'**
+  String get bgProdIosTitle;
+
+  /// Android background production description
+  ///
+  /// In en, this message translates to:
+  /// **'Uses Android\'s exact alarm system (AlarmManager) to wake your device precisely when needed for block production.'**
+  String get bgProdAndroidDesc;
+
+  /// iOS background production description
+  ///
+  /// In en, this message translates to:
+  /// **'Uses a combination of background tasks and keep-alive mode to wake your device for block production.'**
+  String get bgProdIosDesc;
+
+  /// Reliability by mode section title
+  ///
+  /// In en, this message translates to:
+  /// **'Reliability by Mode'**
+  String get bgProdReliabilityByMode;
+
+  /// Default mode label
+  ///
+  /// In en, this message translates to:
+  /// **'Default (Event-Driven)'**
+  String get bgProdDefaultMode;
+
+  /// Default mode reliability
+  ///
+  /// In en, this message translates to:
+  /// **'90-95%'**
+  String get bgProdDefaultReliability;
+
+  /// Default mode description
+  ///
+  /// In en, this message translates to:
+  /// **'Battery-efficient, wakes only during slot windows'**
+  String get bgProdDefaultDesc;
+
+  /// Keep-alive mode label
+  ///
+  /// In en, this message translates to:
+  /// **'Keep-Alive Mode'**
+  String get bgProdKeepAliveMode;
+
+  /// Keep-alive mode reliability
+  ///
+  /// In en, this message translates to:
+  /// **'100%'**
+  String get bgProdKeepAliveReliability;
+
+  /// Keep-alive mode description
+  ///
+  /// In en, this message translates to:
+  /// **'Persistent service, higher battery (~5-10%/hr)'**
+  String get bgProdKeepAliveDesc;
+
+  /// iOS keep-alive mode reliability
+  ///
+  /// In en, this message translates to:
+  /// **'99%'**
+  String get bgProdIosKeepAliveReliability;
+
+  /// iOS keep-alive mode description
+  ///
+  /// In en, this message translates to:
+  /// **'App stays awake in foreground, requires charger'**
+  String get bgProdIosKeepAliveDesc;
+
+  /// Background only mode label
+  ///
+  /// In en, this message translates to:
+  /// **'Background Only'**
+  String get bgProdBackgroundOnly;
+
+  /// Background only mode reliability
+  ///
+  /// In en, this message translates to:
+  /// **'40-60%'**
+  String get bgProdBackgroundOnlyReliability;
+
+  /// Background only mode description
+  ///
+  /// In en, this message translates to:
+  /// **'iOS controls execution, not guaranteed'**
+  String get bgProdBackgroundOnlyDesc;
+
+  /// Loading button state
+  ///
+  /// In en, this message translates to:
+  /// **'Loading...'**
+  String get bgProdLoading;
+
+  /// VRF complete button state
+  ///
+  /// In en, this message translates to:
+  /// **'VRF Complete'**
+  String get bgProdVrfComplete;
+
+  /// VRF calculating button state
+  ///
+  /// In en, this message translates to:
+  /// **'VRF Calculating...'**
+  String get bgProdVrfCalculating;
+
+  /// VRF pending button state
+  ///
+  /// In en, this message translates to:
+  /// **'VRF Pending'**
+  String get bgProdVrfPending;
+
+  /// Grant permissions button
+  ///
+  /// In en, this message translates to:
+  /// **'Grant Permissions'**
+  String get bgProdGrantPermissions;
+
+  /// Open battery settings button
+  ///
+  /// In en, this message translates to:
+  /// **'Open Battery Settings'**
+  String get bgProdOpenBatterySettings;
+
+  /// Account setup screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Account Setup'**
+  String get onboardingAccountSetup;
+
+  /// Account setup heading
+  ///
+  /// In en, this message translates to:
+  /// **'Set Up Your Account'**
+  String get onboardingSetUpYourAccount;
+
+  /// Demo account selection instruction
+  ///
+  /// In en, this message translates to:
+  /// **'Select a demo account to start using the Usernode blockchain.'**
+  String get onboardingSelectDemoAccount;
+
+  /// Use demo account card title
+  ///
+  /// In en, this message translates to:
+  /// **'Use Demo Account'**
+  String get onboardingUseDemoAccount;
+
+  /// Use demo account card description
+  ///
+  /// In en, this message translates to:
+  /// **'Quickly set up a pre-configured account for testing purposes.'**
+  String get onboardingUseDemoAccountDesc;
+
+  /// No demo accounts heading
+  ///
+  /// In en, this message translates to:
+  /// **'No Demo Accounts Available'**
+  String get demoNoDemoAccountsAvailable;
+
+  /// Demo accounts not configured message
+  ///
+  /// In en, this message translates to:
+  /// **'Demo accounts are not configured in this build.'**
+  String get demoNotConfigured;
+
+  /// Demo account selection instruction
+  ///
+  /// In en, this message translates to:
+  /// **'Select a demo account to import for testing purposes.'**
+  String get demoSelectToImport;
+
+  /// Demo account warning
+  ///
+  /// In en, this message translates to:
+  /// **'Demo accounts are for development/testing only'**
+  String get demoWarning;
+
+  /// Use demo account button
+  ///
+  /// In en, this message translates to:
+  /// **'Use'**
+  String get demoUseButton;
+
+  /// Public key validation error
+  ///
+  /// In en, this message translates to:
+  /// **'Key validation failed: Public key mismatch for {tier} account'**
+  String demoKeyValidationFailedPublicKey(String tier);
+
+  /// Address validation error
+  ///
+  /// In en, this message translates to:
+  /// **'Key validation failed: Address mismatch for {tier} account'**
+  String demoKeyValidationFailedAddress(String tier);
+
+  /// Demo account import failure message
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to import demo account'**
+  String get demoImportFailed;
+
+  /// Demo account import failure with error
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to import demo account: {error}'**
+  String demoImportFailedWithError(String error);
+
+  /// No active account error
+  ///
+  /// In en, this message translates to:
+  /// **'No active account found. Please create or select an account.'**
+  String get walletNoActiveAccount;
+
+  /// Invalid amount validation error
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid amount. Enter a whole-number amount.'**
+  String get walletInvalidAmount;
+
+  /// Node connection failure message
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to connect to node. Please ensure the node is running.'**
+  String get walletNodeConnectionFailed;
+
+  /// Transfer failure message
+  ///
+  /// In en, this message translates to:
+  /// **'Transfer failed: {error}'**
+  String walletTransferFailed(String error);
+
+  /// Transfer not queued message
+  ///
+  /// In en, this message translates to:
+  /// **'Transfer was not queued. Please try again.'**
+  String get walletTransferNotQueued;
+
+  /// Transfer failed dialog title
+  ///
+  /// In en, this message translates to:
+  /// **'Transfer Failed'**
+  String get walletTransferFailedTitle;
+
+  /// Review send screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Review Send'**
+  String get walletReviewSend;
+
+  /// Amount label
+  ///
+  /// In en, this message translates to:
+  /// **'Amount'**
+  String get walletAmount;
+
+  /// Network fee label
+  ///
+  /// In en, this message translates to:
+  /// **'Network fee'**
+  String get walletNetworkFee;
+
+  /// Back button
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get walletBack;
+
+  /// Send button
+  ///
+  /// In en, this message translates to:
+  /// **'Send'**
+  String get walletSend;
+
+  /// OK button
+  ///
+  /// In en, this message translates to:
+  /// **'OK'**
+  String get commonOk;
+
+  /// Done button/title
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get walletDone;
+
+  /// Payment sent success title
+  ///
+  /// In en, this message translates to:
+  /// **'Payment Sent'**
+  String get walletPaymentSent;
+
+  /// Transaction submitted success message
+  ///
+  /// In en, this message translates to:
+  /// **'Your transaction has been submitted successfully.'**
+  String get walletTransactionSubmitted;
+
+  /// Node status screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Node Status'**
+  String get nodeStatusTitle;
+
+  /// Peer ID copied snackbar message
+  ///
+  /// In en, this message translates to:
+  /// **'Peer ID copied to clipboard'**
+  String get nodePeerIdCopied;
+
+  /// Copy peer ID tooltip
+  ///
+  /// In en, this message translates to:
+  /// **'Copy full Peer ID'**
+  String get nodeCopyPeerId;
+
+  /// Node peers screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Node Peers'**
+  String get nodePeersTitle;
+
+  /// Peers summary header
+  ///
+  /// In en, this message translates to:
+  /// **'{count} Peers  •  {connected} Connected  •  {connecting} Connecting'**
+  String nodePeersSummary(String count, String connected, String connecting);
+
+  /// Won slots screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Won Slots'**
+  String get wonSlotsTitle;
+
+  /// Loading epoch data message
+  ///
+  /// In en, this message translates to:
+  /// **'Loading epoch data...'**
+  String get wonSlotsLoadingEpoch;
+
+  /// Epoch data unavailable message
+  ///
+  /// In en, this message translates to:
+  /// **'Epoch data unavailable'**
+  String get wonSlotsEpochUnavailable;
+
+  /// No won slots message
+  ///
+  /// In en, this message translates to:
+  /// **'No won slots data available'**
+  String get wonSlotsNoData;
+
+  /// Grouped by hour subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Grouped by hour'**
+  String get wonSlotsGroupedByHour;
+
+  /// Grouped by day subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Grouped by day'**
+  String get wonSlotsGroupedByDay;
+
+  /// Won label
+  ///
+  /// In en, this message translates to:
+  /// **'Won'**
+  String get wonSlotsWon;
+
+  /// Produced label
+  ///
+  /// In en, this message translates to:
+  /// **'Produced'**
+  String get wonSlotsProduced;
+
+  /// Missed label
+  ///
+  /// In en, this message translates to:
+  /// **'Missed'**
+  String get wonSlotsMissed;
+
+  /// Pending label
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get wonSlotsPending;
+
+  /// Today label
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get wonSlotsToday;
+
+  /// Produced blocks screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Produced Blocks'**
+  String get producedBlocksTitle;
+
+  /// Loading produced blocks message
+  ///
+  /// In en, this message translates to:
+  /// **'Loading produced blocks...'**
+  String get producedBlocksLoading;
+
+  /// No produced blocks message
+  ///
+  /// In en, this message translates to:
+  /// **'No produced blocks available'**
+  String get producedBlocksNoData;
+
+  /// Mempool screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Mempool Transactions'**
+  String get mempoolTitle;
+
+  /// Failed to load mempool message
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load mempool'**
+  String get mempoolLoadFailed;
+
+  /// Retry button
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get mempoolRetry;
+
+  /// No mempool transactions title
+  ///
+  /// In en, this message translates to:
+  /// **'No transactions in mempool'**
+  String get mempoolNoTransactions;
+
+  /// Mempool empty message
+  ///
+  /// In en, this message translates to:
+  /// **'The mempool is currently empty'**
+  String get mempoolEmpty;
+
+  /// Rewards breakdown screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Rewards Breakdown'**
+  String get rewardsBreakdownTitle;
+
+  /// P2P peer ID label in drawer
+  ///
+  /// In en, this message translates to:
+  /// **'P2P Peer ID:'**
+  String get drawerP2pPeerId;
+
+  /// Close button in drawer
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get drawerClose;
+
+  /// Generic error label
+  ///
+  /// In en, this message translates to:
+  /// **'Error'**
+  String get commonError;
+
+  /// Version label in build info
+  ///
+  /// In en, this message translates to:
+  /// **'Version'**
+  String get buildInfoVersion;
+
+  /// Commit label in build info
+  ///
+  /// In en, this message translates to:
+  /// **'Commit'**
+  String get buildInfoCommit;
+
+  /// Branch label in build info
+  ///
+  /// In en, this message translates to:
+  /// **'Branch'**
+  String get buildInfoBranch;
+
+  /// Commit time label in build info
+  ///
+  /// In en, this message translates to:
+  /// **'Commit time'**
+  String get buildInfoCommitTime;
+
+  /// Rust compiler label in build info
+  ///
+  /// In en, this message translates to:
+  /// **'Rustc'**
+  String get buildInfoRustc;
+
+  /// LLVM label in build info
+  ///
+  /// In en, this message translates to:
+  /// **'LLVM'**
+  String get buildInfoLlvm;
+
+  /// Cargo target label in build info
+  ///
+  /// In en, this message translates to:
+  /// **'Cargo target'**
+  String get buildInfoCargoTarget;
+
+  /// Features label in build info
+  ///
+  /// In en, this message translates to:
+  /// **'Features'**
+  String get buildInfoFeatures;
+
+  /// Optimization level label in build info
+  ///
+  /// In en, this message translates to:
+  /// **'Opt level'**
+  String get buildInfoOptLevel;
+
+  /// Debug label in build info
+  ///
+  /// In en, this message translates to:
+  /// **'Debug'**
+  String get buildInfoDebug;
+
+  /// Not available fallback text
+  ///
+  /// In en, this message translates to:
+  /// **'Not available'**
+  String get nodeNotAvailable;
 }
 
 class _AppLocalizationsDelegate

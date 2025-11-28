@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:crypto_mobile_app/core/config/design_tokens.dart';
 import 'package:crypto_mobile_app/core/widgets/app_button.dart';
 import 'package:crypto_mobile_app/core/widgets/app_text_field.dart';
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import '../models/feedback_model.dart';
 import '../feedback_provider.dart';
 
@@ -43,6 +44,7 @@ class _FeedbackFormContentState extends ConsumerState<FeedbackFormContent> {
   @override
   Widget build(BuildContext context) {
     final submissionState = ref.watch(feedbackSubmissionProvider);
+    final l10n = AppLocalizations.of(context);
 
     // Listen to submission state changes
     ref.listen<FeedbackSubmissionState>(
@@ -50,8 +52,8 @@ class _FeedbackFormContentState extends ConsumerState<FeedbackFormContent> {
       (previous, next) {
         if (next.status == FeedbackSubmissionStatus.success) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Thank you for your feedback!'),
+            SnackBar(
+              content: Text(l10n.feedbackSuccess),
               backgroundColor: Colors.green,
             ),
           );
@@ -59,7 +61,7 @@ class _FeedbackFormContentState extends ConsumerState<FeedbackFormContent> {
         } else if (next.status == FeedbackSubmissionStatus.error) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(next.errorMessage ?? 'Failed to submit feedback'),
+              content: Text(next.errorMessage ?? l10n.feedbackError),
               backgroundColor: Colors.red,
             ),
           );
@@ -81,11 +83,11 @@ class _FeedbackFormContentState extends ConsumerState<FeedbackFormContent> {
             // Title field
             AppTextField(
               controller: _titleController,
-              labelText: 'Title',
-              hintText: 'Brief summary of your feedback',
+              labelText: l10n.feedbackTitle,
+              hintText: l10n.feedbackTitleHint,
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Please enter a title';
+                  return l10n.feedbackRequired;
                 }
                 return null;
               },
@@ -95,13 +97,13 @@ class _FeedbackFormContentState extends ConsumerState<FeedbackFormContent> {
             // Description field
             AppTextField(
               controller: _descriptionController,
-              labelText: 'Description',
-              hintText: 'Describe your feedback in detail',
+              labelText: l10n.feedbackDescription,
+              hintText: l10n.feedbackDescriptionHint,
               maxLines: 5,
               minLines: 3,
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Please enter a description';
+                  return l10n.feedbackRequired;
                 }
                 return null;
               },
@@ -112,7 +114,7 @@ class _FeedbackFormContentState extends ConsumerState<FeedbackFormContent> {
             DropdownButtonFormField<String>(
               initialValue: _selectedCategory,
               decoration: InputDecoration(
-                labelText: 'Category',
+                labelText: l10n.feedbackCategory,
                 border: OutlineInputBorder(
                   borderRadius: kBorderRadiusMedium,
                 ),
@@ -149,7 +151,7 @@ class _FeedbackFormContentState extends ConsumerState<FeedbackFormContent> {
                         ),
                         const SizedBox(width: kSpace8),
                         Text(
-                          'Screenshots',
+                          l10n.feedbackScreenshots,
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         const Spacer(),
@@ -157,7 +159,7 @@ class _FeedbackFormContentState extends ConsumerState<FeedbackFormContent> {
                           onPressed:
                               _screenshots.length < 3 ? _pickScreenshot : null,
                           icon: const Icon(Icons.add_photo_alternate_outlined),
-                          label: const Text('Add'),
+                          label: Text(l10n.feedbackAddScreenshot),
                         ),
                       ],
                     ),
@@ -208,7 +210,7 @@ class _FeedbackFormContentState extends ConsumerState<FeedbackFormContent> {
                       Padding(
                         padding: const EdgeInsets.only(top: kSpace8),
                         child: Text(
-                          'No screenshots added (optional)',
+                          l10n.feedbackNoScreenshots,
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ),
@@ -226,8 +228,8 @@ class _FeedbackFormContentState extends ConsumerState<FeedbackFormContent> {
                   _includeDeviceInfo = value ?? true;
                 });
               },
-              title: const Text('Include device information'),
-              subtitle: const Text('Helps us diagnose issues'),
+              title: Text(l10n.feedbackIncludeDeviceInfo),
+              subtitle: Text(l10n.feedbackDeviceInfoHelp),
               controlAffinity: ListTileControlAffinity.leading,
               contentPadding: EdgeInsets.zero,
             ),
@@ -235,7 +237,7 @@ class _FeedbackFormContentState extends ConsumerState<FeedbackFormContent> {
 
             // Submit button
             AppButton(
-              label: 'Submit Feedback',
+              label: l10n.feedbackSubmit,
               onPressed:
                   submissionState.status == FeedbackSubmissionStatus.submitting
                       ? null
@@ -263,7 +265,7 @@ class _FeedbackFormContentState extends ConsumerState<FeedbackFormContent> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to pick image: $e'),
+            content: Text(AppLocalizations.of(context).feedbackImagePickFailed(e.toString())),
             backgroundColor: Colors.red,
           ),
         );

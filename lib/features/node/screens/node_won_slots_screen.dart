@@ -7,6 +7,7 @@ import 'package:crypto_mobile_app/features/node/node_data_providers.dart';
 import 'package:crypto_mobile_app/features/node/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/log_tag.dart';
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 import 'package:intl/intl.dart';
 
@@ -83,6 +84,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context);
     final rewardsAsync = ref.watch(epochRewardsProvider);
     final blockchainAsync = ref.watch(nodeBlockchainProvider);
 
@@ -90,8 +92,8 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
     final blockchain = blockchainAsync.value;
 
     return Scaffold(
-      appBar: const AppAppBar(
-        title: 'Won Slots',
+      appBar: AppAppBar(
+        title: l10n.wonSlotsTitle,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -100,8 +102,8 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
             return Center(
               child: Text(
                 (rewardsAsync.isLoading || blockchainAsync.isLoading)
-                    ? 'Loading epoch data...'
-                    : 'Epoch data unavailable',
+                    ? l10n.wonSlotsLoadingEpoch
+                    : l10n.wonSlotsEpochUnavailable,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: (rewardsAsync.isLoading || blockchainAsync.isLoading)
                       ? colorScheme.onSurfaceVariant
@@ -123,7 +125,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
           if (wonSlots.isEmpty) {
             return Center(
               child: Text(
-                'No won slots data available',
+                l10n.wonSlotsNoData,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
@@ -178,7 +180,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  useHourly ? 'Grouped by hour' : 'Grouped by day',
+                  useHourly ? l10n.wonSlotsGroupedByHour : l10n.wonSlotsGroupedByDay,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                   ),
@@ -197,19 +199,19 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
                     children: [
                       _buildSummaryItem(
                         context,
-                        'Won',
+                        l10n.wonSlotsWon,
                         wonSlots.length.toString(),
                         colorScheme.secondary,
                       ),
                       _buildSummaryItem(
                         context,
-                        'Produced',
+                        l10n.wonSlotsProduced,
                         producedSlots.length.toString(),
                         colorScheme.tertiary,
                       ),
                       _buildSummaryItem(
                         context,
-                        'Missed',
+                        l10n.wonSlotsMissed,
                         slotDataList
                             .where((s) => s.status == SlotStatus.missed)
                             .length
@@ -218,7 +220,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
                       ),
                       _buildSummaryItem(
                         context,
-                        'Pending',
+                        l10n.wonSlotsPending,
                         slotDataList
                             .where((s) => s.status == SlotStatus.pending)
                             .length
@@ -238,6 +240,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
                       colorScheme,
                       bucket,
                       useHourly,
+                      l10n,
                     )),
               ],
             ),
@@ -328,6 +331,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
     ColorScheme colorScheme,
     TimeBucketStats bucket,
     bool useHourly,
+    AppLocalizations l10n,
   ) {
     final now = DateTime.now();
     final isToday = bucket.time.year == now.year &&
@@ -337,13 +341,13 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
     final String timeLabel;
     if (useHourly) {
       if (isToday) {
-        timeLabel = 'Today ${bucket.time.hour.toString().padLeft(2, '0')}:00';
+        timeLabel = '${l10n.wonSlotsToday} ${bucket.time.hour.toString().padLeft(2, '0')}:00';
       } else {
         timeLabel = DateFormat('MMM d, HH:00').format(bucket.time);
       }
     } else {
       if (isToday) {
-        timeLabel = 'Today';
+        timeLabel = l10n.wonSlotsToday;
       } else {
         timeLabel = DateFormat('MMM d, yyyy').format(bucket.time);
       }
@@ -389,28 +393,28 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
             children: [
               _buildStatChip(
                 context,
-                'Won',
+                l10n.wonSlotsWon,
                 bucket.wonSlots,
                 colorScheme.secondaryContainer,
                 colorScheme.onSecondaryContainer,
               ),
               _buildStatChip(
                 context,
-                'Produced',
+                l10n.wonSlotsProduced,
                 bucket.produced,
                 colorScheme.tertiaryContainer,
                 colorScheme.onTertiaryContainer,
               ),
               _buildStatChip(
                 context,
-                'Missed',
+                l10n.wonSlotsMissed,
                 bucket.missed,
                 colorScheme.errorContainer,
                 colorScheme.onErrorContainer,
               ),
               _buildStatChip(
                 context,
-                'Pending',
+                l10n.wonSlotsPending,
                 bucket.pending,
                 colorScheme.primaryContainer,
                 colorScheme.onPrimaryContainer,

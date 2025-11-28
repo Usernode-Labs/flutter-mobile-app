@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/produced_blocks_screen.dart';
+import 'package:crypto_mobile_app/features/node/screens/node_status_screen.dart';
+import 'package:crypto_mobile_app/features/settings/screens/background_production_settings_screen.dart';
 
-class NewUxHomeShell extends StatefulWidget {
-  const NewUxHomeShell({super.key});
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
 
   @override
-  State<NewUxHomeShell> createState() => _NewUxHomeShellState();
+  State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _NewUxHomeShellState extends State<NewUxHomeShell> {
+class _HomeScreenState extends State<HomeScreen> {
   int _index = 0;
 
   @override
@@ -18,8 +20,8 @@ class _NewUxHomeShellState extends State<NewUxHomeShell> {
         index: _index,
         children: const [
           ProducedBlocksScreen(),
-          _ColoredBlank(color: Colors.green, label: 'Node Status'),
-          _ColoredBlank(color: Colors.blue, label: 'Settings'),
+          NodeStatusScreen(),
+          BackgroundProductionSettingsScreen(),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -46,23 +48,4 @@ class _NewUxHomeShellState extends State<NewUxHomeShell> {
     );
   }
 }
-
-class _ColoredBlank extends StatelessWidget {
-  const _ColoredBlank({required this.color, required this.label});
-  final Color color;
-  final String label;
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: color,
-      child: Center(
-        child: Text(
-          label,
-          style: const TextStyle(color: Colors.white, fontSize: 24),
-        ),
-      ),
-    );
-  }
-}
-
 

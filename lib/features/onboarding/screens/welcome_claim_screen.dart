@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:crypto_mobile_app/core/config/app_router.dart';
 
 class WelcomeClaimScreen extends StatelessWidget {
   const WelcomeClaimScreen({super.key});
@@ -33,7 +34,7 @@ class WelcomeClaimScreen extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  onPressed: () => context.go('/onboarding/import-api'),
+                  onPressed: () => context.go(AppRoutes.onboardingImportApi),
                   child: const Text('Claim your account'),
                 ),
               ),

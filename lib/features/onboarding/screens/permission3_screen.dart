@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class Permission3Screen extends StatefulWidget {
@@ -140,7 +141,7 @@ class _Permission3ScreenState extends State<Permission3Screen> {
                 width: double.infinity,
                 child: FilledButton(
                   onPressed:
-                      (_granted == true) ? () => context.go('/home') : null,
+                      (_granted == true) ? () => context.go(AppRoutes.home) : null,
                   child: const Text('Finish'),
                 ),
               ),

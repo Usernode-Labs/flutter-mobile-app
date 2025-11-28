@@ -15,13 +15,8 @@ import 'package:crypto_mobile_app/core/utils/lifecycle.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_provider.dart';
-import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/services/background_block_production_orchestrator.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
-
-const bool kNewUx =
-    bool.fromEnvironment('NEW_UX', defaultValue: false);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,23 +27,26 @@ Future<void> main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  final log = LoggingService();
+  final log = LoggingService.instance.withTag(LogTag.bootstrap);
+
   await SentryUtil.bootstrap(() async {
     SentryUtil.addBreadcrumb(category: 'app', message: 'startup begin');
-    log.info('App started', tag: 'MAIN');
+    log.info('App started');
 
     // Create provider container
     final container = ProviderContainer();
 
     final repo = await AccountsRepository.create();
     final hasAnyAccounts = await repo.hasAny();
-    print('hasAnyAccounts: $hasAnyAccounts');
+    log.info('hasAnyAccounts: $hasAnyAccounts');
 
     // Render UI immediately; perform heavy bootstrap asynchronously.
-    log.info('Running app UI', tag: 'MAIN');
+    log.info('Running app UI');
+
     SentryUtil.addBreadcrumb(category: 'app', message: 'runApp');
     runApp(UncontrolledProviderScope(
-        container: container, child: CryptoMobileApp(hasAccount: hasAnyAccounts)));
+        container: container,
+        child: CryptoMobileApp(hasAccount: hasAnyAccounts)));
     // Track lifecycle changes for breadcrumbs/diagnostics
     AppLifecycleLogger.register();
 
@@ -59,10 +57,10 @@ Future<void> main() async {
 }
 
 Future<void> _bootstrapAsync(
-    LoggingService log, ProviderContainer container) async {
+    TaggedLogger log, ProviderContainer container) async {
   try {
     SentryUtil.addBreadcrumb(category: 'app', message: 'bootstrap begin');
-    log.info('Initializing application', tag: 'MAIN');
+    log.info('Initializing application');
 
     // Log environment/config for diagnostics
     final cfg = AppConfig.instance;
@@ -75,87 +73,31 @@ Future<void> _bootstrapAsync(
     await FeatureFlags.loadFromAssetIfAvailable();
     if (kDebugMode) {
       log.debug(
-        'Feature flags loaded: ${FeatureFlags.ordered.where(FeatureFlags.isEnabled).toList()}',
-        tag: 'MAIN',
-      );
+          'Feature flags loaded: ${FeatureFlags.ordered.where(FeatureFlags.isEnabled).toList()}');
     }
 
     // Initialize FRB only; start backend only if an account exists
     if (!RustBackendService.instance.isRunning) {
       await RustBackendService.instance.init();
       final started = await RustBackendService.instance.startNode();
-      log.info('Backend startNode => $started', tag: 'MAIN');
+      log.info('Backend startNode => $started');
       await SentryUtil.captureMessage(
-        started
-            ? 'backend startNode: started'
-            : 'backend startNode: skipped',
+        started ? 'backend startNode: started' : 'backend startNode: skipped',
       );
     }
 
     // Initialize metrics collection service
-    log.info('Initializing metrics collection service', tag: 'MAIN');
+    log.info('Initializing metrics collection service');
     MetricsCollectorService.instance.initialize(container);
 
     // Initialize background block production orchestrator
-    log.info('Initializing background block production orchestrator',
-        tag: 'MAIN');
+    log.info('Initializing background block production orchestrator');
     await BackgroundBlockProductionOrchestrator.instance.initialize();
-
-    // Request permissions at startup (if not already requested)
-    // Skip for NEW_UX; permissions are requested in the onboarding flow (screen 3)
-    if (!kNewUx) {
-      await _requestPermissionsAtStartup(log);
-    }
 
     SentryUtil.addBreadcrumb(category: 'app', message: 'bootstrap end');
   } catch (e, st) {
-    log.error('Bootstrap failed: $e', tag: 'MAIN', error: e, stackTrace: st);
+    log.error('Bootstrap failed: $e');
     await SentryUtil.captureError(e, st, tag: 'bootstrap');
-  }
-}
-
-/// Request necessary permissions at app startup
-Future<void> _requestPermissionsAtStartup(LoggingService log) async {
-  try {
-    // Check if we've already requested permissions to avoid annoying users
-    final prefs = await SharedPreferences.getInstance();
-    final hasRequestedPermissions =
-        prefs.getBool('has_requested_permissions_at_startup') ?? false;
-
-    if (hasRequestedPermissions) {
-      log.info('Permissions already requested at startup previously',
-          tag: 'PERMISSIONS');
-      return;
-    }
-
-    log.info('Requesting permissions at startup...', tag: 'PERMISSIONS');
-    SentryUtil.addBreadcrumb(
-        category: 'permissions', message: 'startup request begin');
-
-    // Initialize platform alarm service
-    await PlatformAlarmService.instance.initialize();
-
-    // Request all necessary permissions
-    final granted = await PlatformAlarmService.instance.requestPermissions();
-
-    if (granted) {
-      log.info('All required permissions granted', tag: 'PERMISSIONS');
-    } else {
-      log.warn('Some permissions were not granted', tag: 'PERMISSIONS');
-    }
-
-    // Mark that we've requested permissions
-    await prefs.setBool('has_requested_permissions_at_startup', true);
-
-    SentryUtil.addBreadcrumb(
-      category: 'permissions',
-      message: 'startup request complete',
-      data: {'granted': granted},
-    );
-  } catch (e, st) {
-    log.error('Error requesting permissions at startup: $e',
-        tag: 'PERMISSIONS', error: e, stackTrace: st);
-    await SentryUtil.captureError(e, st, tag: 'permissions_startup');
   }
 }
 
@@ -165,7 +107,6 @@ class CryptoMobileApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-
     final router = ref.watch(appRouterProvider);
     final themeMode = ref.watch(themeModeProvider);
 

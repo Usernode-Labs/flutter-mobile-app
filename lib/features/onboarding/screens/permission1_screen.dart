@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 
 class Permission1Screen extends StatefulWidget {
@@ -107,7 +108,7 @@ class _Permission1ScreenState extends State<Permission1Screen> {
                   const Spacer(),
                   FilledButton(
                     onPressed: (_hasExactAlarm || !isAndroid)
-                        ? () => context.go('/onboarding/permission2')
+                        ? () => context.go(AppRoutes.onboardingPermission2)
                         : null,
                     child: const Text('Next'),
                   ),

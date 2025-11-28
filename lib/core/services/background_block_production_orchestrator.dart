@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
-import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import '../models/block_production_state.dart';
 import '../models/block_production_event.dart';
 import '../models/backend_rpc_response.dart';

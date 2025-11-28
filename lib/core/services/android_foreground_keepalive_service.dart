@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
-import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
@@ -44,8 +43,8 @@ class AndroidForegroundKeepAliveService {
       _log.info('Starting Android foreground keep-alive mode');
 
       // 1. Start persistent foreground service
-      final serviceStarted =
-          await PlatformAlarmService.instance.startPersistentForegroundService();
+      final serviceStarted = await PlatformAlarmService.instance
+          .startPersistentForegroundService();
 
       if (!serviceStarted) {
         _log.error('Failed to start persistent foreground service');

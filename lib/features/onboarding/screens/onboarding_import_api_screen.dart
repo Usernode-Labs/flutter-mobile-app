@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/features/onboarding/data/repositories/registration_repository.dart';
 import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
@@ -86,7 +87,7 @@ class _NewUxOnboardingImportApiScreenState
 
       // Navigate to New UX permission 1
       if (!mounted) return;
-      context.go('/onboarding/permission1');
+      context.go(AppRoutes.onboardingPermission1);
     } on RegistrationApiException catch (e) {
       if (!mounted) return;
       String message = e.message;

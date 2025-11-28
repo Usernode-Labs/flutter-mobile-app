@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:crypto_mobile_app/core/config/app_router.dart';
 
 class ProducedBlocksScreen extends StatelessWidget {
   const ProducedBlocksScreen({super.key});
@@ -75,7 +76,7 @@ class ProducedBlocksScreen extends StatelessWidget {
                         title: 'Slot Assignments',
                         subtitle: 'Evaluated 650 of 720 slots',
                         trailingPrimary: '90%',
-                        onTap: () => context.push('/produced/slot-assignments'),
+                        onTap: () => context.push(AppRoutes.slotAssignments),
                         showChevron: true,
                       ),
                       const SizedBox(height: 6),

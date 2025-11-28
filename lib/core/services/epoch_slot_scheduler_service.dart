@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
-import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto_mobile_app/features/node/node_provider.dart';
 import '../../features/node/node_service.dart';

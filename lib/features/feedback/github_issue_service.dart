@@ -4,9 +4,8 @@ import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:http/http.dart' as http;
 import 'package:crypto_mobile_app/core/utils/logger.dart';
-import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import '../config/app_config.dart';
+import '../../core/config/app_config.dart';
 
 final _log = LoggingService.instance.withTag(LogTag.general);
 

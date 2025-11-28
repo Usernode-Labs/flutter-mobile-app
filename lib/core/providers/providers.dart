@@ -6,7 +6,6 @@ import 'package:crypto_mobile_app/src/rust/lib.dart' as rust;
 import 'package:crypto_mobile_app/core/config/theme_mode.dart';
 import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
-import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 
 final _log = LoggingService.instance.withTag(LogTag.provider);
 

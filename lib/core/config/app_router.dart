@@ -3,14 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:crypto_mobile_app/features/splash/screens/splash_screen.dart';
-import 'package:crypto_mobile_app/features/onboarding/screens/use_demo_accounts_screen.dart';
-import 'package:crypto_mobile_app/features/onboarding/screens/import_api_account_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/welcome_claim_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/onboarding_import_api_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/permission1_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/permission2_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/permission3_screen.dart';
-import 'package:crypto_mobile_app/features/onboarding/screens/new_ux_home_shell.dart';
+import 'package:crypto_mobile_app/features/home/screens/home_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/slot_assignments_screen.dart';
 import 'package:crypto_mobile_app/core/main_app.dart';
 import 'package:crypto_mobile_app/features/node/screens/node_status_screen.dart';
@@ -19,22 +17,39 @@ import 'package:crypto_mobile_app/features/node/screens/produced_blocks_screen.d
 import 'package:crypto_mobile_app/features/node/screens/block_details_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/mempool_details_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/slot_production_stats_screen.dart';
-import 'package:crypto_mobile_app/features/settings/screens/settings_screen.dart';
 import 'package:crypto_mobile_app/features/settings/screens/background_production_settings_screen.dart';
-import 'package:crypto_mobile_app/features/rewards/screens/rewards_breakdown_screen.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
-import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 
 final _log = LoggingService.instance.withTag(LogTag.router);
 
 class AppRoutes {
+  // Core routes
   static const splash = '/splash';
   static const onboarding = '/onboarding/welcome';
   static const home = '/home';
   static const main = '/main';
+
+  // Onboarding flow
+  static const onboardingImportApi = '/onboarding/import-api';
+  static const onboardingPermission1 = '/onboarding/permission1';
+  static const onboardingPermission2 = '/onboarding/permission2';
+  static const onboardingPermission3 = '/onboarding/permission3';
+
+  // Standalone routes
+  static const slotAssignments = '/produced/slot-assignments';
+  static const backgroundProductionSettings = '/background-production-settings';
+
+  // Main shell routes
+  static const mainNode = '/main/node';
+  static const mainNodeWonSlots = '/main/node/won-slots';
+  static const mainNodeProducedBlocks = '/main/node/produced-blocks';
+  static const mainNodeProductionStats = '/main/node/production-stats';
+  static const mainNodeBlockDetails = '/main/node/block-details';
+  static const mainNodeMempool = '/main/node/mempool';
+  static const mainSettings = '/main/settings';
 }
 
 /// A ChangeNotifier that listens to Riverpod provider changes and notifies GoRouter
@@ -82,94 +97,78 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const SplashScreen(),
       ),
       GoRoute(
-        path: '/onboarding/welcome',
+        path: AppRoutes.onboarding,
         builder: (context, state) => const WelcomeClaimScreen(),
       ),
       GoRoute(
-        path: '/onboarding/import-api',
+        path: AppRoutes.onboardingImportApi,
         builder: (context, state) => const NewUxOnboardingImportApiScreen(),
       ),
       GoRoute(
-        path: '/onboarding/permission1',
+        path: AppRoutes.onboardingPermission1,
         builder: (context, state) => const Permission1Screen(),
       ),
       GoRoute(
-        path: '/onboarding/permission2',
+        path: AppRoutes.onboardingPermission2,
         builder: (context, state) => const Permission2Screen(),
       ),
       GoRoute(
-        path: '/onboarding/permission3',
+        path: AppRoutes.onboardingPermission3,
         builder: (context, state) => const Permission3Screen(),
       ),
       GoRoute(
-        path: '/home',
-        builder: (context, state) => const NewUxHomeShell(),
+        path: AppRoutes.home,
+        builder: (context, state) => const HomeScreen(),
       ),
       GoRoute(
-        path: '/produced/slot-assignments',
+        path: AppRoutes.slotAssignments,
         builder: (context, state) => const SlotAssignmentsScreen(),
       ),
       GoRoute(
-        path: '/import-api-account',
-        builder: (context, state) => const ImportApiAccountScreen(),
-      ),
-      GoRoute(
-        path: '/use-demo-accounts',
-        builder: (context, state) => const UseDemoAccountsScreen(),
-      ),
-      GoRoute(
-        path: '/settings',
-        builder: (context, state) => const SettingsScreen(),
-      ),
-      GoRoute(
-        path: '/background-production-settings',
+        path: AppRoutes.backgroundProductionSettings,
         builder: (context, state) => const BackgroundProductionSettingsScreen(),
-      ),
-      GoRoute(
-        path: '/rewards',
-        builder: (context, state) => const RewardsBreakdownScreen(),
       ),
       // Redirect bare /main to default tab
       GoRoute(
         path: AppRoutes.main,
-        redirect: (context, state) => '/main/node',
+        redirect: (context, state) => AppRoutes.mainNode,
       ),
       ShellRoute(
         builder: (context, state, child) =>
             MainApp(currentLocation: state.matchedLocation, child: child),
         routes: [
           GoRoute(
-            path: '/main/node',
+            path: AppRoutes.mainNode,
             pageBuilder: (context, state) => _buildPageWithFade(
               state,
               const NodeStatusScreen(),
             ),
           ),
           GoRoute(
-            path: '/main/node/won-slots',
+            path: AppRoutes.mainNodeWonSlots,
             builder: (context, state) => const NodeWonSlotsScreen(),
           ),
           GoRoute(
-            path: '/main/node/produced-blocks',
+            path: AppRoutes.mainNodeProducedBlocks,
             builder: (context, state) => const ProducedBlocksScreen(),
           ),
           GoRoute(
-            path: '/main/node/production-stats',
+            path: AppRoutes.mainNodeProductionStats,
             builder: (context, state) => const SlotProductionStatsScreen(),
           ),
           GoRoute(
-            path: '/main/node/block-details',
+            path: AppRoutes.mainNodeBlockDetails,
             builder: (context, state) {
               final block = state.extra as RpcStatusBlockInfo;
               return BlockDetailsScreen(block: block);
             },
           ),
           GoRoute(
-            path: '/main/node/mempool',
+            path: AppRoutes.mainNodeMempool,
             builder: (context, state) => const MempoolDetailsScreen(),
           ),
           GoRoute(
-            path: '/main/settings',
+            path: AppRoutes.mainSettings,
             pageBuilder: (context, state) => _buildPageWithFade(
               state,
               const BackgroundProductionSettingsScreen(),
@@ -212,10 +211,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           LoggingService.instance.trace('Redirecting splash to onboarding');
           return AppRoutes.onboarding;
         }
-        // Allow onboarding and demo accounts routes
-        if (currentLocation.startsWith('/onboarding/') ||
-            currentLocation == '/import-api-account' ||
-            currentLocation == '/use-demo-accounts') {
+        // Allow onboarding routes
+        if (currentLocation.startsWith('/onboarding/')) {
           LoggingService.instance.trace('Allowing onboarding route');
           return null;
         }
@@ -228,18 +225,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Account exists
       _log.trace('Account exists');
 
-      // Allow onboarding flow routes
-      if (currentLocation == '/import-api-account' ||
-          currentLocation == '/use-demo-accounts') {
-        LoggingService.instance.trace('Allowing onboarding flow route');
-        return null;
-      }
-
       // Redirect from splash and onboarding to home if user already has an account
       if (currentLocation == AppRoutes.splash ||
           currentLocation.startsWith('/onboarding/')) {
-        LoggingService.instance
-            .trace('Redirecting $currentLocation to /home');
+        LoggingService.instance.trace('Redirecting $currentLocation to /home');
         return AppRoutes.home;
       }
 

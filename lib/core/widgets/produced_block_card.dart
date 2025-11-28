@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 
 enum BlockCardVariant {
@@ -51,7 +52,7 @@ class ProducedBlockCard extends StatelessWidget {
 
     return InkWell(
       onTap: () {
-        context.push('/main/node/block-details', extra: block);
+        context.push(AppRoutes.mainNodeBlockDetails, extra: block);
       },
       borderRadius: BorderRadius.circular(12),
       child: Container(

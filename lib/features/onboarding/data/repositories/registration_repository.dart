@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:crypto_mobile_app/core/utils/logger.dart';
-import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 
 final _log = LoggingService.instance.withTag(LogTag.general);
@@ -142,11 +141,10 @@ class RegistrationResult {
       tier: json['tier'] as String,
       secretKeyHex: json['secret_key_hex'] as String,
       phaseId: phase is Map<String, dynamic> ? phase['id'] as int? : null,
-      phaseName: phase is Map<String, dynamic> ? phase['name'] as String? : null,
+      phaseName:
+          phase is Map<String, dynamic> ? phase['name'] as String? : null,
       phaseEndsAt:
           phase is Map<String, dynamic> ? phase['ends_at'] as String? : null,
     );
   }
 }
-
-

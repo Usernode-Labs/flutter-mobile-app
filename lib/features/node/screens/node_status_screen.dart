@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
+import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:crypto_mobile_app/core/widgets/produced_block_card.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
-import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'node_peers_screen.dart';
@@ -185,7 +185,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(l10n.commonError, style: TextStyle(color: colorScheme.error)),
+                  Text(l10n.commonError,
+                      style: TextStyle(color: colorScheme.error)),
                   const SizedBox(height: 6),
                   Text(_error!, style: theme.textTheme.bodySmall),
                   const SizedBox(height: 16),
@@ -668,7 +669,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                     ],
                     color: const Color(0xFFF9A825),
                     colorScheme: colorScheme,
-                    onTap: () => context.push('/main/node/won-slots'),
+                    onTap: () => context.push(AppRoutes.mainNodeWonSlots),
                     useGradient: false,
                   ),
                 ),
@@ -742,7 +743,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                 }(),
                 color: colorScheme.secondary,
                 colorScheme: colorScheme,
-                onTap: () => context.push('/main/node/mempool'),
+                onTap: () => context.push(AppRoutes.mainNodeMempool),
                 useGradient: false,
               ),
             ),
@@ -1272,7 +1273,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
               ),
               if (!_isRecentBlocksExpanded)
                 TextButton(
-                  onPressed: () => context.push('/main/node/produced-blocks'),
+                  onPressed: () => context.push(AppRoutes.mainNodeProducedBlocks),
                   style: TextButton.styleFrom(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

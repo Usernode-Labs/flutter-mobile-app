@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 
 class Permission2Screen extends StatefulWidget {
@@ -213,7 +214,7 @@ class _Permission2ScreenState extends State<Permission2Screen>
                   const Spacer(),
                   FilledButton(
                     onPressed: (_batteryOptDisabled || !isAndroid)
-                        ? () => context.go('/onboarding/permission3')
+                        ? () => context.go(AppRoutes.onboardingPermission3)
                         : null,
                     child: const Text('Next'),
                   ),

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
-import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import '../../features/node/node_service.dart';
 import '../data/slot_production_repository.dart';
 import 'epoch_slot_scheduler_service.dart';
@@ -233,8 +232,8 @@ class SlotMonitorService {
 
       // Check for timeout (24 slots after slot time)
       final now = DateTime.now();
-      final timeoutTime =
-          _currentSlot!.slotTime.add(Duration(milliseconds: _blockInterval * 24));
+      final timeoutTime = _currentSlot!.slotTime
+          .add(Duration(milliseconds: _blockInterval * 24));
 
       if (now.isAfter(timeoutTime)) {
         _log.warn('Monitoring timeout for slot $currentSlotNumber');

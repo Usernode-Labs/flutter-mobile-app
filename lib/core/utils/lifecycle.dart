@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
-import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import '../../features/node/node_service.dart';

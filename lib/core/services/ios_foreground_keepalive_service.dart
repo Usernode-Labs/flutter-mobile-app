@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
-import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 final _log = LoggingService.instance.withTag(LogTag.node);

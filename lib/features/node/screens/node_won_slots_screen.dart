@@ -6,7 +6,6 @@ import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/features/node/node_data_providers.dart';
 import 'package:crypto_mobile_app/features/node/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
-import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 import 'package:intl/intl.dart';
@@ -180,7 +179,9 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  useHourly ? l10n.wonSlotsGroupedByHour : l10n.wonSlotsGroupedByDay,
+                  useHourly
+                      ? l10n.wonSlotsGroupedByHour
+                      : l10n.wonSlotsGroupedByDay,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                   ),
@@ -341,7 +342,8 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
     final String timeLabel;
     if (useHourly) {
       if (isToday) {
-        timeLabel = '${l10n.wonSlotsToday} ${bucket.time.hour.toString().padLeft(2, '0')}:00';
+        timeLabel =
+            '${l10n.wonSlotsToday} ${bucket.time.hour.toString().padLeft(2, '0')}:00';
       } else {
         timeLabel = DateFormat('MMM d, HH:00').format(bucket.time);
       }

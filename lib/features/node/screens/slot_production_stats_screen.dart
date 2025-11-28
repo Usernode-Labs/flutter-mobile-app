@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
-import 'package:crypto_mobile_app/core/utils/log_tag.dart';
-import '../../../../core/data/slot_production_repository.dart';
+import 'package:crypto_mobile_app/core/data/slot_production_repository.dart';
 import 'package:intl/intl.dart';
 
 final _log = LoggingService.instance.withTag(LogTag.node);

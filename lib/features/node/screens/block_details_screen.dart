@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 
 class BlockDetailsScreen extends StatefulWidget {
   final RpcStatusBlockInfo block;
@@ -76,10 +77,11 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final block = widget.block;
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
-      appBar: const AppAppBar(
-        title: 'Block Details',
+      appBar: AppAppBar(
+        title: l10n.blockDetailsTitle,
         showNodeStatus: false,
       ),
       body: SafeArea(
@@ -108,14 +110,14 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Block #${block.height} at Slot ${block.globalSlot}',
+                        l10n.blockAtSlot(block.height, block.globalSlot),
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Epoch ${block.epoch}',
+                        l10n.statsEpoch(block.epoch),
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -131,59 +133,62 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
             // Timeline
             _TimelineItem(
               icon: Icons.check,
-              title: 'VRF Slot Discovered',
-              subtitle: 'Slot ${block.globalSlot} won',
+              title: l10n.blockVrfSlotDiscovered,
+              subtitle: l10n.blockSlotWon(block.globalSlot),
               timing: '${timings[0]}ms',
               isLast: false,
             ),
 
             _TimelineItem(
               icon: Icons.check,
-              title: 'Block Production Scheduled',
-              subtitle: 'Epoch ${block.epoch}, Slot ${block.globalSlot}',
+              title: l10n.blockProductionScheduled,
+              subtitle: l10n.blockEpochSlot(block.epoch, block.globalSlot),
               timing: '${timings[1]}ms',
               isLast: false,
             ),
 
             _TimelineItem(
               icon: Icons.check,
-              title: 'Transaction Batches Included',
+              title: l10n.blockTxBatchesIncluded,
               subtitle: block.batches.isNotEmpty
-                  ? 'Included ${block.batches.length} batches / ${block.transactions} transactions'
-                  : 'Included batches / transactions',
+                  ? l10n.blockIncludedBatchesTx(block.batches.length, block.transactions.toInt())
+                  : l10n.blockIncludedBatchesTxGeneric,
               timing: '${timings[2]}ms',
               isLast: false,
             ),
 
             _TimelineItem(
               icon: Icons.check,
-              title: 'State Transition.',
-              subtitle: 'Protocol and Consensus states updated',
+              title: l10n.blockStateTransition,
+              subtitle: l10n.blockStatesUpdated,
               timing: '${timings[3]}ms',
               isLast: false,
             ),
 
             _TimelineItem(
               icon: Icons.check,
-              title: 'Applied Locally',
-              subtitle: 'UTXOs updated',
+              title: l10n.blockAppliedLocally,
+              subtitle: l10n.blockUtxosUpdated,
               timing: '${timings[4]}ms',
               isLast: false,
             ),
 
             _TimelineItem(
               icon: Icons.check,
-              title: 'Block Committed',
-              subtitle: 'Block #${block.height}',
+              title: l10n.blockCommitted,
+              subtitle: l10n.blockNumber(block.height),
               timing: '${timings[5]}ms',
               isLast: false,
             ),
 
             _TimelineItem(
               icon: Icons.verified,
-              title: 'Block Confirmed',
-              subtitle:
-                  'Hash: ${block.hash.toString().length > 16 ? block.hash.toString().substring(0, 16) : block.hash.toString()}...',
+              title: l10n.blockConfirmed,
+              subtitle: l10n.blockHashPrefix(
+                block.hash.toString().length > 16
+                    ? block.hash.toString().substring(0, 16)
+                    : block.hash.toString()
+              ),
               timing: '${timings[6]}ms',
               isLast: true,
             ),
@@ -201,7 +206,7 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Block Information',
+                    l10n.blockInformation,
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w600,
                       color: theme.colorScheme.onSurface,
@@ -209,41 +214,41 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
                   ),
                   const SizedBox(height: 16),
                   _InfoRow(
-                    label: 'Block Hash',
+                    label: l10n.blockHash,
                     value: block.hash.toString().length > 24
                         ? '${block.hash.toString().substring(0, 24)}...'
                         : block.hash.toString(),
                   ),
                   const SizedBox(height: 12),
                   _InfoRow(
-                    label: 'Height',
+                    label: l10n.blockHeight,
                     value: '${block.height}',
                   ),
                   const SizedBox(height: 12),
                   _InfoRow(
-                    label: 'Global Slot',
+                    label: l10n.blockGlobalSlot,
                     value: '${block.globalSlot}',
                   ),
                   const SizedBox(height: 12),
                   _InfoRow(
-                    label: 'Epoch',
+                    label: l10n.blockEpoch,
                     value: '${block.epoch}',
                   ),
                   const SizedBox(height: 12),
                   _InfoRow(
-                    label: 'Producer',
+                    label: l10n.blockProducer,
                     value: block.producerPubkey.length > 24
                         ? '${block.producerPubkey.substring(0, 24)}...'
                         : block.producerPubkey,
                   ),
                   const SizedBox(height: 12),
                   _InfoRow(
-                    label: 'Transactions',
+                    label: l10n.blockTransactions,
                     value: '${block.transactions}',
                   ),
                   const SizedBox(height: 12),
                   _InfoRow(
-                    label: 'Batches',
+                    label: l10n.blockBatches,
                     value: '${block.batches.length}',
                   ),
                 ],

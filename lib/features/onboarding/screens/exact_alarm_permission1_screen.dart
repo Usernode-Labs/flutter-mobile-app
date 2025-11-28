@@ -3,15 +3,18 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 
-class Permission1Screen extends StatefulWidget {
-  const Permission1Screen({super.key});
+class ExactAlarmPermission1Screen extends StatefulWidget {
+  const ExactAlarmPermission1Screen({super.key});
 
   @override
-  State<Permission1Screen> createState() => _Permission1ScreenState();
+  State<ExactAlarmPermission1Screen> createState() =>
+      _ExactAlarmPermission1ScreenState();
 }
 
-class _Permission1ScreenState extends State<Permission1Screen> {
+class _ExactAlarmPermission1ScreenState
+    extends State<ExactAlarmPermission1Screen> {
   bool _checking = true;
   bool _hasExactAlarm = false;
   bool _requesting = false;
@@ -35,6 +38,7 @@ class _Permission1ScreenState extends State<Permission1Screen> {
   Future<void> _requestExactAlarm() async {
     if (_requesting) return;
     setState(() => _requesting = true);
+    final l10n = AppLocalizations.of(context);
     try {
       final granted =
           await PlatformAlarmService.instance.requestExactAlarmOnly();
@@ -44,8 +48,8 @@ class _Permission1ScreenState extends State<Permission1Screen> {
         SnackBar(
           content: Text(
             granted
-                ? 'Exact alarm permission granted'
-                : 'Please enable exact alarms in Settings',
+                ? l10n.permExactAlarmGranted
+                : l10n.permExactAlarmEnableInSettings,
           ),
         ),
       );
@@ -56,25 +60,28 @@ class _Permission1ScreenState extends State<Permission1Screen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final isAndroid = Platform.isAndroid;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Exact Alarms')),
+      appBar: AppBar(title: Text(l10n.permExactAlarmsTitle)),
       body: _checking
           ? const Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text(
-                    'Why exact alarms are required',
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                  Text(
+                    l10n.permExactAlarmsWhy,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     isAndroid
-                        ? 'Android restricts apps from waking the device at precise times unless explicitly allowed. Without this permission, alarms may be delayed by up to 10 minutes, causing missed blocks.\n\nDepending on your device, this permission may already be granted.'
-                        : 'This step is primarily for Android devices. You can continue.',
+                        ? l10n.permExactAlarmsAndroidExplanation
+                        : l10n.permExactAlarmsIosExplanation,
                   ),
                   const SizedBox(height: 16),
                   if (isAndroid && !_hasExactAlarm)
@@ -86,7 +93,7 @@ class _Permission1ScreenState extends State<Permission1Screen> {
                               width: 20,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('Grant exact alarm permission'),
+                          : Text(l10n.permGrantExactAlarm),
                     ),
                   const SizedBox(height: 24),
                   Align(
@@ -100,23 +107,22 @@ class _Permission1ScreenState extends State<Permission1Screen> {
                         ),
                         const SizedBox(width: 8),
                         Text(_hasExactAlarm
-                            ? 'Permission granted'
-                            : 'Permission required'),
+                            ? l10n.permGranted
+                            : l10n.permRequired),
                       ],
                     ),
                   ),
                   const Spacer(),
                   FilledButton(
                     onPressed: (_hasExactAlarm || !isAndroid)
-                        ? () => context.go(AppRoutes.onboardingPermission2)
+                        ? () => context.go(AppRoutes.onboardingBatteryPermission2)
                         : null,
-                    child: const Text('Next'),
+                    child: Text(l10n.commonNext),
                   ),
                 ],
+                ),
               ),
             ),
     );
   }
 }
-
-

@@ -9,6 +9,8 @@ import 'package:crypto_mobile_app/features/wallet/mempool_provider.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 
+final _log = LoggingService.instance.withTag(LogTag.wallet);
+
 /// Controller that combines mempool transactions and confirmed UTXOs
 /// into a unified transaction activity list
 class TransactionActivityController
@@ -34,8 +36,7 @@ class TransactionActivityController
           ownerAddress = acc.address;
         }
       } catch (e) {
-        LoggingService.instance
-            .warn('Failed to get active account: $e', tag: 'ACTIVITY');
+        _log.warn('Failed to get active account: $e');
       }
 
       final transactions = <TransactionItem>[];
@@ -53,9 +54,7 @@ class TransactionActivityController
           transactions.add(item);
         }
       } catch (e, st) {
-        LoggingService.instance.warn(
-            'Failed to load mempool transactions: $e $st',
-            tag: 'ACTIVITY');
+        _log.warn('Failed to load mempool transactions: $e $st');
         // Continue even if mempool fails
       }
 
@@ -65,21 +64,17 @@ class TransactionActivityController
         final epochRewards = await RustBackendService.instance.epochRewards();
         if (epochRewards != null) {
           coinbaseRewardAmount = epochRewards.rewardPerBlock;
-          LoggingService.instance.debug(
-              'Coinbase reward amount: $coinbaseRewardAmount',
-              tag: 'ACTIVITY');
+          _log.debug('Coinbase reward amount: $coinbaseRewardAmount');
         }
       } catch (e) {
-        LoggingService.instance
-            .warn('Failed to fetch epoch rewards: $e', tag: 'ACTIVITY');
+        _log.warn('Failed to fetch epoch rewards: $e');
         // Continue with null, will use default fallback value
       }
 
       // Fetch confirmed UTXOs (limit to 5 for display with mocks)
       try {
         final utxos = await ref.watch(walletUtxosProvider.future);
-        LoggingService.instance
-            .debug('Confirmed UTXOs: ${utxos.length}', tag: 'ACTIVITY');
+        _log.debug('Confirmed UTXOs: ${utxos.length}');
 
         // Take last 5 UTXOs (most recent ones)
         final limitedUtxos =
@@ -98,24 +93,19 @@ class TransactionActivityController
             );
             transactions.add(item);
           } catch (e) {
-            LoggingService.instance
-                .warn('Failed to parse UTXO[$i]: $e', tag: 'ACTIVITY');
+            _log.warn('Failed to parse UTXO[$i]: $e');
           }
         }
       } catch (e, st) {
-        LoggingService.instance
-            .warn('Failed to load UTXOs: $e $st', tag: 'ACTIVITY');
+        _log.warn('Failed to load UTXOs: $e $st');
         // Continue even if UTXOs fail
       }
 
-      LoggingService.instance.debug(
-          'Total transactions: ${transactions.length}',
-          tag: 'ACTIVITY');
+      _log.debug('Total transactions: ${transactions.length}');
 
       return transactions;
     } catch (e, st) {
-      LoggingService.instance.error('Failed to fetch transaction activity',
-          tag: 'ACTIVITY', error: e, stackTrace: st);
+      _log.error('Failed to fetch transaction activity', error: e, stackTrace: st);
       rethrow;
     }
   }

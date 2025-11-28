@@ -463,4 +463,375 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get nodeNotAvailable => 'Not available';
+
+  @override
+  String get navProducedBlocks => 'Produced Blocks';
+
+  @override
+  String get navNodeStatus => 'Node Status';
+
+  @override
+  String get navSettings => 'Settings';
+
+  @override
+  String get welcomeTitle => 'Welcome Usernode Operator';
+
+  @override
+  String get welcomeClaimAccount => 'Claim your account';
+
+  @override
+  String get permExactAlarmsTitle => 'Exact Alarms';
+
+  @override
+  String get permExactAlarmsWhy => 'Why exact alarms are required';
+
+  @override
+  String get permExactAlarmsAndroidExplanation =>
+      'Android restricts apps from waking the device at precise times unless explicitly allowed. Without this permission, alarms may be delayed by up to 10 minutes, causing missed blocks.\n\nDepending on your device, this permission may already be granted.';
+
+  @override
+  String get permExactAlarmsIosExplanation =>
+      'This step is primarily for Android devices. You can continue.';
+
+  @override
+  String get permGrantExactAlarm => 'Grant exact alarm permission';
+
+  @override
+  String get permExactAlarmGranted => 'Exact alarm permission granted';
+
+  @override
+  String get permExactAlarmEnableInSettings =>
+      'Please enable exact alarms in Settings';
+
+  @override
+  String get permGranted => 'Permission granted';
+
+  @override
+  String get permRequired => 'Permission required';
+
+  @override
+  String get commonNext => 'Next';
+
+  @override
+  String get commonFinish => 'Finish';
+
+  @override
+  String get permBatteryTitle => 'Battery Optimization';
+
+  @override
+  String get permBatteryWhyMatters => 'Why this matters';
+
+  @override
+  String get permBatteryAndroidExplanation =>
+      'Android\'s battery saver can delay or skip alarms to save power. Disabling battery optimization for this app ensures your wake-up alarms fire on time when blocks are scheduled to be produced.';
+
+  @override
+  String get permBatteryIosExplanation =>
+      'This step applies to Android devices.';
+
+  @override
+  String get permBatteryImpact => 'Impact of battery optimization:';
+
+  @override
+  String get permBatteryWarning =>
+      'Alarms may be delayed 1–60 seconds, or skipped entirely.';
+
+  @override
+  String get permBatteryOptimized =>
+      'With optimization disabled, alarms fire precisely when scheduled.';
+
+  @override
+  String get permOpenBatterySettings => 'Open Battery Settings';
+
+  @override
+  String permBatteryDeviceWarning(String manufacturer) {
+    return '$manufacturer devices require additional settings. Tap Open Battery Settings for guidance.';
+  }
+
+  @override
+  String get permBatteryOptDisabled => 'Battery optimization disabled';
+
+  @override
+  String get permBatteryOptEnabled => 'Battery optimization enabled';
+
+  @override
+  String get permNotificationsTitle => 'Notifications';
+
+  @override
+  String get permNotificationsExplanation =>
+      'Allow notifications to receive important updates. You can change this later in Settings.';
+
+  @override
+  String get permAllowNotifications => 'Allow notifications';
+
+  @override
+  String get permNotificationsDisabledMessage =>
+      'Notifications are currently disabled. You can enable them in Settings.';
+
+  @override
+  String get permOpenSettings => 'Open Settings';
+
+  @override
+  String get permNotificationsEnabled => 'Notifications enabled';
+
+  @override
+  String get permNotificationsDisabled => 'Notifications disabled';
+
+  @override
+  String get permNotificationsDenied => 'Notifications denied';
+
+  @override
+  String get permNotificationsPermanentlyDenied =>
+      'Notifications permanently denied. Enable in Settings.';
+
+  @override
+  String permNotificationStatus(String status) {
+    return 'Notification status: $status';
+  }
+
+  @override
+  String get statsTitle => 'Production Statistics';
+
+  @override
+  String get statsOverall => 'Overall Statistics';
+
+  @override
+  String get statsWonSlots => 'Won Slots';
+
+  @override
+  String get statsAttempted => 'Attempted';
+
+  @override
+  String get statsProduced => 'Produced';
+
+  @override
+  String get statsFailed => 'Failed';
+
+  @override
+  String get statsLastUpdated => 'Last Updated';
+
+  @override
+  String get statsSuccessRate => 'Success Rate';
+
+  @override
+  String get statsNoRecords => 'No production records yet';
+
+  @override
+  String get statsRecentRecords => 'Recent Production Records';
+
+  @override
+  String statsEpoch(int epoch) {
+    return 'Epoch $epoch';
+  }
+
+  @override
+  String statsSlot(int slot) {
+    return 'Slot $slot';
+  }
+
+  @override
+  String statsBlock(int block) {
+    return 'Block $block';
+  }
+
+  @override
+  String statsSuccessfulOf(int produced, int attempted) {
+    return '$produced successful out of $attempted attempts';
+  }
+
+  @override
+  String get statsStatusWon => 'Won (not yet attempted)';
+
+  @override
+  String get statsStatusAttempting => 'Currently attempting production';
+
+  @override
+  String get statsStatusProduced => 'Successfully produced';
+
+  @override
+  String get statsStatusFailed => 'Production failed';
+
+  @override
+  String get timeJustNow => 'Just now';
+
+  @override
+  String timeMinutesAgo(int minutes) {
+    return '$minutes minutes ago';
+  }
+
+  @override
+  String timeHoursAgo(int hours) {
+    return '$hours hours ago';
+  }
+
+  @override
+  String timeDaysAgo(int days) {
+    return '$days days ago';
+  }
+
+  @override
+  String get blockDetailsTitle => 'Block Details';
+
+  @override
+  String get blockVrfSlotDiscovered => 'VRF Slot Discovered';
+
+  @override
+  String blockSlotWon(int slot) {
+    return 'Slot $slot won';
+  }
+
+  @override
+  String get blockProductionScheduled => 'Block Production Scheduled';
+
+  @override
+  String blockEpochSlot(int epoch, int slot) {
+    return 'Epoch $epoch, Slot $slot';
+  }
+
+  @override
+  String get blockTxBatchesIncluded => 'Transaction Batches Included';
+
+  @override
+  String blockIncludedBatchesTx(int batches, int transactions) {
+    return 'Included $batches batches / $transactions transactions';
+  }
+
+  @override
+  String get blockIncludedBatchesTxGeneric => 'Included batches / transactions';
+
+  @override
+  String get blockStateTransition => 'State Transition.';
+
+  @override
+  String get blockStatesUpdated => 'Protocol and Consensus states updated';
+
+  @override
+  String get blockAppliedLocally => 'Applied Locally';
+
+  @override
+  String get blockUtxosUpdated => 'UTXOs updated';
+
+  @override
+  String get blockCommitted => 'Block Committed';
+
+  @override
+  String blockNumber(int height) {
+    return 'Block #$height';
+  }
+
+  @override
+  String get blockConfirmed => 'Block Confirmed';
+
+  @override
+  String blockHashPrefix(String hash) {
+    return 'Hash: $hash...';
+  }
+
+  @override
+  String get blockInformation => 'Block Information';
+
+  @override
+  String get blockHash => 'Block Hash';
+
+  @override
+  String get blockHeight => 'Height';
+
+  @override
+  String get blockGlobalSlot => 'Global Slot';
+
+  @override
+  String get blockEpoch => 'Epoch';
+
+  @override
+  String get blockProducer => 'Producer';
+
+  @override
+  String get blockTransactions => 'Transactions';
+
+  @override
+  String get blockBatches => 'Batches';
+
+  @override
+  String blockAtSlot(int height, int slot) {
+    return 'Block #$height at Slot $slot';
+  }
+
+  @override
+  String get mempoolTotal => 'Total';
+
+  @override
+  String get mempoolOrphans => 'Orphans';
+
+  @override
+  String get mempoolSize => 'Size';
+
+  @override
+  String get mempoolView => 'View';
+
+  @override
+  String get mempoolComingSoon => 'Coming Soon';
+
+  @override
+  String get mempoolDetailsComingSoon =>
+      'Transaction details will be available in a future update.';
+
+  @override
+  String get nodeConnecting => 'Connecting';
+
+  @override
+  String get nodeSynced => 'Synced';
+
+  @override
+  String get nodeSyncing => 'Syncing';
+
+  @override
+  String nodeSyncingPercent(String percent) {
+    return 'Syncing ($percent%)';
+  }
+
+  @override
+  String get nodeOverview => 'Overview';
+
+  @override
+  String get nodePeerId => 'Peer ID: ';
+
+  @override
+  String get peerUnavailable => '(unavailable)';
+
+  @override
+  String get peerHiddenAddress => '(Hidden address)';
+
+  @override
+  String peerHeight(String height) {
+    return 'Height: $height';
+  }
+
+  @override
+  String peerSlot(String slot) {
+    return 'Slot: $slot';
+  }
+
+  @override
+  String get timeAMinuteAgo => 'a minute ago';
+
+  @override
+  String get timeAnHourAgo => 'an hour ago';
+
+  @override
+  String get timeYesterday => 'yesterday';
+
+  @override
+  String timeWeeksAgo(int weeks, String suffix) {
+    return '$weeks week$suffix ago';
+  }
+
+  @override
+  String timeMonthsAgo(int months, String suffix) {
+    return '$months month$suffix ago';
+  }
+
+  @override
+  String timeYearsAgo(int years, String suffix) {
+    return '$years year$suffix ago';
+  }
 }

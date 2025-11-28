@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/data/slot_production_repository.dart';
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:intl/intl.dart';
 
 final _log = LoggingService.instance.withTag(LogTag.node);
@@ -62,10 +63,11 @@ class _SlotProductionStatsScreenState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Production Statistics'),
+        title: Text(l10n.statsTitle),
         elevation: 0,
         backgroundColor: Colors.transparent,
         actions: [
@@ -83,22 +85,22 @@ class _SlotProductionStatsScreenState
                 padding: const EdgeInsets.all(16),
                 children: [
                   // Overview Stats Card
-                  _buildOverviewCard(theme, colorScheme),
+                  _buildOverviewCard(theme, colorScheme, l10n),
                   const SizedBox(height: 16),
 
                   // Success Rate Card
-                  _buildSuccessRateCard(theme, colorScheme),
+                  _buildSuccessRateCard(theme, colorScheme, l10n),
                   const SizedBox(height: 16),
 
                   // Recent Records by Epoch
-                  _buildRecentRecordsSection(theme, colorScheme),
+                  _buildRecentRecordsSection(theme, colorScheme, l10n),
                 ],
               ),
             ),
     );
   }
 
-  Widget _buildOverviewCard(ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildOverviewCard(ThemeData theme, ColorScheme colorScheme, AppLocalizations l10n) {
     if (_stats == null) {
       return const SizedBox.shrink();
     }
@@ -114,7 +116,7 @@ class _SlotProductionStatsScreenState
                 Icon(Icons.analytics, color: colorScheme.primary),
                 const SizedBox(width: 12),
                 Text(
-                  'Overall Statistics',
+                  l10n.statsOverall,
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -126,7 +128,7 @@ class _SlotProductionStatsScreenState
               children: [
                 Expanded(
                   child: _buildStatColumn(
-                    'Won Slots',
+                    l10n.statsWonSlots,
                     _stats!.totalWonSlots.toString(),
                     Icons.star,
                     Colors.amber,
@@ -135,7 +137,7 @@ class _SlotProductionStatsScreenState
                 ),
                 Expanded(
                   child: _buildStatColumn(
-                    'Attempted',
+                    l10n.statsAttempted,
                     _stats!.totalAttempted.toString(),
                     Icons.play_arrow,
                     Colors.blue,
@@ -149,7 +151,7 @@ class _SlotProductionStatsScreenState
               children: [
                 Expanded(
                   child: _buildStatColumn(
-                    'Produced',
+                    l10n.statsProduced,
                     _stats!.totalProduced.toString(),
                     Icons.check_circle,
                     Colors.green,
@@ -158,7 +160,7 @@ class _SlotProductionStatsScreenState
                 ),
                 Expanded(
                   child: _buildStatColumn(
-                    'Failed',
+                    l10n.statsFailed,
                     _stats!.totalFailed.toString(),
                     Icons.error,
                     Colors.red,
@@ -174,13 +176,13 @@ class _SlotProductionStatsScreenState
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Last Updated',
+                  l10n.statsLastUpdated,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
                 ),
                 Text(
-                  _formatDateTime(_stats!.lastUpdated),
+                  _formatDateTime(_stats!.lastUpdated, l10n),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
@@ -221,7 +223,7 @@ class _SlotProductionStatsScreenState
     );
   }
 
-  Widget _buildSuccessRateCard(ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildSuccessRateCard(ThemeData theme, ColorScheme colorScheme, AppLocalizations l10n) {
     if (_stats == null || _stats!.totalAttempted == 0) {
       return const SizedBox.shrink();
     }
@@ -243,7 +245,7 @@ class _SlotProductionStatsScreenState
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Success Rate',
+                  l10n.statsSuccessRate,
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -282,7 +284,7 @@ class _SlotProductionStatsScreenState
             ),
             const SizedBox(height: 12),
             Text(
-              '${_stats!.totalProduced} successful out of ${_stats!.totalAttempted} attempts',
+              l10n.statsSuccessfulOf(_stats!.totalProduced, _stats!.totalAttempted),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurface.withValues(alpha: 0.7),
               ),
@@ -294,7 +296,7 @@ class _SlotProductionStatsScreenState
     );
   }
 
-  Widget _buildRecentRecordsSection(ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildRecentRecordsSection(ThemeData theme, ColorScheme colorScheme, AppLocalizations l10n) {
     if (_recentRecords.isEmpty) {
       return Card(
         child: Padding(
@@ -309,7 +311,7 @@ class _SlotProductionStatsScreenState
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'No production records yet',
+                  l10n.statsNoRecords,
                   style: theme.textTheme.titleMedium?.copyWith(
                     color: colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
@@ -327,14 +329,14 @@ class _SlotProductionStatsScreenState
         Padding(
           padding: const EdgeInsets.only(left: 8, bottom: 12),
           child: Text(
-            'Recent Production Records',
+            l10n.statsRecentRecords,
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
             ),
           ),
         ),
         ..._recordsByEpoch.entries.map((entry) {
-          return _buildEpochSection(entry.key, entry.value, theme, colorScheme);
+          return _buildEpochSection(entry.key, entry.value, theme, colorScheme, l10n);
         }),
       ],
     );
@@ -345,13 +347,14 @@ class _SlotProductionStatsScreenState
     List<SlotProductionRecord> records,
     ThemeData theme,
     ColorScheme colorScheme,
+    AppLocalizations l10n,
   ) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ExpansionTile(
         leading: Icon(Icons.calendar_today, color: colorScheme.primary),
         title: Text(
-          'Epoch $epoch',
+          l10n.statsEpoch(epoch),
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.bold,
           ),
@@ -361,7 +364,7 @@ class _SlotProductionStatsScreenState
           style: theme.textTheme.bodySmall,
         ),
         children: records.map((record) {
-          return _buildRecordTile(record, theme, colorScheme);
+          return _buildRecordTile(record, theme, colorScheme, l10n);
         }).toList(),
       ),
     );
@@ -371,24 +374,25 @@ class _SlotProductionStatsScreenState
     SlotProductionRecord record,
     ThemeData theme,
     ColorScheme colorScheme,
+    AppLocalizations l10n,
   ) {
     final statusColor = _getStatusColor(record.status);
     final statusIcon = _getStatusIcon(record.status);
-    final statusText = _getStatusText(record.status);
+    final statusText = _getStatusText(record.status, l10n);
 
     return ListTile(
       leading: CircleAvatar(
         backgroundColor: statusColor.withValues(alpha: 0.2),
         child: Icon(statusIcon, color: statusColor, size: 20),
       ),
-      title: Text('Slot ${record.slotNumber}'),
+      title: Text(l10n.statsSlot(record.slotNumber)),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(statusText),
           if (record.producedTime != null)
             Text(
-              'Produced: ${_formatDateTime(record.producedTime!)}',
+              'Produced: ${_formatDateTime(record.producedTime!, l10n)}',
               style: theme.textTheme.bodySmall,
             ),
           if (record.failureReason != null)
@@ -402,7 +406,7 @@ class _SlotProductionStatsScreenState
       ),
       trailing: record.blockHeight != null
           ? Chip(
-              label: Text('Block ${record.blockHeight}'),
+              label: Text(l10n.statsBlock(record.blockHeight!)),
               backgroundColor: Colors.green.withValues(alpha: 0.2),
               labelStyle: const TextStyle(
                 fontSize: 11,
@@ -439,31 +443,31 @@ class _SlotProductionStatsScreenState
     }
   }
 
-  String _getStatusText(SlotProductionStatus status) {
+  String _getStatusText(SlotProductionStatus status, AppLocalizations l10n) {
     switch (status) {
       case SlotProductionStatus.won:
-        return 'Won (not yet attempted)';
+        return l10n.statsStatusWon;
       case SlotProductionStatus.attempting:
-        return 'Currently attempting production';
+        return l10n.statsStatusAttempting;
       case SlotProductionStatus.produced:
-        return 'Successfully produced';
+        return l10n.statsStatusProduced;
       case SlotProductionStatus.failed:
-        return 'Production failed';
+        return l10n.statsStatusFailed;
     }
   }
 
-  String _formatDateTime(DateTime dateTime) {
+  String _formatDateTime(DateTime dateTime, AppLocalizations l10n) {
     final now = DateTime.now();
     final difference = now.difference(dateTime);
 
     if (difference.inMinutes < 1) {
-      return 'Just now';
+      return l10n.timeJustNow;
     } else if (difference.inHours < 1) {
-      return '${difference.inMinutes} minutes ago';
+      return l10n.timeMinutesAgo(difference.inMinutes);
     } else if (difference.inDays < 1) {
-      return '${difference.inHours} hours ago';
+      return l10n.timeHoursAgo(difference.inHours);
     } else if (difference.inDays < 7) {
-      return '${difference.inDays} days ago';
+      return l10n.timeDaysAgo(difference.inDays);
     } else {
       return DateFormat('MMM d, HH:mm').format(dateTime);
     }

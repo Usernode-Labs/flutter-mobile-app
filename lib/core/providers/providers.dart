@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
@@ -17,6 +18,19 @@ final hasAnyAccountProvider = FutureProvider<bool>((ref) async {
   LoggingService.instance.debug('hasAnyAccountProvider: result = $result');
   return result;
 });
+
+// Onboarding completion provider
+const _kOnboardingCompletedKey = 'onboarding:completed';
+
+final hasCompletedOnboardingProvider = FutureProvider<bool>((ref) async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getBool(_kOnboardingCompletedKey) ?? false;
+});
+
+Future<void> markOnboardingComplete() async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setBool(_kOnboardingCompletedKey, true);
+}
 
 // Backend lifecycle manager - automatically starts/stops based on account state
 final backendLifecycleProvider = Provider<void>((ref) {

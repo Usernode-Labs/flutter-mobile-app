@@ -320,15 +320,15 @@ class MetricsCollectorService {
     BatteryState batteryState = BatteryState.unknown;
 
     try {
-      _log.debug('Attempting to get battery level...');
+      _log.trace('Attempting to get battery level...');
       batteryLevel = await _battery.batteryLevel;
-      _log.debug('Battery level retrieved: $batteryLevel%');
+      _log.trace('Battery level retrieved: $batteryLevel%');
       batteryState = await _battery.batteryState;
-      _log.debug('Battery state: $batteryState');
+      _log.trace('Battery state: $batteryState');
     } catch (e, stackTrace) {
       // Battery info not available on this platform (desktop/simulator)
       _log.warn('Could not get battery level: $e');
-      _log.debug('Battery error stacktrace: $stackTrace');
+      _log.trace('Battery error stacktrace: $stackTrace');
     }
 
     // Check if battery optimization is disabled (Android) - CACHED with 5min TTL

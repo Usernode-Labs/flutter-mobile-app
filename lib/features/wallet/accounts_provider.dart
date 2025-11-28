@@ -6,6 +6,8 @@ import 'package:crypto_mobile_app/features/wallet/models/account.dart';
 import 'package:crypto_mobile_app/src/rust/account.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 
+final _log = LoggingService.instance.withTag(LogTag.wallet);
+
 /// Provider for AccountsRepository - handles account persistence
 final accountsProvider = FutureProvider<AccountsRepository>((ref) async {
   return AccountsRepository.create();
@@ -30,9 +32,7 @@ class AccountsRepository {
   Future<bool> hasAny() async {
     final items = await list();
     final result = items.isNotEmpty;
-    LoggingService.instance.trace(
-        'hasAny() = $result (found ${items.length} accounts)',
-        tag: 'ACCOUNTS_REPO');
+    _log.trace('hasAny() = $result (found ${items.length} accounts)');
     return result;
   }
 
@@ -78,9 +78,8 @@ class AccountsRepository {
           await _secure.read(key: 'account:$accountId:privateKey');
       return privateKey;
     } catch (e, st) {
-      LoggingService.instance.error(
+      _log.error(
           'Failed to read private key for account $accountId',
-          tag: 'ACCOUNTS_REPO',
           error: e,
           stackTrace: st);
       return null;
@@ -93,9 +92,7 @@ class AccountsRepository {
     required String privateKeyHex,
     bool isDemo = false,
   }) async {
-    LoggingService.instance.trace(
-        'importFromPrivateKey - start (name: $name, isDemo: $isDemo)',
-        tag: 'ACCOUNTS_REPO');
+    _log.trace('importFromPrivateKey - start (name: $name, isDemo: $isDemo)');
 
     try {
       // Use Rust backend to derive public key and address from private key
@@ -108,11 +105,9 @@ class AccountsRepository {
       final publicKey = accountExport.publicKeyHex;
       final address = accountExport.publicKeyHashBech32M;
 
-      LoggingService.instance.trace('Private key length: ${privateKey.length}',
-          tag: 'ACCOUNTS_REPO');
-      LoggingService.instance.trace('Public key length: ${publicKey.length}',
-          tag: 'ACCOUNTS_REPO');
-      LoggingService.instance.trace('Address: $address', tag: 'ACCOUNTS_REPO');
+      _log.trace('Private key length: ${privateKey.length}');
+      _log.trace('Public key length: ${publicKey.length}');
+      _log.trace('Address: $address');
 
       final result = await _persistNew(
         name: name,
@@ -122,14 +117,11 @@ class AccountsRepository {
         derivationPath: 'imported', // Mark as imported rather than HD path
         isDemo: isDemo,
       );
-      LoggingService.instance.trace(
-          'importFromPrivateKey - success (account id: ${result.id})',
-          tag: 'ACCOUNTS_REPO');
+      _log.trace('importFromPrivateKey - success (account id: ${result.id})');
       return result;
     } catch (e, stackTrace) {
-      LoggingService.instance.error(
+      _log.error(
           'importFromPrivateKey - FAILED with exception',
-          tag: 'ACCOUNTS_REPO',
           error: e,
           stackTrace: stackTrace);
       return null;
@@ -144,16 +136,13 @@ class AccountsRepository {
     String? derivationPath,
     bool isDemo = false,
   }) async {
-    LoggingService.instance.trace(
-        '_persistNew - start (name: $name, address: $address)',
-        tag: 'ACCOUNTS_REPO');
+    _log.trace('_persistNew - start (name: $name, address: $address)');
 
     final current = await list();
 
     final index = current.length;
     final id = _makeId(address, index);
-    LoggingService.instance.trace('Generated account ID: $id (index: $index)',
-        tag: 'ACCOUNTS_REPO');
+    _log.trace('Generated account ID: $id (index: $index)');
 
     final meta = AccountMeta(
       id: id,
@@ -167,25 +156,20 @@ class AccountsRepository {
       isDemo: isDemo,
     );
 
-    LoggingService.instance
-        .debug('Writing to secure storage (4 keys)...', tag: 'ACCOUNTS_REPO');
+    _log.debug('Writing to secure storage (4 keys)...');
     await _secure.write(key: 'account:$id:privateKey', value: privateKey);
     await _secure.write(key: 'account:$id:publicKey', value: publicKey);
     await _secure.write(key: 'account:$id:address', value: address);
     await _secure.write(key: 'account:$id:hdIndex', value: index.toString());
-    LoggingService.instance
-        .debug('Secure storage writes complete', tag: 'ACCOUNTS_REPO');
+    _log.debug('Secure storage writes complete');
 
     final next = [...current, meta];
     await _saveIndex(next);
-    LoggingService.instance
-        .debug('Index saved successfully', tag: 'ACCOUNTS_REPO');
+    _log.debug('Index saved successfully');
 
-    LoggingService.instance
-        .debug('Setting active account ID to: $id', tag: 'ACCOUNTS_REPO');
+    _log.debug('Setting active account ID to: $id');
     await setActiveId(id);
-    LoggingService.instance
-        .debug('_persistNew - complete (id: $id)', tag: 'ACCOUNTS_REPO');
+    _log.debug('_persistNew - complete (id: $id)');
 
     return meta;
   }

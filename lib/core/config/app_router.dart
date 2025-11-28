@@ -4,10 +4,10 @@ import 'package:go_router/go_router.dart';
 
 import 'package:crypto_mobile_app/features/splash/screens/splash_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/welcome_claim_screen.dart';
-import 'package:crypto_mobile_app/features/onboarding/screens/onboarding_import_api_screen.dart';
-import 'package:crypto_mobile_app/features/onboarding/screens/permission1_screen.dart';
-import 'package:crypto_mobile_app/features/onboarding/screens/permission2_screen.dart';
-import 'package:crypto_mobile_app/features/onboarding/screens/permission3_screen.dart';
+import 'package:crypto_mobile_app/features/onboarding/screens/import_api_account_screen.dart';
+import 'package:crypto_mobile_app/features/onboarding/screens/exact_alarm_permission1_screen.dart';
+import 'package:crypto_mobile_app/features/onboarding/screens/battery_permission2_screen.dart';
+import 'package:crypto_mobile_app/features/onboarding/screens/notification_permission3_screen.dart';
 import 'package:crypto_mobile_app/features/home/screens/home_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/slot_assignments_screen.dart';
 import 'package:crypto_mobile_app/core/main_app.dart';
@@ -16,8 +16,6 @@ import 'package:crypto_mobile_app/features/node/screens/node_won_slots_screen.da
 import 'package:crypto_mobile_app/features/node/screens/produced_blocks_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/block_details_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/mempool_details_screen.dart';
-import 'package:crypto_mobile_app/features/node/screens/slot_production_stats_screen.dart';
-import 'package:crypto_mobile_app/features/settings/screens/background_production_settings_screen.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -34,22 +32,21 @@ class AppRoutes {
 
   // Onboarding flow
   static const onboardingImportApi = '/onboarding/import-api';
-  static const onboardingPermission1 = '/onboarding/permission1';
-  static const onboardingPermission2 = '/onboarding/permission2';
-  static const onboardingPermission3 = '/onboarding/permission3';
+  static const onboardingExactAlarmPermission1 =
+      '/onboarding/exact-alarm-permission1';
+  static const onboardingBatteryPermission2 = '/onboarding/battery-permission2';
+  static const onboardingNotificationPermission3 =
+      '/onboarding/notification-permission3';
 
   // Standalone routes
   static const slotAssignments = '/produced/slot-assignments';
-  static const backgroundProductionSettings = '/background-production-settings';
 
   // Main shell routes
   static const mainNode = '/main/node';
   static const mainNodeWonSlots = '/main/node/won-slots';
   static const mainNodeProducedBlocks = '/main/node/produced-blocks';
-  static const mainNodeProductionStats = '/main/node/production-stats';
   static const mainNodeBlockDetails = '/main/node/block-details';
   static const mainNodeMempool = '/main/node/mempool';
-  static const mainSettings = '/main/settings';
 }
 
 /// A ChangeNotifier that listens to Riverpod provider changes and notifies GoRouter
@@ -61,6 +58,13 @@ class GoRouterRefreshStream extends ChangeNotifier {
       hasAnyAccountProvider,
       (previous, next) {
         // Notify GoRouter to re-run its redirect logic when account state changes
+        notifyListeners();
+      },
+    );
+    // Listen to hasCompletedOnboardingProvider changes
+    _ref.listen<AsyncValue<bool>>(
+      hasCompletedOnboardingProvider,
+      (previous, next) {
         notifyListeners();
       },
     );
@@ -83,8 +87,9 @@ final _navigatorKey = GlobalKey<NavigatorState>(debugLabel: 'mainNavigator');
 GlobalKey<NavigatorState> get appNavigatorKey => _navigatorKey;
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  // Watch the provider to make router reactive
+  // Watch providers to make router reactive
   ref.watch(hasAnyAccountProvider);
+  ref.watch(hasCompletedOnboardingProvider);
 
   return GoRouter(
     navigatorKey: _navigatorKey,
@@ -102,19 +107,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.onboardingImportApi,
-        builder: (context, state) => const NewUxOnboardingImportApiScreen(),
+        builder: (context, state) => const OnboardingImportApiAccountScreen(),
       ),
       GoRoute(
-        path: AppRoutes.onboardingPermission1,
-        builder: (context, state) => const Permission1Screen(),
+        path: AppRoutes.onboardingExactAlarmPermission1,
+        builder: (context, state) => const ExactAlarmPermission1Screen(),
       ),
       GoRoute(
-        path: AppRoutes.onboardingPermission2,
-        builder: (context, state) => const Permission2Screen(),
+        path: AppRoutes.onboardingBatteryPermission2,
+        builder: (context, state) => const BatteryPermission2Screen(),
       ),
       GoRoute(
-        path: AppRoutes.onboardingPermission3,
-        builder: (context, state) => const Permission3Screen(),
+        path: AppRoutes.onboardingNotificationPermission3,
+        builder: (context, state) => const NotificationPermission3Screen(),
       ),
       GoRoute(
         path: AppRoutes.home,
@@ -123,10 +128,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.slotAssignments,
         builder: (context, state) => const SlotAssignmentsScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.backgroundProductionSettings,
-        builder: (context, state) => const BackgroundProductionSettingsScreen(),
       ),
       // Redirect bare /main to default tab
       GoRoute(
@@ -153,10 +154,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const ProducedBlocksScreen(),
           ),
           GoRoute(
-            path: AppRoutes.mainNodeProductionStats,
-            builder: (context, state) => const SlotProductionStatsScreen(),
-          ),
-          GoRoute(
             path: AppRoutes.mainNodeBlockDetails,
             builder: (context, state) {
               final block = state.extra as RpcStatusBlockInfo;
@@ -167,13 +164,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: AppRoutes.mainNodeMempool,
             builder: (context, state) => const MempoolDetailsScreen(),
           ),
-          GoRoute(
-            path: AppRoutes.mainSettings,
-            pageBuilder: (context, state) => _buildPageWithFade(
-              state,
-              const BackgroundProductionSettingsScreen(),
-            ),
-          ),
         ],
       ),
     ],
@@ -181,15 +171,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final hasAny = ref
           .read(hasAnyAccountProvider)
           .maybeWhen(data: (v) => v, orElse: () => null);
+      final hasCompletedOnboarding = ref
+          .read(hasCompletedOnboardingProvider)
+          .maybeWhen(data: (v) => v, orElse: () => null);
 
       final currentLocation = state.matchedLocation;
 
       _log.trace(
-          'Redirect guard called - location: $currentLocation, hasAny: $hasAny');
+          'Redirect guard called - location: $currentLocation, hasAny: $hasAny, onboardingComplete: $hasCompletedOnboarding');
 
-      // Still loading account state
-      if (hasAny == null) {
-        _log.trace('Account state loading - allowing navigation');
+      // Still loading state
+      if (hasAny == null || hasCompletedOnboarding == null) {
+        _log.trace('State loading - allowing navigation');
         return null;
       }
 
@@ -208,32 +201,45 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         _log.trace('No account exists');
         // Splash should redirect to onboarding (transient route)
         if (currentLocation == AppRoutes.splash) {
-          LoggingService.instance.trace('Redirecting splash to onboarding');
+          _log.trace('Redirecting splash to onboarding');
           return AppRoutes.onboarding;
         }
         // Allow onboarding routes
         if (currentLocation.startsWith('/onboarding/')) {
-          LoggingService.instance.trace('Allowing onboarding route');
+          _log.trace('Allowing onboarding route');
           return null;
         }
         // Redirect all other routes to onboarding
-        LoggingService.instance
-            .trace('Redirecting private route to onboarding');
+        _log.trace('Redirecting private route to onboarding');
         return AppRoutes.onboarding;
       }
 
-      // Account exists
-      _log.trace('Account exists');
+      // Account exists but onboarding NOT completed - allow onboarding routes
+      if (!hasCompletedOnboarding) {
+        _log.trace('Account exists but onboarding not completed');
+        if (currentLocation.startsWith('/onboarding/')) {
+          _log.trace('Allowing onboarding route during onboarding flow');
+          return null;
+        }
+        // Splash should redirect to first permission screen
+        if (currentLocation == AppRoutes.splash) {
+          _log.trace('Redirecting splash to permission flow');
+          return AppRoutes.onboardingExactAlarmPermission1;
+        }
+      }
 
-      // Redirect from splash and onboarding to home if user already has an account
+      // Account exists AND onboarding completed
+      _log.trace('Account exists and onboarding completed');
+
+      // Redirect from splash and onboarding to home
       if (currentLocation == AppRoutes.splash ||
           currentLocation.startsWith('/onboarding/')) {
-        LoggingService.instance.trace('Redirecting $currentLocation to /home');
+        _log.trace('Redirecting $currentLocation to /home');
         return AppRoutes.home;
       }
 
       // Allow all other routes when account exists
-      LoggingService.instance.trace('Allowing route: $currentLocation');
+      _log.trace('Allowing route: $currentLocation');
       return null;
     },
   );

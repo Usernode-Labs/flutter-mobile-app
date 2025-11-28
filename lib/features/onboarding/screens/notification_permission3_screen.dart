@@ -1,19 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 
-class Permission3Screen extends StatefulWidget {
-  const Permission3Screen({super.key});
+class NotificationPermission3Screen extends ConsumerStatefulWidget {
+  const NotificationPermission3Screen({super.key});
 
   @override
-  State<Permission3Screen> createState() => _Permission3ScreenState();
+  ConsumerState<NotificationPermission3Screen> createState() =>
+      _NotificationPermission3ScreenState();
 }
 
-class _Permission3ScreenState extends State<Permission3Screen> {
+class _NotificationPermission3ScreenState
+    extends ConsumerState<NotificationPermission3Screen> {
   bool? _granted;
   bool _requesting = false;
-  bool _permanentlyDenied = false; // reserved for future UI messaging
+  bool _permanentlyDenied = false;
 
   @override
   void initState() {
@@ -33,6 +38,7 @@ class _Permission3ScreenState extends State<Permission3Screen> {
   Future<void> _requestNotifications() async {
     if (_requesting) return;
     setState(() => _requesting = true);
+    final l10n = AppLocalizations.of(context);
     try {
       final status = await Permission.notification.request();
       final isGranted = status.isGranted;
@@ -43,12 +49,12 @@ class _Permission3ScreenState extends State<Permission3Screen> {
         SnackBar(
           content: Text(
             isGranted
-                ? 'Notifications enabled'
+                ? l10n.permNotificationsEnabled
                 : (status.isDenied || status.isLimited)
-                    ? 'Notifications denied'
+                    ? l10n.permNotificationsDenied
                     : status.isPermanentlyDenied
-                        ? 'Notifications permanently denied. Enable in Settings.'
-                        : 'Notification status: $status',
+                        ? l10n.permNotificationsPermanentlyDenied
+                        : l10n.permNotificationStatus(status.toString()),
           ),
         ),
       );
@@ -59,8 +65,10 @@ class _Permission3ScreenState extends State<Permission3Screen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Notifications')),
+      appBar: AppBar(title: Text(l10n.permNotificationsTitle)),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -72,10 +80,10 @@ class _Permission3ScreenState extends State<Permission3Screen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Padding(
-                        padding: EdgeInsets.all(16),
+                      Padding(
+                        padding: const EdgeInsets.all(16),
                         child: Text(
-                          'Allow notifications to receive important updates. You can change this later in Settings.',
+                          l10n.permNotificationsExplanation,
                           textAlign: TextAlign.center,
                         ),
                       ),
@@ -87,18 +95,20 @@ class _Permission3ScreenState extends State<Permission3Screen> {
                               ? const SizedBox(
                                   height: 20,
                                   width: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
                                 )
-                              : const Text('Allow notifications'),
+                              : Text(l10n.permAllowNotifications),
                         ),
                       const SizedBox(height: 12),
                       if (_permanentlyDenied == true)
                         Column(
                           children: [
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 16),
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
                               child: Text(
-                                'Notifications are currently disabled. You can enable them in Settings.',
+                                l10n.permNotificationsDisabledMessage,
                                 textAlign: TextAlign.center,
                               ),
                             ),
@@ -110,7 +120,7 @@ class _Permission3ScreenState extends State<Permission3Screen> {
                                 if (!mounted) return;
                                 await _checkInitialStatus();
                               },
-                              child: const Text('Open Settings'),
+                              child: Text(l10n.permOpenSettings),
                             ),
                           ],
                         ),
@@ -125,8 +135,10 @@ class _Permission3ScreenState extends State<Permission3Screen> {
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              _granted! ? 'Notifications enabled' : 'Notifications disabled',
-                              style: TextStyle(
+                              _granted!
+                                  ? l10n.permNotificationsEnabled
+                                  : l10n.permNotificationsDisabled,
+                              style: const TextStyle(
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -140,9 +152,15 @@ class _Permission3ScreenState extends State<Permission3Screen> {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  onPressed:
-                      (_granted == true) ? () => context.go(AppRoutes.home) : null,
-                  child: const Text('Finish'),
+                  onPressed: (_granted == true)
+                      ? () async {
+                          await markOnboardingComplete();
+                          ref.invalidate(hasCompletedOnboardingProvider);
+                          if (!context.mounted) return;
+                          context.go(AppRoutes.home);
+                        }
+                      : null,
+                  child: Text(l10n.commonFinish),
                 ),
               ),
             ],
@@ -152,5 +170,3 @@ class _Permission3ScreenState extends State<Permission3Screen> {
     );
   }
 }
-
-

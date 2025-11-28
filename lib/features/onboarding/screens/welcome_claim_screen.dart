@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 
 class WelcomeClaimScreen extends StatelessWidget {
   const WelcomeClaimScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -19,7 +22,7 @@ class WelcomeClaimScreen extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 32),
                     child: Text(
-                      'Welcome Usernode Operator',
+                      l10n.welcomeTitle,
                       textAlign: TextAlign.center,
                       style: Theme.of(context)
                           .textTheme
@@ -35,7 +38,7 @@ class WelcomeClaimScreen extends StatelessWidget {
                 width: double.infinity,
                 child: FilledButton(
                   onPressed: () => context.go(AppRoutes.onboardingImportApi),
-                  child: const Text('Claim your account'),
+                  child: Text(l10n.welcomeClaimAccount),
                 ),
               ),
             ],
@@ -45,5 +48,3 @@ class WelcomeClaimScreen extends StatelessWidget {
     );
   }
 }
-
-

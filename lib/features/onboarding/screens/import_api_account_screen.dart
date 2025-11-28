@@ -8,17 +8,20 @@ import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 
-class NewUxOnboardingImportApiScreen extends ConsumerStatefulWidget {
-  const NewUxOnboardingImportApiScreen({super.key});
+final _log = LoggingService.instance.withTag(LogTag.onboarding);
+
+class OnboardingImportApiAccountScreen extends ConsumerStatefulWidget {
+  const OnboardingImportApiAccountScreen({super.key});
 
   @override
-  ConsumerState<NewUxOnboardingImportApiScreen> createState() =>
-      _NewUxOnboardingImportApiScreenState();
+  ConsumerState<OnboardingImportApiAccountScreen> createState() =>
+      _OnboardingImportApiAccountScreenState();
 }
 
-class _NewUxOnboardingImportApiScreenState
-    extends ConsumerState<NewUxOnboardingImportApiScreen> {
+class _OnboardingImportApiAccountScreenState
+    extends ConsumerState<OnboardingImportApiAccountScreen> {
   static const String _defaultContact =
       String.fromEnvironment('DEFAULT_REGISTRATION_CONTACT', defaultValue: '');
   static const String _defaultCode =
@@ -50,11 +53,13 @@ class _NewUxOnboardingImportApiScreenState
   Future<void> _onSubmit() async {
     if (_submitting) return;
     setState(() => _submitting = true);
+    final l10n = AppLocalizations.of(context);
     try {
       final contact = _contactController.text.trim();
       final activationCode = _activationCodeController.text.trim();
 
-      final privateKeyHex = await _requestPrivateKeyFromApi(contact, activationCode);
+      final privateKeyHex =
+          await _requestPrivateKeyFromApi(contact, activationCode);
 
       final repo = await AccountsRepository.create();
       final result = await repo.importFromPrivateKey(
@@ -67,7 +72,7 @@ class _NewUxOnboardingImportApiScreenState
       if (result == null) {
         setState(() => _submitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to import account from API')),
+          SnackBar(content: Text(l10n.importApiAccountFailed)),
         );
         return;
       }
@@ -75,11 +80,9 @@ class _NewUxOnboardingImportApiScreenState
       // Start backend for new account
       try {
         await RustBackendService.instance.startNode();
-        LoggingService.instance
-            .debug('Backend started successfully', tag: 'NEW_UX_IMPORT_API');
+        _log.debug('Backend started successfully');
       } catch (e) {
-        LoggingService.instance.error('Failed to start backend',
-            tag: 'NEW_UX_IMPORT_API', error: e);
+        _log.error('Failed to start backend', error: e);
       }
 
       // Invalidate account state so router sees new account immediately
@@ -87,7 +90,7 @@ class _NewUxOnboardingImportApiScreenState
 
       // Navigate to New UX permission 1
       if (!mounted) return;
-      context.go(AppRoutes.onboardingPermission1);
+      context.go(AppRoutes.onboardingExactAlarmPermission1);
     } on RegistrationApiException catch (e) {
       if (!mounted) return;
       String message = e.message;
@@ -97,7 +100,9 @@ class _NewUxOnboardingImportApiScreenState
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Registration failed: $e')),
+        SnackBar(
+            content:
+                Text(l10n.importApiAccountRegistrationFailed(e.toString()))),
       );
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -106,16 +111,18 @@ class _NewUxOnboardingImportApiScreenState
 
   Future<String> _requestPrivateKeyFromApi(String contact, String code) async {
     final repo = RegistrationRepository();
-    final result = await repo.register(
-        registrationCode: code, identifier: contact);
+    final result =
+        await repo.register(registrationCode: code, identifier: contact);
     return result.secretKeyHex;
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
-      appBar: const AppAppBar(
-        title: 'Import Account',
+      appBar: AppAppBar(
+        title: l10n.importApiAccountTitle,
         showNodeStatus: false,
       ),
       body: SafeArea(
@@ -136,18 +143,18 @@ class _NewUxOnboardingImportApiScreenState
                         children: [
                           TextField(
                             controller: _contactController,
-                            decoration: const InputDecoration(
-                              labelText: 'Discord, Email, or Telegram',
-                              hintText: '@username or name@example.com',
+                            decoration: InputDecoration(
+                              labelText: l10n.importApiAccountContactLabel,
+                              hintText: l10n.importApiAccountContactHint,
                             ),
                             textInputAction: TextInputAction.next,
                           ),
                           const SizedBox(height: 16),
                           TextField(
                             controller: _activationCodeController,
-                            decoration: const InputDecoration(
-                              labelText: 'Activation Code',
-                              hintText: 'Enter your code',
+                            decoration: InputDecoration(
+                              labelText: l10n.importApiAccountCodeLabel,
+                              hintText: l10n.importApiAccountCodeHint,
                             ),
                             textInputAction: TextInputAction.done,
                           ),
@@ -168,7 +175,7 @@ class _NewUxOnboardingImportApiScreenState
                           width: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Submit'),
+                      : Text(l10n.importApiAccountSubmit),
                 ),
               ),
             ],
@@ -178,5 +185,3 @@ class _NewUxOnboardingImportApiScreenState
     );
   }
 }
-
-

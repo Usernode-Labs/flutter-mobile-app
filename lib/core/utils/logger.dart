@@ -510,7 +510,10 @@ enum LogTag {
   router('ROUTER'),
 
   /// App drawer/navigation menu
-  drawer('DRAWER');
+  drawer('DRAWER'),
+
+  /// Settings screens
+  settings('SETTINGS');
 
   const LogTag(this.value);
 

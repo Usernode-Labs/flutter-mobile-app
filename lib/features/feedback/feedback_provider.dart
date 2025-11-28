@@ -6,6 +6,8 @@ import 'package:crypto_mobile_app/features/feedback/github_issue_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'models/feedback_model.dart';
 
+final _log = LoggingService.instance.withTag(LogTag.general);
+
 // State for feedback submission
 enum FeedbackSubmissionStatus {
   idle,
@@ -103,9 +105,9 @@ class FeedbackSubmissionNotifier
       final jsonList = queue.map((f) => f.toJson()).toList();
       await prefs.setString(_queueKey, jsonEncode(jsonList));
 
-      LoggingService.instance.info('Feedback queued for later submission');
+      _log.info('Feedback queued for later submission');
     } catch (e) {
-      LoggingService.instance.error('Error queuing feedback', error: e);
+      _log.error('Error queuing feedback', error: e);
     }
   }
 
@@ -123,7 +125,7 @@ class FeedbackSubmissionNotifier
           .map((json) => FeedbackModel.fromJson(json as Map<String, dynamic>))
           .toList();
     } catch (e) {
-      LoggingService.instance.error('Error getting feedback queue', error: e);
+      _log.error('Error getting feedback queue', error: e);
       return [];
     }
   }
@@ -136,8 +138,7 @@ class FeedbackSubmissionNotifier
         return;
       }
 
-      LoggingService.instance
-          .info('Processing ${queue.length} queued feedback items');
+      _log.info('Processing ${queue.length} queued feedback items');
 
       final failedItems = <FeedbackModel>[];
 
@@ -152,17 +153,14 @@ class FeedbackSubmissionNotifier
       final prefs = await SharedPreferences.getInstance();
       if (failedItems.isEmpty) {
         await prefs.remove(_queueKey);
-        LoggingService.instance
-            .info('All queued feedback submitted successfully');
+        _log.info('All queued feedback submitted successfully');
       } else {
         final jsonList = failedItems.map((f) => f.toJson()).toList();
         await prefs.setString(_queueKey, jsonEncode(jsonList));
-        LoggingService.instance
-            .warn('${failedItems.length} feedback items failed to submit');
+        _log.warn('${failedItems.length} feedback items failed to submit');
       }
     } catch (e) {
-      LoggingService.instance
-          .error('Error processing feedback queue', error: e);
+      _log.error('Error processing feedback queue', error: e);
     }
   }
 }

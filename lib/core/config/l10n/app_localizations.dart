@@ -933,6 +933,642 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Not available'**
   String get nodeNotAvailable;
+
+  /// Navigation bar label for produced blocks tab
+  ///
+  /// In en, this message translates to:
+  /// **'Produced Blocks'**
+  String get navProducedBlocks;
+
+  /// Navigation bar label for node status tab
+  ///
+  /// In en, this message translates to:
+  /// **'Node Status'**
+  String get navNodeStatus;
+
+  /// Navigation bar label for settings tab
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get navSettings;
+
+  /// Welcome screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Welcome Usernode Operator'**
+  String get welcomeTitle;
+
+  /// Claim account button text
+  ///
+  /// In en, this message translates to:
+  /// **'Claim your account'**
+  String get welcomeClaimAccount;
+
+  /// Exact alarms permission screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Exact Alarms'**
+  String get permExactAlarmsTitle;
+
+  /// Section title explaining why exact alarms are needed
+  ///
+  /// In en, this message translates to:
+  /// **'Why exact alarms are required'**
+  String get permExactAlarmsWhy;
+
+  /// Android explanation for exact alarms
+  ///
+  /// In en, this message translates to:
+  /// **'Android restricts apps from waking the device at precise times unless explicitly allowed. Without this permission, alarms may be delayed by up to 10 minutes, causing missed blocks.\n\nDepending on your device, this permission may already be granted.'**
+  String get permExactAlarmsAndroidExplanation;
+
+  /// iOS explanation for exact alarms
+  ///
+  /// In en, this message translates to:
+  /// **'This step is primarily for Android devices. You can continue.'**
+  String get permExactAlarmsIosExplanation;
+
+  /// Button to grant exact alarm permission
+  ///
+  /// In en, this message translates to:
+  /// **'Grant exact alarm permission'**
+  String get permGrantExactAlarm;
+
+  /// Snackbar message when exact alarm granted
+  ///
+  /// In en, this message translates to:
+  /// **'Exact alarm permission granted'**
+  String get permExactAlarmGranted;
+
+  /// Snackbar message to enable exact alarms in settings
+  ///
+  /// In en, this message translates to:
+  /// **'Please enable exact alarms in Settings'**
+  String get permExactAlarmEnableInSettings;
+
+  /// Status text when permission is granted
+  ///
+  /// In en, this message translates to:
+  /// **'Permission granted'**
+  String get permGranted;
+
+  /// Status text when permission is required
+  ///
+  /// In en, this message translates to:
+  /// **'Permission required'**
+  String get permRequired;
+
+  /// Next button text
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get commonNext;
+
+  /// Finish button text
+  ///
+  /// In en, this message translates to:
+  /// **'Finish'**
+  String get commonFinish;
+
+  /// Battery optimization screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Battery Optimization'**
+  String get permBatteryTitle;
+
+  /// Section title for battery optimization explanation
+  ///
+  /// In en, this message translates to:
+  /// **'Why this matters'**
+  String get permBatteryWhyMatters;
+
+  /// Android explanation for battery optimization
+  ///
+  /// In en, this message translates to:
+  /// **'Android\'s battery saver can delay or skip alarms to save power. Disabling battery optimization for this app ensures your wake-up alarms fire on time when blocks are scheduled to be produced.'**
+  String get permBatteryAndroidExplanation;
+
+  /// iOS explanation for battery optimization
+  ///
+  /// In en, this message translates to:
+  /// **'This step applies to Android devices.'**
+  String get permBatteryIosExplanation;
+
+  /// Battery optimization impact section title
+  ///
+  /// In en, this message translates to:
+  /// **'Impact of battery optimization:'**
+  String get permBatteryImpact;
+
+  /// Warning about enabled battery optimization
+  ///
+  /// In en, this message translates to:
+  /// **'Alarms may be delayed 1–60 seconds, or skipped entirely.'**
+  String get permBatteryWarning;
+
+  /// Message about disabled battery optimization
+  ///
+  /// In en, this message translates to:
+  /// **'With optimization disabled, alarms fire precisely when scheduled.'**
+  String get permBatteryOptimized;
+
+  /// Button to open battery settings
+  ///
+  /// In en, this message translates to:
+  /// **'Open Battery Settings'**
+  String get permOpenBatterySettings;
+
+  /// Warning for specific device manufacturers
+  ///
+  /// In en, this message translates to:
+  /// **'{manufacturer} devices require additional settings. Tap Open Battery Settings for guidance.'**
+  String permBatteryDeviceWarning(String manufacturer);
+
+  /// Status when battery optimization is disabled
+  ///
+  /// In en, this message translates to:
+  /// **'Battery optimization disabled'**
+  String get permBatteryOptDisabled;
+
+  /// Status when battery optimization is enabled
+  ///
+  /// In en, this message translates to:
+  /// **'Battery optimization enabled'**
+  String get permBatteryOptEnabled;
+
+  /// Notifications permission screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get permNotificationsTitle;
+
+  /// Explanation for notifications permission
+  ///
+  /// In en, this message translates to:
+  /// **'Allow notifications to receive important updates. You can change this later in Settings.'**
+  String get permNotificationsExplanation;
+
+  /// Button to allow notifications
+  ///
+  /// In en, this message translates to:
+  /// **'Allow notifications'**
+  String get permAllowNotifications;
+
+  /// Message when notifications are permanently denied
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications are currently disabled. You can enable them in Settings.'**
+  String get permNotificationsDisabledMessage;
+
+  /// Button to open settings
+  ///
+  /// In en, this message translates to:
+  /// **'Open Settings'**
+  String get permOpenSettings;
+
+  /// Status when notifications are enabled
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications enabled'**
+  String get permNotificationsEnabled;
+
+  /// Status when notifications are disabled
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications disabled'**
+  String get permNotificationsDisabled;
+
+  /// Snackbar message when notifications denied
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications denied'**
+  String get permNotificationsDenied;
+
+  /// Snackbar message when notifications permanently denied
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications permanently denied. Enable in Settings.'**
+  String get permNotificationsPermanentlyDenied;
+
+  /// Generic notification status message
+  ///
+  /// In en, this message translates to:
+  /// **'Notification status: {status}'**
+  String permNotificationStatus(String status);
+
+  /// Production statistics screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Production Statistics'**
+  String get statsTitle;
+
+  /// Overall statistics card title
+  ///
+  /// In en, this message translates to:
+  /// **'Overall Statistics'**
+  String get statsOverall;
+
+  /// Won slots stat label
+  ///
+  /// In en, this message translates to:
+  /// **'Won Slots'**
+  String get statsWonSlots;
+
+  /// Attempted stat label
+  ///
+  /// In en, this message translates to:
+  /// **'Attempted'**
+  String get statsAttempted;
+
+  /// Produced stat label
+  ///
+  /// In en, this message translates to:
+  /// **'Produced'**
+  String get statsProduced;
+
+  /// Failed stat label
+  ///
+  /// In en, this message translates to:
+  /// **'Failed'**
+  String get statsFailed;
+
+  /// Last updated label
+  ///
+  /// In en, this message translates to:
+  /// **'Last Updated'**
+  String get statsLastUpdated;
+
+  /// Success rate card title
+  ///
+  /// In en, this message translates to:
+  /// **'Success Rate'**
+  String get statsSuccessRate;
+
+  /// Empty state message for production records
+  ///
+  /// In en, this message translates to:
+  /// **'No production records yet'**
+  String get statsNoRecords;
+
+  /// Recent records section title
+  ///
+  /// In en, this message translates to:
+  /// **'Recent Production Records'**
+  String get statsRecentRecords;
+
+  /// Epoch label with number
+  ///
+  /// In en, this message translates to:
+  /// **'Epoch {epoch}'**
+  String statsEpoch(int epoch);
+
+  /// Slot label with number
+  ///
+  /// In en, this message translates to:
+  /// **'Slot {slot}'**
+  String statsSlot(int slot);
+
+  /// Block label with number
+  ///
+  /// In en, this message translates to:
+  /// **'Block {block}'**
+  String statsBlock(int block);
+
+  /// Success rate description
+  ///
+  /// In en, this message translates to:
+  /// **'{produced} successful out of {attempted} attempts'**
+  String statsSuccessfulOf(int produced, int attempted);
+
+  /// Status text for won slot
+  ///
+  /// In en, this message translates to:
+  /// **'Won (not yet attempted)'**
+  String get statsStatusWon;
+
+  /// Status text for attempting production
+  ///
+  /// In en, this message translates to:
+  /// **'Currently attempting production'**
+  String get statsStatusAttempting;
+
+  /// Status text for produced block
+  ///
+  /// In en, this message translates to:
+  /// **'Successfully produced'**
+  String get statsStatusProduced;
+
+  /// Status text for failed production
+  ///
+  /// In en, this message translates to:
+  /// **'Production failed'**
+  String get statsStatusFailed;
+
+  /// Time display for just now
+  ///
+  /// In en, this message translates to:
+  /// **'Just now'**
+  String get timeJustNow;
+
+  /// Time display for minutes ago
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes} minutes ago'**
+  String timeMinutesAgo(int minutes);
+
+  /// Time display for hours ago
+  ///
+  /// In en, this message translates to:
+  /// **'{hours} hours ago'**
+  String timeHoursAgo(int hours);
+
+  /// Time display for days ago
+  ///
+  /// In en, this message translates to:
+  /// **'{days} days ago'**
+  String timeDaysAgo(int days);
+
+  /// Block details screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Block Details'**
+  String get blockDetailsTitle;
+
+  /// Timeline item title
+  ///
+  /// In en, this message translates to:
+  /// **'VRF Slot Discovered'**
+  String get blockVrfSlotDiscovered;
+
+  /// Timeline item subtitle for slot won
+  ///
+  /// In en, this message translates to:
+  /// **'Slot {slot} won'**
+  String blockSlotWon(int slot);
+
+  /// Timeline item title
+  ///
+  /// In en, this message translates to:
+  /// **'Block Production Scheduled'**
+  String get blockProductionScheduled;
+
+  /// Timeline item subtitle for epoch and slot
+  ///
+  /// In en, this message translates to:
+  /// **'Epoch {epoch}, Slot {slot}'**
+  String blockEpochSlot(int epoch, int slot);
+
+  /// Timeline item title
+  ///
+  /// In en, this message translates to:
+  /// **'Transaction Batches Included'**
+  String get blockTxBatchesIncluded;
+
+  /// Timeline item subtitle for batches and transactions
+  ///
+  /// In en, this message translates to:
+  /// **'Included {batches} batches / {transactions} transactions'**
+  String blockIncludedBatchesTx(int batches, int transactions);
+
+  /// Timeline item subtitle when batch info unavailable
+  ///
+  /// In en, this message translates to:
+  /// **'Included batches / transactions'**
+  String get blockIncludedBatchesTxGeneric;
+
+  /// Timeline item title
+  ///
+  /// In en, this message translates to:
+  /// **'State Transition.'**
+  String get blockStateTransition;
+
+  /// Timeline item subtitle for state transition
+  ///
+  /// In en, this message translates to:
+  /// **'Protocol and Consensus states updated'**
+  String get blockStatesUpdated;
+
+  /// Timeline item title
+  ///
+  /// In en, this message translates to:
+  /// **'Applied Locally'**
+  String get blockAppliedLocally;
+
+  /// Timeline item subtitle for applied locally
+  ///
+  /// In en, this message translates to:
+  /// **'UTXOs updated'**
+  String get blockUtxosUpdated;
+
+  /// Timeline item title
+  ///
+  /// In en, this message translates to:
+  /// **'Block Committed'**
+  String get blockCommitted;
+
+  /// Block number label
+  ///
+  /// In en, this message translates to:
+  /// **'Block #{height}'**
+  String blockNumber(int height);
+
+  /// Timeline item title
+  ///
+  /// In en, this message translates to:
+  /// **'Block Confirmed'**
+  String get blockConfirmed;
+
+  /// Block hash with prefix
+  ///
+  /// In en, this message translates to:
+  /// **'Hash: {hash}...'**
+  String blockHashPrefix(String hash);
+
+  /// Block information card title
+  ///
+  /// In en, this message translates to:
+  /// **'Block Information'**
+  String get blockInformation;
+
+  /// Block hash label
+  ///
+  /// In en, this message translates to:
+  /// **'Block Hash'**
+  String get blockHash;
+
+  /// Block height label
+  ///
+  /// In en, this message translates to:
+  /// **'Height'**
+  String get blockHeight;
+
+  /// Global slot label
+  ///
+  /// In en, this message translates to:
+  /// **'Global Slot'**
+  String get blockGlobalSlot;
+
+  /// Epoch label
+  ///
+  /// In en, this message translates to:
+  /// **'Epoch'**
+  String get blockEpoch;
+
+  /// Producer label
+  ///
+  /// In en, this message translates to:
+  /// **'Producer'**
+  String get blockProducer;
+
+  /// Transactions label
+  ///
+  /// In en, this message translates to:
+  /// **'Transactions'**
+  String get blockTransactions;
+
+  /// Batches label
+  ///
+  /// In en, this message translates to:
+  /// **'Batches'**
+  String get blockBatches;
+
+  /// Block at slot header
+  ///
+  /// In en, this message translates to:
+  /// **'Block #{height} at Slot {slot}'**
+  String blockAtSlot(int height, int slot);
+
+  /// Mempool total stat label
+  ///
+  /// In en, this message translates to:
+  /// **'Total'**
+  String get mempoolTotal;
+
+  /// Mempool orphans stat label
+  ///
+  /// In en, this message translates to:
+  /// **'Orphans'**
+  String get mempoolOrphans;
+
+  /// Mempool size stat label
+  ///
+  /// In en, this message translates to:
+  /// **'Size'**
+  String get mempoolSize;
+
+  /// View button for mempool transaction
+  ///
+  /// In en, this message translates to:
+  /// **'View'**
+  String get mempoolView;
+
+  /// Coming soon dialog title
+  ///
+  /// In en, this message translates to:
+  /// **'Coming Soon'**
+  String get mempoolComingSoon;
+
+  /// Coming soon dialog message
+  ///
+  /// In en, this message translates to:
+  /// **'Transaction details will be available in a future update.'**
+  String get mempoolDetailsComingSoon;
+
+  /// Node connecting status
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting'**
+  String get nodeConnecting;
+
+  /// Node synced status
+  ///
+  /// In en, this message translates to:
+  /// **'Synced'**
+  String get nodeSynced;
+
+  /// Node syncing status
+  ///
+  /// In en, this message translates to:
+  /// **'Syncing'**
+  String get nodeSyncing;
+
+  /// Node syncing status with percentage
+  ///
+  /// In en, this message translates to:
+  /// **'Syncing ({percent}%)'**
+  String nodeSyncingPercent(String percent);
+
+  /// Node overview section header
+  ///
+  /// In en, this message translates to:
+  /// **'Overview'**
+  String get nodeOverview;
+
+  /// Peer ID label prefix
+  ///
+  /// In en, this message translates to:
+  /// **'Peer ID: '**
+  String get nodePeerId;
+
+  /// Peer unavailable fallback text
+  ///
+  /// In en, this message translates to:
+  /// **'(unavailable)'**
+  String get peerUnavailable;
+
+  /// Peer hidden address fallback text
+  ///
+  /// In en, this message translates to:
+  /// **'(Hidden address)'**
+  String get peerHiddenAddress;
+
+  /// Peer height label
+  ///
+  /// In en, this message translates to:
+  /// **'Height: {height}'**
+  String peerHeight(String height);
+
+  /// Peer slot label
+  ///
+  /// In en, this message translates to:
+  /// **'Slot: {slot}'**
+  String peerSlot(String slot);
+
+  /// Time display for a minute ago
+  ///
+  /// In en, this message translates to:
+  /// **'a minute ago'**
+  String get timeAMinuteAgo;
+
+  /// Time display for an hour ago
+  ///
+  /// In en, this message translates to:
+  /// **'an hour ago'**
+  String get timeAnHourAgo;
+
+  /// Time display for yesterday
+  ///
+  /// In en, this message translates to:
+  /// **'yesterday'**
+  String get timeYesterday;
+
+  /// Time display for weeks ago
+  ///
+  /// In en, this message translates to:
+  /// **'{weeks} week{suffix} ago'**
+  String timeWeeksAgo(int weeks, String suffix);
+
+  /// Time display for months ago
+  ///
+  /// In en, this message translates to:
+  /// **'{months} month{suffix} ago'**
+  String timeMonthsAgo(int months, String suffix);
+
+  /// Time display for years ago
+  ///
+  /// In en, this message translates to:
+  /// **'{years} year{suffix} ago'**
+  String timeYearsAgo(int years, String suffix);
 }
 
 class _AppLocalizationsDelegate

@@ -7,6 +7,8 @@ import 'package:crypto_mobile_app/features/wallet/utxo_provider.dart';
 import 'package:crypto_mobile_app/features/wallet/token_registry.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 
+final _log = LoggingService.instance.withTag(LogTag.wallet);
+
 /// Represents an aggregated asset summary across all UTXOs
 class AssetSummary {
   final String tokenId;
@@ -83,8 +85,7 @@ class WalletAssetsController extends AsyncNotifier<List<AssetSummary>> {
           // Extract assets array
           final assetsJson = utxoData['assets'] as List<dynamic>?;
           if (assetsJson == null || assetsJson.isEmpty) {
-            LoggingService.instance
-                .debug('  UTXO[$i]: No assets', tag: 'ASSETS');
+            _log.debug('  UTXO[$i]: No assets');
             continue;
           }
 
@@ -97,8 +98,7 @@ class WalletAssetsController extends AsyncNotifier<List<AssetSummary>> {
                 (balancesByToken[tokenId] ?? BigInt.zero) + balance;
           }
         } catch (e) {
-          LoggingService.instance
-              .warn('Failed to parse UTXO[$i]: $e', tag: 'ASSETS');
+          _log.warn('Failed to parse UTXO[$i]: $e');
         }
       }
 
@@ -125,8 +125,7 @@ class WalletAssetsController extends AsyncNotifier<List<AssetSummary>> {
 
       return assetSummaries;
     } catch (e, st) {
-      LoggingService.instance.error('Failed to aggregate assets',
-          tag: 'ASSETS', error: e, stackTrace: st);
+      _log.error('Failed to aggregate assets', error: e, stackTrace: st);
       rethrow;
     }
   }

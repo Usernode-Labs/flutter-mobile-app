@@ -7,6 +7,8 @@ import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_utxos_by_owne
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as rust_types;
 import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
 
+final _log = LoggingService.instance.withTag(LogTag.wallet);
+
 class WalletUtxosController extends AsyncNotifier<List<OwnedUtxo>> {
   @override
   Future<List<OwnedUtxo>> build() async {
@@ -38,36 +40,28 @@ class WalletUtxosController extends AsyncNotifier<List<OwnedUtxo>> {
       try {
         final repo = await AccountsRepository.create();
         final acc = await repo.getActive();
-        LoggingService.instance.debug(
-            'UTXO fetch: Active account=${acc?.address ?? "null"}',
-            tag: 'UTXO');
+        _log.debug('UTXO fetch: Active account=${acc?.address ?? "null"}');
         if (acc != null && acc.address.isNotEmpty) {
           // Only use if the format looks like a utxo address ("ut...") that backend expects.
           // Otherwise keep fallback to avoid RPC errors until address formats are unified.
           if (acc.address.startsWith('ut')) {
             ownerStr = acc.address;
             usingFallback = false;
-            LoggingService.instance.debug(
-                'UTXO fetch: Using account address (starts with "ut")',
-                tag: 'UTXO');
+            _log.debug('UTXO fetch: Using account address (starts with "ut")');
           } else {
-            LoggingService.instance.debug(
-                'UTXO fetch: Account address does NOT start with "ut", using fallback',
-                tag: 'UTXO');
+            _log.debug(
+                'UTXO fetch: Account address does NOT start with "ut", using fallback');
           }
         } else {
-          LoggingService.instance.debug(
-              'UTXO fetch: No active account or empty address, using fallback',
-              tag: 'UTXO');
+          _log.debug(
+              'UTXO fetch: No active account or empty address, using fallback');
         }
       } catch (e) {
-        LoggingService.instance.debug(
-            'UTXO fetch: Repository error=$e, using fallback', tag: 'UTXO');
+        _log.debug('UTXO fetch: Repository error=$e, using fallback');
       }
 
-      LoggingService.instance.debug(
-          'UTXO fetch: Querying with address=$ownerStr (fallback=$usingFallback)',
-          tag: 'UTXO');
+      _log.debug(
+          'UTXO fetch: Querying with address=$ownerStr (fallback=$usingFallback)');
 
       final owner = rust_types.publicKeyHashFromString(s: ownerStr);
 
@@ -75,12 +69,10 @@ class WalletUtxosController extends AsyncNotifier<List<OwnedUtxo>> {
         owner: owner,
       );
       final items = resp?.items ?? const <OwnedUtxo>[];
-      LoggingService.instance.debug(
-          'UTXO fetch: Got ${items.length} UTXOs', tag: 'UTXO');
+      _log.debug('UTXO fetch: Got ${items.length} UTXOs');
       return items;
     } catch (e, st) {
-      LoggingService.instance.error('listUtxosByOwner failed',
-          tag: 'UTXO', error: e, stackTrace: st);
+      _log.error('listUtxosByOwner failed', error: e, stackTrace: st);
       rethrow;
     }
   }

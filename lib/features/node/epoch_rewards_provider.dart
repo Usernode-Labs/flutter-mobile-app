@@ -118,7 +118,7 @@ class EpochRewardsController extends AsyncNotifier<EpochRewardsState?> {
     final epoch = statusAsync.value?.epoch;
 
     // Step 1: Load cache immediately to show previous data (only on initial build)
-    LoggingService.instance.debug('Loading cached epoch rewards...');
+    _log.debug('Loading cached epoch rewards...');
     final cached = await _getCached();
 
     // Step 2: Return cache if available (avoids empty UI while loading)
@@ -162,7 +162,7 @@ class EpochRewardsController extends AsyncNotifier<EpochRewardsState?> {
           await RustBackendService.instance.epochRewards(epoch: epoch);
 
       if (rewards == null) {
-        LoggingService.instance.warn('epochRewards returned null');
+        _log.warn('epochRewards returned null');
         // Return current state if live fetch failed
         return state.value;
       }
@@ -190,7 +190,7 @@ class EpochRewardsController extends AsyncNotifier<EpochRewardsState?> {
       // Save to cache
       try {
         await _saveToCache(snapshot);
-        LoggingService.instance.trace('Saved epoch rewards to cache');
+        _log.trace('Saved epoch rewards to cache');
       } catch (e, st) {
         _log.error('Failed to save epoch rewards to cache',
             error: e, stackTrace: st);
@@ -215,7 +215,7 @@ class EpochRewardsController extends AsyncNotifier<EpochRewardsState?> {
   void _checkAndNotifyRewardIncrease(BigInt earnedSoFar, int epoch) {
     if (_previousEarnedSoFar != null && earnedSoFar > _previousEarnedSoFar!) {
       final diff = earnedSoFar - _previousEarnedSoFar!;
-      LoggingService.instance.trace('Reward increased by $diff TKN');
+      _log.trace('Reward increased by $diff TKN');
     }
     _previousEarnedSoFar = earnedSoFar;
   }

@@ -7,6 +7,8 @@ import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_mempool.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as rust_types;
 
+final _log = LoggingService.instance.withTag(LogTag.wallet);
+
 /// Controller that fetches pending transactions from mempool
 class WalletMempoolController extends AsyncNotifier<List<MempoolTxSummary>> {
   @override
@@ -32,13 +34,11 @@ class WalletMempoolController extends AsyncNotifier<List<MempoolTxSummary>> {
           ownerStr = acc.address;
         }
       } catch (e) {
-        LoggingService.instance
-            .warn('Failed to get active account: $e', tag: 'MEMPOOL');
+        _log.warn('Failed to get active account: $e');
       }
 
       if (ownerStr == null) {
-        LoggingService.instance
-            .warn('No active account, skipping mempool fetch', tag: 'MEMPOOL');
+        _log.warn('No active account, skipping mempool fetch');
         return const [];
       }
 
@@ -54,8 +54,7 @@ class WalletMempoolController extends AsyncNotifier<List<MempoolTxSummary>> {
 
       return items;
     } catch (e, st) {
-      LoggingService.instance.error('listMempool failed',
-          tag: 'MEMPOOL', error: e, stackTrace: st);
+      _log.error('listMempool failed', error: e, stackTrace: st);
       rethrow;
     }
   }

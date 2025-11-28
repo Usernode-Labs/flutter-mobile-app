@@ -14,6 +14,8 @@ import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 
+final _log = LoggingService.instance.withTag(LogTag.settings);
+
 class BackgroundProductionSettingsScreen extends ConsumerStatefulWidget {
   const BackgroundProductionSettingsScreen({super.key});
 
@@ -102,7 +104,7 @@ class _BackgroundProductionSettingsScreenState
       // Refresh providers to get latest VRF status and won slots
       await _refreshProviders();
     } catch (e) {
-      LoggingService.instance.debug('Error checking status: $e');
+      _log.debug('Error checking status: $e');
     }
   }
 

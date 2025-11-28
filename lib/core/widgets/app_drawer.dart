@@ -31,7 +31,7 @@ class _AppDrawerState extends ConsumerState<AppDrawer> {
               child: Align(
                 alignment: Alignment.bottomLeft,
                 child: Text(
-                  'Usernode',
+                  l10n.appName,
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),

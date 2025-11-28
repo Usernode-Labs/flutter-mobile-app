@@ -1,10 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
-import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:crypto_mobile_app/core/widgets/produced_block_card.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -12,6 +10,7 @@ import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'node_peers_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/features/node/node_provider.dart';
 import 'package:crypto_mobile_app/features/node/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/features/node/node_data_providers.dart';
@@ -141,12 +140,12 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       }
     } on StateError catch (e, st) {
       // Happens if a late timer tick fires after disposal; just log quietly.
-      LoggingService.instance.debug('Skipped refresh on disposed node screen');
-      LoggingService.instance.debug('StateError during refresh: $e');
+      _log.debug('Skipped refresh on disposed node screen');
+      _log.debug('StateError during refresh: $e');
       _log.debug('Stack trace: $st');
       return;
     } catch (e, st) {
-      LoggingService.instance.error('Refresh failed', error: e, stackTrace: st);
+      _log.error('Refresh failed', error: e, stackTrace: st);
       if (mounted) {
         setState(() {
           _error = e.toString();
@@ -167,13 +166,11 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
-      appBar: AppAppBar(
-        title: l10n.nodeStatusTitle,
-      ),
       drawer: const AppDrawer(),
-      body: RefreshIndicator(
-        onRefresh: _refresh,
-        child: ListView(
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _refresh,
+          child: ListView(
           padding: const EdgeInsets.only(
             left: 12,
             right: 12,
@@ -204,6 +201,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             // RECENT BLOCKS Section (collapsible, separate card)
             _buildRecentBlocksSection(context),
           ],
+          ),
         ),
       ),
     );
@@ -242,6 +240,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
   // Wallet balance card widget
   Widget _buildWalletBalanceCard(ThemeData theme) {
+    final peerId = ref.read(nodeStatusProvider).value?.peerId;
+
     return Container(
       decoration: BoxDecoration(
         gradient: const LinearGradient(
@@ -266,31 +266,112 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Address row with info icon
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  _account != null ? _shortAddr(_account!.address) : 'NA',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w500,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'address: ${_account != null ? _shortAddr(_account!.address) : 'NA'}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                      if (peerId != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          'peerId: ${_shortenMid(peerId, head: 6, tail: 6)}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: Colors.white.withValues(alpha: 0.9),
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
+                ),
+                // Info icon for build info
+                IconButton(
+                  icon: const Icon(Icons.info_outline, color: Colors.white, size: 20),
+                  onPressed: _showBuildInfoDialog,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  tooltip: 'Build Info',
                 ),
               ],
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 12),
 
             // Balance amount (using cached value to avoid loading flicker)
             Text(
-              '${_formatBalance((_cachedBalance ?? BigInt.zero).toDouble())} ${_cachedTokenSymbol ?? 'TKN'}',
-              style: theme.textTheme.headlineMedium?.copyWith(
+              'Balance: ${_formatBalance((_cachedBalance ?? BigInt.zero).toDouble())} ${_cachedTokenSymbol ?? 'TKN'}',
+              style: theme.textTheme.titleMedium?.copyWith(
                 color: Colors.white,
-                fontWeight: FontWeight.w700,
-                height: 1.2,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showBuildInfoDialog() {
+    final env = ref.read(buildEnvProvider);
+    final l10n = AppLocalizations.of(context);
+    final shortCommit = env.git.commitHash.length >= 7
+        ? env.git.commitHash.substring(0, 7)
+        : env.git.commitHash;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.settingsBuildInfo),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('${l10n.buildInfoVersion}: ${env.version}'),
+            const SizedBox(height: 6),
+            Text('${l10n.buildInfoCommit}: $shortCommit'),
+            const SizedBox(height: 6),
+            Text('${l10n.buildInfoBranch}: ${env.git.branch}'),
+            const SizedBox(height: 6),
+            Text('${l10n.buildInfoCommitTime}: ${env.git.commitTime}'),
+            const Divider(height: 16),
+            Text('${l10n.buildInfoRustc}: ${env.rustc.version} (${env.rustc.channel})'),
+            const SizedBox(height: 6),
+            Text('${l10n.buildInfoLlvm}: ${env.rustc.llvmVersion}'),
+            const Divider(height: 16),
+            Text('${l10n.buildInfoCargoTarget}: ${env.cargo.target}'),
+            const SizedBox(height: 6),
+            Text('${l10n.buildInfoFeatures}: ${env.cargo.features}'),
+            const SizedBox(height: 6),
+            Text('${l10n.buildInfoOptLevel}: ${env.cargo.optLevel}'),
+            const SizedBox(height: 6),
+            Text('${l10n.buildInfoDebug}: ${env.cargo.isDebug}'),
+            const Divider(height: 16),
+            Text(l10n.drawerP2pPeerId),
+            SelectableText(
+              ref.read(nodeStatusProvider).value?.peerId ?? l10n.nodeNotAvailable,
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(l10n.drawerClose),
+          )
+        ],
       ),
     );
   }
@@ -331,61 +412,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       decoration: BoxDecoration(
         color: colorScheme.surface,
         borderRadius: BorderRadius.circular(4.0),
-      ),
-    );
-  }
-
-  // Helper method to build Node ID row with copy functionality
-  Widget _buildNodeIdRow(BuildContext context, String peerId) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final shortened = _shortenMid(peerId);
-
-    return Container(
-      padding: const EdgeInsets.all(0),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.fingerprint,
-            size: 16,
-            color: colorScheme.primary,
-          ),
-          const SizedBox(width: 8),
-          Text(
-            'Peer ID: ',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          Expanded(
-            child: Text(
-              shortened,
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontFamily: 'monospace',
-                color: colorScheme.onSurface,
-              ),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.copy, size: 16),
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: peerId));
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(AppLocalizations.of(context).nodePeerIdCopied),
-                  duration: const Duration(seconds: 2),
-                ),
-              );
-            },
-            tooltip: AppLocalizations.of(context).nodeCopyPeerId,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
-        ],
       ),
     );
   }
@@ -462,12 +488,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       children: [
         _buildSectionHeader(context, 'Overview'),
         const SizedBox(height: 12),
-
-        // Peer ID row
-        if (statusFromProvider?.peerId != null) ...[
-          _buildNodeIdRow(context, statusFromProvider!.peerId!),
-          const SizedBox(height: 12),
-        ],
 
         // Status line
         Row(

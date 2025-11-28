@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/features/node/node_data_providers.dart';
 import 'package:crypto_mobile_app/features/node/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -91,8 +90,9 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
     final blockchain = blockchainAsync.value;
 
     return Scaffold(
-      appBar: AppAppBar(
-        title: l10n.wonSlotsTitle,
+      appBar: AppBar(
+        title: Text(l10n.wonSlotsTitle),
+        leading: const BackButton(),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),

@@ -10,7 +10,6 @@ import 'package:crypto_mobile_app/features/onboarding/screens/battery_permission
 import 'package:crypto_mobile_app/features/onboarding/screens/notification_permission3_screen.dart';
 import 'package:crypto_mobile_app/features/home/screens/home_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/slot_assignments_screen.dart';
-import 'package:crypto_mobile_app/core/main_app.dart';
 import 'package:crypto_mobile_app/features/node/screens/node_status_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/node_won_slots_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/produced_blocks_screen.dart';
@@ -129,42 +128,34 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.slotAssignments,
         builder: (context, state) => const SlotAssignmentsScreen(),
       ),
-      // Redirect bare /main to default tab
+      // Won slots screen - outside shell route (no bottom nav)
+      GoRoute(
+        path: AppRoutes.mainNodeWonSlots,
+        builder: (context, state) => const NodeWonSlotsScreen(),
+      ),
+      // Redirect bare /main to mainNode
       GoRoute(
         path: AppRoutes.main,
         redirect: (context, state) => AppRoutes.mainNode,
       ),
-      ShellRoute(
-        builder: (context, state, child) =>
-            MainApp(currentLocation: state.matchedLocation, child: child),
-        routes: [
-          GoRoute(
-            path: AppRoutes.mainNode,
-            pageBuilder: (context, state) => _buildPageWithFade(
-              state,
-              const NodeStatusScreen(),
-            ),
-          ),
-          GoRoute(
-            path: AppRoutes.mainNodeWonSlots,
-            builder: (context, state) => const NodeWonSlotsScreen(),
-          ),
-          GoRoute(
-            path: AppRoutes.mainNodeProducedBlocks,
-            builder: (context, state) => const ProducedBlocksScreen(),
-          ),
-          GoRoute(
-            path: AppRoutes.mainNodeBlockDetails,
-            builder: (context, state) {
-              final block = state.extra as RpcStatusBlockInfo;
-              return BlockDetailsScreen(block: block);
-            },
-          ),
-          GoRoute(
-            path: AppRoutes.mainNodeMempool,
-            builder: (context, state) => const MempoolDetailsScreen(),
-          ),
-        ],
+      GoRoute(
+        path: AppRoutes.mainNode,
+        builder: (context, state) => const NodeStatusScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.mainNodeProducedBlocks,
+        builder: (context, state) => const ProducedBlocksScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.mainNodeBlockDetails,
+        builder: (context, state) {
+          final block = state.extra as RpcStatusBlockInfo;
+          return BlockDetailsScreen(block: block);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.mainNodeMempool,
+        builder: (context, state) => const MempoolDetailsScreen(),
       ),
     ],
     redirect: (context, state) {
@@ -244,21 +235,3 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     },
   );
 });
-
-/// Helper function to build pages with subtle fade transitions
-Page<dynamic> _buildPageWithFade(
-  GoRouterState state,
-  Widget child,
-) {
-  return CustomTransitionPage(
-    key: state.pageKey,
-    child: child,
-    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      return FadeTransition(
-        opacity: animation.drive(CurveTween(curve: Curves.easeInOut)),
-        child: child,
-      );
-    },
-    transitionDuration: const Duration(milliseconds: 150),
-  );
-}

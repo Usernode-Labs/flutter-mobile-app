@@ -1,4 +1,4 @@
-import 'package:crypto_mobile_app/features/wallet/data/repositories/token_registry.dart';
+import 'package:crypto_mobile_app/features/wallet/token_registry.dart';
 
 /// Utility functions for formatting token information
 class TokenFormatter {

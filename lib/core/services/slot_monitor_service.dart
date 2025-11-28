@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
-import 'package:crypto_mobile_app/core/utils/log_tag.dart';
-import '../../features/node/data/repositories/rust_backend_service.dart';
-import '../config/blockchain_timing.dart';
+import '../../features/node/node_service.dart';
 import '../data/slot_production_repository.dart';
 import 'epoch_slot_scheduler_service.dart';
 
@@ -19,6 +17,9 @@ class SlotMonitorService {
   bool _initialized = false;
   bool _isMonitoring = false;
   Timer? _monitoringTimer;
+
+  // Cached timing values from node status
+  int _blockInterval = 5000; // Default 5 seconds, updated from status
 
   // Stream controller for real-time monitoring updates
   final StreamController<SlotMonitoringEvent> _eventController =
@@ -70,6 +71,17 @@ class SlotMonitorService {
     await stopMonitoring();
 
     _log.info('Starting monitoring for slot ${slot.slotNumber}');
+
+    // Fetch status to get current blockInterval
+    try {
+      final status = await RustBackendService.instance.getStatus();
+      if (status != null) {
+        _blockInterval = status.node.blockInterval;
+      }
+    } catch (e) {
+      _log.warn('Failed to fetch blockInterval, using default: $e');
+    }
+
     _currentSlot = slot;
     _isMonitoring = true;
     _monitoringStartTime = DateTime.now();
@@ -84,9 +96,9 @@ class SlotMonitorService {
       timestamp: DateTime.now(),
     ));
 
-    // Start polling timer (poll interval based on slot duration)
+    // Start polling timer (poll interval = 1 slot duration)
     _monitoringTimer = Timer.periodic(
-      BlockchainTiming.pollInterval,
+      Duration(milliseconds: _blockInterval),
       (_) => _pollNodeStatus(),
     );
 
@@ -218,10 +230,10 @@ class SlotMonitorService {
         await _checkSlotProduction(currentSlotNumber);
       }
 
-      // Check for timeout (based on slot duration)
+      // Check for timeout (24 slots after slot time)
       final now = DateTime.now();
-      final timeoutTime =
-          _currentSlot!.slotTime.add(BlockchainTiming.monitoringTimeout);
+      final timeoutTime = _currentSlot!.slotTime
+          .add(Duration(milliseconds: _blockInterval * 24));
 
       if (now.isAfter(timeoutTime)) {
         _log.warn('Monitoring timeout for slot $currentSlotNumber');
@@ -327,11 +339,12 @@ class SlotMonitorService {
     }
 
     final now = DateTime.now();
+    // 12 slots before and 24 slots after (using cached blockInterval)
     final monitoringStartTime = nextSlot.slotTime.subtract(
-      BlockchainTiming.alarmAdvanceTime,
+      Duration(milliseconds: _blockInterval * 12),
     );
     final monitoringEndTime = nextSlot.slotTime.add(
-      BlockchainTiming.monitoringTimeout,
+      Duration(milliseconds: _blockInterval * 24),
     );
 
     // Check if we're in the monitoring window

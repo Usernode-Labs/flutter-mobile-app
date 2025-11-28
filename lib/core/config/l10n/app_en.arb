@@ -1,0 +1,1107 @@
+{
+  "@@locale": "en",
+  "appName": "Usernode",
+  "@appName": {
+    "description": "The name of the application"
+  },
+  "appTagline": "Your Gateway to DeFi",
+  "@appTagline": {
+    "description": "Application tagline"
+  },
+  "initializingNode": "Initializing node...",
+  "@initializingNode": {
+    "description": "Loading text on splash screen"
+  },
+  "node": "Node",
+  "@node": {
+    "description": "Node tab label"
+  },
+
+  "sendFeedback": "Send Feedback",
+  "@sendFeedback": {
+    "description": "Send feedback button text"
+  },
+  "feedbackTitle": "Title",
+  "@feedbackTitle": {
+    "description": "Feedback title field label"
+  },
+  "feedbackTitleHint": "Brief summary of your feedback",
+  "@feedbackTitleHint": {
+    "description": "Feedback title field hint"
+  },
+  "feedbackDescription": "Description",
+  "@feedbackDescription": {
+    "description": "Feedback description field label"
+  },
+  "feedbackDescriptionHint": "Describe your feedback in detail",
+  "@feedbackDescriptionHint": {
+    "description": "Feedback description field hint"
+  },
+  "feedbackCategory": "Category",
+  "@feedbackCategory": {
+    "description": "Feedback category field label"
+  },
+  "feedbackIncludeDeviceInfo": "Include device information",
+  "@feedbackIncludeDeviceInfo": {
+    "description": "Include device info checkbox label"
+  },
+  "feedbackDeviceInfoHelp": "Helps us diagnose issues",
+  "@feedbackDeviceInfoHelp": {
+    "description": "Device info checkbox subtitle"
+  },
+  "feedbackSubmit": "Submit Feedback",
+  "@feedbackSubmit": {
+    "description": "Submit feedback button text"
+  },
+  "feedbackSuccess": "Thank you for your feedback!",
+  "@feedbackSuccess": {
+    "description": "Feedback submission success message"
+  },
+  "feedbackError": "Failed to submit feedback",
+  "@feedbackError": {
+    "description": "Feedback submission error message"
+  },
+  "feedbackRequired": "This field is required",
+  "@feedbackRequired": {
+    "description": "Required field validation message"
+  },
+  "feedbackScreenshots": "Screenshots",
+  "@feedbackScreenshots": {
+    "description": "Screenshots section label"
+  },
+  "feedbackAddScreenshot": "Add",
+  "@feedbackAddScreenshot": {
+    "description": "Add screenshot button text"
+  },
+  "feedbackNoScreenshots": "No screenshots added (optional)",
+  "@feedbackNoScreenshots": {
+    "description": "Empty screenshots message"
+  },
+  "feedbackHelpImprove": "Help us improve the app",
+  "@feedbackHelpImprove": {
+    "description": "Feedback FAB subtitle"
+  },
+  "feedbackImagePickFailed": "Failed to pick image: {error}",
+  "@feedbackImagePickFailed": {
+    "description": "Image pick error message",
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+
+  "settingsTitle": "Settings",
+  "@settingsTitle": {
+    "description": "Settings screen title"
+  },
+  "settingsLanguage": "Language",
+  "@settingsLanguage": {
+    "description": "Language setting label"
+  },
+  "settingsLanguageEnglish": "English",
+  "@settingsLanguageEnglish": {
+    "description": "English language option"
+  },
+  "settingsLanguageFrench": "Français",
+  "@settingsLanguageFrench": {
+    "description": "French language option"
+  },
+  "settingsLanguageSpanish": "Español",
+  "@settingsLanguageSpanish": {
+    "description": "Spanish language option"
+  },
+  "settingsLanguageComingSoon": "Language support coming soon",
+  "@settingsLanguageComingSoon": {
+    "description": "Language not yet supported message"
+  },
+  "settingsBackgroundBlockProduction": "Background Block Production",
+  "@settingsBackgroundBlockProduction": {
+    "description": "Background block production setting label"
+  },
+  "settingsBackgroundBlockProductionSubtitle": "Configure automatic block production",
+  "@settingsBackgroundBlockProductionSubtitle": {
+    "description": "Background block production setting subtitle"
+  },
+  "settingsAbout": "About",
+  "@settingsAbout": {
+    "description": "About section header"
+  },
+  "settingsBuildInfo": "Build Info",
+  "@settingsBuildInfo": {
+    "description": "Build info setting label"
+  },
+
+  "bgProdWhatIs": "What is Background Block Production?",
+  "@bgProdWhatIs": {
+    "description": "Background production explanation title"
+  },
+  "bgProdDescription": "This feature automatically wakes your device to produce blockchain blocks when your node wins a slot. Here's how it works:",
+  "@bgProdDescription": {
+    "description": "Background production explanation"
+  },
+  "bgProdVrfSelection": "VRF Selection",
+  "@bgProdVrfSelection": {
+    "description": "VRF selection step title"
+  },
+  "bgProdVrfSelectionDesc": "Each epoch, the network randomly selects which validators will produce blocks using Verifiable Random Function (VRF)",
+  "@bgProdVrfSelectionDesc": {
+    "description": "VRF selection step description"
+  },
+  "bgProdSlotScheduling": "Slot Scheduling",
+  "@bgProdSlotScheduling": {
+    "description": "Slot scheduling step title"
+  },
+  "bgProdSlotSchedulingDesc": "When you win slots, the app schedules alarms to wake your device ~1 minute before each slot",
+  "@bgProdSlotSchedulingDesc": {
+    "description": "Slot scheduling step description"
+  },
+  "bgProdBlockProduction": "Block Production",
+  "@bgProdBlockProduction": {
+    "description": "Block production step title"
+  },
+  "bgProdBlockProductionDesc": "At slot time, the app monitors your node and ensures the block is produced",
+  "@bgProdBlockProductionDesc": {
+    "description": "Block production step description"
+  },
+  "bgProdSuccessTracking": "Success Tracking",
+  "@bgProdSuccessTracking": {
+    "description": "Success tracking step title"
+  },
+  "bgProdSuccessTrackingDesc": "Results are recorded to track your reliability over time",
+  "@bgProdSuccessTrackingDesc": {
+    "description": "Success tracking step description"
+  },
+  "bgProdAndroidTitle": "Android Background Production",
+  "@bgProdAndroidTitle": {
+    "description": "Android background production section title"
+  },
+  "bgProdIosTitle": "iOS Background Production",
+  "@bgProdIosTitle": {
+    "description": "iOS background production section title"
+  },
+  "bgProdAndroidDesc": "Uses Android's exact alarm system (AlarmManager) to wake your device precisely when needed for block production.",
+  "@bgProdAndroidDesc": {
+    "description": "Android background production description"
+  },
+  "bgProdIosDesc": "Uses a combination of background tasks and keep-alive mode to wake your device for block production.",
+  "@bgProdIosDesc": {
+    "description": "iOS background production description"
+  },
+  "bgProdReliabilityByMode": "Reliability by Mode",
+  "@bgProdReliabilityByMode": {
+    "description": "Reliability by mode section title"
+  },
+  "bgProdDefaultMode": "Default (Event-Driven)",
+  "@bgProdDefaultMode": {
+    "description": "Default mode label"
+  },
+  "bgProdDefaultReliability": "90-95%",
+  "@bgProdDefaultReliability": {
+    "description": "Default mode reliability"
+  },
+  "bgProdDefaultDesc": "Battery-efficient, wakes only during slot windows",
+  "@bgProdDefaultDesc": {
+    "description": "Default mode description"
+  },
+  "bgProdKeepAliveMode": "Keep-Alive Mode",
+  "@bgProdKeepAliveMode": {
+    "description": "Keep-alive mode label"
+  },
+  "bgProdKeepAliveReliability": "100%",
+  "@bgProdKeepAliveReliability": {
+    "description": "Keep-alive mode reliability"
+  },
+  "bgProdKeepAliveDesc": "Persistent service, higher battery (~5-10%/hr)",
+  "@bgProdKeepAliveDesc": {
+    "description": "Keep-alive mode description"
+  },
+  "bgProdIosKeepAliveReliability": "99%",
+  "@bgProdIosKeepAliveReliability": {
+    "description": "iOS keep-alive mode reliability"
+  },
+  "bgProdIosKeepAliveDesc": "App stays awake in foreground, requires charger",
+  "@bgProdIosKeepAliveDesc": {
+    "description": "iOS keep-alive mode description"
+  },
+  "bgProdBackgroundOnly": "Background Only",
+  "@bgProdBackgroundOnly": {
+    "description": "Background only mode label"
+  },
+  "bgProdBackgroundOnlyReliability": "40-60%",
+  "@bgProdBackgroundOnlyReliability": {
+    "description": "Background only mode reliability"
+  },
+  "bgProdBackgroundOnlyDesc": "iOS controls execution, not guaranteed",
+  "@bgProdBackgroundOnlyDesc": {
+    "description": "Background only mode description"
+  },
+  "bgProdLoading": "Loading...",
+  "@bgProdLoading": {
+    "description": "Loading button state"
+  },
+  "bgProdVrfComplete": "VRF Complete",
+  "@bgProdVrfComplete": {
+    "description": "VRF complete button state"
+  },
+  "bgProdVrfCalculating": "VRF Calculating...",
+  "@bgProdVrfCalculating": {
+    "description": "VRF calculating button state"
+  },
+  "bgProdVrfPending": "VRF Pending",
+  "@bgProdVrfPending": {
+    "description": "VRF pending button state"
+  },
+  "bgProdGrantPermissions": "Grant Permissions",
+  "@bgProdGrantPermissions": {
+    "description": "Grant permissions button"
+  },
+  "bgProdOpenBatterySettings": "Open Battery Settings",
+  "@bgProdOpenBatterySettings": {
+    "description": "Open battery settings button"
+  },
+
+  "onboardingAccountSetup": "Account Setup",
+  "@onboardingAccountSetup": {
+    "description": "Account setup screen title"
+  },
+  "onboardingSetUpYourAccount": "Set Up Your Account",
+  "@onboardingSetUpYourAccount": {
+    "description": "Account setup heading"
+  },
+  "onboardingSelectDemoAccount": "Select a demo account to start using the Usernode blockchain.",
+  "@onboardingSelectDemoAccount": {
+    "description": "Demo account selection instruction"
+  },
+  "onboardingUseDemoAccount": "Use Demo Account",
+  "@onboardingUseDemoAccount": {
+    "description": "Use demo account card title"
+  },
+  "onboardingUseDemoAccountDesc": "Quickly set up a pre-configured account for testing purposes.",
+  "@onboardingUseDemoAccountDesc": {
+    "description": "Use demo account card description"
+  },
+
+  "demoNoDemoAccountsAvailable": "No Demo Accounts Available",
+  "@demoNoDemoAccountsAvailable": {
+    "description": "No demo accounts heading"
+  },
+  "demoNotConfigured": "Demo accounts are not configured in this build.",
+  "@demoNotConfigured": {
+    "description": "Demo accounts not configured message"
+  },
+  "demoSelectToImport": "Select a demo account to import for testing purposes.",
+  "@demoSelectToImport": {
+    "description": "Demo account selection instruction"
+  },
+  "demoWarning": "Demo accounts are for development/testing only",
+  "@demoWarning": {
+    "description": "Demo account warning"
+  },
+  "demoUseButton": "Use",
+  "@demoUseButton": {
+    "description": "Use demo account button"
+  },
+  "demoKeyValidationFailedPublicKey": "Key validation failed: Public key mismatch for {tier} account",
+  "@demoKeyValidationFailedPublicKey": {
+    "description": "Public key validation error",
+    "placeholders": {
+      "tier": {"type": "String"}
+    }
+  },
+  "demoKeyValidationFailedAddress": "Key validation failed: Address mismatch for {tier} account",
+  "@demoKeyValidationFailedAddress": {
+    "description": "Address validation error",
+    "placeholders": {
+      "tier": {"type": "String"}
+    }
+  },
+  "demoImportFailed": "Failed to import demo account",
+  "@demoImportFailed": {
+    "description": "Demo account import failure message"
+  },
+  "demoImportFailedWithError": "Failed to import demo account: {error}",
+  "@demoImportFailedWithError": {
+    "description": "Demo account import failure with error",
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+
+  "importApiAccountTitle": "Import Pre-configured Account",
+  "@importApiAccountTitle": {
+    "description": "Import API account card title and screen title"
+  },
+  "importApiAccountDesc": "Import a pre-configured account from the API",
+  "@importApiAccountDesc": {
+    "description": "Import API account card description"
+  },
+  "importApiAccountContactLabel": "Discord, Email, or Telegram",
+  "@importApiAccountContactLabel": {
+    "description": "Contact field label"
+  },
+  "importApiAccountContactHint": "@username or name@example.com",
+  "@importApiAccountContactHint": {
+    "description": "Contact field hint"
+  },
+  "importApiAccountCodeLabel": "Activation Code",
+  "@importApiAccountCodeLabel": {
+    "description": "Activation code field label"
+  },
+  "importApiAccountCodeHint": "Enter your code",
+  "@importApiAccountCodeHint": {
+    "description": "Activation code field hint"
+  },
+  "importApiAccountSubmit": "Submit",
+  "@importApiAccountSubmit": {
+    "description": "Submit button text"
+  },
+  "importApiAccountFailed": "Failed to import account from API",
+  "@importApiAccountFailed": {
+    "description": "API account import failure message"
+  },
+  "importApiAccountRegistrationFailed": "Registration failed: {error}",
+  "@importApiAccountRegistrationFailed": {
+    "description": "API registration failure with error",
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+
+  "walletNoActiveAccount": "No active account found. Please create or select an account.",
+  "@walletNoActiveAccount": {
+    "description": "No active account error"
+  },
+  "walletInvalidAmount": "Invalid amount. Enter a whole-number amount.",
+  "@walletInvalidAmount": {
+    "description": "Invalid amount validation error"
+  },
+  "walletNodeConnectionFailed": "Failed to connect to node. Please ensure the node is running.",
+  "@walletNodeConnectionFailed": {
+    "description": "Node connection failure message"
+  },
+  "walletTransferFailed": "Transfer failed: {error}",
+  "@walletTransferFailed": {
+    "description": "Transfer failure message",
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "walletTransferNotQueued": "Transfer was not queued. Please try again.",
+  "@walletTransferNotQueued": {
+    "description": "Transfer not queued message"
+  },
+  "walletTransferFailedTitle": "Transfer Failed",
+  "@walletTransferFailedTitle": {
+    "description": "Transfer failed dialog title"
+  },
+  "walletReviewSend": "Review Send",
+  "@walletReviewSend": {
+    "description": "Review send screen title"
+  },
+  "walletAmount": "Amount",
+  "@walletAmount": {
+    "description": "Amount label"
+  },
+  "walletNetworkFee": "Network fee",
+  "@walletNetworkFee": {
+    "description": "Network fee label"
+  },
+  "walletBack": "Back",
+  "@walletBack": {
+    "description": "Back button"
+  },
+  "walletSend": "Send",
+  "@walletSend": {
+    "description": "Send button"
+  },
+  "commonOk": "OK",
+  "@commonOk": {
+    "description": "OK button"
+  },
+  "walletDone": "Done",
+  "@walletDone": {
+    "description": "Done button/title"
+  },
+  "walletPaymentSent": "Payment Sent",
+  "@walletPaymentSent": {
+    "description": "Payment sent success title"
+  },
+  "walletTransactionSubmitted": "Your transaction has been submitted successfully.",
+  "@walletTransactionSubmitted": {
+    "description": "Transaction submitted success message"
+  },
+
+  "nodeStatusTitle": "Node Status",
+  "@nodeStatusTitle": {
+    "description": "Node status screen title"
+  },
+  "nodePeerIdCopied": "Peer ID copied to clipboard",
+  "@nodePeerIdCopied": {
+    "description": "Peer ID copied snackbar message"
+  },
+  "nodeCopyPeerId": "Copy full Peer ID",
+  "@nodeCopyPeerId": {
+    "description": "Copy peer ID tooltip"
+  },
+
+  "nodePeersTitle": "Node Peers",
+  "@nodePeersTitle": {
+    "description": "Node peers screen title"
+  },
+  "nodePeersSummary": "{count} Peers  •  {connected} Connected  •  {connecting} Connecting",
+  "@nodePeersSummary": {
+    "description": "Peers summary header",
+    "placeholders": {
+      "count": {"type": "String"},
+      "connected": {"type": "String"},
+      "connecting": {"type": "String"}
+    }
+  },
+
+  "wonSlotsTitle": "Won Slots",
+  "@wonSlotsTitle": {
+    "description": "Won slots screen title"
+  },
+  "wonSlotsLoadingEpoch": "Loading epoch data...",
+  "@wonSlotsLoadingEpoch": {
+    "description": "Loading epoch data message"
+  },
+  "wonSlotsEpochUnavailable": "Epoch data unavailable",
+  "@wonSlotsEpochUnavailable": {
+    "description": "Epoch data unavailable message"
+  },
+  "wonSlotsNoData": "No won slots data available",
+  "@wonSlotsNoData": {
+    "description": "No won slots message"
+  },
+  "wonSlotsGroupedByHour": "Grouped by hour",
+  "@wonSlotsGroupedByHour": {
+    "description": "Grouped by hour subtitle"
+  },
+  "wonSlotsGroupedByDay": "Grouped by day",
+  "@wonSlotsGroupedByDay": {
+    "description": "Grouped by day subtitle"
+  },
+  "wonSlotsWon": "Won",
+  "@wonSlotsWon": {
+    "description": "Won label"
+  },
+  "wonSlotsProduced": "Produced",
+  "@wonSlotsProduced": {
+    "description": "Produced label"
+  },
+  "wonSlotsMissed": "Missed",
+  "@wonSlotsMissed": {
+    "description": "Missed label"
+  },
+  "wonSlotsPending": "Pending",
+  "@wonSlotsPending": {
+    "description": "Pending label"
+  },
+  "wonSlotsToday": "Today",
+  "@wonSlotsToday": {
+    "description": "Today label"
+  },
+
+  "producedBlocksTitle": "Produced Blocks",
+  "@producedBlocksTitle": {
+    "description": "Produced blocks screen title"
+  },
+  "producedBlocksLoading": "Loading produced blocks...",
+  "@producedBlocksLoading": {
+    "description": "Loading produced blocks message"
+  },
+  "producedBlocksNoData": "No produced blocks available",
+  "@producedBlocksNoData": {
+    "description": "No produced blocks message"
+  },
+
+  "mempoolTitle": "Mempool Transactions",
+  "@mempoolTitle": {
+    "description": "Mempool screen title"
+  },
+  "mempoolLoadFailed": "Failed to load mempool",
+  "@mempoolLoadFailed": {
+    "description": "Failed to load mempool message"
+  },
+  "mempoolRetry": "Retry",
+  "@mempoolRetry": {
+    "description": "Retry button"
+  },
+  "mempoolNoTransactions": "No transactions in mempool",
+  "@mempoolNoTransactions": {
+    "description": "No mempool transactions title"
+  },
+  "mempoolEmpty": "The mempool is currently empty",
+  "@mempoolEmpty": {
+    "description": "Mempool empty message"
+  },
+
+  "rewardsBreakdownTitle": "Rewards Breakdown",
+  "@rewardsBreakdownTitle": {
+    "description": "Rewards breakdown screen title"
+  },
+
+  "drawerP2pPeerId": "P2P Peer ID:",
+  "@drawerP2pPeerId": {
+    "description": "P2P peer ID label in drawer"
+  },
+  "drawerClose": "Close",
+  "@drawerClose": {
+    "description": "Close button in drawer"
+  },
+
+  "commonError": "Error",
+  "@commonError": {
+    "description": "Generic error label"
+  },
+
+  "buildInfoVersion": "Version",
+  "@buildInfoVersion": {
+    "description": "Version label in build info"
+  },
+  "buildInfoCommit": "Commit",
+  "@buildInfoCommit": {
+    "description": "Commit label in build info"
+  },
+  "buildInfoBranch": "Branch",
+  "@buildInfoBranch": {
+    "description": "Branch label in build info"
+  },
+  "buildInfoCommitTime": "Commit time",
+  "@buildInfoCommitTime": {
+    "description": "Commit time label in build info"
+  },
+  "buildInfoRustc": "Rustc",
+  "@buildInfoRustc": {
+    "description": "Rust compiler label in build info"
+  },
+  "buildInfoLlvm": "LLVM",
+  "@buildInfoLlvm": {
+    "description": "LLVM label in build info"
+  },
+  "buildInfoCargoTarget": "Cargo target",
+  "@buildInfoCargoTarget": {
+    "description": "Cargo target label in build info"
+  },
+  "buildInfoFeatures": "Features",
+  "@buildInfoFeatures": {
+    "description": "Features label in build info"
+  },
+  "buildInfoOptLevel": "Opt level",
+  "@buildInfoOptLevel": {
+    "description": "Optimization level label in build info"
+  },
+  "buildInfoDebug": "Debug",
+  "@buildInfoDebug": {
+    "description": "Debug label in build info"
+  },
+  "nodeNotAvailable": "Not available",
+  "@nodeNotAvailable": {
+    "description": "Not available fallback text"
+  },
+
+  "navProducedBlocks": "Produced Blocks",
+  "@navProducedBlocks": {
+    "description": "Navigation bar label for produced blocks tab"
+  },
+  "navNodeStatus": "Node Status",
+  "@navNodeStatus": {
+    "description": "Navigation bar label for node status tab"
+  },
+  "navSettings": "Settings",
+  "@navSettings": {
+    "description": "Navigation bar label for settings tab"
+  },
+
+  "welcomeTitle": "Welcome Usernode Operator",
+  "@welcomeTitle": {
+    "description": "Welcome screen title"
+  },
+  "welcomeClaimAccount": "Claim your account",
+  "@welcomeClaimAccount": {
+    "description": "Claim account button text"
+  },
+
+  "permExactAlarmsTitle": "Exact Alarms",
+  "@permExactAlarmsTitle": {
+    "description": "Exact alarms permission screen title"
+  },
+  "permExactAlarmsWhy": "Why exact alarms are required",
+  "@permExactAlarmsWhy": {
+    "description": "Section title explaining why exact alarms are needed"
+  },
+  "permExactAlarmsAndroidExplanation": "Android restricts apps from waking the device at precise times unless explicitly allowed. Without this permission, alarms may be delayed by up to 10 minutes, causing missed blocks.\n\nDepending on your device, this permission may already be granted.",
+  "@permExactAlarmsAndroidExplanation": {
+    "description": "Android explanation for exact alarms"
+  },
+  "permExactAlarmsIosExplanation": "This step is primarily for Android devices. You can continue.",
+  "@permExactAlarmsIosExplanation": {
+    "description": "iOS explanation for exact alarms"
+  },
+  "permGrantExactAlarm": "Grant exact alarm permission",
+  "@permGrantExactAlarm": {
+    "description": "Button to grant exact alarm permission"
+  },
+  "permExactAlarmGranted": "Exact alarm permission granted",
+  "@permExactAlarmGranted": {
+    "description": "Snackbar message when exact alarm granted"
+  },
+  "permExactAlarmEnableInSettings": "Please enable exact alarms in Settings",
+  "@permExactAlarmEnableInSettings": {
+    "description": "Snackbar message to enable exact alarms in settings"
+  },
+  "permGranted": "Permission granted",
+  "@permGranted": {
+    "description": "Status text when permission is granted"
+  },
+  "permRequired": "Permission required",
+  "@permRequired": {
+    "description": "Status text when permission is required"
+  },
+  "commonNext": "Next",
+  "@commonNext": {
+    "description": "Next button text"
+  },
+  "commonFinish": "Finish",
+  "@commonFinish": {
+    "description": "Finish button text"
+  },
+
+  "permBatteryTitle": "Battery Optimization",
+  "@permBatteryTitle": {
+    "description": "Battery optimization screen title"
+  },
+  "permBatteryWhyMatters": "Why this matters",
+  "@permBatteryWhyMatters": {
+    "description": "Section title for battery optimization explanation"
+  },
+  "permBatteryAndroidExplanation": "Android's battery saver can delay or skip alarms to save power. Disabling battery optimization for this app ensures your wake-up alarms fire on time when blocks are scheduled to be produced.",
+  "@permBatteryAndroidExplanation": {
+    "description": "Android explanation for battery optimization"
+  },
+  "permBatteryIosExplanation": "This step applies to Android devices.",
+  "@permBatteryIosExplanation": {
+    "description": "iOS explanation for battery optimization"
+  },
+  "permBatteryImpact": "Impact of battery optimization:",
+  "@permBatteryImpact": {
+    "description": "Battery optimization impact section title"
+  },
+  "permBatteryWarning": "Alarms may be delayed 1–60 seconds, or skipped entirely.",
+  "@permBatteryWarning": {
+    "description": "Warning about enabled battery optimization"
+  },
+  "permBatteryOptimized": "With optimization disabled, alarms fire precisely when scheduled.",
+  "@permBatteryOptimized": {
+    "description": "Message about disabled battery optimization"
+  },
+  "permOpenBatterySettings": "Open Battery Settings",
+  "@permOpenBatterySettings": {
+    "description": "Button to open battery settings"
+  },
+  "permBatteryDeviceWarning": "{manufacturer} devices require additional settings. Tap Open Battery Settings for guidance.",
+  "@permBatteryDeviceWarning": {
+    "description": "Warning for specific device manufacturers",
+    "placeholders": {
+      "manufacturer": {"type": "String"}
+    }
+  },
+  "permBatteryOptDisabled": "Battery optimization disabled",
+  "@permBatteryOptDisabled": {
+    "description": "Status when battery optimization is disabled"
+  },
+  "permBatteryOptEnabled": "Battery optimization enabled",
+  "@permBatteryOptEnabled": {
+    "description": "Status when battery optimization is enabled"
+  },
+
+  "permNotificationsTitle": "Notifications",
+  "@permNotificationsTitle": {
+    "description": "Notifications permission screen title"
+  },
+  "permNotificationsExplanation": "Allow notifications to receive important updates. You can change this later in Settings.",
+  "@permNotificationsExplanation": {
+    "description": "Explanation for notifications permission"
+  },
+  "permAllowNotifications": "Allow notifications",
+  "@permAllowNotifications": {
+    "description": "Button to allow notifications"
+  },
+  "permNotificationsDisabledMessage": "Notifications are currently disabled. You can enable them in Settings.",
+  "@permNotificationsDisabledMessage": {
+    "description": "Message when notifications are permanently denied"
+  },
+  "permOpenSettings": "Open Settings",
+  "@permOpenSettings": {
+    "description": "Button to open settings"
+  },
+  "permNotificationsEnabled": "Notifications enabled",
+  "@permNotificationsEnabled": {
+    "description": "Status when notifications are enabled"
+  },
+  "permNotificationsDisabled": "Notifications disabled",
+  "@permNotificationsDisabled": {
+    "description": "Status when notifications are disabled"
+  },
+  "permNotificationsDenied": "Notifications denied",
+  "@permNotificationsDenied": {
+    "description": "Snackbar message when notifications denied"
+  },
+  "permNotificationsPermanentlyDenied": "Notifications permanently denied. Enable in Settings.",
+  "@permNotificationsPermanentlyDenied": {
+    "description": "Snackbar message when notifications permanently denied"
+  },
+  "permNotificationStatus": "Notification status: {status}",
+  "@permNotificationStatus": {
+    "description": "Generic notification status message",
+    "placeholders": {
+      "status": {"type": "String"}
+    }
+  },
+
+  "statsTitle": "Production Statistics",
+  "@statsTitle": {
+    "description": "Production statistics screen title"
+  },
+  "statsOverall": "Overall Statistics",
+  "@statsOverall": {
+    "description": "Overall statistics card title"
+  },
+  "statsWonSlots": "Won Slots",
+  "@statsWonSlots": {
+    "description": "Won slots stat label"
+  },
+  "statsAttempted": "Attempted",
+  "@statsAttempted": {
+    "description": "Attempted stat label"
+  },
+  "statsProduced": "Produced",
+  "@statsProduced": {
+    "description": "Produced stat label"
+  },
+  "statsFailed": "Failed",
+  "@statsFailed": {
+    "description": "Failed stat label"
+  },
+  "statsLastUpdated": "Last Updated",
+  "@statsLastUpdated": {
+    "description": "Last updated label"
+  },
+  "statsSuccessRate": "Success Rate",
+  "@statsSuccessRate": {
+    "description": "Success rate card title"
+  },
+  "statsNoRecords": "No production records yet",
+  "@statsNoRecords": {
+    "description": "Empty state message for production records"
+  },
+  "statsRecentRecords": "Recent Production Records",
+  "@statsRecentRecords": {
+    "description": "Recent records section title"
+  },
+  "statsEpoch": "Epoch {epoch}",
+  "@statsEpoch": {
+    "description": "Epoch label with number",
+    "placeholders": {
+      "epoch": {"type": "int"}
+    }
+  },
+  "statsSlot": "Slot {slot}",
+  "@statsSlot": {
+    "description": "Slot label with number",
+    "placeholders": {
+      "slot": {"type": "int"}
+    }
+  },
+  "statsBlock": "Block {block}",
+  "@statsBlock": {
+    "description": "Block label with number",
+    "placeholders": {
+      "block": {"type": "int"}
+    }
+  },
+  "statsSuccessfulOf": "{produced} successful out of {attempted} attempts",
+  "@statsSuccessfulOf": {
+    "description": "Success rate description",
+    "placeholders": {
+      "produced": {"type": "int"},
+      "attempted": {"type": "int"}
+    }
+  },
+  "statsStatusWon": "Won (not yet attempted)",
+  "@statsStatusWon": {
+    "description": "Status text for won slot"
+  },
+  "statsStatusAttempting": "Currently attempting production",
+  "@statsStatusAttempting": {
+    "description": "Status text for attempting production"
+  },
+  "statsStatusProduced": "Successfully produced",
+  "@statsStatusProduced": {
+    "description": "Status text for produced block"
+  },
+  "statsStatusFailed": "Production failed",
+  "@statsStatusFailed": {
+    "description": "Status text for failed production"
+  },
+
+  "timeJustNow": "Just now",
+  "@timeJustNow": {
+    "description": "Time display for just now"
+  },
+  "timeMinutesAgo": "{minutes} minutes ago",
+  "@timeMinutesAgo": {
+    "description": "Time display for minutes ago",
+    "placeholders": {
+      "minutes": {"type": "int"}
+    }
+  },
+  "timeHoursAgo": "{hours} hours ago",
+  "@timeHoursAgo": {
+    "description": "Time display for hours ago",
+    "placeholders": {
+      "hours": {"type": "int"}
+    }
+  },
+  "timeDaysAgo": "{days} days ago",
+  "@timeDaysAgo": {
+    "description": "Time display for days ago",
+    "placeholders": {
+      "days": {"type": "int"}
+    }
+  },
+
+  "blockDetailsTitle": "Block Details",
+  "@blockDetailsTitle": {
+    "description": "Block details screen title"
+  },
+  "blockVrfSlotDiscovered": "VRF Slot Discovered",
+  "@blockVrfSlotDiscovered": {
+    "description": "Timeline item title"
+  },
+  "blockSlotWon": "Slot {slot} won",
+  "@blockSlotWon": {
+    "description": "Timeline item subtitle for slot won",
+    "placeholders": {
+      "slot": {"type": "int"}
+    }
+  },
+  "blockProductionScheduled": "Block Production Scheduled",
+  "@blockProductionScheduled": {
+    "description": "Timeline item title"
+  },
+  "blockEpochSlot": "Epoch {epoch}, Slot {slot}",
+  "@blockEpochSlot": {
+    "description": "Timeline item subtitle for epoch and slot",
+    "placeholders": {
+      "epoch": {"type": "int"},
+      "slot": {"type": "int"}
+    }
+  },
+  "blockTxBatchesIncluded": "Transaction Batches Included",
+  "@blockTxBatchesIncluded": {
+    "description": "Timeline item title"
+  },
+  "blockIncludedBatchesTx": "Included {batches} batches / {transactions} transactions",
+  "@blockIncludedBatchesTx": {
+    "description": "Timeline item subtitle for batches and transactions",
+    "placeholders": {
+      "batches": {"type": "int"},
+      "transactions": {"type": "int"}
+    }
+  },
+  "blockIncludedBatchesTxGeneric": "Included batches / transactions",
+  "@blockIncludedBatchesTxGeneric": {
+    "description": "Timeline item subtitle when batch info unavailable"
+  },
+  "blockStateTransition": "State Transition.",
+  "@blockStateTransition": {
+    "description": "Timeline item title"
+  },
+  "blockStatesUpdated": "Protocol and Consensus states updated",
+  "@blockStatesUpdated": {
+    "description": "Timeline item subtitle for state transition"
+  },
+  "blockAppliedLocally": "Applied Locally",
+  "@blockAppliedLocally": {
+    "description": "Timeline item title"
+  },
+  "blockUtxosUpdated": "UTXOs updated",
+  "@blockUtxosUpdated": {
+    "description": "Timeline item subtitle for applied locally"
+  },
+  "blockCommitted": "Block Committed",
+  "@blockCommitted": {
+    "description": "Timeline item title"
+  },
+  "blockNumber": "Block #{height}",
+  "@blockNumber": {
+    "description": "Block number label",
+    "placeholders": {
+      "height": {"type": "int"}
+    }
+  },
+  "blockConfirmed": "Block Confirmed",
+  "@blockConfirmed": {
+    "description": "Timeline item title"
+  },
+  "blockHashPrefix": "Hash: {hash}...",
+  "@blockHashPrefix": {
+    "description": "Block hash with prefix",
+    "placeholders": {
+      "hash": {"type": "String"}
+    }
+  },
+  "blockInformation": "Block Information",
+  "@blockInformation": {
+    "description": "Block information card title"
+  },
+  "blockHash": "Block Hash",
+  "@blockHash": {
+    "description": "Block hash label"
+  },
+  "blockHeight": "Height",
+  "@blockHeight": {
+    "description": "Block height label"
+  },
+  "blockGlobalSlot": "Global Slot",
+  "@blockGlobalSlot": {
+    "description": "Global slot label"
+  },
+  "blockEpoch": "Epoch",
+  "@blockEpoch": {
+    "description": "Epoch label"
+  },
+  "blockProducer": "Producer",
+  "@blockProducer": {
+    "description": "Producer label"
+  },
+  "blockTransactions": "Transactions",
+  "@blockTransactions": {
+    "description": "Transactions label"
+  },
+  "blockBatches": "Batches",
+  "@blockBatches": {
+    "description": "Batches label"
+  },
+  "blockAtSlot": "Block #{height} at Slot {slot}",
+  "@blockAtSlot": {
+    "description": "Block at slot header",
+    "placeholders": {
+      "height": {"type": "int"},
+      "slot": {"type": "int"}
+    }
+  },
+
+  "mempoolTotal": "Total",
+  "@mempoolTotal": {
+    "description": "Mempool total stat label"
+  },
+  "mempoolOrphans": "Orphans",
+  "@mempoolOrphans": {
+    "description": "Mempool orphans stat label"
+  },
+  "mempoolSize": "Size",
+  "@mempoolSize": {
+    "description": "Mempool size stat label"
+  },
+  "mempoolView": "View",
+  "@mempoolView": {
+    "description": "View button for mempool transaction"
+  },
+  "mempoolComingSoon": "Coming Soon",
+  "@mempoolComingSoon": {
+    "description": "Coming soon dialog title"
+  },
+  "mempoolDetailsComingSoon": "Transaction details will be available in a future update.",
+  "@mempoolDetailsComingSoon": {
+    "description": "Coming soon dialog message"
+  },
+
+  "nodeConnecting": "Connecting",
+  "@nodeConnecting": {
+    "description": "Node connecting status"
+  },
+  "nodeSynced": "Synced",
+  "@nodeSynced": {
+    "description": "Node synced status"
+  },
+  "nodeSyncing": "Syncing",
+  "@nodeSyncing": {
+    "description": "Node syncing status"
+  },
+  "nodeSyncingPercent": "Syncing ({percent}%)",
+  "@nodeSyncingPercent": {
+    "description": "Node syncing status with percentage",
+    "placeholders": {
+      "percent": {"type": "String"}
+    }
+  },
+  "nodeOverview": "Overview",
+  "@nodeOverview": {
+    "description": "Node overview section header"
+  },
+  "nodePeerId": "Peer ID: ",
+  "@nodePeerId": {
+    "description": "Peer ID label prefix"
+  },
+
+  "peerUnavailable": "(unavailable)",
+  "@peerUnavailable": {
+    "description": "Peer unavailable fallback text"
+  },
+  "peerHiddenAddress": "(Hidden address)",
+  "@peerHiddenAddress": {
+    "description": "Peer hidden address fallback text"
+  },
+  "peerHeight": "Height: {height}",
+  "@peerHeight": {
+    "description": "Peer height label",
+    "placeholders": {
+      "height": {"type": "String"}
+    }
+  },
+  "peerSlot": "Slot: {slot}",
+  "@peerSlot": {
+    "description": "Peer slot label",
+    "placeholders": {
+      "slot": {"type": "String"}
+    }
+  },
+  "timeAMinuteAgo": "a minute ago",
+  "@timeAMinuteAgo": {
+    "description": "Time display for a minute ago"
+  },
+  "timeAnHourAgo": "an hour ago",
+  "@timeAnHourAgo": {
+    "description": "Time display for an hour ago"
+  },
+  "timeYesterday": "yesterday",
+  "@timeYesterday": {
+    "description": "Time display for yesterday"
+  },
+  "timeWeeksAgo": "{weeks} week{suffix} ago",
+  "@timeWeeksAgo": {
+    "description": "Time display for weeks ago",
+    "placeholders": {
+      "weeks": {"type": "int"},
+      "suffix": {"type": "String"}
+    }
+  },
+  "timeMonthsAgo": "{months} month{suffix} ago",
+  "@timeMonthsAgo": {
+    "description": "Time display for months ago",
+    "placeholders": {
+      "months": {"type": "int"},
+      "suffix": {"type": "String"}
+    }
+  },
+  "timeYearsAgo": "{years} year{suffix} ago",
+  "@timeYearsAgo": {
+    "description": "Time display for years ago",
+    "placeholders": {
+      "years": {"type": "int"},
+      "suffix": {"type": "String"}
+    }
+  }
+}

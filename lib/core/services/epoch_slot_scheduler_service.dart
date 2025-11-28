@@ -1,10 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
-import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../features/node/data/repositories/rust_backend_service.dart';
-import '../config/blockchain_timing.dart';
+import 'package:crypto_mobile_app/features/node/node_provider.dart';
+import '../../features/node/node_service.dart';
 import '../data/slot_production_repository.dart';
 import 'platform_alarm_service.dart';
 
@@ -31,7 +30,7 @@ class EpochSlotSchedulerService {
 
   // Configuration
   static Duration get _epochCheckInterval =>
-      BlockchainTiming.epochCheckIntervalDefault;
+      NodeStatusState.epochCheckIntervalDefault;
   static const String _prefKeyCurrentEpoch = 'epoch_scheduler_current_epoch';
   static const String _prefKeyScheduledSlots =
       'epoch_scheduler_scheduled_slots';
@@ -114,7 +113,7 @@ class EpochSlotSchedulerService {
       return;
     }
 
-    final newInterval = BlockchainTiming.getEpochCheckInterval(progress);
+    final newInterval = NodeStatusState.getEpochCheckInterval(progress);
 
     // Check if timer is running and if interval needs changing
     if (_epochMonitoringTimer != null && _epochMonitoringTimer!.isActive) {
@@ -236,7 +235,8 @@ class EpochSlotSchedulerService {
     int? epoch,
     Duration? advanceTime,
   }) async {
-    advanceTime ??= BlockchainTiming.alarmAdvanceTime;
+    // Default advance time: 12 slots (will be calculated from status if null)
+    advanceTime ??= const Duration(minutes: 1); // Fallback, updated below
     if (!_initialized) {
       _log.warn('Cannot schedule slots: service not initialized');
       return SchedulingResult(
@@ -543,8 +543,8 @@ class EpochSlotSchedulerService {
 
       final slotsUntilEnd = epochEndSlot - currentGlobalSlot;
 
-      // Calculate time until epoch ends
-      final msUntilEnd = slotsUntilEnd * BlockchainTiming.slotDurationMs;
+      // Calculate time until epoch ends using blockInterval from status
+      final msUntilEnd = slotsUntilEnd * status.node.blockInterval;
       final epochEndTime =
           DateTime.now().add(Duration(milliseconds: msUntilEnd));
 
@@ -588,13 +588,13 @@ class EpochSlotSchedulerService {
         return null;
       }
 
-      // Calculate epoch start from upper bound
-      final epochStartSlot =
-          epochUpperBound - BlockchainTiming.slotsPerEpoch + 1;
+      // Calculate epoch start from upper bound using slotsInEpoch from status
+      final slotsInEpoch = status.node.slotsInEpoch;
+      final epochStartSlot = epochUpperBound - slotsInEpoch + 1;
 
       // Calculate slot position within epoch
       final slotInEpoch = currentGlobalSlot - epochStartSlot;
-      final progress = slotInEpoch / BlockchainTiming.slotsPerEpoch;
+      final progress = slotInEpoch / slotsInEpoch;
 
       return progress.clamp(0.0, 1.0);
     } catch (e) {
@@ -618,8 +618,18 @@ class EpochSlotSchedulerService {
   }
 
   /// Get epoch duration based on blockchain constants
-  Duration getEpochDuration() {
-    return BlockchainTiming.epochDuration;
+  ///
+  /// Returns null if backend is unavailable.
+  Future<Duration?> getEpochDuration() async {
+    try {
+      final status = await RustBackendService.instance.getStatus();
+      if (status == null) return null;
+      return Duration(
+          milliseconds: status.node.blockInterval * status.node.slotsInEpoch);
+    } catch (e) {
+      _log.error('Error getting epoch duration: $e');
+      return null;
+    }
   }
 
   /// Dispose the service (cleanup)

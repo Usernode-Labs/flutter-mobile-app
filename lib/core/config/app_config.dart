@@ -9,6 +9,21 @@ class AppConfig {
     required this.verboseLogging,
   });
 
+  // === App Information ===
+  static const String appName = 'Usernode';
+  static const String appTagline =
+      'A New Layer 1. Operated & Secured by You. From Your Phone';
+
+  // === Animation Durations ===
+  static const Duration splashDuration = Duration(seconds: 3);
+  static const Duration shortAnimation = Duration(milliseconds: 200);
+  static const Duration mediumAnimation = Duration(milliseconds: 500);
+  static const Duration longAnimation = Duration(seconds: 1);
+
+  // === Currency Constants ===
+  static const String defaultTokenSymbol = 'TKN';
+  static const String defaultFiatCurrency = 'USD';
+
   static const String _env =
       String.fromEnvironment('APP_ENV', defaultValue: 'development');
   static const bool _verbose =
@@ -18,6 +33,12 @@ class AppConfig {
         environment: _env,
         verboseLogging: _verbose,
       );
+
+  // Registration API
+  static const String registrationEndpoint = String.fromEnvironment(
+    'REGISTRATION_ENDPOINT',
+    defaultValue: 'https://api.topo.usernodelabs.org/api/v1/register',
+  );
 
   // GitHub configuration
   static const String githubToken =

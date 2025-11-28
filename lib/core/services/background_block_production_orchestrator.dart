@@ -1,14 +1,13 @@
 import 'dart:async';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
-import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 import '../models/block_production_state.dart';
 import '../models/block_production_event.dart';
 import '../models/backend_rpc_response.dart';
 import '../models/vrf_status.dart';
 import '../data/block_production_state_repository.dart';
 import '../data/slot_production_repository.dart';
-import '../../features/node/data/repositories/rust_backend_service.dart';
+import '../../features/node/node_service.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 import '../config/app_config.dart';
 import 'platform_alarm_service.dart';
@@ -352,7 +351,7 @@ class BackgroundBlockProductionOrchestrator {
         _log.debug('Battery level for wake-up: $batteryLevel%');
       } catch (e, stackTrace) {
         _log.warn('Could not get battery level: $e');
-        _log.debug('Battery error stacktrace: $stackTrace');
+        _log.trace('Battery error stacktrace: $stackTrace');
       }
 
       // Calculate alarm latency (find scheduled slot)

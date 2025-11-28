@@ -34,6 +34,12 @@ class AppConfig {
         verboseLogging: _verbose,
       );
 
+  // Registration API
+  static const String registrationEndpoint = String.fromEnvironment(
+    'REGISTRATION_ENDPOINT',
+    defaultValue: 'https://api.topo.usernodelabs.org/api/v1/register',
+  );
+
   // GitHub configuration
   static const String githubToken =
       String.fromEnvironment('GITHUB_TOKEN', defaultValue: '');

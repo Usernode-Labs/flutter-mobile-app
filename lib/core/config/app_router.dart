@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/features/splash/screens/splash_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/account_mode_selection_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/use_demo_accounts_screen.dart';
+import 'package:crypto_mobile_app/features/onboarding/screens/import_api_account_screen.dart';
 import 'package:crypto_mobile_app/core/main_app.dart';
 import 'package:crypto_mobile_app/features/node/screens/node_status_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/node_won_slots_screen.dart';
@@ -76,6 +77,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.onboarding,
         builder: (context, state) => const AccountModeSelectionScreen(),
+      ),
+      GoRoute(
+        path: '/import-api-account',
+        builder: (context, state) => const ImportApiAccountScreen(),
       ),
       GoRoute(
         path: '/use-demo-accounts',
@@ -178,6 +183,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         }
         // Allow onboarding and demo accounts routes
         if (currentLocation == AppRoutes.onboarding ||
+            currentLocation == '/import-api-account' ||
             currentLocation == '/use-demo-accounts') {
           LoggingService.instance.trace('Allowing onboarding route');
           return null;
@@ -191,8 +197,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Account exists
       _log.trace('Account exists');
 
-      // Allow demo accounts route during onboarding flow
-      if (currentLocation == '/use-demo-accounts') {
+      // Allow onboarding flow routes
+      if (currentLocation == '/import-api-account' ||
+          currentLocation == '/use-demo-accounts') {
         LoggingService.instance.trace('Allowing onboarding flow route');
         return null;
       }

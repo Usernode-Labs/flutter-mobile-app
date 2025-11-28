@@ -264,6 +264,36 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get importApiAccountTitle => 'Import Pre-configured Account';
+
+  @override
+  String get importApiAccountDesc =>
+      'Import a pre-configured account from the API';
+
+  @override
+  String get importApiAccountContactLabel => 'Discord, Email, or Telegram';
+
+  @override
+  String get importApiAccountContactHint => '@username or name@example.com';
+
+  @override
+  String get importApiAccountCodeLabel => 'Activation Code';
+
+  @override
+  String get importApiAccountCodeHint => 'Enter your code';
+
+  @override
+  String get importApiAccountSubmit => 'Submit';
+
+  @override
+  String get importApiAccountFailed => 'Failed to import account from API';
+
+  @override
+  String importApiAccountRegistrationFailed(String error) {
+    return 'Registration failed: $error';
+  }
+
+  @override
   String get walletNoActiveAccount =>
       'No active account found. Please create or select an account.';
 

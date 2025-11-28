@@ -556,6 +556,60 @@ abstract class AppLocalizations {
   /// **'Failed to import demo account: {error}'**
   String demoImportFailedWithError(String error);
 
+  /// Import API account card title and screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Import Pre-configured Account'**
+  String get importApiAccountTitle;
+
+  /// Import API account card description
+  ///
+  /// In en, this message translates to:
+  /// **'Import a pre-configured account from the API'**
+  String get importApiAccountDesc;
+
+  /// Contact field label
+  ///
+  /// In en, this message translates to:
+  /// **'Discord, Email, or Telegram'**
+  String get importApiAccountContactLabel;
+
+  /// Contact field hint
+  ///
+  /// In en, this message translates to:
+  /// **'@username or name@example.com'**
+  String get importApiAccountContactHint;
+
+  /// Activation code field label
+  ///
+  /// In en, this message translates to:
+  /// **'Activation Code'**
+  String get importApiAccountCodeLabel;
+
+  /// Activation code field hint
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your code'**
+  String get importApiAccountCodeHint;
+
+  /// Submit button text
+  ///
+  /// In en, this message translates to:
+  /// **'Submit'**
+  String get importApiAccountSubmit;
+
+  /// API account import failure message
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to import account from API'**
+  String get importApiAccountFailed;
+
+  /// API registration failure with error
+  ///
+  /// In en, this message translates to:
+  /// **'Registration failed: {error}'**
+  String importApiAccountRegistrationFailed(String error);
+
   /// No active account error
   ///
   /// In en, this message translates to:

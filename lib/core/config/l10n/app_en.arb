@@ -326,6 +326,46 @@
     }
   },
 
+  "importApiAccountTitle": "Import Pre-configured Account",
+  "@importApiAccountTitle": {
+    "description": "Import API account card title and screen title"
+  },
+  "importApiAccountDesc": "Import a pre-configured account from the API",
+  "@importApiAccountDesc": {
+    "description": "Import API account card description"
+  },
+  "importApiAccountContactLabel": "Discord, Email, or Telegram",
+  "@importApiAccountContactLabel": {
+    "description": "Contact field label"
+  },
+  "importApiAccountContactHint": "@username or name@example.com",
+  "@importApiAccountContactHint": {
+    "description": "Contact field hint"
+  },
+  "importApiAccountCodeLabel": "Activation Code",
+  "@importApiAccountCodeLabel": {
+    "description": "Activation code field label"
+  },
+  "importApiAccountCodeHint": "Enter your code",
+  "@importApiAccountCodeHint": {
+    "description": "Activation code field hint"
+  },
+  "importApiAccountSubmit": "Submit",
+  "@importApiAccountSubmit": {
+    "description": "Submit button text"
+  },
+  "importApiAccountFailed": "Failed to import account from API",
+  "@importApiAccountFailed": {
+    "description": "API account import failure message"
+  },
+  "importApiAccountRegistrationFailed": "Registration failed: {error}",
+  "@importApiAccountRegistrationFailed": {
+    "description": "API registration failure with error",
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+
   "walletNoActiveAccount": "No active account found. Please create or select an account.",
   "@walletNoActiveAccount": {
     "description": "No active account error"

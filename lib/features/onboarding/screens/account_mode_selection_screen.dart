@@ -10,6 +10,10 @@ class AccountModeSelectionScreen extends StatelessWidget {
     context.push('/use-demo-accounts');
   }
 
+  void _navigateToImportApiAccount(BuildContext context) {
+    context.push('/import-api-account');
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -54,6 +58,13 @@ class AccountModeSelectionScreen extends StatelessWidget {
                   title: l10n.onboardingUseDemoAccount,
                   subtitle: l10n.onboardingUseDemoAccountDesc,
                   onTap: () => _navigateToDemoAccounts(context),
+                ),
+                const SizedBox(height: 12),
+                _ModeCard(
+                  icon: Icons.download,
+                  title: l10n.importApiAccountTitle,
+                  subtitle: l10n.importApiAccountDesc,
+                  onTap: () => _navigateToImportApiAccount(context),
                 ),
               ],
             ),

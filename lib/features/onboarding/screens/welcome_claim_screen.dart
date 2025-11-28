@@ -33,7 +33,7 @@ class WelcomeClaimScreen extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  onPressed: () => context.go('/newux/onboarding/import-api'),
+                  onPressed: () => context.go('/onboarding/import-api'),
                   child: const Text('Claim your account'),
                 ),
               ),

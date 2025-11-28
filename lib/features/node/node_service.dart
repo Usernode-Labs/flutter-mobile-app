@@ -75,7 +75,6 @@ class RustBackendService {
   /// Returns true if started successfully, false if no account or error.
   /// Safe to call multiple times; subsequent calls return true if already running.
   Future<bool> startNode({int? httpPort}) async {
-    return true;
     if (!_initialized) {
       await init();
     }

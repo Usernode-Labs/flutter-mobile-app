@@ -3,10 +3,10 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/features/onboarding/data/repositories/registration_repository.dart';
-import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
+import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
-import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
+import 'package:crypto_mobile_app/features/node/node_service.dart';
 
 class NewUxOnboardingImportApiScreen extends ConsumerStatefulWidget {
   const NewUxOnboardingImportApiScreen({super.key});
@@ -86,7 +86,7 @@ class _NewUxOnboardingImportApiScreenState
 
       // Navigate to New UX permission 1
       if (!mounted) return;
-      context.go('/newux/onboarding/permission1');
+      context.go('/onboarding/permission1');
     } on RegistrationApiException catch (e) {
       if (!mounted) return;
       String message = e.message;

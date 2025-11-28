@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:crypto_mobile_app/features/new_ux/presentation/screens/produced_blocks_screen.dart';
+import 'package:crypto_mobile_app/features/onboarding/screens/produced_blocks_screen.dart';
 
 class NewUxHomeShell extends StatefulWidget {
   const NewUxHomeShell({super.key});

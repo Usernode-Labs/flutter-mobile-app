@@ -18,8 +18,7 @@ import 'package:crypto_mobile_app/features/metrics/metrics_provider.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/services/background_block_production_orchestrator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:crypto_mobile_app/core/routing/new_ux_router.dart';
-import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
+import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
 
 const bool kNewUx =
     bool.fromEnvironment('NEW_UX', defaultValue: false);
@@ -167,9 +166,7 @@ class CryptoMobileApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
 
-    final router = kNewUx
-        ? ref.watch(newUxRouterProvider(hasAccount))
-        : ref.watch(appRouterProvider);
+    final router = ref.watch(appRouterProvider);
     final themeMode = ref.watch(themeModeProvider);
 
     // Initialize backend lifecycle manager

@@ -75,7 +75,7 @@ class ProducedBlocksScreen extends StatelessWidget {
                         title: 'Slot Assignments',
                         subtitle: 'Evaluated 650 of 720 slots',
                         trailingPrimary: '90%',
-                        onTap: () => context.push('/newux/produced/slot-assignments'),
+                        onTap: () => context.push('/produced/slot-assignments'),
                         showChevron: true,
                       ),
                       const SizedBox(height: 6),

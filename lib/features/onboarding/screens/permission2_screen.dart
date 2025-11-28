@@ -213,7 +213,7 @@ class _Permission2ScreenState extends State<Permission2Screen>
                   const Spacer(),
                   FilledButton(
                     onPressed: (_batteryOptDisabled || !isAndroid)
-                        ? () => context.go('/newux/onboarding/permission3')
+                        ? () => context.go('/onboarding/permission3')
                         : null,
                     child: const Text('Next'),
                   ),

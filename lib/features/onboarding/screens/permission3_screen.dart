@@ -140,7 +140,7 @@ class _Permission3ScreenState extends State<Permission3Screen> {
                 width: double.infinity,
                 child: FilledButton(
                   onPressed:
-                      (_granted == true) ? () => context.go('/newux/main') : null,
+                      (_granted == true) ? () => context.go('/home') : null,
                   child: const Text('Finish'),
                 ),
               ),

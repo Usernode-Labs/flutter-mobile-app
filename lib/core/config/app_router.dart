@@ -3,9 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:crypto_mobile_app/features/splash/screens/splash_screen.dart';
-import 'package:crypto_mobile_app/features/onboarding/screens/account_mode_selection_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/use_demo_accounts_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/import_api_account_screen.dart';
+import 'package:crypto_mobile_app/features/onboarding/screens/welcome_claim_screen.dart';
+import 'package:crypto_mobile_app/features/onboarding/screens/onboarding_import_api_screen.dart';
+import 'package:crypto_mobile_app/features/onboarding/screens/permission1_screen.dart';
+import 'package:crypto_mobile_app/features/onboarding/screens/permission2_screen.dart';
+import 'package:crypto_mobile_app/features/onboarding/screens/permission3_screen.dart';
+import 'package:crypto_mobile_app/features/onboarding/screens/new_ux_home_shell.dart';
+import 'package:crypto_mobile_app/features/onboarding/screens/slot_assignments_screen.dart';
 import 'package:crypto_mobile_app/core/main_app.dart';
 import 'package:crypto_mobile_app/features/node/screens/node_status_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/node_won_slots_screen.dart';
@@ -26,7 +32,8 @@ final _log = LoggingService.instance.withTag(LogTag.router);
 
 class AppRoutes {
   static const splash = '/splash';
-  static const onboarding = '/onboarding';
+  static const onboarding = '/onboarding/welcome';
+  static const home = '/home';
   static const main = '/main';
 }
 
@@ -75,8 +82,32 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const SplashScreen(),
       ),
       GoRoute(
-        path: AppRoutes.onboarding,
-        builder: (context, state) => const AccountModeSelectionScreen(),
+        path: '/onboarding/welcome',
+        builder: (context, state) => const WelcomeClaimScreen(),
+      ),
+      GoRoute(
+        path: '/onboarding/import-api',
+        builder: (context, state) => const NewUxOnboardingImportApiScreen(),
+      ),
+      GoRoute(
+        path: '/onboarding/permission1',
+        builder: (context, state) => const Permission1Screen(),
+      ),
+      GoRoute(
+        path: '/onboarding/permission2',
+        builder: (context, state) => const Permission2Screen(),
+      ),
+      GoRoute(
+        path: '/onboarding/permission3',
+        builder: (context, state) => const Permission3Screen(),
+      ),
+      GoRoute(
+        path: '/home',
+        builder: (context, state) => const NewUxHomeShell(),
+      ),
+      GoRoute(
+        path: '/produced/slot-assignments',
+        builder: (context, state) => const SlotAssignmentsScreen(),
       ),
       GoRoute(
         path: '/import-api-account',
@@ -182,7 +213,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return AppRoutes.onboarding;
         }
         // Allow onboarding and demo accounts routes
-        if (currentLocation == AppRoutes.onboarding ||
+        if (currentLocation.startsWith('/onboarding/') ||
             currentLocation == '/import-api-account' ||
             currentLocation == '/use-demo-accounts') {
           LoggingService.instance.trace('Allowing onboarding route');
@@ -204,12 +235,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return null;
       }
 
-      // Redirect from splash and onboarding to node if user already has an account
+      // Redirect from splash and onboarding to home if user already has an account
       if (currentLocation == AppRoutes.splash ||
-          currentLocation == AppRoutes.onboarding) {
+          currentLocation.startsWith('/onboarding/')) {
         LoggingService.instance
-            .trace('Redirecting $currentLocation to /main/node');
-        return '/main/node';
+            .trace('Redirecting $currentLocation to /home');
+        return AppRoutes.home;
       }
 
       // Allow all other routes when account exists

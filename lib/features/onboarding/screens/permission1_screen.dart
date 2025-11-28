@@ -107,7 +107,7 @@ class _Permission1ScreenState extends State<Permission1Screen> {
                   const Spacer(),
                   FilledButton(
                     onPressed: (_hasExactAlarm || !isAndroid)
-                        ? () => context.go('/newux/onboarding/permission2')
+                        ? () => context.go('/onboarding/permission2')
                         : null,
                     child: const Text('Next'),
                   ),

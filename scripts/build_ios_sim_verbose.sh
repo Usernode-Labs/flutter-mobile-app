@@ -12,22 +12,35 @@ echo "[info] Project root: $ROOT_DIR"
 
 # Prefer Homebrew LLVM for libclang
 if command -v brew >/dev/null 2>&1; then
-  LLVM_PREFIX="$(brew --prefix llvm 2>/dev/null || true)"
-fi
-
-if [[ -z "${LLVM_PREFIX:-}" || ! -d "$LLVM_PREFIX" ]]; then
-  # Common Homebrew locations if `brew --prefix llvm` fails
-  for p in /opt/homebrew/opt/llvm /usr/local/opt/llvm; do
-    if [[ -d "$p" ]]; then LLVM_PREFIX="$p"; break; fi
-  done
+  BREW_LLVM="$(brew --prefix llvm 2>/dev/null || true)"
+  if [[ -d "$BREW_LLVM" && -f "$BREW_LLVM/lib/libclang.dylib" ]]; then
+    LLVM_PREFIX="$BREW_LLVM"
+  fi
 fi
 
 if [[ -z "${LLVM_PREFIX:-}" ]]; then
-  echo "[warn] Homebrew LLVM not found; proceeding without overriding clang/libclang."
-else
+  # Common Homebrew locations if `brew --prefix llvm` fails or llvm is not installed
+  for p in /opt/homebrew/opt/llvm /usr/local/opt/llvm; do
+    if [[ -d "$p" && -f "$p/lib/libclang.dylib" ]]; then
+      LLVM_PREFIX="$p"
+      break
+    fi
+  done
+fi
+
+if [[ -n "${LLVM_PREFIX:-}" ]]; then
   export LIBCLANG_PATH="$LLVM_PREFIX/lib"
   export PATH="$LLVM_PREFIX/bin:$PATH"
   echo "[info] Using LLVM at: $LLVM_PREFIX"
+else
+  XCODE_DEV="$(xcode-select -p 2>/dev/null || true)"
+  XCODE_LIB="$XCODE_DEV/Toolchains/XcodeDefault.xctoolchain/usr/lib"
+  if [[ -n "$XCODE_DEV" && -f "$XCODE_LIB/libclang.dylib" ]]; then
+    export LIBCLANG_PATH="$XCODE_LIB"
+    echo "[info] Using Xcode libclang at: $LIBCLANG_PATH"
+  else
+    echo "[warn] libclang not found; proceeding without overriding clang/libclang."
+  fi
 fi
 
 # iOS Simulator SDK and compilers
@@ -94,4 +107,3 @@ else
 fi
 
 exit $status
-

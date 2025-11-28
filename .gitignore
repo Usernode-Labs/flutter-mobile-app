@@ -72,3 +72,6 @@ rust
 ios/build/
 ios/Podfile.lock
 rust_builder/cargokit/build_tool/pubspec.lock
+
+# Internal notes
+gmp.md

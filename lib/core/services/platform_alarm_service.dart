@@ -287,6 +287,36 @@ class PlatformAlarmService {
     }
   }
 
+  /// Request ONLY the Android exact alarm permission (NEW_UX onboarding step 1)
+  ///
+  /// On Android 12+ this opens the system settings where the user can allow
+  /// exact alarms for the app. On other platforms, this returns true.
+  Future<bool> requestExactAlarmOnly() async {
+    if (!Platform.isAndroid) {
+      return true;
+    }
+    if (!_initialized) {
+      _log.warn('Cannot request exact alarm: service not initialized');
+      return false;
+    }
+    try {
+      await _channel.invokeMethod('requestExactAlarmPermission');
+      // Give the system a moment and then re-check
+      await Future.delayed(const Duration(milliseconds: 500));
+      final hasExact = await hasExactAlarmPermission();
+      // Do not force notifications here; just update combined flag conservatively
+      if (hasExact) {
+        _log.info('Exact alarm permission granted');
+      } else {
+        _log.warn('Exact alarm permission still not granted');
+      }
+      return hasExact;
+    } on PlatformException catch (e) {
+      _log.error('Error requesting exact alarm permission: ${e.message}');
+      return false;
+    }
+  }
+
   /// Check if POST_NOTIFICATIONS permission is granted (Android 13+)
   Future<bool> hasPostNotificationsPermission() async {
     if (!Platform.isAndroid) {

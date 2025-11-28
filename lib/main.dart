@@ -18,6 +18,11 @@ import 'package:crypto_mobile_app/features/metrics/metrics_provider.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/services/background_block_production_orchestrator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:crypto_mobile_app/core/routing/new_ux_router.dart';
+import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
+
+const bool kNewUx =
+    bool.fromEnvironment('NEW_UX', defaultValue: false);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,11 +41,15 @@ Future<void> main() async {
     // Create provider container
     final container = ProviderContainer();
 
+    final repo = await AccountsRepository.create();
+    final hasAnyAccounts = await repo.hasAny();
+    print('hasAnyAccounts: $hasAnyAccounts');
+
     // Render UI immediately; perform heavy bootstrap asynchronously.
     log.info('Running app UI', tag: 'MAIN');
     SentryUtil.addBreadcrumb(category: 'app', message: 'runApp');
     runApp(UncontrolledProviderScope(
-        container: container, child: const CryptoMobileApp()));
+        container: container, child: CryptoMobileApp(hasAccount: hasAnyAccounts)));
     // Track lifecycle changes for breadcrumbs/diagnostics
     AppLifecycleLogger.register();
 
@@ -73,14 +82,16 @@ Future<void> _bootstrapAsync(
     }
 
     // Initialize FRB only; start backend only if an account exists
-    await RustBackendService.instance.init();
-    final started = await RustBackendService.instance.startNode();
-    log.info('Backend startNode => $started', tag: 'MAIN');
-    await SentryUtil.captureMessage(
-      started
-          ? 'backend startNode: started'
-          : 'backend startNode: skipped',
-    );
+    if (!RustBackendService.instance.isRunning) {
+      await RustBackendService.instance.init();
+      final started = await RustBackendService.instance.startNode();
+      log.info('Backend startNode => $started', tag: 'MAIN');
+      await SentryUtil.captureMessage(
+        started
+            ? 'backend startNode: started'
+            : 'backend startNode: skipped',
+      );
+    }
 
     // Initialize metrics collection service
     log.info('Initializing metrics collection service', tag: 'MAIN');
@@ -92,7 +103,10 @@ Future<void> _bootstrapAsync(
     await BackgroundBlockProductionOrchestrator.instance.initialize();
 
     // Request permissions at startup (if not already requested)
-    await _requestPermissionsAtStartup(log);
+    // Skip for NEW_UX; permissions are requested in the onboarding flow (screen 3)
+    if (!kNewUx) {
+      await _requestPermissionsAtStartup(log);
+    }
 
     SentryUtil.addBreadcrumb(category: 'app', message: 'bootstrap end');
   } catch (e, st) {
@@ -147,11 +161,15 @@ Future<void> _requestPermissionsAtStartup(LoggingService log) async {
 }
 
 class CryptoMobileApp extends ConsumerWidget {
-  const CryptoMobileApp({super.key});
+  const CryptoMobileApp({super.key, required this.hasAccount});
+  final bool hasAccount;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final router = ref.watch(appRouterProvider);
+
+    final router = kNewUx
+        ? ref.watch(newUxRouterProvider(hasAccount))
+        : ref.watch(appRouterProvider);
     final themeMode = ref.watch(themeModeProvider);
 
     // Initialize backend lifecycle manager

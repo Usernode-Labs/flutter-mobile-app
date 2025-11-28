@@ -1,9 +1,9 @@
-import 'package:crypto_mobile_app/features/node/presentation/screens/node_status_screen.dart';
-import 'package:crypto_mobile_app/features/settings/presentation/screens/background_production_settings_screen.dart';
+import 'package:crypto_mobile_app/features/node/screens/node_status_screen.dart';
+import 'package:crypto_mobile_app/features/settings/screens/background_production_settings_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:crypto_mobile_app/core/l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/feature_flags.dart';
-import 'package:crypto_mobile_app/features/feedback/presentation/widgets/feedback_fab.dart';
+import 'package:crypto_mobile_app/features/feedback/widgets/feedback_fab.dart';
 import 'package:go_router/go_router.dart';
 
 class MainApp extends StatefulWidget {

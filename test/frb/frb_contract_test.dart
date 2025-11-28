@@ -9,7 +9,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 // Our façade over FRB
-import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
+import 'package:crypto_mobile_app/features/node/node_service.dart';
 
 // FRB-generated types used by the façade and UI
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_mempool.dart';

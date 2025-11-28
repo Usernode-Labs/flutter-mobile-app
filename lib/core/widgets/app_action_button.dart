@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:crypto_mobile_app/core/theme/design_tokens.dart';
+import 'package:crypto_mobile_app/core/config/design_tokens.dart';
 
 /// Unified action button component for consistent quick actions across the app
 /// Supports icon + label layout with optional badge and multiple size variants

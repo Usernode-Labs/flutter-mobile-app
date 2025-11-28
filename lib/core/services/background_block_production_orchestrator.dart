@@ -8,7 +8,7 @@ import '../models/backend_rpc_response.dart';
 import '../models/vrf_status.dart';
 import '../data/block_production_state_repository.dart';
 import '../data/slot_production_repository.dart';
-import '../../features/node/data/repositories/rust_backend_service.dart';
+import '../../features/node/node_service.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 import '../config/app_config.dart';
 import 'platform_alarm_service.dart';

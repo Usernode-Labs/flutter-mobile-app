@@ -1,7 +1,7 @@
-arb-dir: lib/core/l10n
+arb-dir: lib/core/config/l10n
 template-arb-file: app_en.arb
 output-localization-file: app_localizations.dart
 output-class: AppLocalizations
-output-dir: lib/core/l10n
+output-dir: lib/core/config/l10n
 nullable-getter: false
-untranslated-messages-file: lib/core/l10n/l10n_untranslated.json
+untranslated-messages-file: lib/core/config/l10n/l10n_untranslated.json

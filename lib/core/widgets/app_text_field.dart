@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:crypto_mobile_app/core/theme/design_tokens.dart';
+import 'package:crypto_mobile_app/core/config/design_tokens.dart';
 
 /// Unified text field component with consistent styling
 /// Supports validation, prefixes, suffixes, and helper text

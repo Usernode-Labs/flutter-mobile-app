@@ -1,21 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:crypto_mobile_app/features/wallet/domain/repositories/wallet_repository.dart';
-import 'package:crypto_mobile_app/features/wallet/data/repositories/wallet_repository_impl.dart';
-import 'package:crypto_mobile_app/features/wallet/data/repositories/accounts_repository.dart';
-import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
+import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
+import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/src/rust/lib.dart' as rust;
-import 'package:crypto_mobile_app/core/theme/theme_mode.dart';
+import 'package:crypto_mobile_app/core/config/theme_mode.dart';
 import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/log_tag.dart';
 
 final _log = LoggingService.instance.withTag(LogTag.provider);
-
-// Repositories
-final walletRepositoryProvider = Provider<WalletRepository>((ref) {
-  return WalletRepositoryImpl.instance;
-});
 
 // Derived async providers
 final hasAnyAccountProvider = FutureProvider<bool>((ref) async {

@@ -4,18 +4,17 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
-import 'package:crypto_mobile_app/core/theme/theme.dart';
-import 'core/l10n/app_localizations.dart';
-import 'package:crypto_mobile_app/features/node/data/repositories/rust_backend_service.dart';
+import 'package:crypto_mobile_app/core/config/theme.dart';
+import 'core/config/l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/core/feature_flags.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
-import 'package:crypto_mobile_app/core/routing/app_router.dart';
+import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/utils/lifecycle.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
-import 'package:crypto_mobile_app/features/metrics/domain/services/metrics_collector_service.dart';
-import 'package:crypto_mobile_app/features/metrics/presentation/controllers/metrics_lifecycle_provider.dart';
-import 'package:crypto_mobile_app/core/config/blockchain_timing.dart';
+import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
+import 'package:crypto_mobile_app/features/metrics/metrics_provider.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/services/background_block_production_orchestrator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -34,9 +33,8 @@ Future<void> main() async {
     SentryUtil.addBreadcrumb(category: 'app', message: 'startup begin');
     log.info('App started', tag: 'MAIN');
 
-    // Create provider container and initialize blockchain timing
+    // Create provider container
     final container = ProviderContainer();
-    BlockchainTiming.initialize(container);
 
     // Render UI immediately; perform heavy bootstrap asynchronously.
     log.info('Running app UI', tag: 'MAIN');

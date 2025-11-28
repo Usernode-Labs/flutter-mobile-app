@@ -7,6 +7,7 @@ import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_utxos_by_owne
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/transfer_funds.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_blockchain.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_slots.dart';
 import 'package:crypto_mobile_app/src/rust/rpc.dart';
 import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -1001,6 +1002,181 @@ class RustBackendService {
       await SentryUtil.captureError(e, st, tag: 'getEpochInfo');
       return null;
     }
+  }
+
+  /// Convenience helper to fetch epochs with slot data via RPC.
+  Future<RpcEpochsWithDataResp?> getEpochsWithData() async {
+    _log.trace('getEpochsWithData called');
+    final r = _rpc;
+    if (r == null) return null;
+
+    RpcEpochsWithDataResp? response;
+    try {
+      response = await r.epochsWithData();
+    } on PanicException catch (e, st) {
+      _log.error('FRB panic during getEpochsWithData', error: e, stackTrace: st);
+      _nodeRunning = false;
+      _rpc = null;
+      await SentryUtil.captureError(e, st, tag: 'frb_panic_getEpochsWithData');
+      return null;
+    } catch (e, st) {
+      _log.warn('RPC getEpochsWithData failed: $e\$st');
+      await SentryUtil.captureError(e, st, tag: 'rpc_getEpochsWithData');
+      return null;
+    }
+
+    try {
+      final epochsCount = response?.epochs.length ?? 0;
+      _log.trace('getEpochsWithData response: epochsCount=$epochsCount');
+
+      SentryUtil.addBreadcrumb(
+        category: 'rpc',
+        message: 'getEpochsWithData ok',
+        data: {'epochsCount': epochsCount},
+      );
+    } catch (e, st) {
+      _log.warn('Failed to log getEpochsWithData response: $e\$st');
+      await SentryUtil.captureError(e, st, tag: 'getEpochsWithData_logging');
+    }
+    return response;
+  }
+
+  /// Convenience helper to fetch epoch slot results via RPC.
+  Future<RpcEpochSlotResultsResp?> getEpochSlotResults({
+    required int epoch,
+  }) async {
+    _log.trace('getEpochSlotResults called with params: epoch=$epoch');
+    final r = _rpc;
+    if (r == null) return null;
+
+    RpcEpochSlotResultsResp? response;
+    try {
+      response = await r.epochSlotResults(epoch: epoch);
+    } on PanicException catch (e, st) {
+      _log.error('FRB panic during getEpochSlotResults',
+          error: e, stackTrace: st);
+      _nodeRunning = false;
+      _rpc = null;
+      await SentryUtil.captureError(e, st, tag: 'frb_panic_getEpochSlotResults');
+      return null;
+    } catch (e, st) {
+      _log.warn('RPC getEpochSlotResults failed: $e\$st');
+      await SentryUtil.captureError(e, st, tag: 'rpc_getEpochSlotResults');
+      return null;
+    }
+
+    try {
+      final resultsCount = response?.results.length ?? 0;
+      _log.trace(
+        'getEpochSlotResults response: epoch=${response?.epoch}, resultsCount=$resultsCount',
+      );
+
+      SentryUtil.addBreadcrumb(
+        category: 'rpc',
+        message: 'getEpochSlotResults ok',
+        data: {'epoch': response?.epoch, 'resultsCount': resultsCount},
+      );
+    } catch (e, st) {
+      _log.warn('Failed to log getEpochSlotResults response: $e\$st');
+      await SentryUtil.captureError(e, st, tag: 'getEpochSlotResults_logging');
+    }
+    return response;
+  }
+
+  /// Convenience helper to fetch slot time via RPC.
+  Future<RpcSlotTimeResp?> getSlotTime({
+    required int epoch,
+    required int slot,
+  }) async {
+    _log.trace('getSlotTime called with params: epoch=$epoch, slot=$slot');
+    final r = _rpc;
+    if (r == null) return null;
+
+    RpcSlotTimeResp? response;
+    try {
+      response = await r.slotTime(epoch: epoch, slot: slot);
+    } on PanicException catch (e, st) {
+      _log.error('FRB panic during getSlotTime', error: e, stackTrace: st);
+      _nodeRunning = false;
+      _rpc = null;
+      await SentryUtil.captureError(e, st, tag: 'frb_panic_getSlotTime');
+      return null;
+    } catch (e, st) {
+      _log.warn('RPC getSlotTime failed: $e\$st');
+      await SentryUtil.captureError(e, st, tag: 'rpc_getSlotTime');
+      return null;
+    }
+
+    try {
+      _log.trace(
+        'getSlotTime response: epoch=${response?.epoch}, slot=${response?.slot}, timestampMs=${response?.timestampMs}',
+      );
+
+      SentryUtil.addBreadcrumb(
+        category: 'rpc',
+        message: 'getSlotTime ok',
+        data: {
+          'epoch': response?.epoch,
+          'slot': response?.slot,
+          'hasTimestamp': response?.timestampMs != null,
+        },
+      );
+    } catch (e, st) {
+      _log.warn('Failed to log getSlotTime response: $e\$st');
+      await SentryUtil.captureError(e, st, tag: 'getSlotTime_logging');
+    }
+    return response;
+  }
+
+  /// Convenience helper to fetch produced block metadata via RPC.
+  Future<RpcProducedBlockMetadataResp?> getProducedBlockMetadata({
+    required int epoch,
+    required int slot,
+  }) async {
+    _log.trace(
+        'getProducedBlockMetadata called with params: epoch=$epoch, slot=$slot');
+    final r = _rpc;
+    if (r == null) return null;
+
+    RpcProducedBlockMetadataResp? response;
+    try {
+      response = await r.producedBlockMetadata(epoch: epoch, slot: slot);
+    } on PanicException catch (e, st) {
+      _log.error('FRB panic during getProducedBlockMetadata',
+          error: e, stackTrace: st);
+      _nodeRunning = false;
+      _rpc = null;
+      await SentryUtil.captureError(e, st,
+          tag: 'frb_panic_getProducedBlockMetadata');
+      return null;
+    } catch (e, st) {
+      _log.warn('RPC getProducedBlockMetadata failed: $e\$st');
+      await SentryUtil.captureError(e, st, tag: 'rpc_getProducedBlockMetadata');
+      return null;
+    }
+
+    try {
+      final metadata = response?.metadata;
+      _log.trace(
+        'getProducedBlockMetadata response: epoch=${response?.epoch}, slot=${response?.slot}, hasMetadata=${metadata != null}',
+      );
+
+      SentryUtil.addBreadcrumb(
+        category: 'rpc',
+        message: 'getProducedBlockMetadata ok',
+        data: {
+          'epoch': response?.epoch,
+          'slot': response?.slot,
+          'hasMetadata': metadata != null,
+          if (metadata != null) 'canonical': metadata.canonical,
+        },
+      );
+    } catch (e, st) {
+      _log.warn('Failed to log getProducedBlockMetadata response: $e\$st');
+      await SentryUtil.captureError(e, st,
+          tag: 'getProducedBlockMetadata_logging');
+    }
+    return response;
   }
 
   /// Dispose bridge resources when the app is exiting.

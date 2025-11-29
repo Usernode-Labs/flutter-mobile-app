@@ -123,6 +123,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const NotificationPermission3Screen(),
       ),
       GoRoute(
+        path: '/',
+        builder: (context, state) => const HomeScreen(),
+      ),
+      GoRoute(
         path: AppRoutes.home,
         builder: (context, state) => const HomeScreen(),
       ),

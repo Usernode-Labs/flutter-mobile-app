@@ -217,12 +217,32 @@ class _ProducedBlocksScreenState
                                       final results = epochData == null
                                           ? <int>[]
                                           : epochData.map((s) => s.result.index).toList();
+                                      final slotTimesMs = epochData == null
+                                          ? <int?>[]
+                                          : epochData
+                                              .map((s) => s.slotTimeMs == null ? null : (s.slotTimeMs!.toInt()))
+                                              .toList();
+                                      final producedMeta = epochData == null
+                                          ? const <Map<String, dynamic>?>[]
+                                          : epochData
+                                              .map((s) => s.producedBlockMetadata == null
+                                                  ? null
+                                                  : <String, dynamic>{
+                                                      'blockHash': s.producedBlockMetadata!.blockHash.toString(),
+                                                      'canonical': s.producedBlockMetadata!.canonical,
+                                                      'timestampMs':
+                                                          s.producedBlockMetadata!.timestampMs.toString(),
+                                                      'tokensWon': s.producedBlockMetadata!.tokensWon.toString(),
+                                                    })
+                                              .toList();
                                       context.push(
                                         AppRoutes.slotAssignments,
                                         extra: {
                                           'epoch': epoch,
                                           'slotsInEpoch': slotsInEpoch,
                                           'results': results,
+                                          'slotTimesMs': slotTimesMs,
+                                          'producedMeta': producedMeta,
                                           'filters': ['all'],
                                         },
                                       );
@@ -255,12 +275,32 @@ class _ProducedBlocksScreenState
                                             final results = epochData == null
                                                 ? <int>[]
                                                 : epochData.map((s) => s.result.index).toList();
+                                          final slotTimesMs = epochData == null
+                                              ? <int?>[]
+                                              : epochData
+                                                  .map((s) => s.slotTimeMs == null ? null : (s.slotTimeMs!.toInt()))
+                                                  .toList();
+                                            final producedMeta = epochData == null
+                                                ? const <Map<String, dynamic>?>[]
+                                                : epochData
+                                                    .map((s) => s.producedBlockMetadata == null
+                                                        ? null
+                                                        : <String, dynamic>{
+                                                            'blockHash': s.producedBlockMetadata!.blockHash.toString(),
+                                                            'canonical': s.producedBlockMetadata!.canonical,
+                                                            'timestampMs': s.producedBlockMetadata!.timestampMs
+                                                                .toString(),
+                                                            'tokensWon': s.producedBlockMetadata!.tokensWon.toString(),
+                                                          })
+                                                    .toList();
                                             context.push(
                                               AppRoutes.slotAssignments,
                                               extra: {
                                                 'epoch': epoch,
                                                 'slotsInEpoch': slotsInEpoch,
                                                 'results': results,
+                                                'slotTimesMs': slotTimesMs,
+                                                'producedMeta': producedMeta,
                                                 'filters': ['produced'],
                                               },
                                             );
@@ -294,12 +334,19 @@ class _ProducedBlocksScreenState
                                             final results = epochData == null
                                                 ? <int>[]
                                                 : epochData.map((s) => s.result.index).toList();
+                                          final slotTimesMs = epochData == null
+                                              ? <int?>[]
+                                              : epochData
+                                                  .map((s) => s.slotTimeMs == null ? null : (s.slotTimeMs!.toInt()))
+                                                  .toList();
                                             context.push(
                                               AppRoutes.slotAssignments,
                                               extra: {
                                                 'epoch': epoch,
                                                 'slotsInEpoch': slotsInEpoch,
                                                 'results': results,
+                                                'slotTimesMs': slotTimesMs,
+                                                'producedMeta': const <Map<String, dynamic>?>[],
                                                 'filters': ['missed'],
                                               },
                                             );
@@ -333,12 +380,19 @@ class _ProducedBlocksScreenState
                                                   final results = epochData == null
                                                       ? <int>[]
                                                       : epochData.map((s) => s.result.index).toList();
+                                                  final slotTimesMs = epochData == null
+                                                      ? <int?>[]
+                                                      : epochData
+                                                          .map((s) => s.slotTimeMs == null ? null : (s.slotTimeMs!.toInt()))
+                                                          .toList();
                                                   context.push(
                                                     AppRoutes.slotAssignments,
                                                     extra: {
                                                       'epoch': epoch,
                                                       'slotsInEpoch': slotsInEpoch,
                                                       'results': results,
+                                                      'slotTimesMs': slotTimesMs,
+                                                      'producedMeta': const <Map<String, dynamic>?>[],
                                                       'filters': ['upcoming'],
                                                     },
                                                   );

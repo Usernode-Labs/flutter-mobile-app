@@ -10,6 +10,7 @@ import 'package:crypto_mobile_app/features/onboarding/screens/battery_permission
 import 'package:crypto_mobile_app/features/onboarding/screens/notification_permission3_screen.dart';
 import 'package:crypto_mobile_app/features/home/screens/home_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/slot_assignments_screen.dart';
+import 'package:crypto_mobile_app/features/onboarding/screens/produced_block_details_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/node_status_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/node_won_slots_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/produced_blocks_screen.dart';
@@ -39,6 +40,7 @@ class AppRoutes {
 
   // Standalone routes
   static const slotAssignments = '/produced/slot-assignments';
+  static const producedBlockDetails = '/produced/block-details';
 
   // Main shell routes
   static const mainNode = '/main/node';
@@ -129,6 +131,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final extra = state.extra as Map<String, dynamic>?;
           return SlotAssignmentsScreen(args: extra);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.producedBlockDetails,
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return ProducedBlockDetailsScreen(args: extra);
         },
       ),
       // Won slots screen - outside shell route (no bottom nav)

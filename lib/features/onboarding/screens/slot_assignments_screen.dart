@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/features/node/node_provider.dart';
+import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_slots.dart';
 
 class SlotAssignmentsScreen extends StatefulWidget {
@@ -16,9 +18,13 @@ enum _Filter { all, produced, missed, upcoming }
 class _AssignmentItem {
   final int slot;
   final RpcSlotResult result;
+  final int? slotTimeMs;
+  final Map<String, dynamic>? producedMeta;
   const _AssignmentItem({
     required this.slot,
     required this.result,
+    this.slotTimeMs,
+    this.producedMeta,
   });
 }
 
@@ -53,9 +59,23 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
       final epoch = args['epoch'] as int?;
       final slotsInEpoch = args['slotsInEpoch'] as int?;
       final results = (args['results'] as List?)?.cast<int>();
+      final timesDynamic = (args['slotTimesMs'] as List?);
+      final List<int?> slotTimesMs = timesDynamic == null
+          ? const []
+          : timesDynamic.map((e) {
+              if (e == null) return null;
+              if (e is int) return e;
+              if (e is String) return int.tryParse(e);
+              return null;
+            }).toList();
+      final producedMetaDynamic = (args['producedMeta'] as List?);
+      final List<Map<String, dynamic>?> producedMeta =
+          producedMetaDynamic == null
+              ? const []
+              : producedMetaDynamic
+                  .map((e) => e == null ? null : (e as Map).cast<String, dynamic>())
+                  .toList();
       if (epoch == null || slotsInEpoch == null || results == null) return null;
-      final minLen = results.length;
-      print("CLLLLL: $minLen");
       return List<_AssignmentItem>.generate(slotsInEpoch, (i) {
         var r;
         if (i < results.length) {
@@ -66,6 +86,8 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
         return _AssignmentItem(
           slot: i,
           result: r,
+          slotTimeMs: i < slotTimesMs.length ? slotTimesMs[i] : null,
+          producedMeta: i < producedMeta.length ? producedMeta[i] : null,
         );
       }).reversed.toList();
     } catch (_) {
@@ -220,14 +242,32 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
                   itemBuilder: (context, index) {
                     final item = filtered[index];
                     final isScheduled = item.result == RpcSlotResult.scheduled;
-                    final subtitleText = isScheduled
-                        ? 'Expected 10:${(index * 3) % 60}'.padRight(2, '0')
-                        : '';
+                    String subtitleText = '';
+                    if (isScheduled && item.slotTimeMs != null) {
+                      final dt = DateTime.fromMillisecondsSinceEpoch(item.slotTimeMs!);
+                      final hh = dt.hour.toString().padLeft(2, '0');
+                      final mm = dt.minute.toString().padLeft(2, '0');
+                      subtitleText = 'Scheduled for $hh:$mm';
+                    }
+                    final VoidCallback? onTap =
+                        (item.result == RpcSlotResult.produced)
+                            ? () {
+                                context.push(
+                                  AppRoutes.producedBlockDetails,
+                                  extra: {
+                                    'epoch': epoch,
+                                    'slot': item.slot,
+                                    'metadata': item.producedMeta,
+                                  },
+                                );
+                              }
+                            : null;
                     return _SlotRow(
                       icon: Icons.layers,
                       title: 'Slot ${item.slot}',
                       subtitle: subtitleText,
                       result: item.result,
+                      onTap: onTap,
                     );
                   },
                   separatorBuilder: (_, __) => const Divider(height: 1),
@@ -295,11 +335,13 @@ class _SlotRow extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.result,
+    this.onTap,
   });
   final IconData icon;
   final String title;
   final String subtitle;
   final RpcSlotResult result;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -307,7 +349,7 @@ class _SlotRow extends StatelessWidget {
     final secondary = theme.colorScheme.secondary;
     return InkWell(
       borderRadius: BorderRadius.circular(12),
-      onTap: () {},
+      onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 10),
         child: Row(

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/features/node/node_provider.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_slots.dart';
+import 'package:crypto_mobile_app/src/rust/frb_types.dart';
 
 class ProducedBlocksSummary {
   final double totalScore;
@@ -26,7 +27,9 @@ class EpochData {
 
 class SlotData {
   final RpcSlotResult result;
-  const SlotData({required this.result});
+  final BigInt? slotTimeMs;
+  final RpcProducedBlockMetadata? producedBlockMetadata;
+  const SlotData({required this.result, this.slotTimeMs, this.producedBlockMetadata});
 }
 
 class EpochScore {
@@ -55,7 +58,7 @@ class EpochScore {
 
 Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
 
-    print("GETTING EPOCH DATA 17");
+    print("GETTING EPOCH DATA");
 
     final currentEpochResult = await ref.watch(nodeStatusProvider.future);
     final currentEpoch = currentEpochResult?.currentEpoch ?? 0;
@@ -66,17 +69,36 @@ Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
     final epochsWithDataResult = await RustBackendService.instance.getEpochsWithData();
     final epochsWithData = epochsWithDataResult?.epochs.toList().toSet() ?? <int>{};
 
-    final epochData = await Future.wait(List<Future<EpochData>>.generate(currentEpoch, (index) async {
+    final epochData = await Future.wait(List<Future<EpochData>>.generate(currentEpoch+1, (index) async {
       if (epochsWithData.contains(index)) {
         final slotStatusResults = await RustBackendService.instance.getEpochSlotResults(epoch: index);
         final slotStatuses = slotStatusResults?.results.toList() ?? <RpcSlotResult>[];
         return EpochData(
-          slotData: List<SlotData>.generate(slotStatuses.length, (i) => SlotData(result: slotStatuses[i]))
+          slotData: await Future.wait(List<Future<SlotData>>.generate(slotStatuses.length, (i) async {
+            if (i == 0){
+              final producedBlockMetadata = _TestRpcProducedBlockMetadata(blockHash: _TestBlockHash('TEST_BLOCK_HASH'), canonical: false, timestampMs: BigInt.zero, tokensWon: BigInt.from(20));
+              return SlotData(result: RpcSlotResult.produced, 
+                            slotTimeMs: null, 
+                            producedBlockMetadata: producedBlockMetadata);
+            }
+            var slotTimeMs;
+            if (slotStatuses[i] == RpcSlotResult.scheduled) {
+              slotTimeMs = (await RustBackendService.instance.getSlotTime(epoch: index, slot: i))?.timestampMs;
+            }
+            var producedBlockMetadata;
+            if (slotStatuses[i] == RpcSlotResult.produced) {
+              producedBlockMetadata = (await RustBackendService.instance.getProducedBlockMetadata(epoch: index, slot: i))?.metadata;
+            }
+            return SlotData(result: slotStatuses[i], 
+                            slotTimeMs: slotTimeMs, 
+                            producedBlockMetadata: producedBlockMetadata);
+          }),
+        ));
+      } else {
+        return EpochData(
+          slotData: null,
         );
       }
-      return EpochData(
-        slotData: null
-      );
     }));
 
     print("currentEpoch: $currentEpoch");
@@ -92,7 +114,7 @@ Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
           if (prevResult == currentResult) {
             continue;
           } else {
-            print("\tslot: $startIndex -> $j: ${currentResult.name}");
+            print("\t\tslot: $startIndex -> $j: ${prevResult.name}");
             startIndex = j + 1;
           }
           prevResult = currentResult;
@@ -122,11 +144,11 @@ Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
         final upcomingCount = epoch.slotData!.where((slot) => slot.result == RpcSlotResult.scheduled).length;
         final notCalculatedCount = epoch.slotData!.where((slot) => slot.result == RpcSlotResult.notCalculated).length;
         final calculatedCount = slotsInEpoch - notCalculatedCount;
-        final wonCount = producedCount + upcomingCount;
+        final wonCount = producedCount + missedCount + upcomingCount;
 
         return EpochScore(
           evaluatedPercent: calculatedCount / slotsInEpoch,
-          producedOfEvaluatedPercent: wonCount > 0 ? producedCount / wonCount : 1.0,
+          producedOfEvaluatedPercent: wonCount > 0 ? producedCount / (producedCount + missedCount) : 1.0,
           won: wonCount,
           produced: producedCount,
           missed: missedCount,
@@ -154,4 +176,52 @@ final producedBlocksSummaryProvider =
     FutureProvider.autoDispose<ProducedBlocksSummary>(
         _buildProducedBlocksSummary);
 
+/// Simple stand-in implementations for testing UI without relying on backend metadata.
+class _TestBlockHash implements BlockHash {
+  final String value;
+  _TestBlockHash(this.value);
 
+  bool _isDisposed = false;
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+  }
+
+  @override
+  bool get isDisposed => _isDisposed;
+
+  @override
+  String toString() => value;
+}
+
+class _TestRpcProducedBlockMetadata implements RpcProducedBlockMetadata {
+  @override
+  BlockHash blockHash;
+
+  @override
+  bool canonical;
+
+  @override
+  BigInt timestampMs;
+
+  @override
+  BigInt tokensWon;
+
+  _TestRpcProducedBlockMetadata({
+    required this.blockHash,
+    required this.canonical,
+    required this.timestampMs,
+    required this.tokensWon,
+  });
+
+  bool _isDisposed = false;
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+  }
+
+  @override
+  bool get isDisposed => _isDisposed;
+}

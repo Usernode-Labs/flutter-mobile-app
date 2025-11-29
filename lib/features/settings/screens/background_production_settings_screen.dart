@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -33,6 +34,7 @@ class _BackgroundProductionSettingsScreenState
   bool _androidKeepAliveActive = false;
   Timer? _autoTimer;
   bool _refreshing = false;
+  bool _active = false; // active when Settings tab is selected (index 2)
 
   @override
   void initState() {
@@ -40,18 +42,37 @@ class _BackgroundProductionSettingsScreenState
     // Run initialization in background without blocking UI
     _checkStatus();
 
-    // Periodic auto-refresh every 3 seconds (all settings including permissions)
-    _autoTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-      if (mounted && !_refreshing) {
-        _checkStatus();
-      }
-    });
+    // Determine initial active state and maybe start timer
+    _active = _isActiveTab();
+    if (_active) _startTimer();
   }
 
   @override
   void dispose() {
     _autoTimer?.cancel();
     super.dispose();
+  }
+
+  bool _isActiveTab() {
+    try {
+      return ref.read(currentHomeTabProvider) == 2;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void _startTimer() {
+    _autoTimer?.cancel();
+    _autoTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (mounted && _active && !_refreshing) {
+        _checkStatus();
+      }
+    });
+  }
+
+  void _stopTimer() {
+    _autoTimer?.cancel();
+    _autoTimer = null;
   }
 
   Future<void> _checkStatus() async {
@@ -123,6 +144,17 @@ class _BackgroundProductionSettingsScreenState
 
   @override
   Widget build(BuildContext context) {
+    // React to tab changes and start/stop timers
+    final currentTab = ref.watch(currentHomeTabProvider);
+    final shouldBeActive = currentTab == 2;
+    if (shouldBeActive != _active) {
+      _active = shouldBeActive;
+      if (_active) {
+        _startTimer();
+      } else {
+        _stopTimer();
+      }
+    }
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);

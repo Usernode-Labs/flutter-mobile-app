@@ -8,6 +8,7 @@ import 'package:crypto_mobile_app/features/node/node_data_providers.dart';
 import 'package:crypto_mobile_app/features/node/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/features/node/node_provider.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 
 class ProducedBlocksScreen extends ConsumerStatefulWidget {
   const ProducedBlocksScreen({super.key});
@@ -20,15 +21,14 @@ class ProducedBlocksScreen extends ConsumerStatefulWidget {
 class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen> {
   Timer? _autoTimer;
   bool _refreshing = false;
+  bool _active = true; // active when ProducedBlocks tab is selected (index 0)
 
   @override
   void initState() {
     super.initState();
-    _autoTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-      if (mounted && !_refreshing) {
-        _refresh();
-      }
-    });
+    // Determine initial active state and maybe start timer
+    _active = _isActiveTab();
+    if (_active) _startTimer();
   }
 
   @override
@@ -37,6 +37,27 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen> {
     super.dispose();
   }
 
+  bool _isActiveTab() {
+    try {
+      return ref.read(currentHomeTabProvider) == 0;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  void _startTimer() {
+    _autoTimer?.cancel();
+    _autoTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (mounted && _active && !_refreshing) {
+        _refresh();
+      }
+    });
+  }
+
+  void _stopTimer() {
+    _autoTimer?.cancel();
+    _autoTimer = null;
+  }
   Future<void> _refresh() async {
     if (_refreshing) return;
     _refreshing = true;
@@ -57,6 +78,17 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
+    // React to tab changes and start/stop timers
+    final currentTab = ref.watch(currentHomeTabProvider);
+    final shouldBeActive = currentTab == 0;
+    if (shouldBeActive != _active) {
+      _active = shouldBeActive;
+      if (_active) {
+        _startTimer();
+      } else {
+        _stopTimer();
+      }
+    }
     final blockchainAsync = ref.watch(nodeBlockchainProvider);
     final status = ref.watch(nodeStatusProvider).value;
     final rewardsAsync = ref.watch(epochRewardsProvider);

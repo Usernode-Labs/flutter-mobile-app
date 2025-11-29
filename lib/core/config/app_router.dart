@@ -126,7 +126,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.slotAssignments,
-        builder: (context, state) => const SlotAssignmentsScreen(),
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return SlotAssignmentsScreen(args: extra);
+        },
       ),
       // Won slots screen - outside shell route (no bottom nav)
       GoRoute(

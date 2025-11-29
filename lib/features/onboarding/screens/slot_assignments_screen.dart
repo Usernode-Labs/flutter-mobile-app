@@ -1,12 +1,123 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:crypto_mobile_app/features/node/node_provider.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_slots.dart';
 
-class SlotAssignmentsScreen extends StatelessWidget {
-  const SlotAssignmentsScreen({super.key});
+class SlotAssignmentsScreen extends StatefulWidget {
+  const SlotAssignmentsScreen({super.key, this.args});
+  final Map<String, dynamic>? args;
+
+  @override
+  State<SlotAssignmentsScreen> createState() => _SlotAssignmentsScreenState();
+}
+
+enum _Filter { all, produced, missed, upcoming }
+
+class _AssignmentItem {
+  final int slot;
+  final RpcSlotResult result;
+  const _AssignmentItem({
+    required this.slot,
+    required this.result,
+  });
+}
+
+class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
+  final Set<_Filter> _selected = {_Filter.all};
+  late final List<_AssignmentItem> _items = _buildItemsFromArgs(widget.args) ?? const <_AssignmentItem>[];
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize selected filters from args if provided
+    final filters = (widget.args?['filters'] as List?)?.cast<String>();
+    if (filters != null && filters.isNotEmpty) {
+      final Set<_Filter> initial = {};
+      if (filters.contains('all')) {
+        initial.add(_Filter.all);
+      } else {
+        if (filters.contains('produced')) initial.add(_Filter.produced);
+        if (filters.contains('missed')) initial.add(_Filter.missed);
+        if (filters.contains('upcoming')) initial.add(_Filter.upcoming);
+        if (initial.isEmpty) initial.add(_Filter.all);
+      }
+      _selected
+        ..clear()
+        ..addAll(initial);
+    }
+  }
+
+  List<_AssignmentItem>? _buildItemsFromArgs(Map<String, dynamic>? args) {
+    if (args == null) return null;
+    try {
+      final epoch = args['epoch'] as int?;
+      final slotsInEpoch = args['slotsInEpoch'] as int?;
+      final results = (args['results'] as List?)?.cast<int>();
+      if (epoch == null || slotsInEpoch == null || results == null) return null;
+      final minLen = results.length;
+      print("CLLLLL: $minLen");
+      return List<_AssignmentItem>.generate(slotsInEpoch, (i) {
+        var r;
+        if (i < results.length) {
+          r = RpcSlotResult.values[results[i]];
+        } else {
+          r = RpcSlotResult.notCalculated;
+        }
+        return _AssignmentItem(
+          slot: i,
+          result: r,
+        );
+      }).reversed.toList();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool _matchesFilters(_AssignmentItem item) {
+    if (_selected.contains(_Filter.all) || _selected.isEmpty) {
+      return true;
+    }
+    final wantsProduced = _selected.contains(_Filter.produced) && item.result == RpcSlotResult.produced;
+    final wantsMissed = _selected.contains(_Filter.missed) && item.result == RpcSlotResult.missed;
+    final wantsUpcoming = _selected.contains(_Filter.upcoming) && item.result == RpcSlotResult.scheduled;
+    return wantsProduced || wantsMissed || wantsUpcoming;
+  }
+
+  void _toggleFilter(_Filter filter) {
+    setState(() {
+      if (filter == _Filter.all) {
+        if (_selected.contains(_Filter.all)) {
+          // Toggle off 'All'
+          _selected.remove(_Filter.all);
+        } else {
+          // Selecting 'All' clears others
+          _selected
+            ..clear()
+            ..add(_Filter.all);
+        }
+      } else {
+        if (_selected.contains(_Filter.all)) {
+          _selected.clear();
+        }
+        if (_selected.contains(filter)) {
+          _selected.remove(filter);
+        } else {
+          _selected.add(filter);
+        }
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final secondary = theme.colorScheme.secondary;
+    final filtered = _items.where(_matchesFilters).toList(growable: false);
+    final args = widget.args ?? const <String, dynamic>{};
+    final epoch = (args['epoch'] as int?) ?? 0;
+    final slotsInEpoch = (args['slotsInEpoch'] as int?) ?? 0;
+    // Progress now driven by live node status; results not needed here
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Slot Assignments'),
@@ -32,19 +143,66 @@ class SlotAssignmentsScreen extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Epoch 176',
+                          'Epoch $epoch',
                           style: theme.textTheme.bodyLarge
                               ?.copyWith(fontWeight: FontWeight.w600),
                         ),
-                        Text(
-                          'Evaluated 650 / 720',
-                          style: theme.textTheme.bodyMedium
-                              ?.copyWith(color: secondary),
-                        ),
+                        Consumer(builder: (context, ref, _) {
+                          final node = ref.watch(nodeStatusProvider).value;
+                          final total = node?.slotsInEpoch ?? slotsInEpoch;
+                          final isCurrentEpoch = (node?.currentEpoch ?? -1) == epoch;
+                          final currentGlobal = node?.currentGlobalSlot ?? 0;
+                          final curr = (isCurrentEpoch && total > 0) ? (currentGlobal % total) : total;
+                          return Text(
+                            'Slot Progress: $curr / $total',
+                            style: theme.textTheme.bodyMedium
+                                ?.copyWith(color: secondary),
+                          );
+                        }),
                       ],
                     ),
                     const SizedBox(height: 12),
-                    _ProgressBar(progress: 650 / 720),
+                    Consumer(builder: (context, ref, _) {
+                      final node = ref.watch(nodeStatusProvider).value;
+                      final total = node?.slotsInEpoch ?? slotsInEpoch;
+                      final isCurrentEpoch = (node?.currentEpoch ?? -1) == epoch;
+                      final currentGlobal = node?.currentGlobalSlot ?? 0;
+                      final curr = (isCurrentEpoch && total > 0) ? (currentGlobal % total) : total;
+                      final p = total > 0 ? (curr / total) : 0.0;
+                      return _ProgressBar(progress: p);
+                    }),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Filters row
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _FilterChip(
+                      label: 'All',
+                      selected: _selected.contains(_Filter.all),
+                      onTap: () => _toggleFilter(_Filter.all),
+                    ),
+                    const SizedBox(width: 8),
+                    _FilterChip(
+                      label: 'Produced',
+                      selected: _selected.contains(_Filter.produced),
+                      onTap: () => _toggleFilter(_Filter.produced),
+                    ),
+                    const SizedBox(width: 8),
+                    _FilterChip(
+                      label: 'Missed',
+                      selected: _selected.contains(_Filter.missed),
+                      onTap: () => _toggleFilter(_Filter.missed),
+                    ),
+                    const SizedBox(width: 8),
+                    _FilterChip(
+                      label: 'Upcoming',
+                      selected: _selected.contains(_Filter.upcoming),
+                      onTap: () => _toggleFilter(_Filter.upcoming),
+                    ),
                   ],
                 ),
               ),
@@ -56,23 +214,24 @@ class SlotAssignmentsScreen extends StatelessWidget {
                     ?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
-              // List of slots (placeholder data)
+              // Filtered list of slots (demo data)
               Expanded(
                 child: ListView.separated(
                   itemBuilder: (context, index) {
-                    final slot = 520 + index;
-                    final produced = index % 4 != 3; // some missed
+                    final item = filtered[index];
+                    final isScheduled = item.result == RpcSlotResult.scheduled;
+                    final subtitleText = isScheduled
+                        ? 'Expected 10:${(index * 3) % 60}'.padRight(2, '0')
+                        : '';
                     return _SlotRow(
                       icon: Icons.layers,
-                      title: 'Global Slot $slot',
-                      subtitle: 'Expected 10:${(index * 3) % 60}'.padRight(2, '0'),
-                      status: produced ? 'Evaluated' : 'Pending',
-                      trailing: produced ? 'Won' : '—',
-                      produced: produced,
+                      title: 'Slot ${item.slot}',
+                      subtitle: subtitleText,
+                      result: item.result,
                     );
                   },
                   separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemCount: 12,
+                  itemCount: filtered.length,
                 ),
               ),
             ],
@@ -135,16 +294,12 @@ class _SlotRow extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.subtitle,
-    required this.status,
-    required this.trailing,
-    required this.produced,
+    required this.result,
   });
   final IconData icon;
   final String title;
   final String subtitle;
-  final String status;
-  final String trailing;
-  final bool produced;
+  final RpcSlotResult result;
 
   @override
   Widget build(BuildContext context) {
@@ -174,7 +329,7 @@ class _SlotRow extends StatelessWidget {
                   Text(title, style: theme.textTheme.bodyMedium),
                   const SizedBox(height: 2),
                   Text(
-                    '$status • $subtitle',
+                    '$subtitle',
                     style:
                         theme.textTheme.bodyMedium?.copyWith(color: secondary),
                   ),
@@ -183,15 +338,59 @@ class _SlotRow extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              trailing,
+              result == RpcSlotResult.produced ? 'Produced' :
+              result == RpcSlotResult.missed ? 'Missed' :
+              result == RpcSlotResult.scheduled ? 'Upcoming' :
+              result == RpcSlotResult.notCalculated ? 'Not Calculated' :
+              result == RpcSlotResult.notWon ? 'Not Won' :
+              'Unknown',
               style: theme.textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.w600,
                 color: theme.colorScheme.onSurface,
               ),
             ),
             const SizedBox(width: 4),
-            const Icon(Icons.chevron_right, size: 20),
+            if (result == RpcSlotResult.produced)
+              const Icon(Icons.chevron_right, size: 20),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final bg = selected ? Colors.black87 : Colors.transparent;
+    final fg = selected ? Colors.white : theme.colorScheme.onSurface;
+    final border = selected ? Colors.black87 : theme.colorScheme.outline;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: border),
+        ),
+        child: Text(
+          label,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: fg,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
     );

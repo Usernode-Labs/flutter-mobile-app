@@ -17,6 +17,7 @@ import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dar
 import 'package:crypto_mobile_app/features/metrics/metrics_provider.dart';
 import 'package:crypto_mobile_app/core/services/background_block_production_orchestrator.dart';
 import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
+import 'package:crypto_mobile_app/features/node/produced_blocks_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -125,6 +126,32 @@ class CryptoMobileApp extends ConsumerWidget {
       routerConfig: router,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
+      builder: (context, child) =>
+          _HotReloadInvalidateProducedBlocks(child: child),
     );
+  }
+}
+
+class _HotReloadInvalidateProducedBlocks extends ConsumerStatefulWidget {
+  const _HotReloadInvalidateProducedBlocks({required this.child});
+  final Widget? child;
+
+  @override
+  ConsumerState<_HotReloadInvalidateProducedBlocks> createState() =>
+      _HotReloadInvalidateProducedBlocksState();
+}
+
+class _HotReloadInvalidateProducedBlocksState
+    extends ConsumerState<_HotReloadInvalidateProducedBlocks> {
+  @override
+  void reassemble() {
+    super.reassemble();
+    // Invalidate only the produced blocks summary provider on hot reload.
+    ref.invalidate(producedBlocksSummaryProvider);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return widget.child ?? const SizedBox.shrink();
   }
 }

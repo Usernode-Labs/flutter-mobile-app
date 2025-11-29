@@ -78,12 +78,12 @@ Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
         final slotStatuses = slotStatusResults?.results.toList() ?? <RpcSlotResult>[];
         return EpochData(
           slotData: await Future.wait(List<Future<SlotData>>.generate(slotStatuses.length, (i) async {
-            if (i == 0){
-              final producedBlockMetadata = _TestRpcProducedBlockMetadata(blockHash: _TestBlockHash('TEST_BLOCK_HASH'), canonical: false, timestampMs: BigInt.zero, tokensWon: BigInt.from(20));
-              return SlotData(result: RpcSlotResult.produced, 
-                            slotTimeMs: null, 
-                            producedBlockMetadata: producedBlockMetadata);
-            }
+            //if (i == 0){
+            //  final producedBlockMetadata = _TestRpcProducedBlockMetadata(blockHash: _TestBlockHash('TEST_BLOCK_HASH'), canonical: false, timestampMs: BigInt.zero, tokensWon: BigInt.from(20));
+            //  return SlotData(result: RpcSlotResult.produced, 
+            //                slotTimeMs: null, 
+            //                producedBlockMetadata: producedBlockMetadata);
+            //}
             var slotTimeMs;
             if (slotStatuses[i] == RpcSlotResult.scheduled) {
               slotTimeMs = (await RustBackendService.instance.getSlotTime(epoch: index, slot: i))?.timestampMs;

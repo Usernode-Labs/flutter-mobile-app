@@ -3,6 +3,7 @@ import 'package:crypto_mobile_app/features/node/node_provider.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_slots.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart';
+import 'package:crypto_mobile_app/core/utils/logger.dart';
 
 class ProducedBlocksSummary {
   final double totalScore;
@@ -56,9 +57,11 @@ class EpochScore {
   });
 }
 
+final _log = LoggingService.instance.withTag(LogTag.node);
+
 Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
 
-    print("GETTING EPOCH DATA");
+    _log.debug("GETTING EPOCH DATA");
 
     final currentEpochResult = await ref.watch(nodeStatusProvider.future);
     final currentEpoch = currentEpochResult?.currentEpoch ?? 0;
@@ -101,11 +104,11 @@ Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
       }
     }));
 
-    print("currentEpoch: $currentEpoch");
-    print("Epoch Data:");
+    _log.debug("currentEpoch: $currentEpoch");
+    _log.debug("Epoch Data:");
 
     for (var i = 0; i < epochData.length; i++) {
-      print("\tepoch: $i");
+      _log.debug("\tepoch: $i");
       if (epochData[i].slotData != null) {
         var prevResult = epochData[i].slotData![0].result;
         var startIndex = 0;
@@ -114,13 +117,13 @@ Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
           if (prevResult == currentResult) {
             continue;
           } else {
-            print("\t\tslot: $startIndex -> $j: ${prevResult.name}");
+            _log.debug("\t\tslot: $startIndex -> $j: ${prevResult.name}");
             startIndex = j + 1;
           }
           prevResult = currentResult;
         }
         if (startIndex < epochData[i].slotData!.length) {
-          print("\t\tslot: $startIndex -> ${epochData[i].slotData!.length}: ${epochData[i].slotData![startIndex].result.name}");
+          _log.debug("\t\tslot: $startIndex -> ${epochData[i].slotData!.length}: ${epochData[i].slotData![startIndex].result.name}");
         }
       }
     }

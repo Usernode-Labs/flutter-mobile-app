@@ -79,16 +79,29 @@ Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
       );
     }));
 
-    //print("currentEpoch: $currentEpoch");
+    print("currentEpoch: $currentEpoch");
+    print("Epoch Data:");
 
-    //for (var i = 0; i < epochData.length; i++) {
-    //  print("epoch: $i");
-    //  if (epochData[i].slotData != null) {
-    //    for (var j = 0; j < epochData[i].slotData!.length; j++) {
-    //      print("  slot: $j -> ${epochData[i].slotData![j].result}");
-    //    }
-    //  }
-    //}
+    for (var i = 0; i < epochData.length; i++) {
+      print("\tepoch: $i");
+      if (epochData[i].slotData != null) {
+        var prevResult = epochData[i].slotData![0].result;
+        var startIndex = 0;
+        for (var j = 0; j < epochData[i].slotData!.length; j++) {
+          final currentResult = epochData[i].slotData![j].result;
+          if (prevResult == currentResult) {
+            continue;
+          } else {
+            print("\tslot: $startIndex -> $j: ${currentResult.name}");
+            startIndex = j + 1;
+          }
+          prevResult = currentResult;
+        }
+        if (startIndex < epochData[i].slotData!.length) {
+          print("\t\tslot: $startIndex -> ${epochData[i].slotData!.length}: ${epochData[i].slotData![startIndex].result.name}");
+        }
+      }
+    }
 
     final epochScores = epochData.map((epoch) {
       if (epoch.slotData == null) {

@@ -40,11 +40,17 @@ class _ProducedBlocksScreenState
     return score / total;
   }
 
-  double scoreEpochI(summary, int i) {
-    if (i <= 0 || i >= summary.epochScores.length) {
-      return 0.0;
-    }
-    return summary.epochScores[i].evaluatedPercent * summary.epochScores[i].producedOfEvaluatedPercent;
+  double scoreEpochI(dynamic summary, int i) {
+    // print('Epoch $i: Summary: $summary');
+    if (summary == null) return 0.0;
+    final scores = summary.epochScores;
+    if (scores == null || i < 0 || i >= scores.length) return 0.0;
+    final s = scores[i];
+    // print('Epoch $i: Evaluated: ${s.evaluatedPercent}, Produced: ${s.producedOfEvaluatedPercent}');
+    final value = (s.evaluatedPercent * s.producedOfEvaluatedPercent);
+    if (value.isNaN || value.isInfinite) return 0.0;
+    // print('Epoch $i: Value: $value, clamped: ${value.clamp(0.0, 1.0)}');
+    return value.clamp(0.0, 1.0);
   }
 
   @override

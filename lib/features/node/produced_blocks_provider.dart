@@ -82,6 +82,7 @@ Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
     //final currentEpochResult = await ref.watch(nodeStatusProvider.future);
     final currentEpoch = preWorkResult['currentEpoch'];
     final slotsInEpoch = preWorkResult['slotsInEpoch'];
+    final currentGlobalSlot = preWorkResult['currentGlobalSlot'];
     final currentEpochSlot = preWorkResult['currentSlot'];
 
     final epochsWithData = await persistedGetEpochsWithData();
@@ -97,7 +98,7 @@ Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
 
     final epochData = await Future.wait(List<Future<EpochData>>.generate(epochsToGenerate, (index) async {
       if (epochsWithData.contains(index)) {
-        final slotStatuses = await persistedGetEpochSlotResults(index, slotsInEpoch);
+        final slotStatuses = await persistedGetEpochSlotResults(index, slotsInEpoch, currentGlobalSlot);
         return EpochData(
           slotData: await Future.wait(List<Future<SlotData>>.generate(slotStatuses.length, (slot) async {
             //if (i == 0){
@@ -208,12 +209,15 @@ int _initialTimestampMs = 0;
 BigInt _rewardsPerBlock = BigInt.zero;
 
 Future<dynamic> _buildProducedBlocksPreWork() async {
-  if (_initialStatusNode == null) {
-    _initialStatusNode = await RustBackendService.instance.getStatusNode();
-    _initialTimestampMs = DateTime.now().millisecondsSinceEpoch;
-  }
+  // this is a hack; getStatusNode is slow, but is seems it calculates the current global slot 
+  // at the start of when it is called, and so calculating the timestamp first seems to work for
+  // aligning the two values.
   if (_initialTimestampMs == 0) {
     _initialTimestampMs = DateTime.now().millisecondsSinceEpoch;
+  }
+  if (_initialStatusNode == null) {
+    _initialTimestampMs = DateTime.now().millisecondsSinceEpoch;
+    _initialStatusNode = await RustBackendService.instance.getStatusNode();
   }
 
   int passedTime = DateTime.now().millisecondsSinceEpoch - _initialTimestampMs;
@@ -231,6 +235,10 @@ Future<dynamic> _buildProducedBlocksPreWork() async {
       _rewardsPerBlock = rewards.rewardPerBlock;
     }
   }
+  //print('epoch start: ${_initialStatusNode!.curGlobalSlot! ~/ slotsInEpoch}');
+  //print('epoch start slot: ${_initialStatusNode!.curGlobalSlot! % slotsInEpoch}');
+  //print('current epoch: $currentEpoch');
+  //print('current slot: $currentSlot');
 
   return { 'currentGlobalSlot': currentGlobalSlot, 
            'currentEpoch': currentEpoch, 
@@ -266,7 +274,7 @@ Future<dynamic> _buildProducedBlocksPreWork() async {
  }
 
 Future<List<RpcSlotResult>> persistedGetEpochSlotResults(
-    int epoch, int slotsInEpoch) async {
+    int epoch, int slotsInEpoch, int currentGlobalSlot) async {
   final prefs = await SharedPreferences.getInstance();
   final key = '$_kEpochSlotResultsKeyPrefix:$epoch';
 
@@ -319,6 +327,15 @@ Future<List<RpcSlotResult>> persistedGetEpochSlotResults(
 
     combined[i] = value;
   }
+
+  for (var i = 0; i < slotsInEpoch; i++) {
+    final slot = epoch * slotsInEpoch + i;
+    if ((slot < currentGlobalSlot) && combined[i] == RpcSlotResult.scheduled) {
+      combined[i] = RpcSlotResult.missed; // assume we missed the slot, since the backend wasn't able to tell us whether it was produced or not
+    }
+  }
+
+
 
   // Persist the combined results back to cache
   try {

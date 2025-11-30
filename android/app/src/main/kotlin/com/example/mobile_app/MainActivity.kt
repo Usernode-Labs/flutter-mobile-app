@@ -66,4 +66,11 @@ class MainActivity: FlutterActivity() {
             }
         }
     }
+
+    override fun onBackPressed() {
+        // When the Flutter navigation stack can't handle a back press
+        // (i.e., on the root route), move the task to the background
+        // instead of finishing the activity. This keeps the app running.
+        moveTaskToBack(true)
+    }
 }

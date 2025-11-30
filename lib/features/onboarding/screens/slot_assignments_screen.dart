@@ -172,9 +172,23 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
                         Consumer(builder: (context, ref, _) {
                           final node = ref.watch(nodeStatusProvider).value;
                           final total = node?.slotsInEpoch ?? slotsInEpoch;
-                          final isCurrentEpoch = (node?.currentEpoch ?? -1) == epoch;
-                          final currentGlobal = node?.currentGlobalSlot ?? 0;
-                          final curr = (isCurrentEpoch && total > 0) ? (currentGlobal % total) : total;
+                          final nodeCurrentEpoch = node?.currentEpoch;
+                          final isCurrentEpoch = nodeCurrentEpoch == epoch;
+                          final isFutureEpoch =
+                              nodeCurrentEpoch != null && epoch > nodeCurrentEpoch;
+
+                          int curr;
+                          if (total <= 0) {
+                            curr = 0;
+                          } else if (isCurrentEpoch) {
+                            final currentGlobal = node?.currentGlobalSlot ?? 0;
+                            curr = currentGlobal % total;
+                          } else if (isFutureEpoch) {
+                            curr = 0;
+                          } else {
+                            // Past epoch: fully completed
+                            curr = total;
+                          }
                           return Text(
                             'Slot Progress: $curr / $total',
                             style: theme.textTheme.bodyMedium
@@ -187,9 +201,23 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
                     Consumer(builder: (context, ref, _) {
                       final node = ref.watch(nodeStatusProvider).value;
                       final total = node?.slotsInEpoch ?? slotsInEpoch;
-                      final isCurrentEpoch = (node?.currentEpoch ?? -1) == epoch;
-                      final currentGlobal = node?.currentGlobalSlot ?? 0;
-                      final curr = (isCurrentEpoch && total > 0) ? (currentGlobal % total) : total;
+                      final nodeCurrentEpoch = node?.currentEpoch;
+                      final isCurrentEpoch = nodeCurrentEpoch == epoch;
+                      final isFutureEpoch =
+                          nodeCurrentEpoch != null && epoch > nodeCurrentEpoch;
+
+                      int curr;
+                      if (total <= 0) {
+                        curr = 0;
+                      } else if (isCurrentEpoch) {
+                        final currentGlobal = node?.currentGlobalSlot ?? 0;
+                        curr = currentGlobal % total;
+                      } else if (isFutureEpoch) {
+                        curr = 0;
+                      } else {
+                        curr = total;
+                      }
+
                       final p = total > 0 ? (curr / total) : 0.0;
                       return _ProgressBar(progress: p);
                     }),

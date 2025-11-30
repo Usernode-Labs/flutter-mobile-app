@@ -4,12 +4,14 @@ import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_slots.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'dart:math' as math;
 
 class ProducedBlocksSummary {
   final double totalScore;
   final int currentEpochSlot;
   final int currentEpoch;
   final int slotsInEpoch;
+  final int maxEpochWithData;
   final List<EpochScore> epochScores;
 
   const ProducedBlocksSummary({
@@ -17,6 +19,7 @@ class ProducedBlocksSummary {
     required this.currentEpochSlot,
     required this.currentEpoch,
     required this.slotsInEpoch,
+    required this.maxEpochWithData,
     required this.epochScores,
   });
 }
@@ -72,7 +75,13 @@ Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
     final epochsWithDataResult = await RustBackendService.instance.getEpochsWithData();
     final epochsWithData = epochsWithDataResult?.epochs.toList().toSet() ?? <int>{};
 
-    final epochData = await Future.wait(List<Future<EpochData>>.generate(currentEpoch+1, (index) async {
+    final maxEpochWithDataAPI = epochsWithData.reduce((a, b) => a > b ? a : b);
+
+    final maxEpochWithData = math.max(maxEpochWithDataAPI, currentEpoch);
+
+    final epochsToGenerate = maxEpochWithData + 1; // +1 to account for epochs starting at 0
+
+    final epochData = await Future.wait(List<Future<EpochData>>.generate(epochsToGenerate, (index) async {
       if (epochsWithData.contains(index)) {
         final slotStatusResults = await RustBackendService.instance.getEpochSlotResults(epoch: index);
         final slotStatuses = slotStatusResults?.results.toList() ?? <RpcSlotResult>[];
@@ -171,6 +180,7 @@ Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
       currentEpochSlot: currentEpochSlot,
       currentEpoch: currentEpoch,
       slotsInEpoch: slotsInEpoch,
+      maxEpochWithData: maxEpochWithData,
       epochScores: epochScores.toList(),
     );
 }

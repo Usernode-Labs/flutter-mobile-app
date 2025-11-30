@@ -58,8 +58,12 @@ class _ProducedBlocksScreenState
     final theme = Theme.of(context);
     final onSurfaceVariant = theme.colorScheme.onSurfaceVariant;
     final summary = ref.watch(producedBlocksSummaryProvider);
-    final currentEpoch = summary.asData?.value.currentEpoch ?? 0;
-    final viewedEpoch = _viewedEpoch ?? currentEpoch;
+    final dataValue = summary.asData?.value;
+    final currentEpoch = dataValue?.currentEpoch ?? 0;
+    final maxEpochWithData = dataValue?.maxEpochWithData ?? currentEpoch;
+    final viewedEpoch = (_viewedEpoch != null)
+        ? _viewedEpoch!.clamp(0, maxEpochWithData)
+        : currentEpoch;
 
     return RefreshIndicator(
       onRefresh: () => ref.refresh(producedBlocksSummaryProvider.future),
@@ -117,12 +121,26 @@ class _ProducedBlocksScreenState
                           final currEpochSlot = summary.asData?.value.currentEpochSlot;
                           final totalSlots = summary.asData?.value.slotsInEpoch;
                           final isCurrentViewed = viewedEpoch == currentEpoch;
-                          final curr = (!isCurrentViewed || totalSlots == null)
-                              ? (totalSlots ?? 0)
-                              : (currEpochSlot ?? 0);
-                          final progressValue = (totalSlots != null && totalSlots > 0)
-                              ? (isCurrentViewed ? (curr / totalSlots) : 1.0)
-                              : 0.0;
+                          final isFutureViewed = viewedEpoch > currentEpoch;
+
+                          int curr;
+                          double progressValue;
+                          if (totalSlots == null || totalSlots <= 0) {
+                            curr = 0;
+                            progressValue = 0.0;
+                          } else if (isCurrentViewed) {
+                            curr = currEpochSlot ?? 0;
+                            progressValue = curr / totalSlots;
+                          } else if (isFutureViewed) {
+                            // Future epoch: no progress yet
+                            curr = 0;
+                            progressValue = 0.0;
+                          } else {
+                            // Past epoch: treat as fully complete
+                            curr = totalSlots;
+                            progressValue = 1.0;
+                          }
+
                           final leftLabel = 'Epoch Slot Progress: $curr / ${(totalSlots ?? 0)}';
                           // Compute time left in epoch only for current epoch
                           final nodeStatus = ref.watch(nodeStatusProvider).value;
@@ -163,14 +181,14 @@ class _ProducedBlocksScreenState
                                           });
                                         }
                                       : null,
-                                  onNext: viewedEpoch < currentEpoch
+                                  onNext: viewedEpoch < maxEpochWithData
                                       ? () {
                                           setState(() {
                                             _viewedEpoch = viewedEpoch + 1;
                                           });
                                         }
                                       : null,
-                                  maxEpoch: currentEpoch,
+                                  maxEpoch: maxEpochWithData,
                                   selectedEpoch: viewedEpoch,
                                   onPickEpoch: (e) {
                                     setState(() {
@@ -356,7 +374,7 @@ class _ProducedBlocksScreenState
                                   );
                                 }),
                                 const SizedBox(height: 6),
-                                (viewedEpoch == currentEpoch)
+                                (viewedEpoch >= currentEpoch && viewedEpoch <= maxEpochWithData)
                                     ? Builder(builder: (_) {
                                         final data = summary.asData?.value;
                                         final scores = data?.epochScores ?? const [];
@@ -406,7 +424,7 @@ class _ProducedBlocksScreenState
                             ),
                           );
                         }),
-                        (viewedEpoch == currentEpoch)
+                        (viewedEpoch >= currentEpoch && viewedEpoch <= maxEpochWithData)
                             ? const SizedBox.shrink()
                             : const SizedBox(height: 64),
                       ],

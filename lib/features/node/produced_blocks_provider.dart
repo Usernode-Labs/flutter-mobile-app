@@ -205,28 +205,84 @@ Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
 
 
 RpcStatusNode? _initialStatusNode;
-int _initialTimestampMs = 0;
+int _initialTimestampMs = 0; // When using genesis, this represents the computed genesis timestamp (ms since epoch).
+bool _initialFromGenesis = false;
 BigInt _rewardsPerBlock = BigInt.zero;
 
 Future<dynamic> _buildProducedBlocksPreWork() async {
-  // this is a hack; getStatusNode is slow, but is seems it calculates the current global slot 
-  // at the start of when it is called, and so calculating the timestamp first seems to work for
-  // aligning the two values.
-  if (_initialTimestampMs == 0) {
-    _initialTimestampMs = DateTime.now().millisecondsSinceEpoch;
-  }
-  if (_initialStatusNode == null) {
-    _initialTimestampMs = DateTime.now().millisecondsSinceEpoch;
-    _initialStatusNode = await RustBackendService.instance.getStatusNode();
+  // Prefer a time-based model anchored at the chain genesis timestamp.
+  // We compute genesis once from status.bestTip and reuse it, so subsequent
+  // calls avoid the expensive status RPC and simply advance time locally.
+  // TODO this should be simplified with a more direct / faster RPC call or a 
+  // way to get the current global slot directly.
+  if (_initialStatusNode == null || _initialTimestampMs == 0) {
+    try {
+      final status =
+          await RustBackendService.instance.getStatus(includeVrfDetails: false);
+      final node = status?.node;
+      final blockchain = status?.blockchain;
+
+      if (status != null && node != null && blockchain != null) {
+        _initialStatusNode = node;
+        final bestTip = blockchain.bestTip;
+        final slotMs = node.blockInterval;
+        final bestGlobalSlot = bestTip.globalSlot; // int
+        final bestTimestamp = bestTip.timestamp; // BigInt (ms)
+
+        // genesisMs = bestTip.timestamp - bestTip.globalSlot * slotMs
+        final genesisMsBig =
+            bestTimestamp - BigInt.from(bestGlobalSlot * slotMs);
+        _initialTimestampMs = genesisMsBig.toInt();
+        _initialFromGenesis = true;
+        _log.debug('Computed genesis timestampMs=$_initialTimestampMs');
+      } else {
+        // Fallback: we couldn't get full status; fall back to node-only snapshot.
+        _initialStatusNode ??=
+            await RustBackendService.instance.getStatusNode();
+        _initialTimestampMs = DateTime.now().millisecondsSinceEpoch;
+        _initialFromGenesis = false;
+        _log.warn(
+            'Failed to compute genesis timestamp; falling back to local snapshot time');
+      }
+    } catch (e, st) {
+      _log.error(
+        'Error initializing ProducedBlocks pre-work; falling back to local snapshot time',
+        error: e,
+        stackTrace: st,
+      );
+      _initialStatusNode ??=
+          await RustBackendService.instance.getStatusNode();
+      _initialTimestampMs = DateTime.now().millisecondsSinceEpoch;
+      _initialFromGenesis = false;
+    }
   }
 
-  int passedTime = DateTime.now().millisecondsSinceEpoch - _initialTimestampMs;
+  final nowMs = DateTime.now().millisecondsSinceEpoch;
   final slotMs = _initialStatusNode!.blockInterval;
 
-  int currentGlobalSlot = _initialStatusNode!.curGlobalSlot! + (passedTime ~/ slotMs);
+  int currentGlobalSlot;
+  if (_initialFromGenesis) {
+    // Time since genesis, divided by slot duration.
+    currentGlobalSlot = (nowMs - _initialTimestampMs) ~/ slotMs;
+  } else {
+    // Legacy behavior: advance from the snapshot slot using wall-clock delta.
+    final passedTime = nowMs - _initialTimestampMs;
+    currentGlobalSlot =
+        _initialStatusNode!.curGlobalSlot! + (passedTime ~/ slotMs);
+  }
   int slotsInEpoch = _initialStatusNode!.slotsInEpoch;
   int currentEpoch = currentGlobalSlot ~/ slotsInEpoch;
   int currentSlot = currentGlobalSlot % slotsInEpoch;
+
+  final upToDateStatus = await RustBackendService.instance.getStatusNode();
+
+  //print('epoch start: ${_initialStatusNode!.curGlobalSlot! ~/ slotsInEpoch}');
+  //print('epoch start slot: ${_initialStatusNode!.curGlobalSlot! % slotsInEpoch}');
+  //print('current epoch: $currentEpoch');
+  //print('current slot: $currentSlot');
+  //print('current global slot: $currentGlobalSlot');
+
+  //print('actual current global slot: ${upToDateStatus!.curGlobalSlot}');
 
   if (_rewardsPerBlock == BigInt.zero) {
     final rewards =
@@ -235,10 +291,6 @@ Future<dynamic> _buildProducedBlocksPreWork() async {
       _rewardsPerBlock = rewards.rewardPerBlock;
     }
   }
-  //print('epoch start: ${_initialStatusNode!.curGlobalSlot! ~/ slotsInEpoch}');
-  //print('epoch start slot: ${_initialStatusNode!.curGlobalSlot! % slotsInEpoch}');
-  //print('current epoch: $currentEpoch');
-  //print('current slot: $currentSlot');
 
   return { 'currentGlobalSlot': currentGlobalSlot, 
            'currentEpoch': currentEpoch, 

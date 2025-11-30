@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/features/node/node_provider.dart';
 import 'package:crypto_mobile_app/features/node/produced_blocks_provider.dart';
-import 'package:crypto_mobile_app/features/node/node_service.dart';
 
 class ProducedBlocksScreen extends ConsumerStatefulWidget {
   const ProducedBlocksScreen({super.key});
@@ -20,6 +19,7 @@ class _ProducedBlocksScreenState
   int? _viewedEpoch;
 
   Timer? _refreshTimer;
+  bool _refreshingSummary = false;
 
   void _startAutoRefreshTimer() {
     // Avoid creating multiple timers on repeated hot reloads.
@@ -27,9 +27,8 @@ class _ProducedBlocksScreenState
     _refreshTimer =
         Timer.periodic(const Duration(milliseconds: 500), (_) {
       if (!mounted) return;
-      // Use the returned future to satisfy lints and ensure the refresh
-      // actually runs to completion.
-      final _ = ref.refresh(producedBlocksSummaryProvider);
+      // Avoid overlapping refreshes; if a refresh is in progress, skip.
+      _refreshSummary();
     });
   }
 
@@ -54,6 +53,18 @@ class _ProducedBlocksScreenState
   void dispose() {
     _refreshTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _refreshSummary() async {
+    if (_refreshingSummary || !mounted) return;
+    _refreshingSummary = true;
+    try {
+      final _ = await ref.refresh(producedBlocksSummaryProvider.future);
+    } finally {
+      if (mounted) {
+        _refreshingSummary = false;
+      }
+    }
   }
 
   double totalScoreLastN(summary, int n) {
@@ -117,7 +128,7 @@ class _ProducedBlocksScreenState
         // then recompute the produced blocks summary.
         // await ref.read(nodeStatusProvider.notifier).refresh();
         // Ensure the summary recomputes with fresh node status.
-        final _ = await ref.refresh(producedBlocksSummaryProvider.future);
+        await _refreshSummary();
       },
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -164,15 +175,16 @@ class _ProducedBlocksScreenState
                             const SizedBox(height: 24),
                             Builder(
                               builder: (_) {
-                                final (earned, possible) = totalTokensLastN(summary.asData?.value, 10);
                                 return Column(
                                   children: [
                                     summary.when(
-                                      data: (value) => Text(
-                                              '+${earned.toStringAsFixed(0)} / +${possible.toStringAsFixed(0)}',
-                                              style: theme.textTheme.titleMedium,                                   
-                                              textAlign: TextAlign.center,
-                                      ),
+                                      data: (value) {
+                                        final (earned, possible) = totalTokensLastN(value, 10);
+                                        return Text(
+                                                '+${earned.toStringAsFixed(0)} / +${possible.toStringAsFixed(0)}',
+                                                style: theme.textTheme.titleMedium,                                   
+                                                textAlign: TextAlign.center);
+                                        },
                                       loading: () => const SizedBox(
                                         width: 28,
                                         height: 28,

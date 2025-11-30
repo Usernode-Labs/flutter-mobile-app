@@ -227,8 +227,9 @@ Future<dynamic> _buildProducedBlocksPreWork() async {
   if (_rewardsPerBlock == BigInt.zero) {
     final rewards =
         await RustBackendService.instance.epochRewards(epoch: currentEpoch);
-    if (rewards == null) return;
-    _rewardsPerBlock = rewards.rewardPerBlock;
+    if (rewards != null) {
+      _rewardsPerBlock = rewards.rewardPerBlock;
+    }
   }
 
   return { 'currentGlobalSlot': currentGlobalSlot, 

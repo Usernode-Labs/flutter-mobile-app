@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
@@ -51,6 +52,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   Timer? _autoTimer;
   late final TabController _tabController;
   DateTime? _lastChecked;
+  bool _active = false; // active when NodeStatus tab is selected (index 1)
 
   // Collapsible section states
   bool _isRecentBlocksExpanded = false;
@@ -68,12 +70,9 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       _refresh();
       _loadActiveAccount();
     });
-    // Periodic auto-refresh every 3 seconds while this screen is alive.
-    _autoTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-      if (mounted && !_refreshing) {
-        _refresh();
-      }
-    });
+    // Determine initial active state and maybe start timer
+    _active = _isActiveTab();
+    if (_active) _startTimer();
   }
 
   Future<void> _loadActiveAccount() async {
@@ -160,6 +159,17 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
   @override
   Widget build(BuildContext context) {
+    // React to tab changes and start/stop timers
+    final currentTab = ref.watch(currentHomeTabProvider);
+    final shouldBeActive = currentTab == 1;
+    if (shouldBeActive != _active) {
+      _active = shouldBeActive;
+      if (_active) {
+        _startTimer();
+      } else {
+        _stopTimer();
+      }
+    }
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
@@ -1586,5 +1596,27 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     _autoTimer?.cancel();
     _tabController.dispose();
     super.dispose();
+  }
+
+  bool _isActiveTab() {
+    try {
+      return ref.read(currentHomeTabProvider) == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void _startTimer() {
+    _autoTimer?.cancel();
+    _autoTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (mounted && _active && !_refreshing) {
+        _refresh();
+      }
+    });
+  }
+
+  void _stopTimer() {
+    _autoTimer?.cancel();
+    _autoTimer = null;
   }
 }

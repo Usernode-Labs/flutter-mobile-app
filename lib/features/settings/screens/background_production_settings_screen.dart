@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -33,6 +34,7 @@ class _BackgroundProductionSettingsScreenState
   bool _androidKeepAliveActive = false;
   Timer? _autoTimer;
   bool _refreshing = false;
+  bool _active = false; // active when Settings tab is selected (index 2)
 
   @override
   void initState() {
@@ -40,18 +42,37 @@ class _BackgroundProductionSettingsScreenState
     // Run initialization in background without blocking UI
     _checkStatus();
 
-    // Periodic auto-refresh every 3 seconds (all settings including permissions)
-    _autoTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-      if (mounted && !_refreshing) {
-        _checkStatus();
-      }
-    });
+    // Determine initial active state and maybe start timer
+    _active = _isActiveTab();
+    if (_active) _startTimer();
   }
 
   @override
   void dispose() {
     _autoTimer?.cancel();
     super.dispose();
+  }
+
+  bool _isActiveTab() {
+    try {
+      return ref.read(currentHomeTabProvider) == 2;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void _startTimer() {
+    _autoTimer?.cancel();
+    _autoTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (mounted && _active && !_refreshing) {
+        _checkStatus();
+      }
+    });
+  }
+
+  void _stopTimer() {
+    _autoTimer?.cancel();
+    _autoTimer = null;
   }
 
   Future<void> _checkStatus() async {
@@ -123,13 +144,23 @@ class _BackgroundProductionSettingsScreenState
 
   @override
   Widget build(BuildContext context) {
+    // React to tab changes and start/stop timers
+    final currentTab = ref.watch(currentHomeTabProvider);
+    final shouldBeActive = currentTab == 2;
+    if (shouldBeActive != _active) {
+      _active = shouldBeActive;
+      if (_active) {
+        _startTimer();
+      } else {
+        _stopTimer();
+      }
+    }
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.settingsBackgroundBlockProduction),
+        title: const Text('App Info & Settings'),
         elevation: 0,
         backgroundColor: Colors.transparent,
       ),
@@ -138,6 +169,19 @@ class _BackgroundProductionSettingsScreenState
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            // About section
+            _buildAboutSection(theme, colorScheme),
+            const SizedBox(height: 24),
+
+            // Background Block Production section title
+            Text(
+              'Background Block Production',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 24),
+
             // Feature overview section
             _buildFeatureOverviewCard(theme, colorScheme),
             const SizedBox(height: 24),
@@ -174,6 +218,40 @@ class _BackgroundProductionSettingsScreenState
 
             // Scheduled slots section
             _buildScheduledSlotsSection(theme, colorScheme),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAboutSection(ThemeData theme, ColorScheme colorScheme) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'About',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Your device is helping run this network directly, peer to peer, with no central servers. Together with other participants\' devices, it processes transactions and runs shared code. It is one of the first networks that can be fully hosted just from participants\' own devices.\n\n'
+
+              + 'Our goal is to enable community-run networks, where participants operate the network themselves and incentives create a schelling point around user participation.\n\n'
+
+              + 'We are currently in testnet. The first few phases of our testing will ensure that the core network and block production works. Then we will work on adding activities, use cases, and smart contracts on top of the core app.\n\n'
+
+              + 'We thank you for helping test this first version of the application. We\'re hopeful to build a very new and different kind of blockchain and network, and your participation helps make this possible.',
+
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurface.withValues(alpha: 0.7),
+                height: 1.5,
+              ),
+            ),
           ],
         ),
       ),

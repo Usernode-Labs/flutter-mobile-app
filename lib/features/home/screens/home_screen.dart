@@ -1,18 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/produced_blocks_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/node_status_screen.dart';
 import 'package:crypto_mobile_app/features/settings/screens/background_production_settings_screen.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize current tab
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(currentHomeTabProvider.notifier).state = _index;
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +42,10 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
+        onDestinationSelected: (i) {
+          setState(() => _index = i);
+          ref.read(currentHomeTabProvider.notifier).state = i;
+        },
         destinations: [
           NavigationDestination(
             icon: const Icon(Icons.layers_outlined),

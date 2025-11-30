@@ -405,6 +405,72 @@ class AppLocalizationsEn extends AppLocalizations {
   String get producedBlocksNoData => 'No produced blocks available';
 
   @override
+  String get producedBlocksSuccessRateLast10Epochs =>
+      'Block Success Rate · Last 10 Epochs';
+
+  @override
+  String producedBlocksTokensEarnedSummary(String earned, String possible) {
+    return '+$earned / +$possible';
+  }
+
+  @override
+  String get producedBlocksTokensEarnedLast10Epochs =>
+      'Tokens Earned · Last 10 epochs';
+
+  @override
+  String producedBlocksEpochSlotProgress(int current, int total) {
+    return 'Epoch Slot Progress: $current / $total';
+  }
+
+  @override
+  String get producedBlocksZeroMinutesLeft => '0m left';
+
+  @override
+  String producedBlocksMinutesLeft(int minutes) {
+    return '${minutes}m left';
+  }
+
+  @override
+  String producedBlocksHoursMinutesLeft(int hours, int minutes) {
+    return '${hours}h ${minutes}m left';
+  }
+
+  @override
+  String get producedBlocksEpochPerformance => 'Epoch Performance';
+
+  @override
+  String get producedBlocksCheckedSlots => 'Checked Slots';
+
+  @override
+  String producedBlocksEvaluatedOfSlots(int evaluated, int total) {
+    return 'Evaluated $evaluated of $total';
+  }
+
+  @override
+  String producedBlocksProducedOfWon(String produced, String won) {
+    return '$produced of $won produced this epoch';
+  }
+
+  @override
+  String get producedBlocksMissedBlocksTitle => 'Missed Blocks';
+
+  @override
+  String producedBlocksMissedOfWon(String missed, String won) {
+    return '$missed of $won missed this epoch';
+  }
+
+  @override
+  String get producedBlocksUpcomingBlocksTitle => 'Upcoming Blocks';
+
+  @override
+  String producedBlocksUpcomingThisEpoch(String upcoming) {
+    return '$upcoming upcoming this epoch';
+  }
+
+  @override
+  String get producedBlocksSelectEpoch => 'Select Epoch';
+
+  @override
   String get mempoolTitle => 'Mempool Transactions';
 
   @override
@@ -430,6 +496,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get commonError => 'Error';
+
+  @override
+  String get commonNoValuePlaceholder => '--';
+
+  @override
+  String get commonEmDash => '—';
 
   @override
   String get buildInfoVersion => 'Version';

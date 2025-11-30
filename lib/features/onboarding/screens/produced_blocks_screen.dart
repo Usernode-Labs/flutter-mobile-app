@@ -66,7 +66,13 @@ class _ProducedBlocksScreenState
         : currentEpoch;
 
     return RefreshIndicator(
-      onRefresh: () => ref.refresh(producedBlocksSummaryProvider.future),
+      onRefresh: () async {
+        // Refresh node status first so slot progress is up to date,
+        // then recompute the produced blocks summary.
+        await ref.read(nodeStatusProvider.notifier).refresh();
+        // Ensure the summary recomputes with fresh node status.
+        final _ = await ref.refresh(producedBlocksSummaryProvider.future);
+      },
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [

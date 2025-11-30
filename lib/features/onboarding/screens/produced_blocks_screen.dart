@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -16,11 +17,42 @@ class ProducedBlocksScreen extends ConsumerStatefulWidget {
 class _ProducedBlocksScreenState
     extends ConsumerState<ProducedBlocksScreen> {
   int? _viewedEpoch;
+
+  Timer? _refreshTimer;
+
+  void _startAutoRefreshTimer() {
+    // Avoid creating multiple timers on repeated hot reloads.
+    _refreshTimer?.cancel();
+    _refreshTimer =
+        Timer.periodic(const Duration(milliseconds: 500), (_) {
+      if (!mounted) return;
+      // Use the returned future to satisfy lints and ensure the refresh
+      // actually runs to completion.
+      final _ = ref.refresh(producedBlocksSummaryProvider);
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Periodically refresh the produced blocks summary so slot progress
+    // and related metrics stay up to date while this screen is visible.
+    _startAutoRefreshTimer();
+  }
+
   @override
   void reassemble() {
     super.reassemble();
     // Force provider to recompute on hot reload
     ref.invalidate(producedBlocksSummaryProvider);
+    // Ensure the periodic refresh is (re)started after hot reload.
+    _startAutoRefreshTimer();
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   double totalScoreLastN(summary, int n) {
@@ -69,7 +101,7 @@ class _ProducedBlocksScreenState
       onRefresh: () async {
         // Refresh node status first so slot progress is up to date,
         // then recompute the produced blocks summary.
-        await ref.read(nodeStatusProvider.notifier).refresh();
+        // await ref.read(nodeStatusProvider.notifier).refresh();
         // Ensure the summary recomputes with fresh node status.
         final _ = await ref.refresh(producedBlocksSummaryProvider.future);
       },

@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:crypto_mobile_app/features/node/node_provider.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_slots.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart';
@@ -7,6 +6,7 @@ import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'dart:math' as math;
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 
 class ProducedBlocksSummary {
   final double totalScore;
@@ -69,20 +69,27 @@ const _kProducedBlockMetadataKeyPrefix = 'node:produced_block_metadata';
 const _kEpochSlotResultsKeyPrefix = 'node:epoch_slot_results';
 
 Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
+  final stopwatch = Stopwatch()..start();
+  _log.debug('ProducedBlocksSummary: build start');
 
     _log.debug("GETTING EPOCH DATA");
 
-    final currentEpochResult = await ref.watch(nodeStatusProvider.future);
-    final currentEpoch = currentEpochResult?.currentEpoch ?? 0;
-    final slotsInEpoch = currentEpochResult?.node.slotsInEpoch ?? 0;
-    final currentGlobalSlot = currentEpochResult?.currentGlobalSlot ?? 0;
-    final currentEpochSlot = currentGlobalSlot % slotsInEpoch;
+    // Centralized pre-work for this provider (status, and future additions).
+    final preWorkResult = await _buildProducedBlocksPreWork();
+    // this was very slow, so using pre work above instead
+    //final currentEpochResult = await ref.watch(nodeStatusProvider.future);
+    final currentEpoch = preWorkResult['currentEpoch'];
+    final slotsInEpoch = preWorkResult['slotsInEpoch'];
+    final currentEpochSlot = preWorkResult['currentSlot'];
 
     final epochsWithData = await persistedGetEpochsWithData();
 
-    final maxEpochWithDataAPI = epochsWithData.reduce((a, b) => a > b ? a : b);
+    final maxEpochWithDataAPI = epochsWithData.isEmpty
+        ? currentEpoch
+        : epochsWithData.reduce((int a, int b) => a > b ? a : b);
 
-    final maxEpochWithData = math.max(maxEpochWithDataAPI, currentEpoch);
+    final maxEpochWithData =
+        math.max<int>(maxEpochWithDataAPI, currentEpoch);
 
     final epochsToGenerate = maxEpochWithData + 1; // +1 to account for epochs starting at 0
 
@@ -179,6 +186,9 @@ Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
     final totalScore = epochScores.map((epoch) => epoch.evaluatedPercent*epoch.producedOfEvaluatedPercent)
                                   .reduce((a, b) => a * b);
 
+    stopwatch.stop();
+    _log.debug('ProducedBlocksSummary: build completed in ${stopwatch.elapsedMilliseconds} ms');
+
     return ProducedBlocksSummary(
       totalScore: totalScore,
       currentEpochSlot: currentEpochSlot,
@@ -187,6 +197,34 @@ Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
       maxEpochWithData: maxEpochWithData,
       epochScores: epochScores.toList(),
     );
+}
+
+
+RpcStatusNode? _initialStatusNode;
+int _initialTimestampMs = 0;
+
+Future<dynamic> _buildProducedBlocksPreWork() async {
+  if (_initialStatusNode == null) {
+    _initialStatusNode = await RustBackendService.instance.getStatusNode();
+    _initialTimestampMs = DateTime.now().millisecondsSinceEpoch;
+  }
+  if (_initialTimestampMs == 0) {
+    _initialTimestampMs = DateTime.now().millisecondsSinceEpoch;
+  }
+
+  int passedTime = DateTime.now().millisecondsSinceEpoch - _initialTimestampMs;
+  final slotMs = _initialStatusNode!.blockInterval;
+
+  int currentGlobalSlot = _initialStatusNode!.curGlobalSlot! + (passedTime ~/ slotMs);
+  int slotsInEpoch = _initialStatusNode!.slotsInEpoch;
+  int currentEpoch = currentGlobalSlot ~/ slotsInEpoch;
+  int currentSlot = currentGlobalSlot % slotsInEpoch;
+
+  return { 'currentGlobalSlot': currentGlobalSlot, 
+           'currentEpoch': currentEpoch, 
+           'currentSlot': currentSlot, 
+           'slotsInEpoch': slotsInEpoch, 
+           'slotMs': slotMs };
 }
 
  Future<Set<int>> persistedGetEpochsWithData() async {

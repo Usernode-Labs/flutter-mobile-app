@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:crypto_mobile_app/features/node/node_provider.dart';
+import 'package:crypto_mobile_app/features/node/produced_blocks_provider.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_slots.dart';
@@ -170,25 +170,29 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
                               ?.copyWith(fontWeight: FontWeight.w600),
                         ),
                         Consumer(builder: (context, ref, _) {
-                          final node = ref.watch(nodeStatusProvider).value;
-                          final total = node?.slotsInEpoch ?? slotsInEpoch;
-                          final nodeCurrentEpoch = node?.currentEpoch;
-                          final isCurrentEpoch = nodeCurrentEpoch == epoch;
-                          final isFutureEpoch =
-                              nodeCurrentEpoch != null && epoch > nodeCurrentEpoch;
+                          final summary =
+                              ref.watch(producedBlocksSummaryProvider);
+                          final data = summary.asData?.value;
+                          final total =
+                              data?.slotsInEpoch ?? slotsInEpoch;
+                          final currentEpoch = data?.currentEpoch;
+                          final isCurrentEpoch = currentEpoch != null &&
+                              currentEpoch == epoch;
+                          final isFutureEpoch = currentEpoch != null &&
+                              epoch > currentEpoch;
 
                           int curr;
-                          if (total <= 0) {
+                          if (data == null || total <= 0) {
                             curr = 0;
                           } else if (isCurrentEpoch) {
-                            final currentGlobal = node?.currentGlobalSlot ?? 0;
-                            curr = currentGlobal % total;
+                            curr = data.currentEpochSlot;
                           } else if (isFutureEpoch) {
                             curr = 0;
                           } else {
                             // Past epoch: fully completed
                             curr = total;
                           }
+
                           return Text(
                             'Slot Progress: $curr / $total',
                             style: theme.textTheme.bodyMedium
@@ -199,22 +203,26 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
                     ),
                     const SizedBox(height: 12),
                     Consumer(builder: (context, ref, _) {
-                      final node = ref.watch(nodeStatusProvider).value;
-                      final total = node?.slotsInEpoch ?? slotsInEpoch;
-                      final nodeCurrentEpoch = node?.currentEpoch;
-                      final isCurrentEpoch = nodeCurrentEpoch == epoch;
-                      final isFutureEpoch =
-                          nodeCurrentEpoch != null && epoch > nodeCurrentEpoch;
+                      final summary =
+                          ref.watch(producedBlocksSummaryProvider);
+                      final data = summary.asData?.value;
+                      final total =
+                          data?.slotsInEpoch ?? slotsInEpoch;
+                      final currentEpoch = data?.currentEpoch;
+                      final isCurrentEpoch = currentEpoch != null &&
+                          currentEpoch == epoch;
+                      final isFutureEpoch = currentEpoch != null &&
+                          epoch > currentEpoch;
 
                       int curr;
-                      if (total <= 0) {
+                      if (data == null || total <= 0) {
                         curr = 0;
                       } else if (isCurrentEpoch) {
-                        final currentGlobal = node?.currentGlobalSlot ?? 0;
-                        curr = currentGlobal % total;
+                        curr = data.currentEpochSlot;
                       } else if (isFutureEpoch) {
                         curr = 0;
                       } else {
+                        // Past epoch: fully completed
                         curr = total;
                       }
 

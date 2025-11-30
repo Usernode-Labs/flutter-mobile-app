@@ -180,6 +180,9 @@ class NodeStatusController extends AsyncNotifier<NodeStatusState?> {
   }
 
   Future<NodeStatusState?> _load() async {
+    final stopwatch = Stopwatch()..start();
+    _log.info('NodeStatusProvider: load start');
+
     try {
       final status = await RustBackendService.instance.getStatus();
       if (status == null) return null;
@@ -293,6 +296,11 @@ class NodeStatusController extends AsyncNotifier<NodeStatusState?> {
         stackTrace: st,
       );
       throw Exception('Failed to load node status $e');
+    } finally {
+      stopwatch.stop();
+      _log.info(
+        'NodeStatusProvider: load completed in ${stopwatch.elapsedMilliseconds} ms',
+      );
     }
   }
 

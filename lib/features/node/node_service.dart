@@ -206,6 +206,22 @@ class RustBackendService {
     return _cachedPeerId;
   }
 
+  Future<RpcStatusNode?> getStatusNode() async {
+    _log.trace('getStatusNode called');
+    final r = _rpc;
+    if (r == null) return null;
+    try {
+      final status = await r.status(includeLastReorg: false, includeVrfDetails: false);
+      return status?.node;
+    } on PanicException catch (e, st) {
+      _log.error('FRB panic during getStatusNode', error: e, stackTrace: st);
+      return null;
+    } catch (e, st) {
+      _log.warn('RPC getStatusNode failed: $e\$st');
+      return null;
+    }
+  }
+
   /// Convenience helper to fetch node status via RPC.
   Future<RpcStatusResp?> getStatus({
     bool? includeLastReorg,

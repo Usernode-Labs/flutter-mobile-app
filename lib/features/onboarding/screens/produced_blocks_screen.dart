@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/features/node/node_provider.dart';
 import 'package:crypto_mobile_app/features/node/produced_blocks_provider.dart';
+import 'package:crypto_mobile_app/features/node/node_service.dart';
 
 class ProducedBlocksScreen extends ConsumerStatefulWidget {
   const ProducedBlocksScreen({super.key});
@@ -70,6 +71,19 @@ class _ProducedBlocksScreenState
       score += (evaluatedPercent * producedOfEvaluatedPercent).clamp(0.0, 1.0);
     }
     return score / total;
+  }
+
+  (double earned, double possible) totalTokensLastN(summary, int n) {
+    final rewardsPerBlock = summary.rewardsPerBlock.toDouble();
+    double earned = 0.0;
+    double possible = 0.0;
+    for (var i = summary.currentEpoch; i > summary.currentEpoch - n && i >= 0; i--) {
+      final produced = summary.epochScores[i].produced ?? 0;
+      final missed = summary.epochScores[i].missed ?? 0;
+      earned += produced * rewardsPerBlock;
+      possible += (produced + missed) * rewardsPerBlock;
+    }
+    return (earned, possible);
   }
 
   double scoreEpochI(dynamic summary, int i) {
@@ -146,6 +160,42 @@ class _ProducedBlocksScreenState
                               'Block Success Rate · Last 10 Epochs',
                               style: theme.textTheme.bodySmall?.copyWith(color: onSurfaceVariant),
                               textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 24),
+                            Builder(
+                              builder: (_) {
+                                final (earned, possible) = totalTokensLastN(summary.asData?.value, 10);
+                                return Column(
+                                  children: [
+                                    summary.when(
+                                      data: (value) => Text(
+                                              '+${earned.toStringAsFixed(0)} / +${possible.toStringAsFixed(0)}',
+                                              style: theme.textTheme.titleMedium,                                   
+                                              textAlign: TextAlign.center,
+                                      ),
+                                      loading: () => const SizedBox(
+                                        width: 28,
+                                        height: 28,
+                                        child: CircularProgressIndicator(strokeWidth: 2.5),
+                                      ),
+                                      error: (e, _) => Text(
+                                        '-- / --',
+                                        style: theme.textTheme.titleMedium,
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      'Tokens Earned · Last 10 epochs',
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                              color: onSurfaceVariant),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
+                                );
+                              },
                             ),
                           ],
                         ),

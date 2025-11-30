@@ -13,6 +13,7 @@ class ProducedBlocksSummary {
   final int currentEpochSlot;
   final int currentEpoch;
   final int slotsInEpoch;
+  final BigInt rewardsPerBlock;
   final int maxEpochWithData;
   final List<EpochScore> epochScores;
 
@@ -21,6 +22,7 @@ class ProducedBlocksSummary {
     required this.currentEpochSlot,
     required this.currentEpoch,
     required this.slotsInEpoch,
+    required this.rewardsPerBlock,
     required this.maxEpochWithData,
     required this.epochScores,
   });
@@ -194,6 +196,7 @@ Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
       currentEpochSlot: currentEpochSlot,
       currentEpoch: currentEpoch,
       slotsInEpoch: slotsInEpoch,
+      rewardsPerBlock: _rewardsPerBlock,
       maxEpochWithData: maxEpochWithData,
       epochScores: epochScores.toList(),
     );
@@ -202,6 +205,7 @@ Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
 
 RpcStatusNode? _initialStatusNode;
 int _initialTimestampMs = 0;
+BigInt _rewardsPerBlock = BigInt.zero;
 
 Future<dynamic> _buildProducedBlocksPreWork() async {
   if (_initialStatusNode == null) {
@@ -220,11 +224,19 @@ Future<dynamic> _buildProducedBlocksPreWork() async {
   int currentEpoch = currentGlobalSlot ~/ slotsInEpoch;
   int currentSlot = currentGlobalSlot % slotsInEpoch;
 
+  if (_rewardsPerBlock == BigInt.zero) {
+    final rewards =
+        await RustBackendService.instance.epochRewards(epoch: currentEpoch);
+    if (rewards == null) return;
+    _rewardsPerBlock = rewards.rewardPerBlock;
+  }
+
   return { 'currentGlobalSlot': currentGlobalSlot, 
            'currentEpoch': currentEpoch, 
            'currentSlot': currentSlot, 
            'slotsInEpoch': slotsInEpoch, 
-           'slotMs': slotMs };
+           'slotMs': slotMs,
+           'rewardsPerBlock': _rewardsPerBlock };
 }
 
  Future<Set<int>> persistedGetEpochsWithData() async {

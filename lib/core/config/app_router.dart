@@ -28,6 +28,7 @@ class AppRoutes {
   static const splash = '/splash';
   static const onboarding = '/onboarding/welcome';
   static const home = '/home';
+  static const homeSlash = '/';
   static const main = '/main';
 
   // Onboarding flow
@@ -123,7 +124,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const NotificationPermission3Screen(),
       ),
       GoRoute(
-        path: '/',
+        path: AppRoutes.homeSlash,
         builder: (context, state) => const HomeScreen(),
       ),
       GoRoute(

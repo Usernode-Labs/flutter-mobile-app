@@ -3,8 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/features/node/node_provider.dart';
 import 'package:crypto_mobile_app/features/node/produced_blocks_provider.dart';
+
+// TODO use translation file to replace hard coded strings
 
 class ProducedBlocksScreen extends ConsumerStatefulWidget {
   const ProducedBlocksScreen({super.key});
@@ -114,6 +117,7 @@ class _ProducedBlocksScreenState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final onSurfaceVariant = theme.colorScheme.onSurfaceVariant;
+    final l10n = AppLocalizations.of(context);
     final summary = ref.watch(producedBlocksSummaryProvider);
     final dataValue = summary.asData?.value;
     final currentEpoch = dataValue?.currentEpoch ?? 0;
@@ -161,14 +165,14 @@ class _ProducedBlocksScreenState
                                 child: CircularProgressIndicator(strokeWidth: 2.5),
                               ),
                               error: (e, _) => Text(
-                                '--',
+                                l10n.commonNoValuePlaceholder,
                                 style: theme.textTheme.displaySmall,
                                 textAlign: TextAlign.center,
                               ),
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'Block Success Rate · Last 10 Epochs',
+                              l10n.producedBlocksSuccessRateLast10Epochs,
                               style: theme.textTheme.bodySmall?.copyWith(color: onSurfaceVariant),
                               textAlign: TextAlign.center,
                             ),
@@ -181,9 +185,13 @@ class _ProducedBlocksScreenState
                                       data: (value) {
                                         final (earned, possible) = totalTokensLastN(value, 10);
                                         return Text(
-                                                '+${earned.toStringAsFixed(0)} / +${possible.toStringAsFixed(0)}',
-                                                style: theme.textTheme.titleMedium,                                   
-                                                textAlign: TextAlign.center);
+                                          l10n.producedBlocksTokensEarnedSummary(
+                                            earned.toStringAsFixed(0),
+                                            possible.toStringAsFixed(0),
+                                          ),
+                                          style: theme.textTheme.titleMedium,
+                                          textAlign: TextAlign.center,
+                                        );
                                         },
                                       loading: () => const SizedBox(
                                         width: 28,
@@ -191,7 +199,7 @@ class _ProducedBlocksScreenState
                                         child: CircularProgressIndicator(strokeWidth: 2.5),
                                       ),
                                       error: (e, _) => Text(
-                                        '-- / --',
+                                        '${l10n.commonNoValuePlaceholder} / ${l10n.commonNoValuePlaceholder}',
                                         style: theme.textTheme.titleMedium,
                                         textAlign: TextAlign.center,
                                       ),
@@ -199,7 +207,7 @@ class _ProducedBlocksScreenState
 
                                     const SizedBox(height: 6),
                                     Text(
-                                      'Tokens Earned · Last 10 epochs',
+                                      l10n.producedBlocksTokensEarnedLast10Epochs,
                                       style: theme.textTheme.bodySmall
                                           ?.copyWith(
                                               color: onSurfaceVariant),
@@ -241,7 +249,10 @@ class _ProducedBlocksScreenState
                             progressValue = 1.0;
                           }
 
-                          final leftLabel = 'Epoch Slot Progress: $curr / ${(totalSlots ?? 0)}';
+                          final leftLabel = l10n.producedBlocksEpochSlotProgress(
+                            curr,
+                            totalSlots ?? 0,
+                          );
                           // Compute time left in epoch only for current epoch
                           final nodeStatus = ref.watch(nodeStatusProvider).value;
                           String rightLabel;
@@ -255,10 +266,12 @@ class _ProducedBlocksScreenState
                             final hours = timeLeft.inHours;
                             final minutes = timeLeft.inMinutes.remainder(60);
                             rightLabel = timeLeft == Duration.zero
-                                ? '0m left'
-                                : (hours > 0 ? '${hours}h ${minutes}m left' : '${minutes}m left');
+                                ? l10n.producedBlocksZeroMinutesLeft
+                                : (hours > 0
+                                    ? l10n.producedBlocksHoursMinutesLeft(hours, minutes)
+                                    : l10n.producedBlocksMinutesLeft(minutes));
                           } else {
-                            rightLabel = '—';
+                            rightLabel = l10n.commonEmDash;
                           }
                           return Container(
                             decoration: BoxDecoration(
@@ -270,7 +283,7 @@ class _ProducedBlocksScreenState
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 _EpochPanel(
-                                  epochLabel: 'Epoch $viewedEpoch',
+                                  epochLabel: l10n.statsEpoch(viewedEpoch),
                                   progress: progressValue,
                                   progressLeftLabel: leftLabel,
                                   progressRightLabel: rightLabel,
@@ -301,7 +314,7 @@ class _ProducedBlocksScreenState
                                   children: [
                                     Expanded(
                                       child: Text(
-                                        'Epoch Performance',
+                                        l10n.producedBlocksEpochPerformance,
                                         style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                                       ),
                                     ),
@@ -325,8 +338,11 @@ class _ProducedBlocksScreenState
                                   final evaluatedPct = slotsInEpoch > 0 ? (evaluated / slotsInEpoch) * 100.0 : 0.0;
                                   return _MetricTile(
                                     leading: const _IconBadge(icon: Icons.search_outlined),
-                                    title: 'Checked Slots',
-                                    subtitle: 'Evaluated $evaluated of $slotsInEpoch',
+                                    title: l10n.producedBlocksCheckedSlots,
+                                    subtitle: l10n.producedBlocksEvaluatedOfSlots(
+                                      evaluated,
+                                      slotsInEpoch,
+                                    ),
                                     trailingPrimary: '${evaluatedPct.toStringAsFixed(0)}%',
                                     onTap: () {
                                       final epoch = viewedEpoch;
@@ -381,8 +397,11 @@ class _ProducedBlocksScreenState
                                   final won = score?.won ?? '?';
                                   return _MetricTile(
                                     leading: const _IconBadge(icon: Icons.check_box_outlined),
-                                    title: 'Produced Blocks',
-                                    subtitle: '$produced of $won produced this epoch',
+                                    title: l10n.producedBlocksTitle,
+                                    subtitle: l10n.producedBlocksProducedOfWon(
+                                      produced.toString(),
+                                      won.toString(),
+                                    ),
                                     trailingPrimary: '${produced}',
                                     onTap: produced > 0
                                         ? () {
@@ -440,8 +459,11 @@ class _ProducedBlocksScreenState
                                   final won = score?.won ?? '?';
                                   return _MetricTile(
                                     leading: const _IconBadge(icon: Icons.disabled_by_default_outlined),
-                                    title: 'Missed Blocks',
-                                    subtitle: '$missed of $won missed this epoch',
+                                    title: l10n.producedBlocksMissedBlocksTitle,
+                                    subtitle: l10n.producedBlocksMissedOfWon(
+                                      missed.toString(),
+                                      won.toString(),
+                                    ),
                                     trailingPrimary: '$missed',
                                     onTap: missed > 0
                                         ? () {
@@ -486,8 +508,10 @@ class _ProducedBlocksScreenState
                                         final upcoming = score?.upcoming ?? 0;
                                         return _MetricTile(
                                           leading: const _IconBadge(icon: Icons.schedule_outlined),
-                                          title: 'Upcoming Blocks',
-                                          subtitle: '$upcoming upcoming this epoch',
+                                          title: l10n.producedBlocksUpcomingBlocksTitle,
+                                          subtitle: l10n.producedBlocksUpcomingThisEpoch(
+                                            upcoming.toString(),
+                                          ),
                                           trailingPrimary: '$upcoming',
                                           onTap: upcoming > 0
                                               ? () {
@@ -567,6 +591,7 @@ class _EpochPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final trackColor = Colors.grey.shade300;
+    final l10n = AppLocalizations.of(context);
     return Column(
       children: [
         Row(
@@ -593,7 +618,7 @@ class _EpochPanel extends StatelessWidget {
                                 children: [
                                   Expanded(
                                     child: Text(
-                                      'Select Epoch',
+                                      l10n.producedBlocksSelectEpoch,
                                       style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                                     ),
                                   ),
@@ -614,7 +639,7 @@ class _EpochPanel extends StatelessWidget {
                                   final epoch = maxEpoch - index;
                                   final selected = epoch == selectedEpoch;
                                   return ListTile(
-                                    title: Text('Epoch $epoch'),
+                                    title: Text(l10n.statsEpoch(epoch)),
                                     trailing: selected ? const Icon(Icons.check, color: Colors.black87) : null,
                                     onTap: () {
                                       Navigator.of(ctx).pop();

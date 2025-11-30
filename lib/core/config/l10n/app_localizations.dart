@@ -814,6 +814,102 @@ abstract class AppLocalizations {
   /// **'No produced blocks available'**
   String get producedBlocksNoData;
 
+  /// Label for block success rate over the last 10 epochs
+  ///
+  /// In en, this message translates to:
+  /// **'Block Success Rate · Last 10 Epochs'**
+  String get producedBlocksSuccessRateLast10Epochs;
+
+  /// Summary of tokens earned vs possible over the last 10 epochs
+  ///
+  /// In en, this message translates to:
+  /// **'+{earned} / +{possible}'**
+  String producedBlocksTokensEarnedSummary(String earned, String possible);
+
+  /// Label for tokens earned over the last 10 epochs
+  ///
+  /// In en, this message translates to:
+  /// **'Tokens Earned · Last 10 epochs'**
+  String get producedBlocksTokensEarnedLast10Epochs;
+
+  /// Label for current slot progress within an epoch
+  ///
+  /// In en, this message translates to:
+  /// **'Epoch Slot Progress: {current} / {total}'**
+  String producedBlocksEpochSlotProgress(int current, int total);
+
+  /// Label shown when there is zero time left in the epoch
+  ///
+  /// In en, this message translates to:
+  /// **'0m left'**
+  String get producedBlocksZeroMinutesLeft;
+
+  /// Label showing minutes left in the epoch
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes}m left'**
+  String producedBlocksMinutesLeft(int minutes);
+
+  /// Label showing hours and minutes left in the epoch
+  ///
+  /// In en, this message translates to:
+  /// **'{hours}h {minutes}m left'**
+  String producedBlocksHoursMinutesLeft(int hours, int minutes);
+
+  /// Header for epoch performance metrics
+  ///
+  /// In en, this message translates to:
+  /// **'Epoch Performance'**
+  String get producedBlocksEpochPerformance;
+
+  /// Title for checked slots metric
+  ///
+  /// In en, this message translates to:
+  /// **'Checked Slots'**
+  String get producedBlocksCheckedSlots;
+
+  /// Subtitle showing number of evaluated slots out of total slots
+  ///
+  /// In en, this message translates to:
+  /// **'Evaluated {evaluated} of {total}'**
+  String producedBlocksEvaluatedOfSlots(int evaluated, int total);
+
+  /// Subtitle describing how many blocks were produced out of won slots in this epoch
+  ///
+  /// In en, this message translates to:
+  /// **'{produced} of {won} produced this epoch'**
+  String producedBlocksProducedOfWon(String produced, String won);
+
+  /// Title for missed blocks metric
+  ///
+  /// In en, this message translates to:
+  /// **'Missed Blocks'**
+  String get producedBlocksMissedBlocksTitle;
+
+  /// Subtitle describing how many blocks were missed out of won slots in this epoch
+  ///
+  /// In en, this message translates to:
+  /// **'{missed} of {won} missed this epoch'**
+  String producedBlocksMissedOfWon(String missed, String won);
+
+  /// Title for upcoming blocks metric
+  ///
+  /// In en, this message translates to:
+  /// **'Upcoming Blocks'**
+  String get producedBlocksUpcomingBlocksTitle;
+
+  /// Subtitle describing how many upcoming blocks remain in this epoch
+  ///
+  /// In en, this message translates to:
+  /// **'{upcoming} upcoming this epoch'**
+  String producedBlocksUpcomingThisEpoch(String upcoming);
+
+  /// Bottom sheet title for selecting an epoch
+  ///
+  /// In en, this message translates to:
+  /// **'Select Epoch'**
+  String get producedBlocksSelectEpoch;
+
   /// Mempool screen title
   ///
   /// In en, this message translates to:
@@ -867,6 +963,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Error'**
   String get commonError;
+
+  /// Generic placeholder for unavailable numeric values
+  ///
+  /// In en, this message translates to:
+  /// **'--'**
+  String get commonNoValuePlaceholder;
+
+  /// Common em dash placeholder text
+  ///
+  /// In en, this message translates to:
+  /// **'—'**
+  String get commonEmDash;
 
   /// Version label in build info
   ///

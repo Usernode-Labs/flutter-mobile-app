@@ -101,12 +101,6 @@ Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
         final slotStatuses = await persistedGetEpochSlotResults(index, slotsInEpoch, currentGlobalSlot);
         return EpochData(
           slotData: await Future.wait(List<Future<SlotData>>.generate(slotStatuses.length, (slot) async {
-            //if (i == 0){
-            //  final producedBlockMetadata = _TestRpcProducedBlockMetadata(blockHash: _TestBlockHash('TEST_BLOCK_HASH'), canonical: false, timestampMs: BigInt.zero, tokensWon: BigInt.from(20));
-            //  return SlotData(result: RpcSlotResult.produced, 
-            //                slotTimeMs: null, 
-            //                producedBlockMetadata: producedBlockMetadata);
-            //}
             var slotTimeMs;
             if (slotStatuses[slot] == RpcSlotResult.scheduled) {
               slotTimeMs = (await RustBackendService.instance.getSlotTime(epoch: index, slot: slot))?.timestampMs;
@@ -230,6 +224,8 @@ Future<dynamic> _buildProducedBlocksPreWork() async {
         final bestTimestamp = bestTip.timestamp; // BigInt (ms)
 
         // genesisMs = bestTip.timestamp - bestTip.globalSlot * slotMs
+        // TODO get this from the backend instead of using bestTip, see
+        // comment above about time to get current global slot
         final genesisMsBig =
             bestTimestamp - BigInt.from(bestGlobalSlot * slotMs);
         _initialTimestampMs = genesisMsBig.toInt();
@@ -260,6 +256,9 @@ Future<dynamic> _buildProducedBlocksPreWork() async {
   final nowMs = DateTime.now().millisecondsSinceEpoch;
   final slotMs = _initialStatusNode!.blockInterval;
 
+  // TODO; would use currentGlobalSlot, but node status api is slow to 
+  // update (~2 seconds on my device), so using this instead. Should be
+  // replaced by a faster call to the backend
   int currentGlobalSlot;
   if (_initialFromGenesis) {
     // Time since genesis, divided by slot duration.

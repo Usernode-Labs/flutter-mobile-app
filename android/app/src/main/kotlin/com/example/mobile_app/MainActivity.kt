@@ -71,6 +71,8 @@ class MainActivity: FlutterActivity() {
         // When the Flutter navigation stack can't handle a back press
         // (i.e., on the root route), move the task to the background
         // instead of finishing the activity. This keeps the app running.
+        // TODO check if this could create issues for being accepted
+        // in google play
         moveTaskToBack(true)
     }
 }

@@ -4,6 +4,8 @@ import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_slots.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import 'dart:math' as math;
 
 class ProducedBlocksSummary {
@@ -62,6 +64,10 @@ class EpochScore {
 
 final _log = LoggingService.instance.withTag(LogTag.node);
 
+const _kEpochsWithDataKey = 'node:epochs_with_data';
+const _kProducedBlockMetadataKeyPrefix = 'node:produced_block_metadata';
+const _kEpochSlotResultsKeyPrefix = 'node:epoch_slot_results';
+
 Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
 
     _log.debug("GETTING EPOCH DATA");
@@ -72,8 +78,7 @@ Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
     final currentGlobalSlot = currentEpochResult?.currentGlobalSlot ?? 0;
     final currentEpochSlot = currentGlobalSlot % slotsInEpoch;
 
-    final epochsWithDataResult = await RustBackendService.instance.getEpochsWithData();
-    final epochsWithData = epochsWithDataResult?.epochs.toList().toSet() ?? <int>{};
+    final epochsWithData = await persistedGetEpochsWithData();
 
     final maxEpochWithDataAPI = epochsWithData.reduce((a, b) => a > b ? a : b);
 
@@ -83,10 +88,9 @@ Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
 
     final epochData = await Future.wait(List<Future<EpochData>>.generate(epochsToGenerate, (index) async {
       if (epochsWithData.contains(index)) {
-        final slotStatusResults = await RustBackendService.instance.getEpochSlotResults(epoch: index);
-        final slotStatuses = slotStatusResults?.results.toList() ?? <RpcSlotResult>[];
+        final slotStatuses = await persistedGetEpochSlotResults(index, slotsInEpoch);
         return EpochData(
-          slotData: await Future.wait(List<Future<SlotData>>.generate(slotStatuses.length, (i) async {
+          slotData: await Future.wait(List<Future<SlotData>>.generate(slotStatuses.length, (slot) async {
             //if (i == 0){
             //  final producedBlockMetadata = _TestRpcProducedBlockMetadata(blockHash: _TestBlockHash('TEST_BLOCK_HASH'), canonical: false, timestampMs: BigInt.zero, tokensWon: BigInt.from(20));
             //  return SlotData(result: RpcSlotResult.produced, 
@@ -94,14 +98,14 @@ Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
             //                producedBlockMetadata: producedBlockMetadata);
             //}
             var slotTimeMs;
-            if (slotStatuses[i] == RpcSlotResult.scheduled) {
-              slotTimeMs = (await RustBackendService.instance.getSlotTime(epoch: index, slot: i))?.timestampMs;
+            if (slotStatuses[slot] == RpcSlotResult.scheduled) {
+              slotTimeMs = (await RustBackendService.instance.getSlotTime(epoch: index, slot: slot))?.timestampMs;
             }
             var producedBlockMetadata;
-            if (slotStatuses[i] == RpcSlotResult.produced) {
-              producedBlockMetadata = (await RustBackendService.instance.getProducedBlockMetadata(epoch: index, slot: i))?.metadata;
+            if (slotStatuses[slot] == RpcSlotResult.produced) {
+              producedBlockMetadata = await persistedGetProducedBlockMetadata(index, slot);
             }
-            return SlotData(result: slotStatuses[i], 
+            return SlotData(result: slotStatuses[slot], 
                             slotTimeMs: slotTimeMs, 
                             producedBlockMetadata: producedBlockMetadata);
           }),
@@ -183,6 +187,159 @@ Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
       maxEpochWithData: maxEpochWithData,
       epochScores: epochScores.toList(),
     );
+}
+
+ Future<Set<int>> persistedGetEpochsWithData() async {
+  // Fetch epochs with data from backend
+  final epochsWithDataResult =
+      await RustBackendService.instance.getEpochsWithData();
+  final backendEpochs =
+      epochsWithDataResult?.epochs.toList().toSet() ?? <int>{};
+
+  // Load any previously persisted epochs with data
+  final prefs = await SharedPreferences.getInstance();
+  final persistedList = prefs.getStringList(_kEpochsWithDataKey) ?? <String>[];
+  final persistedEpochs =
+      persistedList.map((e) => int.tryParse(e)).whereType<int>().toSet();
+
+  // Union of backend + persisted epochs
+  final allEpochsWithData = <int>{...backendEpochs, ...persistedEpochs};
+
+  // Persist the union back to local storage
+  await prefs.setStringList(
+    _kEpochsWithDataKey,
+    allEpochsWithData.map((e) => e.toString()).toList(),
+  );
+
+  return allEpochsWithData;
+ }
+
+Future<List<RpcSlotResult>> persistedGetEpochSlotResults(
+    int epoch, int slotsInEpoch) async {
+  final prefs = await SharedPreferences.getInstance();
+  final key = '$_kEpochSlotResultsKeyPrefix:$epoch';
+
+  // Fetch from backend
+  final slotStatusResults =
+      await RustBackendService.instance.getEpochSlotResults(epoch: epoch);
+  final backendStatuses =
+      slotStatusResults?.results.toList() ?? <RpcSlotResult>[];
+
+  // Load cached results, stored as indices into RpcSlotResult.values
+  final cachedList = prefs.getStringList(key) ?? const <String>[];
+  final List<RpcSlotResult?> cachedStatuses =
+      List<RpcSlotResult?>.filled(slotsInEpoch, null, growable: false);
+  for (var i = 0; i < slotsInEpoch && i < cachedList.length; i++) {
+    final raw = cachedList[i];
+    final idx = int.tryParse(raw);
+    if (idx != null &&
+        idx >= 0 &&
+        idx < RpcSlotResult.values.length) {
+      cachedStatuses[i] = RpcSlotResult.values[idx];
+    }
+  }
+
+  // Combine backend + cache according to rules
+  final List<RpcSlotResult> combined =
+      List<RpcSlotResult>.filled(slotsInEpoch, RpcSlotResult.notCalculated);
+
+  for (var i = 0; i < slotsInEpoch; i++) {
+    final RpcSlotResult? backend =
+        i < backendStatuses.length ? backendStatuses[i] : null;
+    final RpcSlotResult? cached = cachedStatuses[i];
+
+    RpcSlotResult value;
+
+    if (backend == null) {
+      // 2) If a slot is in neither backend nor cached, we return NotCalculated
+      // 3) If a slot comes back from cached but not backend, we take the one from cached
+      value = cached ?? RpcSlotResult.notCalculated;
+    } else if (backend == RpcSlotResult.notCalculated) {
+      // 4) If backend says NotCalculated but cache has something else, use cache
+      if (cached != null && cached != RpcSlotResult.notCalculated) {
+        value = cached;
+      } else {
+        value = backend;
+      }
+    } else {
+      // 5) Otherwise we take the value from Backend
+      value = backend;
+    }
+
+    combined[i] = value;
+  }
+
+  // Persist the combined results back to cache
+  try {
+    final toStore = combined
+        .map((r) => RpcSlotResult.values.indexOf(r).toString())
+        .toList(growable: false);
+    await prefs.setStringList(key, toStore);
+  } catch (e, st) {
+    _log.error(
+      'Error caching epoch slot results for epoch $epoch: $e',
+      error: e,
+      stackTrace: st,
+    );
+  }
+
+  return combined;
+}
+
+Future<RpcProducedBlockMetadata?> persistedGetProducedBlockMetadata(
+    int epoch, int slot) async {
+  final prefs = await SharedPreferences.getInstance();
+  final key = '$_kProducedBlockMetadataKeyPrefix:$epoch:$slot';
+
+  // Try to read from local cache first
+  final cachedJson = prefs.getString(key);
+  if (cachedJson != null) {
+    try {
+      final data = jsonDecode(cachedJson) as Map<String, dynamic>;
+      final metadata = _TestRpcProducedBlockMetadata(
+        blockHash: _TestBlockHash(data['blockHash'] as String),
+        canonical: data['canonical'] as bool,
+        timestampMs: BigInt.parse(data['timestampMs'] as String),
+        tokensWon: BigInt.parse(data['tokensWon'] as String),
+      );
+      return metadata;
+    } catch (e, st) {
+      _log.error(
+        'Error decoding cached produced block metadata for $epoch/$slot: $e',
+        error: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  // Fallback to backend if nothing (or invalid) in cache
+  final producedBlockMetadata =
+      (await RustBackendService.instance.getProducedBlockMetadata(
+    epoch: epoch,
+    slot: slot,
+  ))
+          ?.metadata;
+
+  // Store fetched metadata back to cache for future reads
+  if (producedBlockMetadata != null) {
+    try {
+      final serializable = <String, dynamic>{
+        'blockHash': producedBlockMetadata.blockHash.toString(),
+        'canonical': producedBlockMetadata.canonical,
+        'timestampMs': producedBlockMetadata.timestampMs.toString(),
+        'tokensWon': producedBlockMetadata.tokensWon.toString(),
+      };
+      await prefs.setString(key, jsonEncode(serializable));
+    } catch (e, st) {
+      _log.error(
+        'Error caching produced block metadata for $epoch/$slot: $e',
+        error: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  return producedBlockMetadata;
 }
 
 final producedBlocksSummaryProvider =

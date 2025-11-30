@@ -274,14 +274,16 @@ Future<dynamic> _buildProducedBlocksPreWork() async {
   int currentEpoch = currentGlobalSlot ~/ slotsInEpoch;
   int currentSlot = currentGlobalSlot % slotsInEpoch;
 
-  final upToDateStatus = await RustBackendService.instance.getStatusNode();
+  //final upToDateStatus = await RustBackendService.instance.getStatusNode();
 
   //print('epoch start: ${_initialStatusNode!.curGlobalSlot! ~/ slotsInEpoch}');
   //print('epoch start slot: ${_initialStatusNode!.curGlobalSlot! % slotsInEpoch}');
   //print('current epoch: $currentEpoch');
   //print('current slot: $currentSlot');
+  //print('_initialTimestampMs: $_initialTimestampMs');
+  //print('_initialFromGenesis: $_initialFromGenesis');
+  //print('nowMs: $nowMs');
   //print('current global slot: $currentGlobalSlot');
-
   //print('actual current global slot: ${upToDateStatus!.curGlobalSlot}');
 
   if (_rewardsPerBlock == BigInt.zero) {

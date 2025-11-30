@@ -239,13 +239,14 @@ class _BackgroundProductionSettingsScreenState
             ),
             const SizedBox(height: 8),
             Text(
-              'Your device is fractionally running this network, peer to peer, with no centralized parties. From your and other participant\'s apps, the network is able to process transactions and run shared code. This is the first time it\’s been possible to build a self-hosted community network like this running from end user devices.\n\n'
+              'Your device is helping run this network directly, peer to peer, with no central servers. Together with other participants\' devices, it processes transactions and runs shared code. It is one of the first networks that can be fully hosted just from participants\' own devices.\n\n'
 
-              + 'We want to use this to make community self-hosted networks possible, where participants can self-run the network, with incentives to ensure a schelling point around participation.\n\n'
+              + 'Our goal is to enable community-run networks, where participants operate the network themselves and incentives create a schelling point around user participation.\n\n'
 
               + 'We are currently in testnet. The first few phases of our testing will ensure that the core network and block production works. Then we will work on adding activities, use cases, and smart contracts on top of the core app.\n\n'
 
               + 'We thank you for helping test this first version of the application. We\'re hopeful to build a very new and different kind of blockchain and network, and your participation helps make this possible.',
+
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurface.withValues(alpha: 0.7),
                 height: 1.5,

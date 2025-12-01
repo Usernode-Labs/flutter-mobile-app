@@ -143,7 +143,6 @@ class MetricsCollectorService {
     // Collect additional metrics - pass rawStatus to avoid duplicate calls
     final identity = await _collectIdentityMetrics();
     final consensus = await _collectConsensusMetrics(rawStatus: rawStatus);
-    final production = _collectProductionMetrics();
     final wallet = _collectWalletMetrics(walletBalance, walletAddress);
     final peers = await _collectPeersMetrics(rawStatus: rawStatus);
     final foregroundService =
@@ -166,7 +165,6 @@ class MetricsCollectorService {
       status: status,
       consensus: consensus,
       blockchain: blockchain,
-      production: production,
       wallet: wallet,
       peers: peers,
     );
@@ -449,7 +447,6 @@ class MetricsCollectorService {
     // but this is acceptable for the caching strategy
 
     return PermissionsMetrics(
-      permissionNotifications: notificationGranted,
       permissionExactAlarms: exactAlarmsPermission,
       permissionBatteryOptimizationExempt: batteryOptimizationExempt,
       exactAlarmsPermission: exactAlarmsPermission,
@@ -659,13 +656,6 @@ class MetricsCollectorService {
       blockchainLatestBlockHash: latestBlockHash,
       blockchainLatestBlockSlot: latestBlockSlot,
       blockchainLatestBlockTimestamp: latestBlockTimestamp,
-    );
-  }
-
-  /// Collect block production configuration
-  ProductionMetrics _collectProductionMetrics() {
-    return ProductionMetrics(
-      backgroundProductionEnabled: true, // Enabled if app is configured
     );
   }
 

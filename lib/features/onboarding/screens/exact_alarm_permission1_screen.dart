@@ -71,55 +71,58 @@ class _ExactAlarmPermission1ScreenState
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    l10n.permExactAlarmsWhy,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    isAndroid
-                        ? l10n.permExactAlarmsAndroidExplanation
-                        : l10n.permExactAlarmsIosExplanation,
-                  ),
-                  const SizedBox(height: 16),
-                  if (isAndroid && !_hasExactAlarm)
-                    FilledButton.tonal(
-                      onPressed: _requesting ? null : _requestExactAlarm,
-                      child: _requesting
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : Text(l10n.permGrantExactAlarm),
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      l10n.permExactAlarmsWhy,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
-                  const SizedBox(height: 24),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          _hasExactAlarm ? Icons.check_circle : Icons.warning,
-                          color: _hasExactAlarm ? Colors.green : Colors.orange,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(_hasExactAlarm
-                            ? l10n.permGranted
-                            : l10n.permRequired),
-                      ],
+                    const SizedBox(height: 8),
+                    Text(
+                      isAndroid
+                          ? l10n.permExactAlarmsAndroidExplanation
+                          : l10n.permExactAlarmsIosExplanation,
                     ),
-                  ),
-                  const Spacer(),
-                  FilledButton(
-                    onPressed: (_hasExactAlarm || !isAndroid)
-                        ? () => context.go(AppRoutes.onboardingBatteryPermission2)
-                        : null,
-                    child: Text(l10n.commonNext),
-                  ),
-                ],
+                    const SizedBox(height: 16),
+                    if (isAndroid && !_hasExactAlarm)
+                      FilledButton.tonal(
+                        onPressed: _requesting ? null : _requestExactAlarm,
+                        child: _requesting
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : Text(l10n.permGrantExactAlarm),
+                      ),
+                    const SizedBox(height: 24),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _hasExactAlarm ? Icons.check_circle : Icons.warning,
+                            color:
+                                _hasExactAlarm ? Colors.green : Colors.orange,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(_hasExactAlarm
+                              ? l10n.permGranted
+                              : l10n.permRequired),
+                        ],
+                      ),
+                    ),
+                    const Spacer(),
+                    FilledButton(
+                      onPressed: (_hasExactAlarm || !isAndroid)
+                          ? () =>
+                              context.go(AppRoutes.onboardingBatteryPermission2)
+                          : null,
+                      child: Text(l10n.commonNext),
+                    ),
+                  ],
                 ),
               ),
             ),

@@ -100,7 +100,8 @@ class _SlotProductionStatsScreenState
     );
   }
 
-  Widget _buildOverviewCard(ThemeData theme, ColorScheme colorScheme, AppLocalizations l10n) {
+  Widget _buildOverviewCard(
+      ThemeData theme, ColorScheme colorScheme, AppLocalizations l10n) {
     if (_stats == null) {
       return const SizedBox.shrink();
     }
@@ -223,7 +224,8 @@ class _SlotProductionStatsScreenState
     );
   }
 
-  Widget _buildSuccessRateCard(ThemeData theme, ColorScheme colorScheme, AppLocalizations l10n) {
+  Widget _buildSuccessRateCard(
+      ThemeData theme, ColorScheme colorScheme, AppLocalizations l10n) {
     if (_stats == null || _stats!.totalAttempted == 0) {
       return const SizedBox.shrink();
     }
@@ -284,7 +286,8 @@ class _SlotProductionStatsScreenState
             ),
             const SizedBox(height: 12),
             Text(
-              l10n.statsSuccessfulOf(_stats!.totalProduced, _stats!.totalAttempted),
+              l10n.statsSuccessfulOf(
+                  _stats!.totalProduced, _stats!.totalAttempted),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurface.withValues(alpha: 0.7),
               ),
@@ -296,7 +299,8 @@ class _SlotProductionStatsScreenState
     );
   }
 
-  Widget _buildRecentRecordsSection(ThemeData theme, ColorScheme colorScheme, AppLocalizations l10n) {
+  Widget _buildRecentRecordsSection(
+      ThemeData theme, ColorScheme colorScheme, AppLocalizations l10n) {
     if (_recentRecords.isEmpty) {
       return Card(
         child: Padding(
@@ -336,7 +340,8 @@ class _SlotProductionStatsScreenState
           ),
         ),
         ..._recordsByEpoch.entries.map((entry) {
-          return _buildEpochSection(entry.key, entry.value, theme, colorScheme, l10n);
+          return _buildEpochSection(
+              entry.key, entry.value, theme, colorScheme, l10n);
         }),
       ],
     );

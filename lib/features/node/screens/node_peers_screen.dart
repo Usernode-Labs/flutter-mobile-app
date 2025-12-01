@@ -81,7 +81,8 @@ class NodePeersScreen extends StatelessWidget {
                 ),
               ),
               child: Text(
-                l10n.nodePeersSummary(peers.length.toString(), connected.toString(), connecting.toString()),
+                l10n.nodePeersSummary(peers.length.toString(),
+                    connected.toString(), connecting.toString()),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                   color: colorScheme.onSurface,

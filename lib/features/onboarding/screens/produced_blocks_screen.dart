@@ -17,8 +17,7 @@ class ProducedBlocksScreen extends ConsumerStatefulWidget {
       _ProducedBlocksScreenState();
 }
 
-class _ProducedBlocksScreenState
-    extends ConsumerState<ProducedBlocksScreen> {
+class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen> {
   int? _viewedEpoch;
 
   Timer? _refreshTimer;
@@ -27,8 +26,7 @@ class _ProducedBlocksScreenState
   void _startAutoRefreshTimer() {
     // Avoid creating multiple timers on repeated hot reloads.
     _refreshTimer?.cancel();
-    _refreshTimer =
-        Timer.periodic(const Duration(milliseconds: 500), (_) {
+    _refreshTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
       if (!mounted) return;
       // Avoid overlapping refreshes; if a refresh is in progress, skip.
       _refreshSummary();
@@ -74,13 +72,16 @@ class _ProducedBlocksScreenState
     double score = 0.0;
     int total = 0;
     // TODO: need to decide how to handle the current epoch; should probably calculate the partial results
-    for (var i = summary.currentEpoch; i > summary.currentEpoch - n && i >= 0; i--) { 
+    for (var i = summary.currentEpoch;
+        i > summary.currentEpoch - n && i >= 0;
+        i--) {
       total += 1;
       if (i >= summary.epochScores.length) {
         continue;
       }
       final evaluatedPercent = summary.epochScores[i].evaluatedPercent;
-      final producedOfEvaluatedPercent = summary.epochScores[i].producedOfEvaluatedPercent;
+      final producedOfEvaluatedPercent =
+          summary.epochScores[i].producedOfEvaluatedPercent;
       //print('Epoch $i: Evaluated: $evaluatedPercent, Produced: $producedOfEvaluatedPercent');
       score += (evaluatedPercent * producedOfEvaluatedPercent).clamp(0.0, 1.0);
     }
@@ -91,7 +92,9 @@ class _ProducedBlocksScreenState
     final rewardsPerBlock = summary.rewardsPerBlock.toDouble();
     double earned = 0.0;
     double possible = 0.0;
-    for (var i = summary.currentEpoch; i > summary.currentEpoch - n && i >= 0; i--) {
+    for (var i = summary.currentEpoch;
+        i > summary.currentEpoch - n && i >= 0;
+        i--) {
       final produced = summary.epochScores[i].produced ?? 0;
       final missed = summary.epochScores[i].missed ?? 0;
       earned += produced * rewardsPerBlock;
@@ -154,7 +157,6 @@ class _ProducedBlocksScreenState
                           children: [
                             summary.when(
                               data: (value) => Text(
-
                                 '${(totalScoreLastN(value, 10) * 100).toStringAsFixed(1)}%',
                                 style: theme.textTheme.displaySmall,
                                 textAlign: TextAlign.center,
@@ -162,7 +164,8 @@ class _ProducedBlocksScreenState
                               loading: () => const SizedBox(
                                 width: 28,
                                 height: 28,
-                                child: CircularProgressIndicator(strokeWidth: 2.5),
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2.5),
                               ),
                               error: (e, _) => Text(
                                 l10n.commonNoValuePlaceholder,
@@ -173,7 +176,8 @@ class _ProducedBlocksScreenState
                             const SizedBox(height: 8),
                             Text(
                               l10n.producedBlocksSuccessRateLast10Epochs,
-                              style: theme.textTheme.bodySmall?.copyWith(color: onSurfaceVariant),
+                              style: theme.textTheme.bodySmall
+                                  ?.copyWith(color: onSurfaceVariant),
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 24),
@@ -183,7 +187,8 @@ class _ProducedBlocksScreenState
                                   children: [
                                     summary.when(
                                       data: (value) {
-                                        final (earned, possible) = totalTokensLastN(value, 10);
+                                        final (earned, possible) =
+                                            totalTokensLastN(value, 10);
                                         return Text(
                                           l10n.producedBlocksTokensEarnedSummary(
                                             earned.toStringAsFixed(0),
@@ -192,11 +197,12 @@ class _ProducedBlocksScreenState
                                           style: theme.textTheme.titleMedium,
                                           textAlign: TextAlign.center,
                                         );
-                                        },
+                                      },
                                       loading: () => const SizedBox(
                                         width: 28,
                                         height: 28,
-                                        child: CircularProgressIndicator(strokeWidth: 2.5),
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2.5),
                                       ),
                                       error: (e, _) => Text(
                                         '${l10n.commonNoValuePlaceholder} / ${l10n.commonNoValuePlaceholder}',
@@ -204,13 +210,11 @@ class _ProducedBlocksScreenState
                                         textAlign: TextAlign.center,
                                       ),
                                     ),
-
                                     const SizedBox(height: 6),
                                     Text(
                                       l10n.producedBlocksTokensEarnedLast10Epochs,
                                       style: theme.textTheme.bodySmall
-                                          ?.copyWith(
-                                              color: onSurfaceVariant),
+                                          ?.copyWith(color: onSurfaceVariant),
                                       textAlign: TextAlign.center,
                                     ),
                                   ],
@@ -226,7 +230,8 @@ class _ProducedBlocksScreenState
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Builder(builder: (context) {
-                          final currEpochSlot = summary.asData?.value.currentEpochSlot;
+                          final currEpochSlot =
+                              summary.asData?.value.currentEpochSlot;
                           final totalSlots = summary.asData?.value.slotsInEpoch;
                           final isCurrentViewed = viewedEpoch == currentEpoch;
                           final isFutureViewed = viewedEpoch > currentEpoch;
@@ -249,26 +254,33 @@ class _ProducedBlocksScreenState
                             progressValue = 1.0;
                           }
 
-                          final leftLabel = l10n.producedBlocksEpochSlotProgress(
+                          final leftLabel =
+                              l10n.producedBlocksEpochSlotProgress(
                             curr,
                             totalSlots ?? 0,
                           );
                           // Compute time left in epoch only for current epoch
-                          final nodeStatus = ref.watch(nodeStatusProvider).value;
+                          final nodeStatus =
+                              ref.watch(nodeStatusProvider).value;
                           String rightLabel;
                           if (isCurrentViewed) {
                             final slotMs = nodeStatus?.slotDurationMs ?? 0;
-                            final remainingSlots = (totalSlots != null ? (totalSlots - (currEpochSlot ?? 0)) : 0);
-                            final clampedRemaining = remainingSlots < 0 ? 0 : remainingSlots;
+                            final remainingSlots = (totalSlots != null
+                                ? (totalSlots - (currEpochSlot ?? 0))
+                                : 0);
+                            final clampedRemaining =
+                                remainingSlots < 0 ? 0 : remainingSlots;
                             final timeLeft = slotMs > 0
-                                ? Duration(milliseconds: clampedRemaining * slotMs)
+                                ? Duration(
+                                    milliseconds: clampedRemaining * slotMs)
                                 : Duration.zero;
                             final hours = timeLeft.inHours;
                             final minutes = timeLeft.inMinutes.remainder(60);
                             rightLabel = timeLeft == Duration.zero
                                 ? l10n.producedBlocksZeroMinutesLeft
                                 : (hours > 0
-                                    ? l10n.producedBlocksHoursMinutesLeft(hours, minutes)
+                                    ? l10n.producedBlocksHoursMinutesLeft(
+                                        hours, minutes)
                                     : l10n.producedBlocksMinutesLeft(minutes));
                           } else {
                             rightLabel = l10n.commonEmDash;
@@ -315,12 +327,16 @@ class _ProducedBlocksScreenState
                                     Expanded(
                                       child: Text(
                                         l10n.producedBlocksEpochPerformance,
-                                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                                        style: theme.textTheme.titleMedium
+                                            ?.copyWith(
+                                                fontWeight: FontWeight.bold),
                                       ),
                                     ),
                                     Text(
                                       '${(scoreEpochI(summary.asData?.value, viewedEpoch) * 100).toStringAsFixed(1)}%',
-                                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                                      style: theme.textTheme.titleMedium
+                                          ?.copyWith(
+                                              fontWeight: FontWeight.bold),
                                     ),
                                   ],
                                 ),
@@ -329,45 +345,70 @@ class _ProducedBlocksScreenState
                                   final data = summary.asData?.value;
                                   final scores = data?.epochScores ?? const [];
                                   final idxCandidate = viewedEpoch;
-                                  final idx = (scores.isNotEmpty && idxCandidate < scores.length)
+                                  final idx = (scores.isNotEmpty &&
+                                          idxCandidate < scores.length)
                                       ? idxCandidate
-                                      : (scores.isNotEmpty ? scores.length - 1 : -1);
+                                      : (scores.isNotEmpty
+                                          ? scores.length - 1
+                                          : -1);
                                   final score = idx >= 0 ? scores[idx] : null;
                                   final slotsInEpoch = data?.slotsInEpoch ?? 0;
                                   final evaluated = score?.calculated ?? 0;
-                                  final evaluatedPct = slotsInEpoch > 0 ? (evaluated / slotsInEpoch) * 100.0 : 0.0;
+                                  final evaluatedPct = slotsInEpoch > 0
+                                      ? (evaluated / slotsInEpoch) * 100.0
+                                      : 0.0;
                                   return _MetricTile(
-                                    leading: const _IconBadge(icon: Icons.search_outlined),
+                                    leading: const _IconBadge(
+                                        icon: Icons.search_outlined),
                                     title: l10n.producedBlocksCheckedSlots,
-                                    subtitle: l10n.producedBlocksEvaluatedOfSlots(
+                                    subtitle:
+                                        l10n.producedBlocksEvaluatedOfSlots(
                                       evaluated,
                                       slotsInEpoch,
                                     ),
-                                    trailingPrimary: '${evaluatedPct.toStringAsFixed(0)}%',
+                                    trailingPrimary:
+                                        '${evaluatedPct.toStringAsFixed(0)}%',
                                     onTap: () {
                                       final epoch = viewedEpoch;
                                       final epochScore = score;
-                                      final epochData = epochScore?.epochData.slotData;
+                                      final epochData =
+                                          epochScore?.epochData.slotData;
                                       final results = epochData == null
                                           ? <int>[]
-                                          : epochData.map((s) => s.result.index).toList();
+                                          : epochData
+                                              .map((s) => s.result.index)
+                                              .toList();
                                       final slotTimesMs = epochData == null
                                           ? <int?>[]
                                           : epochData
-                                              .map((s) => s.slotTimeMs == null ? null : (s.slotTimeMs!.toInt()))
+                                              .map((s) => s.slotTimeMs == null
+                                                  ? null
+                                                  : (s.slotTimeMs!.toInt()))
                                               .toList();
                                       final producedMeta = epochData == null
                                           ? const <Map<String, dynamic>?>[]
                                           : epochData
-                                              .map((s) => s.producedBlockMetadata == null
-                                                  ? null
-                                                  : <String, dynamic>{
-                                                      'blockHash': s.producedBlockMetadata!.blockHash.toString(),
-                                                      'canonical': s.producedBlockMetadata!.canonical,
-                                                      'timestampMs':
-                                                          s.producedBlockMetadata!.timestampMs.toString(),
-                                                      'tokensWon': s.producedBlockMetadata!.tokensWon.toString(),
-                                                    })
+                                              .map((s) =>
+                                                  s.producedBlockMetadata ==
+                                                          null
+                                                      ? null
+                                                      : <String, dynamic>{
+                                                          'blockHash': s
+                                                              .producedBlockMetadata!
+                                                              .blockHash
+                                                              .toString(),
+                                                          'canonical': s
+                                                              .producedBlockMetadata!
+                                                              .canonical,
+                                                          'timestampMs': s
+                                                              .producedBlockMetadata!
+                                                              .timestampMs
+                                                              .toString(),
+                                                          'tokensWon': s
+                                                              .producedBlockMetadata!
+                                                              .tokensWon
+                                                              .toString(),
+                                                        })
                                               .toList();
                                       context.push(
                                         AppRoutes.slotAssignments,
@@ -389,14 +430,18 @@ class _ProducedBlocksScreenState
                                   final data = summary.asData?.value;
                                   final scores = data?.epochScores ?? const [];
                                   final idxCandidate = viewedEpoch;
-                                  final idx = (scores.isNotEmpty && idxCandidate < scores.length)
+                                  final idx = (scores.isNotEmpty &&
+                                          idxCandidate < scores.length)
                                       ? idxCandidate
-                                      : (scores.isNotEmpty ? scores.length - 1 : -1);
+                                      : (scores.isNotEmpty
+                                          ? scores.length - 1
+                                          : -1);
                                   final score = idx >= 0 ? scores[idx] : null;
                                   final produced = score?.produced ?? 0;
                                   final won = score?.won ?? '?';
                                   return _MetricTile(
-                                    leading: const _IconBadge(icon: Icons.check_box_outlined),
+                                    leading: const _IconBadge(
+                                        icon: Icons.check_box_outlined),
                                     title: l10n.producedBlocksTitle,
                                     subtitle: l10n.producedBlocksProducedOfWon(
                                       produced.toString(),
@@ -407,28 +452,51 @@ class _ProducedBlocksScreenState
                                         ? () {
                                             final epoch = viewedEpoch;
                                             final epochScore = score;
-                                            final slotsInEpoch = data?.slotsInEpoch ?? 0;
-                                            final epochData = epochScore?.epochData.slotData;
+                                            final slotsInEpoch =
+                                                data?.slotsInEpoch ?? 0;
+                                            final epochData =
+                                                epochScore?.epochData.slotData;
                                             final results = epochData == null
                                                 ? <int>[]
-                                                : epochData.map((s) => s.result.index).toList();
-                                          final slotTimesMs = epochData == null
-                                              ? <int?>[]
-                                              : epochData
-                                                  .map((s) => s.slotTimeMs == null ? null : (s.slotTimeMs!.toInt()))
-                                                  .toList();
-                                            final producedMeta = epochData == null
-                                                ? const <Map<String, dynamic>?>[]
                                                 : epochData
-                                                    .map((s) => s.producedBlockMetadata == null
-                                                        ? null
-                                                        : <String, dynamic>{
-                                                            'blockHash': s.producedBlockMetadata!.blockHash.toString(),
-                                                            'canonical': s.producedBlockMetadata!.canonical,
-                                                            'timestampMs': s.producedBlockMetadata!.timestampMs
-                                                                .toString(),
-                                                            'tokensWon': s.producedBlockMetadata!.tokensWon.toString(),
-                                                          })
+                                                    .map((s) => s.result.index)
+                                                    .toList();
+                                            final slotTimesMs =
+                                                epochData == null
+                                                    ? <int?>[]
+                                                    : epochData
+                                                        .map((s) =>
+                                                            s.slotTimeMs == null
+                                                                ? null
+                                                                : (s.slotTimeMs!
+                                                                    .toInt()))
+                                                        .toList();
+                                            final producedMeta = epochData ==
+                                                    null
+                                                ? const <Map<String,
+                                                    dynamic>?>[]
+                                                : epochData
+                                                    .map((s) =>
+                                                        s.producedBlockMetadata ==
+                                                                null
+                                                            ? null
+                                                            : <String, dynamic>{
+                                                                'blockHash': s
+                                                                    .producedBlockMetadata!
+                                                                    .blockHash
+                                                                    .toString(),
+                                                                'canonical': s
+                                                                    .producedBlockMetadata!
+                                                                    .canonical,
+                                                                'timestampMs': s
+                                                                    .producedBlockMetadata!
+                                                                    .timestampMs
+                                                                    .toString(),
+                                                                'tokensWon': s
+                                                                    .producedBlockMetadata!
+                                                                    .tokensWon
+                                                                    .toString(),
+                                                              })
                                                     .toList();
                                             context.push(
                                               AppRoutes.slotAssignments,
@@ -451,14 +519,19 @@ class _ProducedBlocksScreenState
                                   final data = summary.asData?.value;
                                   final scores = data?.epochScores ?? const [];
                                   final idxCandidate = viewedEpoch;
-                                  final idx = (scores.isNotEmpty && idxCandidate < scores.length)
+                                  final idx = (scores.isNotEmpty &&
+                                          idxCandidate < scores.length)
                                       ? idxCandidate
-                                      : (scores.isNotEmpty ? scores.length - 1 : -1);
+                                      : (scores.isNotEmpty
+                                          ? scores.length - 1
+                                          : -1);
                                   final score = idx >= 0 ? scores[idx] : null;
                                   final missed = score?.missed ?? 0;
                                   final won = score?.won ?? '?';
                                   return _MetricTile(
-                                    leading: const _IconBadge(icon: Icons.disabled_by_default_outlined),
+                                    leading: const _IconBadge(
+                                        icon:
+                                            Icons.disabled_by_default_outlined),
                                     title: l10n.producedBlocksMissedBlocksTitle,
                                     subtitle: l10n.producedBlocksMissedOfWon(
                                       missed.toString(),
@@ -469,16 +542,25 @@ class _ProducedBlocksScreenState
                                         ? () {
                                             final epoch = viewedEpoch;
                                             final epochScore = score;
-                                            final slotsInEpoch = data?.slotsInEpoch ?? 0;
-                                            final epochData = epochScore?.epochData.slotData;
+                                            final slotsInEpoch =
+                                                data?.slotsInEpoch ?? 0;
+                                            final epochData =
+                                                epochScore?.epochData.slotData;
                                             final results = epochData == null
                                                 ? <int>[]
-                                                : epochData.map((s) => s.result.index).toList();
-                                          final slotTimesMs = epochData == null
-                                              ? <int?>[]
-                                              : epochData
-                                                  .map((s) => s.slotTimeMs == null ? null : (s.slotTimeMs!.toInt()))
-                                                  .toList();
+                                                : epochData
+                                                    .map((s) => s.result.index)
+                                                    .toList();
+                                            final slotTimesMs =
+                                                epochData == null
+                                                    ? <int?>[]
+                                                    : epochData
+                                                        .map((s) =>
+                                                            s.slotTimeMs == null
+                                                                ? null
+                                                                : (s.slotTimeMs!
+                                                                    .toInt()))
+                                                        .toList();
                                             context.push(
                                               AppRoutes.slotAssignments,
                                               extra: {
@@ -486,7 +568,8 @@ class _ProducedBlocksScreenState
                                                 'slotsInEpoch': slotsInEpoch,
                                                 'results': results,
                                                 'slotTimesMs': slotTimesMs,
-                                                'producedMeta': const <Map<String, dynamic>?>[],
+                                                'producedMeta': const <Map<
+                                                    String, dynamic>?>[],
                                                 'filters': ['missed'],
                                               },
                                             );
@@ -496,20 +579,29 @@ class _ProducedBlocksScreenState
                                   );
                                 }),
                                 const SizedBox(height: 6),
-                                (viewedEpoch >= currentEpoch && viewedEpoch <= maxEpochWithData)
+                                (viewedEpoch >= currentEpoch &&
+                                        viewedEpoch <= maxEpochWithData)
                                     ? Builder(builder: (_) {
                                         final data = summary.asData?.value;
-                                        final scores = data?.epochScores ?? const [];
+                                        final scores =
+                                            data?.epochScores ?? const [];
                                         final idxCandidate = viewedEpoch;
-                                        final idx = (scores.isNotEmpty && idxCandidate < scores.length)
+                                        final idx = (scores.isNotEmpty &&
+                                                idxCandidate < scores.length)
                                             ? idxCandidate
-                                            : (scores.isNotEmpty ? scores.length - 1 : -1);
-                                        final score = idx >= 0 ? scores[idx] : null;
+                                            : (scores.isNotEmpty
+                                                ? scores.length - 1
+                                                : -1);
+                                        final score =
+                                            idx >= 0 ? scores[idx] : null;
                                         final upcoming = score?.upcoming ?? 0;
                                         return _MetricTile(
-                                          leading: const _IconBadge(icon: Icons.schedule_outlined),
-                                          title: l10n.producedBlocksUpcomingBlocksTitle,
-                                          subtitle: l10n.producedBlocksUpcomingThisEpoch(
+                                          leading: const _IconBadge(
+                                              icon: Icons.schedule_outlined),
+                                          title: l10n
+                                              .producedBlocksUpcomingBlocksTitle,
+                                          subtitle: l10n
+                                              .producedBlocksUpcomingThisEpoch(
                                             upcoming.toString(),
                                           ),
                                           trailingPrimary: '$upcoming',
@@ -517,24 +609,40 @@ class _ProducedBlocksScreenState
                                               ? () {
                                                   final epoch = viewedEpoch;
                                                   final epochScore = score;
-                                                  final slotsInEpoch = data?.slotsInEpoch ?? 0;
-                                                  final epochData = epochScore?.epochData.slotData;
-                                                  final results = epochData == null
+                                                  final slotsInEpoch =
+                                                      data?.slotsInEpoch ?? 0;
+                                                  final epochData = epochScore
+                                                      ?.epochData.slotData;
+                                                  final results = epochData ==
+                                                          null
                                                       ? <int>[]
-                                                      : epochData.map((s) => s.result.index).toList();
-                                                  final slotTimesMs = epochData == null
+                                                      : epochData
+                                                          .map((s) =>
+                                                              s.result.index)
+                                                          .toList();
+                                                  final slotTimesMs = epochData ==
+                                                          null
                                                       ? <int?>[]
                                                       : epochData
-                                                          .map((s) => s.slotTimeMs == null ? null : (s.slotTimeMs!.toInt()))
+                                                          .map((s) =>
+                                                              s.slotTimeMs ==
+                                                                      null
+                                                                  ? null
+                                                                  : (s.slotTimeMs!
+                                                                      .toInt()))
                                                           .toList();
                                                   context.push(
                                                     AppRoutes.slotAssignments,
                                                     extra: {
                                                       'epoch': epoch,
-                                                      'slotsInEpoch': slotsInEpoch,
+                                                      'slotsInEpoch':
+                                                          slotsInEpoch,
                                                       'results': results,
-                                                      'slotTimesMs': slotTimesMs,
-                                                      'producedMeta': const <Map<String, dynamic>?>[],
+                                                      'slotTimesMs':
+                                                          slotTimesMs,
+                                                      'producedMeta':
+                                                          const <Map<String,
+                                                              dynamic>?>[],
                                                       'filters': ['upcoming'],
                                                     },
                                                   );
@@ -548,7 +656,8 @@ class _ProducedBlocksScreenState
                             ),
                           );
                         }),
-                        (viewedEpoch >= currentEpoch && viewedEpoch <= maxEpochWithData)
+                        (viewedEpoch >= currentEpoch &&
+                                viewedEpoch <= maxEpochWithData)
                             ? const SizedBox.shrink()
                             : const SizedBox(height: 64),
                       ],
@@ -604,7 +713,8 @@ class _EpochPanel extends StatelessWidget {
                     context: context,
                     isScrollControlled: true,
                     shape: const RoundedRectangleBorder(
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                      borderRadius:
+                          BorderRadius.vertical(top: Radius.circular(16)),
                     ),
                     builder: (ctx) {
                       final height = MediaQuery.of(ctx).size.height * 0.6;
@@ -619,7 +729,9 @@ class _EpochPanel extends StatelessWidget {
                                   Expanded(
                                     child: Text(
                                       l10n.producedBlocksSelectEpoch,
-                                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                                      style: theme.textTheme.titleMedium
+                                          ?.copyWith(
+                                              fontWeight: FontWeight.bold),
                                     ),
                                   ),
                                   IconButton(
@@ -640,7 +752,10 @@ class _EpochPanel extends StatelessWidget {
                                   final selected = epoch == selectedEpoch;
                                   return ListTile(
                                     title: Text(l10n.statsEpoch(epoch)),
-                                    trailing: selected ? const Icon(Icons.check, color: Colors.black87) : null,
+                                    trailing: selected
+                                        ? const Icon(Icons.check,
+                                            color: Colors.black87)
+                                        : null,
                                     onTap: () {
                                       Navigator.of(ctx).pop();
                                       onPickEpoch(epoch);
@@ -659,7 +774,8 @@ class _EpochPanel extends StatelessWidget {
                   children: [
                     Text(
                       epochLabel,
-                      style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+                      style: theme.textTheme.bodyLarge
+                          ?.copyWith(fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(width: 4),
                     const Icon(Icons.expand_more, size: 18),
@@ -834,5 +950,3 @@ class _IconBadge extends StatelessWidget {
     );
   }
 }
-
-

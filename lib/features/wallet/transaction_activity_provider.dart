@@ -105,7 +105,8 @@ class TransactionActivityController
 
       return transactions;
     } catch (e, st) {
-      _log.error('Failed to fetch transaction activity', error: e, stackTrace: st);
+      _log.error('Failed to fetch transaction activity',
+          error: e, stackTrace: st);
       rethrow;
     }
   }

@@ -58,6 +58,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen> {
     _autoTimer?.cancel();
     _autoTimer = null;
   }
+
   Future<void> _refresh() async {
     if (_refreshing) return;
     _refreshing = true;

@@ -265,7 +265,8 @@ class _FeedbackFormContentState extends ConsumerState<FeedbackFormContent> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context).feedbackImagePickFailed(e.toString())),
+            content: Text(AppLocalizations.of(context)
+                .feedbackImagePickFailed(e.toString())),
             backgroundColor: Colors.red,
           ),
         );

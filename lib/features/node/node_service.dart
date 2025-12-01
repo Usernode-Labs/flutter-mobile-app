@@ -211,7 +211,8 @@ class RustBackendService {
     final r = _rpc;
     if (r == null) return null;
     try {
-      final status = await r.status(includeLastReorg: false, includeVrfDetails: false);
+      final status =
+          await r.status(includeLastReorg: false, includeVrfDetails: false);
       return status?.node;
     } on PanicException catch (e, st) {
       _log.error('FRB panic during getStatusNode', error: e, stackTrace: st);
@@ -1030,7 +1031,8 @@ class RustBackendService {
     try {
       response = await r.epochsWithData();
     } on PanicException catch (e, st) {
-      _log.error('FRB panic during getEpochsWithData', error: e, stackTrace: st);
+      _log.error('FRB panic during getEpochsWithData',
+          error: e, stackTrace: st);
       _nodeRunning = false;
       _rpc = null;
       await SentryUtil.captureError(e, st, tag: 'frb_panic_getEpochsWithData');
@@ -1073,7 +1075,8 @@ class RustBackendService {
           error: e, stackTrace: st);
       _nodeRunning = false;
       _rpc = null;
-      await SentryUtil.captureError(e, st, tag: 'frb_panic_getEpochSlotResults');
+      await SentryUtil.captureError(e, st,
+          tag: 'frb_panic_getEpochSlotResults');
       return null;
     } catch (e, st) {
       _log.warn('RPC getEpochSlotResults failed: $e\$st');

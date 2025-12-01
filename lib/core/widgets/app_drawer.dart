@@ -85,7 +85,8 @@ class _AppDrawerState extends ConsumerState<AppDrawer> {
             const SizedBox(height: 6),
             Text('${l10n.buildInfoCommitTime}: ${env.git.commitTime}'),
             const Divider(height: 16),
-            Text('${l10n.buildInfoRustc}: ${env.rustc.version} (${env.rustc.channel})'),
+            Text(
+                '${l10n.buildInfoRustc}: ${env.rustc.version} (${env.rustc.channel})'),
             const SizedBox(height: 6),
             Text('${l10n.buildInfoLlvm}: ${env.rustc.llvmVersion}'),
             const Divider(height: 16),
@@ -99,7 +100,8 @@ class _AppDrawerState extends ConsumerState<AppDrawer> {
             const Divider(height: 16),
             Text(l10n.drawerP2pPeerId),
             SelectableText(
-              ref.watch(nodeStatusProvider).value?.peerId ?? l10n.nodeNotAvailable,
+              ref.watch(nodeStatusProvider).value?.peerId ??
+                  l10n.nodeNotAvailable,
               style: const TextStyle(
                 fontFamily: 'monospace',
                 fontSize: 11,

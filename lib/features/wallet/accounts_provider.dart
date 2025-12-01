@@ -78,10 +78,8 @@ class AccountsRepository {
           await _secure.read(key: 'account:$accountId:privateKey');
       return privateKey;
     } catch (e, st) {
-      _log.error(
-          'Failed to read private key for account $accountId',
-          error: e,
-          stackTrace: st);
+      _log.error('Failed to read private key for account $accountId',
+          error: e, stackTrace: st);
       return null;
     }
   }
@@ -120,10 +118,8 @@ class AccountsRepository {
       _log.trace('importFromPrivateKey - success (account id: ${result.id})');
       return result;
     } catch (e, stackTrace) {
-      _log.error(
-          'importFromPrivateKey - FAILED with exception',
-          error: e,
-          stackTrace: stackTrace);
+      _log.error('importFromPrivateKey - FAILED with exception',
+          error: e, stackTrace: stackTrace);
       return null;
     }
   }

@@ -30,7 +30,8 @@ class _AssignmentItem {
 
 class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
   final Set<_Filter> _selected = {_Filter.all};
-  late final List<_AssignmentItem> _items = _buildItemsFromArgs(widget.args) ?? const <_AssignmentItem>[];
+  late final List<_AssignmentItem> _items =
+      _buildItemsFromArgs(widget.args) ?? const <_AssignmentItem>[];
 
   @override
   void initState() {
@@ -69,12 +70,12 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
               return null;
             }).toList();
       final producedMetaDynamic = (args['producedMeta'] as List?);
-      final List<Map<String, dynamic>?> producedMeta =
-          producedMetaDynamic == null
-              ? const []
-              : producedMetaDynamic
-                  .map((e) => e == null ? null : (e as Map).cast<String, dynamic>())
-                  .toList();
+      final List<Map<String, dynamic>?> producedMeta = producedMetaDynamic ==
+              null
+          ? const []
+          : producedMetaDynamic
+              .map((e) => e == null ? null : (e as Map).cast<String, dynamic>())
+              .toList();
       if (epoch == null || slotsInEpoch == null || results == null) return null;
       return List<_AssignmentItem>.generate(slotsInEpoch, (i) {
         var r;
@@ -99,9 +100,12 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
     if (_selected.contains(_Filter.all) || _selected.isEmpty) {
       return true;
     }
-    final wantsProduced = _selected.contains(_Filter.produced) && item.result == RpcSlotResult.produced;
-    final wantsMissed = _selected.contains(_Filter.missed) && item.result == RpcSlotResult.missed;
-    final wantsUpcoming = _selected.contains(_Filter.upcoming) && item.result == RpcSlotResult.scheduled;
+    final wantsProduced = _selected.contains(_Filter.produced) &&
+        item.result == RpcSlotResult.produced;
+    final wantsMissed = _selected.contains(_Filter.missed) &&
+        item.result == RpcSlotResult.missed;
+    final wantsUpcoming = _selected.contains(_Filter.upcoming) &&
+        item.result == RpcSlotResult.scheduled;
     return wantsProduced || wantsMissed || wantsUpcoming;
   }
 
@@ -173,13 +177,12 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
                           final summary =
                               ref.watch(producedBlocksSummaryProvider);
                           final data = summary.asData?.value;
-                          final total =
-                              data?.slotsInEpoch ?? slotsInEpoch;
+                          final total = data?.slotsInEpoch ?? slotsInEpoch;
                           final currentEpoch = data?.currentEpoch;
-                          final isCurrentEpoch = currentEpoch != null &&
-                              currentEpoch == epoch;
-                          final isFutureEpoch = currentEpoch != null &&
-                              epoch > currentEpoch;
+                          final isCurrentEpoch =
+                              currentEpoch != null && currentEpoch == epoch;
+                          final isFutureEpoch =
+                              currentEpoch != null && epoch > currentEpoch;
 
                           int curr;
                           if (data == null || total <= 0) {
@@ -203,16 +206,14 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
                     ),
                     const SizedBox(height: 12),
                     Consumer(builder: (context, ref, _) {
-                      final summary =
-                          ref.watch(producedBlocksSummaryProvider);
+                      final summary = ref.watch(producedBlocksSummaryProvider);
                       final data = summary.asData?.value;
-                      final total =
-                          data?.slotsInEpoch ?? slotsInEpoch;
+                      final total = data?.slotsInEpoch ?? slotsInEpoch;
                       final currentEpoch = data?.currentEpoch;
-                      final isCurrentEpoch = currentEpoch != null &&
-                          currentEpoch == epoch;
-                      final isFutureEpoch = currentEpoch != null &&
-                          epoch > currentEpoch;
+                      final isCurrentEpoch =
+                          currentEpoch != null && currentEpoch == epoch;
+                      final isFutureEpoch =
+                          currentEpoch != null && epoch > currentEpoch;
 
                       int curr;
                       if (data == null || total <= 0) {
@@ -280,7 +281,8 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
                     final isScheduled = item.result == RpcSlotResult.scheduled;
                     String subtitleText = '';
                     if (isScheduled && item.slotTimeMs != null) {
-                      final dt = DateTime.fromMillisecondsSinceEpoch(item.slotTimeMs!);
+                      final dt =
+                          DateTime.fromMillisecondsSinceEpoch(item.slotTimeMs!);
                       final hh = dt.hour.toString().padLeft(2, '0');
                       final mm = dt.minute.toString().padLeft(2, '0');
                       subtitleText = 'Scheduled for $hh:$mm';
@@ -397,7 +399,8 @@ class _SlotRow extends StatelessWidget {
                 color: theme.colorScheme.secondaryContainer,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Center(child: Icon(icon, color: theme.colorScheme.onSurface)),
+              child:
+                  Center(child: Icon(icon, color: theme.colorScheme.onSurface)),
             ),
             const SizedBox(width: 8),
             Expanded(
@@ -416,12 +419,17 @@ class _SlotRow extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              result == RpcSlotResult.produced ? 'Produced' :
-              result == RpcSlotResult.missed ? 'Missed' :
-              result == RpcSlotResult.scheduled ? 'Upcoming' :
-              result == RpcSlotResult.notCalculated ? 'Not Calculated' :
-              result == RpcSlotResult.notWon ? 'Not Won' :
-              'Unknown',
+              result == RpcSlotResult.produced
+                  ? 'Produced'
+                  : result == RpcSlotResult.missed
+                      ? 'Missed'
+                      : result == RpcSlotResult.scheduled
+                          ? 'Upcoming'
+                          : result == RpcSlotResult.notCalculated
+                              ? 'Not Calculated'
+                              : result == RpcSlotResult.notWon
+                                  ? 'Not Won'
+                                  : 'Unknown',
               style: theme.textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.w600,
                 color: theme.colorScheme.onSurface,
@@ -474,5 +482,3 @@ class _FilterChip extends StatelessWidget {
     );
   }
 }
-
-

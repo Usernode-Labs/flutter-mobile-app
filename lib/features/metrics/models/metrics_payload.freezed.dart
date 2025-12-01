@@ -607,7 +607,6 @@ mixin _$NodeMetricsGroup {
   StatusMetrics? get status => throw _privateConstructorUsedError;
   ConsensusMetrics? get consensus => throw _privateConstructorUsedError;
   BlockchainMetrics? get blockchain => throw _privateConstructorUsedError;
-  ProductionMetrics? get production => throw _privateConstructorUsedError;
   WalletMetrics? get wallet => throw _privateConstructorUsedError;
   List<PeerMetrics>? get peers => throw _privateConstructorUsedError;
 
@@ -629,7 +628,6 @@ abstract class $NodeMetricsGroupCopyWith<$Res> {
       StatusMetrics? status,
       ConsensusMetrics? consensus,
       BlockchainMetrics? blockchain,
-      ProductionMetrics? production,
       WalletMetrics? wallet,
       List<PeerMetrics>? peers});
 
@@ -637,7 +635,6 @@ abstract class $NodeMetricsGroupCopyWith<$Res> {
   $StatusMetricsCopyWith<$Res>? get status;
   $ConsensusMetricsCopyWith<$Res>? get consensus;
   $BlockchainMetricsCopyWith<$Res>? get blockchain;
-  $ProductionMetricsCopyWith<$Res>? get production;
   $WalletMetricsCopyWith<$Res>? get wallet;
 }
 
@@ -660,7 +657,6 @@ class _$NodeMetricsGroupCopyWithImpl<$Res, $Val extends NodeMetricsGroup>
     Object? status = freezed,
     Object? consensus = freezed,
     Object? blockchain = freezed,
-    Object? production = freezed,
     Object? wallet = freezed,
     Object? peers = freezed,
   }) {
@@ -681,10 +677,6 @@ class _$NodeMetricsGroupCopyWithImpl<$Res, $Val extends NodeMetricsGroup>
           ? _value.blockchain
           : blockchain // ignore: cast_nullable_to_non_nullable
               as BlockchainMetrics?,
-      production: freezed == production
-          ? _value.production
-          : production // ignore: cast_nullable_to_non_nullable
-              as ProductionMetrics?,
       wallet: freezed == wallet
           ? _value.wallet
           : wallet // ignore: cast_nullable_to_non_nullable
@@ -752,20 +744,6 @@ class _$NodeMetricsGroupCopyWithImpl<$Res, $Val extends NodeMetricsGroup>
   /// with the given fields replaced by the non-null parameter values.
   @override
   @pragma('vm:prefer-inline')
-  $ProductionMetricsCopyWith<$Res>? get production {
-    if (_value.production == null) {
-      return null;
-    }
-
-    return $ProductionMetricsCopyWith<$Res>(_value.production!, (value) {
-      return _then(_value.copyWith(production: value) as $Val);
-    });
-  }
-
-  /// Create a copy of NodeMetricsGroup
-  /// with the given fields replaced by the non-null parameter values.
-  @override
-  @pragma('vm:prefer-inline')
   $WalletMetricsCopyWith<$Res>? get wallet {
     if (_value.wallet == null) {
       return null;
@@ -790,7 +768,6 @@ abstract class _$$NodeMetricsGroupImplCopyWith<$Res>
       StatusMetrics? status,
       ConsensusMetrics? consensus,
       BlockchainMetrics? blockchain,
-      ProductionMetrics? production,
       WalletMetrics? wallet,
       List<PeerMetrics>? peers});
 
@@ -802,8 +779,6 @@ abstract class _$$NodeMetricsGroupImplCopyWith<$Res>
   $ConsensusMetricsCopyWith<$Res>? get consensus;
   @override
   $BlockchainMetricsCopyWith<$Res>? get blockchain;
-  @override
-  $ProductionMetricsCopyWith<$Res>? get production;
   @override
   $WalletMetricsCopyWith<$Res>? get wallet;
 }
@@ -825,7 +800,6 @@ class __$$NodeMetricsGroupImplCopyWithImpl<$Res>
     Object? status = freezed,
     Object? consensus = freezed,
     Object? blockchain = freezed,
-    Object? production = freezed,
     Object? wallet = freezed,
     Object? peers = freezed,
   }) {
@@ -846,10 +820,6 @@ class __$$NodeMetricsGroupImplCopyWithImpl<$Res>
           ? _value.blockchain
           : blockchain // ignore: cast_nullable_to_non_nullable
               as BlockchainMetrics?,
-      production: freezed == production
-          ? _value.production
-          : production // ignore: cast_nullable_to_non_nullable
-              as ProductionMetrics?,
       wallet: freezed == wallet
           ? _value.wallet
           : wallet // ignore: cast_nullable_to_non_nullable
@@ -870,7 +840,6 @@ class _$NodeMetricsGroupImpl extends _NodeMetricsGroup {
       this.status,
       this.consensus,
       this.blockchain,
-      this.production,
       this.wallet,
       final List<PeerMetrics>? peers})
       : _peers = peers,
@@ -885,8 +854,6 @@ class _$NodeMetricsGroupImpl extends _NodeMetricsGroup {
   @override
   final BlockchainMetrics? blockchain;
   @override
-  final ProductionMetrics? production;
-  @override
   final WalletMetrics? wallet;
   final List<PeerMetrics>? _peers;
   @override
@@ -900,7 +867,7 @@ class _$NodeMetricsGroupImpl extends _NodeMetricsGroup {
 
   @override
   String toString() {
-    return 'NodeMetricsGroup(identity: $identity, status: $status, consensus: $consensus, blockchain: $blockchain, production: $production, wallet: $wallet, peers: $peers)';
+    return 'NodeMetricsGroup(identity: $identity, status: $status, consensus: $consensus, blockchain: $blockchain, wallet: $wallet, peers: $peers)';
   }
 
   @override
@@ -915,22 +882,13 @@ class _$NodeMetricsGroupImpl extends _NodeMetricsGroup {
                 other.consensus == consensus) &&
             (identical(other.blockchain, blockchain) ||
                 other.blockchain == blockchain) &&
-            (identical(other.production, production) ||
-                other.production == production) &&
             (identical(other.wallet, wallet) || other.wallet == wallet) &&
             const DeepCollectionEquality().equals(other._peers, _peers));
   }
 
   @override
-  int get hashCode => Object.hash(
-      runtimeType,
-      identity,
-      status,
-      consensus,
-      blockchain,
-      production,
-      wallet,
-      const DeepCollectionEquality().hash(_peers));
+  int get hashCode => Object.hash(runtimeType, identity, status, consensus,
+      blockchain, wallet, const DeepCollectionEquality().hash(_peers));
 
   /// Create a copy of NodeMetricsGroup
   /// with the given fields replaced by the non-null parameter values.
@@ -948,7 +906,6 @@ abstract class _NodeMetricsGroup extends NodeMetricsGroup {
       final StatusMetrics? status,
       final ConsensusMetrics? consensus,
       final BlockchainMetrics? blockchain,
-      final ProductionMetrics? production,
       final WalletMetrics? wallet,
       final List<PeerMetrics>? peers}) = _$NodeMetricsGroupImpl;
   const _NodeMetricsGroup._() : super._();
@@ -961,8 +918,6 @@ abstract class _NodeMetricsGroup extends NodeMetricsGroup {
   ConsensusMetrics? get consensus;
   @override
   BlockchainMetrics? get blockchain;
-  @override
-  ProductionMetrics? get production;
   @override
   WalletMetrics? get wallet;
   @override
@@ -2282,7 +2237,6 @@ abstract class _NetworkMetrics extends NetworkMetrics {
 
 /// @nodoc
 mixin _$PermissionsMetrics {
-  bool get permissionNotifications => throw _privateConstructorUsedError;
   bool get permissionExactAlarms => throw _privateConstructorUsedError;
   bool get permissionBatteryOptimizationExempt =>
       throw _privateConstructorUsedError;
@@ -2303,8 +2257,7 @@ abstract class $PermissionsMetricsCopyWith<$Res> {
       _$PermissionsMetricsCopyWithImpl<$Res, PermissionsMetrics>;
   @useResult
   $Res call(
-      {bool permissionNotifications,
-      bool permissionExactAlarms,
+      {bool permissionExactAlarms,
       bool permissionBatteryOptimizationExempt,
       bool exactAlarmsPermission,
       String notificationPermission});
@@ -2325,17 +2278,12 @@ class _$PermissionsMetricsCopyWithImpl<$Res, $Val extends PermissionsMetrics>
   @pragma('vm:prefer-inline')
   @override
   $Res call({
-    Object? permissionNotifications = null,
     Object? permissionExactAlarms = null,
     Object? permissionBatteryOptimizationExempt = null,
     Object? exactAlarmsPermission = null,
     Object? notificationPermission = null,
   }) {
     return _then(_value.copyWith(
-      permissionNotifications: null == permissionNotifications
-          ? _value.permissionNotifications
-          : permissionNotifications // ignore: cast_nullable_to_non_nullable
-              as bool,
       permissionExactAlarms: null == permissionExactAlarms
           ? _value.permissionExactAlarms
           : permissionExactAlarms // ignore: cast_nullable_to_non_nullable
@@ -2366,8 +2314,7 @@ abstract class _$$PermissionsMetricsImplCopyWith<$Res>
   @override
   @useResult
   $Res call(
-      {bool permissionNotifications,
-      bool permissionExactAlarms,
+      {bool permissionExactAlarms,
       bool permissionBatteryOptimizationExempt,
       bool exactAlarmsPermission,
       String notificationPermission});
@@ -2386,17 +2333,12 @@ class __$$PermissionsMetricsImplCopyWithImpl<$Res>
   @pragma('vm:prefer-inline')
   @override
   $Res call({
-    Object? permissionNotifications = null,
     Object? permissionExactAlarms = null,
     Object? permissionBatteryOptimizationExempt = null,
     Object? exactAlarmsPermission = null,
     Object? notificationPermission = null,
   }) {
     return _then(_$PermissionsMetricsImpl(
-      permissionNotifications: null == permissionNotifications
-          ? _value.permissionNotifications
-          : permissionNotifications // ignore: cast_nullable_to_non_nullable
-              as bool,
       permissionExactAlarms: null == permissionExactAlarms
           ? _value.permissionExactAlarms
           : permissionExactAlarms // ignore: cast_nullable_to_non_nullable
@@ -2422,15 +2364,12 @@ class __$$PermissionsMetricsImplCopyWithImpl<$Res>
 
 class _$PermissionsMetricsImpl extends _PermissionsMetrics {
   const _$PermissionsMetricsImpl(
-      {required this.permissionNotifications,
-      required this.permissionExactAlarms,
+      {required this.permissionExactAlarms,
       required this.permissionBatteryOptimizationExempt,
       required this.exactAlarmsPermission,
       required this.notificationPermission})
       : super._();
 
-  @override
-  final bool permissionNotifications;
   @override
   final bool permissionExactAlarms;
   @override
@@ -2442,7 +2381,7 @@ class _$PermissionsMetricsImpl extends _PermissionsMetrics {
 
   @override
   String toString() {
-    return 'PermissionsMetrics(permissionNotifications: $permissionNotifications, permissionExactAlarms: $permissionExactAlarms, permissionBatteryOptimizationExempt: $permissionBatteryOptimizationExempt, exactAlarmsPermission: $exactAlarmsPermission, notificationPermission: $notificationPermission)';
+    return 'PermissionsMetrics(permissionExactAlarms: $permissionExactAlarms, permissionBatteryOptimizationExempt: $permissionBatteryOptimizationExempt, exactAlarmsPermission: $exactAlarmsPermission, notificationPermission: $notificationPermission)';
   }
 
   @override
@@ -2450,9 +2389,6 @@ class _$PermissionsMetricsImpl extends _PermissionsMetrics {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
             other is _$PermissionsMetricsImpl &&
-            (identical(
-                    other.permissionNotifications, permissionNotifications) ||
-                other.permissionNotifications == permissionNotifications) &&
             (identical(other.permissionExactAlarms, permissionExactAlarms) ||
                 other.permissionExactAlarms == permissionExactAlarms) &&
             (identical(other.permissionBatteryOptimizationExempt,
@@ -2468,7 +2404,6 @@ class _$PermissionsMetricsImpl extends _PermissionsMetrics {
   @override
   int get hashCode => Object.hash(
       runtimeType,
-      permissionNotifications,
       permissionExactAlarms,
       permissionBatteryOptimizationExempt,
       exactAlarmsPermission,
@@ -2486,15 +2421,12 @@ class _$PermissionsMetricsImpl extends _PermissionsMetrics {
 
 abstract class _PermissionsMetrics extends PermissionsMetrics {
   const factory _PermissionsMetrics(
-      {required final bool permissionNotifications,
-      required final bool permissionExactAlarms,
+      {required final bool permissionExactAlarms,
       required final bool permissionBatteryOptimizationExempt,
       required final bool exactAlarmsPermission,
       required final String notificationPermission}) = _$PermissionsMetricsImpl;
   const _PermissionsMetrics._() : super._();
 
-  @override
-  bool get permissionNotifications;
   @override
   bool get permissionExactAlarms;
   @override
@@ -3483,142 +3415,6 @@ abstract class _BlockchainMetrics extends BlockchainMetrics {
   @override
   @JsonKey(includeFromJson: false, includeToJson: false)
   _$$BlockchainMetricsImplCopyWith<_$BlockchainMetricsImpl> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-mixin _$ProductionMetrics {
-  bool get backgroundProductionEnabled => throw _privateConstructorUsedError;
-
-  /// Create a copy of ProductionMetrics
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  $ProductionMetricsCopyWith<ProductionMetrics> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $ProductionMetricsCopyWith<$Res> {
-  factory $ProductionMetricsCopyWith(
-          ProductionMetrics value, $Res Function(ProductionMetrics) then) =
-      _$ProductionMetricsCopyWithImpl<$Res, ProductionMetrics>;
-  @useResult
-  $Res call({bool backgroundProductionEnabled});
-}
-
-/// @nodoc
-class _$ProductionMetricsCopyWithImpl<$Res, $Val extends ProductionMetrics>
-    implements $ProductionMetricsCopyWith<$Res> {
-  _$ProductionMetricsCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
-  /// Create a copy of ProductionMetrics
-  /// with the given fields replaced by the non-null parameter values.
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({
-    Object? backgroundProductionEnabled = null,
-  }) {
-    return _then(_value.copyWith(
-      backgroundProductionEnabled: null == backgroundProductionEnabled
-          ? _value.backgroundProductionEnabled
-          : backgroundProductionEnabled // ignore: cast_nullable_to_non_nullable
-              as bool,
-    ) as $Val);
-  }
-}
-
-/// @nodoc
-abstract class _$$ProductionMetricsImplCopyWith<$Res>
-    implements $ProductionMetricsCopyWith<$Res> {
-  factory _$$ProductionMetricsImplCopyWith(_$ProductionMetricsImpl value,
-          $Res Function(_$ProductionMetricsImpl) then) =
-      __$$ProductionMetricsImplCopyWithImpl<$Res>;
-  @override
-  @useResult
-  $Res call({bool backgroundProductionEnabled});
-}
-
-/// @nodoc
-class __$$ProductionMetricsImplCopyWithImpl<$Res>
-    extends _$ProductionMetricsCopyWithImpl<$Res, _$ProductionMetricsImpl>
-    implements _$$ProductionMetricsImplCopyWith<$Res> {
-  __$$ProductionMetricsImplCopyWithImpl(_$ProductionMetricsImpl _value,
-      $Res Function(_$ProductionMetricsImpl) _then)
-      : super(_value, _then);
-
-  /// Create a copy of ProductionMetrics
-  /// with the given fields replaced by the non-null parameter values.
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({
-    Object? backgroundProductionEnabled = null,
-  }) {
-    return _then(_$ProductionMetricsImpl(
-      backgroundProductionEnabled: null == backgroundProductionEnabled
-          ? _value.backgroundProductionEnabled
-          : backgroundProductionEnabled // ignore: cast_nullable_to_non_nullable
-              as bool,
-    ));
-  }
-}
-
-/// @nodoc
-
-class _$ProductionMetricsImpl extends _ProductionMetrics {
-  const _$ProductionMetricsImpl({required this.backgroundProductionEnabled})
-      : super._();
-
-  @override
-  final bool backgroundProductionEnabled;
-
-  @override
-  String toString() {
-    return 'ProductionMetrics(backgroundProductionEnabled: $backgroundProductionEnabled)';
-  }
-
-  @override
-  bool operator ==(Object other) {
-    return identical(this, other) ||
-        (other.runtimeType == runtimeType &&
-            other is _$ProductionMetricsImpl &&
-            (identical(other.backgroundProductionEnabled,
-                    backgroundProductionEnabled) ||
-                other.backgroundProductionEnabled ==
-                    backgroundProductionEnabled));
-  }
-
-  @override
-  int get hashCode => Object.hash(runtimeType, backgroundProductionEnabled);
-
-  /// Create a copy of ProductionMetrics
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  @override
-  @pragma('vm:prefer-inline')
-  _$$ProductionMetricsImplCopyWith<_$ProductionMetricsImpl> get copyWith =>
-      __$$ProductionMetricsImplCopyWithImpl<_$ProductionMetricsImpl>(
-          this, _$identity);
-}
-
-abstract class _ProductionMetrics extends ProductionMetrics {
-  const factory _ProductionMetrics(
-          {required final bool backgroundProductionEnabled}) =
-      _$ProductionMetricsImpl;
-  const _ProductionMetrics._() : super._();
-
-  @override
-  bool get backgroundProductionEnabled;
-
-  /// Create a copy of ProductionMetrics
-  /// with the given fields replaced by the non-null parameter values.
-  @override
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  _$$ProductionMetricsImplCopyWith<_$ProductionMetricsImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }
 

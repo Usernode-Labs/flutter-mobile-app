@@ -441,7 +441,8 @@ class RustBackendService {
           error: e, stackTrace: st);
       _nodeRunning = false;
       _rpc = null;
-      await SentryUtil.captureError(e, st, tag: 'frb_panic_getBlockProducerStatus');
+      await SentryUtil.captureError(e, st,
+          tag: 'frb_panic_getBlockProducerStatus');
       return null;
     } catch (e, st) {
       _log.warn('RPC getBlockProducerStatus failed: $e\$st');

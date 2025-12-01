@@ -55,7 +55,6 @@ class NodeMetricsGroup with _$NodeMetricsGroup {
     StatusMetrics? status,
     ConsensusMetrics? consensus,
     BlockchainMetrics? blockchain,
-    ProductionMetrics? production,
     WalletMetrics? wallet,
     List<PeerMetrics>? peers,
   }) = _NodeMetricsGroup;
@@ -67,7 +66,6 @@ class NodeMetricsGroup with _$NodeMetricsGroup {
         if (status != null) 'status': status!.toJson(),
         if (consensus != null) 'consensus': consensus!.toJson(),
         if (blockchain != null) 'blockchain': blockchain!.toJson(),
-        if (production != null) 'production': production!.toJson(),
         if (wallet != null) 'wallet': wallet!.toJson(),
         if (peers != null) 'peers': peers!.map((p) => p.toJson()).toList(),
       };
@@ -210,7 +208,6 @@ class NetworkMetrics with _$NetworkMetrics {
 @freezed
 class PermissionsMetrics with _$PermissionsMetrics {
   const factory PermissionsMetrics({
-    required bool permissionNotifications,
     required bool permissionExactAlarms,
     required bool permissionBatteryOptimizationExempt,
     required bool exactAlarmsPermission,
@@ -220,7 +217,6 @@ class PermissionsMetrics with _$PermissionsMetrics {
   const PermissionsMetrics._();
 
   Map<String, dynamic> toJson() => {
-        'permission_notifications': permissionNotifications,
         'permission_exact_alarms': permissionExactAlarms,
         'permission_battery_optimization_exempt':
             permissionBatteryOptimizationExempt,
@@ -331,20 +327,6 @@ class BlockchainMetrics with _$BlockchainMetrics {
           'blockchain_latest_block_slot': blockchainLatestBlockSlot,
         if (blockchainLatestBlockTimestamp != null)
           'blockchain_latest_block_timestamp': blockchainLatestBlockTimestamp,
-      };
-}
-
-/// Block production configuration
-@freezed
-class ProductionMetrics with _$ProductionMetrics {
-  const factory ProductionMetrics({
-    required bool backgroundProductionEnabled,
-  }) = _ProductionMetrics;
-
-  const ProductionMetrics._();
-
-  Map<String, dynamic> toJson() => {
-        'background_production_enabled': backgroundProductionEnabled,
       };
 }
 

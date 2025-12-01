@@ -60,7 +60,7 @@ jobs:
         with:
           repository: Usernode-Labs/usernode
           path: usernode
-          ref: tmp-bining-fix
+          ref: main
           token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
 
       - name: Determine usernode revision
@@ -124,7 +124,7 @@ jobs:
         with:
           repository: Usernode-Labs/usernode
           path: usernode
-          ref: tmp-bining-fix
+          ref: main
           token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
 
       - name: Move usernode repository next to workspace
@@ -385,7 +385,7 @@ jobs:
         with:
           repository: Usernode-Labs/usernode
           path: usernode
-          ref: tmp-bining-fix
+          ref: main
           token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
 
       - name: Move usernode repository next to workspace

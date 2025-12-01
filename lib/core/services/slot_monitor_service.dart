@@ -161,7 +161,9 @@ class SlotMonitorService {
       }
 
       // Get node state from block producer status
-      final nodeState = status.blockProducer?.status.toString() ?? 'idle';
+      final bpStatus =
+          await RustBackendService.instance.getBlockProducerStatus();
+      final nodeState = bpStatus?.blockProducer?.status.toString() ?? 'idle';
 
       // Use backend-provided current global slot
       final bestTipSlot = status.node.curGlobalSlot;

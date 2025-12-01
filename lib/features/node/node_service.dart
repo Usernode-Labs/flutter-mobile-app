@@ -2,6 +2,7 @@ import 'dart:io' show Platform;
 import 'dart:convert';
 
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/block_producer_status.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_mempool.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_utxos_by_owner.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/transfer_funds.dart';
@@ -211,8 +212,7 @@ class RustBackendService {
     final r = _rpc;
     if (r == null) return null;
     try {
-      final status =
-          await r.status(includeLastReorg: false, includeVrfDetails: false);
+      final status = await r.status(includeVrfDetails: false);
       return status?.node;
     } on PanicException catch (e, st) {
       _log.error('FRB panic during getStatusNode', error: e, stackTrace: st);
@@ -225,7 +225,6 @@ class RustBackendService {
 
   /// Convenience helper to fetch node status via RPC.
   Future<RpcStatusResp?> getStatus({
-    bool? includeLastReorg,
     bool includeVrfDetails = true,
   }) async {
     _log.trace('getStatus called');
@@ -236,7 +235,6 @@ class RustBackendService {
     RpcStatusResp? status;
     try {
       status = await r.status(
-        includeLastReorg: includeLastReorg,
         includeVrfDetails: includeVrfDetails,
       );
     } on PanicException catch (e, st) {
@@ -338,118 +336,9 @@ class RustBackendService {
         }
       }
 
-      // Build block producer data for logging
-      Map<String, dynamic>? blockProducerData;
-      final blockProducer = status?.blockProducer;
-      if (blockProducer != null) {
-        try {
-          final statusData = blockProducer.status;
-          Map<String, dynamic> statusMap = {
-            'type': statusData.toString().split('(').first.split('.').last,
-          };
-
-          // Extract won slot info if available
-          statusData.whenOrNull(
-            wonSlotDiscarded: (wonSlot) => statusMap['won_slot'] = {
-              'global_slot': wonSlot.globalSlot,
-              'slot_timestamp': wonSlot.slotTimestamp.toString(),
-            },
-            wonSlot: (wonSlot) => statusMap['won_slot'] = {
-              'global_slot': wonSlot.globalSlot,
-              'slot_timestamp': wonSlot.slotTimestamp.toString(),
-            },
-            wonSlotWait: (wonSlot) => statusMap['won_slot'] = {
-              'global_slot': wonSlot.globalSlot,
-              'slot_timestamp': wonSlot.slotTimestamp.toString(),
-            },
-            wonSlotProduceInit: (wonSlot) => statusMap['won_slot'] = {
-              'global_slot': wonSlot.globalSlot,
-              'slot_timestamp': wonSlot.slotTimestamp.toString(),
-            },
-            batchesAssemblePending: (wonSlot) => statusMap['won_slot'] = {
-              'global_slot': wonSlot.globalSlot,
-              'slot_timestamp': wonSlot.slotTimestamp.toString(),
-            },
-            batchesAssembleSuccess: (wonSlot) => statusMap['won_slot'] = {
-              'global_slot': wonSlot.globalSlot,
-              'slot_timestamp': wonSlot.slotTimestamp.toString(),
-            },
-            dbDiffPending: (wonSlot) => statusMap['won_slot'] = {
-              'global_slot': wonSlot.globalSlot,
-              'slot_timestamp': wonSlot.slotTimestamp.toString(),
-            },
-            dbDiffSuccess: (wonSlot) => statusMap['won_slot'] = {
-              'global_slot': wonSlot.globalSlot,
-              'slot_timestamp': wonSlot.slotTimestamp.toString(),
-            },
-            stakeProofWait: (wonSlot) => statusMap['won_slot'] = {
-              'global_slot': wonSlot.globalSlot,
-              'slot_timestamp': wonSlot.slotTimestamp.toString(),
-            },
-            signingPending: (wonSlot) => statusMap['won_slot'] = {
-              'global_slot': wonSlot.globalSlot,
-              'slot_timestamp': wonSlot.slotTimestamp.toString(),
-            },
-            produced: (wonSlot) => statusMap['won_slot'] = {
-              'global_slot': wonSlot.globalSlot,
-              'slot_timestamp': wonSlot.slotTimestamp.toString(),
-            },
-            injected: (wonSlot) => statusMap['won_slot'] = {
-              'global_slot': wonSlot.globalSlot,
-              'slot_timestamp': wonSlot.slotTimestamp.toString(),
-            },
-          );
-
-          blockProducerData = {
-            'pub_key': blockProducer.pubKey.toString(),
-            'status': statusMap,
-          };
-        } catch (e) {
-          blockProducerData = {
-            'error': 'Failed to parse block producer data: $e'
-          };
-        }
-      }
-
-      // Build mempool data for logging
-      Map<String, dynamic>? mempoolData;
-      final mempool = status?.mempool;
-      if (mempool != null) {
-        try {
-          Map<String, dynamic>? lastReorgData;
-          final lastReorg = mempool.lastReorg;
-          if (lastReorg != null) {
-            lastReorgData = {
-              'root': lastReorg.root,
-              'blocks_disconnected': lastReorg.blocksDisconnected,
-              'blocks_connected': lastReorg.blocksConnected,
-              'txs_readmitted_ok': lastReorg.txsReadmittedOk,
-              'txs_readmitted_orphaned': lastReorg.txsReadmittedOrphaned,
-              'txs_readmitted_conflict': lastReorg.txsReadmittedConflict,
-              'connected_removed': lastReorg.connectedRemoved,
-              'prepared_count': lastReorg.preparedCount,
-              'plan_elapsed_ms': lastReorg.planElapsedMs?.toString(),
-              'when': lastReorg.when.toString(),
-              'in_progress': lastReorg.inProgress,
-            };
-          }
-
-          mempoolData = {
-            'entries': mempool.entries.toString(),
-            'orphans': mempool.orphans.toString(),
-            'total_size': mempool.totalSize.toString(),
-            if (lastReorgData != null) 'last_reorg': lastReorgData,
-          };
-        } catch (e) {
-          mempoolData = {'error': 'Failed to parse mempool data: $e'};
-        }
-      }
-
       final fullResponse = {
         'peers': peers,
         if (blockchainData != null) 'blockchain': blockchainData,
-        if (blockProducerData != null) 'block_producer': blockProducerData,
-        if (mempoolData != null) 'mempool': mempoolData,
       };
       final json = jsonEncode(fullResponse);
       _log.trace('getStatus response: $json');
@@ -530,6 +419,34 @@ class RustBackendService {
           .warn('Failed to encode getStatus to JSON: $e\$st');
       // Report handled error to Sentry with context
       await SentryUtil.captureError(e, st, tag: 'getStatus');
+    }
+    return status;
+  }
+
+  /// Fetch block producer and VRF evaluator status via RPC.
+  Future<RpcBlockProducerStatusResp?> getBlockProducerStatus({
+    bool includeVrfDetails = true,
+  }) async {
+    _log.trace('getBlockProducerStatus called');
+    final r = _rpc;
+    if (r == null) return null;
+
+    RpcBlockProducerStatusResp? status;
+    try {
+      status = await r.blockProducerStatus(
+        includeVrfDetails: includeVrfDetails,
+      );
+    } on PanicException catch (e, st) {
+      _log.error('FRB panic during getBlockProducerStatus',
+          error: e, stackTrace: st);
+      _nodeRunning = false;
+      _rpc = null;
+      await SentryUtil.captureError(e, st, tag: 'frb_panic_getBlockProducerStatus');
+      return null;
+    } catch (e, st) {
+      _log.warn('RPC getBlockProducerStatus failed: $e\$st');
+      await SentryUtil.captureError(e, st, tag: 'rpc_getBlockProducerStatus');
+      return null;
     }
     return status;
   }
@@ -998,11 +915,14 @@ class RustBackendService {
         return null;
       }
 
+      // Get block producer status for VRF info
+      final bpStatus = await getBlockProducerStatus();
+
       // Create enhanced response with actual VRF status from backend
       final response = BackendRPCResponse.fromEpochRewards(
         epochRewardsResp,
         currentSlot: currentSlot,
-        statusResp: status,
+        blockProducerStatus: bpStatus,
       );
 
       _log.trace(

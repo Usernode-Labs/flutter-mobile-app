@@ -1,5 +1,6 @@
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/block_producer_status.dart';
 import 'vrf_status.dart';
 
 /// Enhanced response from backend RPC that includes VRF calculation status
@@ -58,18 +59,18 @@ class BackendRPCResponse {
   /// - RpcStatusVrfEvaluationStatus.evaluating → VRFStatus.inProgress
   /// - RpcStatusVrfEvaluationStatus.completed → VRFStatus.complete
   ///
-  /// Requires [statusResp] to access the actual VRF evaluator status from backend.
+  /// Requires [blockProducerStatus] to access the actual VRF evaluator status from backend.
   factory BackendRPCResponse.fromEpochRewards(
     RpcEpochRewardsResp epochRewards, {
     required int currentSlot,
-    required RpcStatusResp? statusResp,
+    required RpcBlockProducerStatusResp? blockProducerStatus,
   }) {
     // Map backend VRF status to Flutter VRF status
     VRFStatus status = VRFStatus.notStarted;
 
-    if (statusResp?.vrfEvaluator != null) {
+    if (blockProducerStatus?.vrfEvaluator != null) {
       final backendStatus =
-          statusResp!.vrfEvaluator!.currentEpochVrfEvaluationStatus;
+          blockProducerStatus!.vrfEvaluator!.currentEpochVrfEvaluationStatus;
       status = switch (backendStatus) {
         RpcStatusVrfEvaluationStatus.pending => VRFStatus.notStarted,
         RpcStatusVrfEvaluationStatus.evaluating => VRFStatus.inProgress,

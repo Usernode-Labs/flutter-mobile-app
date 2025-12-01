@@ -32,6 +32,7 @@ jobs:
         with:
           repository: Usernode-Labs/usernode
           path: usernode
+          ref: main
           token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
 
       - name: Get FRB revision and usernode SHA
@@ -67,6 +68,7 @@ jobs:
         with:
           repository: Usernode-Labs/usernode
           path: usernode
+          ref: main
           token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
 
       - name: Move usernode repository next to workspace

@@ -187,8 +187,12 @@ class NodeStatusController extends AsyncNotifier<NodeStatusState?> {
       final status = await RustBackendService.instance.getStatus();
       if (status == null) return null;
 
+      // Fetch block producer status (includes VRF evaluator)
+      final bpStatus =
+          await RustBackendService.instance.getBlockProducerStatus();
+
       // Log VRF response for debugging
-      final vrf = status.vrfEvaluator;
+      final vrf = bpStatus?.vrfEvaluator;
       if (vrf != null) {
         final vrfJson = {
           'statusTimeMs': vrf.statusTimeMs.toString(),
@@ -262,8 +266,8 @@ class NodeStatusController extends AsyncNotifier<NodeStatusState?> {
         networkBest: networkBest,
         fetchProgress: fetchProgress,
         applyProgress: applyProgress,
-        blockProducer: status.blockProducer,
-        vrfEvaluator: status.vrfEvaluator,
+        blockProducer: bpStatus?.blockProducer,
+        vrfEvaluator: bpStatus?.vrfEvaluator,
         node: status.node,
         slotsInEpoch: status.node.slotsInEpoch,
         blockInterval: status.node.blockInterval,
@@ -281,8 +285,8 @@ class NodeStatusController extends AsyncNotifier<NodeStatusState?> {
         networkBest: networkBest,
         fetchProgress: fetchProgress,
         applyProgress: applyProgress,
-        blockProducer: status.blockProducer,
-        vrfEvaluator: status.vrfEvaluator,
+        blockProducer: bpStatus?.blockProducer,
+        vrfEvaluator: bpStatus?.vrfEvaluator,
         node: status.node,
         slotsInEpoch: status.node.slotsInEpoch,
         blockInterval: status.node.blockInterval,

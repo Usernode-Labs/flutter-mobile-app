@@ -422,8 +422,9 @@ class BackgroundBlockProductionOrchestrator {
       // Get node state for the monitoring start event
       String nodeState = 'unknown';
       try {
-        final status = await RustBackendService.instance.getStatus();
-        nodeState = status?.blockProducer?.status.toString() ?? 'unknown';
+        final bpStatus =
+            await RustBackendService.instance.getBlockProducerStatus();
+        nodeState = bpStatus?.blockProducer?.status.toString() ?? 'unknown';
       } catch (e) {
         _log.warn('Could not get node state: $e');
       }

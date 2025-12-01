@@ -532,8 +532,12 @@ class EpochSlotSchedulerService {
         return null;
       }
 
+      // Get VRF evaluator from block producer status
+      final bpStatus =
+          await RustBackendService.instance.getBlockProducerStatus();
+
       // Use backend-provided epoch upper bound
-      final epochEndSlot = status.vrfEvaluator?.details?.status.whenOrNull(
+      final epochEndSlot = bpStatus?.vrfEvaluator?.details?.status.whenOrNull(
         readyToEvaluate: (_, __, ___, upperBound, ____, _____) => upperBound,
       );
       if (epochEndSlot == null) {
@@ -579,8 +583,13 @@ class EpochSlotSchedulerService {
         return null;
       }
 
+      // Get VRF evaluator from block producer status
+      final bpStatus =
+          await RustBackendService.instance.getBlockProducerStatus();
+
       // Use backend-provided epoch boundaries
-      final epochUpperBound = status.vrfEvaluator?.details?.status.whenOrNull(
+      final epochUpperBound =
+          bpStatus?.vrfEvaluator?.details?.status.whenOrNull(
         readyToEvaluate: (_, __, ___, upperBound, ____, _____) => upperBound,
       );
       if (epochUpperBound == null) {

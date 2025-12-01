@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -88,9 +90,11 @@ class _OnboardingImportApiAccountScreenState
       // Invalidate account state so router sees new account immediately
       ref.invalidate(hasAnyAccountProvider);
 
-      // Navigate to New UX permission 1
+      // Navigate to permission flow - iOS skips Android-only screens
       if (!mounted) return;
-      context.go(AppRoutes.onboardingExactAlarmPermission1);
+      context.go(Platform.isIOS
+          ? AppRoutes.onboardingNotificationPermission3
+          : AppRoutes.onboardingExactAlarmPermission1);
     } on RegistrationApiException catch (e) {
       if (!mounted) return;
       String message = e.message;

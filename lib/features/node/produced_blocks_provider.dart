@@ -37,7 +37,8 @@ class SlotData {
   final RpcSlotResult result;
   final BigInt? slotTimeMs;
   final RpcProducedBlockMetadata? producedBlockMetadata;
-  const SlotData({required this.result, this.slotTimeMs, this.producedBlockMetadata});
+  const SlotData(
+      {required this.result, this.slotTimeMs, this.producedBlockMetadata});
 }
 
 class EpochScore {
@@ -74,132 +75,151 @@ Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
   final stopwatch = Stopwatch()..start();
   _log.debug('ProducedBlocksSummary: build start');
 
-    _log.debug("GETTING EPOCH DATA");
+  _log.debug("GETTING EPOCH DATA");
 
-    // Centralized pre-work for this provider (status, and future additions).
-    final preWorkResult = await _buildProducedBlocksPreWork();
-    // this was very slow, so using pre work above instead
-    //final currentEpochResult = await ref.watch(nodeStatusProvider.future);
-    final currentEpoch = preWorkResult['currentEpoch'];
-    final slotsInEpoch = preWorkResult['slotsInEpoch'];
-    final currentGlobalSlot = preWorkResult['currentGlobalSlot'];
-    final currentEpochSlot = preWorkResult['currentSlot'];
+  // Centralized pre-work for this provider (status, and future additions).
+  final preWorkResult = await _buildProducedBlocksPreWork();
+  // this was very slow, so using pre work above instead
+  //final currentEpochResult = await ref.watch(nodeStatusProvider.future);
+  final currentEpoch = preWorkResult['currentEpoch'];
+  final slotsInEpoch = preWorkResult['slotsInEpoch'];
+  final currentGlobalSlot = preWorkResult['currentGlobalSlot'];
+  final currentEpochSlot = preWorkResult['currentSlot'];
 
-    final epochsWithData = await persistedGetEpochsWithData();
+  final epochsWithData = await persistedGetEpochsWithData();
 
-    final maxEpochWithDataAPI = epochsWithData.isEmpty
-        ? currentEpoch
-        : epochsWithData.reduce((int a, int b) => a > b ? a : b);
+  final maxEpochWithDataAPI = epochsWithData.isEmpty
+      ? currentEpoch
+      : epochsWithData.reduce((int a, int b) => a > b ? a : b);
 
-    final maxEpochWithData =
-        math.max<int>(maxEpochWithDataAPI, currentEpoch);
+  final maxEpochWithData = math.max<int>(maxEpochWithDataAPI, currentEpoch);
 
-    final epochsToGenerate = maxEpochWithData + 1; // +1 to account for epochs starting at 0
+  final epochsToGenerate =
+      maxEpochWithData + 1; // +1 to account for epochs starting at 0
 
-    final epochData = await Future.wait(List<Future<EpochData>>.generate(epochsToGenerate, (index) async {
-      if (epochsWithData.contains(index)) {
-        final slotStatuses = await persistedGetEpochSlotResults(index, slotsInEpoch, currentGlobalSlot);
-        return EpochData(
-          slotData: await Future.wait(List<Future<SlotData>>.generate(slotStatuses.length, (slot) async {
-            var slotTimeMs;
-            if (slotStatuses[slot] == RpcSlotResult.scheduled) {
-              slotTimeMs = (await RustBackendService.instance.getSlotTime(epoch: index, slot: slot))?.timestampMs;
-            }
-            var producedBlockMetadata;
-            if (slotStatuses[slot] == RpcSlotResult.produced) {
-              producedBlockMetadata = await persistedGetProducedBlockMetadata(index, slot);
-            }
-            return SlotData(result: slotStatuses[slot], 
-                            slotTimeMs: slotTimeMs, 
-                            producedBlockMetadata: producedBlockMetadata);
-          }),
-        ));
-      } else {
-        return EpochData(
-          slotData: null,
-        );
-      }
-    }));
-
-    _log.debug("currentEpoch: $currentEpoch");
-    _log.debug("Epoch Data:");
-
-    for (var i = 0; i < epochData.length; i++) {
-      _log.debug("\tepoch: $i");
-      if (epochData[i].slotData != null) {
-        var prevResult = epochData[i].slotData![0].result;
-        var startIndex = 0;
-        for (var j = 0; j < epochData[i].slotData!.length; j++) {
-          final currentResult = epochData[i].slotData![j].result;
-          if (prevResult == currentResult) {
-            continue;
-          } else {
-            _log.debug("\t\tslot: $startIndex -> $j: ${prevResult.name}");
-            startIndex = j + 1;
+  final epochData = await Future.wait(
+      List<Future<EpochData>>.generate(epochsToGenerate, (index) async {
+    if (epochsWithData.contains(index)) {
+      final slotStatuses = await persistedGetEpochSlotResults(
+          index, slotsInEpoch, currentGlobalSlot);
+      return EpochData(
+          slotData: await Future.wait(
+        List<Future<SlotData>>.generate(slotStatuses.length, (slot) async {
+          var slotTimeMs;
+          if (slotStatuses[slot] == RpcSlotResult.scheduled) {
+            slotTimeMs = (await RustBackendService.instance
+                    .getSlotTime(epoch: index, slot: slot))
+                ?.timestampMs;
           }
-          prevResult = currentResult;
+          var producedBlockMetadata;
+          if (slotStatuses[slot] == RpcSlotResult.produced) {
+            producedBlockMetadata =
+                await persistedGetProducedBlockMetadata(index, slot);
+          }
+          return SlotData(
+              result: slotStatuses[slot],
+              slotTimeMs: slotTimeMs,
+              producedBlockMetadata: producedBlockMetadata);
+        }),
+      ));
+    } else {
+      return EpochData(
+        slotData: null,
+      );
+    }
+  }));
+
+  _log.debug("currentEpoch: $currentEpoch");
+  _log.debug("Epoch Data:");
+
+  for (var i = 0; i < epochData.length; i++) {
+    _log.debug("\tepoch: $i");
+    if (epochData[i].slotData != null) {
+      var prevResult = epochData[i].slotData![0].result;
+      var startIndex = 0;
+      for (var j = 0; j < epochData[i].slotData!.length; j++) {
+        final currentResult = epochData[i].slotData![j].result;
+        if (prevResult == currentResult) {
+          continue;
+        } else {
+          _log.debug("\t\tslot: $startIndex -> $j: ${prevResult.name}");
+          startIndex = j + 1;
         }
-        if (startIndex < epochData[i].slotData!.length) {
-          _log.debug("\t\tslot: $startIndex -> ${epochData[i].slotData!.length}: ${epochData[i].slotData![startIndex].result.name}");
-        }
+        prevResult = currentResult;
+      }
+      if (startIndex < epochData[i].slotData!.length) {
+        _log.debug(
+            "\t\tslot: $startIndex -> ${epochData[i].slotData!.length}: ${epochData[i].slotData![startIndex].result.name}");
       }
     }
+  }
 
-    final epochScores = epochData.map((epoch) {
-      if (epoch.slotData == null) {
-        return EpochScore(
-          evaluatedPercent: 0.0,
-          producedOfEvaluatedPercent: 0.0,
-          won: null,
-          produced: 0,
-          missed: null,
-          upcoming: null,
-          notCalculated: slotsInEpoch,
-          calculated: 0,
-          epochData: epoch,
-        );
-      } else {
-        final producedCount = epoch.slotData!.where((slot) => slot.result == RpcSlotResult.produced).length;
-        final missedCount = epoch.slotData!.where((slot) => slot.result == RpcSlotResult.missed).length;
-        final upcomingCount = epoch.slotData!.where((slot) => slot.result == RpcSlotResult.scheduled).length;
-        final notCalculatedCount = epoch.slotData!.where((slot) => slot.result == RpcSlotResult.notCalculated).length;
-        final calculatedCount = slotsInEpoch - notCalculatedCount;
-        final wonCount = producedCount + missedCount + upcomingCount;
+  final epochScores = epochData.map((epoch) {
+    if (epoch.slotData == null) {
+      return EpochScore(
+        evaluatedPercent: 0.0,
+        producedOfEvaluatedPercent: 0.0,
+        won: null,
+        produced: 0,
+        missed: null,
+        upcoming: null,
+        notCalculated: slotsInEpoch,
+        calculated: 0,
+        epochData: epoch,
+      );
+    } else {
+      final producedCount = epoch.slotData!
+          .where((slot) => slot.result == RpcSlotResult.produced)
+          .length;
+      final missedCount = epoch.slotData!
+          .where((slot) => slot.result == RpcSlotResult.missed)
+          .length;
+      final upcomingCount = epoch.slotData!
+          .where((slot) => slot.result == RpcSlotResult.scheduled)
+          .length;
+      final notCalculatedCount = epoch.slotData!
+          .where((slot) => slot.result == RpcSlotResult.notCalculated)
+          .length;
+      final calculatedCount = slotsInEpoch - notCalculatedCount;
+      final wonCount = producedCount + missedCount + upcomingCount;
 
-        return EpochScore(
-          evaluatedPercent: calculatedCount / slotsInEpoch,
-          producedOfEvaluatedPercent: wonCount > 0 ? producedCount / (producedCount + missedCount) : 1.0,
-          won: wonCount,
-          produced: producedCount,
-          missed: missedCount,
-          upcoming: upcomingCount,
-          notCalculated: notCalculatedCount,
-          calculated: calculatedCount,
-          epochData: epoch,
-        );
-      }
-    });
+      return EpochScore(
+        evaluatedPercent: calculatedCount / slotsInEpoch,
+        producedOfEvaluatedPercent:
+            wonCount > 0 ? producedCount / (producedCount + missedCount) : 1.0,
+        won: wonCount,
+        produced: producedCount,
+        missed: missedCount,
+        upcoming: upcomingCount,
+        notCalculated: notCalculatedCount,
+        calculated: calculatedCount,
+        epochData: epoch,
+      );
+    }
+  });
 
-    final totalScore = epochScores.map((epoch) => epoch.evaluatedPercent*epoch.producedOfEvaluatedPercent)
-                                  .reduce((a, b) => a * b);
+  final totalScore = epochScores
+      .map((epoch) => epoch.evaluatedPercent * epoch.producedOfEvaluatedPercent)
+      .reduce((a, b) => a * b);
 
-    stopwatch.stop();
-    _log.debug('ProducedBlocksSummary: build completed in ${stopwatch.elapsedMilliseconds} ms');
+  stopwatch.stop();
+  _log.debug(
+      'ProducedBlocksSummary: build completed in ${stopwatch.elapsedMilliseconds} ms');
 
-    return ProducedBlocksSummary(
-      totalScore: totalScore,
-      currentEpochSlot: currentEpochSlot,
-      currentEpoch: currentEpoch,
-      slotsInEpoch: slotsInEpoch,
-      rewardsPerBlock: _rewardsPerBlock,
-      maxEpochWithData: maxEpochWithData,
-      epochScores: epochScores.toList(),
-    );
+  return ProducedBlocksSummary(
+    totalScore: totalScore,
+    currentEpochSlot: currentEpochSlot,
+    currentEpoch: currentEpoch,
+    slotsInEpoch: slotsInEpoch,
+    rewardsPerBlock: _rewardsPerBlock,
+    maxEpochWithData: maxEpochWithData,
+    epochScores: epochScores.toList(),
+  );
 }
 
-
 RpcStatusNode? _initialStatusNode;
-int _initialTimestampMs = 0; // When using genesis, this represents the computed genesis timestamp (ms since epoch).
+int _initialTimestampMs =
+    0; // When using genesis, this represents the computed genesis timestamp (ms since epoch).
 bool _initialFromGenesis = false;
 BigInt _rewardsPerBlock = BigInt.zero;
 
@@ -207,7 +227,7 @@ Future<dynamic> _buildProducedBlocksPreWork() async {
   // Prefer a time-based model anchored at the chain genesis timestamp.
   // We compute genesis once from status.bestTip and reuse it, so subsequent
   // calls avoid the expensive status RPC and simply advance time locally.
-  // TODO this should be simplified with a more direct / faster RPC call or a 
+  // TODO this should be simplified with a more direct / faster RPC call or a
   // way to get the current global slot directly.
   if (_initialStatusNode == null || _initialTimestampMs == 0) {
     try {
@@ -246,8 +266,7 @@ Future<dynamic> _buildProducedBlocksPreWork() async {
         error: e,
         stackTrace: st,
       );
-      _initialStatusNode ??=
-          await RustBackendService.instance.getStatusNode();
+      _initialStatusNode ??= await RustBackendService.instance.getStatusNode();
       _initialTimestampMs = DateTime.now().millisecondsSinceEpoch;
       _initialFromGenesis = false;
     }
@@ -256,7 +275,7 @@ Future<dynamic> _buildProducedBlocksPreWork() async {
   final nowMs = DateTime.now().millisecondsSinceEpoch;
   final slotMs = _initialStatusNode!.blockInterval;
 
-  // TODO; would use currentGlobalSlot, but node status api is slow to 
+  // TODO; would use currentGlobalSlot, but node status api is slow to
   // update (~2 seconds on my device), so using this instead. Should be
   // replaced by a faster call to the backend
   int currentGlobalSlot;
@@ -293,15 +312,17 @@ Future<dynamic> _buildProducedBlocksPreWork() async {
     }
   }
 
-  return { 'currentGlobalSlot': currentGlobalSlot, 
-           'currentEpoch': currentEpoch, 
-           'currentSlot': currentSlot, 
-           'slotsInEpoch': slotsInEpoch, 
-           'slotMs': slotMs,
-           'rewardsPerBlock': _rewardsPerBlock };
+  return {
+    'currentGlobalSlot': currentGlobalSlot,
+    'currentEpoch': currentEpoch,
+    'currentSlot': currentSlot,
+    'slotsInEpoch': slotsInEpoch,
+    'slotMs': slotMs,
+    'rewardsPerBlock': _rewardsPerBlock
+  };
 }
 
- Future<Set<int>> persistedGetEpochsWithData() async {
+Future<Set<int>> persistedGetEpochsWithData() async {
   // Fetch epochs with data from backend
   final epochsWithDataResult =
       await RustBackendService.instance.getEpochsWithData();
@@ -324,7 +345,7 @@ Future<dynamic> _buildProducedBlocksPreWork() async {
   );
 
   return allEpochsWithData;
- }
+}
 
 Future<List<RpcSlotResult>> persistedGetEpochSlotResults(
     int epoch, int slotsInEpoch, int currentGlobalSlot) async {
@@ -344,9 +365,7 @@ Future<List<RpcSlotResult>> persistedGetEpochSlotResults(
   for (var i = 0; i < slotsInEpoch && i < cachedList.length; i++) {
     final raw = cachedList[i];
     final idx = int.tryParse(raw);
-    if (idx != null &&
-        idx >= 0 &&
-        idx < RpcSlotResult.values.length) {
+    if (idx != null && idx >= 0 && idx < RpcSlotResult.values.length) {
       cachedStatuses[i] = RpcSlotResult.values[idx];
     }
   }
@@ -384,11 +403,10 @@ Future<List<RpcSlotResult>> persistedGetEpochSlotResults(
   for (var i = 0; i < slotsInEpoch; i++) {
     final slot = epoch * slotsInEpoch + i;
     if ((slot < currentGlobalSlot) && combined[i] == RpcSlotResult.scheduled) {
-      combined[i] = RpcSlotResult.missed; // assume we missed the slot, since the backend wasn't able to tell us whether it was produced or not
+      combined[i] = RpcSlotResult
+          .missed; // assume we missed the slot, since the backend wasn't able to tell us whether it was produced or not
     }
   }
-
-
 
   // Persist the combined results back to cache
   try {

@@ -68,161 +68,164 @@ class _BatteryPermission2ScreenState extends State<BatteryPermission2Screen>
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Header and status text
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.battery_full,
-                        color: Colors.green,
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        l10n.permBatteryTitle,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    l10n.permBatteryWhyMatters,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    isAndroid
-                        ? l10n.permBatteryAndroidExplanation
-                        : l10n.permBatteryIosExplanation,
-                  ),
-                  if (isAndroid && !_batteryOptDisabled) ...[
-                    // small box, Impact of battery optimization:
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey[400]!),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            l10n.permBatteryImpact,
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Icon(Icons.warning_amber_rounded,
-                                  color: Colors.orange),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(l10n.permBatteryWarning),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Icon(Icons.check_circle,
-                                  color: Colors.green),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(l10n.permBatteryOptimized),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                  if (isAndroid && !_batteryOptDisabled) ...[
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: _requesting
-                          ? null
-                          : () async {
-                              setState(() => _requesting = true);
-                              try {
-                                await PlatformAlarmService.instance
-                                    .openBatteryOptimizationSettings();
-                                if (!mounted) return;
-                                await _checkStatus();
-                              } finally {
-                                if (mounted)
-                                  setState(() => _requesting = false);
-                              }
-                            },
-                      icon: const Icon(Icons.settings),
-                      label: _requesting
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : Text(l10n.permOpenBatterySettings),
-                    ),
-                  ],
-                  if (isAndroid &&
-                      _deviceManufacturer != null &&
-                      ['xiaomi', 'samsung', 'oppo', 'oneplus']
-                          .contains(_deviceManufacturer!.toLowerCase())) ...[
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.orange),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.info, color: Colors.orange),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              l10n.permBatteryDeviceWarning(
-                                  _deviceManufacturer!),
-                              style: const TextStyle(fontSize: 13),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 24),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Header and status text
+                    Row(
                       children: [
                         Icon(
-                          _batteryOptDisabled
-                              ? Icons.check_circle
-                              : Icons.warning,
-                          color: _batteryOptDisabled
-                              ? Colors.green
-                              : Colors.orange,
+                          Icons.battery_full,
+                          color: Colors.green,
                         ),
-                        const SizedBox(width: 8),
-                        Text(_batteryOptDisabled
-                            ? l10n.permBatteryOptDisabled
-                            : l10n.permBatteryOptEnabled),
+                        const SizedBox(width: 12),
+                        Text(
+                          l10n.permBatteryTitle,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ],
                     ),
-                  ),
-                  const Spacer(),
-                  FilledButton(
-                    onPressed: (_batteryOptDisabled || !isAndroid)
-                        ? () => context.go(AppRoutes.onboardingNotificationPermission3)
-                        : null,
-                    child: Text(l10n.commonNext),
-                  ),
-                ],
+                    const SizedBox(height: 12),
+                    Text(
+                      l10n.permBatteryWhyMatters,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      isAndroid
+                          ? l10n.permBatteryAndroidExplanation
+                          : l10n.permBatteryIosExplanation,
+                    ),
+                    if (isAndroid && !_batteryOptDisabled) ...[
+                      // small box, Impact of battery optimization:
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[200],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey[400]!),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              l10n.permBatteryImpact,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.warning_amber_rounded,
+                                    color: Colors.orange),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(l10n.permBatteryWarning),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.check_circle,
+                                    color: Colors.green),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(l10n.permBatteryOptimized),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    if (isAndroid && !_batteryOptDisabled) ...[
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: _requesting
+                            ? null
+                            : () async {
+                                setState(() => _requesting = true);
+                                try {
+                                  await PlatformAlarmService.instance
+                                      .openBatteryOptimizationSettings();
+                                  if (!mounted) return;
+                                  await _checkStatus();
+                                } finally {
+                                  if (mounted)
+                                    setState(() => _requesting = false);
+                                }
+                              },
+                        icon: const Icon(Icons.settings),
+                        label: _requesting
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : Text(l10n.permOpenBatterySettings),
+                      ),
+                    ],
+                    if (isAndroid &&
+                        _deviceManufacturer != null &&
+                        ['xiaomi', 'samsung', 'oppo', 'oneplus']
+                            .contains(_deviceManufacturer!.toLowerCase())) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.orange),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.info, color: Colors.orange),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                l10n.permBatteryDeviceWarning(
+                                    _deviceManufacturer!),
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 24),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _batteryOptDisabled
+                                ? Icons.check_circle
+                                : Icons.warning,
+                            color: _batteryOptDisabled
+                                ? Colors.green
+                                : Colors.orange,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(_batteryOptDisabled
+                              ? l10n.permBatteryOptDisabled
+                              : l10n.permBatteryOptEnabled),
+                        ],
+                      ),
+                    ),
+                    const Spacer(),
+                    FilledButton(
+                      onPressed: (_batteryOptDisabled || !isAndroid)
+                          ? () => context
+                              .go(AppRoutes.onboardingNotificationPermission3)
+                          : null,
+                      child: Text(l10n.commonNext),
+                    ),
+                  ],
                 ),
               ),
             ),

@@ -181,36 +181,37 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
         child: RefreshIndicator(
           onRefresh: _refresh,
           child: ListView(
-          padding: const EdgeInsets.only(
-            left: 12,
-            right: 12,
-            top: 12,
-            bottom: 12,
-          ),
-          children: [
-            if (_error != null)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(l10n.commonError,
-                      style: TextStyle(color: colorScheme.error)),
-                  const SizedBox(height: 6),
-                  Text(_error!, style: theme.textTheme.bodySmall),
-                  const SizedBox(height: 16),
-                ],
-              ),
+            padding: const EdgeInsets.only(
+              left: 12,
+              right: 12,
+              top: 12,
+              bottom: 12,
+            ),
+            children: [
+              if (_error != null)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(l10n.commonError,
+                        style: TextStyle(color: colorScheme.error)),
+                    const SizedBox(height: 6),
+                    Text(_error!, style: theme.textTheme.bodySmall),
+                    const SizedBox(height: 16),
+                  ],
+                ),
 
-            // WALLET BALANCE Section
-            _buildWalletBalanceCard(theme),
-            const SizedBox(height: 18),
+              // WALLET BALANCE Section
+              _buildWalletBalanceCard(theme),
+              const SizedBox(height: 18),
 
-            // OVERVIEW Section (includes Synchronization details)
-            _buildOverviewSection(context, ref.read(nodeStatusProvider).value),
-            const SizedBox(height: 18),
+              // OVERVIEW Section (includes Synchronization details)
+              _buildOverviewSection(
+                  context, ref.read(nodeStatusProvider).value),
+              const SizedBox(height: 18),
 
-            // RECENT BLOCKS Section (collapsible, separate card)
-            _buildRecentBlocksSection(context),
-          ],
+              // RECENT BLOCKS Section (collapsible, separate card)
+              _buildRecentBlocksSection(context),
+            ],
           ),
         ),
       ),
@@ -307,7 +308,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                 ),
                 // Info icon for build info
                 IconButton(
-                  icon: const Icon(Icons.info_outline, color: Colors.white, size: 20),
+                  icon: const Icon(Icons.info_outline,
+                      color: Colors.white, size: 20),
                   onPressed: _showBuildInfoDialog,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
@@ -354,7 +356,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             const SizedBox(height: 6),
             Text('${l10n.buildInfoCommitTime}: ${env.git.commitTime}'),
             const Divider(height: 16),
-            Text('${l10n.buildInfoRustc}: ${env.rustc.version} (${env.rustc.channel})'),
+            Text(
+                '${l10n.buildInfoRustc}: ${env.rustc.version} (${env.rustc.channel})'),
             const SizedBox(height: 6),
             Text('${l10n.buildInfoLlvm}: ${env.rustc.llvmVersion}'),
             const Divider(height: 16),
@@ -368,7 +371,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             const Divider(height: 16),
             Text(l10n.drawerP2pPeerId),
             SelectableText(
-              ref.read(nodeStatusProvider).value?.peerId ?? l10n.nodeNotAvailable,
+              ref.read(nodeStatusProvider).value?.peerId ??
+                  l10n.nodeNotAvailable,
               style: const TextStyle(
                 fontFamily: 'monospace',
                 fontSize: 11,
@@ -1303,7 +1307,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
               ),
               if (!_isRecentBlocksExpanded)
                 TextButton(
-                  onPressed: () => context.push(AppRoutes.mainNodeProducedBlocks),
+                  onPressed: () =>
+                      context.push(AppRoutes.mainNodeProducedBlocks),
                   style: TextButton.styleFrom(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

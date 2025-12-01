@@ -151,7 +151,8 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
               icon: Icons.check,
               title: l10n.blockTxBatchesIncluded,
               subtitle: block.batches.isNotEmpty
-                  ? l10n.blockIncludedBatchesTx(block.batches.length, block.transactions.toInt())
+                  ? l10n.blockIncludedBatchesTx(
+                      block.batches.length, block.transactions.toInt())
                   : l10n.blockIncludedBatchesTxGeneric,
               timing: '${timings[2]}ms',
               isLast: false,
@@ -184,11 +185,9 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
             _TimelineItem(
               icon: Icons.verified,
               title: l10n.blockConfirmed,
-              subtitle: l10n.blockHashPrefix(
-                block.hash.toString().length > 16
-                    ? block.hash.toString().substring(0, 16)
-                    : block.hash.toString()
-              ),
+              subtitle: l10n.blockHashPrefix(block.hash.toString().length > 16
+                  ? block.hash.toString().substring(0, 16)
+                  : block.hash.toString()),
               timing: '${timings[6]}ms',
               isLast: true,
             ),

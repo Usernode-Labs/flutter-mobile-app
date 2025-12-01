@@ -116,12 +116,14 @@ class _ReviewSendScreenState extends State<ReviewSendScreen> {
       Navigator.of(context).pop(); // close loading dialog
 
       if (response == null) {
-        _showErrorDialog(AppLocalizations.of(context).walletNodeConnectionFailed);
+        _showErrorDialog(
+            AppLocalizations.of(context).walletNodeConnectionFailed);
         return;
       }
 
       if (response.error != null) {
-        _showErrorDialog(AppLocalizations.of(context).walletTransferFailed(response.error!));
+        _showErrorDialog(
+            AppLocalizations.of(context).walletTransferFailed(response.error!));
         return;
       }
 
@@ -139,7 +141,8 @@ class _ReviewSendScreenState extends State<ReviewSendScreen> {
           .error('Transfer failed', tag: 'SEND', error: e, stackTrace: st);
       if (!mounted) return;
       Navigator.of(context).pop(); // close loading dialog
-      _showErrorDialog(AppLocalizations.of(context).walletTransferFailed(e.toString()));
+      _showErrorDialog(
+          AppLocalizations.of(context).walletTransferFailed(e.toString()));
     }
   }
 

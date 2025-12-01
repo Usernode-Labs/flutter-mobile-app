@@ -239,14 +239,10 @@ class _BackgroundProductionSettingsScreenState
             ),
             const SizedBox(height: 8),
             Text(
-              'Your device is helping run this network directly, peer to peer, with no central servers. Together with other participants\' devices, it processes transactions and runs shared code. It is one of the first networks that can be fully hosted just from participants\' own devices.\n\n'
-
-              + 'Our goal is to enable community-run networks, where participants operate the network themselves and incentives create a schelling point around user participation.\n\n'
-
-              + 'We are currently in testnet. The first few phases of our testing will ensure that the core network and block production works. Then we will work on adding activities, use cases, and smart contracts on top of the core app.\n\n'
-
-              + 'We thank you for helping test this first version of the application. We\'re hopeful to build a very new and different kind of blockchain and network, and your participation helps make this possible.',
-
+              'Your device is helping run this network directly, peer to peer, with no central servers. Together with other participants\' devices, it processes transactions and runs shared code. It is one of the first networks that can be fully hosted just from participants\' own devices.\n\n' +
+                  'Our goal is to enable community-run networks, where participants operate the network themselves and incentives create a schelling point around user participation.\n\n' +
+                  'We are currently in testnet. The first few phases of our testing will ensure that the core network and block production works. Then we will work on adding activities, use cases, and smart contracts on top of the core app.\n\n' +
+                  'We thank you for helping test this first version of the application. We\'re hopeful to build a very new and different kind of blockchain and network, and your participation helps make this possible.',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurface.withValues(alpha: 0.7),
                 height: 1.5,
@@ -417,7 +413,8 @@ class _BackgroundProductionSettingsScreenState
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                color:
+                    colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Column(
@@ -807,7 +804,8 @@ class _BackgroundProductionSettingsScreenState
               FilledButton.icon(
                 onPressed: _requestPermissions,
                 icon: const Icon(Icons.settings),
-                label: Text(AppLocalizations.of(context).bgProdGrantPermissions),
+                label:
+                    Text(AppLocalizations.of(context).bgProdGrantPermissions),
               ),
             ],
           ],
@@ -923,7 +921,8 @@ class _BackgroundProductionSettingsScreenState
                       ? 'App will stay awake for block production'
                       : 'Enable when you have upcoming slots',
                   style: TextStyle(
-                    color: colorScheme.onPrimaryContainer.withValues(alpha: 0.7),
+                    color:
+                        colorScheme.onPrimaryContainer.withValues(alpha: 0.7),
                   ),
                 ),
               ),
@@ -1092,7 +1091,8 @@ class _BackgroundProductionSettingsScreenState
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                color:
+                    colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Column(
@@ -1191,7 +1191,8 @@ class _BackgroundProductionSettingsScreenState
               OutlinedButton.icon(
                 onPressed: _openBatterySettings,
                 icon: const Icon(Icons.settings),
-                label: Text(AppLocalizations.of(context).bgProdOpenBatterySettings),
+                label: Text(
+                    AppLocalizations.of(context).bgProdOpenBatterySettings),
               ),
             ],
             if (_deviceManufacturer != null &&
@@ -1247,7 +1248,8 @@ class _BackgroundProductionSettingsScreenState
     );
   }
 
-  Widget _buildAndroidKeepAliveSection(ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildAndroidKeepAliveSection(
+      ThemeData theme, ColorScheme colorScheme) {
     return Card(
       color: colorScheme.primaryContainer,
       child: Padding(
@@ -1443,7 +1445,8 @@ class _BackgroundProductionSettingsScreenState
                       ? 'Persistent foreground service running'
                       : 'Enable for guaranteed block production',
                   style: TextStyle(
-                    color: colorScheme.onPrimaryContainer.withValues(alpha: 0.7),
+                    color:
+                        colorScheme.onPrimaryContainer.withValues(alpha: 0.7),
                   ),
                 ),
               ),
@@ -1574,7 +1577,8 @@ class _BackgroundProductionSettingsScreenState
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                color:
+                    colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
@@ -1603,7 +1607,8 @@ class _BackgroundProductionSettingsScreenState
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                  color: colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -232,7 +234,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         // Splash should redirect to first permission screen
         if (currentLocation == AppRoutes.splash) {
           _log.trace('Redirecting splash to permission flow');
-          return AppRoutes.onboardingExactAlarmPermission1;
+          // iOS skips Android-only permission screens (Exact Alarm, Battery)
+          return Platform.isIOS
+              ? AppRoutes.onboardingNotificationPermission3
+              : AppRoutes.onboardingExactAlarmPermission1;
         }
       }
 

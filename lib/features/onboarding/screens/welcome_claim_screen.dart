@@ -24,12 +24,10 @@ class WelcomeClaimScreen extends StatelessWidget {
                     child: Text(
                       l10n.welcomeTitle,
                       textAlign: TextAlign.center,
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineMedium
-                          ?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                      style:
+                          Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
                     ),
                   ),
                 ),

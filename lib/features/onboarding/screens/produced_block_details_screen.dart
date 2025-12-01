@@ -85,5 +85,3 @@ class ProducedBlockDetailsScreen extends StatelessWidget {
     );
   }
 }
-
-

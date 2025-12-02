@@ -55,8 +55,6 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen> {
     final bool isConnecting = sync?.isConnecting ?? true;
     final bool isSynced = sync?.isSynced ?? false;
 
-    print('isSynced: $isSynced, isConnecting: $isConnecting, noEpochsWithData: $noEpochsWithData');
-
     final bool shouldShow =
         noEpochsWithData && (isConnecting || !isSynced);
 

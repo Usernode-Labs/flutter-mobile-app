@@ -112,6 +112,9 @@ class _NotificationPermission3ScreenState
                   width: double.infinity,
                   child: FilledButton(
                     onPressed: _requesting ? null : _requestNotifications,
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(52),
+                    ),
                     child: _requesting
                         ? const SizedBox(
                             height: 20,
@@ -121,7 +124,7 @@ class _NotificationPermission3ScreenState
                         : const Text('Allow Notifications'),
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 6),
               ],
               SizedBox(
                 width: double.infinity,
@@ -129,6 +132,7 @@ class _NotificationPermission3ScreenState
                   onPressed: () =>
                       context.go(AppRoutes.onboardingBatteryPermission2),
                   style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(52),
                     backgroundColor:
                         theme.colorScheme.surfaceContainerHighest, // darker gray
                     foregroundColor: theme.colorScheme.onSurface,

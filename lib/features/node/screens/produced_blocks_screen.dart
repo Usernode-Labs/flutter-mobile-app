@@ -155,6 +155,13 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            Text(
+                              l10n.producedBlocksSuccessRateLast10Epochs,
+                              style: theme.textTheme.bodySmall
+                                  ?.copyWith(color: onSurfaceVariant),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 20),
                             summary.when(
                               data: (value) => Text(
                                 '${(totalScoreLastN(value, 10) * 100).toStringAsFixed(1)}%',
@@ -173,14 +180,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen> {
                                 textAlign: TextAlign.center,
                               ),
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              l10n.producedBlocksSuccessRateLast10Epochs,
-                              style: theme.textTheme.bodySmall
-                                  ?.copyWith(color: onSurfaceVariant),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 24),
+                            const SizedBox(height: 16),
                             Builder(
                               builder: (_) {
                                 return Column(
@@ -189,13 +189,33 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen> {
                                       data: (value) {
                                         final (earned, possible) =
                                             totalTokensLastN(value, 10);
-                                        return Text(
-                                          l10n.producedBlocksTokensEarnedSummary(
-                                            earned.toStringAsFixed(0),
-                                            possible.toStringAsFixed(0),
+                                        return IntrinsicWidth(
+                                          child: Container(
+                                            constraints: const BoxConstraints(
+                                              minHeight: 48,
+                                            ),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 16,
+                                              vertical: 12,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: theme.colorScheme
+                                                  .secondaryContainer,
+                                              borderRadius:
+                                                  BorderRadius.circular(24),
+                                            ),
+                                            child: Center(
+                                              child: Text(
+                                                l10n.producedBlocksTokensEarnedSummary(
+                                                  earned.toStringAsFixed(0),
+                                                  possible.toStringAsFixed(0),
+                                                ),
+                                                style: theme
+                                                    .textTheme.titleMedium,
+                                                textAlign: TextAlign.center,
+                                              ),
+                                            ),
                                           ),
-                                          style: theme.textTheme.titleMedium,
-                                          textAlign: TextAlign.center,
                                         );
                                       },
                                       loading: () => const SizedBox(
@@ -209,13 +229,6 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen> {
                                         style: theme.textTheme.titleMedium,
                                         textAlign: TextAlign.center,
                                       ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      l10n.producedBlocksTokensEarnedLast10Epochs,
-                                      style: theme.textTheme.bodySmall
-                                          ?.copyWith(color: onSurfaceVariant),
-                                      textAlign: TextAlign.center,
                                     ),
                                   ],
                                 );

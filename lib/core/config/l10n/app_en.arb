@@ -518,7 +518,7 @@
   "@producedBlocksSuccessRateLast10Epochs": {
     "description": "Label for block success rate over the last 10 epochs"
   },
-  "producedBlocksTokensEarnedSummary": "+{earned} / +{possible} $TOKENS",
+  "producedBlocksTokensEarnedSummary": "+{earned} $TOKENS",
   "@producedBlocksTokensEarnedSummary": {
     "description": "Summary of tokens earned vs possible over the last 10 epochs",
     "placeholders": {

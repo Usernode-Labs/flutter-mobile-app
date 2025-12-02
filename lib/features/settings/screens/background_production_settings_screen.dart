@@ -12,6 +12,7 @@ import 'package:crypto_mobile_app/core/data/slot_production_repository.dart';
 import 'package:crypto_mobile_app/features/node/node_provider.dart';
 import 'package:crypto_mobile_app/features/node/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 
@@ -173,6 +174,10 @@ class _BackgroundProductionSettingsScreenState
             _buildAboutSection(theme, colorScheme),
             const SizedBox(height: 24),
 
+            // Appearance / theme section
+            _buildThemeSection(theme, colorScheme),
+            const SizedBox(height: 24),
+
             // Background Block Production section title
             Text(
               'Background Block Production',
@@ -218,6 +223,87 @@ class _BackgroundProductionSettingsScreenState
 
             // Scheduled slots section
             _buildScheduledSlotsSection(theme, colorScheme),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildThemeSection(ThemeData theme, ColorScheme colorScheme) {
+    final themeMode = ref.watch(themeModeProvider);
+
+    void setTheme(ThemeMode mode) {
+      ref.read(themeModeProvider.notifier).set(mode);
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Appearance',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Choose how the app looks on your device.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
+            ),
+            const SizedBox(height: 8),
+            RadioListTile<ThemeMode>(
+              value: ThemeMode.system,
+              groupValue: themeMode,
+              title: Text(
+                'Use system setting',
+                style: theme.textTheme.bodyMedium,
+              ),
+              subtitle: Text(
+                'Automatically follow your device’s light or dark mode.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurface.withValues(alpha: 0.7),
+                ),
+              ),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+              visualDensity: VisualDensity.compact,
+              onChanged: (mode) {
+                if (mode != null) setTheme(mode);
+              },
+            ),
+            RadioListTile<ThemeMode>(
+              value: ThemeMode.light,
+              groupValue: themeMode,
+              title: Text(
+                'Light mode',
+                style: theme.textTheme.bodyMedium,
+              ),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+              visualDensity: VisualDensity.compact,
+              onChanged: (mode) {
+                if (mode != null) setTheme(mode);
+              },
+            ),
+            RadioListTile<ThemeMode>(
+              value: ThemeMode.dark,
+              groupValue: themeMode,
+              title: Text(
+                'Dark mode',
+                style: theme.textTheme.bodyMedium,
+              ),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+              visualDensity: VisualDensity.compact,
+              onChanged: (mode) {
+                if (mode != null) setTheme(mode);
+              },
+            ),
           ],
         ),
       ),

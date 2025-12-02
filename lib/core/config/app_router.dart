@@ -11,11 +11,11 @@ import 'package:crypto_mobile_app/features/onboarding/screens/exact_alarm_permis
 import 'package:crypto_mobile_app/features/onboarding/screens/battery_permission2_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/notification_permission3_screen.dart';
 import 'package:crypto_mobile_app/features/home/screens/home_screen.dart';
-import 'package:crypto_mobile_app/features/onboarding/screens/slot_assignments_screen.dart';
-import 'package:crypto_mobile_app/features/onboarding/screens/produced_block_details_screen.dart';
+import 'package:crypto_mobile_app/features/node/screens/slot_assignments_screen.dart';
+import 'package:crypto_mobile_app/features/node/screens/produced_block_details_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/node_status_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/node_won_slots_screen.dart';
-import 'package:crypto_mobile_app/features/node/screens/produced_blocks_screen.dart';
+import 'package:crypto_mobile_app/features/node/screens/node_status_produced_blocks_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/block_details_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/mempool_details_screen.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
@@ -48,7 +48,7 @@ class AppRoutes {
   // Main shell routes
   static const mainNode = '/main/node';
   static const mainNodeWonSlots = '/main/node/won-slots';
-  static const mainNodeProducedBlocks = '/main/node/produced-blocks';
+  static const nodeStatusProducedBlocks = '/main/node/status/produced-blocks';
   static const mainNodeBlockDetails = '/main/node/block-details';
   static const mainNodeMempool = '/main/node/mempool';
 }
@@ -162,8 +162,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const NodeStatusScreen(),
       ),
       GoRoute(
-        path: AppRoutes.mainNodeProducedBlocks,
-        builder: (context, state) => const ProducedBlocksScreen(),
+        path: AppRoutes.nodeStatusProducedBlocks,
+        builder: (context, state) => const NodeStatusProducedBlocksScreen(),
       ),
       GoRoute(
         path: AppRoutes.mainNodeBlockDetails,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:crypto_mobile_app/features/onboarding/screens/produced_blocks_screen.dart';
+import 'package:crypto_mobile_app/features/node/screens/produced_blocks_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/node_status_screen.dart';
 import 'package:crypto_mobile_app/features/settings/screens/background_production_settings_screen.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';

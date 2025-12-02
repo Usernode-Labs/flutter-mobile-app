@@ -356,7 +356,7 @@ class PlatformAlarmService {
       await Future.delayed(const Duration(milliseconds: 500));
       return await isBatteryOptimizationDisabled();
     } on PlatformException catch (e) {
-      LoggingService.instance.error(
+      _log.error(
           'Error requesting battery optimization exemption: ${e.message}');
       return false;
     }

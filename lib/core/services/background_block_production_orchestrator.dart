@@ -91,7 +91,7 @@ class BackgroundBlockProductionOrchestrator {
       await _checkEpochTransition();
 
       _initialized = true;
-      LoggingService.instance.info(
+      _log.info(
           'BackgroundBlockProductionOrchestrator initialized successfully');
       return true;
     } catch (e, st) {
@@ -880,7 +880,7 @@ class BackgroundBlockProductionOrchestrator {
             failureCount++;
           }
         } else {
-          LoggingService.instance.debug(
+          _log.debug(
               'Skipping past slot $slotNumber (alarm time already passed)');
         }
       }

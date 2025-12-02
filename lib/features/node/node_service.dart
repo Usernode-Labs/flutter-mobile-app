@@ -20,7 +20,7 @@ import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/core/models/backend_rpc_response.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
-final _log = LoggingService.instance.withTag(LogTag.rust);
+final _log = LoggingService.instance.withTag(LogTag.node);
 
 /// A small façade around flutter_rust_bridge generated APIs.
 /// Centralizes initialization and access to the Rust node / RPC.
@@ -485,7 +485,7 @@ class RustBackendService {
       return null;
     } catch (e, st) {
       // Any other error from the bridge/RPC call.
-      LoggingService.instance.warn('RPC listBlockchain failed: $e\$st');
+      _log.warn('RPC listBlockchain failed: $e\$st');
       await SentryUtil.captureError(e, st, tag: 'rpc_listBlockchain');
       return null;
     }
@@ -527,7 +527,7 @@ class RustBackendService {
       };
 
       final json = jsonEncode(fullResponse);
-      LoggingService.instance.debug('listBlockchain response: $json');
+      _log.debug('listBlockchain response: $json');
 
       await SentryUtil.captureMessageWithData('rpc.listBlockchain', {
         'totalBlocks': totalBlocks.toString(),
@@ -583,7 +583,7 @@ class RustBackendService {
       return null;
     } catch (e, st) {
       // Any other error from the bridge/RPC call.
-      LoggingService.instance.warn('RPC listMempool failed: $e\$st');
+      _log.warn('RPC listMempool failed: $e\$st');
       await SentryUtil.captureError(e, st, tag: 'rpc_listMempool');
       return null;
     }
@@ -638,8 +638,7 @@ class RustBackendService {
         },
       );
     } catch (e, st) {
-      LoggingService.instance
-          .warn('Failed to log listMempool response: $e\$st');
+      _log.warn('Failed to log listMempool response: $e\$st');
       await SentryUtil.captureError(e, st, tag: 'listMempool_logging');
     }
     return mempool;
@@ -649,8 +648,7 @@ class RustBackendService {
   Future<RpcEpochRewardsResp?> epochRewards({
     int? epoch,
   }) async {
-    LoggingService.instance
-        .trace('epochRewards called with params: epoch=$epoch');
+    _log.trace('epochRewards called with params: epoch=$epoch');
     SentryUtil.addBreadcrumb(
       category: 'rpc',
       message: 'epochRewards called',
@@ -677,7 +675,7 @@ class RustBackendService {
       return null;
     } catch (e, st) {
       // Any other error from the bridge/RPC call.
-      LoggingService.instance.warn('RPC epochRewards failed: $e\$st');
+      _log.warn('RPC epochRewards failed: $e\$st');
       await SentryUtil.captureError(e, st, tag: 'rpc_epochRewards');
       return null;
     }
@@ -720,7 +718,7 @@ class RustBackendService {
       };
 
       final json = jsonEncode(fullResponse);
-      LoggingService.instance.debug('epochRewards response: $json');
+      _log.debug('epochRewards response: $json');
 
       await SentryUtil.captureMessageWithData('rpc.epochRewards', {
         'epoch': epochNum,
@@ -742,8 +740,7 @@ class RustBackendService {
         },
       );
     } catch (e, st) {
-      LoggingService.instance
-          .warn('Failed to log epochRewards response: $e\$st');
+      _log.warn('Failed to log epochRewards response: $e\$st');
       await SentryUtil.captureError(e, st, tag: 'epochRewards_logging');
     }
     return rewards;
@@ -778,7 +775,7 @@ class RustBackendService {
       return null;
     } catch (e, st) {
       // Any other error from the bridge/RPC call.
-      LoggingService.instance.warn('RPC listUtxosByOwner failed: $e\$st');
+      _log.warn('RPC listUtxosByOwner failed: $e\$st');
       await SentryUtil.captureError(e, st, tag: 'rpc_listUtxosByOwner');
       return null;
     }
@@ -806,8 +803,7 @@ class RustBackendService {
         },
       );
     } catch (e, st) {
-      LoggingService.instance
-          .warn('Failed to log listUtxosByOwner response: $e\$st');
+      _log.warn('Failed to log listUtxosByOwner response: $e\$st');
       await SentryUtil.captureError(e, st, tag: 'listUtxosByOwner_logging');
     }
     return utxos;
@@ -844,7 +840,7 @@ class RustBackendService {
       return null;
     } catch (e, st) {
       // Any other error from the bridge/RPC call.
-      LoggingService.instance.warn('RPC transferFunds failed: $e\$st');
+      _log.warn('RPC transferFunds failed: $e\$st');
       await SentryUtil.captureError(e, st, tag: 'rpc_transferFunds');
       return null;
     }
@@ -876,8 +872,7 @@ class RustBackendService {
         },
       );
     } catch (e, st) {
-      LoggingService.instance
-          .warn('Failed to log transferFunds response: $e\$st');
+      _log.warn('Failed to log transferFunds response: $e\$st');
       await SentryUtil.captureError(e, st, tag: 'transferFunds_logging');
     }
 
@@ -895,24 +890,21 @@ class RustBackendService {
       // First, get current blockchain status to determine current slot
       final status = await getStatus();
       if (status?.blockchain == null) {
-        LoggingService.instance
-            .warn('Cannot get epoch info: blockchain status unavailable');
+        _log.warn('Cannot get epoch info: blockchain status unavailable');
         return null;
       }
 
       // Use backend-provided current global slot
       final currentSlot = status!.node.curGlobalSlot;
       if (currentSlot == null) {
-        LoggingService.instance
-            .warn('Cannot get epoch info: curGlobalSlot unavailable');
+        _log.warn('Cannot get epoch info: curGlobalSlot unavailable');
         return null;
       }
 
       // Query epoch rewards with won slots
       final epochRewardsResp = await epochRewards(epoch: epoch);
       if (epochRewardsResp == null) {
-        LoggingService.instance
-            .warn('Cannot get epoch info: epoch rewards unavailable');
+        _log.warn('Cannot get epoch info: epoch rewards unavailable');
         return null;
       }
 

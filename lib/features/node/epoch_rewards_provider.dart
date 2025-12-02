@@ -7,7 +7,7 @@ import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'node_provider.dart';
 
-final _log = LoggingService.instance.withTag(LogTag.node);
+final _log = LoggingService.instance.withTag(LogTag.epochRewardsProvider);
 
 // --- Cache data model ---
 
@@ -155,8 +155,7 @@ class EpochRewardsController extends AsyncNotifier<EpochRewardsState?> {
 
   Future<EpochRewardsState?> _load(int epoch) async {
     try {
-      LoggingService.instance
-          .debug('Fetching live epoch rewards for epoch $epoch...');
+      _log.debug('Fetching live epoch rewards for epoch $epoch...');
 
       final rewards =
           await RustBackendService.instance.epochRewards(epoch: epoch);

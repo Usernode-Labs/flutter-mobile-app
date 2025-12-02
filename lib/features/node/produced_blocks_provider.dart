@@ -16,6 +16,9 @@ class ProducedBlocksSummary {
   final BigInt rewardsPerBlock;
   final int maxEpochWithData;
   final List<EpochScore> epochScores;
+  /// True if the backend (or cache) reported any epochs with data.
+  /// When false, the node likely hasn't produced or indexed any blocks yet.
+  final bool hasEpochsWithData;
 
   const ProducedBlocksSummary({
     required this.totalScore,
@@ -25,6 +28,7 @@ class ProducedBlocksSummary {
     required this.rewardsPerBlock,
     required this.maxEpochWithData,
     required this.epochScores,
+    required this.hasEpochsWithData,
   });
 }
 
@@ -198,6 +202,16 @@ Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
     }
   });
 
+  // Consider that we "have epochs with data" only if there exists at least one
+  // slot in any epoch whose status is something other than NotCalculated.
+  // This is more robust than just checking the backend epochs list, which may
+  // include epochs that are still entirely unevaluated.
+  final bool hasEpochsWithData = epochData.any((epoch) {
+    final slots = epoch.slotData;
+    if (slots == null || slots.isEmpty) return false;
+    return slots.any((slot) => slot.result != RpcSlotResult.notCalculated);
+  });
+
   final totalScore = epochScores
       .map((epoch) => epoch.evaluatedPercent * epoch.producedOfEvaluatedPercent)
       .reduce((a, b) => a * b);
@@ -214,6 +228,7 @@ Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
     rewardsPerBlock: _rewardsPerBlock,
     maxEpochWithData: maxEpochWithData,
     epochScores: epochScores.toList(),
+    hasEpochsWithData: hasEpochsWithData,
   );
 }
 

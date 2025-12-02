@@ -350,7 +350,7 @@
   "@importApiAccountCodeHint": {
     "description": "Activation code field hint"
   },
-  "importApiAccountSubmit": "Submit",
+  "importApiAccountSubmit": "Verify Code",
   "@importApiAccountSubmit": {
     "description": "Submit button text"
   },

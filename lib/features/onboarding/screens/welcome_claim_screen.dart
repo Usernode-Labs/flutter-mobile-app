@@ -9,6 +9,7 @@ class WelcomeClaimScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
 
     return Scaffold(
       body: SafeArea(
@@ -21,13 +22,24 @@ class WelcomeClaimScreen extends StatelessWidget {
                 child: Center(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 32),
-                    child: Text(
-                      l10n.welcomeTitle,
-                      textAlign: TextAlign.center,
-                      style:
-                          Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Alpha Phase',
+                          textAlign: TextAlign.center,
+                          style:
+                              theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.normal,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          'You made the first wave of people running an L1 on their mobile devices',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -36,7 +48,7 @@ class WelcomeClaimScreen extends StatelessWidget {
                 width: double.infinity,
                 child: FilledButton(
                   onPressed: () => context.go(AppRoutes.onboardingImportApi),
-                  child: Text(l10n.welcomeClaimAccount),
+                  child: const Text('Claim your spot'),
                 ),
               ),
             ],

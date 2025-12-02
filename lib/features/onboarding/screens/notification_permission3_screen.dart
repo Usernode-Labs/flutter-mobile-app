@@ -33,6 +33,10 @@ class _NotificationPermission3ScreenState
       _granted = status.isGranted;
       _permanentlyDenied = status.isPermanentlyDenied;
     });
+    // If notifications are already enabled, advance automatically.
+    if (status.isGranted && mounted) {
+      context.go(AppRoutes.onboardingBatteryPermission2);
+    }
   }
 
   Future<void> _requestNotifications() async {
@@ -58,6 +62,10 @@ class _NotificationPermission3ScreenState
           ),
         ),
       );
+      // If the user just enabled notifications, advance automatically.
+      if (isGranted && mounted) {
+        context.go(AppRoutes.onboardingBatteryPermission2);
+      }
     } finally {
       if (mounted) setState(() => _requesting = false);
     }
@@ -65,10 +73,9 @@ class _NotificationPermission3ScreenState
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.permNotificationsTitle)),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -77,90 +84,56 @@ class _NotificationPermission3ScreenState
             children: [
               Expanded(
                 child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Text(
-                          l10n.permNotificationsExplanation,
-                          textAlign: TextAlign.center,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Allow notifications to allow the app to make blocks in the background',
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.normal,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      if (_granted != true)
-                        FilledButton.tonal(
-                          onPressed: _requesting ? null : _requestNotifications,
-                          child: _requesting
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child:
-                                      CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : Text(l10n.permAllowNotifications),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Android requires a visible status to allow the app to work in the background. Without it, the system will be unable to do background block production.',
+                          style: theme.textTheme.bodyMedium,
                         ),
-                      const SizedBox(height: 12),
-                      if (_permanentlyDenied == true)
-                        Column(
-                          children: [
-                            Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 16),
-                              child: Text(
-                                l10n.permNotificationsDisabledMessage,
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            OutlinedButton(
-                              onPressed: () async {
-                                await openAppSettings();
-                                // Re-check status after returning from Settings
-                                if (!mounted) return;
-                                await _checkInitialStatus();
-                              },
-                              child: Text(l10n.permOpenSettings),
-                            ),
-                          ],
-                        ),
-                      const SizedBox(height: 16),
-                      if (_granted != null)
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              _granted! ? Icons.check_circle : Icons.warning,
-                              color: _granted! ? Colors.green : Colors.orange,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              _granted!
-                                  ? l10n.permNotificationsEnabled
-                                  : l10n.permNotificationsDisabled,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
               const SizedBox(height: 24),
+              if (_granted != true) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _requesting ? null : _requestNotifications,
+                    child: _requesting
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Allow Notifications'),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  onPressed: (_granted == true)
-                      ? () async {
-                          await markOnboardingComplete();
-                          ref.invalidate(hasCompletedOnboardingProvider);
-                          if (!context.mounted) return;
-                          context.go(AppRoutes.home);
-                        }
-                      : null,
-                  child: Text(l10n.commonFinish),
+                  onPressed: () =>
+                      context.go(AppRoutes.onboardingBatteryPermission2),
+                  style: FilledButton.styleFrom(
+                    backgroundColor:
+                        theme.colorScheme.surfaceContainerHighest, // darker gray
+                    foregroundColor: theme.colorScheme.onSurface,
+                  ),
+                  child: const Text('Skip'),
                 ),
               ),
             ],

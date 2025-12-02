@@ -29,6 +29,12 @@ class _ExactAlarmPermission1ScreenState
     await PlatformAlarmService.instance.initialize();
     final has = await PlatformAlarmService.instance.hasExactAlarmPermission();
     if (!mounted) return;
+    // If exact alarm permission is already granted (or we're not on Android),
+    // skip this screen entirely and move straight to the next step.
+    if (has || !Platform.isAndroid) {
+      context.go(AppRoutes.onboardingNotificationPermission3);
+      return;
+    }
     setState(() {
       _hasExactAlarm = has;
       _checking = false;
@@ -117,8 +123,8 @@ class _ExactAlarmPermission1ScreenState
                     const Spacer(),
                     FilledButton(
                       onPressed: (_hasExactAlarm || !isAndroid)
-                          ? () =>
-                              context.go(AppRoutes.onboardingBatteryPermission2)
+                          ? () => context
+                              .go(AppRoutes.onboardingNotificationPermission3)
                           : null,
                       child: Text(l10n.commonNext),
                     ),

@@ -73,6 +73,7 @@ class _NotificationPermission3ScreenState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -91,14 +92,14 @@ class _NotificationPermission3ScreenState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Allow notifications to allow the app to make blocks in the background',
+                          l10n.permNotificationsBlockBackgroundTitle,
                           style: theme.textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.normal,
                           ),
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'Android requires a visible status to allow the app to work in the background. Without it, the system will be unable to do background block production.',
+                          l10n.permNotificationsBlockBackgroundBody,
                           style: theme.textTheme.bodyMedium,
                         ),
                       ],
@@ -121,7 +122,7 @@ class _NotificationPermission3ScreenState
                             width: 20,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('Allow Notifications'),
+                        : Text(l10n.permAllowNotifications),
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -137,7 +138,7 @@ class _NotificationPermission3ScreenState
                         theme.colorScheme.surfaceContainerHighest, // darker gray
                     foregroundColor: theme.colorScheme.onSurface,
                   ),
-                  child: const Text('Skip'),
+                  child: Text(l10n.permNotificationsSkip),
                 ),
               ),
             ],

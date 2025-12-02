@@ -136,7 +136,7 @@ class _OnboardingImportApiAccountScreenState
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Text(
-                  'Verify access',
+                  l10n.onboardingVerifyAccessTitle,
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.normal,
                   ),
@@ -146,7 +146,7 @@ class _OnboardingImportApiAccountScreenState
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Text(
-                  'Use the code we shared with you.',
+                  l10n.onboardingVerifyAccessSubtitle,
                   style: theme.textTheme.bodyMedium,
                 ),
               ),

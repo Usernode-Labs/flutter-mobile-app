@@ -724,6 +724,44 @@
     "description": "Claim account button text"
   },
 
+  "welcomeAlphaTitle": "Alpha Phase",
+  "@welcomeAlphaTitle": {
+    "description": "Title for the alpha-phase welcome screen"
+  },
+  "welcomeAlphaSubtitle": "You made the first wave of people running an L1 on their mobile devices",
+  "@welcomeAlphaSubtitle": {
+    "description": "Subtitle explaining the user is part of the first wave"
+  },
+  "welcomeAlphaClaimSpot": "Claim your spot",
+  "@welcomeAlphaClaimSpot": {
+    "description": "Button text for claiming a spot in the alpha"
+  },
+
+  "onboardingVerifyAccessTitle": "Verify access",
+  "@onboardingVerifyAccessTitle": {
+    "description": "Title for the verify access screen"
+  },
+  "onboardingVerifyAccessSubtitle": "Use the code we shared with you.",
+  "@onboardingVerifyAccessSubtitle": {
+    "description": "Subtitle explaining how to verify access"
+  },
+
+  "onboardingWelcomeSetupTitle": "Welcome, {userId}",
+  "@onboardingWelcomeSetupTitle": {
+    "description": "Personalized welcome title on the setup screen",
+    "placeholders": {
+      "userId": { "type": "String" }
+    }
+  },
+  "onboardingWelcomeSetupBody": "You are part of the initial test cohort. This app runs a block producing node.\n\nWe need to configure your device to produce blocks on demand.",
+  "@onboardingWelcomeSetupBody": {
+    "description": "Body text explaining the initial test cohort and device setup"
+  },
+  "onboardingWelcomeSetupStartButton": "Start Setup",
+  "@onboardingWelcomeSetupStartButton": {
+    "description": "Button text to start the setup flow"
+  },
+
   "permExactAlarmsTitle": "Exact Alarms",
   "@permExactAlarmsTitle": {
     "description": "Exact alarms permission screen title"
@@ -828,6 +866,19 @@
   "permAllowNotifications": "Allow notifications",
   "@permAllowNotifications": {
     "description": "Button to allow notifications"
+  },
+
+  "permNotificationsBlockBackgroundTitle": "Allow notifications to allow the app to make blocks in the background",
+  "@permNotificationsBlockBackgroundTitle": {
+    "description": "Title explaining why notifications are needed for background block production"
+  },
+  "permNotificationsBlockBackgroundBody": "Android requires a visible status to allow the app to work in the background. Without it, the system will be unable to do background block production.",
+  "@permNotificationsBlockBackgroundBody": {
+    "description": "Body text explaining Android's requirement for a visible status"
+  },
+  "permNotificationsSkip": "Skip",
+  "@permNotificationsSkip": {
+    "description": "Button text to skip enabling notifications"
   },
   "permNotificationsDisabledMessage": "Notifications are currently disabled. You can enable them in Settings.",
   "@permNotificationsDisabledMessage": {

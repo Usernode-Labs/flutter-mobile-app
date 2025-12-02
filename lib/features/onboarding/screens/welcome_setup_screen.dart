@@ -33,14 +33,14 @@ class WelcomeSetupScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Welcome, $displayUserId',
+                        l10n.onboardingWelcomeSetupTitle(displayUserId),
                         style: theme.textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.normal,
                         ),
                       ),
                       const SizedBox(height: 20),
                       Text(
-                        'You are part of the initial test cohort. This app runs a block producing node.\n\nWe need to configure your device to produce blocks on demand.',
+                        l10n.onboardingWelcomeSetupBody,
                         style: theme.textTheme.bodyMedium,
                       ),
                     ],
@@ -60,7 +60,7 @@ class WelcomeSetupScreen extends ConsumerWidget {
                   style: FilledButton.styleFrom(
                     minimumSize: const Size.fromHeight(52),
                   ),
-                  child: const Text('Start Setup'),
+                  child: Text(l10n.onboardingWelcomeSetupStartButton),
                 ),
               ),
             ],

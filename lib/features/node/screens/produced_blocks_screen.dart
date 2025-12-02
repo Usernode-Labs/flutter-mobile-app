@@ -22,6 +22,9 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen> {
 
   Timer? _refreshTimer;
   bool _refreshingSummary = false;
+  Timer? _nodeStatusRefreshTimer;
+  bool _refreshingNodeStatus = false;
+   bool _showSyncingLabel = false;
 
   void _startAutoRefreshTimer() {
     // Avoid creating multiple timers on repeated hot reloads.
@@ -33,12 +36,66 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen> {
     });
   }
 
+  void _updateSyncingLabel({
+    ProducedBlocksSummary? summary,
+    NodeStatusState? status,
+  }) {
+    // Use latest values from providers if not explicitly provided.
+    final effectiveSummary = summary ??
+        ref.read(producedBlocksSummaryProvider).maybeWhen(
+              data: (value) => value,
+              orElse: () => null,
+            );
+    final effectiveStatus = status ?? ref.read(nodeStatusProvider).value;
+
+    final bool noEpochsWithData =
+        effectiveSummary == null ? true : !effectiveSummary.hasEpochsWithData;
+
+    final sync = effectiveStatus?.syncStatus;
+    final bool isConnecting = sync?.isConnecting ?? true;
+    final bool isSynced = sync?.isSynced ?? false;
+
+    print('isSynced: $isSynced, isConnecting: $isConnecting, noEpochsWithData: $noEpochsWithData');
+
+    final bool shouldShow =
+        noEpochsWithData && (isConnecting || !isSynced);
+
+    if (mounted && shouldShow != _showSyncingLabel) {
+      setState(() {
+        _showSyncingLabel = shouldShow;
+      });
+    }
+  }
+
+  void _startNodeStatusRefreshTimer() {
+    // Avoid creating multiple timers on repeated hot reloads.
+    _nodeStatusRefreshTimer?.cancel();
+    _nodeStatusRefreshTimer =
+        Timer.periodic(const Duration(seconds: 3), (_) async {
+      if (!mounted || _refreshingNodeStatus) return;
+      _refreshingNodeStatus = true;
+      try {
+        await ref.read(nodeStatusProvider.notifier).refresh();
+        _updateSyncingLabel(
+          status: ref.read(nodeStatusProvider).value,
+        );
+      } finally {
+        if (mounted) {
+          _refreshingNodeStatus = false;
+        }
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
     // Periodically refresh the produced blocks summary so slot progress
     // and related metrics stay up to date while this screen is visible.
     _startAutoRefreshTimer();
+    // Also periodically refresh node status so slot timing and progress
+    // reflect the latest backend state.
+    _startNodeStatusRefreshTimer();
   }
 
   @override
@@ -48,11 +105,13 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen> {
     ref.invalidate(producedBlocksSummaryProvider);
     // Ensure the periodic refresh is (re)started after hot reload.
     _startAutoRefreshTimer();
+    _startNodeStatusRefreshTimer();
   }
 
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _nodeStatusRefreshTimer?.cancel();
     super.dispose();
   }
 
@@ -60,7 +119,9 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen> {
     if (_refreshingSummary || !mounted) return;
     _refreshingSummary = true;
     try {
-      final _ = await ref.refresh(producedBlocksSummaryProvider.future);
+      final summary =
+          await ref.refresh(producedBlocksSummaryProvider.future);
+      _updateSyncingLabel(summary: summary);
     } finally {
       if (mounted) {
         _refreshingSummary = false;
@@ -122,6 +183,15 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen> {
     final onSurfaceVariant = theme.colorScheme.onSurfaceVariant;
     final l10n = AppLocalizations.of(context);
     final summary = ref.watch(producedBlocksSummaryProvider);
+    final nodeStatus = ref.watch(nodeStatusProvider).value;
+    final sync = nodeStatus?.syncStatus;
+    final syncPercentage = sync?.progress ?? 0.0;
+    final colorScheme = theme.colorScheme;
+    final bool isSynced = sync?.isSynced ?? false;
+    final bool isConnecting = sync == null || sync.isConnecting;
+    final Color syncAccentColor = isConnecting
+        ? colorScheme.outline
+        : (isSynced ? colorScheme.tertiary : colorScheme.primary);
     final dataValue = summary.asData?.value;
     final currentEpoch = dataValue?.currentEpoch ?? 0;
     final maxEpochWithData = dataValue?.maxEpochWithData ?? currentEpoch;
@@ -145,103 +215,141 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen> {
             child: SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // Top KPI centered within the top area
-                    Expanded(
-                      child: Center(
+                child: _showSyncingLabel
+                    ? Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              l10n.producedBlocksSuccessRateLast10Epochs,
-                              style: theme.textTheme.bodySmall
-                                  ?.copyWith(color: onSurfaceVariant),
+                              'Performing Initial Sync',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                color: theme.colorScheme.onSurface,
+                                fontWeight: FontWeight.w600,
+                              ),
                               textAlign: TextAlign.center,
                             ),
-                            const SizedBox(height: 20),
-                            summary.when(
-                              data: (value) => Text(
-                                '${(totalScoreLastN(value, 10) * 100).toStringAsFixed(1)}%',
-                                style: theme.textTheme.displaySmall,
-                                textAlign: TextAlign.center,
-                              ),
-                              loading: () => const SizedBox(
-                                width: 28,
-                                height: 28,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2.5),
-                              ),
-                              error: (e, _) => Text(
-                                l10n.commonNoValuePlaceholder,
-                                style: theme.textTheme.displaySmall,
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
                             const SizedBox(height: 16),
-                            Builder(
-                              builder: (_) {
-                                return Column(
-                                  children: [
-                                    summary.when(
-                                      data: (value) {
-                                        final (earned, possible) =
-                                            totalTokensLastN(value, 10);
-                                        return IntrinsicWidth(
-                                          child: Container(
-                                            constraints: const BoxConstraints(
-                                              minHeight: 48,
-                                            ),
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 16,
-                                              vertical: 12,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: theme.colorScheme
-                                                  .secondaryContainer,
-                                              borderRadius:
-                                                  BorderRadius.circular(24),
-                                            ),
-                                            child: Center(
-                                              child: Text(
-                                                l10n.producedBlocksTokensEarnedSummary(
-                                                  earned.toStringAsFixed(0),
-                                                  possible.toStringAsFixed(0),
-                                                ),
-                                                style: theme
-                                                    .textTheme.titleMedium,
-                                                textAlign: TextAlign.center,
-                                              ),
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                      loading: () => const SizedBox(
-                                        width: 28,
-                                        height: 28,
-                                        child: CircularProgressIndicator(
-                                            strokeWidth: 2.5),
-                                      ),
-                                      error: (e, _) => Text(
-                                        '${l10n.commonNoValuePlaceholder} / ${l10n.commonNoValuePlaceholder}',
-                                        style: theme.textTheme.titleMedium,
-                                        textAlign: TextAlign.center,
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              },
+                            SizedBox(
+                              width: 260,
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: LinearProgressIndicator(
+                                  value: syncPercentage,
+                                  backgroundColor:
+                                      colorScheme.surfaceContainerHighest,
+                                  valueColor:
+                                      AlwaysStoppedAnimation<Color>(syncAccentColor),
+                                  minHeight: 8,
+                                ),
+                              ),
                             ),
                           ],
                         ),
-                      ),
-                    ),
-                    // Bottom group: epoch + block production, hugged to bottom
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          // Top KPI centered within the top area
+                          Expanded(
+                            child: Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    l10n.producedBlocksSuccessRateLast10Epochs,
+                                    style: theme.textTheme.bodySmall
+                                        ?.copyWith(color: onSurfaceVariant),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(height: 20),
+                                  summary.when(
+                                    data: (value) => Text(
+                                      '${(totalScoreLastN(value, 10) * 100).toStringAsFixed(1)}%',
+                                      style: theme.textTheme.displaySmall,
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    loading: () => const SizedBox(
+                                      width: 28,
+                                      height: 28,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2.5),
+                                    ),
+                                    error: (e, _) => Text(
+                                      l10n.commonNoValuePlaceholder,
+                                      style: theme.textTheme.displaySmall,
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Builder(
+                                    builder: (_) {
+                                      return Column(
+                                        children: [
+                                          summary.when(
+                                            data: (value) {
+                                              final (earned, possible) =
+                                                  totalTokensLastN(value, 10);
+                                              return IntrinsicWidth(
+                                                child: Container(
+                                                  constraints:
+                                                      const BoxConstraints(
+                                                    minHeight: 48,
+                                                  ),
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                    horizontal: 16,
+                                                    vertical: 12,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: theme.colorScheme
+                                                        .secondaryContainer,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            24),
+                                                  ),
+                                                  child: Center(
+                                                    child: Text(
+                                                      l10n.producedBlocksTokensEarnedSummary(
+                                                        earned
+                                                            .toStringAsFixed(0),
+                                                        possible
+                                                            .toStringAsFixed(0),
+                                                      ),
+                                                      style: theme.textTheme
+                                                          .titleMedium,
+                                                      textAlign:
+                                                          TextAlign.center,
+                                                    ),
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                            loading: () => const SizedBox(
+                                              width: 28,
+                                              height: 28,
+                                              child: CircularProgressIndicator(
+                                                  strokeWidth: 2.5),
+                                            ),
+                                            error: (e, _) => Text(
+                                              '${l10n.commonNoValuePlaceholder} / ${l10n.commonNoValuePlaceholder}',
+                                              style: theme.textTheme
+                                                  .titleMedium,
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          // Bottom group: epoch + block production, hugged to bottom
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
                         Builder(builder: (context) {
                           final currEpochSlot =
                               summary.asData?.value.currentEpochSlot;

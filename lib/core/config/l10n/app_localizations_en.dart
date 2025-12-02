@@ -283,7 +283,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get importApiAccountCodeHint => 'Enter your code';
 
   @override
-  String get importApiAccountSubmit => 'Submit';
+  String get importApiAccountSubmit => 'Verify Code';
 
   @override
   String get importApiAccountFailed => 'Failed to import account from API';

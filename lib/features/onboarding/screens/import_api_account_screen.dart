@@ -123,47 +123,60 @@ class _OnboardingImportApiAccountScreenState
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppAppBar(
-        title: l10n.importApiAccountTitle,
-        showNodeStatus: false,
-      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  'Verify access',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.normal,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  'Use the code we shared with you.',
+                  style: theme.textTheme.bodyMedium,
+                ),
+              ),
+              const SizedBox(height: 30),
               Expanded(
-                child: Align(
-                  alignment: const FractionalOffset(0.5, 0.33),
-                  child: SingleChildScrollView(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          TextField(
-                            controller: _contactController,
-                            decoration: InputDecoration(
-                              labelText: l10n.importApiAccountContactLabel,
-                              hintText: l10n.importApiAccountContactHint,
-                            ),
-                            textInputAction: TextInputAction.next,
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        TextField(
+                          controller: _contactController,
+                          decoration: InputDecoration(
+                            labelText: l10n.importApiAccountContactLabel,
+                            hintText: l10n.importApiAccountContactHint,
                           ),
-                          const SizedBox(height: 16),
-                          TextField(
-                            controller: _activationCodeController,
-                            decoration: InputDecoration(
-                              labelText: l10n.importApiAccountCodeLabel,
-                              hintText: l10n.importApiAccountCodeHint,
-                            ),
-                            textInputAction: TextInputAction.done,
+                          textInputAction: TextInputAction.next,
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _activationCodeController,
+                          decoration: InputDecoration(
+                            labelText: l10n.importApiAccountCodeLabel,
+                            hintText: l10n.importApiAccountCodeHint,
                           ),
-                        ],
-                      ),
+                          textInputAction: TextInputAction.done,
+                        ),
+                      ],
                     ),
                   ),
                 ),

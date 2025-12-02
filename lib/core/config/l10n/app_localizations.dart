@@ -595,7 +595,7 @@ abstract class AppLocalizations {
   /// Submit button text
   ///
   /// In en, this message translates to:
-  /// **'Submit'**
+  /// **'Verify Code'**
   String get importApiAccountSubmit;
 
   /// API account import failure message

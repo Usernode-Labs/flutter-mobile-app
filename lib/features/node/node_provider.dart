@@ -365,14 +365,6 @@ class NodeStatusController extends AsyncNotifier<NodeStatusState?> {
       return SyncStatus.connecting();
     }
 
-    // Special case - genesis block
-    if (localHeight <= 1 && networkHeight! <= 1) {
-      _log.trace(
-        'At genesis block (height <= 1) - status: CONNECTING',
-      );
-      return SyncStatus.connecting();
-    }
-
     // Extract applied blocks data
     final appliedBlocks = state.appliedBlocksCount;
     final targetBlocks = state.totalBlocksToApply;

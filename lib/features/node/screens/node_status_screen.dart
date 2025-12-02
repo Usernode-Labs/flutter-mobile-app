@@ -70,9 +70,10 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       _refresh();
       _loadActiveAccount();
     });
-    // Determine initial active state and maybe start timer
-    _active = _isActiveTab();
-    if (_active) _startTimer();
+    // Start timer immediately since we're on this screen
+    // The build() method will handle stopping it if tab changes
+    _active = true;
+    _startTimer();
   }
 
   Future<void> _loadActiveAccount() async {

@@ -443,21 +443,24 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
     // Determine what to display for block counts
     String blockDisplayText;
+    final currentHeight =
+        statusFromProvider?.localBestHeight ?? _currentBlockHeight ?? 0;
+    final networkHeight = statusFromProvider?.networkBestHeight ??
+        _networkBestTipHeight ??
+        currentHeight;
     if (sync == null || sync.isConnecting) {
       // Don't show block count when connecting
       blockDisplayText = '';
+    } else if (isSynced) {
+      // When synced, show block height
+      blockDisplayText = 'Block $currentHeight / $networkHeight';
     } else if (sync.appliedBlocks != null && sync.targetBlocks != null) {
-      // Use applied blocks data
+      // Use applied blocks data when syncing
       final appliedStr = _formatBigIntStatic(sync.appliedBlocks!);
       final targetStr = _formatBigIntStatic(sync.targetBlocks!);
       blockDisplayText = 'Block $appliedStr / $targetStr';
     } else {
       // Fallback to height-based display
-      final currentHeight =
-          statusFromProvider?.localBestHeight ?? _currentBlockHeight ?? 0;
-      final networkHeight = statusFromProvider?.networkBestHeight ??
-          _networkBestTipHeight ??
-          currentHeight;
       blockDisplayText = 'Block $currentHeight / $networkHeight';
     }
 

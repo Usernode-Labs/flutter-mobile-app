@@ -309,7 +309,7 @@ class SlotMonitorService {
         );
         _log.debug('Recorded production success for slot $slotNumber');
       } catch (e) {
-        LoggingService.instance.warn(
+        _log.warn(
             'Failed to record production success for slot $slotNumber: $e');
       }
 

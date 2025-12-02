@@ -162,7 +162,7 @@ class EpochSlotSchedulerService {
       }
 
       final newEpoch = epochData.epoch;
-      LoggingService.instance.debug(
+      _log.debug(
           'Backend reports epoch: $newEpoch, tracked epoch: $_currentEpoch');
 
       // Check if epoch has changed

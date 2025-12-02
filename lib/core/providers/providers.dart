@@ -12,10 +12,10 @@ final _log = LoggingService.instance.withTag(LogTag.provider);
 
 // Derived async providers
 final hasAnyAccountProvider = FutureProvider<bool>((ref) async {
-  LoggingService.instance.debug('hasAnyAccountProvider: evaluating...');
+  _log.debug('hasAnyAccountProvider: evaluating...');
   final repo = await AccountsRepository.create();
   final result = await repo.hasAny();
-  LoggingService.instance.debug('hasAnyAccountProvider: result = $result');
+  _log.debug('hasAnyAccountProvider: result = $result');
   return result;
 });
 

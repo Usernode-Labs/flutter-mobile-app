@@ -457,15 +457,12 @@ class _CustomLogPrinter extends LogPrinter {
 ///
 /// Usage:
 /// ```dart
-/// LoggingService.instance.trace('Message', tag: LogTag.rust);
+/// LoggingService.instance.trace('Message', tag: LogTag.node);
 /// ```
 ///
 /// Backward compatibility: String tags are still supported.
 enum LogTag {
   bootstrap('BOOTSTRAP'),
-
-  /// Rust backend and FFI bridge operations
-  rust('RUST'),
 
   /// Riverpod provider state management
   provider('PROVIDER'),
@@ -473,56 +470,14 @@ enum LogTag {
   /// Wallet operations (UTXOs, transactions, assets)
   wallet('WALLET'),
 
-  /// Node sync status and blockchain operations
-  sync('SYNC'),
-
-  /// UI rendering and interactions
-  ui('UI'),
-
-  /// Navigation and routing
-  navigation('NAVIGATION'),
-
   /// Onboarding flow
   onboarding('ONBOARDING'),
-
-  /// User authentication and accounts
-  auth('AUTH'),
-
-  /// Notifications
-  notifications('NOTIFICATIONS'),
-
-  /// Rewards and epoch data
-  rewards('REWARDS'),
 
   /// Node status and peers
   node('NODE'),
 
-  /// Mempool operations
-  mempool('MEMPOOL'),
-
-  /// Blockchain data
-  blockchain('BLOCKCHAIN'),
-
-  /// UTXO management
-  utxo('UTXO'),
-
-  /// Transaction activity
-  activity('ACTIVITY'),
-
-  /// Asset management
-  assets('ASSETS'),
-
-  /// Network and RPC calls
-  network('NETWORK'),
-
   /// Application lifecycle
   lifecycle('LIFECYCLE'),
-
-  /// Backend lifecycle management
-  backendLifecycle('BACKEND_LIFECYCLE'),
-
-  /// Sentry and error tracking
-  sentry('SENTRY'),
 
   /// Performance and timing
   performance('PERF'),
@@ -533,14 +488,8 @@ enum LogTag {
   /// General/uncategorized
   general('GENERAL'),
 
-  /// Home screen operations
-  home('HOME'),
-
   /// App routing
   router('ROUTER'),
-
-  /// App drawer/navigation menu
-  drawer('DRAWER'),
 
   /// Epoch Rewards Provider
   epochRewardsProvider('EPOCH_REWARDS_PROVIDER'),

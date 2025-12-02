@@ -48,6 +48,9 @@ class WelcomeClaimScreen extends StatelessWidget {
                 width: double.infinity,
                 child: FilledButton(
                   onPressed: () => context.go(AppRoutes.onboardingImportApi),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(52),
+                  ),
                   child: const Text('Claim your spot'),
                 ),
               ),

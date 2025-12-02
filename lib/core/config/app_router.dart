@@ -10,6 +10,7 @@ import 'package:crypto_mobile_app/features/onboarding/screens/import_api_account
 import 'package:crypto_mobile_app/features/onboarding/screens/exact_alarm_permission1_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/battery_permission2_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/notification_permission3_screen.dart';
+import 'package:crypto_mobile_app/features/onboarding/screens/welcome_setup_screen.dart';
 import 'package:crypto_mobile_app/features/home/screens/home_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/slot_assignments_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/produced_block_details_screen.dart';
@@ -35,6 +36,7 @@ class AppRoutes {
 
   // Onboarding flow
   static const onboardingImportApi = '/onboarding/import-api';
+  static const onboardingWelcomeSetup = '/onboarding/welcome-setup';
   static const onboardingExactAlarmPermission1 =
       '/onboarding/exact-alarm-permission1';
   static const onboardingBatteryPermission2 = '/onboarding/battery-permission2';
@@ -91,9 +93,9 @@ final _navigatorKey = GlobalKey<NavigatorState>(debugLabel: 'mainNavigator');
 GlobalKey<NavigatorState> get appNavigatorKey => _navigatorKey;
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  // Watch providers to make router reactive
-  ref.watch(hasAnyAccountProvider);
-  ref.watch(hasCompletedOnboardingProvider);
+  // Watch providers to make router reactive and capture their values
+  final hasAnyAccountAsync = ref.watch(hasAnyAccountProvider);
+  final hasCompletedOnboardingAsync = ref.watch(hasCompletedOnboardingProvider);
 
   return GoRouter(
     navigatorKey: _navigatorKey,
@@ -112,6 +114,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.onboardingImportApi,
         builder: (context, state) => const OnboardingImportApiAccountScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.onboardingWelcomeSetup,
+        builder: (context, state) => const WelcomeSetupScreen(),
       ),
       GoRoute(
         path: AppRoutes.onboardingExactAlarmPermission1,
@@ -178,12 +184,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
     ],
     redirect: (context, state) {
-      final hasAny = ref
-          .read(hasAnyAccountProvider)
-          .maybeWhen(data: (v) => v, orElse: () => null);
-      final hasCompletedOnboarding = ref
-          .read(hasCompletedOnboardingProvider)
-          .maybeWhen(data: (v) => v, orElse: () => null);
+      final hasAny = hasAnyAccountAsync.maybeWhen(
+        data: (v) => v,
+        orElse: () => null,
+      );
+      final hasCompletedOnboarding = hasCompletedOnboardingAsync.maybeWhen(
+        data: (v) => v,
+        orElse: () => null,
+      );
 
       final currentLocation = state.matchedLocation;
 
@@ -200,6 +208,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       const publicRoutes = [
         AppRoutes.splash,
         AppRoutes.onboarding,
+        AppRoutes.onboardingImportApi,
+        AppRoutes.onboardingWelcomeSetup,
       ];
 
       final isPublicRoute = publicRoutes.contains(currentLocation);
@@ -233,11 +243,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         }
         // Splash should redirect to first permission screen
         if (currentLocation == AppRoutes.splash) {
-          _log.trace('Redirecting splash to permission flow');
-          // iOS skips Android-only permission screens (Exact Alarm, Battery)
-          return Platform.isIOS
-              ? AppRoutes.onboardingNotificationPermission3
-              : AppRoutes.onboardingExactAlarmPermission1;
+          _log.trace('Redirecting splash to onboarding welcome-setup');
+          return AppRoutes.onboardingWelcomeSetup;
         }
       }
 

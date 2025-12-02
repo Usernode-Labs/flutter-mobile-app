@@ -29,6 +29,15 @@ class AppConfig {
   static const bool _verbose =
       bool.fromEnvironment('VERBOSE_LOGGING', defaultValue: false);
 
+  // Logging configuration
+  // Global log level (trace, debug, info, warning, error)
+  static const String logLevel =
+      String.fromEnvironment('LOG_LEVEL', defaultValue: 'info');
+
+  // Per-tag log level overrides (format: tag:level,tag:level)
+  static const String logTagLevels =
+      String.fromEnvironment('LOG_TAG_LEVELS', defaultValue: '');
+
   static AppConfig get instance => AppConfig._(
         environment: _env,
         verboseLogging: _verbose,

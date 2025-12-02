@@ -5,6 +5,47 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 
+/// Parse a log level string to [Level]
+Level _parseLevel(String levelStr) {
+  switch (levelStr.toLowerCase()) {
+    case 'trace':
+      return Level.trace;
+    case 'debug':
+      return Level.debug;
+    case 'info':
+      return Level.info;
+    case 'warning':
+    case 'warn':
+      return Level.warning;
+    case 'error':
+      return Level.error;
+    default:
+      return Level.info;
+  }
+}
+
+/// Parse tag-level overrides from config string (format: tag:level,tag:level)
+Map<LogTag, Level> _parseTagLevels(String config) {
+  if (config.isEmpty) return {};
+  final result = <LogTag, Level>{};
+  for (final entry in config.split(',')) {
+    final parts = entry.trim().split(':');
+    if (parts.length == 2) {
+      final tagName = parts[0].trim().toLowerCase();
+      final level = _parseLevel(parts[1].trim());
+      // Find matching LogTag by value or name (case-insensitive)
+      for (final tag in LogTag.values) {
+        if (tag.value.toLowerCase() == tagName ||
+            tag.name.toLowerCase() == tagName) {
+          result[tag] = level;
+          break;
+        }
+      }
+    }
+  }
+  return result;
+}
+
 /// Application-wide logging facade with enhanced features:
 ///
 /// - Type-safe tags via [LogTag] enum (backward compatible with strings)
@@ -47,17 +88,12 @@ class LoggingService {
 
   final Logger _logger;
 
-  // Per-tag log level configuration (can be overridden at runtime)
-  static final Map<LogTag, Level> _tagLevels = {
-    // Example: Show all RUST logs
-    LogTag.rust: Level.info,
-    // Example: Only warnings+ for providers
-    LogTag.provider: Level.warning,
-    // Default for others is handled in _AppLogFilter
-    LogTag.metrics: Level.debug,
-    LogTag.router: Level.error,
-    LogTag.home: Level.error,
-  };
+  // Global log level from config (default: info)
+  static final Level _globalLevel = _parseLevel(AppConfig.logLevel);
+
+  // Per-tag log level overrides from config
+  static final Map<LogTag, Level> _tagLevels =
+      _parseTagLevels(AppConfig.logTagLevels);
 
   /// Log a trace-level message
   void trace(String message, {dynamic tag, Map<String, dynamic>? context}) {
@@ -180,13 +216,13 @@ class LoggingService {
   }
 
   bool _shouldLog(Level level, dynamic tag) {
-    // Check tag-specific level if tag is provided
+    // Check tag-specific level override if tag is provided
     if (tag is LogTag && _tagLevels.containsKey(tag)) {
       return level.index >= _tagLevels[tag]!.index;
     }
 
-    // Default filter behavior
-    return true; // _AppLogFilter will handle this
+    // Fall back to global log level
+    return level.index >= _globalLevel.index;
   }
 
   String _decorate(String message, dynamic tag, Map<String, dynamic>? context) {
@@ -342,7 +378,12 @@ class TaggedLogger {
   LogTimer startTimer(String name) => _service.startTimer(name, tag: _tag);
 }
 
-/// Custom log filter with tag-based and environment-based filtering
+/// Custom log filter with environment-based filtering
+///
+/// Level filtering is primarily handled by [LoggingService._shouldLog]
+/// using LOG_LEVEL and LOG_TAG_LEVELS config. This filter adds:
+/// - Release mode restriction (warning+ only)
+/// - Backward compatibility with VERBOSE_LOGGING flag
 class _AppLogFilter extends LogFilter {
   @override
   bool shouldLog(LogEvent event) {
@@ -351,19 +392,8 @@ class _AppLogFilter extends LogFilter {
       return event.level.index >= Level.warning.index;
     }
 
-    // In debug/profile mode, respect VERBOSE_LOGGING flag
-    if (kDebugMode || kProfileMode) {
-      final verboseLogging = AppConfig.instance.verboseLogging;
-
-      // If verbose logging is OFF, suppress trace/debug
-      if (!verboseLogging && event.level.index < Level.info.index) {
-        return false;
-      }
-
-      return true;
-    }
-
-    // Default: log everything
+    // In debug/profile mode, level filtering is handled by _shouldLog
+    // using LOG_LEVEL config. Always allow here.
     return true;
   }
 }
@@ -511,6 +541,12 @@ enum LogTag {
 
   /// App drawer/navigation menu
   drawer('DRAWER'),
+
+  /// Epoch Rewards Provider
+  epochRewardsProvider('EPOCH_REWARDS_PROVIDER'),
+
+  /// Produced Blocks Provider
+  producedBlocksProvider('PRODUCED_BLOCK_PROVIDER'),
 
   /// Settings screens
   settings('SETTINGS');

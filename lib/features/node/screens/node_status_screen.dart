@@ -1308,7 +1308,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
               if (!_isRecentBlocksExpanded)
                 TextButton(
                   onPressed: () =>
-                      context.push(AppRoutes.mainNodeProducedBlocks),
+                      context.push(AppRoutes.nodeStatusProducedBlocks),
                   style: TextButton.styleFrom(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

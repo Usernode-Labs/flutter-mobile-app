@@ -158,7 +158,7 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
               // Header KPI card
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: theme.colorScheme.surfaceBright,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
@@ -326,7 +326,18 @@ class _ProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final track = Colors.grey.shade300;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = colorScheme.brightness == Brightness.dark;
+
+    // Match ProducedBlocksScreen epoch panel colors:
+    // - Light: grey track + black active
+    // - Dark: surfaceVariant track + primary active
+    final trackColor =
+        isDark ? colorScheme.surfaceVariant : Colors.grey.shade300;
+    final activeColor =
+        isDark ? colorScheme.primary : Colors.black87;
+
     final p = progress.clamp(0.0, 1.0);
     return SizedBox(
       height: 12,
@@ -336,7 +347,7 @@ class _ProgressBar extends StatelessWidget {
           Container(
             height: 4,
             decoration: BoxDecoration(
-              color: track,
+              color: trackColor,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -345,7 +356,7 @@ class _ProgressBar extends StatelessWidget {
             child: Container(
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.black87,
+                color: activeColor,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -356,7 +367,7 @@ class _ProgressBar extends StatelessWidget {
               width: 4,
               height: 8,
               decoration: BoxDecoration(
-                color: Colors.black87,
+                color: activeColor,
                 borderRadius: BorderRadius.circular(26),
               ),
             ),

@@ -1183,7 +1183,7 @@ abstract class AppLocalizations {
   /// Battery optimization screen title
   ///
   /// In en, this message translates to:
-  /// **'Battery Optimization'**
+  /// **'Disable Battery Optimizations'**
   String get permBatteryTitle;
 
   /// Section title for battery optimization explanation
@@ -1225,7 +1225,7 @@ abstract class AppLocalizations {
   /// Button to open battery settings
   ///
   /// In en, this message translates to:
-  /// **'Open Battery Settings'**
+  /// **'Open Settings'**
   String get permOpenBatterySettings;
 
   /// Warning for specific device manufacturers
@@ -1245,6 +1245,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Battery optimization enabled'**
   String get permBatteryOptEnabled;
+
+  /// Step instruction to tap App Battery Usage in system settings
+  ///
+  /// In en, this message translates to:
+  /// **'Tap \"App Battery Usage\"'**
+  String get onboardingBatteryStepAppUsage;
+
+  /// Step instruction to enable background usage
+  ///
+  /// In en, this message translates to:
+  /// **'Turn \"Allow background usage\" ON'**
+  String get onboardingBatteryStepAllowBackground;
+
+  /// Step instruction explaining to tap the text label
+  ///
+  /// In en, this message translates to:
+  /// **'Tap the TEXT itself. Tap the words \"Allow background usage\" to open the detailed menu.'**
+  String get onboardingBatteryStepTapText;
+
+  /// Step instruction to select Unrestricted mode
+  ///
+  /// In en, this message translates to:
+  /// **'Select Unrestricted'**
+  String get onboardingBatteryStepSelectUnrestricted;
+
+  /// Step instruction to return to the app from settings
+  ///
+  /// In en, this message translates to:
+  /// **'Tap the back button until you are back in the app.'**
+  String get onboardingBatteryStepReturnToApp;
+
+  /// Title shown when unrestricted battery optimization is enabled
+  ///
+  /// In en, this message translates to:
+  /// **'Unrestricted Battery Mode Active'**
+  String get onboardingBatteryUnrestrictedTitle;
+
+  /// Body text when unrestricted battery optimization is enabled
+  ///
+  /// In en, this message translates to:
+  /// **'Great job! The app is now protected from being killed in the background.'**
+  String get onboardingBatteryUnrestrictedBody;
+
+  /// Title shown when unrestricted battery optimization is not enabled
+  ///
+  /// In en, this message translates to:
+  /// **'Tap Continue to start the main app'**
+  String get onboardingBatteryDefaultTitle;
+
+  /// Body text encouraging user to enable unrestricted battery optimization
+  ///
+  /// In en, this message translates to:
+  /// **'We strongly recommend you enable unrestricted battery optimizations to ensure consistent background block production.'**
+  String get onboardingBatteryDefaultBody;
 
   /// Notifications permission screen title
   ///

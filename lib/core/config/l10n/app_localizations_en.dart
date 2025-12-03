@@ -614,7 +614,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonFinish => 'Finish';
 
   @override
-  String get permBatteryTitle => 'Battery Optimization';
+  String get permBatteryTitle => 'Disable Battery Optimizations';
 
   @override
   String get permBatteryWhyMatters => 'Why this matters';
@@ -639,7 +639,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'With optimization disabled, alarms fire precisely when scheduled.';
 
   @override
-  String get permOpenBatterySettings => 'Open Battery Settings';
+  String get permOpenBatterySettings => 'Open Settings';
 
   @override
   String permBatteryDeviceWarning(String manufacturer) {
@@ -651,6 +651,40 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get permBatteryOptEnabled => 'Battery optimization enabled';
+
+  @override
+  String get onboardingBatteryStepAppUsage => 'Tap \"App Battery Usage\"';
+
+  @override
+  String get onboardingBatteryStepAllowBackground =>
+      'Turn \"Allow background usage\" ON';
+
+  @override
+  String get onboardingBatteryStepTapText =>
+      'Tap the TEXT itself. Tap the words \"Allow background usage\" to open the detailed menu.';
+
+  @override
+  String get onboardingBatteryStepSelectUnrestricted => 'Select Unrestricted';
+
+  @override
+  String get onboardingBatteryStepReturnToApp =>
+      'Tap the back button until you are back in the app.';
+
+  @override
+  String get onboardingBatteryUnrestrictedTitle =>
+      'Unrestricted Battery Mode Active';
+
+  @override
+  String get onboardingBatteryUnrestrictedBody =>
+      'Great job! The app is now protected from being killed in the background.';
+
+  @override
+  String get onboardingBatteryDefaultTitle =>
+      'Tap Continue to start the main app';
+
+  @override
+  String get onboardingBatteryDefaultBody =>
+      'We strongly recommend you enable unrestricted battery optimizations to ensure consistent background block production.';
 
   @override
   String get permNotificationsTitle => 'Notifications';

@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +9,7 @@ import 'package:crypto_mobile_app/features/onboarding/screens/exact_alarm_permis
 import 'package:crypto_mobile_app/features/onboarding/screens/battery_permission2_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/notification_permission3_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/welcome_setup_screen.dart';
+import 'package:crypto_mobile_app/features/onboarding/screens/onboarding_battery_complete_screen.dart';
 import 'package:crypto_mobile_app/features/home/screens/home_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/slot_assignments_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/produced_block_details_screen.dart';
@@ -42,6 +41,7 @@ class AppRoutes {
   static const onboardingBatteryPermission2 = '/onboarding/battery-permission2';
   static const onboardingNotificationPermission3 =
       '/onboarding/notification-permission3';
+  static const onboardingBatteryComplete = '/onboarding/battery-complete';
 
   // Standalone routes
   static const slotAssignments = '/produced/slot-assignments';
@@ -130,6 +130,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.onboardingNotificationPermission3,
         builder: (context, state) => const NotificationPermission3Screen(),
+      ),
+      GoRoute(
+        path: AppRoutes.onboardingBatteryComplete,
+        builder: (context, state) => const OnboardingBatteryCompleteScreen(),
       ),
       GoRoute(
         path: AppRoutes.homeSlash,

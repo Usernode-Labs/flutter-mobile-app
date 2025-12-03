@@ -24,7 +24,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen> {
   bool _refreshingSummary = false;
   Timer? _nodeStatusRefreshTimer;
   bool _refreshingNodeStatus = false;
-   bool _showSyncingLabel = false;
+   bool _showSyncingLabel = true;
 
   void _startAutoRefreshTimer() {
     // Avoid creating multiple timers on repeated hot reloads.

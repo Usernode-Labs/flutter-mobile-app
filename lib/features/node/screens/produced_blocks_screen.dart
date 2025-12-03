@@ -2,8 +2,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/features/node/node_provider.dart';
 import 'package:crypto_mobile_app/features/node/produced_blocks_provider.dart';
 
@@ -17,14 +19,19 @@ class ProducedBlocksScreen extends ConsumerStatefulWidget {
       _ProducedBlocksScreenState();
 }
 
-class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen> {
+class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
+    with WidgetsBindingObserver {
   int? _viewedEpoch;
 
   Timer? _refreshTimer;
   bool _refreshingSummary = false;
   Timer? _nodeStatusRefreshTimer;
   bool _refreshingNodeStatus = false;
-   bool _showSyncingLabel = true;
+  bool _showSyncingLabel = true;
+  bool _notificationsEnabled = true;
+  bool _notificationsChecked = false;
+  bool _batteryOptimizationDisabled = true;
+  bool _batteryStatusChecked = false;
 
   void _startAutoRefreshTimer() {
     // Avoid creating multiple timers on repeated hot reloads.
@@ -40,6 +47,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen> {
     ProducedBlocksSummary? summary,
     NodeStatusState? status,
   }) {
+
     // Use latest values from providers if not explicitly provided.
     final effectiveSummary = summary ??
         ref.read(producedBlocksSummaryProvider).maybeWhen(
@@ -88,12 +96,270 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Periodically refresh the produced blocks summary so slot progress
     // and related metrics stay up to date while this screen is visible.
     _startAutoRefreshTimer();
     // Also periodically refresh node status so slot timing and progress
     // reflect the latest backend state.
     _startNodeStatusRefreshTimer();
+    _checkNotificationStatus();
+    _checkBatteryOptimizationStatus();
+  }
+
+  Future<void> _checkNotificationStatus() async {
+    try {
+      final status = await Permission.notification.status;
+      if (!mounted) return;
+      setState(() {
+        _notificationsEnabled = status.isGranted;
+        _notificationsChecked = true;
+      });
+    } catch (_) {
+      // If we can't determine status, default to treating notifications
+      // as enabled so we don't show a misleading warning panel.
+      if (!mounted) return;
+      setState(() {
+        _notificationsEnabled = true;
+        _notificationsChecked = true;
+      });
+    }
+  }
+
+  Future<void> _checkBatteryOptimizationStatus() async {
+    try {
+      await PlatformAlarmService.instance.initialize();
+      final disabled =
+          await PlatformAlarmService.instance.isBatteryOptimizationDisabled();
+      if (!mounted) return;
+      setState(() {
+        _batteryOptimizationDisabled = disabled;
+        _batteryStatusChecked = true;
+      });
+    } catch (_) {
+      // If status can't be determined, assume it's fine and avoid warning.
+      if (!mounted) return;
+      setState(() {
+        _batteryOptimizationDisabled = true;
+        _batteryStatusChecked = true;
+      });
+    }
+  }
+
+  Future<void> _showNotificationPermissionSheet() async {
+    if (!mounted) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        final theme = Theme.of(sheetContext);
+        final l10n = AppLocalizations.of(sheetContext);
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 24),
+                Text(
+                  l10n.permNotificationsBlockBackgroundTitle,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.normal,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  l10n.permNotificationsBlockBackgroundBody,
+                  style: theme.textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 64),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () async {
+                      final status = await Permission.notification.request();
+                      if (!mounted) return;
+                      setState(() {
+                        _notificationsEnabled = status.isGranted;
+                        _notificationsChecked = true;
+                      });
+                      if (Navigator.of(sheetContext).canPop()) {
+                        Navigator.of(sheetContext).pop();
+                      }
+                    },
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(52),
+                    ),
+                    child: Text(l10n.permAllowNotifications),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showBatteryOptimizationSheet() async {
+    if (!mounted) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        final theme = Theme.of(sheetContext);
+        final l10n = AppLocalizations.of(sheetContext);
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  l10n.permBatteryTitle,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.normal,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  l10n.permBatteryAndroidExplanation,
+                  style: theme.textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 24),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '1.',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            l10n.onboardingBatteryStepAppUsage,
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '2.',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            l10n.onboardingBatteryStepAllowBackground,
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '3.',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            l10n.onboardingBatteryStepTapText,
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '4.',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            l10n.onboardingBatteryStepSelectUnrestricted,
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '5.',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            l10n.onboardingBatteryStepReturnToApp,
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () async {
+                      await PlatformAlarmService.instance
+                          .openBatteryOptimizationSettings();
+                      await _checkBatteryOptimizationStatus();
+                      if (Navigator.of(sheetContext).canPop()) {
+                        Navigator.of(sheetContext).pop();
+                      }
+                    },
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(52),
+                    ),
+                    child: Text(l10n.permOpenBatterySettings),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -110,7 +376,16 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen> {
   void dispose() {
     _refreshTimer?.cancel();
     _nodeStatusRefreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Re-check battery optimization status when returning from Settings
+      _checkBatteryOptimizationStatus();
+    }
   }
 
   Future<void> _refreshSummary() async {
@@ -348,6 +623,156 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen> {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
+                              if (_notificationsChecked &&
+                                  !_notificationsEnabled) ...[
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.surfaceBright,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  padding: const EdgeInsets.fromLTRB(
+                                      16, 12, 16, 12),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.notifications_off_outlined,
+                                        color: theme.colorScheme.error,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Notifications Disabled',
+                                              style: theme
+                                                  .textTheme.titleSmall
+                                                  ?.copyWith(
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              'Background block production impacted',
+                                              style:
+                                                  theme.textTheme.bodySmall,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      FilledButton(
+                                        onPressed:
+                                            _showNotificationPermissionSheet,
+                                        style: FilledButton.styleFrom(
+                                          backgroundColor:
+                                              theme.colorScheme.primary,
+                                          foregroundColor:
+                                              theme.colorScheme.onPrimary,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: 8,
+                                          ),
+                                        ),
+                                        child: const Text('Enable'),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                              ] else if (_batteryStatusChecked &&
+                                  !_batteryOptimizationDisabled) ...[
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.surfaceBright,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  padding: const EdgeInsets.fromLTRB(
+                                      16, 12, 16, 12),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      SizedBox(
+                                        height: 24,
+                                        width: 24,
+                                        child: Stack(
+                                          alignment: Alignment.center,
+                                          children: [
+                                            Icon(
+                                              Icons.battery_0_bar,
+                                              color: theme.colorScheme.error,
+                                              size: 24,
+                                            ),
+                                            Positioned(
+                                              right: 0,
+                                              bottom: 0,
+                                              child: Container(
+                                                decoration: BoxDecoration(
+                                                  color: theme
+                                                      .colorScheme.surface,
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                padding:
+                                                    const EdgeInsets.all(1.5),
+                                                child: Icon(
+                                                  Icons.settings,
+                                                  color:
+                                                      theme.colorScheme.error,
+                                                  size: 12,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Battery optimization enabled',
+                                              style: theme
+                                                  .textTheme.titleSmall
+                                                  ?.copyWith(
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              'Background block production impacted',
+                                              style:
+                                                  theme.textTheme.bodySmall,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      FilledButton(
+                                        onPressed:
+                                            _showBatteryOptimizationSheet,
+                                        style: FilledButton.styleFrom(
+                                          backgroundColor:
+                                              theme.colorScheme.primary,
+                                          foregroundColor:
+                                              theme.colorScheme.onPrimary,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: 8,
+                                          ),
+                                        ),
+                                        child: const Text('Enable'),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                              ],
                         Builder(builder: (context) {
                           final currEpochSlot =
                               summary.asData?.value.currentEpochSlot;

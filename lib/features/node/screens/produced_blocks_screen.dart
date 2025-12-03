@@ -47,10 +47,22 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
     ProducedBlocksSummary? summary,
     NodeStatusState? status,
   }) {
-    // Sync label currently disabled; keep hook for future behavior.
-    // Currently we always hide the syncing label; this logic is left
-    // here commented for future tuning of the UX.
-    final bool shouldShow = false;
+    final effectiveSummary = summary ??
+        ref.read(producedBlocksSummaryProvider).maybeWhen(
+              data: (value) => value,
+              orElse: () => null,
+            );
+    final effectiveStatus = status ?? ref.read(nodeStatusProvider).value;
+
+    final bool noEpochsWithData =
+        effectiveSummary == null ? true : !effectiveSummary.hasEpochsWithData;
+
+    final sync = effectiveStatus?.syncStatus;
+    final bool isConnecting = sync?.isConnecting ?? true;
+    final bool isSynced = sync?.isSynced ?? false;
+
+    final bool shouldShow =
+        noEpochsWithData && (isConnecting || !isSynced);
 
     if (mounted && shouldShow != _showSyncingLabel) {
       setState(() {

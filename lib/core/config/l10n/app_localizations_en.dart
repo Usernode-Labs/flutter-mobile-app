@@ -614,7 +614,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonFinish => 'Finish';
 
   @override
-  String get permBatteryTitle => 'Battery Optimization';
+  String get permBatteryTitle => 'Disable Battery Optimizations';
 
   @override
   String get permBatteryWhyMatters => 'Why this matters';
@@ -639,7 +639,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'With optimization disabled, alarms fire precisely when scheduled.';
 
   @override
-  String get permOpenBatterySettings => 'Open Battery Settings';
+  String get permOpenBatterySettings => 'Open Settings';
 
   @override
   String permBatteryDeviceWarning(String manufacturer) {

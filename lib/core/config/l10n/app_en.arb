@@ -803,7 +803,7 @@
     "description": "Finish button text"
   },
 
-  "permBatteryTitle": "Battery Optimization",
+  "permBatteryTitle": "Disable Battery Optimizations",
   "@permBatteryTitle": {
     "description": "Battery optimization screen title"
   },
@@ -831,7 +831,7 @@
   "@permBatteryOptimized": {
     "description": "Message about disabled battery optimization"
   },
-  "permOpenBatterySettings": "Open Battery Settings",
+  "permOpenBatterySettings": "Open Settings",
   "@permOpenBatterySettings": {
     "description": "Button to open battery settings"
   },

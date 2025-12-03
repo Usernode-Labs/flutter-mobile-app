@@ -313,8 +313,23 @@ class AlarmMethodChannelHandler(private val activity: Activity) {
 
     private fun openBatteryOptimizationSettings() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-            activity.startActivity(intent)
+            try {
+                // Open this app's detail page so the user can adjust battery settings
+                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.fromParts("package", activity.packageName, null)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                activity.startActivity(intent)
+            } catch (e: Exception) {
+                Log.e(TAG, "[AlarmMethodChannelHandler] Failed to open app details settings", e)
+                // Fallback to the general battery optimization settings screen
+                try {
+                    val fallbackIntent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                    activity.startActivity(fallbackIntent)
+                } catch (fallback: Exception) {
+                    Log.e(TAG, "[AlarmMethodChannelHandler] Failed to open battery optimization settings", fallback)
+                }
+            }
         }
     }
 

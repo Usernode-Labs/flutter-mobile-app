@@ -1183,7 +1183,7 @@ abstract class AppLocalizations {
   /// Battery optimization screen title
   ///
   /// In en, this message translates to:
-  /// **'Battery Optimization'**
+  /// **'Disable Battery Optimizations'**
   String get permBatteryTitle;
 
   /// Section title for battery optimization explanation
@@ -1225,7 +1225,7 @@ abstract class AppLocalizations {
   /// Button to open battery settings
   ///
   /// In en, this message translates to:
-  /// **'Open Battery Settings'**
+  /// **'Open Settings'**
   String get permOpenBatterySettings;
 
   /// Warning for specific device manufacturers

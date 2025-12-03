@@ -377,7 +377,8 @@ class NodeStatusController extends AsyncNotifier<NodeStatusState?> {
       synced = localHeight >= confirmedNetworkHeight;
     } else {
       // Consider synced if caught up to network height OR all queued blocks applied
-      synced = localHeight >= confirmedNetworkHeight || appliedBlocks >= targetBlocks;
+      synced = localHeight >= confirmedNetworkHeight ||
+          appliedBlocks >= targetBlocks;
     }
 
     _log.trace(

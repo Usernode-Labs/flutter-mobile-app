@@ -15,8 +15,7 @@ class WelcomeSetupScreen extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final userId = ref.watch(onboardingUserIdProvider) ?? '';
-    final displayUserId =
-        userId.isNotEmpty ? userId : 'user';
+    final displayUserId = userId.isNotEmpty ? userId : 'user';
 
     return Scaffold(
       body: SafeArea(
@@ -70,5 +69,3 @@ class WelcomeSetupScreen extends ConsumerWidget {
     );
   }
 }
-
-

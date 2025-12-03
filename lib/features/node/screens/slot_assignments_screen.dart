@@ -335,8 +335,7 @@ class _ProgressBar extends StatelessWidget {
     // - Dark: surfaceVariant track + primary active
     final trackColor =
         isDark ? colorScheme.surfaceVariant : Colors.grey.shade300;
-    final activeColor =
-        isDark ? colorScheme.primary : Colors.black87;
+    final activeColor = isDark ? colorScheme.primary : Colors.black87;
 
     final p = progress.clamp(0.0, 1.0);
     return SizedBox(

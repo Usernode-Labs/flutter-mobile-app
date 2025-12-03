@@ -16,6 +16,7 @@ class ProducedBlocksSummary {
   final BigInt rewardsPerBlock;
   final int maxEpochWithData;
   final List<EpochScore> epochScores;
+
   /// True if the backend (or cache) reported any epochs with data.
   /// When false, the node likely hasn't produced or indexed any blocks yet.
   final bool hasEpochsWithData;

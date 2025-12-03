@@ -1060,17 +1060,59 @@ abstract class AppLocalizations {
   /// **'Settings'**
   String get navSettings;
 
-  /// Welcome screen title
-  ///
-  /// In en, this message translates to:
-  /// **'Welcome Usernode Operator'**
-  String get welcomeTitle;
-
   /// Claim account button text
   ///
   /// In en, this message translates to:
   /// **'Claim your account'**
   String get welcomeClaimAccount;
+
+  /// Title for the alpha-phase welcome screen
+  ///
+  /// In en, this message translates to:
+  /// **'Alpha Phase'**
+  String get welcomeAlphaTitle;
+
+  /// Subtitle explaining the user is part of the first wave
+  ///
+  /// In en, this message translates to:
+  /// **'You made the first wave of people running an L1 on their mobile devices'**
+  String get welcomeAlphaSubtitle;
+
+  /// Button text for claiming a spot in the alpha
+  ///
+  /// In en, this message translates to:
+  /// **'Claim your spot'**
+  String get welcomeAlphaClaimSpot;
+
+  /// Title for the verify access screen
+  ///
+  /// In en, this message translates to:
+  /// **'Verify access'**
+  String get onboardingVerifyAccessTitle;
+
+  /// Subtitle explaining how to verify access
+  ///
+  /// In en, this message translates to:
+  /// **'Use the code we shared with you.'**
+  String get onboardingVerifyAccessSubtitle;
+
+  /// Personalized welcome title on the setup screen
+  ///
+  /// In en, this message translates to:
+  /// **'Welcome, {userId}'**
+  String onboardingWelcomeSetupTitle(String userId);
+
+  /// Body text explaining the initial test cohort and device setup
+  ///
+  /// In en, this message translates to:
+  /// **'You are part of the initial test cohort. This app runs a block producing node.\n\nWe need to configure your device to produce blocks on demand.'**
+  String get onboardingWelcomeSetupBody;
+
+  /// Button text to start the setup flow
+  ///
+  /// In en, this message translates to:
+  /// **'Start Setup'**
+  String get onboardingWelcomeSetupStartButton;
 
   /// Exact alarms permission screen title
   ///
@@ -1221,6 +1263,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Allow notifications'**
   String get permAllowNotifications;
+
+  /// Title explaining why notifications are needed for background block production
+  ///
+  /// In en, this message translates to:
+  /// **'Allow notifications to allow the app to make blocks in the background'**
+  String get permNotificationsBlockBackgroundTitle;
+
+  /// Body text explaining Android's requirement for a visible status
+  ///
+  /// In en, this message translates to:
+  /// **'Android requires a visible status to allow the app to work in the background. Without it, the system will be unable to do background block production.'**
+  String get permNotificationsBlockBackgroundBody;
+
+  /// Button text to skip enabling notifications
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get permNotificationsSkip;
 
   /// Message when notifications are permanently denied
   ///

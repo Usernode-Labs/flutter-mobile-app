@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/features/onboarding/data/repositories/registration_repository.dart';
+import 'package:crypto_mobile_app/features/onboarding/data/onboarding_providers.dart';
 import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
@@ -90,11 +91,10 @@ class _OnboardingImportApiAccountScreenState
       // Invalidate account state so router sees new account immediately
       ref.invalidate(hasAnyAccountProvider);
 
-      // Navigate to permission flow - iOS skips Android-only screens
+      // Navigate to welcome setup screen before permission flow
       if (!mounted) return;
-      context.go(Platform.isIOS
-          ? AppRoutes.onboardingNotificationPermission3
-          : AppRoutes.onboardingExactAlarmPermission1);
+      ref.read(onboardingUserIdProvider.notifier).state = contact;
+      context.go(AppRoutes.onboardingWelcomeSetup);
     } on RegistrationApiException catch (e) {
       if (!mounted) return;
       String message = e.message;
@@ -136,7 +136,7 @@ class _OnboardingImportApiAccountScreenState
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Text(
-                  'Verify access',
+                  l10n.onboardingVerifyAccessTitle,
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.normal,
                   ),
@@ -146,7 +146,7 @@ class _OnboardingImportApiAccountScreenState
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Text(
-                  'Use the code we shared with you.',
+                  l10n.onboardingVerifyAccessSubtitle,
                   style: theme.textTheme.bodyMedium,
                 ),
               ),
@@ -161,6 +161,7 @@ class _OnboardingImportApiAccountScreenState
                       children: [
                         TextField(
                           controller: _contactController,
+                          autofocus: true,
                           decoration: InputDecoration(
                             labelText: l10n.importApiAccountContactLabel,
                             hintText: l10n.importApiAccountContactHint,
@@ -186,6 +187,9 @@ class _OnboardingImportApiAccountScreenState
                 width: double.infinity,
                 child: FilledButton(
                   onPressed: _submitting ? null : _onSubmit,
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(52),
+                  ),
                   child: _submitting
                       ? const SizedBox(
                           height: 20,

@@ -546,10 +546,36 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navSettings => 'Settings';
 
   @override
-  String get welcomeTitle => 'Welcome Usernode Operator';
+  String get welcomeClaimAccount => 'Claim your account';
 
   @override
-  String get welcomeClaimAccount => 'Claim your account';
+  String get welcomeAlphaTitle => 'Alpha Phase';
+
+  @override
+  String get welcomeAlphaSubtitle =>
+      'You made the first wave of people running an L1 on their mobile devices';
+
+  @override
+  String get welcomeAlphaClaimSpot => 'Claim your spot';
+
+  @override
+  String get onboardingVerifyAccessTitle => 'Verify access';
+
+  @override
+  String get onboardingVerifyAccessSubtitle =>
+      'Use the code we shared with you.';
+
+  @override
+  String onboardingWelcomeSetupTitle(String userId) {
+    return 'Welcome, $userId';
+  }
+
+  @override
+  String get onboardingWelcomeSetupBody =>
+      'You are part of the initial test cohort. This app runs a block producing node.\n\nWe need to configure your device to produce blocks on demand.';
+
+  @override
+  String get onboardingWelcomeSetupStartButton => 'Start Setup';
 
   @override
   String get permExactAlarmsTitle => 'Exact Alarms';
@@ -635,6 +661,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get permAllowNotifications => 'Allow notifications';
+
+  @override
+  String get permNotificationsBlockBackgroundTitle =>
+      'Allow notifications to allow the app to make blocks in the background';
+
+  @override
+  String get permNotificationsBlockBackgroundBody =>
+      'Android requires a visible status to allow the app to work in the background. Without it, the system will be unable to do background block production.';
+
+  @override
+  String get permNotificationsSkip => 'Skip';
 
   @override
   String get permNotificationsDisabledMessage =>

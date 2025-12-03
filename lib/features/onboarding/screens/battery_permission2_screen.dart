@@ -1,19 +1,22 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 
-class BatteryPermission2Screen extends StatefulWidget {
+class BatteryPermission2Screen extends ConsumerStatefulWidget {
   const BatteryPermission2Screen({super.key});
 
   @override
-  State<BatteryPermission2Screen> createState() =>
+  ConsumerState<BatteryPermission2Screen> createState() =>
       _BatteryPermission2ScreenState();
 }
 
-class _BatteryPermission2ScreenState extends State<BatteryPermission2Screen>
+class _BatteryPermission2ScreenState
+    extends ConsumerState<BatteryPermission2Screen>
     with WidgetsBindingObserver {
   bool _checking = true;
   bool _batteryOptDisabled = false;
@@ -220,10 +223,14 @@ class _BatteryPermission2ScreenState extends State<BatteryPermission2Screen>
                     const Spacer(),
                     FilledButton(
                       onPressed: (_batteryOptDisabled || !isAndroid)
-                          ? () => context
-                              .go(AppRoutes.onboardingNotificationPermission3)
+                          ? () async {
+                              await markOnboardingComplete();
+                              ref.invalidate(hasCompletedOnboardingProvider);
+                              if (!context.mounted) return;
+                              context.go(AppRoutes.home);
+                            }
                           : null,
-                      child: Text(l10n.commonNext),
+                      child: Text(l10n.commonFinish),
                     ),
                   ],
                 ),

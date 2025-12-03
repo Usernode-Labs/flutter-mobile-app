@@ -26,16 +26,15 @@ class WelcomeClaimScreen extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'Alpha Phase',
+                          l10n.welcomeAlphaTitle,
                           textAlign: TextAlign.center,
-                          style:
-                              theme.textTheme.titleLarge?.copyWith(
+                          style: theme.textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.normal,
                           ),
                         ),
                         const SizedBox(height: 20),
                         Text(
-                          'You made the first wave of people running an L1 on their mobile devices',
+                          l10n.welcomeAlphaSubtitle,
                           textAlign: TextAlign.center,
                           style: theme.textTheme.bodyMedium,
                         ),
@@ -48,7 +47,10 @@ class WelcomeClaimScreen extends StatelessWidget {
                 width: double.infinity,
                 child: FilledButton(
                   onPressed: () => context.go(AppRoutes.onboardingImportApi),
-                  child: const Text('Claim your spot'),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(52),
+                  ),
+                  child: Text(l10n.welcomeAlphaClaimSpot),
                 ),
               ),
             ],

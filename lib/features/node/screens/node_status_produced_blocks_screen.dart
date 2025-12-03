@@ -18,7 +18,8 @@ class NodeStatusProducedBlocksScreen extends ConsumerStatefulWidget {
       _NodeStatusProducedBlocksScreenState();
 }
 
-class _NodeStatusProducedBlocksScreenState extends ConsumerState<NodeStatusProducedBlocksScreen> {
+class _NodeStatusProducedBlocksScreenState
+    extends ConsumerState<NodeStatusProducedBlocksScreen> {
   Timer? _autoTimer;
   bool _refreshing = false;
   bool _active = true; // active when ProducedBlocks tab is selected (index 0)

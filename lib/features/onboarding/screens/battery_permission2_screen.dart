@@ -15,7 +15,8 @@ class BatteryPermission2Screen extends ConsumerStatefulWidget {
 }
 
 class _BatteryPermission2ScreenState
-    extends ConsumerState<BatteryPermission2Screen> with WidgetsBindingObserver {
+    extends ConsumerState<BatteryPermission2Screen>
+    with WidgetsBindingObserver {
   bool _requesting = false;
 
   @override

@@ -134,8 +134,8 @@ class _NotificationPermission3ScreenState
                       context.go(AppRoutes.onboardingBatteryPermission2),
                   style: FilledButton.styleFrom(
                     minimumSize: const Size.fromHeight(52),
-                    backgroundColor:
-                        theme.colorScheme.surfaceContainerHighest, // darker gray
+                    backgroundColor: theme
+                        .colorScheme.surfaceContainerHighest, // darker gray
                     foregroundColor: theme.colorScheme.onSurface,
                   ),
                   child: Text(l10n.permNotificationsSkip),

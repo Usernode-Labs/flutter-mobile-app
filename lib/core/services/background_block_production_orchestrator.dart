@@ -499,6 +499,12 @@ class BackgroundBlockProductionOrchestrator {
         case 'android_battery_optimization_disabled':
           _handleAndroidBatteryOptimizationDisabledEvent(eventData);
           break;
+        case 'android_post_notifications_permission_granted':
+          _handleAndroidPostNotificationsPermissionGrantedEvent(eventData);
+          break;
+        case 'android_post_notifications_permission_denied':
+          _handleAndroidPostNotificationsPermissionDeniedEvent(eventData);
+          break;
         case 'ios_notification_scheduled':
           _handleIosNotificationScheduledEvent(eventData);
           break;
@@ -615,6 +621,18 @@ class BackgroundBlockProductionOrchestrator {
       Map<String, dynamic> data) {
     _log.debug('Android battery optimization disabled');
     _emitEvent(BlockProductionAndroidBatteryOptimizationDisabledEvent());
+  }
+
+  void _handleAndroidPostNotificationsPermissionGrantedEvent(
+      Map<String, dynamic> data) {
+    _log.debug('Android POST_NOTIFICATIONS permission granted');
+    _emitEvent(BlockProductionAndroidNotificationPermissionGrantedEvent());
+  }
+
+  void _handleAndroidPostNotificationsPermissionDeniedEvent(
+      Map<String, dynamic> data) {
+    _log.debug('Android POST_NOTIFICATIONS permission denied');
+    _emitEvent(BlockProductionAndroidNotificationPermissionDeniedEvent());
   }
 
   // iOS native event handlers

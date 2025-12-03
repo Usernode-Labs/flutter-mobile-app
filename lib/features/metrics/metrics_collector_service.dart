@@ -1,5 +1,8 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
+
+import 'package:crypto/crypto.dart';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
@@ -17,6 +20,13 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 final _log = LoggingService.instance.withTag(LogTag.metrics);
+
+/// Hashes a device ID using SHA-256 (truncated to 16 chars) for privacy
+String _hashDeviceId(String deviceId) {
+  final bytes = utf8.encode(deviceId);
+  final digest = sha256.convert(bytes);
+  return digest.toString().substring(0, 16);
+}
 
 /// Service responsible for collecting all metrics from various sources
 ///
@@ -304,7 +314,7 @@ class MetricsCollectorService {
     }
 
     return DeviceMetrics(
-      deviceId: deviceId,
+      deviceId: _hashDeviceId(deviceId),
       deviceManufacturer: manufacturer,
       deviceModel: model,
       isPhysicalDevice: isPhysical,

@@ -823,7 +823,7 @@ abstract class AppLocalizations {
   /// Summary of tokens earned vs possible over the last 10 epochs
   ///
   /// In en, this message translates to:
-  /// **'+{earned} / +{possible} \$TOKENS'**
+  /// **'+{earned} \$TOKENS'**
   String producedBlocksTokensEarnedSummary(String earned, String possible);
 
   /// Label for tokens earned over the last 10 epochs

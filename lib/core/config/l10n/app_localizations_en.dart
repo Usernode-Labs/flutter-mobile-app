@@ -410,7 +410,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String producedBlocksTokensEarnedSummary(String earned, String possible) {
-    return '+$earned / +$possible \$TOKENS';
+    return '+$earned \$TOKENS';
   }
 
   @override

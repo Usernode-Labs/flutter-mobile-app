@@ -47,24 +47,10 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
     ProducedBlocksSummary? summary,
     NodeStatusState? status,
   }) {
-
-    // Use latest values from providers if not explicitly provided.
-    final effectiveSummary = summary ??
-        ref.read(producedBlocksSummaryProvider).maybeWhen(
-              data: (value) => value,
-              orElse: () => null,
-            );
-    final effectiveStatus = status ?? ref.read(nodeStatusProvider).value;
-
-    final bool noEpochsWithData =
-        effectiveSummary == null ? true : !effectiveSummary.hasEpochsWithData;
-
-    final sync = effectiveStatus?.syncStatus;
-    final bool isConnecting = sync?.isConnecting ?? true;
-    final bool isSynced = sync?.isSynced ?? false;
-
-    final bool shouldShow =
-        noEpochsWithData && (isConnecting || !isSynced);
+    // Sync label currently disabled; keep hook for future behavior.
+    // Currently we always hide the syncing label; this logic is left
+    // here commented for future tuning of the UX.
+    final bool shouldShow = false;
 
     if (mounted && shouldShow != _showSyncingLabel) {
       setState(() {
@@ -864,6 +850,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                       _viewedEpoch = e;
                                     });
                                   },
+                                  summaryData: summary.asData?.value,
                                 ),
                                 const SizedBox(height: 30),
                                 Row(
@@ -1228,6 +1215,7 @@ class _EpochPanel extends StatelessWidget {
     required this.maxEpoch,
     required this.selectedEpoch,
     required this.onPickEpoch,
+    this.summaryData,
   });
 
   final String epochLabel;
@@ -1239,6 +1227,7 @@ class _EpochPanel extends StatelessWidget {
   final int maxEpoch;
   final int selectedEpoch;
   final ValueChanged<int> onPickEpoch;
+  final dynamic summaryData;
 
   @override
   Widget build(BuildContext context) {
@@ -1297,13 +1286,27 @@ class _EpochPanel extends StatelessWidget {
                             Expanded(
                               child: ListView.builder(
                                 itemCount: maxEpoch + 1,
-                                reverse: true, // show latest at top
                                 itemBuilder: (_, index) {
-                                  // When reversed, index 0 corresponds to maxEpoch
+                                  // index 0 corresponds to maxEpoch (highest at top)
                                   final epoch = maxEpoch - index;
                                   final selected = epoch == selectedEpoch;
+                                  
+                                  // Calculate epoch performance
+                                  double performance = 0.0;
+                                  if (summaryData != null) {
+                                    final scores = summaryData.epochScores;
+                                    if (scores != null && epoch >= 0 && epoch < scores.length) {
+                                      final s = scores[epoch];
+                                      final value = (s.evaluatedPercent * s.producedOfEvaluatedPercent);
+                                      if (!value.isNaN && !value.isInfinite) {
+                                        performance = value.clamp(0.0, 1.0);
+                                      }
+                                    }
+                                  }
+                                  final performanceStr = '${(performance * 100).toStringAsFixed(0)}%';
+                                  
                                   return ListTile(
-                                    title: Text(l10n.statsEpoch(epoch)),
+                                    title: Text('${l10n.statsEpoch(epoch)} · $performanceStr'),
                                     trailing: selected
                                         ? const Icon(Icons.check,
                                             color: Colors.black87)

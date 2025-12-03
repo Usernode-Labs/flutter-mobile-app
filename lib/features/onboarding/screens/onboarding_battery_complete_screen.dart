@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 
 class OnboardingBatteryCompleteScreen extends ConsumerStatefulWidget {
   const OnboardingBatteryCompleteScreen({super.key});
@@ -56,6 +57,7 @@ class _OnboardingBatteryCompleteScreenState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -77,26 +79,26 @@ class _OnboardingBatteryCompleteScreenState
                             children: [
                               if (_unrestricted) ...[
                                 Text(
-                                  'Unrestricted Battery Mode Active',
+                                  l10n.onboardingBatteryUnrestrictedTitle,
                                   style: theme.textTheme.titleLarge?.copyWith(
                                     fontWeight: FontWeight.normal,
                                   ),
                                 ),
                                 const SizedBox(height: 16),
                                 Text(
-                                  'Great job! The app is now protected from being killed in the background.',
+                                  l10n.onboardingBatteryUnrestrictedBody,
                                   style: theme.textTheme.bodyMedium,
                                 ),
                               ] else ...[
                                 Text(
-                                  'Tap Continue to start the main app',
+                                  l10n.onboardingBatteryDefaultTitle,
                                   style: theme.textTheme.titleLarge?.copyWith(
                                     fontWeight: FontWeight.normal,
                                   ),
                                 ),
                                 const SizedBox(height: 16),
                                 Text(
-                                  'We strongly recommend you enable unrestricted battery optimizations to ensure consistent background block production.',
+                                  l10n.onboardingBatteryDefaultBody,
                                   style: theme.textTheme.bodyMedium,
                                 ),
                               ],

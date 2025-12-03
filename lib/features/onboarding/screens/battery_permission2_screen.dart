@@ -103,30 +103,29 @@ class _BatteryPermission2ScreenState
                         ),
                         if (isAndroid) ...[
                           const SizedBox(height: 24),
-                          const _StepRow(
+                          _StepRow(
                             number: 1,
-                            text: 'Tap "App Battery Usage"',
+                            text: l10n.onboardingBatteryStepAppUsage,
                           ),
                           const SizedBox(height: 8),
-                          const _StepRow(
+                          _StepRow(
                             number: 2,
-                            text: 'Turn "Allow background usage" ON',
+                            text: l10n.onboardingBatteryStepAllowBackground,
                           ),
                           const SizedBox(height: 8),
-                          const _StepRow(
+                          _StepRow(
                             number: 3,
-                            text:
-                                'Tap the TEXT itself. Tap the words "Allow background usage" to open the detailed menu.',
+                            text: l10n.onboardingBatteryStepTapText,
                           ),
                           const SizedBox(height: 8),
-                          const _StepRow(
+                          _StepRow(
                             number: 4,
-                            text: 'Select Unrestricted',
+                            text: l10n.onboardingBatteryStepSelectUnrestricted,
                           ),
                           const SizedBox(height: 8),
-                          const _StepRow(
+                          _StepRow(
                             number: 5,
-                            text: 'Tap the back button until you are back in the app.',
+                            text: l10n.onboardingBatteryStepReturnToApp,
                           ),
                         ],
                       ],

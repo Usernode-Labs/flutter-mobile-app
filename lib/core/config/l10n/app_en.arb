@@ -851,6 +851,49 @@
     "description": "Status when battery optimization is enabled"
   },
 
+  "onboardingBatteryStepAppUsage": "Tap \"App Battery Usage\"",
+  "@onboardingBatteryStepAppUsage": {
+    "description": "Step instruction to tap App Battery Usage in system settings"
+  },
+  "onboardingBatteryStepAllowBackground": "Turn \"Allow background usage\" ON",
+  "@onboardingBatteryStepAllowBackground": {
+    "description": "Step instruction to enable background usage"
+  },
+  "onboardingBatteryStepTapText":
+      "Tap the TEXT itself. Tap the words \"Allow background usage\" to open the detailed menu.",
+  "@onboardingBatteryStepTapText": {
+    "description": "Step instruction explaining to tap the text label"
+  },
+  "onboardingBatteryStepSelectUnrestricted": "Select Unrestricted",
+  "@onboardingBatteryStepSelectUnrestricted": {
+    "description": "Step instruction to select Unrestricted mode"
+  },
+  "onboardingBatteryStepReturnToApp":
+      "Tap the back button until you are back in the app.",
+  "@onboardingBatteryStepReturnToApp": {
+    "description": "Step instruction to return to the app from settings"
+  },
+
+  "onboardingBatteryUnrestrictedTitle": "Unrestricted Battery Mode Active",
+  "@onboardingBatteryUnrestrictedTitle": {
+    "description": "Title shown when unrestricted battery optimization is enabled"
+  },
+  "onboardingBatteryUnrestrictedBody":
+      "Great job! The app is now protected from being killed in the background.",
+  "@onboardingBatteryUnrestrictedBody": {
+    "description": "Body text when unrestricted battery optimization is enabled"
+  },
+  "onboardingBatteryDefaultTitle": "Tap Continue to start the main app",
+  "@onboardingBatteryDefaultTitle": {
+    "description": "Title shown when unrestricted battery optimization is not enabled"
+  },
+  "onboardingBatteryDefaultBody":
+      "We strongly recommend you enable unrestricted battery optimizations to ensure consistent background block production.",
+  "@onboardingBatteryDefaultBody": {
+    "description":
+        "Body text encouraging user to enable unrestricted battery optimization"
+  },
+
   "permNotificationsTitle": "Notifications",
   "@permNotificationsTitle": {
     "description": "Notifications permission screen title"

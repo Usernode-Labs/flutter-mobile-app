@@ -653,6 +653,40 @@ class AppLocalizationsEn extends AppLocalizations {
   String get permBatteryOptEnabled => 'Battery optimization enabled';
 
   @override
+  String get onboardingBatteryStepAppUsage => 'Tap \"App Battery Usage\"';
+
+  @override
+  String get onboardingBatteryStepAllowBackground =>
+      'Turn \"Allow background usage\" ON';
+
+  @override
+  String get onboardingBatteryStepTapText =>
+      'Tap the TEXT itself. Tap the words \"Allow background usage\" to open the detailed menu.';
+
+  @override
+  String get onboardingBatteryStepSelectUnrestricted => 'Select Unrestricted';
+
+  @override
+  String get onboardingBatteryStepReturnToApp =>
+      'Tap the back button until you are back in the app.';
+
+  @override
+  String get onboardingBatteryUnrestrictedTitle =>
+      'Unrestricted Battery Mode Active';
+
+  @override
+  String get onboardingBatteryUnrestrictedBody =>
+      'Great job! The app is now protected from being killed in the background.';
+
+  @override
+  String get onboardingBatteryDefaultTitle =>
+      'Tap Continue to start the main app';
+
+  @override
+  String get onboardingBatteryDefaultBody =>
+      'We strongly recommend you enable unrestricted battery optimizations to ensure consistent background block production.';
+
+  @override
   String get permNotificationsTitle => 'Notifications';
 
   @override

@@ -546,9 +546,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navSettings => 'Settings';
 
   @override
-  String get welcomeTitle => 'Welcome Usernode Operator';
-
-  @override
   String get welcomeClaimAccount => 'Claim your account';
 
   @override

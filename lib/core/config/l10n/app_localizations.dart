@@ -1060,12 +1060,6 @@ abstract class AppLocalizations {
   /// **'Settings'**
   String get navSettings;
 
-  /// Welcome screen title
-  ///
-  /// In en, this message translates to:
-  /// **'Welcome Usernode Operator'**
-  String get welcomeTitle;
-
   /// Claim account button text
   ///
   /// In en, this message translates to:

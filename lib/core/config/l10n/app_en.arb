@@ -715,10 +715,6 @@
     "description": "Navigation bar label for settings tab"
   },
 
-  "welcomeTitle": "Welcome Usernode Operator",
-  "@welcomeTitle": {
-    "description": "Welcome screen title"
-  },
   "welcomeClaimAccount": "Claim your account",
   "@welcomeClaimAccount": {
     "description": "Claim account button text"

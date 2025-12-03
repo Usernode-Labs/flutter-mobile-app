@@ -26,7 +26,7 @@ class WelcomeClaimScreen extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          l10n.welcomeTitle,
+                          l10n.welcomeAlphaTitle,
                           textAlign: TextAlign.center,
                           style: theme.textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.normal,

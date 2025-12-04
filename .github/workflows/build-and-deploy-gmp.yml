@@ -368,6 +368,10 @@ jobs:
       - name: Setup jq
         run: brew install jq
 
+      - name: Install host GMP dependencies (pkg-config)
+        run: |
+          brew install gmp mpfr pkg-config gawk m4
+
       - name: Set build number from run
         id: version
         run: |
@@ -432,6 +436,9 @@ jobs:
             ${{ runner.os }}-frb-gen-${{ needs.determine-frb-rev.outputs.frb_rev }}-
 
       - name: Generate flutter_rust_bridge bindings
+        env:
+          GMP_MPFR_SYS_USE_PKG_CONFIG: "1"
+          PKG_CONFIG_PATH: "/opt/homebrew/lib/pkgconfig:/usr/local/lib/pkgconfig"
         run: flutter_rust_bridge_codegen generate
 
       - name: Verify flutter_rust_bridge bindings are up-to-date

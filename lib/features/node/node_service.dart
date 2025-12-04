@@ -16,6 +16,8 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:crypto_mobile_app/src/rust/frb_generated.dart';
 import 'package:crypto_mobile_app/src/rust/node.dart';
 import 'package:crypto_mobile_app/src/rust/node/builder.dart';
+import 'package:crypto_mobile_app/core/config/app_config.dart';
+import 'package:crypto_mobile_app/core/services/network_config_service.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/core/models/backend_rpc_response.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
@@ -143,6 +145,9 @@ class RustBackendService {
         builder.httpServer(port: httpPort);
       }
 
+      // Load network configuration from URLs (with retry)
+      await _configureNetworkFromUrls(builder);
+
       _log.trace(
         'Configuring block producer with user private key (length: ${privateKeyHex.length})',
       );
@@ -189,6 +194,59 @@ class RustBackendService {
     _cachedPeerId = null;
   }
 
+  /// Configure network settings from URLs (seedlist, genesis).
+  /// Retries indefinitely with exponential backoff until successful.
+  Future<void> _configureNetworkFromUrls(NodeBuilder builder) async {
+    // Load seedlist from URL if configured
+    if (AppConfig.hasCustomSeedlist) {
+      _log.info('Loading seedlist from URL: ${AppConfig.intSeedlistUrl}');
+      await _fetchSeedlistWithRetry(builder, AppConfig.intSeedlistUrl);
+    }
+
+    // Load genesis from URL if configured
+    if (AppConfig.hasCustomGenesis) {
+      _log.info('Loading genesis from URL: ${AppConfig.intGenesisUrl}');
+      final genesisJson = await NetworkConfigService.instance.fetchWithRetry(
+        url: AppConfig.intGenesisUrl,
+        resourceName: 'genesis',
+      );
+      builder.genesisJsonInline(json: genesisJson);
+      _log.info('Genesis configured successfully');
+    }
+  }
+
+  /// Fetch seedlist with exponential backoff retry.
+  /// The Rust method `initialPeersFromUrl` does not have built-in retry,
+  /// so we wrap it with our own retry logic.
+  Future<void> _fetchSeedlistWithRetry(NodeBuilder builder, String url) async {
+    int delayMs = 1000;
+    const maxDelayMs = 30000;
+    int retryCount = 0;
+
+    while (true) {
+      try {
+        _log.trace(
+          'Fetching seedlist (attempt ${retryCount + 1})',
+          context: {'url': url},
+        );
+        await builder.initialPeersFromUrl(url: url);
+        _log.info('Seedlist loaded successfully from $url');
+        return;
+      } catch (e) {
+        retryCount++;
+        _log.warn(
+          'Failed to fetch seedlist (attempt $retryCount): $e',
+          context: {'url': url, 'nextDelayMs': delayMs},
+        );
+
+        await Future<void>.delayed(Duration(milliseconds: delayMs));
+
+        // Exponential backoff with cap
+        delayMs = (delayMs * 2).clamp(0, maxDelayMs);
+      }
+    }
+  }
+
   /// Restart node using current active account context.
   Future<void> restartNode() async {
     _log.info('Restarting node');
@@ -218,7 +276,7 @@ class RustBackendService {
       _log.error('FRB panic during getStatusNode', error: e, stackTrace: st);
       return null;
     } catch (e, st) {
-      _log.warn('RPC getStatusNode failed: $e\$st');
+      _log.warn('RPC getStatusNode failed: $e $st');
       return null;
     }
   }

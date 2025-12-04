@@ -370,7 +370,7 @@ jobs:
 
       - name: Install host GMP dependencies (pkg-config)
         run: |
-          brew install gmp mpfr pkg-config gawk m4
+          brew install gmp mpfr pkg-config gawk m4 texinfo
 
       - name: Set build number from run
         id: version
@@ -439,6 +439,7 @@ jobs:
         env:
           GMP_MPFR_SYS_USE_PKG_CONFIG: "1"
           PKG_CONFIG_PATH: "/opt/homebrew/lib/pkgconfig:/usr/local/lib/pkgconfig"
+          PATH: "/opt/homebrew/opt/texinfo/bin:${{ env.PATH }}"
         run: flutter_rust_bridge_codegen generate
 
       - name: Verify flutter_rust_bridge bindings are up-to-date

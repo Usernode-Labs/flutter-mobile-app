@@ -99,7 +99,6 @@ class AppConfig {
     'NETWORK_SWITCHER_CODE',
     defaultValue: '2107',
   );
-
   // Metrics configuration (compile-time)
   static const bool metricsEnabled =
       bool.fromEnvironment('METRICS_ENABLED', defaultValue: false);

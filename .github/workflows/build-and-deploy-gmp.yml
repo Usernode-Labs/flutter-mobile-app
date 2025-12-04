@@ -1,0 +1,603 @@
+name: Build and Deploy (GMP branch)
+
+on:
+  push:
+    branches:
+      - chore/gmp-dev-asm
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  FLUTTER_VERSION: "3.35.7"
+  JAVA_VERSION: "17"
+
+jobs:
+  build-android:
+    name: Build Android App
+    runs-on: ubuntu-20.04-16core2
+    needs: [determine-frb-rev, setup-rust-tools-android]
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      build_number: ${{ steps.version.outputs.build_number }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup jq
+        run: sudo apt-get install -y jq
+
+      - name: Checkout usernode repository
+        uses: actions/checkout@v4
+        with:
+          repository: Usernode-Labs/usernode
+          path: usernode
+          ref: refactor/rug-integer
+          token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
+
+      - name: Move usernode repository next to workspace
+        run: |
+          TARGET_DIR="../usernode"
+          if [ -d "$TARGET_DIR" ]; then
+            echo "⚠️  Existing $TARGET_DIR detected. Removing to ensure fresh checkout."
+            rm -rf "$TARGET_DIR"
+          fi
+          mv usernode "$TARGET_DIR"
+
+      - name: Determine usernode and FRB revisions
+        id: usernode_meta
+        run: |
+          cd ../usernode
+          SHA=$(git rev-parse HEAD)
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          FRB_REV=$(grep -m1 'flutter_rust_bridge =' crates/usernode/Cargo.toml | sed -E 's/.*rev = "([^"]+)".*/\1/')
+          if [ -z "$FRB_REV" ]; then
+            echo "Unable to find flutter_rust_bridge rev in Cargo.toml" >&2
+            exit 1
+          fi
+          echo "sha=$SHA" >> $GITHUB_OUTPUT
+          echo "frb_rev=$FRB_REV" >> $GITHUB_OUTPUT
+          echo "Usernode commit: $SHORT_SHA"
+          echo "Using flutter_rust_bridge rev: $FRB_REV"
+
+      - name: Cache usernode Rust target artifacts
+        uses: actions/cache@v4
+        with:
+          path: ../usernode/target
+          key: ${{ runner.os }}-usernode-target-${{ steps.usernode_meta.outputs.sha }}
+          restore-keys: |
+            ${{ runner.os }}-usernode-target-${{ steps.usernode_meta.outputs.frb_rev }}-
+            ${{ runner.os }}-usernode-target-
+
+      - name: Determine environment based on branch
+        id: env_config
+        run: |
+          if [ "${{ github.ref_name }}" == "main" ]; then
+            echo "env_type=PROD" >> $GITHUB_OUTPUT
+            echo "track=production" >> $GITHUB_OUTPUT
+            echo "flavor=production" >> $GITHUB_OUTPUT
+            echo "bundle_dir=build/app/outputs/bundle/productionRelease" >> $GITHUB_OUTPUT
+            echo "aab_path=build/app/outputs/bundle/productionRelease/app-production-release.aab" >> $GITHUB_OUTPUT
+            echo "📦 Building for PRODUCTION (main branch)"
+          else
+            echo "env_type=NONPROD" >> $GITHUB_OUTPUT
+            echo "track=internal" >> $GITHUB_OUTPUT
+            echo "flavor=internal" >> $GITHUB_OUTPUT
+            echo "bundle_dir=build/app/outputs/bundle/internalRelease" >> $GITHUB_OUTPUT
+            echo "aab_path=build/app/outputs/bundle/internalRelease/app-internal-release.aab" >> $GITHUB_OUTPUT
+            echo "📦 Building for NON-PRODUCTION (develop branch)"
+          fi
+
+      - name: Create .env file from secrets
+        run: |
+          if [ "${{ steps.env_config.outputs.env_type }}" == "PROD" ]; then
+            cat > .env << EOF
+          APP_ENV=${{ secrets.PROD_APP_ENV }}
+          API_BASE_URL=${{ secrets.PROD_API_BASE_URL }}
+          VERBOSE_LOGGING=${{ secrets.PROD_VERBOSE_LOGGING }}
+          SENTRY_DSN=${{ secrets.PROD_SENTRY_DSN }}
+          GITHUB_TOKEN=${{ secrets.PROD_GITHUB_TOKEN }}
+          USE_RESULT_PROVIDERS=${{ secrets.PROD_USE_RESULT_PROVIDERS }}
+          ENABLED_FEATURES=${{ secrets.PROD_ENABLED_FEATURES }}
+          DISABLED_FEATURES=${{ secrets.PROD_DISABLED_FEATURES }}
+          METRICS_ENABLED=${{ secrets.PROD_METRICS_ENABLED }}
+          METRICS_ENDPOINT=${{ secrets.PROD_METRICS_ENDPOINT }}
+          METRICS_HEALTH_ENDPOINT=${{ secrets.PROD_METRICS_HEALTH_ENDPOINT }}
+          METRICS_INTERVAL=${{ secrets.PROD_METRICS_INTERVAL }}
+          DEMO_ACCOUNTS_JSON=${{ secrets.PROD_DEMO_ACCOUNTS_JSON }}
+          EOF
+          else
+            cat > .env << EOF
+          APP_ENV=${{ secrets.NONPROD_APP_ENV }}
+          API_BASE_URL=${{ secrets.NONPROD_API_BASE_URL }}
+          VERBOSE_LOGGING=${{ secrets.NONPROD_VERBOSE_LOGGING }}
+          SENTRY_DSN=${{ secrets.NONPROD_SENTRY_DSN }}
+          GITHUB_TOKEN=${{ secrets.NONPROD_GITHUB_TOKEN }}
+          USE_RESULT_PROVIDERS=${{ secrets.NONPROD_USE_RESULT_PROVIDERS }}
+          ENABLED_FEATURES=${{ secrets.NONPROD_ENABLED_FEATURES }}
+          DISABLED_FEATURES=${{ secrets.NONPROD_DISABLED_FEATURES }}
+          METRICS_ENABLED=${{ secrets.NONPROD_METRICS_ENABLED }}
+          METRICS_ENDPOINT=${{ secrets.NONPROD_METRICS_ENDPOINT }}
+          METRICS_HEALTH_ENDPOINT=${{ secrets.NONPROD_METRICS_HEALTH_ENDPOINT }}
+          METRICS_INTERVAL=${{ secrets.NONPROD_METRICS_INTERVAL }}
+          DEMO_ACCOUNTS_JSON=${{ secrets.NONPROD_DEMO_ACCOUNTS_JSON }}
+          EOF
+          fi
+          echo "✅ Created .env file with ${{ steps.env_config.outputs.env_type }} secrets"
+
+      - name: Set build number from run
+        id: version
+        run: |
+          chmod +x scripts/version_manager.sh
+          BUILD_NUMBER=$((1000 + ${GITHUB_RUN_NUMBER}))
+          scripts/version_manager.sh set-build "$BUILD_NUMBER"
+          VERSION=$(scripts/version_manager.sh get production)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+          echo "📦 Building version: $VERSION (build number $BUILD_NUMBER from run ${GITHUB_RUN_NUMBER})"
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: "stable"
+          cache: false
+
+      - name: Restore cargo binaries from cache
+        uses: actions/cache/restore@v4
+        id: cache-cargo-bins
+        with:
+          path: |
+            ~/.cargo/bin/cargo-expand
+            ~/.cargo/bin/flutter_rust_bridge_codegen
+          key: ${{ runner.os }}-cargo-bins-${{ needs.determine-frb-rev.outputs.frb_rev }}-v2
+
+      - name: Cache FRB generated code
+        id: cache-frb-gen
+        uses: actions/cache@v4
+        with:
+          path: |
+            lib/src/rust/frb_generated.dart
+            lib/src/rust/api
+          key: ${{ runner.os }}-frb-gen-${{ steps.usernode_meta.outputs.frb_rev }}-${{ steps.usernode_meta.outputs.sha }}
+          restore-keys: |
+            ${{ runner.os }}-frb-gen-${{ steps.usernode_meta.outputs.frb_rev }}-
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Generate flutter_rust_bridge bindings
+        run: flutter_rust_bridge_codegen generate
+
+      - name: Verify flutter_rust_bridge bindings are up-to-date
+        run: |
+          cd ../usernode
+          if ! git diff --quiet -- crates/usernode/src/frb_generated.rs; then
+            echo "::error::frb_generated.rs changed during CI. Run flutter_rust_bridge_codegen generate and commit the result in the usernode repo."
+            git status --short crates/usernode/src/frb_generated.rs
+            exit 1
+          fi
+
+      - name: Locate Android NDK
+        id: ndk
+        run: |
+          set -euo pipefail
+          if [ -d "/usr/local/lib/android/sdk/ndk" ]; then
+            NDK_ROOT=$(ls -d /usr/local/lib/android/sdk/ndk/* | head -n 1)
+          elif [ -n "${ANDROID_NDK_HOME:-}" ]; then
+            NDK_ROOT="$ANDROID_NDK_HOME"
+          else
+            echo "Unable to locate Android NDK installation" >&2
+            exit 1
+          fi
+          echo "ndk_root=$NDK_ROOT" >> "$GITHUB_OUTPUT"
+          echo "Using NDK at $NDK_ROOT"
+
+      # - name: Setup sccache for Rust compilation
+      #   uses: mozilla-actions/sccache-action@v0.0.3
+      #   continue-on-error: true
+      #   id: sccache-android
+      #
+      # - name: Configure Rust to use sccache
+      #   if: steps.sccache-android.outcome == 'success'
+      #   run: |
+      #     echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
+      #     echo "SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
+      #     echo "✅ sccache enabled for Rust compilation"
+      #
+      # - name: Rust compilation without sccache
+      #   if: steps.sccache-android.outcome != 'success'
+      #   run: |
+      #     echo "⚠️  sccache setup failed, building without cache"
+
+      - name: Decode keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/keystore.jks
+
+      - name: Create key.properties
+        run: |
+          cat > android/key.properties << EOF
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          storeFile=keystore.jks
+          EOF
+
+      - name: Build Android AAB
+        env:
+          NDK_ROOT: ${{ steps.ndk.outputs.ndk_root }}
+        run: |
+          export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_CC="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_CXX="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang++"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$CARGO_TARGET_AARCH64_LINUX_ANDROID_CC"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_AR="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_RANLIB="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
+          CARGOKIT_ONLY_ANDROID_ARM64=1 flutter build appbundle \
+            --flavor ${{ steps.env_config.outputs.flavor }} \
+            --release \
+            --build-number=${{ steps.version.outputs.build_number }} \
+            --build-name=${{ steps.version.outputs.version }} \
+            --dart-define-from-file=.env
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-release-${{ steps.version.outputs.build_number }}
+          path: ${{ steps.env_config.outputs.aab_path }}
+          retention-days: 90
+
+      - name: Deploy to Track (disabled for GMP testing)
+        if: false
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.usernode_labs.usernode
+          releaseFiles: ${{ steps.env_config.outputs.aab_path }}
+          track: ${{ steps.env_config.outputs.track }}
+          status: draft
+          inAppUpdatePriority: ${{ steps.env_config.outputs.track == 'production' && '5' || '2' }}
+
+  setup-rust-tools:
+    name: Setup Rust Tools for iOS
+    needs: [determine-frb-rev]
+    uses: ./.github/workflows/setup-rust-tools.yml
+    secrets: inherit
+    with:
+      frb_rev: ${{ needs.determine-frb-rev.outputs.frb_rev }}
+      usernode_ref: ${{ needs.determine-frb-rev.outputs.usernode_sha }}
+
+  setup-rust-tools-android:
+    name: Setup Rust Tools for Android
+    needs: [determine-frb-rev]
+    uses: ./.github/workflows/setup-rust-tools-android.yml
+    secrets: inherit
+    with:
+      frb_rev: ${{ needs.determine-frb-rev.outputs.frb_rev }}
+      usernode_ref: ${{ needs.determine-frb-rev.outputs.usernode_sha }}
+
+  determine-frb-rev:
+    name: Determine Rust Versions
+    runs-on: macos-latest
+    outputs:
+      frb_rev: ${{ steps.frb_rev.outputs.rev }}
+      usernode_sha: ${{ steps.usernode_rev.outputs.sha }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Checkout usernode repository
+        uses: actions/checkout@v4
+        with:
+          repository: Usernode-Labs/usernode
+          path: usernode
+          ref: refactor/rug-integer
+          token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
+
+      - name: Determine usernode revision
+        id: usernode_rev
+        run: |
+          cd usernode
+          SHA=$(git rev-parse HEAD)
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "Usernode commit: $SHORT_SHA"
+
+      - name: Determine flutter_rust_bridge revision
+        id: frb_rev
+        run: |
+          FRB_REV=$(grep -m1 'flutter_rust_bridge =' usernode/crates/usernode/Cargo.toml | sed -E 's/.*rev = "([^"]+)".*/\1/')
+          if [ -z "$FRB_REV" ]; then
+            echo "Unable to find flutter_rust_bridge rev in Cargo.toml" >&2
+            exit 1
+          fi
+          echo "rev=$FRB_REV" >> "$GITHUB_OUTPUT"
+          echo "Using flutter_rust_bridge rev: $FRB_REV"
+
+  build-ios:
+    name: Build iOS App
+    runs-on: macos-latest
+    needs: [determine-frb-rev, setup-rust-tools]
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      build_number: ${{ steps.version.outputs.build_number }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout usernode repository
+        uses: actions/checkout@v4
+        with:
+          repository: Usernode-Labs/usernode
+          path: usernode
+          ref: refactor/rug-integer
+          token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
+
+      - name: Move usernode repository next to workspace
+        run: |
+          TARGET_DIR="../usernode"
+          if [ -d "$TARGET_DIR" ]; then
+            echo "⚠️  Existing $TARGET_DIR detected. Removing to ensure fresh checkout."
+            rm -rf "$TARGET_DIR"
+          fi
+          mv usernode "$TARGET_DIR"
+
+      - name: Cache usernode Rust target artifacts
+        uses: actions/cache@v4
+        with:
+          path: ../usernode/target
+          key: ${{ runner.os }}-usernode-target-${{ needs.determine-frb-rev.outputs.usernode_sha }}
+          restore-keys: |
+            ${{ runner.os }}-usernode-target-
+
+      - name: Setup jq
+        run: brew install jq
+
+      - name: Set build number from run
+        id: version
+        run: |
+          chmod +x scripts/version_manager.sh
+          BUILD_NUMBER=$((1000 + ${GITHUB_RUN_NUMBER}))
+          scripts/version_manager.sh set-build "$BUILD_NUMBER"
+          VERSION=$(scripts/version_manager.sh get production)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+          echo "📦 Building version: $VERSION (build number $BUILD_NUMBER from run ${GITHUB_RUN_NUMBER})"
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: "stable"
+          cache: false
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Setup Rust for iOS
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
+
+      # - name: Setup sccache for Rust compilation
+      #   uses: mozilla-actions/sccache-action@v0.0.3
+      #   continue-on-error: true
+      #   id: sccache-ios
+      #
+      # - name: Configure Rust to use sccache
+      #   if: steps.sccache-ios.outcome == 'success'
+      #   run: |
+      #     echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
+      #     echo "SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
+      #     echo "✅ sccache enabled for Rust compilation"
+      #
+      # - name: Rust compilation without sccache
+      #   if: steps.sccache-ios.outcome != 'success'
+      #   run: |
+      #     echo "⚠️  sccache setup failed, building without cache"
+
+      - name: Restore cargo binaries from cache
+        uses: actions/cache/restore@v4
+        id: cache-cargo-bins
+        with:
+          path: |
+            ~/.cargo/bin/cargo-expand
+            ~/.cargo/bin/flutter_rust_bridge_codegen
+          key: ${{ runner.os }}-cargo-bins-${{ needs.determine-frb-rev.outputs.frb_rev }}-v2
+
+      - name: Cache FRB generated code
+        id: cache-frb-gen
+        uses: actions/cache@v4
+        with:
+          path: |
+            lib/src/rust/frb_generated.dart
+            lib/src/rust/api
+          key: ${{ runner.os }}-frb-gen-${{ needs.determine-frb-rev.outputs.frb_rev }}-${{ needs.determine-frb-rev.outputs.usernode_sha }}
+          restore-keys: |
+            ${{ runner.os }}-frb-gen-${{ needs.determine-frb-rev.outputs.frb_rev }}-
+
+      - name: Generate flutter_rust_bridge bindings
+        run: flutter_rust_bridge_codegen generate
+
+      - name: Verify flutter_rust_bridge bindings are up-to-date
+        run: |
+          cd ../usernode
+          if ! git diff --quiet -- crates/usernode/src/frb_generated.rs; then
+            echo "::error::frb_generated.rs changed during CI. Run flutter_rust_bridge_codegen generate and commit the result in the usernode repo."
+            git status --short crates/usernode/src/frb_generated.rs
+            exit 1
+          fi
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
+
+      - name: Install CocoaPods dependencies
+        run: |
+          cd ios
+          pod install
+          echo "✅ Pod install complete"
+
+      - name: Import signing certificate
+        env:
+          CERTIFICATES_P12: ${{ secrets.CERTIFICATES_P12 }}
+          CERTIFICATES_PASSWORD: ${{ secrets.CERTIFICATES_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          echo "$CERTIFICATES_P12" | base64 -d > certificate.p12
+
+          KEYCHAIN="$RUNNER_TEMP/build.keychain-db"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+
+          security import certificate.p12 -k "$KEYCHAIN" -P "$CERTIFICATES_PASSWORD" \
+            -T /usr/bin/codesign -T /usr/bin/xcodebuild -T /usr/bin/security
+
+          EXISTING=$(security list-keychains -d user | tr -d ' "\n')
+          security list-keychains -d user -s "$KEYCHAIN" $EXISTING
+
+          security default-keychain -s "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          echo "KEYCHAIN_PATH=$KEYCHAIN" >> $GITHUB_ENV
+
+      - name: Verify signing identities
+        run: security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+
+      - name: Install provisioning profiles
+        env:
+          PROVISIONING_PROFILES: ${{ secrets.PROVISIONING_PROFILES }}
+        run: |
+          PROFILE_DIR=~/Library/MobileDevice/Provisioning\ Profiles
+          mkdir -p "$PROFILE_DIR"
+
+          # Try to extract as tar.gz archive first
+          if echo "$PROVISIONING_PROFILES" | base64 -d | tar -tzf - >/dev/null 2>&1; then
+            echo "📦 Extracting provisioning profiles from tar.gz archive..."
+            echo "$PROVISIONING_PROFILES" | base64 -d | tar -xzf - -C "$PROFILE_DIR"
+          else
+            # If not a tar.gz, assume it's a single .mobileprovision file
+            echo "📄 Installing single provisioning profile..."
+            echo "$PROVISIONING_PROFILES" | base64 -d > "$PROFILE_DIR/profile.mobileprovision"
+          fi
+
+          echo "✅ Installed provisioning profiles"
+          ls -la "$PROFILE_DIR"
+
+      - name: Determine environment based on branch
+        id: env_config_ios
+        run: |
+          if [ "${{ github.ref_name }}" == "main" ]; then
+            echo "env_type=PROD" >> $GITHUB_OUTPUT
+            echo "📦 Building for PRODUCTION (main branch)"
+          else
+            echo "env_type=NONPROD" >> $GITHUB_OUTPUT
+            echo "📦 Building for NON-PRODUCTION (develop branch)"
+          fi
+
+      - name: Create .env file from secrets
+        run: |
+          if [ "${{ steps.env_config_ios.outputs.env_type }}" == "PROD" ]; then
+            cat > .env << EOF
+          APP_ENV=${{ secrets.PROD_APP_ENV }}
+          API_BASE_URL=${{ secrets.PROD_API_BASE_URL }}
+          VERBOSE_LOGGING=${{ secrets.PROD_VERBOSE_LOGGING }}
+          SENTRY_DSN=${{ secrets.PROD_SENTRY_DSN }}
+          GITHUB_TOKEN=${{ secrets.PROD_GITHUB_TOKEN }}
+          USE_RESULT_PROVIDERS=${{ secrets.PROD_USE_RESULT_PROVIDERS }}
+          ENABLED_FEATURES=${{ secrets.PROD_ENABLED_FEATURES }}
+          DISABLED_FEATURES=${{ secrets.PROD_DISABLED_FEATURES }}
+          METRICS_ENABLED=${{ secrets.PROD_METRICS_ENABLED }}
+          METRICS_ENDPOINT=${{ secrets.PROD_METRICS_ENDPOINT }}
+          METRICS_HEALTH_ENDPOINT=${{ secrets.PROD_METRICS_HEALTH_ENDPOINT }}
+          METRICS_INTERVAL=${{ secrets.PROD_METRICS_INTERVAL }}
+          DEMO_ACCOUNTS_JSON=${{ secrets.PROD_DEMO_ACCOUNTS_JSON }}
+          EOF
+          else
+            cat > .env << EOF
+          APP_ENV=${{ secrets.NONPROD_APP_ENV }}
+          API_BASE_URL=${{ secrets.NONPROD_API_BASE_URL }}
+          VERBOSE_LOGGING=${{ secrets.NONPROD_VERBOSE_LOGGING }}
+          SENTRY_DSN=${{ secrets.NONPROD_SENTRY_DSN }}
+          GITHUB_TOKEN=${{ secrets.NONPROD_GITHUB_TOKEN }}
+          USE_RESULT_PROVIDERS=${{ secrets.NONPROD_USE_RESULT_PROVIDERS }}
+          ENABLED_FEATURES=${{ secrets.NONPROD_ENABLED_FEATURES }}
+          DISABLED_FEATURES=${{ secrets.NONPROD_DISABLED_FEATURES }}
+          METRICS_ENABLED=${{ secrets.NONPROD_METRICS_ENABLED }}
+          METRICS_ENDPOINT=${{ secrets.NONPROD_METRICS_ENDPOINT }}
+          METRICS_HEALTH_ENDPOINT=${{ secrets.NONPROD_METRICS_HEALTH_ENDPOINT }}
+          METRICS_INTERVAL=${{ secrets.NONPROD_METRICS_INTERVAL }}
+          DEMO_ACCOUNTS_JSON=${{ secrets.NONPROD_DEMO_ACCOUNTS_JSON }}
+          EOF
+          fi
+          echo "✅ Created .env file with ${{ steps.env_config_ios.outputs.env_type }} secrets"
+
+      - name: Build iOS app (no codesign)
+        run: |
+          set -euo pipefail
+          FLUTTER_CMD=(
+            flutter build ios
+            --release
+            --no-codesign
+            --build-number=${{ steps.version.outputs.build_number }}
+            --build-name=${{ steps.version.outputs.version }}
+            --dart-define-from-file=.env
+          )
+          if [ "${DEBUG_LOGS:-false}" = "true" ]; then
+            FLUTTER_CMD+=(--verbose)
+          fi
+          echo "🚧 Running: ${FLUTTER_CMD[*]}"
+          "${FLUTTER_CMD[@]}"
+
+      - name: Build and upload via Fastlane (disabled for GMP testing)
+        if: false
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+        run: |
+          bundle exec fastlane ios release flavor:production
+
+  # Notify and tagging disabled for GMP testing
+  notify:
+    if: false
+    name: Send Notification
+    runs-on: ubuntu-20.04-16core2
+    needs: [build-android, build-ios, tag, tag-release]
+    steps:
+      - run: echo "Notifications disabled for GMP testing"
+
+  tag:
+    if: false
+    name: Tag Develop Build
+    runs-on: ubuntu-latest
+    needs: [build-android, build-ios]
+    steps:
+      - run: echo "Tagging disabled for GMP testing"
+
+  tag-release:
+    if: false
+    name: Tag Production Release
+    runs-on: ubuntu-latest
+    needs: [build-android, build-ios]
+    steps:
+      - run: echo "Tagging disabled for GMP testing"

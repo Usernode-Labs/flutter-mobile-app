@@ -434,17 +434,19 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
     return (earned, possible);
   }
 
-  double scoreEpochI(dynamic summary, int i) {
+  double? scoreEpochI(dynamic summary, int i) {
     // print('Epoch $i: Summary: $summary');
     if (summary == null) return 0.0;
     final scores = summary.epochScores;
-    if (scores == null || i < 0 || i >= scores.length) return 0.0;
+    if (scores == null || i < 0 || i >= scores.length) return null;
     final s = scores[i];
     // print('Epoch $i: Evaluated: ${s.evaluatedPercent}, Produced: ${s.producedOfEvaluatedPercent}');
     final value = (s.evaluatedPercent * s.producedOfEvaluatedPercent);
-    if (value.isNaN || value.isInfinite) return 0.0;
-    // print('Epoch $i: Value: $value, clamped: ${value.clamp(0.0, 1.0)}');
-    return value.clamp(0.0, 1.0);
+    if (value.isNaN || value.isInfinite) {
+      return null;
+    } else {
+      return value.clamp(0.0, 1.0);
+    }
   }
 
   @override
@@ -878,12 +880,23 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                                           FontWeight.w500),
                                             ),
                                           ),
-                                          Text(
-                                            '${(scoreEpochI(summary.asData?.value, viewedEpoch) * 100).toStringAsFixed(1)}%',
-                                            style: theme.textTheme.titleMedium
-                                                ?.copyWith(
-                                                    fontWeight:
-                                                        FontWeight.w500),
+                                          Builder(
+                                            builder: (_) {
+                                              final epochScore = scoreEpochI(
+                                                  summary.asData?.value,
+                                                  viewedEpoch);
+                                              final text = epochScore == null
+                                                  ? '--'
+                                                  : '${(epochScore * 100).toStringAsFixed(1)}%';
+                                              return Text(
+                                                text,
+                                                style: theme
+                                                    .textTheme.titleMedium
+                                                    ?.copyWith(
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              );
+                                            },
                                           ),
                                         ],
                                       ),
@@ -908,6 +921,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                         final evaluatedPct = slotsInEpoch > 0
                                             ? (evaluated / slotsInEpoch) * 100.0
                                             : 0.0;
+
                                         return _MetricTile(
                                           leading: const _IconBadge(
                                               icon: Icons.search_outlined),

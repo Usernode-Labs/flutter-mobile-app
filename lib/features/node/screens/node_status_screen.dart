@@ -437,6 +437,18 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       blockDisplayText = 'Block $currentHeight / $networkHeight';
     }
 
+    // Derive the current slot within the epoch from global slot, epoch, and slots per epoch.
+    int? epochSlot;
+    final curGlobalSlot = statusFromProvider?.currentGlobalSlot;
+    final curEpoch = statusFromProvider?.currentEpoch;
+    final slotsInEpoch = statusFromProvider?.slotsInEpoch;
+    if (curGlobalSlot != null &&
+        curEpoch != null &&
+        slotsInEpoch != null &&
+        slotsInEpoch > 0) {
+      epochSlot = curGlobalSlot - curEpoch * slotsInEpoch;
+    }
+
     // Peer status
     int connectedPeers;
     int totalPeers;
@@ -581,8 +593,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                   context,
                   label: 'Cur. Epoch',
                   value: '${statusFromProvider?.currentEpoch ?? 'N/A'}',
-                  subtitle:
-                      'Cur. Slot ${statusFromProvider?.currentGlobalSlot ?? 'N/A'}',
+                  subtitle: 'Cur. Slot $epochSlot',
                   color: colorScheme.primary,
                   colorScheme: colorScheme,
                 ),
@@ -636,7 +647,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                             vrfEvaluator?.currentEpochVrfEvaluationStatus;
                         final statusText = switch (vrfStatus) {
                           RpcStatusVrfEvaluationStatus.pending => 'Pending',
-                          RpcStatusVrfEvaluationStatus.evaluating => 'Evaluating',
+                          RpcStatusVrfEvaluationStatus.evaluating =>
+                            'Evaluating',
                           RpcStatusVrfEvaluationStatus.completed => 'Completed',
                           _ => 'N/A',
                         };
@@ -707,7 +719,12 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                         ? '${hash.substring(0, 8)}...${hash.substring(hash.length - 8)}'
                         : hash;
 
-                    return [formattedHeight, epochText, slotText, truncatedHash];
+                    return [
+                      formattedHeight,
+                      epochText,
+                      slotText,
+                      truncatedHash
+                    ];
                   }(),
                   color: colorScheme.tertiary,
                   colorScheme: colorScheme,

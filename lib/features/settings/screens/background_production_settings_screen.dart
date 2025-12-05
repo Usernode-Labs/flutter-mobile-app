@@ -164,63 +164,60 @@ class _BackgroundProductionSettingsScreenState
       drawer: const AppDrawer(),
       body: SafeArea(
         child: RefreshIndicator(
-        onRefresh: _checkStatus,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            // About section
-            _buildAboutSection(theme, colorScheme),
-            const SizedBox(height: 8),
-
-            // Build Info section
-            _buildBuildInfoCard(theme, colorScheme),
-            const SizedBox(height: 8),
-
-            // Appearance / theme section
-            _buildThemeSection(theme, colorScheme),
-            const SizedBox(height: 8),
-
-            // Feature overview section
-            const SizedBox(height: 8),
-
-            // Feature overview section
-            _buildFeatureOverviewCard(theme, colorScheme),
-            const SizedBox(height: 8),
-
-            // Platform-specific info card
-            _buildPlatformInfoCard(theme, colorScheme),
-            const SizedBox(height: 8),
-
-            // Understanding VRF & Slots section
-            _buildVrfExplanationCard(theme, colorScheme),
-            const SizedBox(height: 8),
-
-            // Permissions section
-            _buildPermissionsSection(theme, colorScheme),
-            const SizedBox(height: 8),
-
-            // iOS Keep-Alive section (if iOS)
-            if (Platform.isIOS) ...[
-              _buildIOSKeepAliveSection(theme, colorScheme),
+          onRefresh: _checkStatus,
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              // About section
+              _buildAboutSection(theme, colorScheme),
               const SizedBox(height: 8),
-            ],
 
-            // Android Battery section (if Android)
-            if (Platform.isAndroid) ...[
-              _buildAndroidBatterySection(theme, colorScheme),
+              // Build Info section
+              _buildBuildInfoCard(theme, colorScheme),
               const SizedBox(height: 8),
-            ],
 
-            // Android Keep-Alive section (if Android)
-            if (Platform.isAndroid) ...[
-              _buildAndroidKeepAliveSection(theme, colorScheme),
+              // Appearance / theme section
+              _buildThemeSection(theme, colorScheme),
               const SizedBox(height: 8),
-            ],
 
-            // Scheduled slots section
-            _buildScheduledSlotsSection(theme, colorScheme),
-          ],
-        ),
+              // Feature overview section
+              const SizedBox(height: 8),
+
+              // Feature overview section
+              _buildFeatureOverviewCard(theme, colorScheme),
+              const SizedBox(height: 8),
+
+              // Platform-specific info card
+              _buildPlatformInfoCard(theme, colorScheme),
+              const SizedBox(height: 8),
+
+              // Understanding VRF & Slots section
+              _buildVrfExplanationCard(theme, colorScheme),
+              const SizedBox(height: 8),
+
+              // Permissions section
+              _buildPermissionsSection(theme, colorScheme),
+              const SizedBox(height: 8),
+
+              // iOS Keep-Alive section (if iOS)
+              if (Platform.isIOS) ...[
+                _buildIOSKeepAliveSection(theme, colorScheme),
+                const SizedBox(height: 8),
+              ],
+
+              // Android Battery section (if Android)
+              if (Platform.isAndroid) ...[
+                _buildAndroidBatterySection(theme, colorScheme),
+                const SizedBox(height: 8),
+              ],
+
+              // Android Keep-Alive section (if Android)
+              if (Platform.isAndroid) ...[
+                _buildAndroidKeepAliveSection(theme, colorScheme),
+                const SizedBox(height: 8),
+              ],
+            ],
+          ),
         ),
       ),
     );
@@ -372,11 +369,14 @@ class _BackgroundProductionSettingsScreenState
               ),
             ),
             const SizedBox(height: 12),
-            _buildInfoRow(l10n.buildInfoVersion, env.version, theme, colorScheme),
-            _buildInfoRow(l10n.buildInfoCommit, shortCommit, theme, colorScheme),
-            _buildInfoRow(l10n.buildInfoBranch, env.git.branch, theme, colorScheme),
             _buildInfoRow(
-                l10n.buildInfoCommitTime, env.git.commitTime, theme, colorScheme),
+                l10n.buildInfoVersion, env.version, theme, colorScheme),
+            _buildInfoRow(
+                l10n.buildInfoCommit, shortCommit, theme, colorScheme),
+            _buildInfoRow(
+                l10n.buildInfoBranch, env.git.branch, theme, colorScheme),
+            _buildInfoRow(l10n.buildInfoCommitTime, env.git.commitTime, theme,
+                colorScheme),
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
               child: Divider(height: 1),
@@ -1620,251 +1620,6 @@ class _BackgroundProductionSettingsScreenState
               _buildTip('Connect device to charger for extended use'),
               _buildTip('Battery optimization should be disabled'),
               _buildTip('A persistent notification will be shown'),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildScheduledSlotsSection(ThemeData theme, ColorScheme colorScheme) {
-    // Get VRF status and won slots from providers
-    final statusAsync = ref.watch(nodeStatusProvider);
-    final epochRewardsAsync = ref.watch(epochRewardsProvider);
-
-    // Unwrap async values
-    final status = statusAsync.valueOrNull;
-    final epochRewards = epochRewardsAsync.valueOrNull;
-
-    // Get VRF status
-    final vrfEvaluator = status?.vrfEvaluator;
-    final vrfStatus = vrfEvaluator?.currentEpochVrfEvaluationStatus;
-    final isVrfComplete = vrfStatus != null &&
-        vrfStatus == RpcStatusVrfEvaluationStatus.completed;
-    final isVrfCalculating = vrfStatus != null &&
-        vrfStatus == RpcStatusVrfEvaluationStatus.evaluating;
-
-    // Get current epoch from raw status
-    final currentEpoch = status?.epoch;
-
-    // Validate epoch matches before showing won slots (prevents showing stale data)
-    final allWonSlots = (epochRewards != null &&
-            currentEpoch != null &&
-            epochRewards.epoch == currentEpoch)
-        ? epochRewards.wonSlots
-        : <RpcEpochWonSlot>[];
-
-    // Filter to future slots only, with correct timezone handling
-    final now = DateTime.now();
-    final futureSlots = allWonSlots.where((slot) {
-      try {
-        // Parse timestamp as UTC and convert to local time
-        final slotTime = DateTime.fromMillisecondsSinceEpoch(
-          slot.expectedTimeMs.toInt(),
-          isUtc: true,
-        ).toLocal();
-        return slotTime.isAfter(now);
-      } catch (e) {
-        return false;
-      }
-    }).toList();
-
-    // Get next slot
-    final nextSlot = futureSlots.isNotEmpty ? futureSlots.first : null;
-
-    // VRF status chip
-    final l10n = AppLocalizations.of(context);
-    Widget vrfStatusChip;
-    if (vrfStatus == null) {
-      vrfStatusChip = Chip(
-        label: Text(l10n.bgProdLoading),
-        backgroundColor: Colors.grey.withValues(alpha: 0.2),
-        labelStyle: theme.textTheme.labelSmall,
-      );
-    } else if (isVrfComplete) {
-      vrfStatusChip = Chip(
-        label: Text(l10n.bgProdVrfComplete),
-        backgroundColor: Colors.green.withValues(alpha: 0.2),
-        labelStyle: theme.textTheme.labelSmall?.copyWith(
-          color: Colors.green.shade700,
-        ),
-      );
-    } else if (isVrfCalculating) {
-      vrfStatusChip = Chip(
-        label: Text(l10n.bgProdVrfCalculating),
-        backgroundColor: Colors.orange.withValues(alpha: 0.2),
-        labelStyle: theme.textTheme.labelSmall?.copyWith(
-          color: Colors.orange.shade700,
-        ),
-      );
-    } else {
-      vrfStatusChip = Chip(
-        label: Text(l10n.bgProdVrfPending),
-        backgroundColor: Colors.grey.withValues(alpha: 0.2),
-        labelStyle: theme.textTheme.labelSmall,
-      );
-    }
-
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceBright,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: colorScheme.outlineVariant, width: 1),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text(
-                  'Won Slots This Epoch',
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                vrfStatusChip,
-              ],
-            ),
-            const SizedBox(height: 12),
-            // How scheduling works explanation
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color:
-                    colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    Icons.schedule,
-                    size: 18,
-                    color: colorScheme.primary,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'When VRF completes, the app automatically schedules wake-up alarms for each won slot. Alarms fire ~1 minute before slot time.',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurface.withValues(alpha: 0.7),
-                        height: 1.4,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (futureSlots.isEmpty)
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest
-                      .withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      allWonSlots.isEmpty ? Icons.hourglass_empty : Icons.check,
-                      color: colorScheme.onSurface.withValues(alpha: 0.5),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        allWonSlots.isEmpty
-                            ? 'No slots won for this epoch yet'
-                            : 'All slots for this epoch have passed',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurface.withValues(alpha: 0.6),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            else ...[
-              Row(
-                children: [
-                  Icon(
-                    Icons.event_note,
-                    size: 18,
-                    color: colorScheme.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${futureSlots.length} upcoming slot${futureSlots.length != 1 ? 's' : ''} scheduled',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-              if (nextSlot != null) ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: colorScheme.primary.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(
-                          Icons.play_arrow,
-                          color: colorScheme.primary,
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Next Slot',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: colorScheme.onPrimaryContainer
-                                    .withValues(alpha: 0.7),
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Slot ${nextSlot.globalSlot}',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w500,
-                                color: colorScheme.onPrimaryContainer,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              _formatDateTime(
-                                DateTime.fromMillisecondsSinceEpoch(
-                                  nextSlot.expectedTimeMs.toInt(),
-                                  isUtc: true,
-                                ).toLocal(),
-                              ),
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onPrimaryContainer,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
             ],
           ],
         ),

@@ -225,14 +225,14 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       child: Container(
         decoration: BoxDecoration(
           color: colorScheme.surfaceBright,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: colorScheme.outlineVariant,
             width: 1,
           ),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: children,
@@ -250,14 +250,14 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.surfaceBright,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: colorScheme.outlineVariant,
           width: 1,
         ),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

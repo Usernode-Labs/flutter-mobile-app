@@ -89,6 +89,12 @@ class AppConfig {
       'DEMO_ACCOUNTS_JSON',
       defaultValue: '{"accounts":[]}');
 
+  // Internal bootstrap overrides (optional)
+  static const String internalSeedlistUrl =
+      String.fromEnvironment('INT_SEEDLIST_URL', defaultValue: '');
+  static const String internalGenesisUrl =
+      String.fromEnvironment('INT_GENESIS_URL', defaultValue: '');
+
   static List<DemoAccount> get demoAccounts {
     try {
       final decoded = jsonDecode(_demoAccountsJson);

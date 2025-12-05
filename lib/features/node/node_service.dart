@@ -11,6 +11,7 @@ import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_slots.dart';
 import 'package:crypto_mobile_app/src/rust/rpc.dart';
 import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
+import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:crypto_mobile_app/src/rust/frb_generated.dart';
@@ -142,6 +143,44 @@ class RustBackendService {
       final builder = NodeBuilder();
       if (httpPort != null) {
         builder.httpServer(port: httpPort);
+      }
+
+      // Optional: override seed peers from URL (integration/testing)
+      final seedlistUrl = AppConfig.internalSeedlistUrl;
+      if (seedlistUrl.isNotEmpty) {
+        _log.info('Loading seed peers from INT_SEEDLIST_URL=$seedlistUrl');
+        SentryUtil.addBreadcrumb(
+          category: 'backend',
+          message: 'seedlist from url',
+          data: {'url': seedlistUrl},
+        );
+        try {
+          await builder.initialPeersFromUrl(url: seedlistUrl);
+        } catch (e, st) {
+          _log.error('Failed to load seed peers from $seedlistUrl',
+              error: e, stackTrace: st);
+          await SentryUtil.captureError(e, st, tag: 'seedlist_url');
+          rethrow;
+        }
+      }
+
+      // Optional: override genesis JSON from URL (integration/testing)
+      final genesisUrl = AppConfig.internalGenesisUrl;
+      if (genesisUrl.isNotEmpty) {
+        _log.info('Loading genesis from INT_GENESIS_URL=$genesisUrl');
+        SentryUtil.addBreadcrumb(
+          category: 'backend',
+          message: 'genesis from url',
+          data: {'url': genesisUrl},
+        );
+        try {
+          await builder.genesisJsonFromUrl(url: genesisUrl);
+        } catch (e, st) {
+          _log.error('Failed to load genesis from $genesisUrl',
+              error: e, stackTrace: st);
+          await SentryUtil.captureError(e, st, tag: 'genesis_url');
+          rethrow;
+        }
       }
 
       _log.trace(

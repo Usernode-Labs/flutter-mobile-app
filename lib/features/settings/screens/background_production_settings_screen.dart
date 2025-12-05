@@ -182,7 +182,7 @@ class _BackgroundProductionSettingsScreenState
             Text(
               'Background Block Production',
               style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w500,
               ),
             ),
             const SizedBox(height: 8),
@@ -250,7 +250,7 @@ class _BackgroundProductionSettingsScreenState
             Text(
               'Appearance',
               style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w500,
               ),
             ),
             const SizedBox(height: 4),
@@ -330,7 +330,7 @@ class _BackgroundProductionSettingsScreenState
             Text(
               'About',
               style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w500,
               ),
             ),
             const SizedBox(height: 8),
@@ -371,7 +371,7 @@ class _BackgroundProductionSettingsScreenState
                   child: Text(
                     l10n.bgProdWhatIs,
                     style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
@@ -440,7 +440,7 @@ class _BackgroundProductionSettingsScreenState
               number,
               style: TextStyle(
                 color: colorScheme.primary,
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w500,
                 fontSize: 12,
               ),
             ),
@@ -500,7 +500,7 @@ class _BackgroundProductionSettingsScreenState
                   child: Text(
                     isAndroid ? l10n.bgProdAndroidTitle : l10n.bgProdIosTitle,
                     style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
@@ -610,7 +610,7 @@ class _BackgroundProductionSettingsScreenState
             percentage,
             style: TextStyle(
               fontSize: 12,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w500,
               color: color,
             ),
           ),
@@ -662,7 +662,7 @@ class _BackgroundProductionSettingsScreenState
                   child: Text(
                     'Understanding VRF & Slots',
                     style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
@@ -846,7 +846,7 @@ class _BackgroundProductionSettingsScreenState
                   child: Text(
                     'Permissions',
                     style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
@@ -953,7 +953,7 @@ class _BackgroundProductionSettingsScreenState
                   child: Text(
                     'Foreground Keep-Alive Mode',
                     style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w500,
                       color: colorScheme.onPrimaryContainer,
                     ),
                   ),
@@ -972,7 +972,7 @@ class _BackgroundProductionSettingsScreenState
                     '99%',
                     style: TextStyle(
                       fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w500,
                       color: Colors.green,
                     ),
                   ),
@@ -1121,7 +1121,7 @@ class _BackgroundProductionSettingsScreenState
                   value,
                   style: TextStyle(
                     fontSize: 12,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w500,
                     color: color,
                   ),
                 ),
@@ -1189,7 +1189,7 @@ class _BackgroundProductionSettingsScreenState
                   child: Text(
                     'Battery Optimization',
                     style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
@@ -1397,7 +1397,7 @@ class _BackgroundProductionSettingsScreenState
                   child: Text(
                     'Persistent Foreground Mode',
                     style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w500,
                       color: colorScheme.onPrimaryContainer,
                     ),
                   ),
@@ -1416,7 +1416,7 @@ class _BackgroundProductionSettingsScreenState
                     '100%',
                     style: TextStyle(
                       fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w500,
                       color: Colors.blue,
                     ),
                   ),
@@ -1498,7 +1498,7 @@ class _BackgroundProductionSettingsScreenState
                           '90-95%',
                           style: TextStyle(
                             fontSize: 10,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w500,
                             color: Colors.green,
                           ),
                         ),
@@ -1532,7 +1532,7 @@ class _BackgroundProductionSettingsScreenState
                           '100%',
                           style: TextStyle(
                             fontSize: 10,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w500,
                             color: Colors.blue,
                           ),
                         ),
@@ -1699,7 +1699,7 @@ class _BackgroundProductionSettingsScreenState
                   child: Text(
                     'Won Slots This Epoch',
                     style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
@@ -1820,7 +1820,7 @@ class _BackgroundProductionSettingsScreenState
                             Text(
                               'Slot ${nextSlot.globalSlot}',
                               style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
+                                fontWeight: FontWeight.w500,
                                 color: colorScheme.onPrimaryContainer,
                               ),
                             ),

@@ -226,6 +226,10 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
         decoration: BoxDecoration(
           color: colorScheme.surfaceBright,
           borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: colorScheme.outlineVariant,
+            width: 1,
+          ),
         ),
         child: Padding(
           padding: const EdgeInsets.all(12),
@@ -1115,7 +1119,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
           color: Colors.transparent,
           borderRadius: BorderRadius.circular(8),

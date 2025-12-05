@@ -58,11 +58,11 @@ class AppConfig {
   // Integration network URLs (for custom seedlist/genesis)
   static const String intSeedlistUrl = String.fromEnvironment(
     'INT_SEEDLIST_URL',
-    defaultValue: '',
+    defaultValue: 'https://static.usernodelabs.org/catdog9000/seedlist.txt',
   );
   static const String intGenesisUrl = String.fromEnvironment(
     'INT_GENESIS_URL',
-    defaultValue: '',
+    defaultValue: 'https://static.usernodelabs.org/catdog9000/genesis.json',
   );
   static bool get hasCustomSeedlist => intSeedlistUrl.isNotEmpty;
   static bool get hasCustomGenesis => intGenesisUrl.isNotEmpty;

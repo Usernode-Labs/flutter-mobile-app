@@ -258,6 +258,17 @@ jobs:
             ~/.cargo/bin/flutter_rust_bridge_codegen
           key: ${{ runner.os }}-cargo-bins-${{ needs.determine-frb-rev.outputs.frb_rev }}-v2
 
+      - name: Ensure flutter_rust_bridge_codegen is installed
+        env:
+          FRB_REV: ${{ needs.determine-frb-rev.outputs.frb_rev }}
+        run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
+          if ! command -v flutter_rust_bridge_codegen >/dev/null 2>&1; then
+            cargo install flutter_rust_bridge_codegen --git https://github.com/Usernode-Labs/flutter_rust_bridge --rev "$FRB_REV" --locked
+          else
+            flutter_rust_bridge_codegen --version
+          fi
+
       - name: Cache FRB generated code
         id: cache-frb-gen
         uses: actions/cache@v4
@@ -506,7 +517,7 @@ jobs:
         env:
           GMP_MPFR_SYS_USE_PKG_CONFIG: "1"
           PKG_CONFIG_PATH: "/opt/homebrew/lib/pkgconfig:/usr/local/lib/pkgconfig"
-          PATH: "/opt/homebrew/opt/texinfo/bin:${{ env.PATH }}"
+          PATH: "/opt/homebrew/opt/texinfo/bin:$HOME/.cargo/bin:${{ env.PATH }}"
         run: flutter_rust_bridge_codegen generate
 
       - name: Verify flutter_rust_bridge bindings are up-to-date

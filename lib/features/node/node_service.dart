@@ -17,7 +17,6 @@ import 'package:crypto_mobile_app/src/rust/frb_generated.dart';
 import 'package:crypto_mobile_app/src/rust/node.dart';
 import 'package:crypto_mobile_app/src/rust/node/builder.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
-import 'package:crypto_mobile_app/core/services/network_config_service.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/core/models/backend_rpc_response.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
@@ -195,55 +194,27 @@ class RustBackendService {
   }
 
   /// Configure network settings from URLs (seedlist, genesis).
-  /// Retries indefinitely with exponential backoff until successful.
   Future<void> _configureNetworkFromUrls(NodeBuilder builder) async {
+    final retries = BigInt.from(AppConfig.intLoadGenesisNbRetries);
+
     // Load seedlist from URL if configured
     if (AppConfig.hasCustomSeedlist) {
       _log.info('Loading seedlist from URL: ${AppConfig.intSeedlistUrl}');
-      await _fetchSeedlistWithRetry(builder, AppConfig.intSeedlistUrl);
+      await builder.initialPeersFromUrlWithRetries(
+        url: AppConfig.intSeedlistUrl,
+        retries: retries,
+      );
+      _log.info('Seedlist loaded successfully');
     }
 
     // Load genesis from URL if configured
     if (AppConfig.hasCustomGenesis) {
       _log.info('Loading genesis from URL: ${AppConfig.intGenesisUrl}');
-      final genesisJson = await NetworkConfigService.instance.fetchWithRetry(
+      await builder.genesisJsonFromUrlWithRetries(
         url: AppConfig.intGenesisUrl,
-        resourceName: 'genesis',
+        retries: retries,
       );
-      builder.genesisJsonInline(json: genesisJson);
       _log.info('Genesis configured successfully');
-    }
-  }
-
-  /// Fetch seedlist with exponential backoff retry.
-  /// The Rust method `initialPeersFromUrl` does not have built-in retry,
-  /// so we wrap it with our own retry logic.
-  Future<void> _fetchSeedlistWithRetry(NodeBuilder builder, String url) async {
-    int delayMs = 1000;
-    const maxDelayMs = 30000;
-    int retryCount = 0;
-
-    while (true) {
-      try {
-        _log.trace(
-          'Fetching seedlist (attempt ${retryCount + 1})',
-          context: {'url': url},
-        );
-        await builder.initialPeersFromUrl(url: url);
-        _log.info('Seedlist loaded successfully from $url');
-        return;
-      } catch (e) {
-        retryCount++;
-        _log.warn(
-          'Failed to fetch seedlist (attempt $retryCount): $e',
-          context: {'url': url, 'nextDelayMs': delayMs},
-        );
-
-        await Future<void>.delayed(Duration(milliseconds: delayMs));
-
-        // Exponential backoff with cap
-        delayMs = (delayMs * 2).clamp(0, maxDelayMs);
-      }
     }
   }
 

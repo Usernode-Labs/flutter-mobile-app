@@ -67,6 +67,12 @@ class AppConfig {
   static bool get hasCustomSeedlist => intSeedlistUrl.isNotEmpty;
   static bool get hasCustomGenesis => intGenesisUrl.isNotEmpty;
 
+  // Number of retries when fetching genesis/seedlist URLs
+  static const int intLoadGenesisNbRetries = int.fromEnvironment(
+    'INT_LOAD_GENESIS_NB_RETRIES',
+    defaultValue: 3,
+  );
+
   // Metrics configuration (compile-time)
   static const bool metricsEnabled =
       bool.fromEnvironment('METRICS_ENABLED', defaultValue: false);

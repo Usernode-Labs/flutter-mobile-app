@@ -879,7 +879,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                               style: theme.textTheme.titleMedium
                                                   ?.copyWith(
                                                       fontWeight:
-                                                          FontWeight.bold),
+                                                          FontWeight.w500),
                                             ),
                                           ),
                                           Text(
@@ -887,7 +887,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                             style: theme.textTheme.titleMedium
                                                 ?.copyWith(
                                                     fontWeight:
-                                                        FontWeight.bold),
+                                                        FontWeight.w500),
                                           ),
                                         ],
                                       ),

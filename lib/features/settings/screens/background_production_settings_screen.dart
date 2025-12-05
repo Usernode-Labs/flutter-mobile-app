@@ -942,22 +942,15 @@ class _BackgroundProductionSettingsScreenState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.phonelink_lock,
-                  color: colorScheme.onPrimaryContainer,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Foreground Keep-Alive Mode',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w500,
-                      color: colorScheme.onPrimaryContainer,
-                    ),
-                  ),
-                ),
+            Text(
+              'Foreground Keep-Alive Mode',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w500,
+                fontSize: 18,
+                letterSpacing: 0.5,
+                color: colorScheme.onPrimaryContainer,
+              ),
+            ),
                 // Reliability badge
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -1176,24 +1169,14 @@ class _BackgroundProductionSettingsScreenState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(
-                  _batteryOptDisabled
-                      ? Icons.battery_full
-                      : Icons.battery_alert,
-                  color: _batteryOptDisabled ? Colors.green : Colors.orange,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Battery Optimization',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
+            Text(
+              'Battery Optimization',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w500,
+                fontSize: 18,
+                letterSpacing: 0.5,
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 12),
             // Why this matters explanation
@@ -1386,22 +1369,15 @@ class _BackgroundProductionSettingsScreenState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.phonelink_lock,
-                  color: colorScheme.onPrimaryContainer,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Persistent Foreground Mode',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w500,
-                      color: colorScheme.onPrimaryContainer,
-                    ),
-                  ),
-                ),
+            Text(
+              'Persistent Foreground Mode',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w500,
+                fontSize: 18,
+                letterSpacing: 0.5,
+                color: colorScheme.onPrimaryContainer,
+              ),
+            ),
                 // Reliability badge
                 Container(
                   padding: const EdgeInsets.symmetric(

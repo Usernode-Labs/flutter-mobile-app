@@ -21,8 +21,15 @@ import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/core/models/backend_rpc_response.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 final _log = LoggingService.instance.withTag(LogTag.node);
+
+/// Network type for chain selection
+enum NetworkType { testnet, internal }
+
+/// Storage key for selected network
+const _kNetworkTypeKey = 'network:type';
 
 /// A small façade around flutter_rust_bridge generated APIs.
 /// Centralizes initialization and access to the Rust node / RPC.
@@ -200,29 +207,47 @@ class RustBackendService {
     _cachedPeerId = null;
   }
 
+  /// Get the currently selected network type from storage.
+  Future<NetworkType> _getSelectedNetwork() async {
+    final prefs = await SharedPreferences.getInstance();
+    final value = prefs.getString(_kNetworkTypeKey);
+    if (value == 'internal') {
+      return NetworkType.internal;
+    }
+    return NetworkType.testnet; // default
+  }
+
   /// Configure network settings from URLs (seedlist, genesis).
   Future<void> _configureNetworkFromUrls(NodeBuilder builder) async {
     final retries = BigInt.from(AppConfig.intLoadGenesisNbRetries);
+    final networkType = await _getSelectedNetwork();
 
-    // Load seedlist from URL if configured
-    if (AppConfig.hasCustomSeedlist) {
-      _log.info('Loading seedlist from URL: ${AppConfig.intSeedlistUrl}');
-      await builder.initialPeersFromUrlWithRetries(
-        url: AppConfig.intSeedlistUrl,
-        retries: retries,
-      );
-      _log.info('Seedlist loaded successfully');
+    // Get URLs based on selected network
+    final String seedlistUrl;
+    final String genesisUrl;
+    switch (networkType) {
+      case NetworkType.testnet:
+        seedlistUrl = AppConfig.testnetSeedlistUrl;
+        genesisUrl = AppConfig.testnetGenesisUrl;
+      case NetworkType.internal:
+        seedlistUrl = AppConfig.internalSeedlistUrl;
+        genesisUrl = AppConfig.internalGenesisUrl;
     }
 
-    // Load genesis from URL if configured
-    if (AppConfig.hasCustomGenesis) {
-      _log.info('Loading genesis from URL: ${AppConfig.intGenesisUrl}');
-      await builder.genesisJsonFromUrlWithRetries(
-        url: AppConfig.intGenesisUrl,
-        retries: retries,
-      );
-      _log.info('Genesis configured successfully');
-    }
+    _log.info('Selected network: ${networkType.name}');
+    _log.info('Loading seedlist from URL: $seedlistUrl');
+    await builder.initialPeersFromUrlWithRetries(
+      url: seedlistUrl,
+      retries: retries,
+    );
+    _log.info('Seedlist loaded successfully');
+
+    _log.info('Loading genesis from URL: $genesisUrl');
+    await builder.genesisJsonFromUrlWithRetries(
+      url: genesisUrl,
+      retries: retries,
+    );
+    _log.info('Genesis configured successfully');
   }
 
   /// Restart node using current active account context.

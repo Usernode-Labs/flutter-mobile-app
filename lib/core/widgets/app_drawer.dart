@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/features/node/node_provider.dart';
+import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 
 class AppDrawer extends ConsumerStatefulWidget {
@@ -12,6 +15,135 @@ class AppDrawer extends ConsumerStatefulWidget {
 }
 
 class _AppDrawerState extends ConsumerState<AppDrawer> {
+  int _tapCount = 0;
+  DateTime? _lastTapTime;
+
+  void _onVersionTap() {
+    final now = DateTime.now();
+    if (_lastTapTime != null &&
+        now.difference(_lastTapTime!).inMilliseconds > 500) {
+      _tapCount = 0;
+    }
+    _lastTapTime = now;
+    _tapCount++;
+
+    if (_tapCount >= 3) {
+      _tapCount = 0;
+      _showPinDialog();
+    }
+  }
+
+  Future<void> _showPinDialog() async {
+    final pinController = TextEditingController();
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Enter Code'),
+        content: TextField(
+          controller: pinController,
+          keyboardType: TextInputType.number,
+          maxLength: 4,
+          obscureText: true,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: '4-digit code',
+            counterText: '',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              if (pinController.text == AppConfig.networkSwitcherCode) {
+                Navigator.of(ctx).pop(true);
+              } else {
+                Navigator.of(ctx).pop(false);
+              }
+            },
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true && mounted) {
+      _showNetworkSwitcherDialog();
+    }
+  }
+
+  Future<void> _showNetworkSwitcherDialog() async {
+    final prefs = await SharedPreferences.getInstance();
+    final currentNetwork = prefs.getString('network:type') ?? 'testnet';
+
+    if (!mounted) return;
+
+    final selectedNetwork = await showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Network Switcher'),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(ctx).pop('testnet'),
+            child: ListTile(
+              leading: Icon(
+                currentNetwork == 'testnet'
+                    ? Icons.radio_button_checked
+                    : Icons.radio_button_off,
+              ),
+              title: const Text('Testnet'),
+              subtitle: const Text('Default network'),
+            ),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(ctx).pop('internal'),
+            child: ListTile(
+              leading: Icon(
+                currentNetwork == 'internal'
+                    ? Icons.radio_button_checked
+                    : Icons.radio_button_off,
+              ),
+              title: const Text('Internal'),
+              subtitle: const Text('Development network'),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (selectedNetwork != null &&
+        selectedNetwork != currentNetwork &&
+        mounted) {
+      await prefs.setString('network:type', selectedNetwork);
+      _showRestartDialog(selectedNetwork);
+    }
+  }
+
+  Future<void> _showRestartDialog(String network) async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Restart Required'),
+        content: Text(
+          'Network switched to ${network == 'testnet' ? 'Testnet' : 'Internal'}. '
+          'The app will now close. Please reopen it to connect to the new network.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              SystemNavigator.pop();
+            },
+            child: const Text('Close App'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -77,7 +209,10 @@ class _AppDrawerState extends ConsumerState<AppDrawer> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('${l10n.buildInfoVersion}: ${env.version}'),
+            GestureDetector(
+              onTap: _onVersionTap,
+              child: Text('${l10n.buildInfoVersion}: ${env.version}'),
+            ),
             const SizedBox(height: 6),
             Text('${l10n.buildInfoCommit}: $shortCommit'),
             const SizedBox(height: 6),

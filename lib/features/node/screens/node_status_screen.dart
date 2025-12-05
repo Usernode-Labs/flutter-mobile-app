@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:crypto_mobile_app/core/widgets/produced_block_card.dart';
+import 'package:crypto_mobile_app/core/widgets/app_progress_bar.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
@@ -532,14 +533,10 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
         const SizedBox(height: 12),
 
         // Progress bar
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(
-            value: syncPercentage,
-            backgroundColor: colorScheme.surfaceContainerHighest,
-            valueColor: AlwaysStoppedAnimation<Color>(accentColor),
-            minHeight: 8,
-          ),
+        AppProgressBar(
+          value: syncPercentage,
+          backgroundColor: colorScheme.surfaceContainerHighest,
+          valueColor: accentColor,
         ),
 
         const SizedBox(height: 12),
@@ -1057,7 +1054,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
           children: [
             // Fetch progress card
             Expanded(
-              child: _buildCircularProgressCard(
+              child: _buildLinearProgressCard(
                 context: context,
                 label: 'Fetch Blocks',
                 percentage: fetchPercentage,
@@ -1074,7 +1071,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             const SizedBox(width: 12),
             // Apply progress card
             Expanded(
-              child: _buildCircularProgressCard(
+              child: _buildLinearProgressCard(
                 context: context,
                 label: 'Apply Blocks',
                 percentage: applyPercentage,
@@ -1092,8 +1089,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     );
   }
 
-  // Helper method to build circular progress card with row layout
-  Widget _buildCircularProgressCard({
+  // Helper method to build linear progress card with row layout
+  Widget _buildLinearProgressCard({
     required BuildContext context,
     required String label,
     required double percentage,
@@ -1113,98 +1110,74 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             color: colorScheme.outlineVariant,
             width: 1.0,
           )),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Circular progress indicator (left side)
-          SizedBox(
-            width: 50,
-            height: 50,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // Background circle
-                CircularProgressIndicator(
-                  value: 1.0,
-                  strokeWidth: 4,
-                  backgroundColor: Colors.transparent,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    colorScheme.surface,
-                  ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                label,
+                style: theme.textTheme.bodyMedium!.copyWith(
+                  letterSpacing: 0.2,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
                 ),
-                // Progress circle
-                CircularProgressIndicator(
-                  value: percentage / 100,
-                  strokeWidth: 3,
-                  backgroundColor: Colors.transparent,
-                  valueColor: AlwaysStoppedAnimation<Color>(color),
-                ),
-                // Percentage text in center (smaller)
-                Text(
-                  '${percentage.toStringAsFixed(0)}%',
-                  style: theme.textTheme.titleMedium!.copyWith(
-                      fontSize: 8, fontWeight: FontWeight.w900, color: color),
-                ),
-              ],
-            ),
+              ),
+              Text(
+                '${percentage.toStringAsFixed(0)}%',
+                style: theme.textTheme.titleMedium!.copyWith(
+                    fontSize: 12, fontWeight: FontWeight.bold, color: color),
+              ),
+            ],
           ),
-          const SizedBox(width: 10),
-
-          // Content on right side
-          Expanded(
-            child: Column(
+          const SizedBox(height: 8),
+          AppProgressBar(
+            value: percentage / 100.0,
+            valueColor: color,
+            height: 12,
+          ),
+          const SizedBox(height: 8),
+          // Stats (if available)
+          if (done != null && pending != null && idle != null)
+            Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
               children: [
-                // Label
                 Text(
-                  label,
-                  style: theme.textTheme.bodyMedium!.copyWith(
-                    letterSpacing: 0.2,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12,
-                  ),
+                  'Done: $done',
+                  style: theme.textTheme.bodySmall!
+                      .copyWith(
+                          fontSize: 12,
+                          letterSpacing: 0.2,
+                          color: colorScheme.onSurfaceVariant)
+                      .copyWith(
+                        fontSize: 10,
+                      ),
                 ),
-                // Stats (if available)
-                if (done != null && pending != null && idle != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'Done: $done',
-                    style: theme.textTheme.bodySmall!
-                        .copyWith(
-                            fontSize: 12,
-                            letterSpacing: 0.2,
-                            color: colorScheme.onSurfaceVariant)
-                        .copyWith(
-                          fontSize: 10,
-                        ),
-                  ),
-                  Text(
-                    'Pending: $pending',
-                    style: theme.textTheme.bodySmall!
-                        .copyWith(
-                            fontSize: 12,
-                            letterSpacing: 0.2,
-                            color: colorScheme.onSurfaceVariant)
-                        .copyWith(
-                          fontSize: 10,
-                        ),
-                  ),
-                  Text(
-                    'Idle: $idle',
-                    style: theme.textTheme.bodySmall!
-                        .copyWith(
-                            fontSize: 12,
-                            letterSpacing: 0.2,
-                            color: colorScheme.onSurfaceVariant)
-                        .copyWith(
-                          fontSize: 10,
-                        ),
-                  ),
-                ],
+                Text(
+                  'Pending: $pending',
+                  style: theme.textTheme.bodySmall!
+                      .copyWith(
+                          fontSize: 12,
+                          letterSpacing: 0.2,
+                          color: colorScheme.onSurfaceVariant)
+                      .copyWith(
+                        fontSize: 10,
+                      ),
+                ),
+                Text(
+                  'Idle: $idle',
+                  style: theme.textTheme.bodySmall!
+                      .copyWith(
+                          fontSize: 12,
+                          letterSpacing: 0.2,
+                          color: colorScheme.onSurfaceVariant)
+                      .copyWith(
+                        fontSize: 10,
+                      ),
+                ),
               ],
             ),
-          ),
         ],
       ),
     );

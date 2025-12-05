@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
+import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -160,8 +161,9 @@ class _BackgroundProductionSettingsScreenState
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-
-      body: RefreshIndicator(
+      drawer: const AppDrawer(),
+      body: SafeArea(
+        child: RefreshIndicator(
         onRefresh: _checkStatus,
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -218,6 +220,7 @@ class _BackgroundProductionSettingsScreenState
             // Scheduled slots section
             _buildScheduledSlotsSection(theme, colorScheme),
           ],
+        ),
         ),
       ),
     );

@@ -19,6 +19,7 @@ import 'package:crypto_mobile_app/src/rust/node/builder.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/core/models/backend_rpc_response.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:path_provider/path_provider.dart';
 
 final _log = LoggingService.instance.withTag(LogTag.node);
 
@@ -148,6 +149,12 @@ class RustBackendService {
       );
       builder.blockProducerHex(skHex: privateKeyHex);
       builder.mempoolAutoinsertInterval(secs: BigInt.from(1));
+
+      // Configure persistent VRF storage path so VRF evaluation progress survives restarts.
+      final appSupportDir = await getApplicationSupportDirectory();
+      final vrfPath = '${appSupportDir.path}/usernode_vrf_storage.sqlite';
+      _log.trace('Using VRF storage path: $vrfPath');
+      builder.vrfStoragePath(path: vrfPath);
 
       _node = builder.build();
       _rpc = _node!.rpc();

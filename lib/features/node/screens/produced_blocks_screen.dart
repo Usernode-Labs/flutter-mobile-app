@@ -831,10 +831,10 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                 return Container(
                                   decoration: BoxDecoration(
                                     color: theme.colorScheme.surfaceBright,
-                                    borderRadius: BorderRadius.circular(20),
+                                    borderRadius: BorderRadius.circular(8),
                                   ),
                                   padding:
-                                      const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                                      const EdgeInsets.all(12),
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.stretch,
@@ -870,7 +870,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                         },
                                         summaryData: summary.asData?.value,
                                       ),
-                                      const SizedBox(height: 30),
+                                      const SizedBox(height: 16),
                                       Row(
                                         children: [
                                           Expanded(

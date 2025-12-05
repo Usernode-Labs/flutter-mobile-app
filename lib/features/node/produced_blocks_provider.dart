@@ -3,6 +3,7 @@ import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_slots.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'dart:math' as math;
@@ -72,9 +73,17 @@ class EpochScore {
 
 final _log = LoggingService.instance.withTag(LogTag.producedBlocksProvider);
 
-const _kEpochsWithDataKey = 'node:epochs_with_data';
-const _kProducedBlockMetadataKeyPrefix = 'node:produced_block_metadata';
-const _kEpochSlotResultsKeyPrefix = 'node:epoch_slot_results';
+const _kEpochsWithDataKeyBase = 'node:epochs_with_data';
+const _kProducedBlockMetadataKeyPrefixBase = 'node:produced_block_metadata';
+const _kEpochSlotResultsKeyPrefixBase = 'node:epoch_slot_results';
+
+// Network-prefixed keys
+String get _kEpochsWithDataKey =>
+    NetworkPrefs.prefixKey(_kEpochsWithDataKeyBase);
+String get _kProducedBlockMetadataKeyPrefix =>
+    NetworkPrefs.prefixKey(_kProducedBlockMetadataKeyPrefixBase);
+String get _kEpochSlotResultsKeyPrefix =>
+    NetworkPrefs.prefixKey(_kEpochSlotResultsKeyPrefixBase);
 
 Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
   final stopwatch = Stopwatch()..start();

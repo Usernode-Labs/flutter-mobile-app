@@ -7,6 +7,7 @@ import 'package:crypto_mobile_app/src/rust/lib.dart' as rust;
 import 'package:crypto_mobile_app/core/config/theme_mode.dart';
 import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 
 final _log = LoggingService.instance.withTag(LogTag.provider);
 
@@ -19,17 +20,19 @@ final hasAnyAccountProvider = FutureProvider<bool>((ref) async {
   return result;
 });
 
-// Onboarding completion provider
-const _kOnboardingCompletedKey = 'onboarding:completed';
+// Onboarding completion provider (network-prefixed)
+const _kOnboardingCompletedKeyBase = 'onboarding:completed';
 
 final hasCompletedOnboardingProvider = FutureProvider<bool>((ref) async {
   final prefs = await SharedPreferences.getInstance();
-  return prefs.getBool(_kOnboardingCompletedKey) ?? false;
+  final key = NetworkPrefs.prefixKey(_kOnboardingCompletedKeyBase);
+  return prefs.getBool(key) ?? false;
 });
 
 Future<void> markOnboardingComplete() async {
   final prefs = await SharedPreferences.getInstance();
-  await prefs.setBool(_kOnboardingCompletedKey, true);
+  final key = NetworkPrefs.prefixKey(_kOnboardingCompletedKeyBase);
+  await prefs.setBool(key, true);
 }
 
 // Backend lifecycle manager - automatically starts/stops based on account state

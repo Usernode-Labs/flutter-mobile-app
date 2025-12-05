@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 final _log = LoggingService.instance.withTag(LogTag.node);
@@ -19,9 +20,13 @@ class SlotProductionRepository {
   final List<SlotProductionRecord> _records = [];
   SlotProductionStats? _cachedStats;
 
-  static const String _recordsKey = 'slot_production_records';
-  static const String _statsKey = 'slot_production_stats';
+  static const String _recordsKeyBase = 'slot_production_records';
+  static const String _statsKeyBase = 'slot_production_stats';
   static const int _maxRecordsToKeep = 500; // Keep last 500 records
+
+  // Network-prefixed keys
+  static String get _recordsKey => NetworkPrefs.prefixKey(_recordsKeyBase);
+  static String get _statsKey => NetworkPrefs.prefixKey(_statsKeyBase);
 
   /// Initialize the repository
   Future<bool> initialize() async {

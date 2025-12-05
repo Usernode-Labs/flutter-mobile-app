@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import '../models/block_production_state.dart';
 
 final _log = LoggingService.instance.withTag(LogTag.node);
@@ -10,7 +11,8 @@ final _log = LoggingService.instance.withTag(LogTag.node);
 /// This provides a single persistence point for all block production state,
 /// replacing the scattered SharedPreferences keys used by the old services.
 class BlockProductionStateRepository {
-  static const String _keyState = 'block_production_state';
+  static const String _keyStateBase = 'block_production_state';
+  static String get _keyState => NetworkPrefs.prefixKey(_keyStateBase);
 
   BlockProductionStateRepository._();
   static final BlockProductionStateRepository instance =

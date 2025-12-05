@@ -16,6 +16,7 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:crypto_mobile_app/src/rust/frb_generated.dart';
 import 'package:crypto_mobile_app/src/rust/node.dart';
 import 'package:crypto_mobile_app/src/rust/node/builder.dart';
+import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/core/models/backend_rpc_response.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
@@ -144,6 +145,9 @@ class RustBackendService {
         builder.httpServer(port: httpPort);
       }
 
+      // Load network configuration from URLs (with retry)
+      await _configureNetworkFromUrls(builder);
+
       _log.trace(
         'Configuring block producer with user private key (length: ${privateKeyHex.length})',
       );
@@ -196,6 +200,31 @@ class RustBackendService {
     _cachedPeerId = null;
   }
 
+  /// Configure network settings from URLs (seedlist, genesis).
+  Future<void> _configureNetworkFromUrls(NodeBuilder builder) async {
+    final retries = BigInt.from(AppConfig.intLoadGenesisNbRetries);
+
+    // Load seedlist from URL if configured
+    if (AppConfig.hasCustomSeedlist) {
+      _log.info('Loading seedlist from URL: ${AppConfig.intSeedlistUrl}');
+      await builder.initialPeersFromUrlWithRetries(
+        url: AppConfig.intSeedlistUrl,
+        retries: retries,
+      );
+      _log.info('Seedlist loaded successfully');
+    }
+
+    // Load genesis from URL if configured
+    if (AppConfig.hasCustomGenesis) {
+      _log.info('Loading genesis from URL: ${AppConfig.intGenesisUrl}');
+      await builder.genesisJsonFromUrlWithRetries(
+        url: AppConfig.intGenesisUrl,
+        retries: retries,
+      );
+      _log.info('Genesis configured successfully');
+    }
+  }
+
   /// Restart node using current active account context.
   Future<void> restartNode() async {
     _log.info('Restarting node');
@@ -225,7 +254,7 @@ class RustBackendService {
       _log.error('FRB panic during getStatusNode', error: e, stackTrace: st);
       return null;
     } catch (e, st) {
-      _log.warn('RPC getStatusNode failed: $e\$st');
+      _log.warn('RPC getStatusNode failed: $e $st');
       return null;
     }
   }

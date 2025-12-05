@@ -55,6 +55,24 @@ class AppConfig {
   static const String githubOwner = 'Usernode-Labs';
   static const String githubRepo = 'flutter-mobile-app';
 
+  // Integration network URLs (for custom seedlist/genesis)
+  static const String intSeedlistUrl = String.fromEnvironment(
+    'INT_SEEDLIST_URL',
+    defaultValue: 'https://static.usernodelabs.org/catdog9000/seedlist.txt',
+  );
+  static const String intGenesisUrl = String.fromEnvironment(
+    'INT_GENESIS_URL',
+    defaultValue: 'https://static.usernodelabs.org/catdog9000/genesis.json',
+  );
+  static bool get hasCustomSeedlist => intSeedlistUrl.isNotEmpty;
+  static bool get hasCustomGenesis => intGenesisUrl.isNotEmpty;
+
+  // Number of retries when fetching genesis/seedlist URLs
+  static const int intLoadGenesisNbRetries = int.fromEnvironment(
+    'INT_LOAD_GENESIS_NB_RETRIES',
+    defaultValue: 3,
+  );
+
   // Metrics configuration (compile-time)
   static const bool metricsEnabled =
       bool.fromEnvironment('METRICS_ENABLED', defaultValue: false);

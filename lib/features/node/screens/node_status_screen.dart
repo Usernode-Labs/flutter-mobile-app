@@ -1529,14 +1529,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     super.dispose();
   }
 
-  bool _isActiveTab() {
-    try {
-      return ref.read(currentHomeTabProvider) == 1;
-    } catch (_) {
-      return false;
-    }
-  }
-
   void _startTimer() {
     _autoTimer?.cancel();
     _autoTimer = Timer.periodic(const Duration(seconds: 3), (_) {

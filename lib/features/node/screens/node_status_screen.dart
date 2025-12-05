@@ -267,21 +267,9 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
               children: [
                 Text(
                   'Wallet',
-                  style: theme.textTheme.titleMedium!.copyWith(
-                    fontWeight: FontWeight.w500,
-                    fontSize: 18,
-                    letterSpacing: 0.5,
-                    color: colorScheme.onSurfaceVariant,
+                  style: theme.textTheme.bodyLarge!.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
-                ),
-                // Info icon for build info
-                IconButton(
-                  icon: Icon(Icons.info_outline,
-                      color: colorScheme.onSurfaceVariant, size: 20),
-                  onPressed: _showBuildInfoDialog,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  tooltip: 'Build Info',
                 ),
               ],
             ),
@@ -397,11 +385,9 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     final colorScheme = theme.colorScheme;
     return Text(
       title,
-      style: theme.textTheme.titleMedium!.copyWith(
-          fontWeight: FontWeight.w500,
-          fontSize: 18,
-          letterSpacing: 0.5,
-          color: colorScheme.onSurfaceVariant),
+      style: theme.textTheme.bodyLarge!.copyWith(
+        fontWeight: FontWeight.w600,
+      ),
     );
   }
 
@@ -796,7 +782,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     final theme = Theme.of(context);
 
     final card = Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       decoration: BoxDecoration(
           color: useGradient ? null : Colors.transparent,
           gradient: useGradient
@@ -826,7 +812,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                   color: colorScheme.outlineVariant,
                   width: 1.0,
                 ),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: useGradient
               ? [
                   // Soft glow with color tint
@@ -915,7 +901,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     final theme = Theme.of(context);
 
     final card = Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       decoration: BoxDecoration(
           color: useGradient ? null : Colors.transparent,
           gradient: useGradient
@@ -943,7 +929,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                   color: colorScheme.outlineVariant,
                   width: 1.0,
                 ),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: useGradient
               ? [
                   BoxShadow(
@@ -1119,10 +1105,10 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       decoration: BoxDecoration(
           color: Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: colorScheme.outlineVariant,
             width: 1.0,
@@ -1250,11 +1236,9 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
               Expanded(
                 child: Text(
                   'Recent Blocks',
-                  style: theme.textTheme.titleMedium!.copyWith(
-                      fontWeight: FontWeight.w500,
-                      fontSize: 18,
-                      letterSpacing: 0.5,
-                      color: colorScheme.onSurfaceVariant),
+                  style: theme.textTheme.bodyLarge!.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
               if (!_isRecentBlocksExpanded)

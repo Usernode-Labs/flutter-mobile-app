@@ -160,11 +160,7 @@ class _BackgroundProductionSettingsScreenState
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('App Info & Settings'),
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-      ),
+
       body: RefreshIndicator(
         onRefresh: _checkStatus,
         child: ListView(
@@ -174,17 +170,15 @@ class _BackgroundProductionSettingsScreenState
             _buildAboutSection(theme, colorScheme),
             const SizedBox(height: 8),
 
+            // Build Info section
+            _buildBuildInfoCard(theme, colorScheme),
+            const SizedBox(height: 8),
+
             // Appearance / theme section
             _buildThemeSection(theme, colorScheme),
             const SizedBox(height: 8),
 
-            // Background Block Production section title
-            Text(
-              'Background Block Production',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+            // Feature overview section
             const SizedBox(height: 8),
 
             // Feature overview section
@@ -249,8 +243,8 @@ class _BackgroundProductionSettingsScreenState
           children: [
             Text(
               'Appearance',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w500,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 4),
@@ -329,8 +323,8 @@ class _BackgroundProductionSettingsScreenState
           children: [
             Text(
               'About',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w500,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 8),
@@ -350,6 +344,87 @@ class _BackgroundProductionSettingsScreenState
     );
   }
 
+  Widget _buildBuildInfoCard(ThemeData theme, ColorScheme colorScheme) {
+    final env = ref.read(buildEnvProvider);
+    final l10n = AppLocalizations.of(context);
+    final shortCommit = env.git.commitHash.length >= 7
+        ? env.git.commitHash.substring(0, 7)
+        : env.git.commitHash;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceBright,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colorScheme.outlineVariant, width: 1),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              l10n.settingsBuildInfo,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _buildInfoRow(l10n.buildInfoVersion, env.version, theme, colorScheme),
+            _buildInfoRow(l10n.buildInfoCommit, shortCommit, theme, colorScheme),
+            _buildInfoRow(l10n.buildInfoBranch, env.git.branch, theme, colorScheme),
+            _buildInfoRow(
+                l10n.buildInfoCommitTime, env.git.commitTime, theme, colorScheme),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Divider(height: 1),
+            ),
+            _buildInfoRow(
+                l10n.buildInfoRustc,
+                '${env.rustc.version} (${env.rustc.channel})',
+                theme,
+                colorScheme),
+            _buildInfoRow(
+                l10n.buildInfoLlvm, env.rustc.llvmVersion, theme, colorScheme),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Divider(height: 1),
+            ),
+            _buildInfoRow(l10n.buildInfoCargoTarget, env.cargo.target, theme,
+                colorScheme),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(
+      String label, String value, ThemeData theme, ColorScheme colorScheme) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '$label: ',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurface,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildFeatureOverviewCard(ThemeData theme, ColorScheme colorScheme) {
     final l10n = AppLocalizations.of(context);
     return Container(
@@ -365,11 +440,8 @@ class _BackgroundProductionSettingsScreenState
           children: [
             Text(
               l10n.bgProdWhatIs,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w500,
-                fontSize: 18,
-                letterSpacing: 0.5,
-                color: colorScheme.onSurfaceVariant,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 12),
@@ -486,16 +558,11 @@ class _BackgroundProductionSettingsScreenState
           children: [
             Row(
               children: [
-                Icon(
-                  isAndroid ? Icons.android : Icons.phone_iphone,
-                  color: colorScheme.primary,
-                ),
-                const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     isAndroid ? l10n.bgProdAndroidTitle : l10n.bgProdIosTitle,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w500,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -649,19 +716,11 @@ class _BackgroundProductionSettingsScreenState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(Icons.casino, color: colorScheme.primary),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Understanding VRF & Slots',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
+            Text(
+              'Understanding VRF & Slots',
+              style: theme.textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: 16),
             // What is VRF
@@ -830,22 +889,11 @@ class _BackgroundProductionSettingsScreenState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(
-                  _hasPermissions ? Icons.check_circle : Icons.warning,
-                  color: _hasPermissions ? Colors.green : Colors.orange,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Permissions',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
+            Text(
+              'Permissions',
+              style: theme.textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: 12),
             // Why needed explanation
@@ -937,15 +985,18 @@ class _BackgroundProductionSettingsScreenState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Foreground Keep-Alive Mode',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w500,
-                fontSize: 18,
-                letterSpacing: 0.5,
-                color: colorScheme.onPrimaryContainer,
-              ),
-            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Foreground Keep-Alive Mode',
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.onPrimaryContainer,
+                    ),
+                  ),
+                ),
                 // Reliability badge
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -1166,11 +1217,8 @@ class _BackgroundProductionSettingsScreenState
           children: [
             Text(
               'Battery Optimization',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w500,
-                fontSize: 18,
-                letterSpacing: 0.5,
-                color: colorScheme.onSurfaceVariant,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 12),
@@ -1364,15 +1412,18 @@ class _BackgroundProductionSettingsScreenState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Persistent Foreground Mode',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w500,
-                fontSize: 18,
-                letterSpacing: 0.5,
-                color: colorScheme.onPrimaryContainer,
-              ),
-            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Persistent Foreground Mode',
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.onPrimaryContainer,
+                    ),
+                  ),
+                ),
                 // Reliability badge
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -1664,16 +1715,13 @@ class _BackgroundProductionSettingsScreenState
           children: [
             Row(
               children: [
-                Icon(Icons.event_available, color: colorScheme.primary),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Won Slots This Epoch',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w500,
-                    ),
+                Text(
+                  'Won Slots This Epoch',
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
+                const SizedBox(width: 8),
                 vrfStatusChip,
               ],
             ),

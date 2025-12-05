@@ -97,39 +97,35 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
   }
 
   bool _matchesFilters(_AssignmentItem item) {
-    if (_selected.contains(_Filter.all) || _selected.isEmpty) {
+    // When no filters are selected, show everything.
+    if (_selected.isEmpty) {
       return true;
     }
+
+    final wantsWonSlots = _selected.contains(_Filter.all) &&
+        (item.result == RpcSlotResult.produced ||
+            item.result == RpcSlotResult.missed ||
+            item.result == RpcSlotResult.scheduled);
     final wantsProduced = _selected.contains(_Filter.produced) &&
         item.result == RpcSlotResult.produced;
     final wantsMissed = _selected.contains(_Filter.missed) &&
         item.result == RpcSlotResult.missed;
     final wantsUpcoming = _selected.contains(_Filter.upcoming) &&
         item.result == RpcSlotResult.scheduled;
-    return wantsProduced || wantsMissed || wantsUpcoming;
+    return wantsWonSlots || wantsProduced || wantsMissed || wantsUpcoming;
   }
 
   void _toggleFilter(_Filter filter) {
     setState(() {
-      if (filter == _Filter.all) {
-        if (_selected.contains(_Filter.all)) {
-          // Toggle off 'All'
-          _selected.remove(_Filter.all);
-        } else {
-          // Selecting 'All' clears others
-          _selected
-            ..clear()
-            ..add(_Filter.all);
-        }
+      // Single-select behavior:
+      // - Tapping an already-selected filter clears all (shows everything).
+      // - Tapping a different filter selects only that one.
+      if (_selected.contains(filter)) {
+        _selected.clear();
       } else {
-        if (_selected.contains(_Filter.all)) {
-          _selected.clear();
-        }
-        if (_selected.contains(filter)) {
-          _selected.remove(filter);
-        } else {
-          _selected.add(filter);
-        }
+        _selected
+          ..clear()
+          ..add(filter);
       }
     });
   }
@@ -143,6 +139,16 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
     final epoch = (args['epoch'] as int?) ?? 0;
     final slotsInEpoch = (args['slotsInEpoch'] as int?) ?? 0;
     // Progress now driven by live node status; results not needed here
+
+    // Precompute counts for each filter for display in chips.
+    final producedCount = _items
+        .where((i) => i.result == RpcSlotResult.produced)
+        .length;
+    final missedCount =
+        _items.where((i) => i.result == RpcSlotResult.missed).length;
+    final upcomingCount =
+        _items.where((i) => i.result == RpcSlotResult.scheduled).length;
+    final wonSlotsCount = producedCount + missedCount + upcomingCount;
 
     return Scaffold(
       appBar: AppBar(
@@ -240,25 +246,29 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
                 child: Row(
                   children: [
                     _FilterChip(
-                      label: 'All',
+                      label: 'Won Slots',
+                      count: wonSlotsCount,
                       selected: _selected.contains(_Filter.all),
                       onTap: () => _toggleFilter(_Filter.all),
                     ),
                     const SizedBox(width: 8),
                     _FilterChip(
                       label: 'Produced',
+                      count: producedCount,
                       selected: _selected.contains(_Filter.produced),
                       onTap: () => _toggleFilter(_Filter.produced),
                     ),
                     const SizedBox(width: 8),
                     _FilterChip(
                       label: 'Missed',
+                      count: missedCount,
                       selected: _selected.contains(_Filter.missed),
                       onTap: () => _toggleFilter(_Filter.missed),
                     ),
                     const SizedBox(width: 8),
                     _FilterChip(
                       label: 'Upcoming',
+                      count: upcomingCount,
                       selected: _selected.contains(_Filter.upcoming),
                       onTap: () => _toggleFilter(_Filter.upcoming),
                     ),
@@ -279,16 +289,25 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
                   itemBuilder: (context, index) {
                     final item = filtered[index];
                     final isScheduled = item.result == RpcSlotResult.scheduled;
+                    final isProduced = item.result == RpcSlotResult.produced;
+                    final isMissed = item.result == RpcSlotResult.missed;
                     String subtitleText = '';
-                    if (isScheduled && item.slotTimeMs != null) {
+                    if (item.slotTimeMs != null &&
+                        (isScheduled || isProduced || isMissed)) {
                       final dt =
                           DateTime.fromMillisecondsSinceEpoch(item.slotTimeMs!);
                       final hh = dt.hour.toString().padLeft(2, '0');
                       final mm = dt.minute.toString().padLeft(2, '0');
-                      subtitleText = 'Scheduled for $hh:$mm';
+                      if (isScheduled) {
+                        subtitleText = 'Scheduled for $hh:$mm';
+                      } else if (isProduced) {
+                        subtitleText = 'Produced at $hh:$mm';
+                      } else if (isMissed) {
+                        subtitleText = 'Missed at $hh:$mm';
+                      }
                     }
                     final VoidCallback? onTap =
-                        (item.result == RpcSlotResult.produced)
+                        isProduced
                             ? () {
                                 context.push(
                                   AppRoutes.producedBlockDetails,
@@ -458,10 +477,12 @@ class _SlotRow extends StatelessWidget {
 class _FilterChip extends StatelessWidget {
   const _FilterChip({
     required this.label,
+    required this.count,
     required this.selected,
     required this.onTap,
   });
   final String label;
+  final int count;
   final bool selected;
   final VoidCallback onTap;
 
@@ -475,18 +496,38 @@ class _FilterChip extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
           color: bg,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(color: border),
         ),
-        child: Text(
-          label,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: fg,
-            fontWeight: FontWeight.w600,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade700,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                '$count',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: fg,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -54,12 +54,12 @@ class ProducedBlockCard extends StatelessWidget {
       onTap: () {
         context.push(AppRoutes.mainNodeBlockDetails, extra: block);
       },
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(20),
       child: Container(
         margin: variant == BlockCardVariant.detailed
             ? const EdgeInsets.only(bottom: 4)
             : EdgeInsets.zero,
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         decoration: BoxDecoration(
           color: isBestTip && variant != BlockCardVariant.compact
               ? colorScheme.primaryContainer.withValues(alpha: 0.3)
@@ -72,19 +72,11 @@ class ProducedBlockCard extends StatelessWidget {
                   color: colorScheme.outlineVariant.withValues(alpha: 0.5),
                   width: 1,
                 ),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Icon
-            Icon(
-              Icons.auto_awesome_motion,
-              size: 16,
-              color: colorScheme.primary,
-            ),
-            const SizedBox(width: 12),
-
             // Content
             Expanded(
               child: _buildContent(

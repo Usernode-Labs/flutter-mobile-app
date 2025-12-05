@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
+import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -160,70 +161,66 @@ class _BackgroundProductionSettingsScreenState
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('App Info & Settings'),
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-      ),
-      body: RefreshIndicator(
+      drawer: const AppDrawer(),
+      body: SafeArea(
+        child: RefreshIndicator(
         onRefresh: _checkStatus,
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
             // About section
             _buildAboutSection(theme, colorScheme),
-            const SizedBox(height: 24),
+            const SizedBox(height: 8),
+
+            // Build Info section
+            _buildBuildInfoCard(theme, colorScheme),
+            const SizedBox(height: 8),
 
             // Appearance / theme section
             _buildThemeSection(theme, colorScheme),
-            const SizedBox(height: 24),
+            const SizedBox(height: 8),
 
-            // Background Block Production section title
-            Text(
-              'Background Block Production',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 24),
+            // Feature overview section
+            const SizedBox(height: 8),
 
             // Feature overview section
             _buildFeatureOverviewCard(theme, colorScheme),
-            const SizedBox(height: 24),
+            const SizedBox(height: 8),
 
             // Platform-specific info card
             _buildPlatformInfoCard(theme, colorScheme),
-            const SizedBox(height: 24),
+            const SizedBox(height: 8),
 
             // Understanding VRF & Slots section
             _buildVrfExplanationCard(theme, colorScheme),
-            const SizedBox(height: 24),
+            const SizedBox(height: 8),
 
             // Permissions section
             _buildPermissionsSection(theme, colorScheme),
-            const SizedBox(height: 24),
+            const SizedBox(height: 8),
 
             // iOS Keep-Alive section (if iOS)
             if (Platform.isIOS) ...[
               _buildIOSKeepAliveSection(theme, colorScheme),
-              const SizedBox(height: 24),
+              const SizedBox(height: 8),
             ],
 
             // Android Battery section (if Android)
             if (Platform.isAndroid) ...[
               _buildAndroidBatterySection(theme, colorScheme),
-              const SizedBox(height: 24),
+              const SizedBox(height: 8),
             ],
 
             // Android Keep-Alive section (if Android)
             if (Platform.isAndroid) ...[
               _buildAndroidKeepAliveSection(theme, colorScheme),
-              const SizedBox(height: 24),
+              const SizedBox(height: 8),
             ],
 
             // Scheduled slots section
             _buildScheduledSlotsSection(theme, colorScheme),
           ],
+        ),
         ),
       ),
     );
@@ -236,16 +233,21 @@ class _BackgroundProductionSettingsScreenState
       ref.read(themeModeProvider.notifier).set(mode);
     }
 
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceBright,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colorScheme.outlineVariant, width: 1),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'Appearance',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 4),
@@ -311,16 +313,21 @@ class _BackgroundProductionSettingsScreenState
   }
 
   Widget _buildAboutSection(ThemeData theme, ColorScheme colorScheme) {
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceBright,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colorScheme.outlineVariant, width: 1),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'About',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 8),
@@ -340,27 +347,105 @@ class _BackgroundProductionSettingsScreenState
     );
   }
 
-  Widget _buildFeatureOverviewCard(ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildBuildInfoCard(ThemeData theme, ColorScheme colorScheme) {
+    final env = ref.read(buildEnvProvider);
     final l10n = AppLocalizations.of(context);
-    return Card(
+    final shortCommit = env.git.commitHash.length >= 7
+        ? env.git.commitHash.substring(0, 7)
+        : env.git.commitHash;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceBright,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colorScheme.outlineVariant, width: 1),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(Icons.auto_awesome, color: colorScheme.primary),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    l10n.bgProdWhatIs,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
+            Text(
+              l10n.settingsBuildInfo,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _buildInfoRow(l10n.buildInfoVersion, env.version, theme, colorScheme),
+            _buildInfoRow(l10n.buildInfoCommit, shortCommit, theme, colorScheme),
+            _buildInfoRow(l10n.buildInfoBranch, env.git.branch, theme, colorScheme),
+            _buildInfoRow(
+                l10n.buildInfoCommitTime, env.git.commitTime, theme, colorScheme),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Divider(height: 1),
+            ),
+            _buildInfoRow(
+                l10n.buildInfoRustc,
+                '${env.rustc.version} (${env.rustc.channel})',
+                theme,
+                colorScheme),
+            _buildInfoRow(
+                l10n.buildInfoLlvm, env.rustc.llvmVersion, theme, colorScheme),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Divider(height: 1),
+            ),
+            _buildInfoRow(l10n.buildInfoCargoTarget, env.cargo.target, theme,
+                colorScheme),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(
+      String label, String value, ThemeData theme, ColorScheme colorScheme) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '$label: ',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurface,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeatureOverviewCard(ThemeData theme, ColorScheme colorScheme) {
+    final l10n = AppLocalizations.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceBright,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colorScheme.outlineVariant, width: 1),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              l10n.bgProdWhatIs,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: 12),
             Text(
@@ -425,7 +510,7 @@ class _BackgroundProductionSettingsScreenState
               number,
               style: TextStyle(
                 color: colorScheme.primary,
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w500,
                 fontSize: 12,
               ),
             ),
@@ -463,24 +548,24 @@ class _BackgroundProductionSettingsScreenState
     final l10n = AppLocalizations.of(context);
     final isAndroid = Platform.isAndroid;
 
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceBright,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colorScheme.outlineVariant, width: 1),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(
-                  isAndroid ? Icons.android : Icons.phone_iphone,
-                  color: colorScheme.primary,
-                ),
-                const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     isAndroid ? l10n.bgProdAndroidTitle : l10n.bgProdIosTitle,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -590,7 +675,7 @@ class _BackgroundProductionSettingsScreenState
             percentage,
             style: TextStyle(
               fontSize: 12,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w500,
               color: color,
             ),
           ),
@@ -623,25 +708,22 @@ class _BackgroundProductionSettingsScreenState
   }
 
   Widget _buildVrfExplanationCard(ThemeData theme, ColorScheme colorScheme) {
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceBright,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colorScheme.outlineVariant, width: 1),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(Icons.casino, color: colorScheme.primary),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Understanding VRF & Slots',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
+            Text(
+              'Understanding VRF & Slots',
+              style: theme.textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: 16),
             // What is VRF
@@ -799,28 +881,22 @@ class _BackgroundProductionSettingsScreenState
   Widget _buildPermissionsSection(ThemeData theme, ColorScheme colorScheme) {
     final isAndroid = Platform.isAndroid;
 
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceBright,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colorScheme.outlineVariant, width: 1),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(
-                  _hasPermissions ? Icons.check_circle : Icons.warning,
-                  color: _hasPermissions ? Colors.green : Colors.orange,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Permissions',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
+            Text(
+              'Permissions',
+              style: theme.textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: 12),
             // Why needed explanation
@@ -901,25 +977,25 @@ class _BackgroundProductionSettingsScreenState
   }
 
   Widget _buildIOSKeepAliveSection(ThemeData theme, ColorScheme colorScheme) {
-    return Card(
-      color: colorScheme.primaryContainer,
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colorScheme.outlineVariant, width: 1),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Icon(
-                  Icons.phonelink_lock,
-                  color: colorScheme.onPrimaryContainer,
-                ),
-                const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     'Foreground Keep-Alive Mode',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
                       color: colorScheme.onPrimaryContainer,
                     ),
                   ),
@@ -938,7 +1014,7 @@ class _BackgroundProductionSettingsScreenState
                     '99%',
                     style: TextStyle(
                       fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w500,
                       color: Colors.green,
                     ),
                   ),
@@ -1087,7 +1163,7 @@ class _BackgroundProductionSettingsScreenState
                   value,
                   style: TextStyle(
                     fontSize: 12,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w500,
                     color: color,
                   ),
                 ),
@@ -1131,30 +1207,22 @@ class _BackgroundProductionSettingsScreenState
   }
 
   Widget _buildAndroidBatterySection(ThemeData theme, ColorScheme colorScheme) {
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceBright,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colorScheme.outlineVariant, width: 1),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(
-                  _batteryOptDisabled
-                      ? Icons.battery_full
-                      : Icons.battery_alert,
-                  color: _batteryOptDisabled ? Colors.green : Colors.orange,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Battery Optimization',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
+            Text(
+              'Battery Optimization',
+              style: theme.textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: 12),
             // Why this matters explanation
@@ -1336,25 +1404,25 @@ class _BackgroundProductionSettingsScreenState
 
   Widget _buildAndroidKeepAliveSection(
       ThemeData theme, ColorScheme colorScheme) {
-    return Card(
-      color: colorScheme.primaryContainer,
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colorScheme.outlineVariant, width: 1),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Icon(
-                  Icons.phonelink_lock,
-                  color: colorScheme.onPrimaryContainer,
-                ),
-                const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     'Persistent Foreground Mode',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
                       color: colorScheme.onPrimaryContainer,
                     ),
                   ),
@@ -1373,7 +1441,7 @@ class _BackgroundProductionSettingsScreenState
                     '100%',
                     style: TextStyle(
                       fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w500,
                       color: Colors.blue,
                     ),
                   ),
@@ -1455,7 +1523,7 @@ class _BackgroundProductionSettingsScreenState
                           '90-95%',
                           style: TextStyle(
                             fontSize: 10,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w500,
                             color: Colors.green,
                           ),
                         ),
@@ -1489,7 +1557,7 @@ class _BackgroundProductionSettingsScreenState
                           '100%',
                           style: TextStyle(
                             fontSize: 10,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w500,
                             color: Colors.blue,
                           ),
                         ),
@@ -1637,24 +1705,26 @@ class _BackgroundProductionSettingsScreenState
       );
     }
 
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceBright,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colorScheme.outlineVariant, width: 1),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(Icons.event_available, color: colorScheme.primary),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Won Slots This Epoch',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                Text(
+                  'Won Slots This Epoch',
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
+                const SizedBox(width: 8),
                 vrfStatusChip,
               ],
             ),
@@ -1772,7 +1842,7 @@ class _BackgroundProductionSettingsScreenState
                             Text(
                               'Slot ${nextSlot.globalSlot}',
                               style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
+                                fontWeight: FontWeight.w500,
                                 color: colorScheme.onPrimaryContainer,
                               ),
                             ),

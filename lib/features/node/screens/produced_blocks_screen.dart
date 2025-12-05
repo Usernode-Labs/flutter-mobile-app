@@ -8,6 +8,7 @@ import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/features/node/node_provider.dart';
 import 'package:crypto_mobile_app/features/node/produced_blocks_provider.dart';
+import 'package:crypto_mobile_app/core/widgets/app_progress_bar.dart';
 
 // TODO use translation file to replace hard coded strings
 
@@ -500,16 +501,11 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                             const SizedBox(height: 16),
                             SizedBox(
                               width: 260,
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(4),
-                                child: LinearProgressIndicator(
-                                  value: syncPercentage,
-                                  backgroundColor:
-                                      colorScheme.surfaceContainerHighest,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                      syncAccentColor),
-                                  minHeight: 8,
-                                ),
+                              child: AppProgressBar(
+                                value: syncPercentage,
+                                backgroundColor:
+                                    colorScheme.surfaceContainerHighest,
+                                valueColor: syncAccentColor,
                               ),
                             ),
                           ],
@@ -879,7 +875,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                               style: theme.textTheme.titleMedium
                                                   ?.copyWith(
                                                       fontWeight:
-                                                          FontWeight.bold),
+                                                          FontWeight.w500),
                                             ),
                                           ),
                                           Text(
@@ -887,7 +883,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                             style: theme.textTheme.titleMedium
                                                 ?.copyWith(
                                                     fontWeight:
-                                                        FontWeight.bold),
+                                                        FontWeight.w500),
                                           ),
                                         ],
                                       ),
@@ -1430,41 +1426,10 @@ class _EpochPanel extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         // Progress bar
-        SizedBox(
-          height: 12,
-          child: Stack(
-            alignment: Alignment.centerLeft,
-            children: [
-              Container(
-                height: 4,
-                decoration: BoxDecoration(
-                  color: trackColor,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              FractionallySizedBox(
-                widthFactor: progress.clamp(0.0, 1.0),
-                child: Container(
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: activeColor,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              Align(
-                alignment: Alignment.centerRight,
-                child: Container(
-                  width: 4,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: activeColor,
-                    borderRadius: BorderRadius.circular(26),
-                  ),
-                ),
-              ),
-            ],
-          ),
+        AppProgressBar(
+          value: progress,
+          backgroundColor: trackColor,
+          valueColor: activeColor,
         ),
         const SizedBox(height: 6),
         Row(

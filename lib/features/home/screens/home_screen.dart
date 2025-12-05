@@ -40,29 +40,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           BackgroundProductionSettingsScreen(),
         ],
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) {
-          setState(() => _index = i);
-          ref.read(currentHomeTabProvider.notifier).state = i;
-        },
-        destinations: [
-          NavigationDestination(
-            icon: const Icon(Icons.layers_outlined),
-            selectedIcon: const Icon(Icons.layers),
-            label: l10n.navProducedBlocks,
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceBright,
+          border: Border(
+            top: BorderSide(
+              color: Theme.of(context).colorScheme.outlineVariant,
+              width: 1,
+            ),
           ),
-          NavigationDestination(
-            icon: const Icon(Icons.check_circle_outline),
-            selectedIcon: const Icon(Icons.check_circle),
-            label: l10n.navNodeStatus,
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.settings_outlined),
-            selectedIcon: const Icon(Icons.settings),
-            label: l10n.navSettings,
-          ),
-        ],
+        ),
+        child: NavigationBar(
+          backgroundColor: Colors.transparent,
+          selectedIndex: _index,
+          onDestinationSelected: (i) {
+            setState(() => _index = i);
+            ref.read(currentHomeTabProvider.notifier).state = i;
+          },
+          destinations: [
+            NavigationDestination(
+              icon: const Icon(Icons.layers_outlined),
+              selectedIcon: const Icon(Icons.layers),
+              label: l10n.navProducedBlocks,
+            ),
+            NavigationDestination(
+              icon: const Icon(Icons.check_circle_outline),
+              selectedIcon: const Icon(Icons.check_circle),
+              label: l10n.navNodeStatus,
+            ),
+            NavigationDestination(
+              icon: const Icon(Icons.settings_outlined),
+              selectedIcon: const Icon(Icons.settings),
+              label: l10n.navSettings,
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -172,11 +172,11 @@ class _BackgroundProductionSettingsScreenState
           children: [
             // About section
             _buildAboutSection(theme, colorScheme),
-            const SizedBox(height: 24),
+            const SizedBox(height: 8),
 
             // Appearance / theme section
             _buildThemeSection(theme, colorScheme),
-            const SizedBox(height: 24),
+            const SizedBox(height: 8),
 
             // Background Block Production section title
             Text(
@@ -185,40 +185,40 @@ class _BackgroundProductionSettingsScreenState
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 8),
 
             // Feature overview section
             _buildFeatureOverviewCard(theme, colorScheme),
-            const SizedBox(height: 24),
+            const SizedBox(height: 8),
 
             // Platform-specific info card
             _buildPlatformInfoCard(theme, colorScheme),
-            const SizedBox(height: 24),
+            const SizedBox(height: 8),
 
             // Understanding VRF & Slots section
             _buildVrfExplanationCard(theme, colorScheme),
-            const SizedBox(height: 24),
+            const SizedBox(height: 8),
 
             // Permissions section
             _buildPermissionsSection(theme, colorScheme),
-            const SizedBox(height: 24),
+            const SizedBox(height: 8),
 
             // iOS Keep-Alive section (if iOS)
             if (Platform.isIOS) ...[
               _buildIOSKeepAliveSection(theme, colorScheme),
-              const SizedBox(height: 24),
+              const SizedBox(height: 8),
             ],
 
             // Android Battery section (if Android)
             if (Platform.isAndroid) ...[
               _buildAndroidBatterySection(theme, colorScheme),
-              const SizedBox(height: 24),
+              const SizedBox(height: 8),
             ],
 
             // Android Keep-Alive section (if Android)
             if (Platform.isAndroid) ...[
               _buildAndroidKeepAliveSection(theme, colorScheme),
-              const SizedBox(height: 24),
+              const SizedBox(height: 8),
             ],
 
             // Scheduled slots section
@@ -236,9 +236,14 @@ class _BackgroundProductionSettingsScreenState
       ref.read(themeModeProvider.notifier).set(mode);
     }
 
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceBright,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colorScheme.outlineVariant, width: 1),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -311,9 +316,14 @@ class _BackgroundProductionSettingsScreenState
   }
 
   Widget _buildAboutSection(ThemeData theme, ColorScheme colorScheme) {
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceBright,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colorScheme.outlineVariant, width: 1),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -342,9 +352,14 @@ class _BackgroundProductionSettingsScreenState
 
   Widget _buildFeatureOverviewCard(ThemeData theme, ColorScheme colorScheme) {
     final l10n = AppLocalizations.of(context);
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceBright,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colorScheme.outlineVariant, width: 1),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -463,9 +478,14 @@ class _BackgroundProductionSettingsScreenState
     final l10n = AppLocalizations.of(context);
     final isAndroid = Platform.isAndroid;
 
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceBright,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colorScheme.outlineVariant, width: 1),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -623,9 +643,14 @@ class _BackgroundProductionSettingsScreenState
   }
 
   Widget _buildVrfExplanationCard(ThemeData theme, ColorScheme colorScheme) {
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceBright,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colorScheme.outlineVariant, width: 1),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -799,9 +824,14 @@ class _BackgroundProductionSettingsScreenState
   Widget _buildPermissionsSection(ThemeData theme, ColorScheme colorScheme) {
     final isAndroid = Platform.isAndroid;
 
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceBright,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colorScheme.outlineVariant, width: 1),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -901,10 +931,14 @@ class _BackgroundProductionSettingsScreenState
   }
 
   Widget _buildIOSKeepAliveSection(ThemeData theme, ColorScheme colorScheme) {
-    return Card(
-      color: colorScheme.primaryContainer,
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colorScheme.outlineVariant, width: 1),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1131,9 +1165,14 @@ class _BackgroundProductionSettingsScreenState
   }
 
   Widget _buildAndroidBatterySection(ThemeData theme, ColorScheme colorScheme) {
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceBright,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colorScheme.outlineVariant, width: 1),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1336,10 +1375,14 @@ class _BackgroundProductionSettingsScreenState
 
   Widget _buildAndroidKeepAliveSection(
       ThemeData theme, ColorScheme colorScheme) {
-    return Card(
-      color: colorScheme.primaryContainer,
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colorScheme.outlineVariant, width: 1),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1637,9 +1680,14 @@ class _BackgroundProductionSettingsScreenState
       );
     }
 
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceBright,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colorScheme.outlineVariant, width: 1),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

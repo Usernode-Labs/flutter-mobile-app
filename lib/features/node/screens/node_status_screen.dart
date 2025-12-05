@@ -182,12 +182,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
         child: RefreshIndicator(
           onRefresh: _refresh,
           child: ListView(
-            padding: const EdgeInsets.only(
-              left: 12,
-              right: 12,
-              top: 12,
-              bottom: 12,
-            ),
+            padding: const EdgeInsets.all(16),
             children: [
               if (_error != null)
                 Column(
@@ -201,17 +196,17 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                   ],
                 ),
 
-              // WALLET BALANCE Section
-              _buildWalletBalanceCard(theme),
-              const SizedBox(height: 18),
-
               // OVERVIEW Section (includes Synchronization details)
               _buildOverviewSection(
                   context, ref.read(nodeStatusProvider).value),
-              const SizedBox(height: 18),
+              const SizedBox(height: 8),
 
               // RECENT BLOCKS Section (collapsible, separate card)
               _buildRecentBlocksSection(context),
+              const SizedBox(height: 8),
+
+              // WALLET BALANCE Section (moved to bottom)
+              _buildWalletBalanceCard(theme),
             ],
           ),
         ),
@@ -231,13 +226,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
         decoration: BoxDecoration(
           color: colorScheme.surfaceBright,
           borderRadius: BorderRadius.circular(8),
-          boxShadow: [
-            BoxShadow(
-              color: colorScheme.outline.withValues(alpha: 0.2),
-              offset: const Offset(1.1, 1.1),
-              blurRadius: 10.0,
-            ),
-          ],
         ),
         child: Padding(
           padding: const EdgeInsets.all(12),
@@ -253,64 +241,39 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   // Wallet balance card widget
   Widget _buildWalletBalanceCard(ThemeData theme) {
     final peerId = ref.read(nodeStatusProvider).value?.peerId;
+    final colorScheme = theme.colorScheme;
 
     return Container(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF6366F1), // Indigo-500
-            Color(0xFF7C3AED), // Purple-600
-          ],
+        color: colorScheme.surfaceBright,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: colorScheme.outlineVariant,
+          width: 1,
         ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF6366F1).withValues(alpha: 0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Address row with info icon
+            // Section header
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'address: ${_account != null ? _shortAddr(_account!.address) : 'NA'}',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.9),
-                          fontFamily: 'monospace',
-                        ),
-                      ),
-                      if (peerId != null) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          'peerId: ${_shortenMid(peerId, head: 6, tail: 6)}',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: Colors.white.withValues(alpha: 0.9),
-                            fontFamily: 'monospace',
-                          ),
-                        ),
-                      ],
-                    ],
+                Text(
+                  'Wallet',
+                  style: theme.textTheme.titleMedium!.copyWith(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 18,
+                    letterSpacing: 0.5,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                 ),
                 // Info icon for build info
                 IconButton(
-                  icon: const Icon(Icons.info_outline,
-                      color: Colors.white, size: 20),
+                  icon: Icon(Icons.info_outline,
+                      color: colorScheme.onSurfaceVariant, size: 20),
                   onPressed: _showBuildInfoDialog,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
@@ -318,16 +281,35 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-
-            // Balance amount (using cached value to avoid loading flicker)
+            const SizedBox(height: 8),
+            // Balance amount
             Text(
               'Balance: ${_formatBalance((_cachedBalance ?? BigInt.zero).toDouble())} ${_cachedTokenSymbol ?? 'TKN'}',
               style: theme.textTheme.titleMedium?.copyWith(
-                color: Colors.white,
+                color: colorScheme.onSurface,
                 fontWeight: FontWeight.w600,
               ),
             ),
+            const SizedBox(height: 12),
+
+            // Address row
+            Text(
+              'address:   ${_account != null ? _shortAddr(_account!.address) : 'NA'}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontFamily: 'monospace',
+              ),
+            ),
+            if (peerId != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                'peerId:   ${_shortenMid(peerId, head: 6, tail: 6)}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -570,70 +552,59 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
           ),
         ),
 
-        // Horizontal divider before sync details
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: _buildDivider(),
-        ),
+        const SizedBox(height: 12),
 
         // Sync Details subsection
         _buildSyncDetailsSubsection(context),
 
-        // Horizontal divider after sync details
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: _buildDivider(),
-        ),
+        const SizedBox(height: 12),
 
         // Peers and Epoch info row
-        Row(
-          children: [
-            Expanded(
-              child: _buildCompactInfoCard(
-                context,
-                icon: Icons.people,
-                label: 'Peers',
-                value: '$connectedPeers/$totalPeers',
-                subtitle: peerHealthy ? 'All connected' : 'Some offline',
-                color: peerHealthy
-                    ? colorScheme.tertiary
-                    : colorScheme.error.withValues(alpha: 0.7),
-                colorScheme: colorScheme,
-                onTap: () {
-                  final status = ref.read(nodeStatusProvider).value;
-                  final peers = (status?.peers.isNotEmpty == true)
-                      ? status!.peers
-                      : _peers;
-                  if (peers.isEmpty) return;
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => NodePeersScreen(peers: peers),
-                    ),
-                  );
-                },
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _buildCompactInfoCard(
+                  context,
+                  label: 'Peers',
+                  value: '$connectedPeers/$totalPeers',
+                  subtitle: peerHealthy ? 'All connected' : 'Some offline',
+                  color: peerHealthy
+                      ? colorScheme.tertiary
+                      : colorScheme.error.withValues(alpha: 0.7),
+                  colorScheme: colorScheme,
+                  onTap: () {
+                    final status = ref.read(nodeStatusProvider).value;
+                    final peers = (status?.peers.isNotEmpty == true)
+                        ? status!.peers
+                        : _peers;
+                    if (peers.isEmpty) return;
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => NodePeersScreen(peers: peers),
+                      ),
+                    );
+                  },
+                ),
               ),
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: _buildCompactInfoCard(
-                context,
-                icon: Icons.access_time,
-                label: 'Cur. Epoch',
-                value: '${statusFromProvider?.currentEpoch ?? 'N/A'}',
-                subtitle:
-                    'Cur. Slot ${statusFromProvider?.currentGlobalSlot ?? 'N/A'}',
-                color: colorScheme.primary,
-                colorScheme: colorScheme,
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildCompactInfoCard(
+                  context,
+                  label: 'Cur. Epoch',
+                  value: '${statusFromProvider?.currentEpoch ?? 'N/A'}',
+                  subtitle:
+                      'Cur. Slot ${statusFromProvider?.currentGlobalSlot ?? 'N/A'}',
+                  color: colorScheme.primary,
+                  colorScheme: colorScheme,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
 
-        // Horizontal divider before Produced blocks and Won slots
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: _buildDivider(),
-        ),
+        const SizedBox(height: 12),
 
         // Produced blocks and Won Slots row
         Builder(
@@ -664,128 +635,126 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             final totalSlotsPerEpoch =
                 ref.read(nodeStatusProvider).value?.slotsInEpoch ?? 0;
 
-            return Row(
-              children: [
-                Expanded(
-                  child: _buildMultiLineInfoCard(
-                    context,
-                    icon: Icons.analytics,
-                    label: 'VRF',
-                    lines: () {
-                      // Display VRF status directly from provider
-                      final vrfStatus =
-                          vrfEvaluator?.currentEpochVrfEvaluationStatus;
-                      final statusText = switch (vrfStatus) {
-                        RpcStatusVrfEvaluationStatus.pending => 'Pending',
-                        RpcStatusVrfEvaluationStatus.evaluating => 'Evaluating',
-                        RpcStatusVrfEvaluationStatus.completed => 'Completed',
-                        _ => 'N/A',
-                      };
+            return IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: _buildMultiLineInfoCard(
+                      context,
+                      label: 'VRF',
+                      lines: () {
+                        // Display VRF status directly from provider
+                        final vrfStatus =
+                            vrfEvaluator?.currentEpochVrfEvaluationStatus;
+                        final statusText = switch (vrfStatus) {
+                          RpcStatusVrfEvaluationStatus.pending => 'Pending',
+                          RpcStatusVrfEvaluationStatus.evaluating => 'Evaluating',
+                          RpcStatusVrfEvaluationStatus.completed => 'Completed',
+                          _ => 'N/A',
+                        };
 
-                      return [
-                        'Status: $statusText',
+                        return [
+                          'Status: $statusText',
+                          'Total: ${NumberFormat('#,###').format(totalSlotsPerEpoch)}',
+                          'Evaluated: ${NumberFormat('#,###').format(evaluatedSlots)}',
+                          'Won: ${NumberFormat('#,###').format(vrfWonSlots)}',
+                        ];
+                      }(),
+                      color: colorScheme.tertiary,
+                      colorScheme: colorScheme,
+                      useGradient: false,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildMultiLineInfoCard(
+                      context,
+                      label: 'Slots/Blocks',
+                      lines: [
                         'Total: ${NumberFormat('#,###').format(totalSlotsPerEpoch)}',
-                        'Evaluated: ${NumberFormat('#,###').format(evaluatedSlots)}',
-                        'Won: ${NumberFormat('#,###').format(vrfWonSlots)}',
-                      ];
-                    }(),
-                    color: colorScheme.tertiary,
-                    colorScheme: colorScheme,
-                    useGradient: false,
+                        'Won: ${NumberFormat('#,###').format(wonSlots)}',
+                        'Produced: ${NumberFormat('#,###').format(produced)}',
+                      ],
+                      color: const Color(0xFFF9A825),
+                      colorScheme: colorScheme,
+                      onTap: () => context.push(AppRoutes.mainNodeWonSlots),
+                      useGradient: false,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: _buildMultiLineInfoCard(
-                    context,
-                    icon: Icons.emoji_events,
-                    label: 'Slots/Blocks',
-                    lines: [
-                      'Total: ${NumberFormat('#,###').format(totalSlotsPerEpoch)}',
-                      'Won: ${NumberFormat('#,###').format(wonSlots)}',
-                      'Produced: ${NumberFormat('#,###').format(produced)}',
-                    ],
-                    color: const Color(0xFFF9A825),
-                    colorScheme: colorScheme,
-                    onTap: () => context.push(AppRoutes.mainNodeWonSlots),
-                    useGradient: false,
-                  ),
-                ),
-              ],
+                ],
+              ),
             );
           },
         ),
 
-        // Horizontal divider before Best Tip and Mempool
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: _buildDivider(),
-        ),
+        const SizedBox(height: 12),
 
         // Best Tip and Mempool row
-        Row(
-          children: [
-            Expanded(
-              child: _buildMultiLineInfoCard(
-                context,
-                icon: Icons.toll,
-                label: 'Best Tip',
-                lines: () {
-                  final status = ref.read(nodeStatusProvider).value;
-                  final localBestTip = status?.localBest;
-                  final networkBestTip = status?.networkBest;
-                  final displayBestTip = networkBestTip ?? localBestTip;
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _buildMultiLineInfoCard(
+                  context,
+                  label: 'Best Tip',
+                  lines: () {
+                    final status = ref.read(nodeStatusProvider).value;
+                    final localBestTip = status?.localBest;
+                    final networkBestTip = status?.networkBest;
+                    final displayBestTip = networkBestTip ?? localBestTip;
 
-                  if (displayBestTip == null) return ['N/A'];
+                    if (displayBestTip == null) return ['N/A'];
 
-                  final height = displayBestTip.height;
-                  final hash = displayBestTip.hash.toString();
-                  final epoch = status?.epoch ?? _bestTipEpoch;
-                  final slot = status?.globalSlot ?? _bestTipGlobalSlot;
+                    final height = displayBestTip.height;
+                    final hash = displayBestTip.hash.toString();
+                    final epoch = status?.epoch ?? _bestTipEpoch;
+                    final slot = status?.globalSlot ?? _bestTipGlobalSlot;
 
-                  final formattedHeight =
-                      'Height ${NumberFormat('#,###').format(height)}';
-                  final epochText = 'Epoch ${epoch ?? 'N/A'}';
-                  final slotText = 'Slot ${slot ?? 'N/A'}';
-                  final truncatedHash = hash.length > 16
-                      ? '${hash.substring(0, 8)}...${hash.substring(hash.length - 8)}'
-                      : hash;
+                    final formattedHeight =
+                        'Height ${NumberFormat('#,###').format(height)}';
+                    final epochText = 'Epoch ${epoch ?? 'N/A'}';
+                    final slotText = 'Slot ${slot ?? 'N/A'}';
+                    final truncatedHash = hash.length > 16
+                        ? '${hash.substring(0, 8)}...${hash.substring(hash.length - 8)}'
+                        : hash;
 
-                  return [formattedHeight, epochText, slotText, truncatedHash];
-                }(),
-                color: colorScheme.tertiary,
-                colorScheme: colorScheme,
-                useGradient: false,
+                    return [formattedHeight, epochText, slotText, truncatedHash];
+                  }(),
+                  color: colorScheme.tertiary,
+                  colorScheme: colorScheme,
+                  useGradient: false,
+                ),
               ),
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: _buildMultiLineInfoCard(
-                context,
-                icon: Icons.dynamic_feed,
-                label: 'Mempool',
-                lines: () {
-                  final mempool = ref.read(nodeMempoolProvider).value;
-                  if (mempool == null) return ['N/A'];
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildMultiLineInfoCard(
+                  context,
+                  label: 'Mempool',
+                  lines: () {
+                    final mempool = ref.read(nodeMempoolProvider).value;
+                    if (mempool == null) return ['N/A'];
 
-                  final count = mempool.count.toInt();
-                  final orphans = mempool.orphans.toInt();
-                  final sizeKB =
-                      (mempool.totalSize.toInt() / 1024).toStringAsFixed(1);
+                    final count = mempool.count.toInt();
+                    final orphans = mempool.orphans.toInt();
+                    final sizeKB =
+                        (mempool.totalSize.toInt() / 1024).toStringAsFixed(1);
 
-                  return [
-                    count == 1 ? '1 txn' : '$count txns',
-                    '$sizeKB KB',
-                    orphans == 1 ? '1 orphan' : '$orphans orphans',
-                  ];
-                }(),
-                color: colorScheme.secondary,
-                colorScheme: colorScheme,
-                onTap: () => context.push(AppRoutes.mainNodeMempool),
-                useGradient: false,
+                    return [
+                      count == 1 ? '1 txn' : '$count txns',
+                      '$sizeKB KB',
+                      orphans == 1 ? '1 orphan' : '$orphans orphans',
+                    ];
+                  }(),
+                  color: colorScheme.secondary,
+                  colorScheme: colorScheme,
+                  onTap: () => context.push(AppRoutes.mainNodeMempool),
+                  useGradient: false,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
 
         if (_lastChecked != null) ...[
@@ -812,7 +781,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
   Widget _buildCompactInfoCard(
     BuildContext context, {
-    required IconData icon,
     required String label,
     required String value,
     required String subtitle,
@@ -824,9 +792,9 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     final theme = Theme.of(context);
 
     final card = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-          color: useGradient ? null : colorScheme.surfaceContainerLow,
+          color: useGradient ? null : Colors.transparent,
           gradient: useGradient
               ? LinearGradient(
                   begin: Alignment.topLeft,
@@ -850,7 +818,10 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                       color.withValues(alpha: 0.8), // Semi-transparent border
                   width: 1.0,
                 )
-              : null,
+              : Border.all(
+                  color: colorScheme.outlineVariant,
+                  width: 1.0,
+                ),
           borderRadius: BorderRadius.circular(8),
           boxShadow: useGradient
               ? [
@@ -863,24 +834,10 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                   ),
                   // Subtle depth shadow
                 ]
-              : [
-                  BoxShadow(
-                      color: colorScheme.outline.withValues(alpha: 0.8),
-                      offset: const Offset(0.5, 0.5),
-                      blurRadius: 4.0)
-                ]),
+              : null),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: color.withValues(
-                  alpha: 0.20), // Icon background for glassmorphism
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Icon(icon, size: 12, color: color),
-          ),
-          const SizedBox(width: 6),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -944,7 +901,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
   Widget _buildMultiLineInfoCard(
     BuildContext context, {
-    required IconData icon,
     required String label,
     required List<String> lines,
     required Color color,
@@ -955,9 +911,9 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     final theme = Theme.of(context);
 
     final card = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-          color: useGradient ? null : colorScheme.surfaceContainerLow,
+          color: useGradient ? null : Colors.transparent,
           gradient: useGradient
               ? LinearGradient(
                   begin: Alignment.topLeft,
@@ -979,7 +935,10 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                   color: color.withValues(alpha: 0.8),
                   width: 1.0,
                 )
-              : null,
+              : Border.all(
+                  color: colorScheme.outlineVariant,
+                  width: 1.0,
+                ),
           borderRadius: BorderRadius.circular(8),
           boxShadow: useGradient
               ? [
@@ -990,23 +949,10 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                     spreadRadius: 2,
                   ),
                 ]
-              : [
-                  BoxShadow(
-                      color: colorScheme.outline.withValues(alpha: 0.8),
-                      offset: const Offset(0.5, 0.5),
-                      blurRadius: 4.0)
-                ]),
+              : null),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.20),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Icon(icon, size: 12, color: color),
-          ),
-          const SizedBox(width: 6),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1020,14 +966,14 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                       letterSpacing: 0.2,
                       color: colorScheme.onSurfaceVariant),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 ...lines.map((line) => Padding(
-                      padding: const EdgeInsets.only(top: 1),
+                      padding: const EdgeInsets.only(top: 2),
                       child: Text(
                         line,
                         style: theme.textTheme.bodySmall!.copyWith(
                           color: color,
-                          fontSize: 10,
+                          fontSize: 11,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0.1,
                         ),
@@ -1135,7 +1081,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                 idle: fetchProgress?.idle,
               ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 12),
             // Apply progress card
             Expanded(
               child: _buildCircularProgressCard(
@@ -1169,16 +1115,14 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     return Container(
-      padding: const EdgeInsets.all(6),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerLow,
+          color: Colors.transparent,
           borderRadius: BorderRadius.circular(8),
-          boxShadow: [
-            BoxShadow(
-                color: colorScheme.outline.withValues(alpha: 0.8),
-                offset: const Offset(0.5, 0.5),
-                blurRadius: 4.0)
-          ]),
+          border: Border.all(
+            color: colorScheme.outlineVariant,
+            width: 1.0,
+          )),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [

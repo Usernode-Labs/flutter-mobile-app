@@ -111,9 +111,9 @@ Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
           slotData: await Future.wait(
         List<Future<SlotData>>.generate(slotStatuses.length, (slot) async {
           var slotTimeMs;
-          if (slotStatuses[slot] == RpcSlotResult.scheduled 
-          || slotStatuses[slot] == RpcSlotResult.missed 
-          || slotStatuses[slot] == RpcSlotResult.produced) {
+          if (slotStatuses[slot] == RpcSlotResult.scheduled ||
+              slotStatuses[slot] == RpcSlotResult.missed ||
+              slotStatuses[slot] == RpcSlotResult.produced) {
             slotTimeMs = (await RustBackendService.instance
                     .getSlotTime(epoch: index, slot: slot))
                 ?.timestampMs;

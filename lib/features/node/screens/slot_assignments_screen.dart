@@ -141,9 +141,8 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
     // Progress now driven by live node status; results not needed here
 
     // Precompute counts for each filter for display in chips.
-    final producedCount = _items
-        .where((i) => i.result == RpcSlotResult.produced)
-        .length;
+    final producedCount =
+        _items.where((i) => i.result == RpcSlotResult.produced).length;
     final missedCount =
         _items.where((i) => i.result == RpcSlotResult.missed).length;
     final upcomingCount =
@@ -306,19 +305,18 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
                         subtitleText = 'Missed at $hh:$mm';
                       }
                     }
-                    final VoidCallback? onTap =
-                        isProduced
-                            ? () {
-                                context.push(
-                                  AppRoutes.producedBlockDetails,
-                                  extra: {
-                                    'epoch': epoch,
-                                    'slot': item.slot,
-                                    'metadata': item.producedMeta,
-                                  },
-                                );
-                              }
-                            : null;
+                    final VoidCallback? onTap = isProduced
+                        ? () {
+                            context.push(
+                              AppRoutes.producedBlockDetails,
+                              extra: {
+                                'epoch': epoch,
+                                'slot': item.slot,
+                                'metadata': item.producedMeta,
+                              },
+                            );
+                          }
+                        : null;
                     return _SlotRow(
                       icon: Icons.layers,
                       title: 'Slot ${item.slot}',

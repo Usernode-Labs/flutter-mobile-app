@@ -164,60 +164,60 @@ class _BackgroundProductionSettingsScreenState
       drawer: const AppDrawer(),
       body: SafeArea(
         child: RefreshIndicator(
-        onRefresh: _checkStatus,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            // About section
-            _buildAboutSection(theme, colorScheme),
-            const SizedBox(height: 8),
-
-            // Build Info section
-            _buildBuildInfoCard(theme, colorScheme),
-            const SizedBox(height: 8),
-
-            // Appearance / theme section
-            _buildThemeSection(theme, colorScheme),
-            const SizedBox(height: 8),
-
-            // Feature overview section
-            const SizedBox(height: 8),
-
-            // Feature overview section
-            _buildFeatureOverviewCard(theme, colorScheme),
-            const SizedBox(height: 8),
-
-            // Platform-specific info card
-            _buildPlatformInfoCard(theme, colorScheme),
-            const SizedBox(height: 8),
-
-            // Understanding VRF & Slots section
-            _buildVrfExplanationCard(theme, colorScheme),
-            const SizedBox(height: 8),
-
-            // Permissions section
-            _buildPermissionsSection(theme, colorScheme),
-            const SizedBox(height: 8),
-
-            // iOS Keep-Alive section (if iOS)
-            if (Platform.isIOS) ...[
-              _buildIOSKeepAliveSection(theme, colorScheme),
+          onRefresh: _checkStatus,
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              // About section
+              _buildAboutSection(theme, colorScheme),
               const SizedBox(height: 8),
-            ],
 
-            // Android Battery section (if Android)
-            if (Platform.isAndroid) ...[
-              _buildAndroidBatterySection(theme, colorScheme),
+              // Build Info section
+              _buildBuildInfoCard(theme, colorScheme),
               const SizedBox(height: 8),
-            ],
 
-            // Android Keep-Alive section (if Android)
-            if (Platform.isAndroid) ...[
-              _buildAndroidKeepAliveSection(theme, colorScheme),
+              // Appearance / theme section
+              _buildThemeSection(theme, colorScheme),
               const SizedBox(height: 8),
+
+              // Feature overview section
+              const SizedBox(height: 8),
+
+              // Feature overview section
+              _buildFeatureOverviewCard(theme, colorScheme),
+              const SizedBox(height: 8),
+
+              // Platform-specific info card
+              _buildPlatformInfoCard(theme, colorScheme),
+              const SizedBox(height: 8),
+
+              // Understanding VRF & Slots section
+              _buildVrfExplanationCard(theme, colorScheme),
+              const SizedBox(height: 8),
+
+              // Permissions section
+              _buildPermissionsSection(theme, colorScheme),
+              const SizedBox(height: 8),
+
+              // iOS Keep-Alive section (if iOS)
+              if (Platform.isIOS) ...[
+                _buildIOSKeepAliveSection(theme, colorScheme),
+                const SizedBox(height: 8),
+              ],
+
+              // Android Battery section (if Android)
+              if (Platform.isAndroid) ...[
+                _buildAndroidBatterySection(theme, colorScheme),
+                const SizedBox(height: 8),
+              ],
+
+              // Android Keep-Alive section (if Android)
+              if (Platform.isAndroid) ...[
+                _buildAndroidKeepAliveSection(theme, colorScheme),
+                const SizedBox(height: 8),
+              ],
             ],
-          ],
-        ),
+          ),
         ),
       ),
     );
@@ -369,11 +369,14 @@ class _BackgroundProductionSettingsScreenState
               ),
             ),
             const SizedBox(height: 12),
-            _buildInfoRow(l10n.buildInfoVersion, env.version, theme, colorScheme),
-            _buildInfoRow(l10n.buildInfoCommit, shortCommit, theme, colorScheme),
-            _buildInfoRow(l10n.buildInfoBranch, env.git.branch, theme, colorScheme),
             _buildInfoRow(
-                l10n.buildInfoCommitTime, env.git.commitTime, theme, colorScheme),
+                l10n.buildInfoVersion, env.version, theme, colorScheme),
+            _buildInfoRow(
+                l10n.buildInfoCommit, shortCommit, theme, colorScheme),
+            _buildInfoRow(
+                l10n.buildInfoBranch, env.git.branch, theme, colorScheme),
+            _buildInfoRow(l10n.buildInfoCommitTime, env.git.commitTime, theme,
+                colorScheme),
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
               child: Divider(height: 1),

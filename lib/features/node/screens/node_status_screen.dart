@@ -647,7 +647,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                             vrfEvaluator?.currentEpochVrfEvaluationStatus;
                         final statusText = switch (vrfStatus) {
                           RpcStatusVrfEvaluationStatus.pending => 'Pending',
-                          RpcStatusVrfEvaluationStatus.evaluating => 'Evaluating',
+                          RpcStatusVrfEvaluationStatus.evaluating =>
+                            'Evaluating',
                           RpcStatusVrfEvaluationStatus.completed => 'Completed',
                           _ => 'N/A',
                         };
@@ -718,7 +719,12 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                         ? '${hash.substring(0, 8)}...${hash.substring(hash.length - 8)}'
                         : hash;
 
-                    return [formattedHeight, epochText, slotText, truncatedHash];
+                    return [
+                      formattedHeight,
+                      epochText,
+                      slotText,
+                      truncatedHash
+                    ];
                   }(),
                   color: colorScheme.tertiary,
                   colorScheme: colorScheme,

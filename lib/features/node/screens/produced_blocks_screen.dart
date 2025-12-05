@@ -882,10 +882,9 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                           ),
                                           Builder(
                                             builder: (_) {
-                                              final epochScore =
-                                                  scoreEpochI(
-                                                      summary.asData?.value,
-                                                      viewedEpoch);
+                                              final epochScore = scoreEpochI(
+                                                  summary.asData?.value,
+                                                  viewedEpoch);
                                               final text = epochScore == null
                                                   ? '--'
                                                   : '${(epochScore * 100).toStringAsFixed(1)}%';

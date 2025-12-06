@@ -1093,7 +1093,7 @@ abstract class AppLocalizations {
   /// Subtitle explaining how to verify access
   ///
   /// In en, this message translates to:
-  /// **'Use the code we shared with you.'**
+  /// **'Use the username/registration code that has been shared with you.'**
   String get onboardingVerifyAccessSubtitle;
 
   /// Personalized welcome title on the setup screen

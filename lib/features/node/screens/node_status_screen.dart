@@ -383,7 +383,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   // Helper method for section headers (unused - integrated into cards)
   Widget _buildSectionHeader(BuildContext context, String title) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     return Text(
       title,
       style: theme.textTheme.bodyLarge!.copyWith(

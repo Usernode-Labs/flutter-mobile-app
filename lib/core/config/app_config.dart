@@ -81,7 +81,7 @@ class AppConfig {
   );
   static const String testnetGenesisUrl = String.fromEnvironment(
     'TESTNET_GENESIS_URL',
-    defaultValue: 'https://static.usernodelabs.org/genesis/genesis.txt',
+    defaultValue: 'https://static.usernodelabs.org/testnet/genesis.json',
   );
 
   // Internal network URLs
@@ -91,7 +91,7 @@ class AppConfig {
   );
   static const String internalGenesisUrl = String.fromEnvironment(
     'INTERNAL_GENESIS_URL',
-    defaultValue: 'https://static.usernodelabs.org/catdog9000/genesis.txt',
+    defaultValue: 'https://static.usernodelabs.org/catdog9000/genesis.json',
   );
 
   // Secret code for network switcher access
@@ -99,7 +99,6 @@ class AppConfig {
     'NETWORK_SWITCHER_CODE',
     defaultValue: '2107',
   );
-
   // Metrics configuration (compile-time)
   static const bool metricsEnabled =
       bool.fromEnvironment('METRICS_ENABLED', defaultValue: false);

@@ -563,7 +563,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get onboardingVerifyAccessSubtitle =>
-      'Use the code we shared with you.';
+      'Use the username/registration code that has been shared with you.';
 
   @override
   String onboardingWelcomeSetupTitle(String userId) {

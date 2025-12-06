@@ -5,6 +5,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:crypto_mobile_app/features/wallet/models/account.dart';
 import 'package:crypto_mobile_app/src/rust/account.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 
 final _log = LoggingService.instance.withTag(LogTag.wallet);
 
@@ -14,19 +15,26 @@ final accountsProvider = FutureProvider<AccountsRepository>((ref) async {
 });
 
 class AccountsRepository {
-  static const _kIndexKey = 'accounts:index';
-  static const _kActiveIdKey = 'accounts:activeId';
+  static const _kIndexKeyBase = 'accounts:index';
+  static const _kActiveIdKeyBase = 'accounts:activeId';
   static const _kPathPrefix = "m/44'/60'/0'/0/";
 
   final FlutterSecureStorage _secure;
   final SharedPreferences _prefs;
+  final String _network;
 
-  AccountsRepository._(this._secure, this._prefs);
+  // Network-prefixed keys
+  String get _kIndexKey => NetworkPrefs.prefixKeyWith(_kIndexKeyBase, _network);
+  String get _kActiveIdKey =>
+      NetworkPrefs.prefixKeyWith(_kActiveIdKeyBase, _network);
+
+  AccountsRepository._(this._secure, this._prefs, this._network);
 
   static Future<AccountsRepository> create() async {
     final prefs = await SharedPreferences.getInstance();
     const secure = FlutterSecureStorage();
-    return AccountsRepository._(secure, prefs);
+    final network = await NetworkPrefs.getNetwork();
+    return AccountsRepository._(secure, prefs, network);
   }
 
   Future<bool> hasAny() async {
@@ -74,8 +82,8 @@ class AccountsRepository {
   /// Get the private key for a specific account from secure storage
   Future<String?> getPrivateKey(String accountId) async {
     try {
-      final privateKey =
-          await _secure.read(key: 'account:$accountId:privateKey');
+      final key = '$_network:account:$accountId:privateKey';
+      final privateKey = await _secure.read(key: key);
       return privateKey;
     } catch (e, st) {
       _log.error('Failed to read private key for account $accountId',
@@ -152,11 +160,14 @@ class AccountsRepository {
       isDemo: isDemo,
     );
 
-    _log.debug('Writing to secure storage (4 keys)...');
-    await _secure.write(key: 'account:$id:privateKey', value: privateKey);
-    await _secure.write(key: 'account:$id:publicKey', value: publicKey);
-    await _secure.write(key: 'account:$id:address', value: address);
-    await _secure.write(key: 'account:$id:hdIndex', value: index.toString());
+    _log.debug('Writing to secure storage (4 keys) for network: $_network...');
+    await _secure.write(
+        key: '$_network:account:$id:privateKey', value: privateKey);
+    await _secure.write(
+        key: '$_network:account:$id:publicKey', value: publicKey);
+    await _secure.write(key: '$_network:account:$id:address', value: address);
+    await _secure.write(
+        key: '$_network:account:$id:hdIndex', value: index.toString());
     _log.debug('Secure storage writes complete');
 
     final next = [...current, meta];

@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:crypto_mobile_app/features/feedback/github_issue_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'models/feedback_model.dart';
 
 final _log = LoggingService.instance.withTag(LogTag.general);
@@ -39,7 +40,8 @@ class FeedbackSubmissionState {
 // StateNotifier for managing feedback submission
 class FeedbackSubmissionNotifier
     extends StateNotifier<FeedbackSubmissionState> {
-  static const String _queueKey = 'feedback_queue';
+  static const String _queueKeyBase = 'feedback_queue';
+  static String get _queueKey => NetworkPrefs.prefixKey(_queueKeyBase);
   final GitHubIssueService _githubService;
 
   FeedbackSubmissionNotifier({GitHubIssueService? githubService})

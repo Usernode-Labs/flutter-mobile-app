@@ -22,6 +22,7 @@ dependencies:
       url: https://github.com/Usernode-Labs/flutter_rust_bridge
       ref: 1a911e6435156487cb73929f652dd983ce3fabf6
       path: frb_dart
+  path_provider: "^2.1.4"
   shared_preferences: "^2.2.3"
   flutter_secure_storage: "^9.2.2"
   sentry_flutter: "^9.7.0"

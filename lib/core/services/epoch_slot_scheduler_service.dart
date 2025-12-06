@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto_mobile_app/features/node/node_provider.dart';
 import '../../features/node/node_service.dart';
@@ -31,10 +32,19 @@ class EpochSlotSchedulerService {
   // Configuration
   static Duration get _epochCheckInterval =>
       NodeStatusState.epochCheckIntervalDefault;
-  static const String _prefKeyCurrentEpoch = 'epoch_scheduler_current_epoch';
-  static const String _prefKeyScheduledSlots =
+  static const String _prefKeyCurrentEpochBase =
+      'epoch_scheduler_current_epoch';
+  static const String _prefKeyScheduledSlotsBase =
       'epoch_scheduler_scheduled_slots';
-  static const String _prefKeyLastCheck = 'epoch_scheduler_last_check';
+  static const String _prefKeyLastCheckBase = 'epoch_scheduler_last_check';
+
+  // Network-prefixed keys
+  static String get _prefKeyCurrentEpoch =>
+      NetworkPrefs.prefixKey(_prefKeyCurrentEpochBase);
+  static String get _prefKeyScheduledSlots =>
+      NetworkPrefs.prefixKey(_prefKeyScheduledSlotsBase);
+  static String get _prefKeyLastCheck =>
+      NetworkPrefs.prefixKey(_prefKeyLastCheckBase);
 
   /// Check if the service is initialized
   bool get isInitialized => _initialized;

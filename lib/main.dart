@@ -18,9 +18,13 @@ import 'package:crypto_mobile_app/features/metrics/metrics_provider.dart';
 import 'package:crypto_mobile_app/core/services/background_block_production_orchestrator.dart';
 import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
 import 'package:crypto_mobile_app/features/node/produced_blocks_provider.dart';
+import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize network preferences early (before any SharedPreferences access)
+  await NetworkPrefs.init();
 
   // Lock orientation to portrait mode
   await SystemChrome.setPreferredOrientations([

@@ -219,7 +219,7 @@ class RustBackendService {
 
   /// Configure network settings from URLs (seedlist, genesis).
   Future<void> _configureNetworkFromUrls(NodeBuilder builder) async {
-    final retries = BigInt.from(AppConfig.intLoadGenesisNbRetries);
+    final retries = BigInt.from(AppConfig.loadGenesisNbRetries);
     final networkType = await _getSelectedNetwork();
 
     // Get URLs based on selected network

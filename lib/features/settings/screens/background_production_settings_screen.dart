@@ -1,10 +1,13 @@
 import 'dart:async';
-import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
-import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'dart:io';
+import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/services/epoch_slot_scheduler_service.dart';
 import 'package:crypto_mobile_app/core/services/ios_foreground_keepalive_service.dart';
@@ -14,8 +17,6 @@ import 'package:crypto_mobile_app/features/node/node_provider.dart';
 import 'package:crypto_mobile_app/features/node/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
-import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
-import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 
 final _log = LoggingService.instance.withTag(LogTag.settings);
 
@@ -38,15 +39,31 @@ class _BackgroundProductionSettingsScreenState
   bool _refreshing = false;
   bool _active = false; // active when Settings tab is selected (index 2)
 
+  // Network switcher state
+  int _networkTapCount = 0;
+  DateTime? _lastNetworkTapTime;
+
+  // Package info (app version)
+  PackageInfo? _packageInfo;
+
   @override
   void initState() {
     super.initState();
     // Run initialization in background without blocking UI
     _checkStatus();
+    _loadPackageInfo();
 
     // Determine initial active state and maybe start timer
     _active = _isActiveTab();
     if (_active) _startTimer();
+  }
+
+  Future<void> _loadPackageInfo() async {
+    final packageInfo = await PackageInfo.fromPlatform();
+    if (!mounted) return;
+    setState(() {
+      _packageInfo = packageInfo;
+    });
   }
 
   @override
@@ -144,6 +161,314 @@ class _BackgroundProductionSettingsScreenState
     }
   }
 
+  // Network switcher methods
+  void _onVersionTap() {
+    final now = DateTime.now();
+    if (_lastNetworkTapTime != null &&
+        now.difference(_lastNetworkTapTime!).inMilliseconds > 500) {
+      _networkTapCount = 0;
+    }
+    _lastNetworkTapTime = now;
+    _networkTapCount++;
+
+    if (_networkTapCount >= 3) {
+      _networkTapCount = 0;
+      _showPinDialog();
+    }
+  }
+
+  Future<void> _showPinDialog() async {
+    final pinController = TextEditingController();
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Enter Code'),
+        content: TextField(
+          controller: pinController,
+          keyboardType: TextInputType.number,
+          maxLength: 4,
+          obscureText: true,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: '4-digit code',
+            counterText: '',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              if (pinController.text == AppConfig.networkSwitcherCode) {
+                Navigator.of(ctx).pop(true);
+              } else {
+                Navigator.of(ctx).pop(false);
+              }
+            },
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true && mounted) {
+      _showNetworkSwitcherDialog();
+    }
+  }
+
+  String _formatUrl(String url) {
+    // Remove https:// prefix for cleaner display
+    return url.replaceFirst('https://', '');
+  }
+
+  Future<void> _showNetworkSwitcherDialog() async {
+    final prefs = await SharedPreferences.getInstance();
+    final currentNetwork = prefs.getString('network:type') ?? 'testnet';
+    final otherNetwork = currentNetwork == 'testnet' ? 'internal' : 'testnet';
+
+    // Get URLs for both networks
+    final currentGenesisUrl = currentNetwork == 'testnet'
+        ? AppConfig.testnetGenesisUrl
+        : AppConfig.internalGenesisUrl;
+    final currentSeedlistUrl = currentNetwork == 'testnet'
+        ? AppConfig.testnetSeedlistUrl
+        : AppConfig.internalSeedlistUrl;
+    final otherGenesisUrl = otherNetwork == 'testnet'
+        ? AppConfig.testnetGenesisUrl
+        : AppConfig.internalGenesisUrl;
+    final otherSeedlistUrl = otherNetwork == 'testnet'
+        ? AppConfig.testnetSeedlistUrl
+        : AppConfig.internalSeedlistUrl;
+
+    if (!mounted) return;
+
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    final shouldSwitch = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Network Switcher'),
+            IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () => Navigator.of(ctx).pop(false),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Current Network Section
+              Text(
+                'CURRENT NETWORK',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: colorScheme.primary.withValues(alpha: 0.5),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.radio_button_checked,
+                          color: colorScheme.primary,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          currentNetwork == 'testnet' ? 'Testnet' : 'Internal',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'Active',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: Colors.green.shade700,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    _buildUrlRow('Genesis', _formatUrl(currentGenesisUrl), theme, colorScheme),
+                    const SizedBox(height: 4),
+                    _buildUrlRow('Seedlist', _formatUrl(currentSeedlistUrl), theme, colorScheme),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 16),
+
+              // Switch To Section
+              Text(
+                'SWITCH TO',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: colorScheme.outlineVariant,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.radio_button_off,
+                          color: colorScheme.onSurfaceVariant,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          otherNetwork == 'testnet' ? 'Testnet' : 'Internal',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 28),
+                      child: Text(
+                        otherNetwork == 'testnet'
+                            ? 'Default network'
+                            : 'Development network',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildUrlRow('Genesis', _formatUrl(otherGenesisUrl), theme, colorScheme),
+                    const SizedBox(height: 4),
+                    _buildUrlRow('Seedlist', _formatUrl(otherSeedlistUrl), theme, colorScheme),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Switch Network'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldSwitch == true && mounted) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('network:type', otherNetwork);
+      _showRestartDialog(otherNetwork);
+    }
+  }
+
+  Widget _buildUrlRow(String label, String url, ThemeData theme, ColorScheme colorScheme) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 28),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 60,
+            child: Text(
+              '$label:',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              url,
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontFamily: 'monospace',
+                fontSize: 11,
+              ),
+              softWrap: true,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showRestartDialog(String network) async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Restart Required'),
+        content: Text(
+          'Network switched to ${network == 'testnet' ? 'Testnet' : 'Internal'}. '
+          'The app will now close. Please reopen it to connect to the new network.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              SystemNavigator.pop();
+            },
+            child: const Text('Close App'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // React to tab changes and start/stop timers
@@ -161,7 +486,6 @@ class _BackgroundProductionSettingsScreenState
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      drawer: const AppDrawer(),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _checkStatus,
@@ -170,10 +494,6 @@ class _BackgroundProductionSettingsScreenState
             children: [
               // About section
               _buildAboutSection(theme, colorScheme),
-              const SizedBox(height: 8),
-
-              // Build Info section
-              _buildBuildInfoCard(theme, colorScheme),
               const SizedBox(height: 8),
 
               // Appearance / theme section
@@ -216,6 +536,10 @@ class _BackgroundProductionSettingsScreenState
                 _buildAndroidKeepAliveSection(theme, colorScheme),
                 const SizedBox(height: 8),
               ],
+
+              // Build Info section (at the bottom)
+              _buildBuildInfoCard(theme, colorScheme),
+              const SizedBox(height: 8),
             ],
           ),
         ),
@@ -369,6 +693,22 @@ class _BackgroundProductionSettingsScreenState
               ),
             ),
             const SizedBox(height: 12),
+            // App version and build number
+            if (_packageInfo != null) ...[
+              GestureDetector(
+                onTap: _onVersionTap,
+                behavior: HitTestBehavior.opaque,
+                child: _buildInfoRow(
+                    'App Version', _packageInfo!.version, theme, colorScheme),
+              ),
+              _buildInfoRow(
+                  'Build Number', _packageInfo!.buildNumber, theme, colorScheme),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Divider(height: 1),
+              ),
+            ],
+            // Node/Rust version
             _buildInfoRow(
                 l10n.buildInfoVersion, env.version, theme, colorScheme),
             _buildInfoRow(
@@ -394,6 +734,12 @@ class _BackgroundProductionSettingsScreenState
             ),
             _buildInfoRow(l10n.buildInfoCargoTarget, env.cargo.target, theme,
                 colorScheme),
+            _buildInfoRow(
+                l10n.buildInfoFeatures, env.cargo.features, theme, colorScheme),
+            _buildInfoRow(
+                l10n.buildInfoOptLevel, env.cargo.optLevel.toString(), theme, colorScheme),
+            _buildInfoRow(l10n.buildInfoDebug, env.cargo.isDebug.toString(),
+                theme, colorScheme),
           ],
         ),
       ),

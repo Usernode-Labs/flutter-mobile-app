@@ -111,6 +111,7 @@ jobs:
           INTERNAL_SEEDLIST_URL=${{ secrets.INTERNAL_SEEDLIST_URL }}
           INTERNAL_GENESIS_URL=${{ secrets.INTERNAL_GENESIS_URL }}
           NETWORK_SWITCHER_CODE=${{ secrets.NETWORK_SWITCHER_CODE }}
+          LOAD_GENESIS_NB_RETRIES=${{ secrets.LOAD_GENESIS_NB_RETRIES }}
           EOF
           else
             cat > .env << EOF
@@ -132,6 +133,7 @@ jobs:
           INTERNAL_SEEDLIST_URL=${{ secrets.INTERNAL_SEEDLIST_URL }}
           INTERNAL_GENESIS_URL=${{ secrets.INTERNAL_GENESIS_URL }}
           NETWORK_SWITCHER_CODE=${{ secrets.NETWORK_SWITCHER_CODE }}
+          LOAD_GENESIS_NB_RETRIES=${{ secrets.LOAD_GENESIS_NB_RETRIES }}
           EOF
           fi
           echo "✅ Created .env file with ${{ steps.env_config.outputs.env_type }} secrets"
@@ -541,6 +543,7 @@ jobs:
           INTERNAL_SEEDLIST_URL=${{ secrets.INTERNAL_SEEDLIST_URL }}
           INTERNAL_GENESIS_URL=${{ secrets.INTERNAL_GENESIS_URL }}
           NETWORK_SWITCHER_CODE=${{ secrets.NETWORK_SWITCHER_CODE }}
+          LOAD_GENESIS_NB_RETRIES=${{ secrets.LOAD_GENESIS_NB_RETRIES }}
           EOF
           else
             cat > .env << EOF
@@ -562,6 +565,7 @@ jobs:
           INTERNAL_SEEDLIST_URL=${{ secrets.INTERNAL_SEEDLIST_URL }}
           INTERNAL_GENESIS_URL=${{ secrets.INTERNAL_GENESIS_URL }}
           NETWORK_SWITCHER_CODE=${{ secrets.NETWORK_SWITCHER_CODE }}
+          LOAD_GENESIS_NB_RETRIES=${{ secrets.LOAD_GENESIS_NB_RETRIES }}
           EOF
           fi
           echo "✅ Created .env file with ${{ steps.env_config_ios.outputs.env_type }} secrets"

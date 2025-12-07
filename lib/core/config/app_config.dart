@@ -55,50 +55,59 @@ class AppConfig {
   static const String githubOwner = 'Usernode-Labs';
   static const String githubRepo = 'flutter-mobile-app';
 
-  // Integration network URLs (for custom seedlist/genesis)
-  static const String intSeedlistUrl = String.fromEnvironment(
-    'INT_SEEDLIST_URL',
-    defaultValue: 'https://static.usernodelabs.org/catdog9000/seedlist.txt',
-  );
-  static const String intGenesisUrl = String.fromEnvironment(
-    'INT_GENESIS_URL',
-    defaultValue: 'https://static.usernodelabs.org/catdog9000/genesis.json',
-  );
-  static bool get hasCustomSeedlist => intSeedlistUrl.isNotEmpty;
-  static bool get hasCustomGenesis => intGenesisUrl.isNotEmpty;
+  // Default URLs (used as fallbacks when env vars are empty)
+  static const String _defaultTestnetSeedlistUrl =
+      'https://static.usernodelabs.org/testnet/seedlist.txt';
+  static const String _defaultTestnetGenesisUrl =
+      'https://static.usernodelabs.org/testnet/genesis.json';
+  static const String _defaultInternalSeedlistUrl =
+      'https://static.usernodelabs.org/catdog9000/seedlist.txt';
+  static const String _defaultInternalGenesisUrl =
+      'https://static.usernodelabs.org/catdog9000/genesis.json';
+  static const String _defaultNetworkSwitcherCode = '2107';
+  static const int _defaultLoadGenesisNbRetries = 3;
+
+  // Raw environment values (may be empty)
+  static const String _rawTestnetSeedlistUrl =
+      String.fromEnvironment('TESTNET_SEEDLIST_URL');
+  static const String _rawTestnetGenesisUrl =
+      String.fromEnvironment('TESTNET_GENESIS_URL');
+  static const String _rawInternalSeedlistUrl =
+      String.fromEnvironment('INTERNAL_SEEDLIST_URL');
+  static const String _rawInternalGenesisUrl =
+      String.fromEnvironment('INTERNAL_GENESIS_URL');
+  static const String _rawNetworkSwitcherCode =
+      String.fromEnvironment('NETWORK_SWITCHER_CODE');
+  static const int _rawLoadGenesisNbRetries =
+      int.fromEnvironment('LOAD_GENESIS_NB_RETRIES');
 
   // Number of retries when fetching genesis/seedlist URLs
-  static const int intLoadGenesisNbRetries = int.fromEnvironment(
-    'INT_LOAD_GENESIS_NB_RETRIES',
-    defaultValue: 3,
-  );
+  // Falls back to 3 if 0 or not set
+  static int get loadGenesisNbRetries => _rawLoadGenesisNbRetries > 0
+      ? _rawLoadGenesisNbRetries
+      : _defaultLoadGenesisNbRetries;
 
   // Network switcher configuration
-  // Testnet URLs (default network)
-  static const String testnetSeedlistUrl = String.fromEnvironment(
-    'TESTNET_SEEDLIST_URL',
-    defaultValue: 'https://static.usernodelabs.org/testnet/seedlist.txt',
-  );
-  static const String testnetGenesisUrl = String.fromEnvironment(
-    'TESTNET_GENESIS_URL',
-    defaultValue: 'https://static.usernodelabs.org/testnet/genesis.json',
-  );
+  // Testnet URLs (default network) - falls back to defaults if empty
+  static String get testnetSeedlistUrl => _rawTestnetSeedlistUrl.isNotEmpty
+      ? _rawTestnetSeedlistUrl
+      : _defaultTestnetSeedlistUrl;
+  static String get testnetGenesisUrl => _rawTestnetGenesisUrl.isNotEmpty
+      ? _rawTestnetGenesisUrl
+      : _defaultTestnetGenesisUrl;
 
-  // Internal network URLs
-  static const String internalSeedlistUrl = String.fromEnvironment(
-    'INTERNAL_SEEDLIST_URL',
-    defaultValue: 'https://static.usernodelabs.org/catdog9000/seedlist.txt',
-  );
-  static const String internalGenesisUrl = String.fromEnvironment(
-    'INTERNAL_GENESIS_URL',
-    defaultValue: 'https://static.usernodelabs.org/catdog9000/genesis.json',
-  );
+  // Internal network URLs - falls back to defaults if empty
+  static String get internalSeedlistUrl => _rawInternalSeedlistUrl.isNotEmpty
+      ? _rawInternalSeedlistUrl
+      : _defaultInternalSeedlistUrl;
+  static String get internalGenesisUrl => _rawInternalGenesisUrl.isNotEmpty
+      ? _rawInternalGenesisUrl
+      : _defaultInternalGenesisUrl;
 
-  // Secret code for network switcher access
-  static const String networkSwitcherCode = String.fromEnvironment(
-    'NETWORK_SWITCHER_CODE',
-    defaultValue: '2107',
-  );
+  // Secret code for network switcher access - falls back to default if empty
+  static String get networkSwitcherCode => _rawNetworkSwitcherCode.isNotEmpty
+      ? _rawNetworkSwitcherCode
+      : _defaultNetworkSwitcherCode;
   // Metrics configuration (compile-time)
   static const bool metricsEnabled =
       bool.fromEnvironment('METRICS_ENABLED', defaultValue: false);

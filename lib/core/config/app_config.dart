@@ -137,6 +137,17 @@ class AppConfig {
   static Duration get epochMonitorBaseInterval =>
       Duration(seconds: epochMonitorBaseIntervalSeconds);
 
+  // Version check configuration
+  // If empty, version checking is disabled
+  static const String versionCheckApiUrl =
+      String.fromEnvironment('VERSION_CHECK_API_URL', defaultValue: '');
+  static const int versionCheckIntervalSeconds =
+      int.fromEnvironment('VERSION_CHECK_INTERVAL_SECONDS', defaultValue: 7200);
+
+  static Duration get versionCheckInterval =>
+      Duration(seconds: versionCheckIntervalSeconds);
+  static bool get versionCheckEnabled => versionCheckApiUrl.isNotEmpty;
+
   // Demo accounts configuration (JSON object with account metadata)
   static const String _demoAccountsJson = String.fromEnvironment(
       'DEMO_ACCOUNTS_JSON',

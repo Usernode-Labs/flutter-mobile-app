@@ -247,6 +247,8 @@ jobs:
           METRICS_ENDPOINT=${{ secrets.PROD_METRICS_ENDPOINT }}
           METRICS_HEALTH_ENDPOINT=${{ secrets.PROD_METRICS_HEALTH_ENDPOINT }}
           METRICS_INTERVAL=${{ secrets.PROD_METRICS_INTERVAL }}
+          VERSION_CHECK_API_URL=${{ secrets.PROD_VERSION_CHECK_API_URL }}
+          VERSION_CHECK_INTERVAL_SECONDS=${{ secrets.PROD_VERSION_CHECK_INTERVAL_SECONDS }}
           EOF
           else
             cat > .env << EOF
@@ -262,6 +264,8 @@ jobs:
           METRICS_ENDPOINT=${{ secrets.NONPROD_METRICS_ENDPOINT }}
           METRICS_HEALTH_ENDPOINT=${{ secrets.NONPROD_METRICS_HEALTH_ENDPOINT }}
           METRICS_INTERVAL=${{ secrets.NONPROD_METRICS_INTERVAL }}
+          VERSION_CHECK_API_URL=${{ secrets.NONPROD_VERSION_CHECK_API_URL }}
+          VERSION_CHECK_INTERVAL_SECONDS=${{ secrets.NONPROD_VERSION_CHECK_INTERVAL_SECONDS }}
           EOF
           fi
           echo "✅ Created .env file with ${{ steps.env_config.outputs.env_type }} secrets"
@@ -406,6 +410,8 @@ jobs:
           METRICS_ENDPOINT=${{ secrets.PROD_METRICS_ENDPOINT }}
           METRICS_HEALTH_ENDPOINT=${{ secrets.PROD_METRICS_HEALTH_ENDPOINT }}
           METRICS_INTERVAL=${{ secrets.PROD_METRICS_INTERVAL }}
+          VERSION_CHECK_API_URL=${{ secrets.PROD_VERSION_CHECK_API_URL }}
+          VERSION_CHECK_INTERVAL_SECONDS=${{ secrets.PROD_VERSION_CHECK_INTERVAL_SECONDS }}
           EOF
           else
             cat > .env << EOF
@@ -421,6 +427,8 @@ jobs:
           METRICS_ENDPOINT=${{ secrets.NONPROD_METRICS_ENDPOINT }}
           METRICS_HEALTH_ENDPOINT=${{ secrets.NONPROD_METRICS_HEALTH_ENDPOINT }}
           METRICS_INTERVAL=${{ secrets.NONPROD_METRICS_INTERVAL }}
+          VERSION_CHECK_API_URL=${{ secrets.NONPROD_VERSION_CHECK_API_URL }}
+          VERSION_CHECK_INTERVAL_SECONDS=${{ secrets.NONPROD_VERSION_CHECK_INTERVAL_SECONDS }}
           EOF
           fi
           echo "✅ Created .env file with ${{ steps.env_config.outputs.env_type }} secrets"

@@ -497,6 +497,9 @@ enum LogTag {
   /// Produced Blocks Provider
   producedBlocksProvider('PRODUCED_BLOCK_PROVIDER'),
 
+  /// Version checker
+  versionCheck('VERSION_CHECK'),
+
   /// Settings screens
   settings('SETTINGS');
 

@@ -305,36 +305,65 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             const SizedBox(height: 12),
 
             // Address row
-            Text(
-              'address:   ${_account != null ? _shortAddr(_account!.address) : 'NA'}',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontFamily: 'monospace',
-              ),
+            _buildLabelValueRow(
+              'address:',
+              _account != null ? _shortAddr(_account!.address) : 'NA',
+              theme,
+              colorScheme,
             ),
             if (peerId != null) ...[
               const SizedBox(height: 2),
-              Text(
-                'peerId:   ${_shortenMid(peerId, head: 6, tail: 6)}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  fontFamily: 'monospace',
-                ),
+              _buildLabelValueRow(
+                'peerId:',
+                _shortenMid(peerId, head: 6, tail: 6),
+                theme,
+                colorScheme,
               ),
             ],
             if (_deviceId != null) ...[
               const SizedBox(height: 2),
-              Text(
-                'deviceId: $_deviceId',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  fontFamily: 'monospace',
-                ),
+              _buildLabelValueRow(
+                'deviceId:',
+                _deviceId!,
+                theme,
+                colorScheme,
               ),
             ],
           ],
         ),
       ),
+    );
+  }
+
+  // Helper for label-value row with fixed-width label
+  Widget _buildLabelValueRow(
+    String label,
+    String value,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 70,
+          child: Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ),
+      ],
     );
   }
 

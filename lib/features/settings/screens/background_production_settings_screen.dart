@@ -4,6 +4,7 @@ import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
@@ -42,15 +43,27 @@ class _BackgroundProductionSettingsScreenState
   int _networkTapCount = 0;
   DateTime? _lastNetworkTapTime;
 
+  // Package info (app version)
+  PackageInfo? _packageInfo;
+
   @override
   void initState() {
     super.initState();
     // Run initialization in background without blocking UI
     _checkStatus();
+    _loadPackageInfo();
 
     // Determine initial active state and maybe start timer
     _active = _isActiveTab();
     if (_active) _startTimer();
+  }
+
+  Future<void> _loadPackageInfo() async {
+    final packageInfo = await PackageInfo.fromPlatform();
+    if (!mounted) return;
+    setState(() {
+      _packageInfo = packageInfo;
+    });
   }
 
   @override
@@ -680,12 +693,24 @@ class _BackgroundProductionSettingsScreenState
               ),
             ),
             const SizedBox(height: 12),
-            GestureDetector(
-              onTap: _onVersionTap,
-              behavior: HitTestBehavior.opaque,
-              child: _buildInfoRow(
-                  l10n.buildInfoVersion, env.version, theme, colorScheme),
-            ),
+            // App version and build number
+            if (_packageInfo != null) ...[
+              GestureDetector(
+                onTap: _onVersionTap,
+                behavior: HitTestBehavior.opaque,
+                child: _buildInfoRow(
+                    'App Version', _packageInfo!.version, theme, colorScheme),
+              ),
+              _buildInfoRow(
+                  'Build Number', _packageInfo!.buildNumber, theme, colorScheme),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Divider(height: 1),
+              ),
+            ],
+            // Node/Rust version
+            _buildInfoRow(
+                l10n.buildInfoVersion, env.version, theme, colorScheme),
             _buildInfoRow(
                 l10n.buildInfoCommit, shortCommit, theme, colorScheme),
             _buildInfoRow(

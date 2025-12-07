@@ -16,7 +16,6 @@ import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'node_peers_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/features/node/node_provider.dart';
 import 'package:crypto_mobile_app/features/node/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/features/node/node_data_providers.dart';
@@ -339,63 +338,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     );
   }
 
-  void _showBuildInfoDialog() {
-    final env = ref.read(buildEnvProvider);
-    final l10n = AppLocalizations.of(context);
-    final shortCommit = env.git.commitHash.length >= 7
-        ? env.git.commitHash.substring(0, 7)
-        : env.git.commitHash;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.settingsBuildInfo),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('${l10n.buildInfoVersion}: ${env.version}'),
-            const SizedBox(height: 6),
-            Text('${l10n.buildInfoCommit}: $shortCommit'),
-            const SizedBox(height: 6),
-            Text('${l10n.buildInfoBranch}: ${env.git.branch}'),
-            const SizedBox(height: 6),
-            Text('${l10n.buildInfoCommitTime}: ${env.git.commitTime}'),
-            const Divider(height: 16),
-            Text(
-                '${l10n.buildInfoRustc}: ${env.rustc.version} (${env.rustc.channel})'),
-            const SizedBox(height: 6),
-            Text('${l10n.buildInfoLlvm}: ${env.rustc.llvmVersion}'),
-            const Divider(height: 16),
-            Text('${l10n.buildInfoCargoTarget}: ${env.cargo.target}'),
-            const SizedBox(height: 6),
-            Text('${l10n.buildInfoFeatures}: ${env.cargo.features}'),
-            const SizedBox(height: 6),
-            Text('${l10n.buildInfoOptLevel}: ${env.cargo.optLevel}'),
-            const SizedBox(height: 6),
-            Text('${l10n.buildInfoDebug}: ${env.cargo.isDebug}'),
-            const Divider(height: 16),
-            Text(l10n.drawerP2pPeerId),
-            SelectableText(
-              ref.read(nodeStatusProvider).value?.peerId ??
-                  l10n.nodeNotAvailable,
-              style: const TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 11,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(l10n.drawerClose),
-          )
-        ],
-      ),
-    );
-  }
-
   // Helper for shortened address display
   String _shortAddr(String addr) {
     if (addr.length <= 12) return addr;
@@ -417,18 +359,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       title,
       style: theme.textTheme.bodyLarge!.copyWith(
         fontWeight: FontWeight.w600,
-      ),
-    );
-  }
-
-  // Helper method for horizontal divider
-  Widget _buildDivider() {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      height: 1,
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(4.0),
       ),
     );
   }
@@ -622,7 +552,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                   context,
                   label: 'Cur. Epoch',
                   value: '${statusFromProvider?.currentEpoch ?? 'N/A'}',
-                  subtitle: 'Cur. Slot $epochSlot',
+                  subtitle: 'Cur. Slot $curGlobalSlot',
                   color: colorScheme.primary,
                   colorScheme: colorScheme,
                 ),

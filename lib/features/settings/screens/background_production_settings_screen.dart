@@ -483,10 +483,6 @@ class _BackgroundProductionSettingsScreenState
               _buildAboutSection(theme, colorScheme),
               const SizedBox(height: 8),
 
-              // Build Info section
-              _buildBuildInfoCard(theme, colorScheme),
-              const SizedBox(height: 8),
-
               // Appearance / theme section
               _buildThemeSection(theme, colorScheme),
               const SizedBox(height: 8),
@@ -527,6 +523,10 @@ class _BackgroundProductionSettingsScreenState
                 _buildAndroidKeepAliveSection(theme, colorScheme),
                 const SizedBox(height: 8),
               ],
+
+              // Build Info section (at the bottom)
+              _buildBuildInfoCard(theme, colorScheme),
+              const SizedBox(height: 8),
             ],
           ),
         ),
@@ -709,6 +709,12 @@ class _BackgroundProductionSettingsScreenState
             ),
             _buildInfoRow(l10n.buildInfoCargoTarget, env.cargo.target, theme,
                 colorScheme),
+            _buildInfoRow(
+                l10n.buildInfoFeatures, env.cargo.features, theme, colorScheme),
+            _buildInfoRow(
+                l10n.buildInfoOptLevel, env.cargo.optLevel.toString(), theme, colorScheme),
+            _buildInfoRow(l10n.buildInfoDebug, env.cargo.isDebug.toString(),
+                theme, colorScheme),
           ],
         ),
       ),

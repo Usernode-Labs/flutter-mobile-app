@@ -1,5 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'package:crypto/crypto.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
@@ -61,6 +65,9 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   // Wallet balance state
   AccountMeta? _account;
 
+  // Device ID
+  String? _deviceId;
+
   @override
   void initState() {
     super.initState();
@@ -70,6 +77,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _refresh();
       _loadActiveAccount();
+      _loadDeviceId();
     });
     // Start timer immediately since we're on this screen
     // The build() method will handle stopping it if tab changes
@@ -86,6 +94,30 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     });
     // Prime UTXO provider to trigger asset loading
     ref.read(walletUtxosProvider.future);
+  }
+
+  Future<void> _loadDeviceId() async {
+    // Only load once - device ID doesn't change
+    if (_deviceId != null) return;
+
+    final deviceInfo = DeviceInfoPlugin();
+    String rawDeviceId = 'unknown';
+    if (Platform.isAndroid) {
+      final androidInfo = await deviceInfo.androidInfo;
+      rawDeviceId = androidInfo.id;
+    } else if (Platform.isIOS) {
+      final iosInfo = await deviceInfo.iosInfo;
+      rawDeviceId = iosInfo.identifierForVendor ?? 'unknown';
+    }
+    // Hash the device ID (same as metrics collector)
+    final bytes = utf8.encode(rawDeviceId);
+    final digest = sha256.convert(bytes);
+    final hashedDeviceId = digest.toString().substring(0, 16);
+
+    if (!mounted) return;
+    setState(() {
+      _deviceId = hashedDeviceId;
+    });
   }
 
   Future<void> _refresh() async {
@@ -285,6 +317,16 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
               const SizedBox(height: 2),
               Text(
                 'peerId:   ${_shortenMid(peerId, head: 6, tail: 6)}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ],
+            if (_deviceId != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                'deviceId: $_deviceId',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                   fontFamily: 'monospace',
@@ -591,10 +633,9 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
         const SizedBox(height: 12),
 
-        // Produced blocks and Won Slots row
+        // VRF/Slots/Blocks card (full width)
         Builder(
           builder: (context) {
-            // Extract values first
             final produced =
                 ref.read(epochRewardsProvider).value?.producedInEpoch ??
                     _producedInEpoch ??
@@ -604,72 +645,38 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                     ref.read(epochRewardsProvider).value?.winsInEpoch ??
                     _winsInEpoch ??
                     0;
-
-            // Ensure won slots is never less than produced blocks
             if (wonSlots < produced) {
               wonSlots = produced;
             }
 
-            // Get VRF evaluator data for slots information
             final vrfEvaluator =
                 ref.read(nodeStatusProvider).value?.vrfEvaluator;
             final evaluatedSlots =
                 vrfEvaluator?.details?.evaluatedCurrentEpoch ?? 0;
-            final vrfWonSlots =
-                vrfEvaluator?.details?.wonSlotsCurrentEpoch.toInt() ?? 0;
             final totalSlotsPerEpoch =
                 ref.read(nodeStatusProvider).value?.slotsInEpoch ?? 0;
 
-            return IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child: _buildMultiLineInfoCard(
-                      context,
-                      label: 'VRF',
-                      lines: () {
-                        // Display VRF status directly from provider
-                        final vrfStatus =
-                            vrfEvaluator?.currentEpochVrfEvaluationStatus;
-                        final statusText = switch (vrfStatus) {
-                          RpcStatusVrfEvaluationStatus.pending => 'Pending',
-                          RpcStatusVrfEvaluationStatus.evaluating =>
-                            'Evaluating',
-                          RpcStatusVrfEvaluationStatus.completed => 'Completed',
-                          _ => 'N/A',
-                        };
+            final vrfStatus = vrfEvaluator?.currentEpochVrfEvaluationStatus;
+            final statusText = switch (vrfStatus) {
+              RpcStatusVrfEvaluationStatus.pending => 'Pending',
+              RpcStatusVrfEvaluationStatus.evaluating => 'Evaluating',
+              RpcStatusVrfEvaluationStatus.completed => 'Completed',
+              _ => 'N/A',
+            };
 
-                        return [
-                          'Status: $statusText',
-                          'Total: ${NumberFormat('#,###').format(totalSlotsPerEpoch)}',
-                          'Evaluated: ${NumberFormat('#,###').format(evaluatedSlots)}',
-                          'Won: ${NumberFormat('#,###').format(vrfWonSlots)}',
-                        ];
-                      }(),
-                      color: colorScheme.tertiary,
-                      colorScheme: colorScheme,
-                      useGradient: false,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildMultiLineInfoCard(
-                      context,
-                      label: 'Slots/Blocks',
-                      lines: [
-                        'Total: ${NumberFormat('#,###').format(totalSlotsPerEpoch)}',
-                        'Won: ${NumberFormat('#,###').format(wonSlots)}',
-                        'Produced: ${NumberFormat('#,###').format(produced)}',
-                      ],
-                      color: const Color(0xFFF9A825),
-                      colorScheme: colorScheme,
-                      onTap: () => context.push(AppRoutes.mainNodeWonSlots),
-                      useGradient: false,
-                    ),
-                  ),
-                ],
-              ),
+            return _buildMultiLineInfoCard(
+              context,
+              label:
+                  'VRF (Epoch Slots: ${NumberFormat('#,###').format(totalSlotsPerEpoch)} / Status: $statusText)',
+              lines: [
+                'Evaluated Slots: ${NumberFormat('#,###').format(evaluatedSlots)}',
+                'Won Slots: ${NumberFormat('#,###').format(wonSlots)}',
+                'Produced Blocks: ${NumberFormat('#,###').format(produced)}',
+              ],
+              color: colorScheme.tertiary,
+              colorScheme: colorScheme,
+              onTap: () => context.push(AppRoutes.mainNodeWonSlots),
+              useGradient: false,
             );
           },
         ),
@@ -1518,7 +1525,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
   void _startTimer() {
     _autoTimer?.cancel();
-    _autoTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+    _autoTimer = Timer.periodic(const Duration(seconds: 2), (_) {
       if (mounted && _active && !_refreshing) {
         _refresh();
       }

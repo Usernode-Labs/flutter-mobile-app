@@ -197,6 +197,10 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                   ],
                 ),
 
+              // WALLET BALANCE Section (moved to bottom)
+              _buildWalletBalanceCard(theme),
+              const SizedBox(height: 8),
+
               // OVERVIEW Section (includes Synchronization details)
               _buildOverviewSection(
                   context, ref.read(nodeStatusProvider).value),
@@ -205,9 +209,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
               // RECENT BLOCKS Section (collapsible, separate card)
               _buildRecentBlocksSection(context),
               const SizedBox(height: 8),
-
-              // WALLET BALANCE Section (moved to bottom)
-              _buildWalletBalanceCard(theme),
             ],
           ),
         ),
@@ -262,19 +263,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Section header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Wallet',
-                  style: theme.textTheme.bodyLarge!.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
             // Balance amount
             Text(
               'Balance: ${_formatBalance((_cachedBalance ?? BigInt.zero).toDouble())} ${_cachedTokenSymbol ?? 'TKN'}',

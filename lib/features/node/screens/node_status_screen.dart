@@ -229,7 +229,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                 ),
 
               // WALLET BALANCE Section (moved to bottom)
-              _buildWalletBalanceCard(theme),
+              _buildWalletBalanceCard(context, theme),
               const SizedBox(height: 8),
 
               // OVERVIEW Section (includes Synchronization details)
@@ -276,9 +276,10 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   }
 
   // Wallet balance card widget
-  Widget _buildWalletBalanceCard(ThemeData theme) {
+  Widget _buildWalletBalanceCard(BuildContext context, ThemeData theme) {
     final peerId = ref.read(nodeStatusProvider).value?.peerId;
     final colorScheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context);
 
     return Container(
       decoration: BoxDecoration(
@@ -296,7 +297,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
           children: [
             // Balance amount
             Text(
-              'Balance: ${_formatBalance((_cachedBalance ?? BigInt.zero).toDouble())} ${_cachedTokenSymbol ?? 'TKN'}',
+              'Balance: ${_cachedBalance == null ? l10n.commonNoValuePlaceholder : _formatBalance(_cachedBalance!.toDouble())} ${_cachedTokenSymbol ?? 'TKN'}',
               style: theme.textTheme.titleMedium?.copyWith(
                 color: colorScheme.onSurface,
                 fontWeight: FontWeight.w600,

@@ -28,6 +28,13 @@ class _OnboardingBatteryCompleteScreenState
     _checkBatteryStatus();
   }
 
+  Future<void> _completeAndGoToProducedBlocks() async {
+    await markOnboardingComplete();
+    ref.invalidate(hasCompletedOnboardingProvider);
+    if (!context.mounted) return;
+    context.go(AppRoutes.nodeStatusProducedBlocks);
+  }
+
   Future<void> _checkBatteryStatus() async {
     if (!Platform.isAndroid) {
       // Battery optimization concept is Android-specific; treat others as unrestricted.
@@ -49,10 +56,7 @@ class _OnboardingBatteryCompleteScreenState
   }
 
   Future<void> _onContinue() async {
-    await markOnboardingComplete();
-    ref.invalidate(hasCompletedOnboardingProvider);
-    if (!context.mounted) return;
-    context.go(AppRoutes.home);
+    await _completeAndGoToProducedBlocks();
   }
 
   @override

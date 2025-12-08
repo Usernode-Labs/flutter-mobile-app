@@ -161,6 +161,19 @@ class RustBackendService {
       builder.blockProducerHex(skHex: privateKeyHex);
       builder.mempoolAutoinsertInterval(secs: BigInt.from(1));
 
+      // Configure persistent P2P identity
+      String? p2pSecretKeyStr = await repo.getP2pSecretKey(account.id);
+      if (p2pSecretKeyStr == null) {
+        // First run: generate and save P2P key
+        _log.info('Generating new P2P identity for account ${account.id}');
+        p2pSecretKeyStr = builder.p2PSecKeyStr();
+        await repo.saveP2pSecretKey(account.id, p2pSecretKeyStr);
+      } else {
+        // Subsequent runs: use stored key
+        _log.trace('Using stored P2P identity');
+        builder.p2PSecKeyFromStr(key: p2pSecretKeyStr);
+      }
+
       // Configure persistent VRF storage path so VRF evaluation progress survives restarts.
       final appSupportDir = await getApplicationSupportDirectory();
       final vrfPath = '${appSupportDir.path}/usernode_vrf_storage.sqlite';

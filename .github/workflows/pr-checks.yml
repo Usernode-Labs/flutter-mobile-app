@@ -50,11 +50,21 @@ jobs:
           echo "rev=$FRB_REV" >> "$GITHUB_OUTPUT"
           echo "Using flutter_rust_bridge rev: $FRB_REV"
 
-  # Job 1: Setup Rust tools (reusable)
+  # Job 1: Setup Rust tools (reusable) for iOS
   setup-rust-tools:
-    name: Setup Rust Tools
+    name: Setup Rust Tools for iOS
     needs: determine-frb-rev
     uses: ./.github/workflows/setup-rust-tools.yml
+    secrets: inherit
+    with:
+      frb_rev: ${{ needs.determine-frb-rev.outputs.frb_rev }}
+      usernode_ref: ${{ needs.determine-frb-rev.outputs.usernode_sha }}
+
+  # Job 1b: Setup Rust tools for Android
+  setup-rust-tools-android:
+    name: Setup Rust Tools for Android
+    needs: determine-frb-rev
+    uses: ./.github/workflows/setup-rust-tools-android.yml
     secrets: inherit
     with:
       frb_rev: ${{ needs.determine-frb-rev.outputs.frb_rev }}
@@ -147,10 +157,13 @@ jobs:
   build-android:
     name: Build Android (Debug)
     runs-on: ubuntu-20.04-16core2
-    needs: [determine-frb-rev, setup-rust-tools]
+    needs: [determine-frb-rev, setup-rust-tools-android]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Setup jq
+        run: sudo apt-get install -y jq
 
       - name: Checkout usernode repository
         uses: actions/checkout@v4
@@ -175,50 +188,8 @@ jobs:
           path: ../usernode/target
           key: ${{ runner.os }}-usernode-target-${{ needs.determine-frb-rev.outputs.usernode_sha }}
           restore-keys: |
+            ${{ runner.os }}-usernode-target-${{ needs.determine-frb-rev.outputs.frb_rev }}-
             ${{ runner.os }}-usernode-target-
-
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: "zulu"
-          java-version: ${{ env.JAVA_VERSION }}
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: "stable"
-          cache: false
-
-      - name: Restore cargo binaries from cache
-        uses: actions/cache/restore@v4
-        id: cache-cargo-bins
-        with:
-          path: |
-            ~/.cargo/bin/cargo-expand
-            ~/.cargo/bin/flutter_rust_bridge_codegen
-          key: ${{ runner.os }}-cargo-bins-${{ needs.determine-frb-rev.outputs.frb_rev }}-v2
-
-      - name: Install flutter_rust_bridge_codegen if not cached
-        if: steps.cache-cargo-bins.outputs.cache-hit != 'true'
-        run: |
-          if ! command -v flutter_rust_bridge_codegen &> /dev/null; then
-            echo "Installing flutter_rust_bridge_codegen..."
-            cargo install flutter_rust_bridge_codegen --git https://github.com/Usernode-Labs/flutter_rust_bridge --rev ${{ needs.determine-frb-rev.outputs.frb_rev }} --locked
-          else
-            echo "flutter_rust_bridge_codegen already available"
-          fi
-
-      - name: Cache FRB generated code
-        id: cache-frb-gen
-        uses: actions/cache@v4
-        with:
-          path: |
-            lib/src/rust/frb_generated.dart
-            lib/src/rust/api
-          key: ${{ runner.os }}-frb-gen-${{ needs.determine-frb-rev.outputs.frb_rev }}-${{ needs.determine-frb-rev.outputs.usernode_sha }}
-          restore-keys: |
-            ${{ runner.os }}-frb-gen-${{ needs.determine-frb-rev.outputs.frb_rev }}-
 
       - name: Determine environment based on target branch
         id: env_config
@@ -247,6 +218,13 @@ jobs:
           METRICS_ENDPOINT=${{ secrets.PROD_METRICS_ENDPOINT }}
           METRICS_HEALTH_ENDPOINT=${{ secrets.PROD_METRICS_HEALTH_ENDPOINT }}
           METRICS_INTERVAL=${{ secrets.PROD_METRICS_INTERVAL }}
+          DEMO_ACCOUNTS_JSON=${{ secrets.PROD_DEMO_ACCOUNTS_JSON }}
+          TESTNET_SEEDLIST_URL=${{ secrets.TESTNET_SEEDLIST_URL }}
+          TESTNET_GENESIS_URL=${{ secrets.TESTNET_GENESIS_URL }}
+          INTERNAL_SEEDLIST_URL=${{ secrets.INTERNAL_SEEDLIST_URL }}
+          INTERNAL_GENESIS_URL=${{ secrets.INTERNAL_GENESIS_URL }}
+          NETWORK_SWITCHER_CODE=${{ secrets.NETWORK_SWITCHER_CODE }}
+          LOAD_GENESIS_NB_RETRIES=${{ secrets.LOAD_GENESIS_NB_RETRIES }}
           VERSION_CHECK_API_URL=${{ secrets.PROD_VERSION_CHECK_API_URL }}
           VERSION_CHECK_INTERVAL_SECONDS=${{ secrets.PROD_VERSION_CHECK_INTERVAL_SECONDS }}
           EOF
@@ -264,13 +242,53 @@ jobs:
           METRICS_ENDPOINT=${{ secrets.NONPROD_METRICS_ENDPOINT }}
           METRICS_HEALTH_ENDPOINT=${{ secrets.NONPROD_METRICS_HEALTH_ENDPOINT }}
           METRICS_INTERVAL=${{ secrets.NONPROD_METRICS_INTERVAL }}
+          DEMO_ACCOUNTS_JSON=${{ secrets.NONPROD_DEMO_ACCOUNTS_JSON }}
+          TESTNET_SEEDLIST_URL=${{ secrets.TESTNET_SEEDLIST_URL }}
+          TESTNET_GENESIS_URL=${{ secrets.TESTNET_GENESIS_URL }}
+          INTERNAL_SEEDLIST_URL=${{ secrets.INTERNAL_SEEDLIST_URL }}
+          INTERNAL_GENESIS_URL=${{ secrets.INTERNAL_GENESIS_URL }}
+          NETWORK_SWITCHER_CODE=${{ secrets.NETWORK_SWITCHER_CODE }}
+          LOAD_GENESIS_NB_RETRIES=${{ secrets.LOAD_GENESIS_NB_RETRIES }}
           VERSION_CHECK_API_URL=${{ secrets.NONPROD_VERSION_CHECK_API_URL }}
           VERSION_CHECK_INTERVAL_SECONDS=${{ secrets.NONPROD_VERSION_CHECK_INTERVAL_SECONDS }}
           EOF
           fi
           echo "✅ Created .env file with ${{ steps.env_config.outputs.env_type }} secrets"
 
-      - name: Install dependencies
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: "stable"
+          cache: false
+
+      - name: Restore cargo binaries from cache
+        uses: actions/cache/restore@v4
+        id: cache-cargo-bins
+        with:
+          path: |
+            ~/.cargo/bin/cargo-expand
+            ~/.cargo/bin/flutter_rust_bridge_codegen
+          key: ${{ runner.os }}-cargo-bins-${{ needs.determine-frb-rev.outputs.frb_rev }}-v2
+
+      - name: Cache FRB generated code
+        id: cache-frb-gen
+        uses: actions/cache@v4
+        with:
+          path: |
+            lib/src/rust/frb_generated.dart
+            lib/src/rust/api
+          key: ${{ runner.os }}-frb-gen-${{ needs.determine-frb-rev.outputs.frb_rev }}-${{ needs.determine-frb-rev.outputs.usernode_sha }}
+          restore-keys: |
+            ${{ runner.os }}-frb-gen-${{ needs.determine-frb-rev.outputs.frb_rev }}-
+
+      - name: Install Flutter dependencies
         run: flutter pub get
 
       - name: Generate flutter_rust_bridge bindings
@@ -285,9 +303,32 @@ jobs:
             exit 1
           fi
 
-      - name: Build Android APK (Debug)
+      - name: Locate Android NDK
+        id: ndk
         run: |
-          flutter build apk \
+          set -euo pipefail
+          if [ -d "/usr/local/lib/android/sdk/ndk" ]; then
+            NDK_ROOT=$(ls -d /usr/local/lib/android/sdk/ndk/* | head -n 1)
+          elif [ -n "${ANDROID_NDK_HOME:-}" ]; then
+            NDK_ROOT="$ANDROID_NDK_HOME"
+          else
+            echo "Unable to locate Android NDK installation" >&2
+            exit 1
+          fi
+          echo "ndk_root=$NDK_ROOT" >> "$GITHUB_OUTPUT"
+          echo "Using NDK at $NDK_ROOT"
+
+      - name: Build Android APK (Debug)
+        env:
+          NDK_ROOT: ${{ steps.ndk.outputs.ndk_root }}
+        run: |
+          export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_CC="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_CXX="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang++"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$CARGO_TARGET_AARCH64_LINUX_ANDROID_CC"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_AR="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_RANLIB="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
+          CARGOKIT_ONLY_ANDROID_ARM64=1 flutter build apk \
             --debug \
             --dart-define-from-file=.env
 

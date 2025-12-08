@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -74,7 +75,7 @@ class AppVersionCheck {
               'build_number': int.tryParse(info.buildNumber) ?? 1,
             }),
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 3));
 
       if (response.statusCode != 200) return null;
 
@@ -112,6 +113,27 @@ class AppVersionCheck {
     _timer = null;
   }
 
+  // Rate-limiting for recommended updates (max once per day)
+  static const _lastRecommendedDialogKey = 'app:last_recommended_update_dialog';
+  static const _recommendedDialogCooldown = Duration(hours: 24);
+
+  /// Check if enough time has passed to show a recommended update dialog
+  Future<bool> canShowRecommendedDialog() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lastShown = prefs.getInt(_lastRecommendedDialogKey);
+    if (lastShown == null) return true;
+
+    final lastShownTime = DateTime.fromMillisecondsSinceEpoch(lastShown);
+    final elapsed = DateTime.now().difference(lastShownTime);
+    return elapsed >= _recommendedDialogCooldown;
+  }
+
+  /// Record that the recommended update dialog was shown
+  Future<void> markRecommendedDialogShown() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_lastRecommendedDialogKey, DateTime.now().millisecondsSinceEpoch);
+  }
+
   static String get storeUrl => Platform.isIOS
       ? 'https://apps.apple.com/app/usernode/id0000000000' // TODO: real ID
       : 'https://play.google.com/store/apps/details?id=com.usernodelabs.crypto_mobile_app';
@@ -132,14 +154,29 @@ final appVersionCheckProvider = FutureProvider<VersionCheckResult?>((ref) {
 
 /// Shows the appropriate update dialog based on upgrade level
 /// Uses the provided navigatorKey to show the dialog
-Future<void> showUpdateDialog(GlobalKey<NavigatorState> navigatorKey, VersionCheckResult result) {
+/// For recommended updates, rate-limited to once per day
+Future<void> showUpdateDialog(GlobalKey<NavigatorState> navigatorKey, VersionCheckResult result) async {
   _log.info('showUpdateDialog called with upgrade=${result.upgrade}, isBlocking=${result.isBlocking}');
+
+  // Rate-limit recommended updates to once per day
+  if (!result.isBlocking) {
+    final canShow = await AppVersionCheck.instance.canShowRecommendedDialog();
+    if (!canShow) {
+      _log.info('Skipping recommended update dialog (shown within last 24h)');
+      return;
+    }
+    // Mark as shown before showing the dialog
+    await AppVersionCheck.instance.markRecommendedDialogShown();
+  }
+
   final context = navigatorKey.currentContext;
   if (context == null) {
     _log.warn('Navigator context is null, cannot show dialog');
-    return Future.value();
+    return;
   }
-  return showDialog(
+
+  // ignore: use_build_context_synchronously
+  showDialog(
     context: context,
     barrierDismissible: !result.isBlocking,
     builder: (ctx) {

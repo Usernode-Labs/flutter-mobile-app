@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/core/providers/providers.dart';
 
 class BatteryPermission2Screen extends ConsumerStatefulWidget {
   const BatteryPermission2Screen({super.key});
@@ -23,6 +24,7 @@ class _BatteryPermission2ScreenState
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _checkInitialBatteryStatus();
   }
 
   @override
@@ -46,6 +48,25 @@ class _BatteryPermission2ScreenState
     if (!mounted) return;
     if (disabled && context.mounted) {
       context.go(AppRoutes.onboardingBatteryComplete);
+    }
+  }
+
+  Future<void> _checkInitialBatteryStatus() async {
+    if (!Platform.isAndroid) return;
+
+    await PlatformAlarmService.instance.initialize();
+    final disabled =
+        await PlatformAlarmService.instance.isBatteryOptimizationDisabled();
+    if (!mounted) return;
+
+    // If battery optimizations are already disabled when this screen is first
+    // shown, skip the remaining battery onboarding and go straight to the
+    // produced blocks screen after marking onboarding complete.
+    if (disabled) {
+      await markOnboardingComplete();
+      ref.invalidate(hasCompletedOnboardingProvider);
+      if (!mounted) return;
+      context.go(AppRoutes.nodeStatusProducedBlocks);
     }
   }
 

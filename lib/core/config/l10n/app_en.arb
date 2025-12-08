@@ -737,7 +737,7 @@
   "@onboardingVerifyAccessTitle": {
     "description": "Title for the verify access screen"
   },
-  "onboardingVerifyAccessSubtitle": "Use the username/registration code that has been shared with you.",
+  "onboardingVerifyAccessSubtitle": "Use the username/registration code that has been shared with you. Username must be typed exactly as it appears in the registration email.",
   "@onboardingVerifyAccessSubtitle": {
     "description": "Subtitle explaining how to verify access"
   },
@@ -749,7 +749,7 @@
       "userId": { "type": "String" }
     }
   },
-  "onboardingWelcomeSetupBody": "You are part of the initial test cohort. This app runs a block producing node.\n\nWe need to configure your device to produce blocks on demand.",
+  "onboardingWelcomeSetupBody": "You are part of the initial test cohort. This app runs a block producing node.\n\nThe next steps will configure your device to produce blocks on demand.",
   "@onboardingWelcomeSetupBody": {
     "description": "Body text explaining the initial test cohort and device setup"
   },
@@ -879,7 +879,7 @@
     "description": "Title shown when unrestricted battery optimization is enabled"
   },
   "onboardingBatteryUnrestrictedBody":
-      "Great job! The app is now protected from being killed in the background.",
+      "Great job! The app is now able to precisely schedule background block production.",
   "@onboardingBatteryUnrestrictedBody": {
     "description": "Body text when unrestricted battery optimization is enabled"
   },

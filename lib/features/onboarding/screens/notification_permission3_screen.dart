@@ -1,9 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/core/providers/providers.dart';
 
 class NotificationPermission3Screen extends ConsumerStatefulWidget {
   const NotificationPermission3Screen({super.key});
@@ -18,6 +21,13 @@ class _NotificationPermission3ScreenState
   bool? _granted;
   bool _requesting = false;
   bool _permanentlyDenied = false;
+
+  Future<void> _completeOnboardingAndGoToProducedBlocks() async {
+    await markOnboardingComplete();
+    ref.invalidate(hasCompletedOnboardingProvider);
+    if (!mounted) return;
+    context.go(AppRoutes.nodeStatusProducedBlocks);
+  }
 
   @override
   void initState() {
@@ -34,7 +44,11 @@ class _NotificationPermission3ScreenState
     });
     // If notifications are already enabled, advance automatically.
     if (status.isGranted && mounted) {
-      context.go(AppRoutes.onboardingBatteryPermission2);
+      if (Platform.isIOS) {
+        await _completeOnboardingAndGoToProducedBlocks();
+      } else {
+        context.go(AppRoutes.onboardingBatteryPermission2);
+      }
     }
   }
 
@@ -63,7 +77,11 @@ class _NotificationPermission3ScreenState
       );
       // If the user just enabled notifications, advance automatically.
       if (isGranted && mounted) {
-        context.go(AppRoutes.onboardingBatteryPermission2);
+        if (Platform.isIOS) {
+          await _completeOnboardingAndGoToProducedBlocks();
+        } else {
+          context.go(AppRoutes.onboardingBatteryPermission2);
+        }
       }
     } finally {
       if (mounted) setState(() => _requesting = false);
@@ -129,8 +147,14 @@ class _NotificationPermission3ScreenState
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  onPressed: () =>
-                      context.go(AppRoutes.onboardingBatteryPermission2),
+                  onPressed: () async {
+                    if (Platform.isIOS) {
+                      await _completeOnboardingAndGoToProducedBlocks();
+                    } else {
+                      if (!mounted) return;
+                      context.go(AppRoutes.onboardingBatteryPermission2);
+                    }
+                  },
                   style: FilledButton.styleFrom(
                     minimumSize: const Size.fromHeight(52),
                     backgroundColor: theme

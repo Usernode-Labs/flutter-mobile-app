@@ -1093,7 +1093,7 @@ abstract class AppLocalizations {
   /// Subtitle explaining how to verify access
   ///
   /// In en, this message translates to:
-  /// **'Use the username/registration code that has been shared with you.'**
+  /// **'Use the username/registration code that has been shared with you. Username must be typed exactly as it appears in the registration email.'**
   String get onboardingVerifyAccessSubtitle;
 
   /// Personalized welcome title on the setup screen
@@ -1105,7 +1105,7 @@ abstract class AppLocalizations {
   /// Body text explaining the initial test cohort and device setup
   ///
   /// In en, this message translates to:
-  /// **'You are part of the initial test cohort. This app runs a block producing node.\n\nWe need to configure your device to produce blocks on demand.'**
+  /// **'You are part of the initial test cohort. This app runs a block producing node.\n\nThe next steps will configure your device to produce blocks on demand.'**
   String get onboardingWelcomeSetupBody;
 
   /// Button text to start the setup flow
@@ -1285,7 +1285,7 @@ abstract class AppLocalizations {
   /// Body text when unrestricted battery optimization is enabled
   ///
   /// In en, this message translates to:
-  /// **'Great job! The app is now protected from being killed in the background.'**
+  /// **'Great job! The app is now able to precisely schedule background block production.'**
   String get onboardingBatteryUnrestrictedBody;
 
   /// Title shown when unrestricted battery optimization is not enabled

@@ -563,7 +563,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get onboardingVerifyAccessSubtitle =>
-      'Use the username/registration code that has been shared with you.';
+      'Use the username/registration code that has been shared with you. Username must be typed exactly as it appears in the registration email.';
 
   @override
   String onboardingWelcomeSetupTitle(String userId) {
@@ -572,7 +572,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get onboardingWelcomeSetupBody =>
-      'You are part of the initial test cohort. This app runs a block producing node.\n\nWe need to configure your device to produce blocks on demand.';
+      'You are part of the initial test cohort. This app runs a block producing node.\n\nThe next steps will configure your device to produce blocks on demand.';
 
   @override
   String get onboardingWelcomeSetupStartButton => 'Start Setup';
@@ -676,7 +676,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get onboardingBatteryUnrestrictedBody =>
-      'Great job! The app is now protected from being killed in the background.';
+      'Great job! The app is now able to precisely schedule background block production.';
 
   @override
   String get onboardingBatteryDefaultTitle =>

@@ -496,13 +496,6 @@ class _BackgroundProductionSettingsScreenState
               _buildAboutSection(theme, colorScheme),
               const SizedBox(height: 8),
 
-              // Appearance / theme section
-              _buildThemeSection(theme, colorScheme),
-              const SizedBox(height: 8),
-
-              // Feature overview section
-              const SizedBox(height: 8),
-
               // Feature overview section
               _buildFeatureOverviewCard(theme, colorScheme),
               const SizedBox(height: 8),
@@ -536,6 +529,10 @@ class _BackgroundProductionSettingsScreenState
                 _buildAndroidKeepAliveSection(theme, colorScheme),
                 const SizedBox(height: 8),
               ],
+
+              // Appearance / theme section (moved near bottom)
+              _buildThemeSection(theme, colorScheme),
+              const SizedBox(height: 8),
 
               // Build Info section (at the bottom)
               _buildBuildInfoCard(theme, colorScheme),

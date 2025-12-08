@@ -650,10 +650,10 @@ class _BackgroundProductionSettingsScreenState
             ),
             const SizedBox(height: 8),
             Text(
-              'Your device is helping run this network directly, peer to peer, with no central servers. Together with other participants\' devices, it processes transactions and runs shared code. It is one of the first networks that can be fully hosted just from participants\' own devices.\n\n' +
-                  'Our goal is to enable community-run networks, where participants operate the network themselves and incentives create a schelling point around user participation.\n\n' +
-                  'We are currently in testnet. The first few phases of our testing will ensure that the core network and block production works. Then we will work on adding activities, use cases, and smart contracts on top of the core app.\n\n' +
-                  'We thank you for helping test this first version of the application. We\'re hopeful to build a very new and different kind of blockchain and network, and your participation helps make this possible.',
+              'Your device is part of a new network. It verifies, executes, and contributes compute directly to the network, passively in the background - with no central servers, no hidden infra. As long as users keep the app running, the network will continue to operate, peer to peer, with no external dependencies.\n\n'
+              'We\'re doing this to enable networks that can be hosted end-to-end by their own communities - both for decentralization, and to enable a natural coordination point around participation, where users who help operate and contribute to systems directly realize the benefits from it.\n\n'
+              'Right now we are in testnet as we validate the core layer: block production, consensus behavior, and network reliability. As these stabilize, we\'ll build upon the unique features of the platform - its decentralization, zero knowledge proofs, and sybil-resistant identity - to introduce new activities, coordination mechanisms, and tools for self-hosted, sybil-resistant communities.\n\n'
+              'Thanks for helping test at this early stage. The app right now is simple, but as we prove out the core functionality, we hope to make possible a new kind of community-owned network, where users can directly run and benefit from the networks they use.',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurface.withValues(alpha: 0.7),
                 height: 1.5,

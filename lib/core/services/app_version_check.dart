@@ -11,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
+import 'package:crypto_mobile_app/features/metrics/metrics_reporting_service.dart';
 
 final _log = LoggingService.instance.withTag(LogTag.versionCheck);
 
@@ -174,6 +175,15 @@ Future<void> showUpdateDialog(GlobalKey<NavigatorState> navigatorKey, VersionChe
     _log.warn('Navigator context is null, cannot show dialog');
     return;
   }
+
+  // Report metrics for update dialog shown
+  MetricsReportingService.instance.reportEvent(
+    'update_dialog_shown',
+    eventData: {
+      'upgrade_level': result.upgrade.name,
+      'is_blocking': result.isBlocking,
+    },
+  );
 
   // ignore: use_build_context_synchronously
   showDialog(

@@ -204,6 +204,24 @@ class MetricsReportingService {
     await _reportMetrics();
   }
 
+  /// Report a custom event with optional event data
+  ///
+  /// Use this for one-off events that are not part of the block production flow.
+  void reportEvent(String eventType, {Map<String, dynamic>? eventData}) {
+    if (!_isRunning || _httpClient == null) {
+      _log.debug('Cannot report event: service not running');
+      return;
+    }
+
+    _log.debug('Reporting custom event: $eventType');
+
+    // Collect and send metrics with the custom event type
+    MetricsCollectorService.instance
+        .collectMetrics(eventType: eventType, eventData: eventData)
+        .then((payload) => _sendMetricsAsync(payload, eventType: eventType))
+        .catchError((e) => _log.debug('Error reporting event: $e'));
+  }
+
   /// Start the periodic reporting timer
   void _startPeriodicReporting(Duration interval) {
     _reportingTimer?.cancel();

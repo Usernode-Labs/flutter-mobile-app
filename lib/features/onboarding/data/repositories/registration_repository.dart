@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 
-final _log = LoggingService.instance.withTag(LogTag.general);
+final _log = LoggingService.instance.withTag('RegistrationRepository');
 
 class RegistrationApiException implements Exception {
   RegistrationApiException(this.statusCode, this.message, {this.body});

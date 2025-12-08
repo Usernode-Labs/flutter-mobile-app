@@ -7,7 +7,7 @@ import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../../core/config/app_config.dart';
 
-final _log = LoggingService.instance.withTag(LogTag.general);
+final _log = LoggingService.instance.withTag('GitHubIssueService');
 
 class GitHubIssueService {
   GitHubIssueService();

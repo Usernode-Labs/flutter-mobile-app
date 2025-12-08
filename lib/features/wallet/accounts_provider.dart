@@ -7,7 +7,7 @@ import 'package:crypto_mobile_app/src/rust/account.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 
-final _log = LoggingService.instance.withTag(LogTag.wallet);
+final _log = LoggingService.instance.withTag('AccountsProvider');
 
 /// Provider for AccountsRepository - handles account persistence
 final accountsProvider = FutureProvider<AccountsRepository>((ref) async {

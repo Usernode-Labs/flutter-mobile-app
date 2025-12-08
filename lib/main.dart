@@ -16,6 +16,7 @@ import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_provider.dart';
 import 'package:crypto_mobile_app/core/services/background_block_production_orchestrator.dart';
+import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
 import 'package:crypto_mobile_app/features/node/produced_blocks_provider.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
@@ -33,7 +34,17 @@ Future<void> main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  final log = LoggingService.instance.withTag(LogTag.bootstrap);
+  // Initialize logging with file output
+  await LoggingService.initialize();
+
+  // Initialize platform alarm service early to capture native events
+  // The callback is registered now so iOS notification events aren't lost
+  await PlatformAlarmService.instance.initialize();
+  PlatformAlarmService.instance.setNativeEventCallback(
+    BackgroundBlockProductionOrchestrator.instance.handleNativeEvent,
+  );
+
+  final log = LoggingService.instance.withTag('Bootstrap');
 
   await SentryUtil.bootstrap(() async {
     SentryUtil.addBreadcrumb(category: 'app', message: 'startup begin');
@@ -158,7 +169,7 @@ class _AppWrapperState extends ConsumerState<_AppWrapper> {
   }
 
   Future<void> _checkInitialVersion() async {
-    final log = LoggingService.instance.withTag(LogTag.versionCheck);
+    final log = LoggingService.instance.withTag('VersionCheck');
     log.info('_checkInitialVersion called');
     try {
       final result = await ref.read(appVersionCheckProvider.future);

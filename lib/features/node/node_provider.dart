@@ -6,7 +6,7 @@ import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/features/node/models/sync_status.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 
-final _log = LoggingService.instance.withTag(LogTag.nodeService);
+final _log = LoggingService.instance.withTag('NodeProvider');
 
 /// Unified node status state combining raw status, sync status, and best tip
 class NodeStatusState {

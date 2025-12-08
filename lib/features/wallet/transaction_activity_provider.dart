@@ -9,7 +9,7 @@ import 'package:crypto_mobile_app/features/wallet/mempool_provider.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 
-final _log = LoggingService.instance.withTag(LogTag.wallet);
+final _log = LoggingService.instance.withTag('TransactionActivityProvider');
 
 /// Controller that combines mempool transactions and confirmed UTXOs
 /// into a unified transaction activity list

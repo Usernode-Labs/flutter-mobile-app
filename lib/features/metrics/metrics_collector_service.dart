@@ -19,7 +19,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
-final _log = LoggingService.instance.withTag(LogTag.metrics);
+final _log = LoggingService.instance.withTag('MetricsCollector');
 
 /// Hashes a device ID using SHA-256 (truncated to 16 chars) for privacy
 String _hashDeviceId(String deviceId) {

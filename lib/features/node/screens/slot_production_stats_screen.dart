@@ -5,7 +5,7 @@ import 'package:crypto_mobile_app/core/data/slot_production_repository.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:intl/intl.dart';
 
-final _log = LoggingService.instance.withTag(LogTag.blockProduction);
+final _log = LoggingService.instance.withTag('SlotProductionStatsScreen');
 
 class SlotProductionStatsScreen extends ConsumerStatefulWidget {
   const SlotProductionStatsScreen({super.key});

@@ -8,7 +8,7 @@ import '../../features/metrics/metrics_collector_service.dart';
 import '../services/background_block_production_orchestrator.dart';
 import '../services/platform_alarm_service.dart';
 
-final _log = LoggingService.instance.withTag(LogTag.lifecycle);
+final _log = LoggingService.instance.withTag('Lifecycle');
 
 /// Enhanced app lifecycle observer with background block production support
 ///

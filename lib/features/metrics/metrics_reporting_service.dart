@@ -7,7 +7,7 @@ import 'package:crypto_mobile_app/core/models/block_production_event.dart';
 import 'package:crypto_mobile_app/features/metrics/models/metrics_payload.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
 
-final _log = LoggingService.instance.withTag(LogTag.metrics);
+final _log = LoggingService.instance.withTag('MetricsReporting');
 
 /// Callback type for fetching wallet data
 typedef WalletDataCallback = Future<({BigInt? balance, String? address})>

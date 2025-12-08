@@ -4,7 +4,7 @@ import '../../features/node/node_service.dart';
 import '../data/slot_production_repository.dart';
 import 'epoch_slot_scheduler_service.dart';
 
-final _log = LoggingService.instance.withTag(LogTag.slotMonitorService);
+final _log = LoggingService.instance.withTag('SlotMonitorService');
 
 /// Service responsible for monitoring slot production status in real-time
 ///

@@ -14,7 +14,7 @@ import 'platform_alarm_service.dart';
 import 'slot_monitor_service.dart';
 import 'epoch_slot_scheduler_service.dart' as legacy;
 
-final _log = LoggingService.instance.withTag(LogTag.blockProduction);
+final _log = LoggingService.instance.withTag('BlockProduction');
 
 /// Unified orchestrator for background block production
 ///
@@ -81,9 +81,9 @@ class BackgroundBlockProductionOrchestrator {
       _log.debug('Starting epoch monitoring');
       _startEpochMonitoring();
 
-      // Register native event callback
+      // Re-register native event callback (in case it wasn't set early in main.dart)
       _log.debug('Registering native event callback');
-      PlatformAlarmService.instance.setNativeEventCallback(_handleNativeEvent);
+      PlatformAlarmService.instance.setNativeEventCallback(handleNativeEvent);
       _log.debug('Native event callback registered with PlatformAlarmService');
 
       // Perform initial epoch check
@@ -469,8 +469,9 @@ class BackgroundBlockProductionOrchestrator {
 
   /// Handle native events from platform code (Android/iOS)
   ///
-  /// This receives events forwarded from native code via PlatformAlarmService
-  void _handleNativeEvent(String eventType, Map<String, dynamic> eventData) {
+  /// This receives events forwarded from native code via PlatformAlarmService.
+  /// This method is public so it can be registered as a callback early in app startup.
+  void handleNativeEvent(String eventType, Map<String, dynamic> eventData) {
     _log.debug('Handling native event: $eventType with data: $eventData');
 
     try {

@@ -308,7 +308,7 @@ class MetricsReportingService {
         body: jsonEncode(jsonPayload),
       )
           .timeout(
-        const Duration(seconds: 10),
+        const Duration(seconds: 3),
         onTimeout: () {
           throw Exception('Metrics request timed out');
         },
@@ -349,7 +349,7 @@ class MetricsReportingService {
         url,
         headers: {'Accept': 'application/json'},
       ).timeout(
-        const Duration(seconds: 5),
+        const Duration(seconds: 3),
         onTimeout: () {
           throw Exception('Health check request timed out');
         },

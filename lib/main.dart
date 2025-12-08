@@ -19,6 +19,7 @@ import 'package:crypto_mobile_app/core/services/background_block_production_orch
 import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
 import 'package:crypto_mobile_app/features/node/produced_blocks_provider.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
+import 'package:crypto_mobile_app/core/services/app_version_check.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -130,23 +131,59 @@ class CryptoMobileApp extends ConsumerWidget {
       routerConfig: router,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      builder: (context, child) =>
-          _HotReloadInvalidateProducedBlocks(child: child),
+      builder: (context, child) => _AppWrapper(child: child),
     );
   }
 }
 
-class _HotReloadInvalidateProducedBlocks extends ConsumerStatefulWidget {
-  const _HotReloadInvalidateProducedBlocks({required this.child});
+/// Wrapper that handles version check and hot reload invalidation
+class _AppWrapper extends ConsumerStatefulWidget {
+  const _AppWrapper({required this.child});
   final Widget? child;
 
   @override
-  ConsumerState<_HotReloadInvalidateProducedBlocks> createState() =>
-      _HotReloadInvalidateProducedBlocksState();
+  ConsumerState<_AppWrapper> createState() => _AppWrapperState();
 }
 
-class _HotReloadInvalidateProducedBlocksState
-    extends ConsumerState<_HotReloadInvalidateProducedBlocks> {
+class _AppWrapperState extends ConsumerState<_AppWrapper> {
+  bool _versionCheckShown = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Start periodic version checks
+    AppVersionCheck.instance.startPeriodicChecks(_handleVersionCheckResult);
+    // Check version after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkInitialVersion());
+  }
+
+  Future<void> _checkInitialVersion() async {
+    final log = LoggingService.instance.withTag(LogTag.versionCheck);
+    log.info('_checkInitialVersion called');
+    try {
+      final result = await ref.read(appVersionCheckProvider.future);
+      log.info('Version check result: $result, shouldShow: ${result?.shouldShowDialog}, shown: $_versionCheckShown, mounted: $mounted');
+      if (result != null && result.shouldShowDialog && !_versionCheckShown && mounted) {
+        _versionCheckShown = true;
+        log.info('Showing update dialog...');
+        showUpdateDialog(appNavigatorKey, result);
+      }
+    } catch (e) {
+      log.error('Error in _checkInitialVersion: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    AppVersionCheck.instance.stopPeriodicChecks();
+    super.dispose();
+  }
+
+  void _handleVersionCheckResult(VersionCheckResult result) {
+    if (!mounted) return;
+    showUpdateDialog(appNavigatorKey, result);
+  }
+
   @override
   void reassemble() {
     super.reassemble();
@@ -159,3 +196,4 @@ class _HotReloadInvalidateProducedBlocksState
     return widget.child ?? const SizedBox.shrink();
   }
 }
+

@@ -112,6 +112,8 @@ jobs:
           INTERNAL_GENESIS_URL=${{ secrets.INTERNAL_GENESIS_URL }}
           NETWORK_SWITCHER_CODE=${{ secrets.NETWORK_SWITCHER_CODE }}
           LOAD_GENESIS_NB_RETRIES=${{ secrets.LOAD_GENESIS_NB_RETRIES }}
+          VERSION_CHECK_API_URL=${{ secrets.PROD_VERSION_CHECK_API_URL }}
+          VERSION_CHECK_INTERVAL_SECONDS=${{ secrets.PROD_VERSION_CHECK_INTERVAL_SECONDS }}
           EOF
           else
             cat > .env << EOF
@@ -134,6 +136,8 @@ jobs:
           INTERNAL_GENESIS_URL=${{ secrets.INTERNAL_GENESIS_URL }}
           NETWORK_SWITCHER_CODE=${{ secrets.NETWORK_SWITCHER_CODE }}
           LOAD_GENESIS_NB_RETRIES=${{ secrets.LOAD_GENESIS_NB_RETRIES }}
+          VERSION_CHECK_API_URL=${{ secrets.NONPROD_VERSION_CHECK_API_URL }}
+          VERSION_CHECK_INTERVAL_SECONDS=${{ secrets.NONPROD_VERSION_CHECK_INTERVAL_SECONDS }}
           EOF
           fi
           echo "✅ Created .env file with ${{ steps.env_config.outputs.env_type }} secrets"
@@ -544,6 +548,8 @@ jobs:
           INTERNAL_GENESIS_URL=${{ secrets.INTERNAL_GENESIS_URL }}
           NETWORK_SWITCHER_CODE=${{ secrets.NETWORK_SWITCHER_CODE }}
           LOAD_GENESIS_NB_RETRIES=${{ secrets.LOAD_GENESIS_NB_RETRIES }}
+          VERSION_CHECK_API_URL=${{ secrets.PROD_VERSION_CHECK_API_URL }}
+          VERSION_CHECK_INTERVAL_SECONDS=${{ secrets.PROD_VERSION_CHECK_INTERVAL_SECONDS }}
           EOF
           else
             cat > .env << EOF
@@ -566,6 +572,8 @@ jobs:
           INTERNAL_GENESIS_URL=${{ secrets.INTERNAL_GENESIS_URL }}
           NETWORK_SWITCHER_CODE=${{ secrets.NETWORK_SWITCHER_CODE }}
           LOAD_GENESIS_NB_RETRIES=${{ secrets.LOAD_GENESIS_NB_RETRIES }}
+          VERSION_CHECK_API_URL=${{ secrets.NONPROD_VERSION_CHECK_API_URL }}
+          VERSION_CHECK_INTERVAL_SECONDS=${{ secrets.NONPROD_VERSION_CHECK_INTERVAL_SECONDS }}
           EOF
           fi
           echo "✅ Created .env file with ${{ steps.env_config_ios.outputs.env_type }} secrets"

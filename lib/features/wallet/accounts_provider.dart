@@ -92,6 +92,42 @@ class AccountsRepository {
     }
   }
 
+  /// Get the P2P secret key for a specific account from secure storage
+  Future<String?> getP2pSecretKey(String accountId) async {
+    try {
+      final key = '$_network:p2p:$accountId:p2pSecretKey';
+      return await _secure.read(key: key);
+    } catch (e, st) {
+      _log.error('Failed to read P2P secret key for account $accountId',
+          error: e, stackTrace: st);
+      return null;
+    }
+  }
+
+  /// Save P2P secret key to secure storage
+  Future<void> saveP2pSecretKey(String accountId, String secretKeyStr) async {
+    try {
+      final key = '$_network:p2p:$accountId:p2pSecretKey';
+      await _secure.write(key: key, value: secretKeyStr);
+      _log.debug('Saved P2P secret key for account $accountId');
+    } catch (e, st) {
+      _log.error('Failed to save P2P secret key for account $accountId',
+          error: e, stackTrace: st);
+      rethrow;
+    }
+  }
+
+  /// Delete P2P secret key from secure storage
+  Future<void> deleteP2pSecretKey(String accountId) async {
+    try {
+      final key = '$_network:p2p:$accountId:p2pSecretKey';
+      await _secure.delete(key: key);
+    } catch (e, st) {
+      _log.error('Failed to delete P2P secret key for account $accountId',
+          error: e, stackTrace: st);
+    }
+  }
+
   /// Import an account from a hex-encoded private key.
   Future<AccountMeta?> importFromPrivateKey({
     required String name,

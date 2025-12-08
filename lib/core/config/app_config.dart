@@ -38,6 +38,11 @@ class AppConfig {
   static const String logTagLevels =
       String.fromEnvironment('LOG_TAG_LEVELS', defaultValue: '');
 
+  // Rust-side log level (trace, debug, info, warn, error)
+  // If not set, Rust logging is disabled
+  static const String rustLogLevel =
+      String.fromEnvironment('RUST_LOG_LEVEL', defaultValue: '');
+
   static AppConfig get instance => AppConfig._(
         environment: _env,
         verboseLogging: _verbose,

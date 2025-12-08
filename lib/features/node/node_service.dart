@@ -14,6 +14,8 @@ import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:crypto_mobile_app/src/rust/frb_generated.dart';
+import 'package:crypto_mobile_app/src/rust/lib.dart' show enableLogging;
+import 'package:crypto_mobile_app/src/rust/tracing.dart' show TracingLevel;
 import 'package:crypto_mobile_app/src/rust/node.dart';
 import 'package:crypto_mobile_app/src/rust/node/builder.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
@@ -24,6 +26,25 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 final _log = LoggingService.instance.withTag(LogTag.node);
+
+/// Parse log level string to TracingLevel enum
+TracingLevel _parseTracingLevel(String level) {
+  switch (level.toLowerCase()) {
+    case 'trace':
+      return TracingLevel.trace;
+    case 'debug':
+      return TracingLevel.debug;
+    case 'info':
+      return TracingLevel.info;
+    case 'warn':
+    case 'warning':
+      return TracingLevel.warn;
+    case 'error':
+      return TracingLevel.error;
+    default:
+      return TracingLevel.error;
+  }
+}
 
 /// Network type for chain selection
 enum NetworkType { testnet, internal }
@@ -62,6 +83,16 @@ class RustBackendService {
             ? ExternalLibrary.process(iKnowHowToUseIt: true)
             : null,
       );
+
+      // Enable Rust-side logging only if RUST_LOG_LEVEL is explicitly set
+      if (AppConfig.rustLogLevel.isNotEmpty) {
+        final rustLogLevel = _parseTracingLevel(AppConfig.rustLogLevel);
+        final appSupportDir = await getApplicationSupportDirectory();
+        final logDir = '${appSupportDir.path}/logs';
+        enableLogging(logLevel: rustLogLevel, outputDir: logDir);
+        _log.info('Rust logging enabled: level=${AppConfig.rustLogLevel}, dir=$logDir');
+      }
+
       _initialized = true;
     } on PanicException catch (e, st) {
       final msg = e.toString();
@@ -160,6 +191,19 @@ class RustBackendService {
       );
       builder.blockProducerHex(skHex: privateKeyHex);
       builder.mempoolAutoinsertInterval(secs: BigInt.from(1));
+
+      // Configure persistent P2P identity
+      String? p2pSecretKeyStr = await repo.getP2pSecretKey(account.id);
+      if (p2pSecretKeyStr == null) {
+        // First run: generate and save P2P key
+        _log.info('Generating new P2P identity for account ${account.id}');
+        p2pSecretKeyStr = builder.p2PSecKeyStr();
+        await repo.saveP2pSecretKey(account.id, p2pSecretKeyStr);
+      } else {
+        // Subsequent runs: use stored key
+        _log.trace('Using stored P2P identity');
+        builder.p2PSecKeyFromStr(key: p2pSecretKeyStr);
+      }
 
       // Configure persistent VRF storage path so VRF evaluation progress survives restarts.
       final appSupportDir = await getApplicationSupportDirectory();

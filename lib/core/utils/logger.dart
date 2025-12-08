@@ -500,6 +500,8 @@ enum LogTag {
   /// Version checker
   versionCheck('VERSION_CHECK'),
 
+  slotMonitorService('SLOT_MONITOR_SERVICE'),
+
   /// Settings screens
   settings('SETTINGS');
 

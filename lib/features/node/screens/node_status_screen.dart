@@ -307,7 +307,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
             // Address row
             _buildLabelValueRow(
-              'address:',
+              'Address:',
               _account != null ? _shortAddr(_account!.address) : 'NA',
               theme,
               colorScheme,
@@ -315,8 +315,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             if (peerId != null) ...[
               const SizedBox(height: 2),
               _buildLabelValueRow(
-                'peerId:',
-                _shortenMid(peerId, head: 6, tail: 6),
+                'Peer ID:',
+                _shortenMid(peerId, head: 8, tail: 8),
                 theme,
                 colorScheme,
               ),
@@ -324,7 +324,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             if (_deviceId != null) ...[
               const SizedBox(height: 2),
               _buildLabelValueRow(
-                'deviceId:',
+                'Device ID:',
                 _deviceId!,
                 theme,
                 colorScheme,
@@ -352,6 +352,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             style: theme.textTheme.bodySmall?.copyWith(
               color: colorScheme.onSurfaceVariant,
               fontFamily: 'monospace',
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),
@@ -361,6 +362,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             style: theme.textTheme.bodySmall?.copyWith(
               color: colorScheme.onSurfaceVariant,
               fontFamily: 'monospace',
+              fontSize: 13,
             ),
           ),
         ),
@@ -371,8 +373,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   // Helper for shortened address display
   String _shortAddr(String addr) {
     if (addr.length <= 12) return addr;
-    final start = addr.substring(0, 10);
-    final end = addr.substring(addr.length - 10);
+    final start = addr.substring(0, 12);
+    final end = addr.substring(addr.length - 12);
     return '$start…$end';
   }
 
@@ -427,16 +429,13 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     }
 
     // Derive the current slot within the epoch from global slot, epoch, and slots per epoch.
-    int? epochSlot;
     final curGlobalSlot = statusFromProvider?.currentGlobalSlot;
     final curEpoch = statusFromProvider?.currentEpoch;
     final slotsInEpoch = statusFromProvider?.slotsInEpoch;
     if (curGlobalSlot != null &&
         curEpoch != null &&
         slotsInEpoch != null &&
-        slotsInEpoch > 0) {
-      epochSlot = curGlobalSlot - curEpoch * slotsInEpoch;
-    }
+        slotsInEpoch > 0) {}
 
     // Peer status
     int connectedPeers;
@@ -1471,7 +1470,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   }
 
   // Helper method to shorten long strings (e.g., peer IDs) for display
-  String _shortenMid(String s, {int head = 8, int tail = 8}) {
+  String _shortenMid(String s, {int head = 12, int tail = 12}) {
     if (s.length <= head + tail + 1) return s;
     return '${s.substring(0, head)}…${s.substring(s.length - tail)}';
   }

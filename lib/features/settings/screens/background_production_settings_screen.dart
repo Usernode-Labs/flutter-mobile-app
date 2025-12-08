@@ -325,9 +325,11 @@ class _BackgroundProductionSettingsScreenState
                       ],
                     ),
                     const SizedBox(height: 8),
-                    _buildUrlRow('Genesis', _formatUrl(currentGenesisUrl), theme, colorScheme),
+                    _buildUrlRow('Genesis', _formatUrl(currentGenesisUrl),
+                        theme, colorScheme),
                     const SizedBox(height: 4),
-                    _buildUrlRow('Seedlist', _formatUrl(currentSeedlistUrl), theme, colorScheme),
+                    _buildUrlRow('Seedlist', _formatUrl(currentSeedlistUrl),
+                        theme, colorScheme),
                   ],
                 ),
               ),
@@ -349,7 +351,8 @@ class _BackgroundProductionSettingsScreenState
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                  color: colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: colorScheme.outlineVariant,
@@ -387,9 +390,11 @@ class _BackgroundProductionSettingsScreenState
                       ),
                     ),
                     const SizedBox(height: 8),
-                    _buildUrlRow('Genesis', _formatUrl(otherGenesisUrl), theme, colorScheme),
+                    _buildUrlRow('Genesis', _formatUrl(otherGenesisUrl), theme,
+                        colorScheme),
                     const SizedBox(height: 4),
-                    _buildUrlRow('Seedlist', _formatUrl(otherSeedlistUrl), theme, colorScheme),
+                    _buildUrlRow('Seedlist', _formatUrl(otherSeedlistUrl),
+                        theme, colorScheme),
                   ],
                 ),
               ),
@@ -416,7 +421,8 @@ class _BackgroundProductionSettingsScreenState
     }
   }
 
-  Widget _buildUrlRow(String label, String url, ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildUrlRow(
+      String label, String url, ThemeData theme, ColorScheme colorScheme) {
     return Padding(
       padding: const EdgeInsets.only(left: 28),
       child: Row(
@@ -698,8 +704,8 @@ class _BackgroundProductionSettingsScreenState
                 child: _buildInfoRow(
                     'App Version', _packageInfo!.version, theme, colorScheme),
               ),
-              _buildInfoRow(
-                  'Build Number', _packageInfo!.buildNumber, theme, colorScheme),
+              _buildInfoRow('Build Number', _packageInfo!.buildNumber, theme,
+                  colorScheme),
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 8),
                 child: Divider(height: 1),
@@ -733,8 +739,8 @@ class _BackgroundProductionSettingsScreenState
                 colorScheme),
             _buildInfoRow(
                 l10n.buildInfoFeatures, env.cargo.features, theme, colorScheme),
-            _buildInfoRow(
-                l10n.buildInfoOptLevel, env.cargo.optLevel.toString(), theme, colorScheme),
+            _buildInfoRow(l10n.buildInfoOptLevel, env.cargo.optLevel.toString(),
+                theme, colorScheme),
             _buildInfoRow(l10n.buildInfoDebug, env.cargo.isDebug.toString(),
                 theme, colorScheme),
           ],
@@ -1968,19 +1974,6 @@ class _BackgroundProductionSettingsScreenState
         ),
       ),
     );
-  }
-
-  String _formatDateTime(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = dateTime.difference(now);
-
-    if (difference.inMinutes < 60) {
-      return 'in ${difference.inMinutes} minutes';
-    } else if (difference.inHours < 24) {
-      return 'in ${difference.inHours} hours';
-    } else {
-      return 'in ${difference.inDays} days';
-    }
   }
 
   Future<void> _requestPermissions() async {

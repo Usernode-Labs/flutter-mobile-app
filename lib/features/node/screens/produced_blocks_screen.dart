@@ -419,16 +419,35 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
     return score / total;
   }
 
-  (double earned, double possible) totalTokensLastN(summary, int n) {
+  (double earned, double possible) totalTokensLastN(
+      ProducedBlocksSummary summary, int n) {
     final rewardsPerBlock = summary.rewardsPerBlock.toDouble();
     double earned = 0.0;
     double possible = 0.0;
     for (var i = summary.currentEpoch;
         i > summary.currentEpoch - n && i >= 0;
         i--) {
-      final produced = summary.epochScores[i].produced ?? 0;
-      final missed = summary.epochScores[i].missed ?? 0;
-      earned += produced * rewardsPerBlock;
+      if (i >= summary.epochScores.length) {
+        continue;
+      }
+
+      final epochScore = summary.epochScores[i];
+      final produced = epochScore.produced;
+      final missed = epochScore.missed ?? 0;
+
+      // Only count canonical produced blocks toward earned tokens.
+      final slots = epochScore.epochData.slotData;
+      int canonicalProduced = 0;
+      if (slots != null && slots.isNotEmpty) {
+        for (final slot in slots) {
+          final metadata = slot.producedBlockMetadata;
+          if (metadata != null && (metadata.canonical)) {
+            canonicalProduced += 1;
+          }
+        }
+      }
+
+      earned += canonicalProduced * rewardsPerBlock;
       possible += (produced + missed) * rewardsPerBlock;
     }
     return (earned, possible);

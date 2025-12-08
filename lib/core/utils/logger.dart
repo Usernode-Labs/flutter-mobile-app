@@ -474,7 +474,7 @@ enum LogTag {
   onboarding('ONBOARDING'),
 
   /// Node status and peers
-  node('NODE'),
+  nodeService('NODE_SERVICE'),
 
   /// Application lifecycle
   lifecycle('LIFECYCLE'),
@@ -501,6 +501,10 @@ enum LogTag {
   versionCheck('VERSION_CHECK'),
 
   slotMonitorService('SLOT_MONITOR_SERVICE'),
+
+  alarmService('ALARM_SERVICE'),
+
+  blockProduction('BLOCK_PRODUCTION'),
 
   /// Settings screens
   settings('SETTINGS');

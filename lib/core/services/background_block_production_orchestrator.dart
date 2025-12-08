@@ -14,7 +14,7 @@ import 'platform_alarm_service.dart';
 import 'slot_monitor_service.dart';
 import 'epoch_slot_scheduler_service.dart' as legacy;
 
-final _log = LoggingService.instance.withTag(LogTag.node);
+final _log = LoggingService.instance.withTag(LogTag.blockProduction);
 
 /// Unified orchestrator for background block production
 ///

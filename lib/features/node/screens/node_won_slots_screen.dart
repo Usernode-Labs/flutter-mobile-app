@@ -9,7 +9,7 @@ import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 import 'package:intl/intl.dart';
 
-final _log = LoggingService.instance.withTag(LogTag.node);
+final _log = LoggingService.instance.withTag(LogTag.blockProduction);
 
 enum SlotStatus { produced, missed, pending }
 

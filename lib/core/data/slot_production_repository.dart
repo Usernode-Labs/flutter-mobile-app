@@ -3,7 +3,7 @@ import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-final _log = LoggingService.instance.withTag(LogTag.node);
+final _log = LoggingService.instance.withTag(LogTag.blockProduction);
 
 /// Repository for persisting and tracking slot production statistics
 ///

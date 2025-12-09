@@ -7,7 +7,7 @@ import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'node_provider.dart';
 
-final _log = LoggingService.instance.withTag(LogTag.epochRewardsProvider);
+final _log = LoggingService.instance.withTag('EpochRewardsProvider');
 
 // --- Cache data model ---
 
@@ -166,8 +166,11 @@ class EpochRewardsController extends AsyncNotifier<EpochRewardsState?> {
         return state.value;
       }
 
-      _log.trace(
-        'Received live data: epoch=${rewards.epoch}, earnedSoFar=${rewards.earnedSoFar}, expectedTotal=${rewards.expectedTotal}',
+      _log.info(
+        '[EpochRewards] Backend returned: epoch=${rewards.epoch}, '
+        'producedInEpoch=${rewards.producedInEpoch}, '
+        'winsInEpoch=${rewards.winsInEpoch}, '
+        'wonSlots.length=${rewards.wonSlots?.length ?? 0}',
       );
 
       // Create snapshot for caching

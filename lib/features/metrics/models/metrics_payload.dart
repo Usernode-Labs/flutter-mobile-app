@@ -280,6 +280,7 @@ class ConsensusMetrics with _$ConsensusMetrics {
     int? evaluatedCurrentEpoch,
     String? currentEpochVrfEvaluationStatus,
     String? nextEpochVrfEvaluationStatus,
+    double? bpSuccessRate,
   }) = _ConsensusMetrics;
 
   const ConsensusMetrics._();
@@ -304,6 +305,7 @@ class ConsensusMetrics with _$ConsensusMetrics {
               currentEpochVrfEvaluationStatus,
         if (nextEpochVrfEvaluationStatus != null)
           'next_epoch_vrf_evaluation_status': nextEpochVrfEvaluationStatus,
+        if (bpSuccessRate != null) 'bp_success_rate': bpSuccessRate,
       };
 }
 

@@ -10,7 +10,7 @@ import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 
-final _log = LoggingService.instance.withTag(LogTag.onboarding);
+final _log = LoggingService.instance.withTag('ImportApiAccountScreen');
 
 class OnboardingImportApiAccountScreen extends ConsumerStatefulWidget {
   const OnboardingImportApiAccountScreen({super.key});

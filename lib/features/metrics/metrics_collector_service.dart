@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math' as math;
 
 import 'package:crypto/crypto.dart';
 import 'package:battery_plus/battery_plus.dart';
@@ -10,7 +9,7 @@ import 'package:crypto_mobile_app/core/models/block_production_event.dart';
 import 'package:crypto_mobile_app/features/metrics/models/metrics_payload.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/features/node/node_provider.dart';
-import 'package:crypto_mobile_app/features/node/epoch_rewards_provider.dart';
+import 'package:crypto_mobile_app/features/node/produced_blocks_provider.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,7 +18,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
-final _log = LoggingService.instance.withTag(LogTag.metrics);
+final _log = LoggingService.instance.withTag('MetricsCollector');
 
 /// Hashes a device ID using SHA-256 (truncated to 16 chars) for privacy
 String _hashDeviceId(String deviceId) {
@@ -41,6 +40,9 @@ class MetricsCollectorService {
 
   /// Provider container for accessing node status providers
   static ProviderContainer? _container;
+
+  /// Debug: check if container is set
+  bool get hasContainer => _container != null;
 
   /// Track app startup time
   DateTime? _appStartTime;
@@ -121,8 +123,10 @@ class MetricsCollectorService {
       try {
         final rawStatusAsync = _container!.read(nodeStatusProvider);
         rawStatus = rawStatusAsync.valueOrNull;
-      } catch (_) {
-        // Ignore errors, methods will handle null status
+        _log.debug(
+            'nodeStatusProvider: isLoading=${rawStatusAsync.isLoading}, hasValue=${rawStatusAsync.hasValue}, hasError=${rawStatusAsync.hasError}');
+      } catch (e) {
+        _log.warn('Failed to read nodeStatusProvider: $e');
       }
     }
 
@@ -555,6 +559,7 @@ class MetricsCollectorService {
     int? evaluatedCurrentEpoch;
     String? currentEpochVrfEvaluationStatus;
     String? nextEpochVrfEvaluationStatus;
+    double? bpSuccessRate;
 
     if (RustBackendService.instance.isRunning) {
       try {
@@ -579,32 +584,35 @@ class MetricsCollectorService {
           }
         }
 
-        // Get epoch rewards data from provider if available
+        // Get produced blocks data from producedBlocksSummaryProvider (same as Produced Blocks screen)
         if (_container != null) {
-          final rewardsAsync = _container!.read(epochRewardsProvider);
-          final rewards = rewardsAsync.value;
-          if (rewards != null) {
-            // Extract current epoch production metrics
-            currentEpochWonSlots ??= rewards.winsInEpoch;
-            currentEpochProduced = rewards.producedInEpoch;
+          try {
+            final summaryAsync =
+                _container!.read(producedBlocksSummaryProvider);
+            final summary = summaryAsync.valueOrNull;
+            _log.debug(
+                'producedBlocksSummaryProvider: hasValue=${summaryAsync.hasValue}, currentEpoch=${summary?.currentEpoch}');
 
-            // Count future slots (slots that haven't occurred yet)
-            int slotsInFuture = 0;
-            if (currentGlobalSlot != null) {
-              final currentSlot = currentGlobalSlot;
-              slotsInFuture = rewards.wonSlots
-                  .where((slot) => slot.globalSlot > currentSlot)
-                  .length;
+            if (summary != null && summary.epochScores.isNotEmpty) {
+              final summaryCurrentEpoch = summary.currentEpoch;
+              if (summaryCurrentEpoch >= 0 &&
+                  summaryCurrentEpoch < summary.epochScores.length) {
+                final epochScore = summary.epochScores[summaryCurrentEpoch];
+                currentEpochWonSlots ??= epochScore.won;
+                currentEpochProduced = epochScore.produced;
+                currentEpochFailed = epochScore.missed;
+
+                // Calculate bp_success_rate (0-100)
+                final rate = epochScore.evaluatedPercent *
+                    epochScore.producedOfEvaluatedPercent *
+                    100;
+                if (!rate.isNaN && !rate.isInfinite) {
+                  bpSuccessRate = rate.clamp(0.0, 100.0);
+                }
+              }
             }
-
-            // Calculate failed as: won - future - produced
-            // This excludes future slots from being counted as failed
-            // Use max(0, ...) to ensure failed count is never negative
-            currentEpochFailed = math.max(
-                0,
-                (currentEpochWonSlots ?? 0) -
-                    slotsInFuture -
-                    (currentEpochProduced ?? 0));
+          } catch (e) {
+            _log.warn('Failed to read producedBlocksSummaryProvider: $e');
           }
         }
       } catch (_) {
@@ -621,6 +629,7 @@ class MetricsCollectorService {
       evaluatedCurrentEpoch: evaluatedCurrentEpoch,
       currentEpochVrfEvaluationStatus: currentEpochVrfEvaluationStatus,
       nextEpochVrfEvaluationStatus: nextEpochVrfEvaluationStatus,
+      bpSuccessRate: bpSuccessRate,
       // Total metrics not implemented yet
       totalWonSlots: null,
       totalBlocksProduced: null,

@@ -25,7 +25,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-final _log = LoggingService.instance.withTag(LogTag.node);
+final _log = LoggingService.instance.withTag('NodeService');
 
 /// Parse log level string to TracingLevel enum
 TracingLevel _parseTracingLevel(String level) {
@@ -90,7 +90,8 @@ class RustBackendService {
         final appSupportDir = await getApplicationSupportDirectory();
         final logDir = '${appSupportDir.path}/logs';
         enableLogging(logLevel: rustLogLevel, outputDir: logDir);
-        _log.info('Rust logging enabled: level=${AppConfig.rustLogLevel}, dir=$logDir');
+        _log.info(
+            'Rust logging enabled: level=${AppConfig.rustLogLevel}, dir=$logDir');
       }
 
       _initialized = true;

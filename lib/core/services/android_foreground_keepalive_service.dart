@@ -4,7 +4,7 @@ import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
-final _log = LoggingService.instance.withTag(LogTag.node);
+final _log = LoggingService.instance.withTag('AndroidForegroundKeepAlive');
 
 /// Android Foreground Keep-Alive Service
 ///

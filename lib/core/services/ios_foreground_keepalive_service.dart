@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
-final _log = LoggingService.instance.withTag(LogTag.node);
+final _log = LoggingService.instance.withTag('IOSForegroundKeepAlive');
 
 /// iOS Foreground Keep-Alive Service (Tier 1 Strategy)
 ///

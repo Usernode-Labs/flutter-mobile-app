@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
@@ -24,190 +27,128 @@ Level _parseLevel(String levelStr) {
   }
 }
 
-/// Parse tag-level overrides from config string (format: tag:level,tag:level)
-Map<LogTag, Level> _parseTagLevels(String config) {
-  if (config.isEmpty) return {};
-  final result = <LogTag, Level>{};
-  for (final entry in config.split(',')) {
-    final parts = entry.trim().split(':');
-    if (parts.length == 2) {
-      final tagName = parts[0].trim().toLowerCase();
-      final level = _parseLevel(parts[1].trim());
-      // Find matching LogTag by value or name (case-insensitive)
-      for (final tag in LogTag.values) {
-        if (tag.value.toLowerCase() == tagName ||
-            tag.name.toLowerCase() == tagName) {
-          result[tag] = level;
-          break;
-        }
-      }
-    }
-  }
-  return result;
-}
-
-/// Application-wide logging facade with enhanced features:
+/// Simple logging service with file output support.
 ///
-/// - Type-safe tags via [LogTag] enum (backward compatible with strings)
-/// - Structured logging with context data
-/// - Per-tag log level control
-/// - Performance timing utilities
-/// - Automatic Sentry integration
-/// - Configurable verbosity via VERBOSE_LOGGING flag
-///
-/// ## Basic Usage:
+/// Usage:
 /// ```dart
-/// LoggingService.instance.trace('Message', tag: LogTag.rust);
-/// LoggingService.instance.info('User action', tag: LogTag.ui, context: {'screen': 'home'});
-/// ```
-///
-/// ## Performance Timing:
-/// ```dart
-/// final timer = LoggingService.instance.startTimer('rpc_call', tag: LogTag.rust);
-/// await performOperation();
-/// timer.stop(); // Auto-logs duration
+/// final _log = LoggingService.instance.withTag('MyClass');
+/// _log.info('Something happened');
 /// ```
 class LoggingService {
-  factory LoggingService({Logger? logger}) {
-    if (logger != null) {
-      return LoggingService._(logger);
-    }
-    return _shared;
-  }
+  LoggingService._(this._logger);
 
-  LoggingService._(Logger logger) : _logger = logger;
-
-  static final LoggingService _shared = LoggingService._(
-    Logger(
-      filter: _AppLogFilter(),
-      printer: _CustomLogPrinter(),
-    ),
-  );
-
-  static LoggingService get instance => _shared;
+  static LoggingService? _instance;
+  static LoggingService get instance => _instance ?? _createDefault();
 
   final Logger _logger;
 
-  // Global log level from config (default: info)
+  // Global log level from config
   static final Level _globalLevel = _parseLevel(AppConfig.logLevel);
 
-  // Per-tag log level overrides from config
-  static final Map<LogTag, Level> _tagLevels =
-      _parseTagLevels(AppConfig.logTagLevels);
+  /// Initialize logging with file output (debug mode only).
+  /// Call this early in main() before any logging.
+  static Future<void> initialize() async {
+    if (_instance != null) return;
 
-  /// Log a trace-level message
-  void trace(String message, {dynamic tag, Map<String, dynamic>? context}) {
+    // Skip file logging in release mode
+    if (kReleaseMode) {
+      _instance = LoggingService._(Logger(
+        filter: _AppLogFilter(),
+        printer: _CustomLogPrinter(),
+      ));
+      return;
+    }
+
+    final fileOutput = FileLogOutput();
+    await fileOutput.init();
+
+    _instance = LoggingService._(Logger(
+      filter: _AppLogFilter(),
+      printer: _CustomLogPrinter(),
+      output: MultiOutput([ConsoleOutput(), fileOutput]),
+    ));
+  }
+
+  /// Create default instance (console only, for early logging before init)
+  static LoggingService _createDefault() {
+    _instance = LoggingService._(Logger(
+      filter: _AppLogFilter(),
+      printer: _CustomLogPrinter(),
+    ));
+    return _instance!;
+  }
+
+  void trace(String message, {String? tag, Map<String, dynamic>? context}) {
     _log(Level.trace, message, tag: tag, context: context);
   }
 
-  /// Log a debug-level message
-  void debug(String message, {dynamic tag, Map<String, dynamic>? context}) {
+  void debug(String message, {String? tag, Map<String, dynamic>? context}) {
     _log(Level.debug, message, tag: tag, context: context);
   }
 
-  /// Log an info-level message
-  void info(String message, {dynamic tag, Map<String, dynamic>? context}) {
+  void info(String message, {String? tag, Map<String, dynamic>? context}) {
     _log(Level.info, message, tag: tag, context: context);
   }
 
-  /// Log a warning-level message
-  void warn(String message, {dynamic tag, Map<String, dynamic>? context}) {
+  void warn(String message, {String? tag, Map<String, dynamic>? context}) {
     _log(Level.warning, message, tag: tag, context: context);
   }
 
-  /// Log an error-level message with optional error object and stack trace
   void error(
     String message, {
-    dynamic tag,
+    String? tag,
     Object? error,
     StackTrace? stackTrace,
     Map<String, dynamic>? context,
   }) {
-    final formatted = _decorate(message, tag, context);
-    _logger.e(formatted, error: error, stackTrace: stackTrace);
+    if (!kReleaseMode) {
+      final formatted = _decorate(message, tag, context);
+      _logger.e(formatted, error: error, stackTrace: stackTrace);
+    }
 
-    // Send to Sentry
+    // Send to Sentry - always capture errors, not just breadcrumbs
     if (error != null && stackTrace != null) {
-      // Fire-and-forget; ignore failures.
       // ignore: discarded_futures
-      SentryUtil.captureError(
-        error,
-        stackTrace,
-        tag: _tagToString(tag),
-        context: context,
-      );
+      SentryUtil.captureError(error, stackTrace, tag: tag, context: context);
     } else {
-      SentryUtil.addBreadcrumb(
-        category: _tagToString(tag) ?? 'logging',
-        message: message,
-        data: context,
-      );
+      // Capture as error message even without exception/stackTrace
+      final errorMessage = tag != null ? '[$tag] $message' : message;
+      // ignore: discarded_futures
+      SentryUtil.captureMessage(errorMessage, level: SentryLevel.error);
     }
   }
 
-  /// Start a performance timer
-  ///
-  /// Returns a [LogTimer] that can be stopped to auto-log the duration.
-  ///
-  /// Example:
-  /// ```dart
-  /// final timer = logger.startTimer('operation', tag: LogTag.performance);
-  /// await doWork();
-  /// timer.stop(context: {'items': 100});
-  /// ```
-  LogTimer startTimer(String name, {dynamic tag}) {
-    return LogTimer._(name, tag ?? LogTag.performance, this);
-  }
-
   /// Create a tagged logger for cleaner per-file usage
-  ///
-  /// Example:
-  /// ```dart
-  /// final _log = LoggingService.instance.withTag(LogTag.node);
-  /// _log.debug('message');  // Automatically tagged with NODE
-  /// ```
-  TaggedLogger withTag(dynamic tag) => TaggedLogger._(tag, this);
+  TaggedLogger withTag(String tag) => TaggedLogger._(tag, this);
 
   void _log(
     Level level,
     String message, {
-    dynamic tag,
+    String? tag,
     Map<String, dynamic>? context,
   }) {
-    // Check if this tag/level should be logged
-    if (!_shouldLog(level, tag)) {
-      return;
+    // Console/file logging (skip in release mode)
+    if (!kReleaseMode && level.index >= _globalLevel.index) {
+      final formatted = _decorate(message, tag, context);
+
+      switch (level) {
+        case Level.trace:
+          _logger.t(formatted);
+        case Level.debug:
+          _logger.d(formatted);
+        case Level.info:
+          _logger.i(formatted);
+        case Level.warning:
+          _logger.w(formatted);
+        default:
+          break;
+      }
     }
 
-    final formatted = _decorate(message, tag, context);
-
-    switch (level) {
-      case Level.trace:
-        _logger.t(formatted);
-      case Level.debug:
-        _logger.d(formatted);
-      case Level.info:
-        _logger.i(formatted);
-      case Level.warning:
-        _logger.w(formatted);
-      case Level.error:
-      case Level.fatal:
-      case Level.all:
-      case Level.off:
-      // ignore: deprecated_member_use
-      case Level.verbose:
-      // ignore: deprecated_member_use
-      case Level.wtf:
-      // ignore: deprecated_member_use
-      case Level.nothing:
-        // Handled by error() method or should not log
-        break;
-    }
-
-    // Add breadcrumb for non-error logs
+    // Add breadcrumb for info+ logs (always, including release mode)
     if (level.index >= Level.info.index) {
       SentryUtil.addBreadcrumb(
-        category: _tagToString(tag) ?? 'logging',
+        category: tag ?? 'logging',
         message: message,
         data: context,
         level: _levelToSentryLevel(level),
@@ -215,63 +156,26 @@ class LoggingService {
     }
   }
 
-  bool _shouldLog(Level level, dynamic tag) {
-    // Check tag-specific level override if tag is provided
-    if (tag is LogTag && _tagLevels.containsKey(tag)) {
-      return level.index >= _tagLevels[tag]!.index;
+  String _decorate(String message, String? tag, Map<String, dynamic>? context) {
+    var result = message.trim().isEmpty ? '<empty>' : message.trim();
+
+    if (tag != null && tag.isNotEmpty) {
+      result = '[$tag] $result';
     }
 
-    // Fall back to global log level
-    return level.index >= _globalLevel.index;
-  }
-
-  String _decorate(String message, dynamic tag, Map<String, dynamic>? context) {
-    // Guard against empty messages
-    final trimmedMessage = message.trim();
-    if (trimmedMessage.isEmpty) {
-      message = '<empty log message>';
-      // Add stack trace info in debug mode
-      if (kDebugMode) {
-        try {
-          throw Exception('Empty log detected');
-        } catch (_, stack) {
-          final frames = stack.toString().split('\n').take(3).join('\n');
-          message = '$message\nCalled from:\n$frames';
-        }
-      }
-    } else {
-      message = trimmedMessage;
-    }
-
-    // Add tag prefix
-    final tagStr = _tagToString(tag);
-    if (tagStr != null && tagStr.isNotEmpty) {
-      message = '[$tagStr] $message';
-    }
-
-    // Add context if provided
     if (context != null && context.isNotEmpty) {
       final contextStr =
           context.entries.map((e) => '${e.key}: ${e.value}').join(', ');
-      message = '$message {$contextStr}';
+      result = '$result {$contextStr}';
     }
 
-    return message;
-  }
-
-  String? _tagToString(dynamic tag) {
-    if (tag == null) return null;
-    if (tag is LogTag) return tag.value;
-    if (tag is String) return tag;
-    return tag.toString();
+    return result;
   }
 
   SentryLevel _levelToSentryLevel(Level level) {
     switch (level) {
       case Level.trace:
       case Level.debug:
-      // ignore: deprecated_member_use
-      case Level.verbose:
         return SentryLevel.debug;
       case Level.info:
         return SentryLevel.info;
@@ -279,72 +183,22 @@ class LoggingService {
         return SentryLevel.warning;
       case Level.error:
       case Level.fatal:
-      // ignore: deprecated_member_use
-      case Level.wtf:
         return SentryLevel.fatal;
-      case Level.all:
-      case Level.off:
-      // ignore: deprecated_member_use
-      case Level.nothing:
+      default:
         return SentryLevel.info;
     }
   }
 }
 
-/// Timer for measuring operation duration
-///
-/// Created by [LoggingService.startTimer] and stopped by calling [stop()].
-class LogTimer {
-  LogTimer._(this._name, this._tag, this._logger) : _startTime = DateTime.now();
-
-  final String _name;
-  final dynamic _tag;
-  final LoggingService _logger;
-  final DateTime _startTime;
-  bool _stopped = false;
-
-  /// Stop the timer and log the duration
-  void stop({Map<String, dynamic>? context}) {
-    if (_stopped) {
-      if (kDebugMode) {
-        print('Warning: LogTimer "$_name" stopped multiple times');
-      }
-      return;
-    }
-
-    _stopped = true;
-    final duration = DateTime.now().difference(_startTime);
-    final ms = duration.inMilliseconds;
-
-    final enrichedContext = <String, dynamic>{
-      'duration_ms': ms,
-      ...?context,
-    };
-
-    // Choose log level based on duration (slow operations = warning)
-    if (ms > 1000) {
-      _logger.warn('$_name took ${ms}ms (SLOW)',
-          tag: _tag, context: enrichedContext);
-    } else if (ms > 500) {
-      _logger.info('$_name took ${ms}ms', tag: _tag, context: enrichedContext);
-    } else {
-      _logger.debug('$_name took ${ms}ms', tag: _tag, context: enrichedContext);
-    }
-  }
-
-  /// Get elapsed time without stopping timer
-  Duration get elapsed => DateTime.now().difference(_startTime);
-}
-
-/// Logger wrapper with a pre-bound tag for cleaner per-file usage.
+/// Logger wrapper with a pre-bound tag.
 ///
 /// Usage:
 /// ```dart
-/// final _log = LoggingService.instance.withTag(LogTag.node);
-/// _log.debug('message');  // Automatically tagged with NODE
+/// final _log = LoggingService.instance.withTag('NodeService');
+/// _log.info('message');
 /// ```
 class TaggedLogger {
-  final dynamic _tag;
+  final String _tag;
   final LoggingService _service;
 
   TaggedLogger._(this._tag, this._service);
@@ -374,78 +228,47 @@ class TaggedLogger {
         stackTrace: stackTrace,
         context: context,
       );
-
-  LogTimer startTimer(String name) => _service.startTimer(name, tag: _tag);
 }
 
-/// Custom log filter with environment-based filtering
-///
-/// Level filtering is primarily handled by [LoggingService._shouldLog]
-/// using LOG_LEVEL and LOG_TAG_LEVELS config. This filter adds:
-/// - Release mode restriction (warning+ only)
-/// - Backward compatibility with VERBOSE_LOGGING flag
+/// Log filter - disable all logging in release mode
 class _AppLogFilter extends LogFilter {
   @override
   bool shouldLog(LogEvent event) {
-    // In release builds, only log warnings and errors
-    if (kReleaseMode) {
-      return event.level.index >= Level.warning.index;
-    }
-
-    // In debug/profile mode, level filtering is handled by _shouldLog
-    // using LOG_LEVEL config. Always allow here.
+    if (kReleaseMode) return false;
     return true;
   }
 }
 
-/// Custom log printer with cleaner format
+/// Custom log printer with timestamps
 class _CustomLogPrinter extends LogPrinter {
-  _CustomLogPrinter();
-
-  static final _levelEmojis = {
+  static final _labels = {
     Level.trace: '[TRACE]',
     Level.debug: '[DEBUG]',
     Level.info: '[INFO]',
-    Level.warning: '[WARN] ⚠️',
-    Level.error: '[ERROR] ❌',
-    Level.fatal: '[FATAL] 💀',
+    Level.warning: '[WARN]',
+    Level.error: '[ERROR]',
+    Level.fatal: '[FATAL]',
   };
 
   @override
   List<String> log(LogEvent event) {
-    final message = event.message.toString();
-    final level = event.level;
     final time = DateTime.now();
-    final error = event.error;
-    final stackTrace = event.stackTrace;
-
-    final lines = <String>[];
-
-    // Format: HH:mm:ss.SSS EMOJI Message
     final timeStr = '${time.hour.toString().padLeft(2, '0')}:'
         '${time.minute.toString().padLeft(2, '0')}:'
         '${time.second.toString().padLeft(2, '0')}.'
         '${time.millisecond.toString().padLeft(3, '0')}';
 
-    final emoji = kReleaseMode ? '' : (_levelEmojis[level] ?? '');
-    final prefix = kReleaseMode
-        ? '$timeStr [${level.name.toUpperCase()}]'
-        : '$timeStr $emoji';
+    final label = _labels[event.level] ?? '';
+    final lines = <String>['$timeStr $label ${event.message}'];
 
-    lines.add('$prefix $message');
-
-    // Add error if present
-    if (error != null) {
-      lines.add('  Error: $error');
+    if (event.error != null) {
+      lines.add('  Error: ${event.error}');
     }
 
-    // Add stack trace if present (only for errors)
-    if (stackTrace != null && level.index >= Level.error.index) {
-      final frames = stackTrace.toString().split('\n').take(10);
+    if (event.stackTrace != null && event.level.index >= Level.error.index) {
+      final frames = event.stackTrace.toString().split('\n').take(10);
       for (final frame in frames) {
-        if (frame.trim().isNotEmpty) {
-          lines.add('  $frame');
-        }
+        if (frame.trim().isNotEmpty) lines.add('  $frame');
       }
     }
 
@@ -453,63 +276,58 @@ class _CustomLogPrinter extends LogPrinter {
   }
 }
 
-/// Type-safe logging tags to prevent typos and enable autocomplete.
-///
-/// Usage:
-/// ```dart
-/// LoggingService.instance.trace('Message', tag: LogTag.node);
-/// ```
-///
-/// Backward compatibility: String tags are still supported.
-enum LogTag {
-  bootstrap('BOOTSTRAP'),
-
-  /// Riverpod provider state management
-  provider('PROVIDER'),
-
-  /// Wallet operations (UTXOs, transactions, assets)
-  wallet('WALLET'),
-
-  /// Onboarding flow
-  onboarding('ONBOARDING'),
-
-  /// Node status and peers
-  node('NODE'),
-
-  /// Application lifecycle
-  lifecycle('LIFECYCLE'),
-
-  /// Performance and timing
-  performance('PERF'),
-
-  /// Metrics collection and reporting
-  metrics('METRICS'),
-
-  /// General/uncategorized
-  general('GENERAL'),
-
-  /// App routing
-  router('ROUTER'),
-
-  /// Epoch Rewards Provider
-  epochRewardsProvider('EPOCH_REWARDS_PROVIDER'),
-
-  /// Produced Blocks Provider
-  producedBlocksProvider('PRODUCED_BLOCK_PROVIDER'),
-
-  /// Version checker
-  versionCheck('VERSION_CHECK'),
-
-  slotMonitorService('SLOT_MONITOR_SERVICE'),
-
-  /// Settings screens
-  settings('SETTINGS');
-
-  const LogTag(this.value);
-
-  /// The string value of the tag for logging
-  final String value;
+/// File output - writes logs to app support directory
+class FileLogOutput extends LogOutput {
+  IOSink? _sink;
 
   @override
-  String toString() => value;
+  Future<void> init() async {
+    try {
+      final dir = await getApplicationSupportDirectory();
+      final logDir = Directory('${dir.path}/logs');
+      if (!await logDir.exists()) {
+        await logDir.create(recursive: true);
+      }
+      final file = File('${logDir.path}/app.log');
+      _sink = file.openWrite(mode: FileMode.append);
+      if (kDebugMode) print('Log file: ${file.path}');
+    } catch (e) {
+      if (kDebugMode) print('Failed to init file logging: $e');
+    }
+  }
+
+  @override
+  void output(OutputEvent event) {
+    if (_sink == null) return;
+    for (final line in event.lines) {
+      _sink!.writeln(line);
+    }
+  }
+
+  @override
+  Future<void> destroy() async {
+    await _sink?.flush();
+    await _sink?.close();
+  }
+}
+
+/// Multi-output - writes to multiple outputs
+class MultiOutput extends LogOutput {
+  final List<LogOutput> outputs;
+
+  MultiOutput(this.outputs);
+
+  @override
+  void output(OutputEvent event) {
+    for (final o in outputs) {
+      o.output(event);
+    }
+  }
+
+  @override
+  Future<void> destroy() async {
+    for (final o in outputs) {
+      await o.destroy();
+    }
+  }
 }

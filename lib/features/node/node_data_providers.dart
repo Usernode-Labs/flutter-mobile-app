@@ -6,7 +6,7 @@ import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_blockchain.da
 import 'package:crypto_mobile_app/src/rust/node/builder.dart';
 import 'node_provider.dart';
 
-final _log = LoggingService.instance.withTag(LogTag.node);
+final _log = LoggingService.instance.withTag('NodeDataProviders');
 
 class NodeMempoolController extends AsyncNotifier<RpcListMempoolResp?> {
   @override

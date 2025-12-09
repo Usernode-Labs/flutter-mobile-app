@@ -6,7 +6,7 @@ import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/features/node/models/sync_status.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 
-final _log = LoggingService.instance.withTag(LogTag.node);
+final _log = LoggingService.instance.withTag('NodeProvider');
 
 /// Unified node status state combining raw status, sync status, and best tip
 class NodeStatusState {
@@ -181,7 +181,7 @@ class NodeStatusController extends AsyncNotifier<NodeStatusState?> {
 
   Future<NodeStatusState?> _load() async {
     final stopwatch = Stopwatch()..start();
-    _log.info('NodeStatusProvider: load start');
+    _log.debug('NodeStatusProvider: load start');
 
     try {
       final status = await RustBackendService.instance.getStatus();
@@ -302,101 +302,56 @@ class NodeStatusController extends AsyncNotifier<NodeStatusState?> {
       throw Exception('Failed to load node status $e');
     } finally {
       stopwatch.stop();
-      _log.info(
+      _log.debug(
         'NodeStatusProvider: load completed in ${stopwatch.elapsedMilliseconds} ms',
       );
     }
   }
 
   SyncStatus _calculateSyncStatus(NodeStatusState state) {
-    // Handle null case
     final connectedPeers = state.connectedPeers;
-    if (connectedPeers == 0 || state.peers.isEmpty) {
-      _log.trace(
-        'No peers connected - status: CONNECTING',
-      );
+
+    // Step 1: No connected peers -> Connecting
+    if (connectedPeers == 0) {
+      _log.debug('No connected peers - status: CONNECTING');
       return SyncStatus.connecting();
     }
 
-    // Gather heights
-    final localHeight = state.localBestHeight;
-    final networkSyncHeight = state.networkBestHeight;
-
-    if (localHeight == null) {
-      _log.warn(
-        'No local height available - returning error state',
-      );
-      return SyncStatus.error(message: 'No local blockchain data');
-    }
-
-    // Calculate highest peer height
-    int? highestPeerHeight;
-    try {
-      final peerHeights = state.peers
-          .where((p) => p.bestTipHeight != null)
-          .map((p) => p.bestTipHeight!)
-          .toList();
-
-      if (peerHeights.isNotEmpty) {
-        highestPeerHeight = peerHeights.reduce((a, b) => a > b ? a : b);
-      }
-    } catch (e) {
-      _log.warn(
-        'Error extracting peer heights: $e',
-      );
-    }
-
-    // Determine network height
-    int? networkHeight;
-    if (networkSyncHeight != null || highestPeerHeight != null) {
-      if (networkSyncHeight != null && highestPeerHeight != null) {
-        networkHeight = networkSyncHeight > highestPeerHeight
-            ? networkSyncHeight
-            : highestPeerHeight;
-      } else if (networkSyncHeight != null) {
-        networkHeight = networkSyncHeight;
-      } else if (highestPeerHeight != null) {
-        networkHeight = highestPeerHeight;
-      }
-    } else {
-      _log.trace(
-        'No network height data available - status: CONNECTING',
-      );
-      return SyncStatus.connecting();
-    }
-
-    // Extract applied blocks data
+    // Step 2: Get block data
+    final localHeight = state.localBestHeight ?? 0;
     final appliedBlocks = state.appliedBlocksCount;
     final targetBlocks = state.totalBlocksToApply;
 
-    final confirmedNetworkHeight = networkHeight!;
+    // Calculate network height
+    int? highestPeerHeight;
+    final peerHeights = state.peers
+        .where((p) => p.bestTipHeight != null)
+        .map((p) => p.bestTipHeight!)
+        .toList();
+    if (peerHeights.isNotEmpty) {
+      highestPeerHeight = peerHeights.reduce((a, b) => a > b ? a : b);
+    }
+    final networkHeight =
+        highestPeerHeight ?? state.networkBestHeight ?? localHeight;
 
-    // Determine sync status
-    bool synced;
-    if (appliedBlocks == null || targetBlocks == null) {
-      synced = localHeight >= confirmedNetworkHeight;
+    // Step 3: Check if applied blocks complete
+    bool synced = false;
+    if (appliedBlocks != null && targetBlocks != null) {
+      synced = appliedBlocks >= targetBlocks;
     } else {
-      // Consider synced if caught up to network height OR all queued blocks applied
-      synced = localHeight >= confirmedNetworkHeight ||
-          appliedBlocks >= targetBlocks;
+      synced = localHeight >= networkHeight;
     }
 
     _log.trace(
-      'Sync status calculated: '
-      'local=$localHeight, '
-      'networkSync=$networkSyncHeight, '
-      'highestPeer=$highestPeerHeight, '
-      'network=$confirmedNetworkHeight, '
-      'appliedBlocks=$appliedBlocks, '
-      'targetBlocks=$targetBlocks, '
-      'synced=$synced, '
-      'peers=$connectedPeers',
+      'Sync: connectedPeers=$connectedPeers, '
+      'applied=$appliedBlocks, target=$targetBlocks, synced=$synced',
     );
 
+    // Step 4: Return Synced or Syncing
     if (synced) {
       return SyncStatus.synced(
         localHeight: localHeight,
-        networkHeight: confirmedNetworkHeight,
+        networkHeight: networkHeight,
         connectedPeers: connectedPeers,
         highestPeerHeight: highestPeerHeight,
         appliedBlocks: appliedBlocks,
@@ -405,7 +360,7 @@ class NodeStatusController extends AsyncNotifier<NodeStatusState?> {
     } else {
       return SyncStatus.syncing(
         localHeight: localHeight,
-        networkHeight: confirmedNetworkHeight,
+        networkHeight: networkHeight,
         connectedPeers: connectedPeers,
         highestPeerHeight: highestPeerHeight,
         appliedBlocks: appliedBlocks,

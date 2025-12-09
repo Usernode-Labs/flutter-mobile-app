@@ -18,7 +18,7 @@ import 'package:crypto_mobile_app/features/node/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 
-final _log = LoggingService.instance.withTag(LogTag.settings);
+final _log = LoggingService.instance.withTag('BackgroundProductionSettings');
 
 class BackgroundProductionSettingsScreen extends ConsumerStatefulWidget {
   const BackgroundProductionSettingsScreen({super.key});
@@ -561,7 +561,6 @@ class _BackgroundProductionSettingsScreenState
       decoration: BoxDecoration(
         color: colorScheme.surfaceBright,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: colorScheme.outlineVariant, width: 1),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -641,7 +640,6 @@ class _BackgroundProductionSettingsScreenState
       decoration: BoxDecoration(
         color: colorScheme.surfaceBright,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: colorScheme.outlineVariant, width: 1),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -682,7 +680,6 @@ class _BackgroundProductionSettingsScreenState
       decoration: BoxDecoration(
         color: colorScheme.surfaceBright,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: colorScheme.outlineVariant, width: 1),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -783,7 +780,6 @@ class _BackgroundProductionSettingsScreenState
       decoration: BoxDecoration(
         color: colorScheme.surfaceBright,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: colorScheme.outlineVariant, width: 1),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -901,7 +897,6 @@ class _BackgroundProductionSettingsScreenState
       decoration: BoxDecoration(
         color: colorScheme.surfaceBright,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: colorScheme.outlineVariant, width: 1),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -1061,7 +1056,6 @@ class _BackgroundProductionSettingsScreenState
       decoration: BoxDecoration(
         color: colorScheme.surfaceBright,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: colorScheme.outlineVariant, width: 1),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -1234,7 +1228,6 @@ class _BackgroundProductionSettingsScreenState
       decoration: BoxDecoration(
         color: colorScheme.surfaceBright,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: colorScheme.outlineVariant, width: 1),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -1330,7 +1323,6 @@ class _BackgroundProductionSettingsScreenState
       decoration: BoxDecoration(
         color: colorScheme.primaryContainer,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: colorScheme.outlineVariant, width: 1),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),

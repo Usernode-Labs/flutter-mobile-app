@@ -13,7 +13,7 @@ import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_reporting_service.dart';
 
-final _log = LoggingService.instance.withTag(LogTag.versionCheck);
+final _log = LoggingService.instance.withTag('VersionCheck');
 
 // =============================================================================
 // API Response Model
@@ -26,7 +26,8 @@ class VersionCheckResult {
   final String? details;
   final String? updateUrl;
 
-  const VersionCheckResult({required this.upgrade, this.details, this.updateUrl});
+  const VersionCheckResult(
+      {required this.upgrade, this.details, this.updateUrl});
 
   factory VersionCheckResult.fromJson(Map<String, dynamic> json) {
     final data = json['data'] as Map<String, dynamic>?;
@@ -100,7 +101,8 @@ class AppVersionCheck {
     }
 
     _timer?.cancel();
-    _log.debug('Starting periodic version checks every ${AppConfig.versionCheckIntervalSeconds}s');
+    _log.debug(
+        'Starting periodic version checks every ${AppConfig.versionCheckIntervalSeconds}s');
     _timer = Timer.periodic(AppConfig.versionCheckInterval, (_) async {
       final result = await check();
       if (result != null && result.shouldShowDialog) {
@@ -132,7 +134,8 @@ class AppVersionCheck {
   /// Record that the recommended update dialog was shown
   Future<void> markRecommendedDialogShown() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_lastRecommendedDialogKey, DateTime.now().millisecondsSinceEpoch);
+    await prefs.setInt(
+        _lastRecommendedDialogKey, DateTime.now().millisecondsSinceEpoch);
   }
 
   static String get storeUrl => Platform.isIOS
@@ -156,8 +159,10 @@ final appVersionCheckProvider = FutureProvider<VersionCheckResult?>((ref) {
 /// Shows the appropriate update dialog based on upgrade level
 /// Uses the provided navigatorKey to show the dialog
 /// For recommended updates, rate-limited to once per day
-Future<void> showUpdateDialog(GlobalKey<NavigatorState> navigatorKey, VersionCheckResult result) async {
-  _log.info('showUpdateDialog called with upgrade=${result.upgrade}, isBlocking=${result.isBlocking}');
+Future<void> showUpdateDialog(
+    GlobalKey<NavigatorState> navigatorKey, VersionCheckResult result) async {
+  _log.info(
+      'showUpdateDialog called with upgrade=${result.upgrade}, isBlocking=${result.isBlocking}');
 
   // Rate-limit recommended updates to once per day
   if (!result.isBlocking) {

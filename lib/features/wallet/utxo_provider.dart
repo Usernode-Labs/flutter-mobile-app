@@ -7,7 +7,7 @@ import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_utxos_by_owne
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as rust_types;
 import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
 
-final _log = LoggingService.instance.withTag(LogTag.wallet);
+final _log = LoggingService.instance.withTag('UtxoProvider');
 
 class WalletUtxosController extends AsyncNotifier<List<OwnedUtxo>> {
   @override

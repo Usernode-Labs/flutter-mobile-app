@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 
-final _log = LoggingService.instance.withTag(LogTag.node);
+final _log = LoggingService.instance.withTag('AlarmService');
 
 /// Callback type for handling boot reschedule events
 typedef BootRescheduleCallback = Future<void> Function();

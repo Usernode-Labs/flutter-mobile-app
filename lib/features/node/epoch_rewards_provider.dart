@@ -166,8 +166,11 @@ class EpochRewardsController extends AsyncNotifier<EpochRewardsState?> {
         return state.value;
       }
 
-      _log.trace(
-        'Received live data: epoch=${rewards.epoch}, earnedSoFar=${rewards.earnedSoFar}, expectedTotal=${rewards.expectedTotal}',
+      _log.info(
+        '[EpochRewards] Backend returned: epoch=${rewards.epoch}, '
+        'producedInEpoch=${rewards.producedInEpoch}, '
+        'winsInEpoch=${rewards.winsInEpoch}, '
+        'wonSlots.length=${rewards.wonSlots?.length ?? 0}',
       );
 
       // Create snapshot for caching

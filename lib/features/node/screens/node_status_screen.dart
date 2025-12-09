@@ -45,8 +45,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   int? _bestTipEpoch;
 
   // Cached rewards data
-  int? _producedInEpoch;
-  int? _winsInEpoch;
   BigInt? _rewardPerBlock;
 
   // Cached wallet balance
@@ -156,8 +154,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
           // Cache rewards data
           final rewardsData = ref.read(epochRewardsProvider).value;
           if (rewardsData != null) {
-            _producedInEpoch = rewardsData.producedInEpoch;
-            _winsInEpoch = rewardsData.winsInEpoch;
             _rewardPerBlock = rewardsData.rewardPerBlock;
           }
 
@@ -230,7 +226,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
               // WALLET BALANCE Section (moved to bottom)
               _buildWalletBalanceCard(context, theme),
-              const SizedBox(height: 8),
+              const SizedBox(height: 20),
 
               // OVERVIEW Section (includes Synchronization details)
               _buildOverviewSection(
@@ -259,10 +255,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
         decoration: BoxDecoration(
           color: colorScheme.surfaceBright,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: colorScheme.outlineVariant,
-            width: 1,
-          ),
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -285,10 +277,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       decoration: BoxDecoration(
         color: colorScheme.surfaceBright,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: colorScheme.outlineVariant,
-          width: 1,
-        ),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -588,56 +576,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
               ),
             ],
           ),
-        ),
-
-        const SizedBox(height: 12),
-
-        // VRF/Slots/Blocks card (full width)
-        Builder(
-          builder: (context) {
-            final produced =
-                ref.read(epochRewardsProvider).value?.producedInEpoch ??
-                    _producedInEpoch ??
-                    0;
-            var wonSlots =
-                ref.read(epochRewardsProvider).value?.wonSlots.length ??
-                    ref.read(epochRewardsProvider).value?.winsInEpoch ??
-                    _winsInEpoch ??
-                    0;
-            if (wonSlots < produced) {
-              wonSlots = produced;
-            }
-
-            final vrfEvaluator =
-                ref.read(nodeStatusProvider).value?.vrfEvaluator;
-            final evaluatedSlots =
-                vrfEvaluator?.details?.evaluatedCurrentEpoch ?? 0;
-            final totalSlotsPerEpoch =
-                ref.read(nodeStatusProvider).value?.slotsInEpoch ?? 0;
-
-            final vrfStatus = vrfEvaluator?.currentEpochVrfEvaluationStatus;
-            final statusText = switch (vrfStatus) {
-              RpcStatusVrfEvaluationStatus.pending => 'Pending',
-              RpcStatusVrfEvaluationStatus.evaluating => 'Evaluating',
-              RpcStatusVrfEvaluationStatus.completed => 'Completed',
-              _ => 'N/A',
-            };
-
-            return _buildMultiLineInfoCard(
-              context,
-              label:
-                  'VRF (Epoch Slots: ${NumberFormat('#,###').format(totalSlotsPerEpoch)} / Status: $statusText)',
-              lines: [
-                'Evaluated Slots: ${NumberFormat('#,###').format(evaluatedSlots)}',
-                'Won Slots: ${NumberFormat('#,###').format(wonSlots)}',
-                'Produced Blocks: ${NumberFormat('#,###').format(produced)}',
-              ],
-              color: colorScheme.tertiary,
-              colorScheme: colorScheme,
-              onTap: () => context.push(AppRoutes.mainNodeWonSlots),
-              useGradient: false,
-            );
-          },
         ),
 
         const SizedBox(height: 12),

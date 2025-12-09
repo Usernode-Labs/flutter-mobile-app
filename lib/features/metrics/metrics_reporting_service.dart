@@ -6,6 +6,7 @@ import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/models/block_production_event.dart';
 import 'package:crypto_mobile_app/features/metrics/models/metrics_payload.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
+import 'package:crypto_mobile_app/features/node/node_service.dart';
 
 final _log = LoggingService.instance.withTag('MetricsReporting');
 
@@ -268,6 +269,9 @@ class MetricsReportingService {
         walletAddress: walletAddress,
       );
 
+      _log.debug(
+          'Collected consensus: epoch=${payload.node.consensus?.currentEpoch}, produced=${payload.node.consensus?.currentEpochProduced}, hasContainer=${MetricsCollectorService.instance.hasContainer}, isRunning=${RustBackendService.instance.isRunning}');
+
       // Fire and forget - send metrics without blocking
       _sendMetricsAsync(payload);
     } catch (e) {
@@ -307,13 +311,8 @@ class MetricsReportingService {
       final url = Uri.parse(AppConfig.metricsEndpoint);
       final jsonPayload = payload.toJson();
 
-      _log.trace(
-        'Sending metrics to API',
-        context: {
-          'url': url.toString(),
-          'peer_id': payload.node.identity.peerId,
-          'node_state': payload.node.status?.nodeState ?? 'unknown',
-        },
+      _log.debug(
+        'Sending metrics to API: ${jsonEncode(jsonPayload)}',
       );
 
       final response = await _httpClient!

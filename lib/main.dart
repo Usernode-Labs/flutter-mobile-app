@@ -57,6 +57,9 @@ Future<void> main() async {
     final hasAnyAccounts = await repo.hasAny();
     log.info('hasAnyAccounts: $hasAnyAccounts');
 
+    // Initialize metrics collector early so it has the container before UI starts
+    MetricsCollectorService.instance.initialize(container);
+
     // Render UI immediately; perform heavy bootstrap asynchronously.
     log.info('Running app UI');
 
@@ -102,10 +105,6 @@ Future<void> _bootstrapAsync(
         started ? 'backend startNode: started' : 'backend startNode: skipped',
       );
     }
-
-    // Initialize metrics collection service
-    log.info('Initializing metrics collection service');
-    MetricsCollectorService.instance.initialize(container);
 
     // Initialize background block production orchestrator
     log.info('Initializing background block production orchestrator');
@@ -173,8 +172,12 @@ class _AppWrapperState extends ConsumerState<_AppWrapper> {
     log.info('_checkInitialVersion called');
     try {
       final result = await ref.read(appVersionCheckProvider.future);
-      log.info('Version check result: $result, shouldShow: ${result?.shouldShowDialog}, shown: $_versionCheckShown, mounted: $mounted');
-      if (result != null && result.shouldShowDialog && !_versionCheckShown && mounted) {
+      log.info(
+          'Version check result: $result, shouldShow: ${result?.shouldShowDialog}, shown: $_versionCheckShown, mounted: $mounted');
+      if (result != null &&
+          result.shouldShowDialog &&
+          !_versionCheckShown &&
+          mounted) {
         _versionCheckShown = true;
         log.info('Showing update dialog...');
         showUpdateDialog(appNavigatorKey, result);
@@ -207,4 +210,3 @@ class _AppWrapperState extends ConsumerState<_AppWrapper> {
     return widget.child ?? const SizedBox.shrink();
   }
 }
-

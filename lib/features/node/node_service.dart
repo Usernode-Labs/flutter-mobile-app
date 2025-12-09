@@ -90,7 +90,8 @@ class RustBackendService {
         final appSupportDir = await getApplicationSupportDirectory();
         final logDir = '${appSupportDir.path}/logs';
         enableLogging(logLevel: rustLogLevel, outputDir: logDir);
-        _log.info('Rust logging enabled: level=${AppConfig.rustLogLevel}, dir=$logDir');
+        _log.info(
+            'Rust logging enabled: level=${AppConfig.rustLogLevel}, dir=$logDir');
       }
 
       _initialized = true;

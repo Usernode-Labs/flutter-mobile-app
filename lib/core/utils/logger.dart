@@ -101,19 +101,20 @@ class LoggingService {
     StackTrace? stackTrace,
     Map<String, dynamic>? context,
   }) {
-    final formatted = _decorate(message, tag, context);
-    _logger.e(formatted, error: error, stackTrace: stackTrace);
+    if (!kReleaseMode) {
+      final formatted = _decorate(message, tag, context);
+      _logger.e(formatted, error: error, stackTrace: stackTrace);
+    }
 
-    // Send to Sentry
+    // Send to Sentry - always capture errors, not just breadcrumbs
     if (error != null && stackTrace != null) {
       // ignore: discarded_futures
       SentryUtil.captureError(error, stackTrace, tag: tag, context: context);
     } else {
-      SentryUtil.addBreadcrumb(
-        category: tag ?? 'logging',
-        message: message,
-        data: context,
-      );
+      // Capture as error message even without exception/stackTrace
+      final errorMessage = tag != null ? '[$tag] $message' : message;
+      // ignore: discarded_futures
+      SentryUtil.captureMessage(errorMessage, level: SentryLevel.error);
     }
   }
 
@@ -126,24 +127,25 @@ class LoggingService {
     String? tag,
     Map<String, dynamic>? context,
   }) {
-    if (level.index < _globalLevel.index) return;
+    // Console/file logging (skip in release mode)
+    if (!kReleaseMode && level.index >= _globalLevel.index) {
+      final formatted = _decorate(message, tag, context);
 
-    final formatted = _decorate(message, tag, context);
-
-    switch (level) {
-      case Level.trace:
-        _logger.t(formatted);
-      case Level.debug:
-        _logger.d(formatted);
-      case Level.info:
-        _logger.i(formatted);
-      case Level.warning:
-        _logger.w(formatted);
-      default:
-        break;
+      switch (level) {
+        case Level.trace:
+          _logger.t(formatted);
+        case Level.debug:
+          _logger.d(formatted);
+        case Level.info:
+          _logger.i(formatted);
+        case Level.warning:
+          _logger.w(formatted);
+        default:
+          break;
+      }
     }
 
-    // Add breadcrumb for info+ logs
+    // Add breadcrumb for info+ logs (always, including release mode)
     if (level.index >= Level.info.index) {
       SentryUtil.addBreadcrumb(
         category: tag ?? 'logging',

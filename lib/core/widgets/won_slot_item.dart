@@ -5,6 +5,7 @@ enum SlotStatus {
   pending,
   produced,
   missed,
+  orphaned,
 }
 
 class WonSlotItem extends StatelessWidget {
@@ -49,6 +50,12 @@ class WonSlotItem extends StatelessWidget {
         statusBgColor = Colors.red.withValues(alpha: 0.1);
         statusIcon = Icons.cancel;
         statusLabel = 'Missed';
+        break;
+      case SlotStatus.orphaned:
+        statusColor = Colors.orange;
+        statusBgColor = Colors.orange.withValues(alpha: 0.1);
+        statusIcon = Icons.warning_amber;
+        statusLabel = 'Orphaned';
         break;
       case SlotStatus.pending:
         if (isPast) {

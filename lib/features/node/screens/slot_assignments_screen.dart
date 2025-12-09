@@ -104,10 +104,12 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
 
     final wantsWonSlots = _selected.contains(_Filter.all) &&
         (item.result == RpcSlotResult.produced ||
+            item.result == RpcSlotResult.orphaned ||
             item.result == RpcSlotResult.missed ||
             item.result == RpcSlotResult.scheduled);
     final wantsProduced = _selected.contains(_Filter.produced) &&
-        item.result == RpcSlotResult.produced;
+        (item.result == RpcSlotResult.produced ||
+            item.result == RpcSlotResult.orphaned);
     final wantsMissed = _selected.contains(_Filter.missed) &&
         item.result == RpcSlotResult.missed;
     final wantsUpcoming = _selected.contains(_Filter.upcoming) &&
@@ -141,8 +143,11 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
     // Progress now driven by live node status; results not needed here
 
     // Precompute counts for each filter for display in chips.
-    final producedCount =
-        _items.where((i) => i.result == RpcSlotResult.produced).length;
+    final producedCount = _items
+        .where((i) =>
+            i.result == RpcSlotResult.produced ||
+            i.result == RpcSlotResult.orphaned)
+        .length;
     final missedCount =
         _items.where((i) => i.result == RpcSlotResult.missed).length;
     final upcomingCount =
@@ -290,9 +295,10 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
                     final isScheduled = item.result == RpcSlotResult.scheduled;
                     final isProduced = item.result == RpcSlotResult.produced;
                     final isMissed = item.result == RpcSlotResult.missed;
+                    final isOrphaned = item.result == RpcSlotResult.orphaned;
                     String subtitleText = '';
                     if (item.slotTimeMs != null &&
-                        (isScheduled || isProduced || isMissed)) {
+                        (isScheduled || isProduced || isMissed || isOrphaned)) {
                       final dt =
                           DateTime.fromMillisecondsSinceEpoch(item.slotTimeMs!);
                       final hh = dt.hour.toString().padLeft(2, '0');
@@ -303,9 +309,11 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
                         subtitleText = 'Produced at $hh:$mm';
                       } else if (isMissed) {
                         subtitleText = 'Missed at $hh:$mm';
+                      } else if (isOrphaned) {
+                        subtitleText = 'Orphaned at $hh:$mm';
                       }
                     }
-                    final VoidCallback? onTap = isProduced
+                    final VoidCallback? onTap = (isProduced || isOrphaned)
                         ? () {
                             context.push(
                               AppRoutes.producedBlockDetails,
@@ -448,22 +456,27 @@ class _SlotRow extends StatelessWidget {
             Text(
               result == RpcSlotResult.produced
                   ? 'Produced'
-                  : result == RpcSlotResult.missed
-                      ? 'Missed'
-                      : result == RpcSlotResult.scheduled
-                          ? 'Upcoming'
-                          : result == RpcSlotResult.notCalculated
-                              ? 'Not Calculated'
-                              : result == RpcSlotResult.notWon
-                                  ? 'Not Won'
-                                  : 'Unknown',
+                  : result == RpcSlotResult.orphaned
+                      ? 'Orphaned'
+                      : result == RpcSlotResult.missed
+                          ? 'Missed'
+                          : result == RpcSlotResult.scheduled
+                              ? 'Upcoming'
+                              : result == RpcSlotResult.notCalculated
+                                  ? 'Not Calculated'
+                                  : result == RpcSlotResult.notWon
+                                      ? 'Not Won'
+                                      : 'Unknown',
               style: theme.textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.w600,
-                color: theme.colorScheme.onSurface,
+                color: result == RpcSlotResult.orphaned
+                    ? Colors.orange
+                    : theme.colorScheme.onSurface,
               ),
             ),
             const SizedBox(width: 4),
-            if (result == RpcSlotResult.produced)
+            if (result == RpcSlotResult.produced ||
+                result == RpcSlotResult.orphaned)
               const Icon(Icons.chevron_right, size: 20),
           ],
         ),

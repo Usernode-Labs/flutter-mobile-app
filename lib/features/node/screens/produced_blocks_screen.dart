@@ -6,6 +6,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
+import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/features/node/node_provider.dart';
 import 'package:crypto_mobile_app/features/node/produced_blocks_provider.dart';
 import 'package:crypto_mobile_app/core/widgets/app_progress_bar.dart';
@@ -23,6 +24,15 @@ class ProducedBlocksScreen extends ConsumerStatefulWidget {
 class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
     with WidgetsBindingObserver {
   int? _viewedEpoch;
+
+  // Tracks whether the user has manually changed the viewed epoch since the
+  // last time this tab became active. As long as this remains false, the
+  // viewed epoch will automatically follow the current epoch as it advances.
+  bool _hasUserChangedEpochSinceLastTabSwitch = false;
+
+  // Remembers the last observed home tab index so we can detect when this
+  // screen becomes active again in the IndexedStack.
+  int? _lastHomeTabIndex;
 
   Timer? _refreshTimer;
   bool _refreshingSummary = false;
@@ -383,6 +393,17 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
     if (state == AppLifecycleState.resumed) {
       // Re-check battery optimization status when returning from Settings
       _checkBatteryOptimizationStatus();
+
+      // When the app is resumed from the background, resume following the
+      // current epoch in the Produced Blocks view. We clear any pinned epoch
+      // so that on the next build, the viewed epoch is set to the latest
+      // currentEpoch again until the user explicitly changes it.
+      if (mounted) {
+        setState(() {
+          _viewedEpoch = null;
+          _hasUserChangedEpochSinceLastTabSwitch = false;
+        });
+      }
     }
   }
 
@@ -475,6 +496,19 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
     final l10n = AppLocalizations.of(context);
     final summary = ref.watch(producedBlocksSummaryProvider);
     final nodeStatus = ref.watch(nodeStatusProvider).value;
+    final homeTabIndex = ref.watch(currentHomeTabProvider);
+    final bool isActiveTab = homeTabIndex == 0;
+
+    // Detect when this tab becomes active again (e.g., user switched away to
+    // Node Status and then back). When it does, reset the manual-epoch-change
+    // flag so the viewed epoch once again follows the current epoch until the
+    // user explicitly changes it.
+    if (_lastHomeTabIndex != homeTabIndex) {
+      if (isActiveTab) {
+        _hasUserChangedEpochSinceLastTabSwitch = false;
+      }
+      _lastHomeTabIndex = homeTabIndex;
+    }
     final sync = nodeStatus?.syncStatus;
     final syncPercentage = sync?.progress ?? 0.0;
     final colorScheme = theme.colorScheme;
@@ -486,9 +520,22 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
     final dataValue = summary.asData?.value;
     final currentEpoch = dataValue?.currentEpoch ?? 0;
     final maxEpochWithData = dataValue?.maxEpochWithData ?? currentEpoch;
-    final viewedEpoch = (_viewedEpoch != null)
-        ? _viewedEpoch!.clamp(0, maxEpochWithData)
-        : currentEpoch;
+
+    // If the user has not manually changed the viewed epoch since this tab
+    // was last selected, keep the viewed epoch "following" the current epoch
+    // as it changes. Once the user interacts with the epoch controls, we
+    // pin the viewed epoch until the next tab switch.
+    final bool shouldAutoFollowEpoch =
+        isActiveTab && !_hasUserChangedEpochSinceLastTabSwitch;
+
+    int resolvedViewedEpoch;
+    if (shouldAutoFollowEpoch) {
+      resolvedViewedEpoch = currentEpoch;
+    } else {
+      resolvedViewedEpoch = _viewedEpoch ?? currentEpoch;
+    }
+
+    final viewedEpoch = resolvedViewedEpoch.clamp(0, maxEpochWithData);
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -867,6 +914,8 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                                 setState(() {
                                                   _viewedEpoch =
                                                       viewedEpoch - 1;
+                                                  _hasUserChangedEpochSinceLastTabSwitch =
+                                                      true;
                                                 });
                                               }
                                             : null,
@@ -875,6 +924,8 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                                 setState(() {
                                                   _viewedEpoch =
                                                       viewedEpoch + 1;
+                                                  _hasUserChangedEpochSinceLastTabSwitch =
+                                                      true;
                                                 });
                                               }
                                             : null,
@@ -883,6 +934,8 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                         onPickEpoch: (e) {
                                           setState(() {
                                             _viewedEpoch = e;
+                                            _hasUserChangedEpochSinceLastTabSwitch =
+                                                true;
                                           });
                                         },
                                         summaryData: summary.asData?.value,

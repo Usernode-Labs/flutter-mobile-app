@@ -122,13 +122,15 @@ Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
           var slotTimeMs;
           if (slotStatuses[slot] == RpcSlotResult.scheduled ||
               slotStatuses[slot] == RpcSlotResult.missed ||
-              slotStatuses[slot] == RpcSlotResult.produced) {
+              slotStatuses[slot] == RpcSlotResult.produced ||
+              slotStatuses[slot] == RpcSlotResult.orphaned) {
             slotTimeMs = (await RustBackendService.instance
                     .getSlotTime(epoch: index, slot: slot))
                 ?.timestampMs;
           }
           var producedBlockMetadata;
-          if (slotStatuses[slot] == RpcSlotResult.produced) {
+          if (slotStatuses[slot] == RpcSlotResult.produced ||
+              slotStatuses[slot] == RpcSlotResult.orphaned) {
             producedBlockMetadata =
                 await persistedGetProducedBlockMetadata(index, slot);
           }
@@ -185,7 +187,9 @@ Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
       );
     } else {
       final producedCount = epoch.slotData!
-          .where((slot) => slot.result == RpcSlotResult.produced)
+          .where((slot) =>
+              slot.result == RpcSlotResult.produced ||
+              slot.result == RpcSlotResult.orphaned)
           .length;
       final missedCount = epoch.slotData!
           .where((slot) => slot.result == RpcSlotResult.missed)

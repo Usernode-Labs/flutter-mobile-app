@@ -18,8 +18,9 @@ class SentrySettings {
   });
 
   // DSN is read from --dart-define SENTRY_DSN. No hard-coded default.
-  static const String _dsn =
-      String.fromEnvironment('SENTRY_DSN', defaultValue: '');
+  static const String _dsn = String.fromEnvironment('SENTRY_DSN',
+      defaultValue:
+          'https://83282076dcf474954f5a12ffd4326bc7@o4510024243412992.ingest.de.sentry.io/4510024245379152');
   static const String _env =
       String.fromEnvironment('SENTRY_ENVIRONMENT', defaultValue: 'development');
   static const String _traces =

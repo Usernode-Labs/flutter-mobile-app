@@ -87,9 +87,9 @@ String get _kEpochSlotResultsKeyPrefix =>
 
 Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
   final stopwatch = Stopwatch()..start();
-  _log.debug('ProducedBlocksSummary: build start');
+  _log.trace('ProducedBlocksSummary: build start');
 
-  _log.debug("GETTING EPOCH DATA");
+  _log.trace("GETTING EPOCH DATA");
 
   // Centralized pre-work for this provider (status, and future additions).
   final preWorkResult = await _buildProducedBlocksPreWork();
@@ -147,11 +147,11 @@ Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
     }
   }));
 
-  _log.debug("currentEpoch: $currentEpoch");
-  _log.debug("Epoch Data:");
+  _log.trace("currentEpoch: $currentEpoch");
+  _log.trace("Epoch Data:");
 
   for (var i = 0; i < epochData.length; i++) {
-    _log.debug("\tepoch: $i");
+    _log.trace("\tepoch: $i");
     if (epochData[i].slotData != null) {
       var prevResult = epochData[i].slotData![0].result;
       var startIndex = 0;
@@ -160,13 +160,13 @@ Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
         if (prevResult == currentResult) {
           continue;
         } else {
-          _log.debug("\t\tslot: $startIndex -> $j: ${prevResult.name}");
+          _log.trace("\t\tslot: $startIndex -> $j: ${prevResult.name}");
           startIndex = j + 1;
         }
         prevResult = currentResult;
       }
       if (startIndex < epochData[i].slotData!.length) {
-        _log.debug(
+        _log.trace(
             "\t\tslot: $startIndex -> ${epochData[i].slotData!.length}: ${epochData[i].slotData![startIndex].result.name}");
       }
     }
@@ -233,7 +233,7 @@ Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
       .reduce((a, b) => a * b);
 
   stopwatch.stop();
-  _log.debug(
+  _log.trace(
       'ProducedBlocksSummary: build completed in ${stopwatch.elapsedMilliseconds} ms');
 
   return ProducedBlocksSummary(
@@ -281,7 +281,7 @@ Future<dynamic> _buildProducedBlocksPreWork() async {
             bestTimestamp - BigInt.from(bestGlobalSlot * slotMs);
         _initialTimestampMs = genesisMsBig.toInt();
         _initialFromGenesis = true;
-        _log.debug('Computed genesis timestampMs=$_initialTimestampMs');
+        _log.trace('Computed genesis timestampMs=$_initialTimestampMs');
       } else {
         // Fallback: we couldn't get full status; fall back to node-only snapshot.
         _initialStatusNode ??=

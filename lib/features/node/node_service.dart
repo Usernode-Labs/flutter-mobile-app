@@ -234,8 +234,11 @@ class RustBackendService {
       }
 
       // Configure persistent VRF storage path so VRF evaluation progress survives restarts.
+      // Use network-specific path to avoid conflicts when switching networks.
       final appSupportDir = await getApplicationSupportDirectory();
-      final vrfPath = '${appSupportDir.path}/usernode_vrf_storage.sqlite';
+      final networkType = await _getSelectedNetwork();
+      final vrfPath =
+          '${appSupportDir.path}/${networkType.name}_usernode_vrf_storage.sqlite';
       _log.trace('Using VRF storage path: $vrfPath');
       builder.vrfStoragePath(path: vrfPath);
 

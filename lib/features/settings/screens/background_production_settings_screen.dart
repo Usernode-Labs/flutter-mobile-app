@@ -608,19 +608,30 @@ class _BackgroundProductionSettingsScreenState
   }
 
   Widget _buildAboutSection(ThemeData theme, ColorScheme colorScheme) {
+    const aboutText =
+        'Your device is part of a new network. It verifies, executes, and contributes compute directly to the network, passively in the background - with no central servers, no hidden infra. As long as users keep the app running, the network will continue to operate, peer to peer, with no external dependencies.\n\n'
+        'We\'re doing this to enable networks that can be hosted end-to-end by their own communities - both for decentralization, and to enable a natural coordination point around participation, where users who help operate and contribute to systems directly realize the benefits from it.\n\n'
+        'Right now we are in testnet as we validate the core layer: block production, consensus behavior, and network reliability. As these stabilize, we\'ll build upon the unique features of the platform - its decentralization, zero knowledge proofs, and sybil-resistant identity - to introduce new activities, coordination mechanisms, and tools for self-hosted, sybil-resistant communities.\n\n'
+        'Thanks for helping test at this early stage. The app right now is simple, but as we prove out the core functionality, we hope to make possible a new kind of community-owned network, where users can directly run and benefit from the networks they use.';
+
     return _buildCollapsibleCard(
       theme: theme,
       colorScheme: colorScheme,
       title: 'About',
+      preview: Text(
+        'Your device is part of a new network. It verifies, executes, and contributes compute...',
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: colorScheme.onSurface.withValues(alpha: 0.7),
+        ),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 4),
           Text(
-            'Your device is part of a new network. It verifies, executes, and contributes compute directly to the network, passively in the background - with no central servers, no hidden infra. As long as users keep the app running, the network will continue to operate, peer to peer, with no external dependencies.\n\n'
-            'We\'re doing this to enable networks that can be hosted end-to-end by their own communities - both for decentralization, and to enable a natural coordination point around participation, where users who help operate and contribute to systems directly realize the benefits from it.\n\n'
-            'Right now we are in testnet as we validate the core layer: block production, consensus behavior, and network reliability. As these stabilize, we\'ll build upon the unique features of the platform - its decentralization, zero knowledge proofs, and sybil-resistant identity - to introduce new activities, coordination mechanisms, and tools for self-hosted, sybil-resistant communities.\n\n'
-            'Thanks for helping test at this early stage. The app right now is simple, but as we prove out the core functionality, we hope to make possible a new kind of community-owned network, where users can directly run and benefit from the networks they use.',
+            aboutText,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: colorScheme.onSurface.withValues(alpha: 0.7),
               height: 1.5,
@@ -642,6 +653,32 @@ class _BackgroundProductionSettingsScreenState
       theme: theme,
       colorScheme: colorScheme,
       title: l10n.settingsBuildInfo,
+      preview: Row(
+        children: [
+          if (_packageInfo != null) ...[
+            Text(
+              'v${_packageInfo!.version}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurface.withValues(alpha: 0.7),
+                fontFamily: 'monospace',
+              ),
+            ),
+            Text(
+              ' • ',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurface.withValues(alpha: 0.5),
+              ),
+            ),
+          ],
+          Text(
+            shortCommit,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurface.withValues(alpha: 0.7),
+              fontFamily: 'monospace',
+            ),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1101,45 +1138,15 @@ class _BackgroundProductionSettingsScreenState
     required String title,
     required Widget child,
     String? subtitle,
+    Widget? preview,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceBright,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Theme(
-        data: theme.copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          title: Text(
-            title,
-            style: theme.textTheme.bodyLarge?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          subtitle: subtitle != null
-              ? Text(
-                  subtitle,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurface.withValues(alpha: 0.7),
-                  ),
-                )
-              : null,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          collapsedShape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          collapsedBackgroundColor: colorScheme.surfaceBright,
-          backgroundColor: colorScheme.surfaceBright,
-          iconColor: colorScheme.onSurfaceVariant,
-          collapsedIconColor: colorScheme.onSurfaceVariant,
-          initiallyExpanded: false,
-          children: [child],
-        ),
-      ),
+    return _CollapsibleCard(
+      theme: theme,
+      colorScheme: colorScheme,
+      title: title,
+      subtitle: subtitle,
+      preview: preview,
+      child: child,
     );
   }
 
@@ -1980,5 +1987,96 @@ class _BackgroundProductionSettingsScreenState
         setState(() => _androidKeepAliveActive = false);
       }
     }
+  }
+}
+
+class _CollapsibleCard extends StatefulWidget {
+  final ThemeData theme;
+  final ColorScheme colorScheme;
+  final String title;
+  final Widget child;
+  final String? subtitle;
+  final Widget? preview;
+
+  const _CollapsibleCard({
+    required this.theme,
+    required this.colorScheme,
+    required this.title,
+    required this.child,
+    this.subtitle,
+    this.preview,
+  });
+
+  @override
+  State<_CollapsibleCard> createState() => _CollapsibleCardState();
+}
+
+class _CollapsibleCardState extends State<_CollapsibleCard> {
+  bool _isExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: widget.colorScheme.surfaceBright,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Theme(
+        data: widget.theme.copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          title: Text(
+            widget.title,
+            style: widget.theme.textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          subtitle: _buildSubtitle(),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          collapsedShape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          collapsedBackgroundColor: widget.colorScheme.surfaceBright,
+          backgroundColor: widget.colorScheme.surfaceBright,
+          iconColor: widget.colorScheme.onSurfaceVariant,
+          collapsedIconColor: widget.colorScheme.onSurfaceVariant,
+          initiallyExpanded: _isExpanded,
+          onExpansionChanged: (expanded) {
+            setState(() {
+              _isExpanded = expanded;
+            });
+          },
+          children: [widget.child],
+        ),
+      ),
+    );
+  }
+
+  Widget? _buildSubtitle() {
+    if (_isExpanded) {
+      // Return empty SizedBox to maintain layout if needed, or null
+      return null;
+    }
+
+    if (widget.subtitle != null) {
+      return Text(
+        widget.subtitle!,
+        style: widget.theme.textTheme.bodySmall?.copyWith(
+          color: widget.colorScheme.onSurface.withValues(alpha: 0.7),
+        ),
+      );
+    }
+
+    if (widget.preview != null) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 4.0),
+        child: widget.preview!,
+      );
+    }
+
+    return null;
   }
 }

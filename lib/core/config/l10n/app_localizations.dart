@@ -1195,7 +1195,7 @@ abstract class AppLocalizations {
   /// Android explanation for battery optimization
   ///
   /// In en, this message translates to:
-  /// **'Android\'s battery saver can delay or skip alarms to save power. Disabling battery optimization for this app ensures your wake-up alarms fire on time when blocks are scheduled to be produced.'**
+  /// **'Android\'s battery optimization can delay or prevent background tasks from running. Disabling it for this app ensures it can wake up on time to produce your scheduled blocks, even when the phone is idle. Settings may vary by device.'**
   String get permBatteryAndroidExplanation;
 
   /// iOS explanation for battery optimization
@@ -1249,19 +1249,19 @@ abstract class AppLocalizations {
   /// Step instruction to tap App Battery Usage in system settings
   ///
   /// In en, this message translates to:
-  /// **'Tap \"App Battery Usage\"'**
+  /// **'Look for \"Battery\", \"App Battery Usage\", or \"Battery Optimization\" in the settings page'**
   String get onboardingBatteryStepAppUsage;
 
   /// Step instruction to enable background usage
   ///
   /// In en, this message translates to:
-  /// **'Turn \"Allow background usage\" ON'**
+  /// **'Disable battery optimization or set the app to \"Unrestricted\" / \"No restrictions\" / \"Don\'t optimize\"'**
   String get onboardingBatteryStepAllowBackground;
 
   /// Step instruction explaining to tap the text label
   ///
   /// In en, this message translates to:
-  /// **'Tap the TEXT itself. Tap the words \"Allow background usage\" to open the detailed menu.'**
+  /// **'If available, tap on \"Allow background usage\" to access more options'**
   String get onboardingBatteryStepTapText;
 
   /// Step instruction to select Unrestricted mode
@@ -1273,7 +1273,7 @@ abstract class AppLocalizations {
   /// Step instruction to return to the app from settings
   ///
   /// In en, this message translates to:
-  /// **'Tap the back button until you are back in the app.'**
+  /// **'Tap the back button until you return to the app'**
   String get onboardingBatteryStepReturnToApp;
 
   /// Title shown when unrestricted battery optimization is enabled
@@ -1321,13 +1321,13 @@ abstract class AppLocalizations {
   /// Title explaining why notifications are needed for background block production
   ///
   /// In en, this message translates to:
-  /// **'Allow notifications to allow the app to make blocks in the background'**
+  /// **'Allow notifications to maximize your block production success rate'**
   String get permNotificationsBlockBackgroundTitle;
 
   /// Body text explaining Android's requirement for a visible status
   ///
   /// In en, this message translates to:
-  /// **'Android requires a visible status to allow the app to work in the background. Without it, the system will be unable to do background block production.'**
+  /// **'Notifications are essential for background block production. They alert you when your slots are coming up and ensure the app stays active to produce blocks.'**
   String get permNotificationsBlockBackgroundBody;
 
   /// Button text to skip enabling notifications

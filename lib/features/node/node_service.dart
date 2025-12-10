@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:io' show Platform;
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show kReleaseMode;
+
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/block_producer_status.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_mempool.dart';
@@ -100,8 +102,8 @@ class RustBackendService {
             : null,
       );
 
-      // Enable Rust-side logging only if RUST_LOG_LEVEL is explicitly set
-      if (AppConfig.rustLogLevel.isNotEmpty) {
+      // Enable Rust-side logging only if RUST_LOG_LEVEL is explicitly set and not in release mode
+      if (!kReleaseMode && AppConfig.rustLogLevel.isNotEmpty) {
         final rustLogLevel = _parseTracingLevel(AppConfig.rustLogLevel);
         final appSupportDir = await getApplicationSupportDirectory();
         final logDir = '${appSupportDir.path}/logs';
@@ -219,19 +221,6 @@ class RustBackendService {
       );
       builder.blockProducerHex(skHex: privateKeyHex);
       builder.mempoolAutoinsertInterval(secs: BigInt.from(1));
-
-      // Configure persistent P2P identity
-      String? p2pSecretKeyStr = await repo.getP2pSecretKey(account.id);
-      if (p2pSecretKeyStr == null) {
-        // First run: generate and save P2P key
-        _log.info('Generating new P2P identity for account ${account.id}');
-        p2pSecretKeyStr = builder.p2PSecKeyStr();
-        await repo.saveP2pSecretKey(account.id, p2pSecretKeyStr);
-      } else {
-        // Subsequent runs: use stored key
-        _log.trace('Using stored P2P identity');
-        builder.p2PSecKeyFromStr(key: p2pSecretKeyStr);
-      }
 
       // Configure persistent VRF storage path so VRF evaluation progress survives restarts.
       // Use network-specific path to avoid conflicts when switching networks.

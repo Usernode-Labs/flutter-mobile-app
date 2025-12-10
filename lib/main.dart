@@ -23,30 +23,49 @@ import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/core/services/app_version_check.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  // Initialize network preferences early (before any SharedPreferences access)
-  await NetworkPrefs.init();
-
-  // Lock orientation to portrait mode
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
-
-  // Initialize logging with file output
-  await LoggingService.initialize();
-
-  // Initialize platform alarm service early to capture native events
-  // The callback is registered now so iOS notification events aren't lost
-  await PlatformAlarmService.instance.initialize();
-  PlatformAlarmService.instance.setNativeEventCallback(
-    BackgroundBlockProductionOrchestrator.instance.handleNativeEvent,
-  );
-
-  final log = LoggingService.instance.withTag('Bootstrap');
+  // NOTE: Do NOT call WidgetsFlutterBinding.ensureInitialized() here.
+  // SentryFlutter.init() will initialize SentryWidgetsFlutterBinding which
+  // is required for FramesTrackingIntegration to work properly.
 
   await SentryUtil.bootstrap(() async {
+    // Initialize network preferences early (before any SharedPreferences access)
+    await NetworkPrefs.init();
+
+    // Lock orientation to portrait mode
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+
+    // Initialize logging with file output
+    await LoggingService.initialize();
+
+    // Initialize platform alarm service early to capture native events
+    // The callback is registered now so iOS notification events aren't lost
+    await PlatformAlarmService.instance.initialize();
+    PlatformAlarmService.instance.setNativeEventCallback(
+      BackgroundBlockProductionOrchestrator.instance.handleNativeEvent,
+    );
+
+    final log = LoggingService.instance.withTag('Bootstrap');
+
+    // Set up Flutter framework error handler to capture build/layout errors
+    FlutterError.onError = (FlutterErrorDetails details) {
+      FlutterError.presentError(details);
+      SentryUtil.captureError(
+        details.exception,
+        details.stack ?? StackTrace.current,
+        tag: 'flutter_error',
+        context: {'library': details.library ?? 'unknown'},
+      );
+    };
+
+    // Set up handler for uncaught async errors
+    PlatformDispatcher.instance.onError = (error, stack) {
+      SentryUtil.captureError(error, stack, tag: 'uncaught_async');
+      return true;
+    };
+
     SentryUtil.addBreadcrumb(category: 'app', message: 'startup begin');
     log.info('App started');
 
@@ -56,6 +75,13 @@ Future<void> main() async {
     final repo = await AccountsRepository.create();
     final hasAnyAccounts = await repo.hasAny();
     log.info('hasAnyAccounts: $hasAnyAccounts');
+
+    // Set Sentry user context if there's an active account
+    final activeId = repo.getActiveId();
+    if (activeId != null) {
+      SentryUtil.setUser(id: activeId);
+      log.debug('Set Sentry user context for existing account: $activeId');
+    }
 
     // Initialize metrics collector early so it has the container before UI starts
     MetricsCollectorService.instance.initialize(container);

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 import 'dart:convert';
 
@@ -61,6 +62,7 @@ class RustBackendService {
       _instance ??= RustBackendService._();
 
   bool _initialized = false;
+  Completer<void>? _initCompleter; // Prevents race condition on concurrent init() calls
   bool _nodeRunning = false;
   String? _instanceId;
   String? _cachedPeerId;
@@ -75,8 +77,22 @@ class RustBackendService {
 
   /// Initialize flutter_rust_bridge and load the dynamic library.
   /// Call once at app startup (before runApp).
+  /// Thread-safe: concurrent calls will await the same initialization.
   Future<void> init() async {
-    if (_initialized) return;
+    // Fast path: already initialized (check both our flag and FRB's internal state)
+    if (_initialized || RustLib.instance.initialized) {
+      _initialized = true; // Sync our flag with FRB state (handles hot restart)
+      return;
+    }
+
+    // If initialization is in progress, await it
+    if (_initCompleter != null) {
+      return _initCompleter!.future;
+    }
+
+    // Start initialization - create completer before any async work
+    _initCompleter = Completer<void>();
+
     try {
       await RustLib.init(
         externalLibrary: Platform.isIOS || Platform.isMacOS
@@ -95,6 +111,7 @@ class RustBackendService {
       }
 
       _initialized = true;
+      _initCompleter!.complete();
     } on PanicException catch (e, st) {
       final msg = e.toString();
       // Handle duplicate tracing subscriber setup from Rust side gracefully
@@ -105,11 +122,21 @@ class RustBackendService {
           'Tracing subscriber already set in Rust; continuing initialization',
         );
         _initialized = true; // library loaded; only tracing init failed
+        _initCompleter!.complete();
       } else {
         LoggingService.instance
             .error('FRB init failed', error: e, stackTrace: st);
+        _initCompleter!.completeError(e, st);
+        _initCompleter = null; // Allow retry on next call
         rethrow;
       }
+    } catch (e, st) {
+      // Handle any other unexpected errors
+      LoggingService.instance
+          .error('FRB init failed unexpectedly', error: e, stackTrace: st);
+      _initCompleter!.completeError(e, st);
+      _initCompleter = null; // Allow retry on next call
+      rethrow;
     }
   }
 

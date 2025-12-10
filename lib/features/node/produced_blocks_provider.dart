@@ -303,8 +303,15 @@ Future<dynamic> _buildProducedBlocksPreWork() async {
     }
   }
 
+  // Ensure we have node status before proceeding
+  final statusNode = _initialStatusNode;
+  if (statusNode == null) {
+    throw StateError(
+        'Cannot build produced blocks: node status unavailable. Is the backend running?');
+  }
+
   final nowMs = DateTime.now().millisecondsSinceEpoch;
-  final slotMs = _initialStatusNode!.blockInterval;
+  final slotMs = statusNode.blockInterval;
 
   // TODO; would use currentGlobalSlot, but node status api is slow to
   // update (~2 seconds on my device), so using this instead. Should be
@@ -316,10 +323,14 @@ Future<dynamic> _buildProducedBlocksPreWork() async {
   } else {
     // Legacy behavior: advance from the snapshot slot using wall-clock delta.
     final passedTime = nowMs - _initialTimestampMs;
-    currentGlobalSlot =
-        _initialStatusNode!.curGlobalSlot! + (passedTime ~/ slotMs);
+    final curSlot = statusNode.curGlobalSlot;
+    if (curSlot == null) {
+      throw StateError(
+          'Cannot build produced blocks: current global slot unavailable');
+    }
+    currentGlobalSlot = curSlot + (passedTime ~/ slotMs);
   }
-  int slotsInEpoch = _initialStatusNode!.slotsInEpoch;
+  int slotsInEpoch = statusNode.slotsInEpoch;
   int currentEpoch = currentGlobalSlot ~/ slotsInEpoch;
   int currentSlot = currentGlobalSlot % slotsInEpoch;
 

@@ -33,8 +33,8 @@ class WalletMempoolController extends AsyncNotifier<List<MempoolTxSummary>> {
             acc.address.startsWith('ut')) {
           ownerStr = acc.address;
         }
-      } catch (e) {
-        _log.warn('Failed to get active account: $e');
+      } catch (e, st) {
+        _log.error('Failed to get active account', error: e, stackTrace: st);
       }
 
       if (ownerStr == null) {

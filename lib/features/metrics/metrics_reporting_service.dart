@@ -57,10 +57,11 @@ class MetricsReportingService {
 
     _eventSubscription = eventStream.listen(
       (event) => _handleBlockProductionEvent(event),
-      onError: (error) {
+      onError: (error, stackTrace) {
         _log.error(
           'Error in block production event stream',
           error: error,
+          stackTrace: stackTrace,
         );
       },
     );

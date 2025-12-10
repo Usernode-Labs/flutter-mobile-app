@@ -81,8 +81,8 @@ class _OnboardingImportApiAccountScreenState
       try {
         await RustBackendService.instance.startNode();
         _log.debug('Backend started successfully');
-      } catch (e) {
-        _log.error('Failed to start backend', error: e);
+      } catch (e, st) {
+        _log.error('Failed to start backend', error: e, stackTrace: st);
       }
 
       // Invalidate account state so router sees new account immediately

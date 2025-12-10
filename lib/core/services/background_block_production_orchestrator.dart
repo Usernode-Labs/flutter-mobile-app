@@ -349,9 +349,8 @@ class BackgroundBlockProductionOrchestrator {
         _log.debug('Attempting to get battery level for wake-up event...');
         batteryLevel = await _battery.batteryLevel;
         _log.debug('Battery level for wake-up: $batteryLevel%');
-      } catch (e, stackTrace) {
-        _log.warn('Could not get battery level: $e');
-        _log.trace('Battery error stacktrace: $stackTrace');
+      } catch (e, st) {
+        _log.error('Could not get battery level', error: e, stackTrace: st);
       }
 
       // Calculate alarm latency (find scheduled slot)
@@ -372,8 +371,9 @@ class BackgroundBlockProductionOrchestrator {
           slotNumber: slotNumber,
         );
         _log.debug('Started foreground service');
-      } catch (e) {
-        _log.warn('Error starting foreground service: $e');
+      } catch (e, st) {
+        _log.error('Error starting foreground service',
+            error: e, stackTrace: st);
         // Continue anyway - not critical
       }
 
@@ -425,8 +425,8 @@ class BackgroundBlockProductionOrchestrator {
         final bpStatus =
             await RustBackendService.instance.getBlockProducerStatus();
         nodeState = bpStatus?.blockProducer?.status.toString() ?? 'unknown';
-      } catch (e) {
-        _log.warn('Could not get node state: $e');
+      } catch (e, st) {
+        _log.error('Could not get node state', error: e, stackTrace: st);
       }
 
       // Emit monitoring start event
@@ -441,8 +441,9 @@ class BackgroundBlockProductionOrchestrator {
       _monitoringSubscription =
           SlotMonitorService.instance.monitoringEvents.listen(
         _handleMonitoringEvent,
-        onError: (error) {
-          _log.error('Error in monitoring event stream: $error');
+        onError: (error, stackTrace) {
+          _log.error('Error in monitoring event stream',
+              error: error, stackTrace: stackTrace);
         },
       );
 

@@ -92,7 +92,9 @@ class RegistrationRepository {
       } else if (parsed is Map && parsed['message'] is String) {
         detail = parsed['message'] as String;
       }
-    } catch (_) {}
+    } catch (e) {
+      _log.debug('Could not parse error response JSON: $e');
+    }
     switch (resp.statusCode) {
       case 403:
         return detail ?? 'Registration phase inactive. Please try later.';

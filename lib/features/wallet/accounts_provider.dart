@@ -6,6 +6,7 @@ import 'package:crypto_mobile_app/features/wallet/models/account.dart';
 import 'package:crypto_mobile_app/src/rust/account.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
+import 'package:crypto_mobile_app/core/utils/sentry.dart';
 
 final _log = LoggingService.instance.withTag('AccountsProvider');
 
@@ -55,7 +56,8 @@ class AccountsRepository {
           .map((e) => AccountMeta.fromJson(e as Map<String, dynamic>))
           .toList(growable: false);
       return accounts;
-    } catch (e) {
+    } catch (e, st) {
+      _log.error('Failed to decode accounts list', error: e, stackTrace: st);
       return [];
     }
   }
@@ -66,7 +68,13 @@ class AccountsRepository {
   }
 
   String? getActiveId() => _prefs.getString(_kActiveIdKey);
-  Future<void> setActiveId(String id) => _prefs.setString(_kActiveIdKey, id);
+
+  Future<void> setActiveId(String id) async {
+    await _prefs.setString(_kActiveIdKey, id);
+    // Set Sentry user context for error correlation
+    SentryUtil.setUser(id: id);
+    _log.debug('Set Sentry user context for account: $id');
+  }
 
   Future<AccountMeta?> getActive() async {
     final id = getActiveId();
@@ -74,7 +82,8 @@ class AccountsRepository {
     final items = await list();
     try {
       return items.firstWhere((a) => a.id == id);
-    } catch (_) {
+    } catch (e) {
+      _log.debug('Active account $id not found, falling back to first: $e');
       return items.isNotEmpty ? items.first : null;
     }
   }

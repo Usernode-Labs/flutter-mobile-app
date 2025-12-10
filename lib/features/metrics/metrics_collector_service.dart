@@ -354,8 +354,8 @@ class MetricsCollectorService {
           _batteryOptimizationCacheTime = DateTime.now();
         }
         batteryOptimizationDisabled = _cachedBatteryOptimization ?? false;
-      } catch (_) {
-        // Ignore if method not available
+      } catch (e) {
+        _log.debug('Could not check battery optimization status: $e');
       }
     }
 
@@ -413,8 +413,8 @@ class MetricsCollectorService {
       if (Platform.isAndroid) {
         try {
           exactAlarmsPermission = PlatformAlarmService.instance.hasPermissions;
-        } catch (_) {
-          // Ignore if method not available
+        } catch (e) {
+          _log.debug('Could not check exact alarms permission: $e');
         }
       } else if (Platform.isIOS) {
         // iOS doesn't have exact alarms, use notification permission
@@ -432,8 +432,8 @@ class MetricsCollectorService {
             batteryOptimizationExempt = await PlatformAlarmService.instance
                 .isBatteryOptimizationDisabled();
           }
-        } catch (_) {
-          // Ignore if method not available
+        } catch (e) {
+          _log.debug('Could not check battery optimization exempt status: $e');
         }
       }
 
@@ -529,8 +529,8 @@ class MetricsCollectorService {
             bestTipHash = bestTip?.hash.toString();
           }
         }
-      } catch (_) {
-        // Error getting status, node might be starting
+      } catch (e) {
+        _log.debug('Error getting node status: $e');
         nodeState = 'error';
       }
     }
@@ -615,8 +615,8 @@ class MetricsCollectorService {
             _log.warn('Failed to read producedBlocksSummaryProvider: $e');
           }
         }
-      } catch (_) {
-        // Ignore errors
+      } catch (e) {
+        _log.debug('Error collecting consensus metrics: $e');
       }
     }
 
@@ -665,8 +665,8 @@ class MetricsCollectorService {
             ).toIso8601String();
           }
         }
-      } catch (_) {
-        // Ignore errors
+      } catch (e) {
+        _log.debug('Error collecting blockchain metrics: $e');
       }
     }
 
@@ -734,7 +734,8 @@ class MetricsCollectorService {
           time: DateTime.now().millisecondsSinceEpoch, // Current time as proxy
         );
       }).toList();
-    } catch (_) {
+    } catch (e) {
+      _log.debug('Error collecting peers metrics: $e');
       return [];
     }
   }

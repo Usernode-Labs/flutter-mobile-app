@@ -35,8 +35,8 @@ class TransactionActivityController
         if (acc != null && acc.address.isNotEmpty) {
           ownerAddress = acc.address;
         }
-      } catch (e) {
-        _log.warn('Failed to get active account: $e');
+      } catch (e, st) {
+        _log.error('Failed to get active account', error: e, stackTrace: st);
       }
 
       final transactions = <TransactionItem>[];
@@ -54,7 +54,8 @@ class TransactionActivityController
           transactions.add(item);
         }
       } catch (e, st) {
-        _log.warn('Failed to load mempool transactions: $e $st');
+        _log.error('Failed to load mempool transactions',
+            error: e, stackTrace: st);
         // Continue even if mempool fails
       }
 
@@ -66,8 +67,8 @@ class TransactionActivityController
           coinbaseRewardAmount = epochRewards.rewardPerBlock;
           _log.debug('Coinbase reward amount: $coinbaseRewardAmount');
         }
-      } catch (e) {
-        _log.warn('Failed to fetch epoch rewards: $e');
+      } catch (e, st) {
+        _log.error('Failed to fetch epoch rewards', error: e, stackTrace: st);
         // Continue with null, will use default fallback value
       }
 
@@ -92,12 +93,12 @@ class TransactionActivityController
               coinbaseRewardAmount: coinbaseRewardAmount,
             );
             transactions.add(item);
-          } catch (e) {
-            _log.warn('Failed to parse UTXO[$i]: $e');
+          } catch (e, st) {
+            _log.error('Failed to parse UTXO[$i]', error: e, stackTrace: st);
           }
         }
       } catch (e, st) {
-        _log.warn('Failed to load UTXOs: $e $st');
+        _log.error('Failed to load UTXOs', error: e, stackTrace: st);
         // Continue even if UTXOs fail
       }
 

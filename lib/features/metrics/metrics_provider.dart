@@ -107,10 +107,12 @@ Future<({BigInt? balance, String? address})> _fetchWalletData() async {
           final balance = assetJson['balance'] as int;
           totalBalance += BigInt.from(balance);
         }
-      } catch (e) {
-        // Skip this UTXO if parsing fails, but log for debugging
-        _log.debug(
+      } catch (e, st) {
+        // Skip this UTXO if parsing fails, but report to Sentry
+        _log.error(
           'Failed to parse UTXO for balance calculation',
+          error: e,
+          stackTrace: st,
           context: {'error': e.toString()},
         );
       }
@@ -128,10 +130,12 @@ Future<({BigInt? balance, String? address})> _fetchWalletData() async {
       balance: totalBalance,
       address: activeAccount.address,
     );
-  } catch (e) {
-    // Log error but don't fail metrics collection
-    _log.warn(
+  } catch (e, st) {
+    // Report error but don't fail metrics collection
+    _log.error(
       'Failed to fetch wallet data for metrics',
+      error: e,
+      stackTrace: st,
       context: {'error': e.toString()},
     );
     return (balance: null, address: null);

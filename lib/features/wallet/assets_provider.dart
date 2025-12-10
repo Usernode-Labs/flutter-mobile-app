@@ -97,8 +97,8 @@ class WalletAssetsController extends AsyncNotifier<List<AssetSummary>> {
             balancesByToken[tokenId] =
                 (balancesByToken[tokenId] ?? BigInt.zero) + balance;
           }
-        } catch (e) {
-          _log.warn('Failed to parse UTXO[$i]: $e');
+        } catch (e, st) {
+          _log.error('Failed to parse UTXO[$i]', error: e, stackTrace: st);
         }
       }
 

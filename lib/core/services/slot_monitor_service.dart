@@ -139,9 +139,12 @@ class SlotMonitorService {
   Future<void> _pollNodeStatus() async {
     if (!_isMonitoring || _currentSlot == null) return;
 
+    // Capture slot reference at start to avoid null issues if stopMonitoring() is called
+    final slot = _currentSlot!;
+
     _pollAttemptCount++;
     _log.debug(
-        'Poll attempt #$_pollAttemptCount for slot ${_currentSlot!.slotNumber}');
+        'Poll attempt #$_pollAttemptCount for slot ${slot.slotNumber}');
 
     try {
       final status = await RustBackendService.instance.getStatus();
@@ -151,7 +154,7 @@ class SlotMonitorService {
         // Emit monitoring poll event (failed)
         _eventController.add(SlotMonitoringEvent(
           type: MonitoringEventType.poll,
-          slotNumber: _currentSlot!.slotNumber,
+          slotNumber: slot.slotNumber,
           timestamp: DateTime.now(),
           pollAttempt: _pollAttemptCount,
           nodeState: 'unknown',
@@ -173,7 +176,7 @@ class SlotMonitorService {
         // Emit monitoring poll event (failed)
         _eventController.add(SlotMonitoringEvent(
           type: MonitoringEventType.poll,
-          slotNumber: _currentSlot!.slotNumber,
+          slotNumber: slot.slotNumber,
           timestamp: DateTime.now(),
           pollAttempt: _pollAttemptCount,
           nodeState: nodeState,
@@ -182,7 +185,7 @@ class SlotMonitorService {
         return;
       }
 
-      final currentSlotNumber = _currentSlot!.slotNumber;
+      final currentSlotNumber = slot.slotNumber;
 
       _log.debug(
           'Poll #$_pollAttemptCount - Node: $nodeState, BestTip: $bestTipSlot, Target: $currentSlotNumber');
@@ -234,7 +237,7 @@ class SlotMonitorService {
 
       // Check for timeout (24 slots after slot time)
       final now = DateTime.now();
-      final timeoutTime = _currentSlot!.slotTime
+      final timeoutTime = slot.slotTime
           .add(Duration(milliseconds: _blockInterval * 24));
 
       if (now.isAfter(timeoutTime)) {
@@ -266,7 +269,7 @@ class SlotMonitorService {
 
       _eventController.add(SlotMonitoringEvent(
         type: MonitoringEventType.error,
-        slotNumber: _currentSlot!.slotNumber,
+        slotNumber: slot.slotNumber,
         timestamp: DateTime.now(),
         error: e.toString(),
       ));

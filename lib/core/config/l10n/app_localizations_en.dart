@@ -614,7 +614,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonFinish => 'Finish';
 
   @override
-  String get permBatteryTitle => 'Disable Battery Optimizations';
+  String get permBatteryTitle => 'Allow Background Usage';
 
   @override
   String get permBatteryWhyMatters => 'Why this matters';
@@ -671,8 +671,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Tap the back button until you are back in the app.';
 
   @override
-  String get onboardingBatteryUnrestrictedTitle =>
-      'Unrestricted Battery Mode Active';
+  String get onboardingBatteryUnrestrictedTitle => 'Background Usage Enabled';
 
   @override
   String get onboardingBatteryUnrestrictedBody =>

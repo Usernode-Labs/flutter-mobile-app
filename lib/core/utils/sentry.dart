@@ -57,6 +57,9 @@ class SentryUtil {
     final opts = settings ?? SentrySettings.fromEnvironment();
     if (opts.dsn.isEmpty) {
       // Run app without initializing Sentry if DSN is not provided.
+      // We still must ensure that a Flutter binding exists before any code
+      // touches platform channels (e.g., SharedPreferences in NetworkPrefs).
+      WidgetsFlutterBinding.ensureInitialized();
       await Future.sync(appRunner);
       _enabled = false;
       return;

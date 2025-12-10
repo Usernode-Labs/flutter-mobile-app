@@ -77,13 +77,15 @@ const _kEpochsWithDataKeyBase = 'node:epochs_with_data';
 const _kProducedBlockMetadataKeyPrefixBase = 'node:produced_block_metadata';
 const _kEpochSlotResultsKeyPrefixBase = 'node:epoch_slot_results';
 
+String networkPrefix = '';
+
 // Network-prefixed keys
 String get _kEpochsWithDataKey =>
-    NetworkPrefs.prefixKey(_kEpochsWithDataKeyBase);
+    NetworkPrefs.prefixKey(_kEpochsWithDataKeyBase + ':' + networkPrefix);
 String get _kProducedBlockMetadataKeyPrefix =>
-    NetworkPrefs.prefixKey(_kProducedBlockMetadataKeyPrefixBase);
+    NetworkPrefs.prefixKey(_kProducedBlockMetadataKeyPrefixBase + ':' + networkPrefix);
 String get _kEpochSlotResultsKeyPrefix =>
-    NetworkPrefs.prefixKey(_kEpochSlotResultsKeyPrefixBase);
+    NetworkPrefs.prefixKey(_kEpochSlotResultsKeyPrefixBase + ':' + networkPrefix);
 
 Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
   final stopwatch = Stopwatch()..start();
@@ -301,6 +303,12 @@ Future<dynamic> _buildProducedBlocksPreWork() async {
       _initialTimestampMs = DateTime.now().millisecondsSinceEpoch;
       _initialFromGenesis = false;
     }
+  }
+
+  // TODO this should include the hash of the genesis block
+  if (networkPrefix == '') {
+    final networkType = await RustBackendService.instance.getSelectedNetwork();
+    networkPrefix = networkType.name;
   }
 
   // Ensure we have node status before proceeding

@@ -803,7 +803,7 @@
     "description": "Finish button text"
   },
 
-  "permBatteryTitle": "Disable Battery Optimizations",
+  "permBatteryTitle": "Allow Background Usage",
   "@permBatteryTitle": {
     "description": "Battery optimization screen title"
   },
@@ -874,7 +874,7 @@
     "description": "Step instruction to return to the app from settings"
   },
 
-  "onboardingBatteryUnrestrictedTitle": "Unrestricted Battery Mode Active",
+  "onboardingBatteryUnrestrictedTitle": "Background Usage Enabled",
   "@onboardingBatteryUnrestrictedTitle": {
     "description": "Title shown when unrestricted battery optimization is enabled"
   },

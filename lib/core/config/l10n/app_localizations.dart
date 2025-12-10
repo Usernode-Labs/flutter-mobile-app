@@ -1183,7 +1183,7 @@ abstract class AppLocalizations {
   /// Battery optimization screen title
   ///
   /// In en, this message translates to:
-  /// **'Disable Battery Optimizations'**
+  /// **'Allow Background Usage'**
   String get permBatteryTitle;
 
   /// Section title for battery optimization explanation
@@ -1279,7 +1279,7 @@ abstract class AppLocalizations {
   /// Title shown when unrestricted battery optimization is enabled
   ///
   /// In en, this message translates to:
-  /// **'Unrestricted Battery Mode Active'**
+  /// **'Background Usage Enabled'**
   String get onboardingBatteryUnrestrictedTitle;
 
   /// Body text when unrestricted battery optimization is enabled

@@ -237,6 +237,7 @@ class RustBackendService {
       // Use network-specific path to avoid conflicts when switching networks.
       final appSupportDir = await getApplicationSupportDirectory();
       final networkType = await _getSelectedNetwork();
+      // TODO this should include the hash of the genesis block
       final vrfPath =
           '${appSupportDir.path}/${networkType.name}_usernode_vrf_storage.sqlite';
       _log.trace('Using VRF storage path: $vrfPath');
@@ -283,6 +284,10 @@ class RustBackendService {
   }
 
   /// Get the currently selected network type from storage.
+  ///
+  /// This is exposed via the public [getSelectedNetwork] wrapper so that other
+  /// parts of the app (e.g. providers) can read the current network without
+  /// duplicating storage keys or logic.
   Future<NetworkType> _getSelectedNetwork() async {
     final prefs = await SharedPreferences.getInstance();
     final value = prefs.getString(_kNetworkTypeKey);
@@ -291,6 +296,10 @@ class RustBackendService {
     }
     return NetworkType.testnet; // default
   }
+
+  /// Public wrapper around [_getSelectedNetwork] so callers outside this file
+  /// can determine which network (testnet / internal) is currently selected.
+  Future<NetworkType> getSelectedNetwork() => _getSelectedNetwork();
 
   /// Configure network settings from URLs (seedlist, genesis).
   Future<void> _configureNetworkFromUrls(NodeBuilder builder) async {

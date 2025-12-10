@@ -498,6 +498,9 @@ class _BackgroundProductionSettingsScreenState
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              // Keep About collapsed but place it first
+              _buildAboutSection(theme, colorScheme),
+              const SizedBox(height: 8),
               // Top-priority sections
               _buildPermissionsSection(theme, colorScheme),
               const SizedBox(height: 8),
@@ -510,20 +513,20 @@ class _BackgroundProductionSettingsScreenState
                 const SizedBox(height: 8),
                 _buildAndroidKeepAliveSection(theme, colorScheme),
                 const SizedBox(height: 8),
+                _buildThemeSection(theme, colorScheme),
+                const SizedBox(height: 8),
+              ],
+              if (!Platform.isAndroid) ...[
+                _buildThemeSection(theme, colorScheme),
+                const SizedBox(height: 8),
               ],
 
               // Collapsible sections (collapsed by default)
-              _buildAboutSection(theme, colorScheme),
-              const SizedBox(height: 8),
               _buildFeatureOverviewCard(theme, colorScheme),
               const SizedBox(height: 8),
               _buildPlatformInfoCard(theme, colorScheme),
               const SizedBox(height: 8),
               _buildVrfExplanationCard(theme, colorScheme),
-              const SizedBox(height: 8),
-
-              // Appearance / theme section (moved near bottom)
-              _buildThemeSection(theme, colorScheme),
               const SizedBox(height: 8),
 
               // Build Info section (at the bottom)
@@ -547,7 +550,6 @@ class _BackgroundProductionSettingsScreenState
       theme: theme,
       colorScheme: colorScheme,
       title: 'Appearance',
-      subtitle: 'Choose how the app looks on your device.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

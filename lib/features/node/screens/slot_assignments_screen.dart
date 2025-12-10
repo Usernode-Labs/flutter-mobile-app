@@ -303,14 +303,16 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
                           DateTime.fromMillisecondsSinceEpoch(item.slotTimeMs!);
                       final hh = dt.hour.toString().padLeft(2, '0');
                       final mm = dt.minute.toString().padLeft(2, '0');
+                      final ss = dt.second.toString().padLeft(2, '0');
+                      final timeStr = '$hh:$mm:$ss';
                       if (isScheduled) {
-                        subtitleText = 'Scheduled for $hh:$mm';
+                        subtitleText = 'Scheduled for $timeStr';
                       } else if (isProduced) {
-                        subtitleText = 'Produced at $hh:$mm';
+                        subtitleText = 'Produced at $timeStr';
                       } else if (isMissed) {
-                        subtitleText = 'Missed at $hh:$mm';
+                        subtitleText = 'Missed at $timeStr';
                       } else if (isOrphaned) {
-                        subtitleText = 'Orphaned at $hh:$mm';
+                        subtitleText = 'Orphaned at $timeStr';
                       }
                     }
                     final VoidCallback? onTap = (isProduced || isOrphaned)

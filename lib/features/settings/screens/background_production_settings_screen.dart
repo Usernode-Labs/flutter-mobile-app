@@ -498,43 +498,29 @@ class _BackgroundProductionSettingsScreenState
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              // About section
-              _buildAboutSection(theme, colorScheme),
-              const SizedBox(height: 8),
-
-              // Feature overview section
-              _buildFeatureOverviewCard(theme, colorScheme),
-              const SizedBox(height: 8),
-
-              // Platform-specific info card
-              _buildPlatformInfoCard(theme, colorScheme),
-              const SizedBox(height: 8),
-
-              // Understanding VRF & Slots section
-              _buildVrfExplanationCard(theme, colorScheme),
-              const SizedBox(height: 8),
-
-              // Permissions section
+              // Top-priority sections
               _buildPermissionsSection(theme, colorScheme),
               const SizedBox(height: 8),
-
-              // iOS Keep-Alive section (if iOS)
               if (Platform.isIOS) ...[
                 _buildIOSKeepAliveSection(theme, colorScheme),
                 const SizedBox(height: 8),
               ],
-
-              // Android Battery section (if Android)
               if (Platform.isAndroid) ...[
                 _buildAndroidBatterySection(theme, colorScheme),
                 const SizedBox(height: 8),
-              ],
-
-              // Android Keep-Alive section (if Android)
-              if (Platform.isAndroid) ...[
                 _buildAndroidKeepAliveSection(theme, colorScheme),
                 const SizedBox(height: 8),
               ],
+
+              // Collapsible sections (collapsed by default)
+              _buildAboutSection(theme, colorScheme),
+              const SizedBox(height: 8),
+              _buildFeatureOverviewCard(theme, colorScheme),
+              const SizedBox(height: 8),
+              _buildPlatformInfoCard(theme, colorScheme),
+              const SizedBox(height: 8),
+              _buildVrfExplanationCard(theme, colorScheme),
+              const SizedBox(height: 8),
 
               // Appearance / theme section (moved near bottom)
               _buildThemeSection(theme, colorScheme),
@@ -557,114 +543,88 @@ class _BackgroundProductionSettingsScreenState
       ref.read(themeModeProvider.notifier).set(mode);
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceBright,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Appearance',
-              style: theme.textTheme.bodyLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+    return _buildCollapsibleCard(
+      theme: theme,
+      colorScheme: colorScheme,
+      title: 'Appearance',
+      subtitle: 'Choose how the app looks on your device.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 4),
+          RadioListTile<ThemeMode>(
+            value: ThemeMode.system,
+            groupValue: themeMode,
+            title: Text(
+              'Use system setting',
+              style: theme.textTheme.bodyMedium,
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Choose how the app looks on your device.',
+            subtitle: Text(
+              'Automatically follow your device’s light or dark mode.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: colorScheme.onSurface.withValues(alpha: 0.7),
               ),
             ),
-            const SizedBox(height: 8),
-            RadioListTile<ThemeMode>(
-              value: ThemeMode.system,
-              groupValue: themeMode,
-              title: Text(
-                'Use system setting',
-                style: theme.textTheme.bodyMedium,
-              ),
-              subtitle: Text(
-                'Automatically follow your device’s light or dark mode.',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurface.withValues(alpha: 0.7),
-                ),
-              ),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
-              visualDensity: VisualDensity.compact,
-              onChanged: (mode) {
-                if (mode != null) setTheme(mode);
-              },
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+            visualDensity: VisualDensity.compact,
+            onChanged: (mode) {
+              if (mode != null) setTheme(mode);
+            },
+          ),
+          RadioListTile<ThemeMode>(
+            value: ThemeMode.light,
+            groupValue: themeMode,
+            title: Text(
+              'Light mode',
+              style: theme.textTheme.bodyMedium,
             ),
-            RadioListTile<ThemeMode>(
-              value: ThemeMode.light,
-              groupValue: themeMode,
-              title: Text(
-                'Light mode',
-                style: theme.textTheme.bodyMedium,
-              ),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
-              visualDensity: VisualDensity.compact,
-              onChanged: (mode) {
-                if (mode != null) setTheme(mode);
-              },
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+            visualDensity: VisualDensity.compact,
+            onChanged: (mode) {
+              if (mode != null) setTheme(mode);
+            },
+          ),
+          RadioListTile<ThemeMode>(
+            value: ThemeMode.dark,
+            groupValue: themeMode,
+            title: Text(
+              'Dark mode',
+              style: theme.textTheme.bodyMedium,
             ),
-            RadioListTile<ThemeMode>(
-              value: ThemeMode.dark,
-              groupValue: themeMode,
-              title: Text(
-                'Dark mode',
-                style: theme.textTheme.bodyMedium,
-              ),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
-              visualDensity: VisualDensity.compact,
-              onChanged: (mode) {
-                if (mode != null) setTheme(mode);
-              },
-            ),
-          ],
-        ),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+            visualDensity: VisualDensity.compact,
+            onChanged: (mode) {
+              if (mode != null) setTheme(mode);
+            },
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildAboutSection(ThemeData theme, ColorScheme colorScheme) {
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceBright,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'About',
-              style: theme.textTheme.bodyLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+    return _buildCollapsibleCard(
+      theme: theme,
+      colorScheme: colorScheme,
+      title: 'About',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 4),
+          Text(
+            'Your device is part of a new network. It verifies, executes, and contributes compute directly to the network, passively in the background - with no central servers, no hidden infra. As long as users keep the app running, the network will continue to operate, peer to peer, with no external dependencies.\n\n'
+            'We\'re doing this to enable networks that can be hosted end-to-end by their own communities - both for decentralization, and to enable a natural coordination point around participation, where users who help operate and contribute to systems directly realize the benefits from it.\n\n'
+            'Right now we are in testnet as we validate the core layer: block production, consensus behavior, and network reliability. As these stabilize, we\'ll build upon the unique features of the platform - its decentralization, zero knowledge proofs, and sybil-resistant identity - to introduce new activities, coordination mechanisms, and tools for self-hosted, sybil-resistant communities.\n\n'
+            'Thanks for helping test at this early stage. The app right now is simple, but as we prove out the core functionality, we hope to make possible a new kind of community-owned network, where users can directly run and benefit from the networks they use.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurface.withValues(alpha: 0.7),
+              height: 1.5,
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Your device is part of a new network. It verifies, executes, and contributes compute directly to the network, passively in the background - with no central servers, no hidden infra. As long as users keep the app running, the network will continue to operate, peer to peer, with no external dependencies.\n\n'
-              'We\'re doing this to enable networks that can be hosted end-to-end by their own communities - both for decentralization, and to enable a natural coordination point around participation, where users who help operate and contribute to systems directly realize the benefits from it.\n\n'
-              'Right now we are in testnet as we validate the core layer: block production, consensus behavior, and network reliability. As these stabilize, we\'ll build upon the unique features of the platform - its decentralization, zero knowledge proofs, and sybil-resistant identity - to introduce new activities, coordination mechanisms, and tools for self-hosted, sybil-resistant communities.\n\n'
-              'Thanks for helping test at this early stage. The app right now is simple, but as we prove out the core functionality, we hope to make possible a new kind of community-owned network, where users can directly run and benefit from the networks they use.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurface.withValues(alpha: 0.7),
-                height: 1.5,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -676,72 +636,62 @@ class _BackgroundProductionSettingsScreenState
         ? env.git.commitHash.substring(0, 7)
         : env.git.commitHash;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceBright,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              l10n.settingsBuildInfo,
-              style: theme.textTheme.bodyLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+    return _buildCollapsibleCard(
+      theme: theme,
+      colorScheme: colorScheme,
+      title: l10n.settingsBuildInfo,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 4),
+          // App version and build number
+          if (_packageInfo != null) ...[
+            GestureDetector(
+              onTap: _onVersionTap,
+              behavior: HitTestBehavior.opaque,
+              child: _buildInfoRow(
+                  'App Version', _packageInfo!.version, theme, colorScheme),
             ),
-            const SizedBox(height: 12),
-            // App version and build number
-            if (_packageInfo != null) ...[
-              GestureDetector(
-                onTap: _onVersionTap,
-                behavior: HitTestBehavior.opaque,
-                child: _buildInfoRow(
-                    'App Version', _packageInfo!.version, theme, colorScheme),
-              ),
-              _buildInfoRow('Build Number', _packageInfo!.buildNumber, theme,
-                  colorScheme),
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: Divider(height: 1),
-              ),
-            ],
-            // Node/Rust version
-            _buildInfoRow(
-                l10n.buildInfoVersion, env.version, theme, colorScheme),
-            _buildInfoRow(
-                l10n.buildInfoCommit, shortCommit, theme, colorScheme),
-            _buildInfoRow(
-                l10n.buildInfoBranch, env.git.branch, theme, colorScheme),
-            _buildInfoRow(l10n.buildInfoCommitTime, env.git.commitTime, theme,
+            _buildInfoRow('Build Number', _packageInfo!.buildNumber, theme,
                 colorScheme),
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
               child: Divider(height: 1),
             ),
-            _buildInfoRow(
-                l10n.buildInfoRustc,
-                '${env.rustc.version} (${env.rustc.channel})',
-                theme,
-                colorScheme),
-            _buildInfoRow(
-                l10n.buildInfoLlvm, env.rustc.llvmVersion, theme, colorScheme),
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Divider(height: 1),
-            ),
-            _buildInfoRow(l10n.buildInfoCargoTarget, env.cargo.target, theme,
-                colorScheme),
-            _buildInfoRow(
-                l10n.buildInfoFeatures, env.cargo.features, theme, colorScheme),
-            _buildInfoRow(l10n.buildInfoOptLevel, env.cargo.optLevel.toString(),
-                theme, colorScheme),
-            _buildInfoRow(l10n.buildInfoDebug, env.cargo.isDebug.toString(),
-                theme, colorScheme),
           ],
-        ),
+          // Node/Rust version
+          _buildInfoRow(
+              l10n.buildInfoVersion, env.version, theme, colorScheme),
+          _buildInfoRow(
+              l10n.buildInfoCommit, shortCommit, theme, colorScheme),
+          _buildInfoRow(
+              l10n.buildInfoBranch, env.git.branch, theme, colorScheme),
+          _buildInfoRow(l10n.buildInfoCommitTime, env.git.commitTime, theme,
+              colorScheme),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Divider(height: 1),
+          ),
+          _buildInfoRow(
+              l10n.buildInfoRustc,
+              '${env.rustc.version} (${env.rustc.channel})',
+              theme,
+              colorScheme),
+          _buildInfoRow(
+              l10n.buildInfoLlvm, env.rustc.llvmVersion, theme, colorScheme),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Divider(height: 1),
+          ),
+          _buildInfoRow(l10n.buildInfoCargoTarget, env.cargo.target, theme,
+              colorScheme),
+          _buildInfoRow(
+              l10n.buildInfoFeatures, env.cargo.features, theme, colorScheme),
+          _buildInfoRow(l10n.buildInfoOptLevel, env.cargo.optLevel.toString(),
+              theme, colorScheme),
+          _buildInfoRow(l10n.buildInfoDebug, env.cargo.isDebug.toString(),
+              theme, colorScheme),
+        ],
       ),
     );
   }
@@ -776,60 +726,50 @@ class _BackgroundProductionSettingsScreenState
 
   Widget _buildFeatureOverviewCard(ThemeData theme, ColorScheme colorScheme) {
     final l10n = AppLocalizations.of(context);
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceBright,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              l10n.bgProdWhatIs,
-              style: theme.textTheme.bodyLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+    return _buildCollapsibleCard(
+      theme: theme,
+      colorScheme: colorScheme,
+      title: l10n.bgProdWhatIs,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 4),
+          Text(
+            l10n.bgProdDescription,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurface.withValues(alpha: 0.7),
+              height: 1.5,
             ),
-            const SizedBox(height: 12),
-            Text(
-              l10n.bgProdDescription,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurface.withValues(alpha: 0.7),
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 16),
-            _buildNumberedStep(
-              '1',
-              l10n.bgProdVrfSelection,
-              l10n.bgProdVrfSelectionDesc,
-              colorScheme,
-            ),
-            const SizedBox(height: 12),
-            _buildNumberedStep(
-              '2',
-              l10n.bgProdSlotScheduling,
-              l10n.bgProdSlotSchedulingDesc,
-              colorScheme,
-            ),
-            const SizedBox(height: 12),
-            _buildNumberedStep(
-              '3',
-              l10n.bgProdBlockProduction,
-              l10n.bgProdBlockProductionDesc,
-              colorScheme,
-            ),
-            const SizedBox(height: 12),
-            _buildNumberedStep(
-              '4',
-              l10n.bgProdSuccessTracking,
-              l10n.bgProdSuccessTrackingDesc,
-              colorScheme,
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 16),
+          _buildNumberedStep(
+            '1',
+            l10n.bgProdVrfSelection,
+            l10n.bgProdVrfSelectionDesc,
+            colorScheme,
+          ),
+          const SizedBox(height: 12),
+          _buildNumberedStep(
+            '2',
+            l10n.bgProdSlotScheduling,
+            l10n.bgProdSlotSchedulingDesc,
+            colorScheme,
+          ),
+          const SizedBox(height: 12),
+          _buildNumberedStep(
+            '3',
+            l10n.bgProdBlockProduction,
+            l10n.bgProdBlockProductionDesc,
+            colorScheme,
+          ),
+          const SizedBox(height: 12),
+          _buildNumberedStep(
+            '4',
+            l10n.bgProdSuccessTracking,
+            l10n.bgProdSuccessTrackingDesc,
+            colorScheme,
+          ),
+        ],
       ),
     );
   }
@@ -893,108 +833,91 @@ class _BackgroundProductionSettingsScreenState
     final l10n = AppLocalizations.of(context);
     final isAndroid = Platform.isAndroid;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceBright,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    return _buildCollapsibleCard(
+      theme: theme,
+      colorScheme: colorScheme,
+      title: isAndroid ? l10n.bgProdAndroidTitle : l10n.bgProdIosTitle,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 4),
+          Text(
+            isAndroid ? l10n.bgProdAndroidDesc : l10n.bgProdIosDesc,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurface.withValues(alpha: 0.7),
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Reliability breakdown
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.bgProdReliabilityByMode,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                if (isAndroid) ...[
+                  _buildReliabilityRow(
+                    l10n.bgProdDefaultMode,
+                    l10n.bgProdDefaultReliability,
+                    l10n.bgProdDefaultDesc,
+                    Colors.green,
+                  ),
+                  const SizedBox(height: 8),
+                  _buildReliabilityRow(
+                    l10n.bgProdKeepAliveMode,
+                    l10n.bgProdKeepAliveReliability,
+                    l10n.bgProdKeepAliveDesc,
+                    Colors.blue,
+                  ),
+                ] else ...[
+                  _buildReliabilityRow(
+                    l10n.bgProdKeepAliveMode,
+                    l10n.bgProdIosKeepAliveReliability,
+                    l10n.bgProdIosKeepAliveDesc,
+                    Colors.green,
+                  ),
+                  const SizedBox(height: 8),
+                  _buildReliabilityRow(
+                    l10n.bgProdBackgroundOnly,
+                    l10n.bgProdBackgroundOnlyReliability,
+                    l10n.bgProdBackgroundOnlyDesc,
+                    Colors.orange,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (isAndroid && _deviceManufacturer != null) ...[
+            const SizedBox(height: 12),
             Row(
               children: [
-                Expanded(
-                  child: Text(
-                    isAndroid ? l10n.bgProdAndroidTitle : l10n.bgProdIosTitle,
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                Icon(
+                  Icons.smartphone,
+                  size: 16,
+                  color: colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Device: $_deviceManufacturer',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            Text(
-              isAndroid ? l10n.bgProdAndroidDesc : l10n.bgProdIosDesc,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurface.withValues(alpha: 0.7),
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 16),
-            // Reliability breakdown
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color:
-                    colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.bgProdReliabilityByMode,
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  if (isAndroid) ...[
-                    _buildReliabilityRow(
-                      l10n.bgProdDefaultMode,
-                      l10n.bgProdDefaultReliability,
-                      l10n.bgProdDefaultDesc,
-                      Colors.green,
-                    ),
-                    const SizedBox(height: 8),
-                    _buildReliabilityRow(
-                      l10n.bgProdKeepAliveMode,
-                      l10n.bgProdKeepAliveReliability,
-                      l10n.bgProdKeepAliveDesc,
-                      Colors.blue,
-                    ),
-                  ] else ...[
-                    _buildReliabilityRow(
-                      l10n.bgProdKeepAliveMode,
-                      l10n.bgProdIosKeepAliveReliability,
-                      l10n.bgProdIosKeepAliveDesc,
-                      Colors.green,
-                    ),
-                    const SizedBox(height: 8),
-                    _buildReliabilityRow(
-                      l10n.bgProdBackgroundOnly,
-                      l10n.bgProdBackgroundOnlyReliability,
-                      l10n.bgProdBackgroundOnlyDesc,
-                      Colors.orange,
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            if (isAndroid && _deviceManufacturer != null) ...[
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Icon(
-                    Icons.smartphone,
-                    size: 16,
-                    color: colorScheme.onSurface.withValues(alpha: 0.6),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Device: $_deviceManufacturer',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurface.withValues(alpha: 0.6),
-                    ),
-                  ),
-                ],
-              ),
-            ],
           ],
-        ),
+        ],
       ),
     );
   }
@@ -1052,129 +975,167 @@ class _BackgroundProductionSettingsScreenState
   }
 
   Widget _buildVrfExplanationCard(ThemeData theme, ColorScheme colorScheme) {
+    return _buildCollapsibleCard(
+      theme: theme,
+      colorScheme: colorScheme,
+      title: 'Understanding VRF & Slots',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 4),
+          // What is VRF
+          Text(
+            'What is VRF?',
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'VRF (Verifiable Random Function) is how the network fairly selects block producers. At the start of each epoch, the network runs VRF calculations to determine which validators will produce blocks in upcoming slots.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurface.withValues(alpha: 0.7),
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 16),
+          // VRF Status meanings
+          Text(
+            'VRF Status Meanings',
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          _buildStatusExplanation(
+            'Pending',
+            'Waiting for epoch transition to start calculations',
+            Colors.grey,
+            colorScheme,
+          ),
+          const SizedBox(height: 6),
+          _buildStatusExplanation(
+            'Calculating',
+            'VRF evaluation in progress (takes a few hours)',
+            Colors.orange,
+            colorScheme,
+          ),
+          const SizedBox(height: 6),
+          _buildStatusExplanation(
+            'Complete',
+            'Slot assignments are finalized and scheduled',
+            Colors.green,
+            colorScheme,
+          ),
+          const SizedBox(height: 16),
+          // What is a won slot
+          Text(
+            'What is a "Won Slot"?',
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'When VRF selects your node to produce a block at a specific time, you\'ve "won" that slot. Your responsibility is to have your device awake and connected so the block can be produced.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurface.withValues(alpha: 0.7),
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Why timing matters
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.amber.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: Colors.amber.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.timer,
+                  size: 20,
+                  color: Colors.amber.shade700,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Why Timing Matters',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.amber.shade800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Each slot has a ~3-minute window. If your device doesn\'t wake up in time or loses network connectivity, the slot is missed and counted as "failed."',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurface.withValues(alpha: 0.7),
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCollapsibleCard({
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+    required String title,
+    required Widget child,
+    String? subtitle,
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.surfaceBright,
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Understanding VRF & Slots',
-              style: theme.textTheme.bodyLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+      child: Theme(
+        data: theme.copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          title: Text(
+            title,
+            style: theme.textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.w600,
             ),
-            const SizedBox(height: 16),
-            // What is VRF
-            Text(
-              'What is VRF?',
-              style: theme.textTheme.labelLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'VRF (Verifiable Random Function) is how the network fairly selects block producers. At the start of each epoch, the network runs VRF calculations to determine which validators will produce blocks in upcoming slots.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurface.withValues(alpha: 0.7),
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 16),
-            // VRF Status meanings
-            Text(
-              'VRF Status Meanings',
-              style: theme.textTheme.labelLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            _buildStatusExplanation(
-              'Pending',
-              'Waiting for epoch transition to start calculations',
-              Colors.grey,
-              colorScheme,
-            ),
-            const SizedBox(height: 6),
-            _buildStatusExplanation(
-              'Calculating',
-              'VRF evaluation in progress (takes a few hours)',
-              Colors.orange,
-              colorScheme,
-            ),
-            const SizedBox(height: 6),
-            _buildStatusExplanation(
-              'Complete',
-              'Slot assignments are finalized and scheduled',
-              Colors.green,
-              colorScheme,
-            ),
-            const SizedBox(height: 16),
-            // What is a won slot
-            Text(
-              'What is a "Won Slot"?',
-              style: theme.textTheme.labelLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'When VRF selects your node to produce a block at a specific time, you\'ve "won" that slot. Your responsibility is to have your device awake and connected so the block can be produced.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurface.withValues(alpha: 0.7),
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 16),
-            // Why timing matters
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.amber.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: Colors.amber.withValues(alpha: 0.3),
-                ),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    Icons.timer,
-                    size: 20,
-                    color: Colors.amber.shade700,
+          ),
+          subtitle: subtitle != null
+              ? Text(
+                  subtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Why Timing Matters',
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: Colors.amber.shade800,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Each slot has a ~3-minute window. If your device doesn\'t wake up in time or loses network connectivity, the slot is missed and counted as "failed."',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurface.withValues(alpha: 0.7),
-                            height: 1.4,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+                )
+              : null,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          collapsedShape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          collapsedBackgroundColor: colorScheme.surfaceBright,
+          backgroundColor: colorScheme.surfaceBright,
+          iconColor: colorScheme.onSurfaceVariant,
+          collapsedIconColor: colorScheme.onSurfaceVariant,
+          initiallyExpanded: false,
+          children: [child],
         ),
       ),
     );

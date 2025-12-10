@@ -21,6 +21,8 @@ import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
 import 'package:crypto_mobile_app/features/node/produced_blocks_provider.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/core/services/app_version_check.dart';
+import 'package:crypto_mobile_app/core/services/android_foreground_keepalive_service.dart';
+import 'dart:io' show Platform;
 
 Future<void> main() async {
   // NOTE: Do NOT call WidgetsFlutterBinding.ensureInitialized() here.
@@ -135,6 +137,12 @@ Future<void> _bootstrapAsync(
     // Initialize background block production orchestrator
     log.info('Initializing background block production orchestrator');
     await BackgroundBlockProductionOrchestrator.instance.initialize();
+
+    // Start persistent foreground service on Android to keep app alive
+    if (Platform.isAndroid) {
+      log.info('Starting Android foreground keepalive service');
+      await AndroidForegroundKeepAliveService.instance.startKeepAlive();
+    }
 
     SentryUtil.addBreadcrumb(category: 'app', message: 'bootstrap end');
   } catch (e, st) {

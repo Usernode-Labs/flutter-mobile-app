@@ -811,7 +811,7 @@
   "@permBatteryWhyMatters": {
     "description": "Section title for battery optimization explanation"
   },
-  "permBatteryAndroidExplanation": "Android's battery saver can delay or skip alarms to save power. Disabling battery optimization for this app ensures your wake-up alarms fire on time when blocks are scheduled to be produced.",
+  "permBatteryAndroidExplanation": "Android's battery optimization can delay or prevent background tasks from running. Disabling it for this app ensures it can wake up on time to produce your scheduled blocks, even when the phone is idle. Settings may vary by device.",
   "@permBatteryAndroidExplanation": {
     "description": "Android explanation for battery optimization"
   },
@@ -851,16 +851,16 @@
     "description": "Status when battery optimization is enabled"
   },
 
-  "onboardingBatteryStepAppUsage": "Tap \"App Battery Usage\"",
+  "onboardingBatteryStepAppUsage": "Look for \"Battery\", \"App Battery Usage\", or \"Battery Optimization\" in the settings page",
   "@onboardingBatteryStepAppUsage": {
     "description": "Step instruction to tap App Battery Usage in system settings"
   },
-  "onboardingBatteryStepAllowBackground": "Turn \"Allow background usage\" ON",
+  "onboardingBatteryStepAllowBackground": "Disable battery optimization or set the app to \"Unrestricted\" / \"No restrictions\" / \"Don't optimize\"",
   "@onboardingBatteryStepAllowBackground": {
     "description": "Step instruction to enable background usage"
   },
   "onboardingBatteryStepTapText":
-      "Tap the TEXT itself. Tap the words \"Allow background usage\" to open the detailed menu.",
+      "If available, tap on \"Allow background usage\" to access more options",
   "@onboardingBatteryStepTapText": {
     "description": "Step instruction explaining to tap the text label"
   },
@@ -869,7 +869,7 @@
     "description": "Step instruction to select Unrestricted mode"
   },
   "onboardingBatteryStepReturnToApp":
-      "Tap the back button until you are back in the app.",
+      "Tap the back button until you return to the app",
   "@onboardingBatteryStepReturnToApp": {
     "description": "Step instruction to return to the app from settings"
   },
@@ -907,11 +907,11 @@
     "description": "Button to allow notifications"
   },
 
-  "permNotificationsBlockBackgroundTitle": "Allow notifications to allow the app to make blocks in the background",
+  "permNotificationsBlockBackgroundTitle": "Allow notifications to maximize your block production success rate",
   "@permNotificationsBlockBackgroundTitle": {
     "description": "Title explaining why notifications are needed for background block production"
   },
-  "permNotificationsBlockBackgroundBody": "Android requires a visible status to allow the app to work in the background. Without it, the system will be unable to do background block production.",
+  "permNotificationsBlockBackgroundBody": "Notifications are essential for background block production. They alert you when your slots are coming up and ensure the app stays active to produce blocks.",
   "@permNotificationsBlockBackgroundBody": {
     "description": "Body text explaining Android's requirement for a visible status"
   },

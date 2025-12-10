@@ -621,7 +621,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get permBatteryAndroidExplanation =>
-      'Android\'s battery saver can delay or skip alarms to save power. Disabling battery optimization for this app ensures your wake-up alarms fire on time when blocks are scheduled to be produced.';
+      'Android\'s battery optimization can delay or prevent background tasks from running. Disabling it for this app ensures it can wake up on time to produce your scheduled blocks, even when the phone is idle. Settings may vary by device.';
 
   @override
   String get permBatteryIosExplanation =>
@@ -653,22 +653,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String get permBatteryOptEnabled => 'Battery optimization enabled';
 
   @override
-  String get onboardingBatteryStepAppUsage => 'Tap \"App Battery Usage\"';
+  String get onboardingBatteryStepAppUsage =>
+      'Look for \"Battery\", \"App Battery Usage\", or \"Battery Optimization\" in the settings page';
 
   @override
   String get onboardingBatteryStepAllowBackground =>
-      'Turn \"Allow background usage\" ON';
+      'Disable battery optimization or set the app to \"Unrestricted\" / \"No restrictions\" / \"Don\'t optimize\"';
 
   @override
   String get onboardingBatteryStepTapText =>
-      'Tap the TEXT itself. Tap the words \"Allow background usage\" to open the detailed menu.';
+      'If available, tap on \"Allow background usage\" to access more options';
 
   @override
   String get onboardingBatteryStepSelectUnrestricted => 'Select Unrestricted';
 
   @override
   String get onboardingBatteryStepReturnToApp =>
-      'Tap the back button until you are back in the app.';
+      'Tap the back button until you return to the app';
 
   @override
   String get onboardingBatteryUnrestrictedTitle => 'Background Usage Enabled';
@@ -697,11 +698,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get permNotificationsBlockBackgroundTitle =>
-      'Allow notifications to allow the app to make blocks in the background';
+      'Allow notifications to maximize your block production success rate';
 
   @override
   String get permNotificationsBlockBackgroundBody =>
-      'Android requires a visible status to allow the app to work in the background. Without it, the system will be unable to do background block production.';
+      'Notifications are essential for background block production. They alert you when your slots are coming up and ensure the app stays active to produce blocks.';
 
   @override
   String get permNotificationsSkip => 'Skip';

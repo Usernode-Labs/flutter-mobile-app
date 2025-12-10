@@ -86,8 +86,8 @@ class SlotMonitoringService : Service() {
         Log.i(TAG, "[SlotMonitoringService] ✓ Starting foreground monitoring for slot $slotNumber")
 
         val notification = createNotification(
-            title = "Block Production Monitoring",
-            message = "Monitoring slot $slotNumber for block production"
+            title = "Slots Coming Up",
+            message = "Open the app to increase your chances of producing blocks"
         )
 
         try {
@@ -135,8 +135,8 @@ class SlotMonitoringService : Service() {
         Log.i(TAG, "[SlotMonitoringService] ✓ Starting persistent foreground mode")
 
         val notification = createNotification(
-            title = "Block Production Active",
-            message = "Monitoring for block production opportunities"
+            title = "Slots Coming Up",
+            message = "Open the app to increase your chances of producing blocks"
         )
 
         try {

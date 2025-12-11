@@ -73,9 +73,6 @@ class BackgroundBlockProductionOrchestrator {
     try {
       _log.info('Initializing BackgroundBlockProductionOrchestrator...');
 
-      // Initialize SlotMonitorService first
-      await SlotMonitorService.instance.initialize();
-
       // Load persisted state
       _state = await _stateRepository.load();
       _log.info('Loaded state: ${_state.toString()}');

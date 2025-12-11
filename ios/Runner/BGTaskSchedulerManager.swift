@@ -191,8 +191,8 @@ class BGTaskSchedulerManager {
         print("[BGTaskScheduler] Notification time: \(alarmDate)")
 
         let content = UNMutableNotificationContent()
-        content.title = "Slots Coming Up"
-        content.body = "Open the app to increase your chances of producing blocks"
+        content.title = "Block Production Time"
+        content.body = "Slot \(slotNumber) is coming up. Tap to start monitoring."
         content.sound = .default
 
         if #available(iOS 15.0, *) {

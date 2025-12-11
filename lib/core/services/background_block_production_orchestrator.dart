@@ -38,10 +38,6 @@ class BackgroundBlockProductionOrchestrator {
   // State
   BlockProductionState _state = BlockProductionState.initial();
   bool _initialized = false;
-  DateTime? _lastNotificationTime;
-
-  // Rate limiting: max 1 notification per 20 minutes
-  static const _notificationRateLimitDuration = Duration(minutes: 20);
   Timer? _epochMonitoringTimer;
   StreamSubscription<SlotMonitoringEvent>? _monitoringSubscription;
 
@@ -76,9 +72,6 @@ class BackgroundBlockProductionOrchestrator {
 
     try {
       _log.info('Initializing BackgroundBlockProductionOrchestrator...');
-
-      // Initialize SlotMonitorService first
-      await SlotMonitorService.instance.initialize();
 
       // Load persisted state
       _state = await _stateRepository.load();
@@ -931,24 +924,9 @@ class BackgroundBlockProductionOrchestrator {
     }
   }
 
-  /// Check if a notification can be sent based on rate limiting
-  bool _canSendNotification() {
-    if (_lastNotificationTime == null) return true;
-    final cutoff = DateTime.now().subtract(_notificationRateLimitDuration);
-    return _lastNotificationTime!.isBefore(cutoff);
-  }
-
   /// Schedule platform alarm for a specific slot
   Future<bool> _scheduleSlotAlarm(ScheduledSlot slot) async {
     try {
-      // Check rate limiting before scheduling
-      if (!_canSendNotification()) {
-        _log.debug(
-          'Rate limited: skipping alarm for slot ${slot.slotNumber} (last notification at $_lastNotificationTime)',
-        );
-        return false;
-      }
-
       _log.debug(
         'Scheduling alarm for slot ${slot.slotNumber} at ${slot.alarmTime}',
       );
@@ -966,9 +944,6 @@ class BackgroundBlockProductionOrchestrator {
 
       if (success) {
         _log.info('Successfully scheduled alarm for slot ${slot.slotNumber}');
-
-        // Update last notification time for rate limiting
-        _lastNotificationTime = DateTime.now();
 
         // Emit alarm scheduled event
         _emitEvent(BlockProductionAlarmScheduledEvent(

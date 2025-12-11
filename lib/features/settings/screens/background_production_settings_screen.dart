@@ -691,20 +691,22 @@ class _BackgroundProductionSettingsScreenState
               child: _buildInfoRow(
                   'App Version', _packageInfo!.version, theme, colorScheme),
             ),
-            _buildInfoRow(
-                'Build Number', _packageInfo!.buildNumber, theme, colorScheme),
+            _buildInfoRow('Build Number', _packageInfo!.buildNumber, theme,
+                colorScheme),
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
               child: Divider(height: 1),
             ),
           ],
           // Node/Rust version
-          _buildInfoRow(l10n.buildInfoVersion, env.version, theme, colorScheme),
-          _buildInfoRow(l10n.buildInfoCommit, shortCommit, theme, colorScheme),
+          _buildInfoRow(
+              l10n.buildInfoVersion, env.version, theme, colorScheme),
+          _buildInfoRow(
+              l10n.buildInfoCommit, shortCommit, theme, colorScheme),
           _buildInfoRow(
               l10n.buildInfoBranch, env.git.branch, theme, colorScheme),
-          _buildInfoRow(
-              l10n.buildInfoCommitTime, env.git.commitTime, theme, colorScheme),
+          _buildInfoRow(l10n.buildInfoCommitTime, env.git.commitTime, theme,
+              colorScheme),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 8),
             child: Divider(height: 1),
@@ -720,8 +722,8 @@ class _BackgroundProductionSettingsScreenState
             padding: EdgeInsets.symmetric(vertical: 8),
             child: Divider(height: 1),
           ),
-          _buildInfoRow(
-              l10n.buildInfoCargoTarget, env.cargo.target, theme, colorScheme),
+          _buildInfoRow(l10n.buildInfoCargoTarget, env.cargo.target, theme,
+              colorScheme),
           _buildInfoRow(
               l10n.buildInfoFeatures, env.cargo.features, theme, colorScheme),
           _buildInfoRow(l10n.buildInfoOptLevel, env.cargo.optLevel.toString(),
@@ -1113,7 +1115,7 @@ class _BackgroundProductionSettingsScreenState
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Each slot has a ~5-seconds window. If your device doesn\'t wake up in time or loses network connectivity, the slot is missed and counted as "failed."',
+                        'Each slot has a ~3-minute window. If your device doesn\'t wake up in time or loses network connectivity, the slot is missed and counted as "failed."',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colorScheme.onSurface.withValues(alpha: 0.7),
                           height: 1.4,

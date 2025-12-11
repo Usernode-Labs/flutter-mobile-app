@@ -22,11 +22,6 @@ class SlotMonitoringService : Service() {
         private const val CHANNEL_ID = "slot_monitoring_channel"
         private const val CHANNEL_NAME = "Slot Monitoring"
 
-        // Rate limiting: max 1 user-visible notification per 20 minutes
-        private const val NOTIFICATION_RATE_LIMIT_MS = 20 * 60 * 1000L // 20 minutes
-        private const val PREFS_NAME = "slot_monitoring_prefs"
-        private const val PREF_LAST_NOTIFICATION_TIME = "last_notification_time"
-
         // Track persistent mode state globally so it can be queried
         @Volatile
         var isPersistentModeActive = false
@@ -86,39 +81,14 @@ class SlotMonitoringService : Service() {
         return START_STICKY
     }
 
-    private fun canShowNotification(): Boolean {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val lastNotificationTime = prefs.getLong(PREF_LAST_NOTIFICATION_TIME, 0)
-        val now = System.currentTimeMillis()
-        val canShow = (now - lastNotificationTime) >= NOTIFICATION_RATE_LIMIT_MS
-        Log.d(TAG, "[SlotMonitoringService] canShowNotification: $canShow (last: $lastNotificationTime, now: $now, diff: ${now - lastNotificationTime}ms)")
-        return canShow
-    }
-
-    private fun updateLastNotificationTime() {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putLong(PREF_LAST_NOTIFICATION_TIME, System.currentTimeMillis()).apply()
-        Log.d(TAG, "[SlotMonitoringService] Updated last notification time")
-    }
-
     private fun startMonitoring(slotNumber: Int) {
         currentSlotNumber = slotNumber
         Log.i(TAG, "[SlotMonitoringService] ✓ Starting foreground monitoring for slot $slotNumber")
 
-        // Check rate limiting for user-visible notification
-        val shouldShowFullNotification = canShowNotification()
-
-        val notification = if (shouldShowFullNotification) {
-            Log.d(TAG, "[SlotMonitoringService] Showing full notification (not rate limited)")
-            updateLastNotificationTime()
-            createNotification(
-                title = "Slots Coming Up",
-                message = "Open the app to increase your chances of producing blocks"
-            )
-        } else {
-            Log.d(TAG, "[SlotMonitoringService] Rate limited - showing silent notification")
-            createSilentNotification()
-        }
+        val notification = createNotification(
+            title = "Slots Coming Up",
+            message = "Open the app to increase your chances of producing blocks"
+        )
 
         try {
             startForeground(NOTIFICATION_ID, notification)
@@ -251,31 +221,6 @@ class SlotMonitoringService : Service() {
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setOngoing(true)
             .setContentIntent(pendingIntent)
-            .build()
-    }
-
-    // Silent notification for rate-limited cases (required for foreground service)
-    private fun createSilentNotification(): Notification {
-        val intent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-        }
-
-        val pendingIntent = PendingIntent.getActivity(
-            this,
-            0,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Block Production Active")
-            .setContentText("Monitoring in progress")
-            .setSmallIcon(android.R.drawable.ic_menu_info_details)
-            .setPriority(NotificationCompat.PRIORITY_MIN)
-            .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .setOngoing(true)
-            .setContentIntent(pendingIntent)
-            .setSilent(true)
             .build()
     }
 

@@ -182,6 +182,7 @@ class LoggingService {
       case Level.warning:
         return SentryLevel.warning;
       case Level.error:
+        return SentryLevel.error;
       case Level.fatal:
         return SentryLevel.fatal;
       default:

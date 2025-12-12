@@ -169,6 +169,21 @@ class SentryUtil {
     ));
   }
 
+  /// Log a routine RPC operation as a breadcrumb (not an Issue).
+  /// Use this for normal operational data that should only appear
+  /// when an actual error occurs.
+  static void logRpcBreadcrumb(
+    String rpcMethod,
+    Map<String, dynamic> data,
+  ) {
+    addBreadcrumb(
+      category: 'rpc',
+      message: rpcMethod,
+      data: data,
+      level: SentryLevel.info,
+    );
+  }
+
   static Future<void> setUser({
     String? id,
     String? username,

@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
+import 'package:crypto_mobile_app/core/utils/sentry.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 final _log = LoggingService.instance.withTag('RegistrationRepository');
 
@@ -48,8 +50,19 @@ class RegistrationRepository {
             }),
           )
           .timeout(const Duration(seconds: 15));
-    } catch (e) {
+    } catch (e, stackTrace) {
       _log.warn('Registration request failed: $e');
+      await SentryUtil.captureError(
+        e,
+        stackTrace,
+        tag: 'registration',
+        context: {
+          'registration': {
+            'identifier': identifier,
+            'error_type': 'network_error',
+          },
+        },
+      );
       rethrow;
     }
 
@@ -80,6 +93,19 @@ class RegistrationRepository {
 
     // Map known error codes to messages
     final message = _friendlyErrorMessage(resp);
+
+    // Log API error to Sentry
+    await SentryUtil.captureMessageWithData(
+      'Registration API error',
+      {
+        'identifier': identifier,
+        'status_code': resp.statusCode,
+        'response_body': resp.body,
+        'error_message': message,
+      },
+      level: SentryLevel.error,
+    );
+
     throw RegistrationApiException(resp.statusCode, message, body: resp.body);
   }
 

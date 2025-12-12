@@ -36,7 +36,7 @@ jobs:
         with:
           repository: Usernode-Labs/usernode
           path: usernode
-          ref: refactor/rug-integer
+          ref: main
           token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
 
       - name: Move usernode repository next to workspace
@@ -315,7 +315,7 @@ jobs:
         with:
           repository: Usernode-Labs/usernode
           path: usernode
-          ref: refactor/rug-integer
+          ref: main
           token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
 
       - name: Determine usernode revision
@@ -357,7 +357,7 @@ jobs:
         with:
           repository: Usernode-Labs/usernode
           path: usernode
-          ref: refactor/rug-integer
+          ref: main
           token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
 
       - name: Move usernode repository next to workspace
@@ -610,7 +610,7 @@ jobs:
         run: |
           bundle exec fastlane ios release flavor:production
 
-  # Notify and tagging disabled for GMP testing
+  # Notify disabled for GMP testing
   notify:
     if: false
     name: Send Notification
@@ -620,17 +620,53 @@ jobs:
       - run: echo "Notifications disabled for GMP testing"
 
   tag:
-    if: false
-    name: Tag Develop Build
+    name: Tag GMP Build
     runs-on: ubuntu-latest
     needs: [build-android, build-ios]
+    if: >
+      github.ref == 'refs/heads/chore/gmp-dev-asm' &&
+      needs.build-android.result == 'success' &&
+      needs.build-ios.result == 'success'
     steps:
-      - run: echo "Tagging disabled for GMP testing"
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GMP CI tag
+        env:
+          BUILD_VERSION: ${{ needs.build-android.outputs.version }}
+        run: |
+          set -euo pipefail
+          TAG_NAME="gmp-ci-v${BUILD_VERSION}-run${GITHUB_RUN_NUMBER}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG_NAME" -m "GMP CI build for run ${GITHUB_RUN_NUMBER}"
+          git push origin "$TAG_NAME"
 
   tag-release:
-    if: false
-    name: Tag Production Release
+    name: Tag GMP Release
     runs-on: ubuntu-latest
     needs: [build-android, build-ios]
+    if: >
+      github.ref == 'refs/heads/chore/gmp-dev-asm' &&
+      needs.build-android.result == 'success' &&
+      needs.build-ios.result == 'success'
     steps:
-      - run: echo "Tagging disabled for GMP testing"
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GMP release tag
+        env:
+          BUILD_VERSION: ${{ needs.build-android.outputs.version }}
+        run: |
+          set -euo pipefail
+          TAG_NAME="gmp-v${BUILD_VERSION}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG_NAME" -m "GMP release v${BUILD_VERSION}"
+          git push origin "$TAG_NAME"

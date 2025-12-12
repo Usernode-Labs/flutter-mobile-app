@@ -60,7 +60,7 @@ jobs:
         with:
           repository: Usernode-Labs/usernode
           path: usernode
-          ref: refactor/rug-integer
+          ref: main
           token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
 
       - name: Determine usernode revision
@@ -124,7 +124,7 @@ jobs:
         with:
           repository: Usernode-Labs/usernode
           path: usernode
-          ref: refactor/rug-integer
+          ref: main
           token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
 
       - name: Move usernode repository next to workspace
@@ -397,7 +397,7 @@ jobs:
         with:
           repository: Usernode-Labs/usernode
           path: usernode
-          ref: refactor/rug-integer
+          ref: main
           token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
 
       - name: Move usernode repository next to workspace
@@ -652,12 +652,30 @@ jobs:
           retention-days: 90
 
   tag:
-    if: false
     name: Create Tag
     runs-on: ubuntu-latest
     needs: [build-android, build-ios]
+    if: >
+      needs.build-android.result == 'success' &&
+      needs.build-ios.result == 'success'
     steps:
-      - run: echo "Tagging disabled for GMP testing"
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GMP tag
+        env:
+          TAG_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          set -euo pipefail
+          TAG_NAME="gmp-${TAG_VERSION}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG_NAME" -m "GMP manual build: ${TAG_VERSION} (build ${{ needs.build-android.outputs.build_number }})"
+          git push origin "$TAG_NAME"
 
   notify:
     if: false

@@ -82,10 +82,10 @@ String networkPrefix = '';
 // Network-prefixed keys
 String get _kEpochsWithDataKey =>
     NetworkPrefs.prefixKey(_kEpochsWithDataKeyBase + ':' + networkPrefix);
-String get _kProducedBlockMetadataKeyPrefix =>
-    NetworkPrefs.prefixKey(_kProducedBlockMetadataKeyPrefixBase + ':' + networkPrefix);
-String get _kEpochSlotResultsKeyPrefix =>
-    NetworkPrefs.prefixKey(_kEpochSlotResultsKeyPrefixBase + ':' + networkPrefix);
+String get _kProducedBlockMetadataKeyPrefix => NetworkPrefs.prefixKey(
+    _kProducedBlockMetadataKeyPrefixBase + ':' + networkPrefix);
+String get _kEpochSlotResultsKeyPrefix => NetworkPrefs.prefixKey(
+    _kEpochSlotResultsKeyPrefixBase + ':' + networkPrefix);
 
 Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
   final stopwatch = Stopwatch()..start();

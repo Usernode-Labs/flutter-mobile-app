@@ -20,11 +20,11 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 
 final _log = LoggingService.instance.withTag('MetricsCollector');
 
-/// Hashes a device ID using SHA-256 (truncated to 16 chars) for privacy
+/// Hashes a device ID using MD5 (32 chars) for privacy
 String _hashDeviceId(String deviceId) {
   final bytes = utf8.encode(deviceId);
-  final digest = sha256.convert(bytes);
-  return digest.toString().substring(0, 16);
+  final digest = md5.convert(bytes);
+  return digest.toString();
 }
 
 /// Service responsible for collecting all metrics from various sources

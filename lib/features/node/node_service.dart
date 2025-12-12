@@ -64,7 +64,8 @@ class RustBackendService {
       _instance ??= RustBackendService._();
 
   bool _initialized = false;
-  Completer<void>? _initCompleter; // Prevents race condition on concurrent init() calls
+  Completer<void>?
+      _initCompleter; // Prevents race condition on concurrent init() calls
   bool _nodeRunning = false;
   String? _instanceId;
   String? _cachedPeerId;

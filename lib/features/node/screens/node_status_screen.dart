@@ -106,10 +106,10 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       final iosInfo = await deviceInfo.iosInfo;
       rawDeviceId = iosInfo.identifierForVendor ?? 'unknown';
     }
-    // Hash the device ID (same as metrics collector)
+    // Hash the device ID (same as metrics collector - MD5 32 chars)
     final bytes = utf8.encode(rawDeviceId);
-    final digest = sha256.convert(bytes);
-    final hashedDeviceId = digest.toString().substring(0, 16);
+    final digest = md5.convert(bytes);
+    final hashedDeviceId = digest.toString();
 
     if (!mounted) return;
     setState(() {

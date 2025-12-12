@@ -507,36 +507,7 @@ class RustBackendService {
       final peerCount = peersList.length;
       final outgoing = peerCount - incoming;
 
-      // Always send an event for observability; attach payload when enabled
-      if (SentryUtil.logStatusPayload) {
-        await SentryUtil.captureMessageWithAttachment(
-          'rpc.getStatus',
-          filename: 'getStatus.json',
-          content: json,
-          extras: {
-            'peerCount': peerCount,
-            'connected': connected,
-            'connecting': connecting,
-            'disconnected': disconnected,
-            'disconnecting': disconnecting,
-            'incoming': incoming,
-            'outgoing': outgoing,
-            if (status == null) 'nullStatus': true,
-          },
-        );
-      } else {
-        await SentryUtil.captureMessageWithData('rpc.getStatus', {
-          'peerCount': peerCount,
-          'connected': connected,
-          'connecting': connecting,
-          'disconnected': disconnected,
-          'disconnecting': disconnecting,
-          'incoming': incoming,
-          'outgoing': outgoing,
-          if (status == null) 'nullStatus': true,
-        });
-      }
-
+      // Log as breadcrumb only (not an Issue) for routine RPC operations
       SentryUtil.addBreadcrumb(
         category: 'rpc',
         message: 'getStatus ok',
@@ -546,6 +517,8 @@ class RustBackendService {
           'connecting': connecting,
           'disconnected': disconnected,
           'disconnecting': disconnecting,
+          'incoming': incoming,
+          'outgoing': outgoing,
         },
       );
     } catch (e, st) {
@@ -663,15 +636,10 @@ class RustBackendService {
       final json = jsonEncode(fullResponse);
       _log.debug('listBlockchain response: $json');
 
-      await SentryUtil.captureMessageWithData('rpc.listBlockchain', {
-        'totalBlocks': totalBlocks.toString(),
-        'itemsCount': itemsCount,
-        if (blockchain == null) 'nullBlockchain': true,
-      });
-
+      // Log as breadcrumb only (not an Issue) for routine RPC operations
       SentryUtil.addBreadcrumb(
         category: 'rpc',
-        message: 'listBlockchain  ok',
+        message: 'listBlockchain ok',
         data: {
           'totalBlocks': totalBlocks.toString(),
           'itemsCount': itemsCount,
@@ -753,14 +721,7 @@ class RustBackendService {
       final json = jsonEncode(fullResponse);
       _log.trace('listMempool response: $json');
 
-      await SentryUtil.captureMessageWithData('rpc.listMempool', {
-        'count': count.toString(),
-        'orphans': orphans.toString(),
-        'totalSize': totalSize.toString(),
-        'entriesCount': entriesCount,
-        if (mempool == null) 'nullMempool': true,
-      });
-
+      // Log as breadcrumb only (not an Issue) for routine RPC operations
       SentryUtil.addBreadcrumb(
         category: 'rpc',
         message: 'listMempool ok',
@@ -854,16 +815,7 @@ class RustBackendService {
       final json = jsonEncode(fullResponse);
       _log.debug('epochRewards response: $json');
 
-      await SentryUtil.captureMessageWithData('rpc.epochRewards', {
-        'epoch': epochNum,
-        'rewardPerBlock': rewardPerBlock.toString(),
-        'producedInEpoch': producedInEpoch,
-        'winsInEpoch': winsInEpoch,
-        'earnedSoFar': earnedSoFar.toString(),
-        'expectedTotal': expectedTotal.toString(),
-        if (rewards == null) 'nullRewards': true,
-      });
-
+      // Log as breadcrumb only (not an Issue) for routine RPC operations
       SentryUtil.addBreadcrumb(
         category: 'rpc',
         message: 'epochRewards ok',
@@ -922,13 +874,7 @@ class RustBackendService {
         'listUtxosByOwner response: itemsCount=$itemsCount',
       );
 
-      // Avoid calling owner.toString() here since PublicKeyHash may be disposed
-      await SentryUtil.captureMessageWithData('rpc.listUtxosByOwner', {
-        'itemsCount': itemsCount,
-        if (limit != null) 'limit': limit,
-        if (utxos == null) 'nullUtxos': true,
-      });
-
+      // Log as breadcrumb only (not an Issue) for routine RPC operations
       SentryUtil.addBreadcrumb(
         category: 'rpc',
         message: 'listUtxosByOwner ok',
@@ -988,15 +934,7 @@ class RustBackendService {
         'transferFunds response: queued=$queued, error=$error',
       );
 
-      await SentryUtil.captureMessageWithData('rpc.transferFunds', {
-        'queued': queued,
-        'fromPkHash': fromPkHash.toString(),
-        'toPkHash': toPkHash.toString(),
-        'amount': amount.toString(),
-        if (error != null) 'error': error,
-        if (response == null) 'nullResponse': true,
-      });
-
+      // Log as breadcrumb only (not an Issue) for routine RPC operations
       SentryUtil.addBreadcrumb(
         category: 'rpc',
         message: 'transferFunds ${queued ? 'queued' : 'failed'}',

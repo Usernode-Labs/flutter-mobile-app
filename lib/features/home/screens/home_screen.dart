@@ -5,6 +5,8 @@ import 'package:crypto_mobile_app/features/node/screens/node_status_screen.dart'
 import 'package:crypto_mobile_app/features/settings/screens/background_production_settings_screen.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
+import 'package:crypto_mobile_app/core/providers/providers.dart';
+import 'package:crypto_mobile_app/core/config/theme.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -30,6 +32,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final currentNetwork = ref.watch(currentNetworkProvider);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
+    // Conditional colors based on network
+    final backgroundColor = currentNetwork == 'internal'
+        ? MaterialTheme.getInternalNetworkBackgroundColor(isDark)
+        : theme.colorScheme.surfaceBright;
+    
+    final borderColor = currentNetwork == 'internal'
+        ? MaterialTheme.getInternalNetworkBorderColor(isDark)
+        : theme.colorScheme.outlineVariant;
 
     return Scaffold(
       body: IndexedStack(
@@ -42,10 +56,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceBright,
+          color: backgroundColor,
           border: Border(
             top: BorderSide(
-              color: Theme.of(context).colorScheme.outlineVariant,
+              color: borderColor,
               width: 1,
             ),
           ),

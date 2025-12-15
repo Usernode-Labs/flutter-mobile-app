@@ -35,6 +35,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final currentNetwork = ref.watch(currentNetworkProvider);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final screenWidth = MediaQuery.of(context).size.width;
     
     // Conditional colors based on network
     final backgroundColor = currentNetwork == 'internal'
@@ -67,6 +68,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: NavigationBar(
           backgroundColor: Colors.transparent,
           selectedIndex: _index,
+          labelBehavior: screenWidth < 360 
+              ? NavigationDestinationLabelBehavior.alwaysHide 
+              : NavigationDestinationLabelBehavior.alwaysShow,
           onDestinationSelected: (i) {
             setState(() => _index = i);
             ref.read(currentHomeTabProvider.notifier).state = i;

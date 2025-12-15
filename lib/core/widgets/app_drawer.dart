@@ -16,22 +16,8 @@ class AppDrawer extends ConsumerStatefulWidget {
 }
 
 class _AppDrawerState extends ConsumerState<AppDrawer> {
-  int _tapCount = 0;
-  DateTime? _lastTapTime;
-
-  void _onVersionTap() {
-    final now = DateTime.now();
-    if (_lastTapTime != null &&
-        now.difference(_lastTapTime!).inMilliseconds > 500) {
-      _tapCount = 0;
-    }
-    _lastTapTime = now;
-    _tapCount++;
-
-    if (_tapCount >= 3) {
-      _tapCount = 0;
-      _showPinDialog();
-    }
+  void _onVersionLongPress() {
+    _showPinDialog();
   }
 
   Future<void> _showPinDialog() async {
@@ -130,12 +116,10 @@ class _AppDrawerState extends ConsumerState<AppDrawer> {
         title: const Text('Restart Required'),
         content: Text(
           'Network switched to ${network == 'testnet' ? 'Testnet' : 'Internal'}. '
-          '${Platform.isIOS 
-            ? 'Please manually close and reopen the app to connect to the new network.'
-            : 'The app will now close. Please reopen it to connect to the new network.'}',
+          '${Platform.isIOS ? 'Please manually close and reopen the app to connect to the new network.' : 'The app will now close. Please reopen it to connect to the new network.'}',
         ),
         actions: [
-          if (Platform.isIOS) 
+          if (Platform.isIOS)
             TextButton(
               onPressed: () {
                 Navigator.of(ctx).pop();
@@ -221,7 +205,7 @@ class _AppDrawerState extends ConsumerState<AppDrawer> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             GestureDetector(
-              onTap: _onVersionTap,
+              onLongPress: _onVersionLongPress,
               child: Text('${l10n.buildInfoVersion}: ${env.version}'),
             ),
             const SizedBox(height: 6),

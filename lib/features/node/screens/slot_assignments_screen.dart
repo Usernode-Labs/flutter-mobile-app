@@ -323,15 +323,19 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
                                 'epoch': epoch,
                                 'slot': item.slot,
                                 'metadata': item.producedMeta,
+                                'slotsInEpoch': slotsInEpoch,
                               },
                             );
                           }
                         : null;
+                    // Calculate global slot: globalSlot = epoch * slotsInEpoch + slot
+                    final globalSlot = epoch * slotsInEpoch + item.slot;
                     return _SlotRow(
                       icon: Icons.layers,
-                      title: 'Slot ${item.slot}',
+                      title: 'Epoch Slot ${item.slot}',
                       subtitle: subtitleText,
                       result: item.result,
+                      globalSlot: globalSlot,
                       onTap: onTap,
                     );
                   },
@@ -410,12 +414,14 @@ class _SlotRow extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.result,
+    required this.globalSlot,
     this.onTap,
   });
   final IconData icon;
   final String title;
   final String subtitle;
   final RpcSlotResult result;
+  final int globalSlot;
   final VoidCallback? onTap;
 
   @override
@@ -445,6 +451,14 @@ class _SlotRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(title, style: theme.textTheme.bodyMedium),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Global Slot $globalSlot',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: secondary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                   const SizedBox(height: 2),
                   Text(
                     '$subtitle',

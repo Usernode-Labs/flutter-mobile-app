@@ -39,10 +39,6 @@ class _BackgroundProductionSettingsScreenState
   bool _refreshing = false;
   bool _active = false; // active when Settings tab is selected (index 2)
 
-  // Network switcher state
-  int _networkTapCount = 0;
-  DateTime? _lastNetworkTapTime;
-
   // Package info (app version)
   PackageInfo? _packageInfo;
 
@@ -162,19 +158,8 @@ class _BackgroundProductionSettingsScreenState
   }
 
   // Network switcher methods
-  void _onVersionTap() {
-    final now = DateTime.now();
-    if (_lastNetworkTapTime != null &&
-        now.difference(_lastNetworkTapTime!).inMilliseconds > 500) {
-      _networkTapCount = 0;
-    }
-    _lastNetworkTapTime = now;
-    _networkTapCount++;
-
-    if (_networkTapCount >= 3) {
-      _networkTapCount = 0;
-      _showPinDialog();
-    }
+  void _onVersionLongPress() {
+    _showPinDialog();
   }
 
   Future<void> _showPinDialog() async {
@@ -247,12 +232,10 @@ class _BackgroundProductionSettingsScreenState
         title: const Text('Restart Required'),
         content: Text(
           'Network switched to ${network == 'testnet' ? 'Testnet' : 'Internal'}. '
-          '${Platform.isIOS 
-            ? 'Please manually close and reopen the app to connect to the new network.'
-            : 'The app will now close. Please reopen it to connect to the new network.'}',
+          '${Platform.isIOS ? 'Please manually close and reopen the app to connect to the new network.' : 'The app will now close. Please reopen it to connect to the new network.'}',
         ),
         actions: [
-          if (Platform.isIOS) 
+          if (Platform.isIOS)
             TextButton(
               onPressed: () {
                 Navigator.of(ctx).pop();
@@ -483,7 +466,7 @@ class _BackgroundProductionSettingsScreenState
           // App version and build number
           if (_packageInfo != null) ...[
             GestureDetector(
-              onTap: _onVersionTap,
+              onLongPress: _onVersionLongPress,
               behavior: HitTestBehavior.opaque,
               child: _buildInfoRow(
                   'App Version', _packageInfo!.version, theme, colorScheme),
@@ -1965,8 +1948,12 @@ class _NetworkSwitcherDialogState extends State<_NetworkSwitcherDialog> {
             Row(
               children: [
                 Icon(
-                  isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
-                  color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                  isSelected
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_off,
+                  color: isSelected
+                      ? colorScheme.primary
+                      : colorScheme.onSurfaceVariant,
                   size: 20,
                 ),
                 const SizedBox(width: 8),
@@ -2011,7 +1998,8 @@ class _NetworkSwitcherDialogState extends State<_NetworkSwitcherDialog> {
             const SizedBox(height: 8),
             _buildUrlRow('Genesis', _formatUrl(genesisUrl), theme, colorScheme),
             const SizedBox(height: 4),
-            _buildUrlRow('Seedlist', _formatUrl(seedlistUrl), theme, colorScheme),
+            _buildUrlRow(
+                'Seedlist', _formatUrl(seedlistUrl), theme, colorScheme),
           ],
         ),
       ),
@@ -2050,7 +2038,7 @@ class _NetworkSwitcherDialogState extends State<_NetworkSwitcherDialog> {
               ),
             ),
             const SizedBox(height: 12),
-            
+
             // Testnet Option
             _buildNetworkOption(
               networkType: 'testnet',
@@ -2063,9 +2051,9 @@ class _NetworkSwitcherDialogState extends State<_NetworkSwitcherDialog> {
               theme: theme,
               colorScheme: colorScheme,
             ),
-            
+
             const SizedBox(height: 12),
-            
+
             // Internal Option
             _buildNetworkOption(
               networkType: 'internal',
@@ -2090,7 +2078,9 @@ class _NetworkSwitcherDialogState extends State<_NetworkSwitcherDialog> {
           onPressed: selectedNetwork == widget.currentNetwork
               ? null
               : () => Navigator.of(context).pop(selectedNetwork),
-          child: Text(selectedNetwork == widget.currentNetwork ? 'No Change' : 'Switch Network'),
+          child: Text(selectedNetwork == widget.currentNetwork
+              ? 'No Change'
+              : 'Switch Network'),
         ),
       ],
     );

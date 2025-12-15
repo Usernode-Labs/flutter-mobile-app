@@ -9,11 +9,15 @@ class ProducedBlockDetailsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final epoch = (args?['epoch'] as int?) ?? 0;
     final slot = (args?['slot'] as int?) ?? 0;
+    final slotsInEpoch = (args?['slotsInEpoch'] as int?) ?? 0;
     final meta = args?['metadata'] as Map<String, dynamic>?;
+
+    // Calculate global slot: globalSlot = epoch * slotsInEpoch + slot
+    final globalSlot = epoch * slotsInEpoch + slot;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Produced block at slot $slot'),
+        title: Text('Produced block at slot $slot ($globalSlot)'),
       ),
       body: SafeArea(
         child: Padding(
@@ -39,7 +43,7 @@ class ProducedBlockDetailsScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Epoch $epoch · Slot $slot',
+                    'Epoch $epoch · Slot $slot (Global $globalSlot)',
                     style: theme.textTheme.bodyMedium
                         ?.copyWith(color: theme.colorScheme.secondary),
                   ),

@@ -19,6 +19,12 @@ class MaterialTheme {
   static const Color greyDark = Color(0xFF78909C);
   static const Color deactivatedTextDark = Color(0xFF9E9E9E);
 
+  // Internal network colors (amber/warm theme)
+  static const Color internalNetworkLightBackground = Color(0xFFFFF4E6);
+  static const Color internalNetworkLightBorder = Color(0xFFE5C878);
+  static const Color internalNetworkDarkBackground = Color(0xFF3D2914);
+  static const Color internalNetworkDarkBorder = Color(0xFF8B7355);
+
   static ColorScheme lightScheme() {
     return const ColorScheme(
       brightness: Brightness.light,
@@ -347,6 +353,15 @@ class MaterialTheme {
 
   ThemeData darkHighContrast() {
     return theme(darkHighContrastScheme());
+  }
+
+  // Helper methods for internal network colors
+  static Color getInternalNetworkBackgroundColor(bool isDark) {
+    return isDark ? internalNetworkDarkBackground : internalNetworkLightBackground;
+  }
+
+  static Color getInternalNetworkBorderColor(bool isDark) {
+    return isDark ? internalNetworkDarkBorder : internalNetworkLightBorder;
   }
 
   ThemeData theme(ColorScheme colorScheme) => ThemeData(

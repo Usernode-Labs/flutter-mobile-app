@@ -94,3 +94,34 @@ final themeModeProvider =
     StateNotifierProvider<ThemeModeController, ThemeMode>((ref) {
   return ThemeModeController();
 });
+
+// Current network provider for reactive network state tracking
+class CurrentNetworkController extends StateNotifier<String> {
+  CurrentNetworkController() : super('testnet') {
+    _init();
+  }
+
+  Future<void> _init() async {
+    // Initialize from cached network value
+    state = NetworkPrefs.currentNetwork;
+  }
+
+  Future<void> refresh() async {
+    // Force refresh from SharedPreferences 
+    final newNetwork = await NetworkPrefs.getNetwork();
+    if (mounted) {
+      state = newNetwork;
+    }
+  }
+
+  void updateNetwork(String network) {
+    if (mounted) {
+      state = network;
+    }
+  }
+}
+
+final currentNetworkProvider =
+    StateNotifierProvider<CurrentNetworkController, String>((ref) {
+  return CurrentNetworkController();
+});

@@ -270,9 +270,12 @@ jobs:
           export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$CARGO_TARGET_AARCH64_LINUX_ANDROID_CC"
           export CARGO_TARGET_AARCH64_LINUX_ANDROID_AR="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
           export CARGO_TARGET_AARCH64_LINUX_ANDROID_RANLIB="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
+          SPLIT_DEBUG_INFO_DIR="build/flutter_symbols/android/${{ steps.env_config.outputs.flavor }}-${{ steps.version.outputs.build_number }}"
+          mkdir -p "$SPLIT_DEBUG_INFO_DIR"
           CARGOKIT_ONLY_ANDROID_ARM64=1 flutter build appbundle \
             --flavor ${{ steps.env_config.outputs.flavor }} \
             --release \
+            --split-debug-info="$SPLIT_DEBUG_INFO_DIR" \
             --build-number=${{ steps.version.outputs.build_number }} \
             --build-name=${{ steps.version.outputs.version }} \
             --dart-define-from-file=.env
@@ -284,12 +287,41 @@ jobs:
           path: ${{ steps.env_config.outputs.aab_path }}
           retention-days: 90
 
+      - name: Upload Flutter split debug info (Dart/AOT)
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-flutter-symbols-${{ steps.env_config.outputs.flavor }}-${{ steps.version.outputs.build_number }}
+          path: build/flutter_symbols/android/${{ steps.env_config.outputs.flavor }}-${{ steps.version.outputs.build_number }}
+          retention-days: 90
+
+      - name: Locate Play Console symbol files
+        id: play_symbols
+        run: |
+          set -euo pipefail
+          VARIANT="${{ steps.env_config.outputs.flavor }}Release"
+          MAPPING="android/app/build/outputs/mapping/$VARIANT/mapping.txt"
+          SYMBOLS="android/app/build/outputs/native-debug-symbols/$VARIANT/native-debug-symbols.zip"
+          if [ ! -f "$MAPPING" ]; then
+            echo "R8 mapping.txt not found at $MAPPING" >&2
+            ls -la "android/app/build/outputs/mapping" || true
+            exit 1
+          fi
+          if [ ! -f "$SYMBOLS" ]; then
+            echo "native-debug-symbols.zip not found at $SYMBOLS" >&2
+            ls -la "android/app/build/outputs/native-debug-symbols" || true
+            exit 1
+          fi
+          echo "mapping=$MAPPING" >> "$GITHUB_OUTPUT"
+          echo "symbols=$SYMBOLS" >> "$GITHUB_OUTPUT"
+
       - name: Deploy to Track
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: com.usernode_labs.usernode
           releaseFiles: ${{ steps.env_config.outputs.aab_path }}
+          mappingFile: ${{ steps.play_symbols.outputs.mapping }}
+          debugSymbols: ${{ steps.play_symbols.outputs.symbols }}
           track: ${{ steps.env_config.outputs.track }}
           status: draft
           inAppUpdatePriority: ${{ steps.env_config.outputs.track == 'production' && '5' || '2' }}

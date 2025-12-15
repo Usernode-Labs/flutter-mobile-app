@@ -109,6 +109,11 @@ android {
             signingConfig signingConfigs.release
             minifyEnabled true
             shrinkResources true
+            ndk {
+                // Generate and package native debug symbols (separate from the AAB),
+                // so Play Console can symbolicate native crash backtraces.
+                debugSymbolLevel 'FULL'
+            }
         }
     }
 

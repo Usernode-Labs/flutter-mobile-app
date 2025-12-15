@@ -218,238 +218,25 @@ class _BackgroundProductionSettingsScreenState
     }
   }
 
-  String _formatUrl(String url) {
-    // Remove https:// prefix for cleaner display
-    return url.replaceFirst('https://', '');
-  }
-
   Future<void> _showNetworkSwitcherDialog() async {
     final prefs = await SharedPreferences.getInstance();
     final currentNetwork = prefs.getString('network:type') ?? 'testnet';
-    final otherNetwork = currentNetwork == 'testnet' ? 'internal' : 'testnet';
-
-    // Get URLs for both networks
-    final currentGenesisUrl = currentNetwork == 'testnet'
-        ? AppConfig.testnetGenesisUrl
-        : AppConfig.internalGenesisUrl;
-    final currentSeedlistUrl = currentNetwork == 'testnet'
-        ? AppConfig.testnetSeedlistUrl
-        : AppConfig.internalSeedlistUrl;
-    final otherGenesisUrl = otherNetwork == 'testnet'
-        ? AppConfig.testnetGenesisUrl
-        : AppConfig.internalGenesisUrl;
-    final otherSeedlistUrl = otherNetwork == 'testnet'
-        ? AppConfig.testnetSeedlistUrl
-        : AppConfig.internalSeedlistUrl;
 
     if (!mounted) return;
 
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    final shouldSwitch = await showDialog<bool>(
+    final result = await showDialog<String>(
       context: context,
       barrierDismissible: true,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('Network Switcher'),
-            IconButton(
-              icon: const Icon(Icons.close),
-              onPressed: () => Navigator.of(ctx).pop(false),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-            ),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Current Network Section
-              Text(
-                'CURRENT NETWORK',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: colorScheme.primaryContainer.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: colorScheme.primary.withValues(alpha: 0.5),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.radio_button_checked,
-                          color: colorScheme.primary,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          currentNetwork == 'testnet' ? 'Testnet' : 'Internal',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.green.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            'Active',
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: Colors.green.shade700,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    _buildUrlRow('Genesis', _formatUrl(currentGenesisUrl),
-                        theme, colorScheme),
-                    const SizedBox(height: 4),
-                    _buildUrlRow('Seedlist', _formatUrl(currentSeedlistUrl),
-                        theme, colorScheme),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 16),
-              const Divider(),
-              const SizedBox(height: 16),
-
-              // Switch To Section
-              Text(
-                'SWITCH TO',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest
-                      .withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: colorScheme.outlineVariant,
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.radio_button_off,
-                          color: colorScheme.onSurfaceVariant,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          otherNetwork == 'testnet' ? 'Testnet' : 'Internal',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 28),
-                      child: Text(
-                        otherNetwork == 'testnet'
-                            ? 'Default network'
-                            : 'Development network',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    _buildUrlRow('Genesis', _formatUrl(otherGenesisUrl), theme,
-                        colorScheme),
-                    const SizedBox(height: 4),
-                    _buildUrlRow('Seedlist', _formatUrl(otherSeedlistUrl),
-                        theme, colorScheme),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Switch Network'),
-          ),
-        ],
+      builder: (ctx) => _NetworkSwitcherDialog(
+        currentNetwork: currentNetwork,
       ),
     );
 
-    if (shouldSwitch == true && mounted) {
+    if (result != null && result != currentNetwork && mounted) {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('network:type', otherNetwork);
-      _showRestartDialog(otherNetwork);
+      await prefs.setString('network:type', result);
+      _showRestartDialog(result);
     }
-  }
-
-  Widget _buildUrlRow(
-      String label, String url, ThemeData theme, ColorScheme colorScheme) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 28),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 60,
-            child: Text(
-              '$label:',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              url,
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontFamily: 'monospace',
-                fontSize: 11,
-              ),
-              softWrap: true,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Future<void> _showRestartDialog(String network) async {
@@ -460,16 +247,26 @@ class _BackgroundProductionSettingsScreenState
         title: const Text('Restart Required'),
         content: Text(
           'Network switched to ${network == 'testnet' ? 'Testnet' : 'Internal'}. '
-          'The app will now close. Please reopen it to connect to the new network.',
+          '${Platform.isIOS 
+            ? 'Please manually close and reopen the app to connect to the new network.'
+            : 'The app will now close. Please reopen it to connect to the new network.'}',
         ),
         actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              SystemNavigator.pop();
-            },
-            child: const Text('Close App'),
-          ),
+          if (Platform.isIOS) 
+            TextButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+              },
+              child: const Text('OK'),
+            )
+          else
+            TextButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                SystemNavigator.pop();
+              },
+              child: const Text('Close App'),
+            ),
         ],
       ),
     );
@@ -2076,5 +1873,226 @@ class _CollapsibleCardState extends State<_CollapsibleCard> {
     }
 
     return null;
+  }
+}
+
+class _NetworkSwitcherDialog extends StatefulWidget {
+  final String currentNetwork;
+
+  const _NetworkSwitcherDialog({required this.currentNetwork});
+
+  @override
+  State<_NetworkSwitcherDialog> createState() => _NetworkSwitcherDialogState();
+}
+
+class _NetworkSwitcherDialogState extends State<_NetworkSwitcherDialog> {
+  late String selectedNetwork;
+
+  @override
+  void initState() {
+    super.initState();
+    selectedNetwork = widget.currentNetwork;
+  }
+
+  String _formatUrl(String url) {
+    return url.replaceFirst('https://', '');
+  }
+
+  Widget _buildUrlRow(
+      String label, String url, ThemeData theme, ColorScheme colorScheme) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 28),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 60,
+            child: Text(
+              '$label:',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              url,
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontFamily: 'monospace',
+                fontSize: 11,
+              ),
+              softWrap: true,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNetworkOption({
+    required String networkType,
+    required String displayName,
+    required String description,
+    required bool isSelected,
+    required bool isCurrentlyActive,
+    required String genesisUrl,
+    required String seedlistUrl,
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          selectedNetwork = networkType;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? colorScheme.primaryContainer.withValues(alpha: 0.3)
+              : colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected
+                ? colorScheme.primary.withValues(alpha: 0.5)
+                : colorScheme.outlineVariant,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
+                  color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  displayName,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (isCurrentlyActive) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      'Active',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: Colors.green.shade700,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 4),
+            Padding(
+              padding: const EdgeInsets.only(left: 28),
+              child: Text(
+                description,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            _buildUrlRow('Genesis', _formatUrl(genesisUrl), theme, colorScheme),
+            const SizedBox(height: 4),
+            _buildUrlRow('Seedlist', _formatUrl(seedlistUrl), theme, colorScheme),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return AlertDialog(
+      title: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Text('Network Switcher'),
+          IconButton(
+            icon: const Icon(Icons.close),
+            onPressed: () => Navigator.of(context).pop(),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+        ],
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'SELECT NETWORK',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(height: 12),
+            
+            // Testnet Option
+            _buildNetworkOption(
+              networkType: 'testnet',
+              displayName: 'Testnet',
+              description: 'Default network',
+              isSelected: selectedNetwork == 'testnet',
+              isCurrentlyActive: widget.currentNetwork == 'testnet',
+              genesisUrl: AppConfig.testnetGenesisUrl,
+              seedlistUrl: AppConfig.testnetSeedlistUrl,
+              theme: theme,
+              colorScheme: colorScheme,
+            ),
+            
+            const SizedBox(height: 12),
+            
+            // Internal Option
+            _buildNetworkOption(
+              networkType: 'internal',
+              displayName: 'Internal',
+              description: 'Development network',
+              isSelected: selectedNetwork == 'internal',
+              isCurrentlyActive: widget.currentNetwork == 'internal',
+              genesisUrl: AppConfig.internalGenesisUrl,
+              seedlistUrl: AppConfig.internalSeedlistUrl,
+              theme: theme,
+              colorScheme: colorScheme,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: selectedNetwork == widget.currentNetwork
+              ? null
+              : () => Navigator.of(context).pop(selectedNetwork),
+          child: Text(selectedNetwork == widget.currentNetwork ? 'No Change' : 'Switch Network'),
+        ),
+      ],
+    );
   }
 }

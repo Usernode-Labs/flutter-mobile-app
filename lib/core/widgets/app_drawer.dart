@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -129,16 +130,26 @@ class _AppDrawerState extends ConsumerState<AppDrawer> {
         title: const Text('Restart Required'),
         content: Text(
           'Network switched to ${network == 'testnet' ? 'Testnet' : 'Internal'}. '
-          'The app will now close. Please reopen it to connect to the new network.',
+          '${Platform.isIOS 
+            ? 'Please manually close and reopen the app to connect to the new network.'
+            : 'The app will now close. Please reopen it to connect to the new network.'}',
         ),
         actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              SystemNavigator.pop();
-            },
-            child: const Text('Close App'),
-          ),
+          if (Platform.isIOS) 
+            TextButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+              },
+              child: const Text('OK'),
+            )
+          else
+            TextButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                SystemNavigator.pop();
+              },
+              child: const Text('Close App'),
+            ),
         ],
       ),
     );

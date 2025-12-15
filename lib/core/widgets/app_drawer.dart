@@ -63,7 +63,11 @@ class _AppDrawerState extends ConsumerState<AppDrawer> {
 
   Future<void> _showNetworkSwitcherDialog() async {
     final prefs = await SharedPreferences.getInstance();
-    final currentNetwork = prefs.getString('network:type') ?? 'testnet';
+    final storedNetwork = prefs.getString('network:type');
+    final currentNetwork = switch (storedNetwork) {
+      'internal' || 'custom' || 'testnet' => storedNetwork!,
+      _ => 'testnet',
+    };
 
     if (!mounted) return;
 
@@ -96,6 +100,18 @@ class _AppDrawerState extends ConsumerState<AppDrawer> {
               subtitle: const Text('Development network'),
             ),
           ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(ctx).pop('custom'),
+            child: ListTile(
+              leading: Icon(
+                currentNetwork == 'custom'
+                    ? Icons.radio_button_checked
+                    : Icons.radio_button_off,
+              ),
+              title: const Text('Custom'),
+              subtitle: const Text('static.usernodelabs.org/custom'),
+            ),
+          ),
         ],
       ),
     );
@@ -115,7 +131,7 @@ class _AppDrawerState extends ConsumerState<AppDrawer> {
       builder: (ctx) => AlertDialog(
         title: const Text('Restart Required'),
         content: Text(
-          'Network switched to ${network == 'testnet' ? 'Testnet' : 'Internal'}. '
+          'Network switched to ${_networkLabel(network)}. '
           '${Platform.isIOS ? 'Please manually close and reopen the app to connect to the new network.' : 'The app will now close. Please reopen it to connect to the new network.'}',
         ),
         actions: [
@@ -137,6 +153,18 @@ class _AppDrawerState extends ConsumerState<AppDrawer> {
         ],
       ),
     );
+  }
+
+  String _networkLabel(String network) {
+    switch (network) {
+      case 'internal':
+        return 'Internal';
+      case 'custom':
+        return 'Custom';
+      case 'testnet':
+      default:
+        return 'Testnet';
+    }
   }
 
   @override

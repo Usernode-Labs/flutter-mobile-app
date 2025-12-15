@@ -50,7 +50,7 @@ TracingLevel _parseTracingLevel(String level) {
 }
 
 /// Network type for chain selection
-enum NetworkType { testnet, internal }
+enum NetworkType { testnet, internal, custom }
 
 /// Storage key for selected network
 const _kNetworkTypeKey = 'network:type';
@@ -284,11 +284,14 @@ class RustBackendService {
     if (value == 'internal') {
       return NetworkType.internal;
     }
+    if (value == 'custom') {
+      return NetworkType.custom;
+    }
     return NetworkType.testnet; // default
   }
 
   /// Public wrapper around [_getSelectedNetwork] so callers outside this file
-  /// can determine which network (testnet / internal) is currently selected.
+  /// can determine which network (testnet / internal / custom) is currently selected.
   Future<NetworkType> getSelectedNetwork() => _getSelectedNetwork();
 
   /// Configure network settings from URLs (seedlist, genesis).
@@ -306,6 +309,9 @@ class RustBackendService {
       case NetworkType.internal:
         seedlistUrl = AppConfig.internalSeedlistUrl;
         genesisUrl = AppConfig.internalGenesisUrl;
+      case NetworkType.custom:
+        seedlistUrl = AppConfig.customSeedlistUrl;
+        genesisUrl = AppConfig.customGenesisUrl;
     }
 
     _log.info('Selected network: ${networkType.name}');

@@ -69,10 +69,20 @@ class AppConfig {
       'https://static.usernodelabs.org/catdog9000/seedlist.txt';
   static const String _defaultInternalGenesisUrl =
       'https://static.usernodelabs.org/catdog9000/genesis.json';
+  static const String _defaultCustomSeedlistUrl =
+      'https://static.usernodelabs.org/custom/seedlist.txt';
+  static const String _defaultCustomGenesisUrl =
+      'https://static.usernodelabs.org/custom/genesis.json';
   static const String _defaultNetworkSwitcherCode = '2107';
   static const int _defaultLoadGenesisNbRetries = 3;
 
   // Raw environment values (may be empty)
+  static const String _rawSeedlistUrl = String.fromEnvironment('SEEDLIST_URL');
+  static const String _rawGenesisUrl = String.fromEnvironment('GENESIS_URL');
+  static const String _rawCustomSeedlistUrl =
+      String.fromEnvironment('CUSTOM_SEEDLIST_URL');
+  static const String _rawCustomGenesisUrl =
+      String.fromEnvironment('CUSTOM_GENESIS_URL');
   static const String _rawTestnetSeedlistUrl =
       String.fromEnvironment('TESTNET_SEEDLIST_URL');
   static const String _rawTestnetGenesisUrl =
@@ -108,6 +118,18 @@ class AppConfig {
   static String get internalGenesisUrl => _rawInternalGenesisUrl.isNotEmpty
       ? _rawInternalGenesisUrl
       : _defaultInternalGenesisUrl;
+
+  // Custom test network URLs - falls back to defaults if empty
+  static String get customSeedlistUrl => _rawCustomSeedlistUrl.isNotEmpty
+      ? _rawCustomSeedlistUrl
+      : _rawSeedlistUrl.isNotEmpty
+          ? _rawSeedlistUrl
+          : _defaultCustomSeedlistUrl;
+  static String get customGenesisUrl => _rawCustomGenesisUrl.isNotEmpty
+      ? _rawCustomGenesisUrl
+      : _rawGenesisUrl.isNotEmpty
+          ? _rawGenesisUrl
+          : _defaultCustomGenesisUrl;
 
   // Secret code for network switcher access - falls back to default if empty
   static String get networkSwitcherCode => _rawNetworkSwitcherCode.isNotEmpty

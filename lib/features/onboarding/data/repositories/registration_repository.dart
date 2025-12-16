@@ -5,7 +5,7 @@ import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
-final _log = LoggingService.instance.withTag('RegistrationRepository');
+final _log = LoggingService.instance.withTag('usernode/RegistrationRepository');
 
 class RegistrationApiException implements Exception {
   RegistrationApiException(this.statusCode, this.message, {this.body});

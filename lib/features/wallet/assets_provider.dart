@@ -7,7 +7,7 @@ import 'package:crypto_mobile_app/features/wallet/utxo_provider.dart';
 import 'package:crypto_mobile_app/features/wallet/token_registry.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 
-final _log = LoggingService.instance.withTag('AssetsProvider');
+final _log = LoggingService.instance.withTag('usernode/AssetsProvider');
 
 /// Represents an aggregated asset summary across all UTXOs
 class AssetSummary {

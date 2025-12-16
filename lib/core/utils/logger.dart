@@ -31,7 +31,7 @@ Level _parseLevel(String levelStr) {
 ///
 /// Usage:
 /// ```dart
-/// final _log = LoggingService.instance.withTag('MyClass');
+/// final _log = LoggingService.instance.withTag('usernode/MyClass');
 /// _log.info('Something happened');
 /// ```
 class LoggingService {
@@ -184,7 +184,7 @@ class LoggingService {
 ///
 /// Usage:
 /// ```dart
-/// final _log = LoggingService.instance.withTag('NodeService');
+/// final _log = LoggingService.instance.withTag('usernode/NodeService');
 /// _log.info('message');
 /// ```
 class TaggedLogger {

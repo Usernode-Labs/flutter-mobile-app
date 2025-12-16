@@ -26,7 +26,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-final _log = LoggingService.instance.withTag('NodeService');
+final _log = LoggingService.instance.withTag('usernode/NodeService');
 
 /// Parse log level string to TracingLevel enum
 TracingLevel _parseTracingLevel(String level) {

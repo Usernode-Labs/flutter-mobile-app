@@ -7,7 +7,7 @@ import '../../features/node/node_service.dart';
 import '../../features/metrics/metrics_collector_service.dart';
 import '../services/android_foreground_task_controller.dart';
 
-final _log = LoggingService.instance.withTag('Lifecycle');
+final _log = LoggingService.instance.withTag('usernode/Lifecycle');
 
 /// Enhanced app lifecycle observer with background block production support
 ///

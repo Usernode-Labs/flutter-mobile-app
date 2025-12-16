@@ -18,7 +18,7 @@ import io.flutter.plugins.GeneratedPluginRegistrant
  * repeated cold starts.
  */
 object BackgroundAlarmEngine {
-    private const val TAG = "BackgroundAlarmEngine"
+    private const val TAG = "usernode/BackgroundAlarmEngine"
     private const val CHANNEL = "com.usernode.app/alarm"
     private const val RETRY_DELAY_MS = 2000L
     const val ENGINE_ID = "shared_bg_engine"

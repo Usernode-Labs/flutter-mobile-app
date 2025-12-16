@@ -12,7 +12,7 @@ class AlarmScheduler(
     private val alarmManager: AlarmManager
 ) {
     companion object {
-        private const val TAG = "AlarmScheduler"
+        private const val TAG = "usernode/AlarmScheduler"
         private const val PREFS_NAME = "alarm_prefs"
         private const val SCHEDULED_ALARMS_KEY = "scheduled_alarms"
     }

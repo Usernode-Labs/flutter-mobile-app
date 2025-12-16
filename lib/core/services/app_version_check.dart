@@ -13,7 +13,7 @@ import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_reporting_service.dart';
 
-final _log = LoggingService.instance.withTag('VersionCheck');
+final _log = LoggingService.instance.withTag('usernode/VersionCheck');
 
 // =============================================================================
 // API Response Model

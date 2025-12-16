@@ -11,7 +11,7 @@ import com.usernode_labs.usernode.R
 
 class SlotMonitoringService : Service() {
     companion object {
-        private const val TAG = "SlotMonitoringService"
+        private const val TAG = "usernode/SlotMonitoringService"
         const val ACTION_START_MONITORING = "com.usernode.app.START_MONITORING"
         const val ACTION_STOP_MONITORING = "com.usernode.app.STOP_MONITORING"
         const val ACTION_START_PERSISTENT = "com.usernode.app.START_PERSISTENT"

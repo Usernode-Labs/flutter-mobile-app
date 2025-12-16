@@ -24,7 +24,7 @@ import 'package:crypto_mobile_app/features/wallet/utxo_provider.dart';
 import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
 import 'package:crypto_mobile_app/features/wallet/models/account.dart';
 
-final _log = LoggingService.instance.withTag('NodeStatusScreen');
+final _log = LoggingService.instance.withTag('usernode/NodeStatusScreen');
 
 class NodeStatusScreen extends ConsumerStatefulWidget {
   const NodeStatusScreen({super.key});

@@ -8,7 +8,7 @@ import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final _log = LoggingService.instance.withTag('MetricsProvider');
+final _log = LoggingService.instance.withTag('usernode/MetricsProvider');
 
 /// Provider that manages the lifecycle of metrics reporting
 /// Starts metrics service at initialization if enabled in environment

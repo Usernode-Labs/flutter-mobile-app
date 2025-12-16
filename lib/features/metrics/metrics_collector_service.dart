@@ -18,7 +18,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
-final _log = LoggingService.instance.withTag('MetricsCollector');
+final _log = LoggingService.instance.withTag('usernode/MetricsCollector');
 
 /// Hashes a device ID using MD5 (32 chars) for privacy
 String _hashDeviceId(String deviceId) {

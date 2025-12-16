@@ -8,7 +8,7 @@ import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 
-final _log = LoggingService.instance.withTag('AccountsProvider');
+final _log = LoggingService.instance.withTag('usernode/AccountsProvider');
 
 /// Provider for AccountsRepository - handles account persistence
 final accountsProvider = FutureProvider<AccountsRepository>((ref) async {

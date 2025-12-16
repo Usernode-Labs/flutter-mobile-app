@@ -71,7 +71,7 @@ class EpochScore {
   });
 }
 
-final _log = LoggingService.instance.withTag('ProducedBlocksProvider');
+final _log = LoggingService.instance.withTag('usernode/ProducedBlocksProvider');
 
 const _kEpochsWithDataKeyBase = 'node:epochs_with_data';
 const _kProducedBlockMetadataKeyPrefixBase = 'node:produced_block_metadata';

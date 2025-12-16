@@ -7,7 +7,7 @@ import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'models/feedback_model.dart';
 
-final _log = LoggingService.instance.withTag('FeedbackProvider');
+final _log = LoggingService.instance.withTag('usernode/FeedbackProvider');
 
 // State for feedback submission
 enum FeedbackSubmissionStatus {

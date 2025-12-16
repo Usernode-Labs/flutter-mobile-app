@@ -28,7 +28,7 @@ import kotlinx.coroutines.*
  */
 class BootRescheduleService : Service() {
     companion object {
-        private const val TAG = "BootRescheduleService"
+        private const val TAG = "usernode/BootRescheduleService"
         private const val NOTIFICATION_ID = 9001
         private const val CHANNEL_ID = "boot_reschedule"
         private const val CHANNEL_NAME = "Boot Alarm Rescheduling"

@@ -48,7 +48,7 @@ Future<void> main() async {
       AndroidForegroundTaskController.instance.handleNativeEvent,
     );
 
-    final log = LoggingService.instance.withTag('Bootstrap');
+    final log = LoggingService.instance.withTag('usernode/Bootstrap');
 
     // Set up Flutter framework error handler to capture build/layout errors
     FlutterError.onError = (FlutterErrorDetails details) {
@@ -197,7 +197,7 @@ class _AppWrapperState extends ConsumerState<_AppWrapper> {
   }
 
   Future<void> _checkInitialVersion() async {
-    final log = LoggingService.instance.withTag('VersionCheck');
+    final log = LoggingService.instance.withTag('usernode/VersionCheck');
     log.info('_checkInitialVersion called');
     try {
       final result = await ref.read(appVersionCheckProvider.future);

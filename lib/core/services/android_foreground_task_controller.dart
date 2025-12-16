@@ -10,7 +10,7 @@ import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 
-final _log = LoggingService.instance.withTag('AndroidForegroundTask');
+final _log = LoggingService.instance.withTag('usernode/AndroidForegroundTask');
 
 class AndroidForegroundTaskController {
   AndroidForegroundTaskController._();

@@ -14,7 +14,7 @@ import com.usernode_labs.usernode.R
 
 class AlarmReceiver : BroadcastReceiver() {
     companion object {
-        private const val TAG = "AlarmReceiver"
+        private const val TAG = "usernode/AlarmReceiver"
     }
 
     override fun onReceive(context: Context, intent: Intent) {

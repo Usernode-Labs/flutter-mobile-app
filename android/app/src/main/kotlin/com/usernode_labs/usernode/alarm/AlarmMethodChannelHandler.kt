@@ -27,7 +27,7 @@ class AlarmMethodChannelHandler(private val activity: Activity) {
     private var methodChannel: MethodChannel? = null
 
     companion object {
-        private const val TAG = "AlarmMethodChannelHandler"
+        private const val TAG = "usernode/AlarmMethodChannelHandler"
         private const val REQUEST_POST_NOTIFICATIONS = 1001
 
         // Singleton instance for accessing from services/receivers

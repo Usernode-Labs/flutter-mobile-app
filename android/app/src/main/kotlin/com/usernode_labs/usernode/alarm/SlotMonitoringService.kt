@@ -8,7 +8,6 @@ import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.usernode_labs.usernode.R
-import com.usernode_labs.usernode.MainActivity
 
 class SlotMonitoringService : Service() {
     companion object {
@@ -52,12 +51,27 @@ class SlotMonitoringService : Service() {
             ACTION_START_MONITORING -> {
                 val slotNumber = intent.getIntExtra("slotNumber", -1)
                 val alarmId = intent.getStringExtra("alarmId")
-                Log.d(TAG, "[SlotMonitoringService] START_MONITORING - Slot: $slotNumber, AlarmId: $alarmId")
+                val nodeRunning = intent.getBooleanExtra("nodeRunning", false)
+                Log.d(TAG, "[SlotMonitoringService] START_MONITORING - Slot: $slotNumber, AlarmId: $alarmId, nodeRunning=$nodeRunning")
 
-                if (slotNumber != -1) {
-                    startMonitoring(slotNumber)
-                } else {
-                    Log.e(TAG, "[SlotMonitoringService] Invalid slot number in START_MONITORING intent")
+                // Allow alarmId-only wake (e.g., fg_resume) by using 0 as placeholder
+                val safeSlot = if (slotNumber != -1) slotNumber else 0
+                startMonitoring(safeSlot, nodeRunning)
+
+                // If Flutter channel is detached, deliver the alarm event via background engine
+                if (AlarmMethodChannelHandler.getInstance() == null) {
+                    Log.w(TAG, "[SlotMonitoringService] Flutter channel null; sending alarm event via background engine")
+                    BackgroundAlarmEngine.sendAlarmEvent(
+                        applicationContext,
+                        "android_alarm_fired",
+                        mapOf(
+                            "alarmId" to (alarmId ?: "unknown"),
+                            "slotNumber" to safeSlot,
+                            "batteryLevel" to 0,
+                            "networkState" to "unknown",
+                            "nodeRunning" to nodeRunning
+                        )
+                    )
                 }
             }
             ACTION_STOP_MONITORING -> {
@@ -81,13 +95,13 @@ class SlotMonitoringService : Service() {
         return START_STICKY
     }
 
-    private fun startMonitoring(slotNumber: Int) {
+    private fun startMonitoring(slotNumber: Int, nodeRunning: Boolean) {
         currentSlotNumber = slotNumber
         Log.i(TAG, "[SlotMonitoringService] ✓ Starting foreground monitoring for slot $slotNumber")
 
         val notification = createNotification(
-            title = "Block Production Monitoring",
-            message = "Monitoring slot $slotNumber for block production"
+            title = if (nodeRunning) "Block Production Monitoring" else "Starting node...",
+            message = if (nodeRunning) "Monitoring slot $slotNumber for block production" else "Warming up node to monitor slots"
         )
 
         try {
@@ -101,6 +115,7 @@ class SlotMonitoringService : Service() {
         } catch (e: Exception) {
             Log.e(TAG, "[SlotMonitoringService] Failed to start foreground service", e)
         }
+
     }
 
     private fun stopMonitoring() {
@@ -202,17 +217,7 @@ class SlotMonitoringService : Service() {
     }
 
     private fun createNotification(title: String, message: String): Notification {
-        val intent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-        }
-
-        val pendingIntent = PendingIntent.getActivity(
-            this,
-            0,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
+        // Do not attempt to launch UI directly; just show service notification
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(message)
@@ -220,7 +225,6 @@ class SlotMonitoringService : Service() {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setOngoing(true)
-            .setContentIntent(pendingIntent)
             .build()
     }
 

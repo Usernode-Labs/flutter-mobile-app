@@ -43,8 +43,8 @@ All metrics collection uses the **Full strategy**, which collects complete app a
 
 ```mermaid
 flowchart TB
-    subgraph Orchestrator["BackgroundBlockProductionOrchestrator"]
-        O1["Emits BlockProductionEvent"]
+    subgraph Components["Block Production Components"]
+        O1["AndroidForegroundTaskController / PlatformAlarmService<br/>Emits BlockProductionEvent"]
     end
 
     subgraph Reporting["MetricsReportingService"]
@@ -87,8 +87,9 @@ The system supports **42 distinct event types**. All events collect full metrics
 | `health_check` | Every 30s (default) | Regular system health monitoring |
 | `epoch_transition` | New epoch detected | Track epoch changes and VRF status |
 | `app_resumed` | App returns to foreground | Check system state after backgrounding |
-| `app_suspended` | App goes to background | Not yet implemented |
-| `android_boot_reschedule_completed` | Alarms rescheduled after reboot | Not yet implemented |
+| `app_suspended` | App goes to background | 🚧 Not yet implemented |
+| `android_boot_reschedule_started` | Boot recovery initiated | ✅ Sent by BootRescheduleService |
+| `android_boot_reschedule_completed` | Alarms rescheduled after reboot | ✅ Sent by BootRescheduleService |
 
 ### Alarm & Background Execution (4 events)
 
@@ -152,14 +153,19 @@ The system supports **42 distinct event types**. All events collect full metrics
 - `alarm_missed` - Expected alarm didn't fire
 
 **Android Foreground Service:**
-- `android_foreground_service_started/stopped`
-- `android_boot_alarm_rescheduled`
-- `android_boot_reschedule_started` (not yet implemented)
+- `android_foreground_service_started/stopped` (✅ sent by native code)
+- `android_persistent_foreground_started/stopped` (✅ sent by native code - persistent mode)
+- `android_boot_reschedule_started` (✅ sent by native code)
+- `android_boot_reschedule_completed` (✅ sent by native code)
+- `android_boot_alarm_rescheduled` (🚧 deprecated/not used)
 
 **Android Permissions:**
-- `android_exact_alarm_permission_requested/granted/denied`
-- `android_battery_optimization_checked/requested/disabled`
-- `android_notification_permission_requested/granted/denied`
+- `android_exact_alarm_permission_requested` (🚧 not yet sent by native code)
+- `android_exact_alarm_permission_granted/denied` (✅ sent by native code)
+- `android_battery_optimization_checked/requested` (🚧 not yet sent by native code)
+- `android_battery_optimization_disabled` (✅ sent by native code)
+- `android_notification_permission_requested` (🚧 not yet sent by native code)
+- `android_post_notifications_permission_granted/denied` (✅ sent by native code)
 
 **iOS Notifications & BGTasks:**
 - `ios_notification_scheduled/tapped/delivered`
@@ -438,7 +444,7 @@ Check your API logs to verify:
 
 **Possible Causes:**
 1. Event listener not connected
-2. BackgroundBlockProductionOrchestrator not initialized
+2. AndroidForegroundTaskController (Android) or PlatformAlarmService (iOS) not initialized
 3. Events not being emitted
 
 **Solution:**

@@ -47,6 +47,17 @@ class AlarmScheduler(
                 putExtra("alarmId", alarmId)
                 putExtra("slotNumber", slotNumber)
                 putExtra("alarmTimeMs", alarmTimeMs)
+                // Fan out provided data map into intent extras for downstream consumers
+                for ((key, value) in data) {
+                    when (value) {
+                        is String -> putExtra(key, value)
+                        is Int -> putExtra(key, value)
+                        is Long -> putExtra(key, value)
+                        is Boolean -> putExtra(key, value)
+                        is Double -> putExtra(key, value)
+                        else -> Log.w(TAG, "[AlarmScheduler] Skipping extra for key=$key unsupported type=${value::class.java.simpleName}")
+                    }
+                }
             }
 
             val pendingIntent = PendingIntent.getBroadcast(

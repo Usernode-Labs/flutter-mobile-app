@@ -50,15 +50,6 @@ class LoggingService {
   static Future<void> initialize() async {
     if (_instance != null) return;
 
-    // Skip file logging in release mode
-    if (kReleaseMode) {
-      _instance = LoggingService._(Logger(
-        filter: _AppLogFilter(),
-        printer: _CustomLogPrinter(),
-      ));
-      return;
-    }
-
     final fileOutput = FileLogOutput();
     await fileOutput.init();
 
@@ -101,10 +92,8 @@ class LoggingService {
     StackTrace? stackTrace,
     Map<String, dynamic>? context,
   }) {
-    if (!kReleaseMode) {
-      final formatted = _decorate(message, tag, context);
-      _logger.e(formatted, error: error, stackTrace: stackTrace);
-    }
+    final formatted = _decorate(message, tag, context);
+    _logger.e(formatted, error: error, stackTrace: stackTrace);
 
     // Send to Sentry - always capture errors, not just breadcrumbs
     if (error != null && stackTrace != null) {
@@ -127,8 +116,8 @@ class LoggingService {
     String? tag,
     Map<String, dynamic>? context,
   }) {
-    // Console/file logging (skip in release mode)
-    if (!kReleaseMode && level.index >= _globalLevel.index) {
+    // Console/file logging
+    if (level.index >= _globalLevel.index) {
       final formatted = _decorate(message, tag, context);
 
       switch (level) {
@@ -235,7 +224,7 @@ class TaggedLogger {
 class _AppLogFilter extends LogFilter {
   @override
   bool shouldLog(LogEvent event) {
-    if (kReleaseMode) return false;
+    // if (kReleaseMode) return false;
     return true;
   }
 }

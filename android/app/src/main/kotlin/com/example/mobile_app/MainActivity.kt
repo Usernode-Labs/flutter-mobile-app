@@ -5,15 +5,28 @@ import android.os.Build
 import android.os.Bundle
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.embedding.engine.FlutterEngineCache
 import io.flutter.plugin.common.MethodChannel
 import com.usernode_labs.usernode.alarm.AlarmMethodChannelHandler
+import com.usernode_labs.usernode.alarm.BackgroundAlarmEngine
 
 class MainActivity: FlutterActivity() {
     private val CHANNEL = "com.usernode.app/alarm"
     private lateinit var alarmHandler: AlarmMethodChannelHandler
 
+    override fun provideFlutterEngine(context: android.content.Context): FlutterEngine? {
+        // Reuse shared background engine if it exists to avoid dual engines.
+        return FlutterEngineCache.getInstance().get(BackgroundAlarmEngine.ENGINE_ID)
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        // If no shared engine cached yet, cache this one so background side can reuse it.
+        val cache = FlutterEngineCache.getInstance()
+        if (cache.get(BackgroundAlarmEngine.ENGINE_ID) == null) {
+            cache.put(BackgroundAlarmEngine.ENGINE_ID, flutterEngine)
+        }
 
         alarmHandler = AlarmMethodChannelHandler(this)
 

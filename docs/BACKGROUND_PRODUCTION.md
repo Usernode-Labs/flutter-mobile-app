@@ -21,16 +21,16 @@
 
 ## Overview
 
-The background block production system enables the app to reliably wake up and produce blocks at scheduled slot times. The system uses a unified orchestrator pattern that consolidates multiple services into a single, event-driven coordinator.
+The background block production system enables the app to reliably wake up and produce blocks at scheduled slot times. The system uses platform-specific implementations optimized for each OS.
 
 ### Key Features
 
-- **Unified Orchestrator**: Single service (`BackgroundBlockProductionOrchestrator`) coordinates all block production activities
-- **Event-Driven**: Emits events for metrics, logging, and UI updates
+- **Android**: Uses `AndroidForegroundTaskController` for VRF polling and alarm scheduling with exact alarms and foreground service
+- **iOS**: Uses `PlatformAlarmService` with BGTasks and notifications (unchanged)
 - **VRF-Aware**: Smart epoch monitoring that adapts to VRF calculation status
-- **Platform-Agnostic Core**: Works across Android and iOS with platform-specific implementations
+- **Event-Driven**: Native events bridge to Flutter for metrics and UI updates
 - **Automatic Permission Requests**: Requests required permissions at app startup
-- **Slot Monitoring Integration**: Automatically triggers monitoring when alarms fire
+- **Resilient**: Handles app termination, device reboot, and network issues gracefully
 
 ### Reliability Targets
 
@@ -45,60 +45,54 @@ The background block production system enables the app to reliably wake up and p
 
 ## Architecture
 
-### Unified Orchestrator Pattern
-
-The `BackgroundBlockProductionOrchestrator` serves as the central coordinator:
+### Architecture Overview
 
 ```mermaid
 flowchart TB
-    subgraph Orchestrator["BackgroundBlockProductionOrchestrator"]
-        Features["VRF-aware epoch monitoring<br/>Smart polling intervals - 2-15 min<br/>Atomic alarm + notification scheduling<br/>Slot wake-up handling<br/>Production monitoring integration<br/>Event stream emission"]
-        State["Single State: BlockProductionState<br/>Single Repo: BlockProductionStateRepo"]
+    subgraph Android["Android System"]
+        AFT["AndroidForegroundTaskController<br/>Polls VRF every 30s<br/>Manages wakelock + FGS"]
+        AS["AlarmScheduler<br/>Schedules exact alarms"]
+        AR["AlarmReceiver<br/>Receives alarm broadcasts"]
+        SMS["SlotMonitoringService<br/>Foreground service"]
+        BAE["BackgroundAlarmEngine<br/>Delivers events when app killed"]
     end
 
-    subgraph Events["Event Stream"]
-        E1["epoch_transition"]
-        E2["app_wake_up - PROOF!"]
-        E3["monitoring_start"]
-        E4["slot_produced"]
-        E5["slot_failed"]
-        E6["app_resumed"]
-        E7["error"]
-        E8["health_check"]
+    subgraph iOS["iOS System"]
+        PAS["PlatformAlarmService<br/>BGTasks + Notifications"]
     end
 
-    subgraph Metrics["MetricsReportingService"]
-        M1["Listens to events<br/>Triggers targeted collection<br/>Periodic health checks - 30s"]
+    subgraph Flutter["Flutter Layer"]
+        Events["Native Events<br/>android_alarm_fired<br/>android_foreground_service_started/stopped<br/>android_persistent_foreground_started/stopped<br/>android_boot_reschedule_started/completed"]
+        Metrics["MetricsReportingService<br/>Collects metrics from events"]
     end
 
-    Orchestrator --> Events
+    AFT --> AS
+    AS --> AR
+    AR --> SMS
+    AR --> BAE
+    BAE --> Events
+    SMS --> Events
+    PAS --> Events
     Events --> Metrics
 ```
 
-### Old vs New Architecture
+**Key Native Events:**
+- `android_alarm_fired` - Alarm triggered at scheduled time
+- `android_foreground_service_started/stopped` - Slot monitoring lifecycle
+- `android_persistent_foreground_started/stopped` - Persistent mode lifecycle
+- `android_boot_reschedule_started/completed` - Boot recovery process
+- See [full event list](./ANDROID_BACKGROUND_BLOCK_PRODUCTION_WORKFLOW.md#android---flutter-events) for details
 
-**Old Architecture (Deprecated but functional):**
-- `EpochSlotSchedulerService` - Monitored epochs, scheduled slots
-- `AlarmCallbackService` - Handled alarm callbacks
-- `SlotNotificationManager` - Managed notifications separately
-- **Problems**: State scattered, services could desync, no proof of alarm execution
+### Smart VRF Monitoring (Android)
 
-**New Architecture (Current):**
-- `BackgroundBlockProductionOrchestrator` - Single unified service
-- `BlockProductionState` - Single state model
-- Event-driven metrics - Proof of reliability via `app_wake_up` events
-- Integrated notifications - Scheduled atomically with alarms
+The `AndroidForegroundTaskController` continuously polls VRF status and adaptively schedules:
 
-### Smart Epoch Monitoring
+- **Next won slot > 1 minute away**: Schedules alarm, stops foreground monitoring (saves battery)
+- **Next won slot < 1 minute away**: Keeps foreground service running until slot time
+- **No won slots, VRF complete**: Schedules alarm for epoch boundary minus 1 minute
+- **VRF in progress**: Continues polling every 30 seconds
 
-The orchestrator adjusts polling intervals based on VRF status:
-
-- **VRF not started**: 15 minutes (base interval)
-- **VRF in progress**: 5 minutes
-- **VRF complete**: 2 minutes
-- **VRF error**: 10 minutes
-
-This adaptive approach saves battery while remaining responsive to epoch transitions.
+This adaptive approach maximizes battery life while ensuring reliable wake-ups.
 
 ---
 
@@ -106,45 +100,91 @@ This adaptive approach saves battery while remaining responsive to epoch transit
 
 ### Android Implementation
 
-**Reliability**: 90-95% with exact alarms and foreground service
+**Reliability**: 90-95% with exact alarms and foreground service (Event-Driven mode), 100% with persistent foreground mode
+
+📖 **For detailed Android workflows, sequence diagrams, and persistent mode documentation, see [ANDROID_BACKGROUND_BLOCK_PRODUCTION_WORKFLOW.md](./ANDROID_BACKGROUND_BLOCK_PRODUCTION_WORKFLOW.md)**
 
 #### Components
 
-1. **AlarmManager Integration** (`AlarmScheduler.kt`)
+1. **AndroidForegroundTaskController** (`lib/core/services/android_foreground_task_controller.dart`)
+   - Entry point for Android background block production
+   - Polls VRF status every 30 seconds while node is running
+   - Manages wakelock to prevent device sleep
+   - Schedules alarms when slots are > 1 minute away
+   - Stops foreground service when no imminent slots
+
+2. **AlarmScheduler** (`AlarmScheduler.kt`)
    - Uses `setExactAndAllowWhileIdle()` for precise timing
    - Bypasses Doze mode restrictions
    - Persists alarms in SharedPreferences
 
-2. **Foreground Service** (`SlotMonitoringService.kt`)
-   - Keeps app alive during slot monitoring
-   - Type: `dataSync` (Android 12+ requirement)
-   - Posts notification within 5 seconds
-   - Prevents process termination
-
-3. **Alarm Receiver** (`AlarmReceiver.kt`)
-   - Receives alarm broadcasts
-   - Starts foreground service immediately
+3. **AlarmReceiver** (`AlarmReceiver.kt`)
+   - Receives alarm broadcasts at scheduled times
+   - Starts `SlotMonitoringService` as foreground service
+   - Falls back to `BackgroundAlarmEngine` if Flutter unavailable
    - Handles `BOOT_COMPLETED` for alarm rescheduling
 
-4. **Boot Recovery** (`BootRescheduleService.kt`)
+4. **SlotMonitoringService** (`SlotMonitoringService.kt`)
+   - Foreground service that keeps app alive during monitoring
+   - Type: `dataSync` (Android 12+ requirement)
+   - Posts notification within 5 seconds
+   - **Supports two modes:**
+     - **Event-Driven** (default): Runs only during slot monitoring (~2 min per slot)
+     - **Persistent** (optional): Runs continuously for 100% reliability (higher battery usage)
+   - See [Android Workflow Doc](./ANDROID_BACKGROUND_BLOCK_PRODUCTION_WORKFLOW.md) for details
+
+5. **BackgroundAlarmEngine** (`BackgroundAlarmEngine.kt`)
+   - Launches minimal Flutter engine when app is killed
+   - Delivers alarm events to Flutter even when main engine unavailable
+   - Shares engine cache with MainActivity to avoid dual engines
+
+6. **BootRescheduleService** (`BootRescheduleService.kt`)
    - Automatically restores alarms after device reboot
    - Launches Flutter engine in background
    - Reschedules slots for current epoch
    - Self-terminates after completion
 
+#### Android Operating Modes
+
+Android supports **two operating modes**:
+
+1. **Event-Driven Mode** (Default): Uses exact alarms to wake device only when needed. Battery efficient (~95% reliability).
+2. **Persistent Foreground Mode** (Optional): Keeps app running continuously with persistent notification. 100% reliable but higher battery usage.
+
+See [Android Workflow Doc](./ANDROID_BACKGROUND_BLOCK_PRODUCTION_WORKFLOW.md) for mode comparison and detailed workflows.
+
 #### Android Flow
 
+**Event-Driven Mode - Normal Operation (App Running):**
 ```mermaid
 flowchart TB
-    A["Alarm fires<br/>1 min before slot"] --> B["AlarmReceiver.onReceive()"]
-    B --> C["Start SlotMonitoringService - FGS"]
-    C --> D["Post notification"]
-    D --> E["Launch app if needed"]
-    E --> F["handleSlotWakeUp()"]
-    F --> G["SlotMonitorService starts monitoring"]
-    G --> H["Poll node status every 10s"]
-    H --> I["Block produced or timeout"]
-    I --> J["Stop FGS"]
+    A["Node starts"] --> B["AndroidForegroundTaskController.onNodeStarted()"]
+    B --> C["Start foreground service + wakelock"]
+    C --> D["Poll VRF every 30s"]
+    D --> E{"Next won slot?"}
+    E -->|"> 1 min away"| F["Schedule alarm"]
+    F --> G["Stop foreground + release wakelock"]
+    E -->|"< 1 min away"| H["Keep foreground running"]
+    H --> I["Monitor slot"]
+    I --> J["Block produced"]
+    J --> D
+    G --> K["Alarm fires"]
+    K --> L["AlarmReceiver restarts foreground"]
+    L --> D
+```
+
+**Background Operation (App Killed):**
+```mermaid
+flowchart TB
+    A["Alarm fires"] --> B["AlarmReceiver.onReceive()"]
+    B --> C["Start SlotMonitoringService (FGS)"]
+    C --> D{"Flutter available?"}
+    D -->|"Yes"| E["Send event to Flutter"]
+    D -->|"No"| F["BackgroundAlarmEngine starts Flutter"]
+    F --> G["Send event to Flutter"]
+    E --> H["AndroidForegroundTaskController handles event"]
+    G --> H
+    H --> I["Resume VRF monitoring"]
 ```
 
 #### Android 12+ Requirements
@@ -249,71 +289,48 @@ flowchart TB
 
 ---
 
-## Migration Guide
+## Usage
 
-### From Old Services to Orchestrator
+### Android
 
-If you're using the deprecated services, migrate to the new orchestrator:
-
-#### Old Code
-```dart
-import 'package:crypto_mobile_app/core/services/epoch_slot_scheduler_service.dart';
-
-// Initialize
-await EpochSlotSchedulerService.instance.initialize();
-
-// Schedule slots
-await EpochSlotSchedulerService.instance.scheduleEpochSlots();
-
-// Get scheduled slots
-final slots = EpochSlotSchedulerService.instance.getScheduledSlots();
-```
-
-#### New Code
-```dart
-import 'package:crypto_mobile_app/core/services/background_block_production_orchestrator.dart';
-
-// Initialize
-await BackgroundBlockProductionOrchestrator.instance.initialize();
-
-// Epoch scheduling happens automatically!
-// Just call onAppResumed() when app comes to foreground
-await BackgroundBlockProductionOrchestrator.instance.onAppResumed();
-
-// Get scheduled slots from state
-final slots = BackgroundBlockProductionOrchestrator.instance.scheduledSlots;
-```
-
-#### Listen to Events
-
-The orchestrator emits events for all major lifecycle points:
+Background block production starts automatically when the node starts:
 
 ```dart
-BackgroundBlockProductionOrchestrator.instance.events.listen((event) {
-  switch (event.eventType) {
-    case 'app_wake_up':
-      print('Alarm fired! Battery: ${event.data['batteryLevel']}%');
-      break;
-    case 'slot_produced':
-      print('Block produced successfully!');
-      break;
-    case 'slot_failed':
-      print('Production failed: ${event.data['reason']}');
-      break;
-  }
-});
+// Start node (in your startup code)
+final started = await RustBackendService.instance.startNode();
+
+// Android foreground task starts automatically
+// No additional code needed - VRF monitoring begins immediately
 ```
 
-### Deprecated Services
+### Handling Events
 
-The following services are deprecated and will be removed in a future release:
+Native events from Android (and iOS) are delivered through the callback system:
 
-- `EpochSlotSchedulerService` → Use `BackgroundBlockProductionOrchestrator`
-- `AlarmCallbackService` → Use `BackgroundBlockProductionOrchestrator`
-- `SlotNotificationManager` → Notifications integrated into orchestrator
-- `NotificationStateRepository` → Use `BlockProductionState`
+```dart
+// Set up event handler in main.dart
+PlatformAlarmService.instance.setNativeEventCallback(
+  AndroidForegroundTaskController.instance.handleNativeEvent,
+);
 
-Old services continue to work but log deprecation warnings.
+// AndroidForegroundTaskController processes these events internally:
+// - android_alarm_fired: Resumes VRF monitoring
+// - android_foreground_service_started: Tracking (slot monitoring)
+// - android_foreground_service_stopped: Tracking (slot monitoring)
+// - android_persistent_foreground_started: Tracking (continuous mode)
+// - android_persistent_foreground_stopped: Tracking (continuous mode)
+// - android_boot_reschedule_started/completed: Boot recovery tracking
+```
+
+### Checking Status
+
+```dart
+// Check if foreground service is running
+final running = await AndroidForegroundTaskController.instance.isForegroundServiceRunning();
+
+// Check if wakelock is held
+final wakelockHeld = await AndroidForegroundTaskController.instance.isWakelockHeld();
+```
 
 ---
 
@@ -360,12 +377,14 @@ The app monitors permission status and emits events:
 
 **Android Events:**
 - `android_exact_alarm_permission_granted/denied`
-- `android_notification_permission_granted/denied`
-- `android_battery_optimization_checked/disabled`
+- `android_post_notifications_permission_granted/denied`
+- `android_battery_optimization_disabled`
 
 **iOS Events:**
 - `ios_notification_permission_granted/denied`
 - `ios_background_refresh_status_checked`
+
+**Note:** For a complete list of all 42 event types including alarm execution, foreground service lifecycle, boot recovery, and persistent mode events, see [METRICS.md](./METRICS.md) and [ANDROID_BACKGROUND_BLOCK_PRODUCTION_WORKFLOW.md](./ANDROID_BACKGROUND_BLOCK_PRODUCTION_WORKFLOW.md).
 
 ---
 

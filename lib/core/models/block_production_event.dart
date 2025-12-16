@@ -1,7 +1,7 @@
 /// Base class for all block production lifecycle events
 ///
-/// These events are emitted by the BackgroundBlockProductionOrchestrator
-/// and can be consumed by the metrics collector and other observers.
+/// These events are emitted by various components (AndroidForegroundTaskController,
+/// PlatformAlarmService, etc.) and can be consumed by the metrics collector and other observers.
 abstract class BlockProductionEvent {
   final DateTime timestamp;
   final String eventType;

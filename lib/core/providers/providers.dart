@@ -107,7 +107,7 @@ class CurrentNetworkController extends StateNotifier<String> {
   }
 
   Future<void> refresh() async {
-    // Force refresh from SharedPreferences 
+    // Force refresh from SharedPreferences
     final newNetwork = await NetworkPrefs.getNetwork();
     if (mounted) {
       state = newNetwork;

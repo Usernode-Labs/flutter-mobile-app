@@ -357,7 +357,9 @@ class MaterialTheme {
 
   // Helper methods for internal network colors
   static Color getInternalNetworkBackgroundColor(bool isDark) {
-    return isDark ? internalNetworkDarkBackground : internalNetworkLightBackground;
+    return isDark
+        ? internalNetworkDarkBackground
+        : internalNetworkLightBackground;
   }
 
   static Color getInternalNetworkBorderColor(bool isDark) {

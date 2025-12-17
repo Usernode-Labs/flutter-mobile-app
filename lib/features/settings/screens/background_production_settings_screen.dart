@@ -17,7 +17,8 @@ import 'package:crypto_mobile_app/features/node/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 
-final _log = LoggingService.instance.withTag('usernode/BackgroundProductionSettings');
+final _log =
+    LoggingService.instance.withTag('usernode/BackgroundProductionSettings');
 
 class BackgroundProductionSettingsScreen extends ConsumerStatefulWidget {
   const BackgroundProductionSettingsScreen({super.key});
@@ -1517,7 +1518,6 @@ class _BackgroundProductionSettingsScreenState
       }
     }
   }
-
 }
 
 class _CollapsibleCard extends StatefulWidget {

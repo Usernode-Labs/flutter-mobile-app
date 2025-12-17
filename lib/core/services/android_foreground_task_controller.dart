@@ -177,8 +177,7 @@ class AndroidForegroundTaskController {
       },
     );
 
-    _log.info(
-        'Scheduled resume alarm at $time for $reason (success=$success)');
+    _log.info('Scheduled resume alarm at $time for $reason (success=$success)');
     await _releaseWakelock();
     await PlatformAlarmService.instance.stopForegroundService();
   }
@@ -266,4 +265,3 @@ class AndroidForegroundTaskController {
 }
 
 // Foreground service lifecycle is handled natively via PlatformAlarmService.
-

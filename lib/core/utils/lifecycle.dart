@@ -155,7 +155,8 @@ class AppLifecycleLogger with WidgetsBindingObserver {
   ///
   Future<void> _verifyScheduledAlarms() async {
     try {
-      _log.debug('Alarm verification no-op (handled by AlarmManager scheduling)');
+      _log.debug(
+          'Alarm verification no-op (handled by AlarmManager scheduling)');
     } catch (e) {
       _log.error('Error verifying scheduled alarms: $e');
     }

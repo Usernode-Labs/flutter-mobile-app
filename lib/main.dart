@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -15,8 +16,8 @@ import 'package:crypto_mobile_app/core/utils/lifecycle.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_provider.dart';
-import 'package:crypto_mobile_app/core/services/background_block_production_orchestrator.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
+import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
 import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
 import 'package:crypto_mobile_app/features/node/produced_blocks_provider.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
@@ -44,10 +45,10 @@ Future<void> main() async {
     // The callback is registered now so iOS notification events aren't lost
     await PlatformAlarmService.instance.initialize();
     PlatformAlarmService.instance.setNativeEventCallback(
-      BackgroundBlockProductionOrchestrator.instance.handleNativeEvent,
+      AndroidForegroundTaskController.instance.handleNativeEvent,
     );
 
-    final log = LoggingService.instance.withTag('Bootstrap');
+    final log = LoggingService.instance.withTag('usernode/Bootstrap');
 
     // Set up Flutter framework error handler to capture build/layout errors
     FlutterError.onError = (FlutterErrorDetails details) {
@@ -132,9 +133,11 @@ Future<void> _bootstrapAsync(
       );
     }
 
-    // Initialize background block production orchestrator
-    log.info('Initializing background block production orchestrator');
-    await BackgroundBlockProductionOrchestrator.instance.initialize();
+    // Kick off Android foreground VRF monitoring once the node is running
+    if (Platform.isAndroid) {
+      log.info('Starting Android foreground VRF monitoring');
+      await AndroidForegroundTaskController.instance.onNodeStarted();
+    }
 
     SentryUtil.addBreadcrumb(category: 'app', message: 'bootstrap end');
   } catch (e, st) {
@@ -194,7 +197,7 @@ class _AppWrapperState extends ConsumerState<_AppWrapper> {
   }
 
   Future<void> _checkInitialVersion() async {
-    final log = LoggingService.instance.withTag('VersionCheck');
+    final log = LoggingService.instance.withTag('usernode/VersionCheck');
     log.info('_checkInitialVersion called');
     try {
       final result = await ref.read(appVersionCheckProvider.future);

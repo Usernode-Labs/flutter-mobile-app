@@ -32,8 +32,7 @@ flowchart TB
     end
 
     subgraph Flutter["Flutter Layer"]
-        Orchestrator["BackgroundBlockProductionOrchestrator<br/>Epoch monitoring<br/>Slot scheduling"]
-        KeepAlive["AndroidForegroundKeepAliveService<br/>startKeepAlive()<br/>stopKeepAlive()<br/>WakelockPlus integration"]
+        ForegroundTask["AndroidForegroundTaskController<br/>VRF monitoring<br/>Adaptive alarm scheduling"]
         PlatformAlarm["PlatformAlarmService - Dart<br/>scheduleAlarm() / startForegroundService()<br/>startPersistentForeground / stopPersistentForeground<br/>MethodChannel: com.usernode.app/alarm"]
     end
 
@@ -63,7 +62,7 @@ flowchart TB
 ```mermaid
 flowchart TB
     subgraph Step1["1. App Initialization"]
-        A1["BackgroundBlockProductionOrchestrator.initialize()"] --> A2["Start epoch monitoring timer"]
+        A1["AndroidForegroundTaskController.onNodeStarted()"] --> A2["Start VRF polling + wakelock"]
     end
 
     subgraph Step2["2. Epoch Monitoring - every N minutes, VRF-aware"]

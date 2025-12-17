@@ -8,7 +8,7 @@ import '../../features/node/node_service.dart';
 import '../data/slot_production_repository.dart';
 import 'platform_alarm_service.dart';
 
-final _log = LoggingService.instance.withTag('EpochSlotScheduler');
+final _log = LoggingService.instance.withTag('usernode/EpochSlotScheduler');
 
 /// Service responsible for epoch-aware scheduling of slot alarms/tasks
 ///

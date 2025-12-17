@@ -128,7 +128,7 @@ This is **not a light client** - it's a full validator node with consensus parti
 
 ### Block Production & Rewards
 
-- **Unified Orchestrator**: BackgroundBlockProductionOrchestrator coordinates all background production activities
+- **Android background**: `AndroidForegroundTaskController` + exact alarms manage foreground service start/stop with adaptive VRF polling
 - **Startup Permission Requests**: Automatic one-time permission requests at app launch (POST_NOTIFICATIONS, SCHEDULE_EXACT_ALARM, battery optimization)
 - **Slot Calculator**: Calculate won slots for current epoch
 - **Slot Scheduler**: Schedule alarms for upcoming block production windows

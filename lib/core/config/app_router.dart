@@ -23,7 +23,7 @@ import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 
-final _log = LoggingService.instance.withTag('Router');
+final _log = LoggingService.instance.withTag('usernode/Router');
 
 class AppRoutes {
   // Core routes

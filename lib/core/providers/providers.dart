@@ -9,7 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 
-final _log = LoggingService.instance.withTag('Providers');
+final _log = LoggingService.instance.withTag('usernode/Providers');
 
 // Derived async providers
 final hasAnyAccountProvider = FutureProvider<bool>((ref) async {

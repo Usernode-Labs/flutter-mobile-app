@@ -7,7 +7,7 @@ import android.util.Log
 
 class ForegroundServiceManager(private val context: Context) {
     companion object {
-        private const val TAG = "ForegroundServiceMgr"
+        private const val TAG = "usernode/ForegroundServiceMgr"
     }
 
     fun startForegroundService(title: String, message: String, slotNumber: Int): Boolean {

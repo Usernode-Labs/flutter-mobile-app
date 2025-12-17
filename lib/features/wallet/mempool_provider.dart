@@ -7,7 +7,7 @@ import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_mempool.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as rust_types;
 
-final _log = LoggingService.instance.withTag('MempoolProvider');
+final _log = LoggingService.instance.withTag('usernode/MempoolProvider');
 
 /// Controller that fetches pending transactions from mempool
 class WalletMempoolController extends AsyncNotifier<List<MempoolTxSummary>> {

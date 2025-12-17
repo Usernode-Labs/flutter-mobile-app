@@ -5,10 +5,9 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import '../../features/node/node_service.dart';
 import '../../features/metrics/metrics_collector_service.dart';
-import '../services/background_block_production_orchestrator.dart';
-import '../services/platform_alarm_service.dart';
+import '../services/android_foreground_task_controller.dart';
 
-final _log = LoggingService.instance.withTag('Lifecycle');
+final _log = LoggingService.instance.withTag('usernode/Lifecycle');
 
 /// Enhanced app lifecycle observer with background block production support
 ///
@@ -140,18 +139,13 @@ class AppLifecycleLogger with WidgetsBindingObserver {
 
   /// Check if epoch has changed and reschedule slots if needed
   ///
-  /// Now uses BackgroundBlockProductionOrchestrator for unified handling
   Future<void> _checkEpochTransition() async {
     try {
-      // The orchestrator now handles epoch transitions automatically!
-      // We just need to trigger a check when the app resumes
-      if (BackgroundBlockProductionOrchestrator.instance.isInitialized) {
-        _log.info('Notifying orchestrator of app resume...');
-        await BackgroundBlockProductionOrchestrator.instance.onAppResumed();
-        _log.info('✓ Orchestrator notified, epoch check complete');
-      } else {
-        _log.warn('BackgroundBlockProductionOrchestrator not initialized');
-      }
+      if (!Platform.isAndroid) return;
+
+      _log.info('Resuming Android foreground VRF monitoring');
+      await AndroidForegroundTaskController.instance
+          .startMonitoring(reason: 'app_resumed');
     } catch (e) {
       _log.error('Error checking epoch transition: $e');
     }
@@ -159,51 +153,9 @@ class AppLifecycleLogger with WidgetsBindingObserver {
 
   /// Verify that scheduled alarms still exist (could be cleared by system)
   ///
-  /// Now uses BackgroundBlockProductionOrchestrator for unified state
   Future<void> _verifyScheduledAlarms() async {
     try {
-      if (!BackgroundBlockProductionOrchestrator.instance.isInitialized) {
-        _log.debug(
-            'BackgroundBlockProductionOrchestrator not initialized, skipping alarm verification');
-        return;
-      }
-
-      final scheduledSlots =
-          BackgroundBlockProductionOrchestrator.instance.scheduledSlots;
-
-      if (scheduledSlots.isEmpty) {
-        _log.debug('No slots scheduled, nothing to verify');
-        return;
-      }
-
-      _log.debug('Verifying ${scheduledSlots.length} scheduled alarms...');
-
-      // Check if alarms still exist via platform alarm service
-      final hasPermission = PlatformAlarmService.instance.hasPermissions;
-
-      if (!hasPermission) {
-        _log.warn(
-            '⚠️  Exact alarm permission lost! Alarms may have been cleared.');
-
-        SentryUtil.addBreadcrumb(
-          category: 'lifecycle',
-          message: 'exact alarm permission lost',
-          level: SentryLevel.warning,
-        );
-
-        // Could notify user here or attempt to reschedule
-        return;
-      }
-
-      // On Android, we can verify alarms exist
-      // On iOS, BGTasks don't have a verification API
-      if (Platform.isAndroid) {
-        // Android alarms persist through app restarts but are lost on device reboot
-        // The system will call our BOOT_COMPLETED receiver to handle rescheduling
-        _log.debug('Alarm verification complete (Android)');
-      } else {
-        _log.debug('Alarm verification skipped (iOS - no verification API)');
-      }
+      _log.debug('Alarm verification no-op (handled by AlarmManager scheduling)');
     } catch (e) {
       _log.error('Error verifying scheduled alarms: $e');
     }

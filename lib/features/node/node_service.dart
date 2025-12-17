@@ -2,8 +2,6 @@ import 'dart:async';
 import 'dart:io' show Platform;
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart' show kReleaseMode;
-
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/block_producer_status.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_mempool.dart';
@@ -28,7 +26,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-final _log = LoggingService.instance.withTag('NodeService');
+final _log = LoggingService.instance.withTag('usernode/NodeService');
 
 /// Parse log level string to TracingLevel enum
 TracingLevel _parseTracingLevel(String level) {
@@ -103,8 +101,8 @@ class RustBackendService {
             : null,
       );
 
-      // Enable Rust-side logging only if RUST_LOG_LEVEL is explicitly set and not in release mode
-      if (!kReleaseMode && AppConfig.rustLogLevel.isNotEmpty) {
+      // Enable Rust-side logging if RUST_LOG_LEVEL is explicitly set (also in release).
+      if (AppConfig.rustLogLevel.isNotEmpty) {
         final rustLogLevel = _parseTracingLevel(AppConfig.rustLogLevel);
         final appSupportDir = await getApplicationSupportDirectory();
         final logDir = '${appSupportDir.path}/logs';

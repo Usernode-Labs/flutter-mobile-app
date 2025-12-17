@@ -5,10 +5,16 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.util.Log
+import androidx.core.app.NotificationCompat
+import android.app.NotificationManager
+import android.app.NotificationChannel
+import android.app.PendingIntent
+import com.usernode_labs.usernode.MainActivity
+import com.usernode_labs.usernode.R
 
 class AlarmReceiver : BroadcastReceiver() {
     companion object {
-        private const val TAG = "AlarmReceiver"
+        private const val TAG = "usernode/AlarmReceiver"
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -31,6 +37,7 @@ class AlarmReceiver : BroadcastReceiver() {
         val alarmId = intent.getStringExtra("alarmId")
         val slotNumber = intent.getIntExtra("slotNumber", -1)
         val scheduledTimeMs = intent.getLongExtra("alarmTimeMs", -1L)
+        val nodeRunning = intent.getBooleanExtra("nodeRunning", false)
 
         Log.d(TAG, "[AlarmReceiver] Slot alarm details - ID: $alarmId, Slot: $slotNumber, Scheduled: $scheduledTimeMs")
 
@@ -47,15 +54,22 @@ class AlarmReceiver : BroadcastReceiver() {
         val latencyMs = if (scheduledTimeMs > 0) currentTime - scheduledTimeMs else 0L
         Log.i(TAG, "[AlarmReceiver] ✓ Slot alarm FIRED for slot $slotNumber (latency: ${latencyMs}ms)")
 
-        // Send event to Flutter
-        Log.d(TAG, "[AlarmReceiver] Sending android_alarm_fired event to Flutter")
-        val eventData = mapOf(
-            "alarmId" to alarmId,
-            "slotNumber" to slotNumber,
-            "batteryLevel" to 0, // TODO: Get actual battery level
-            "networkState" to "unknown" // TODO: Get actual network state
-        )
-        AlarmMethodChannelHandler.getInstance()?.sendEventToFlutter("android_alarm_fired", eventData)
+        // Send event to Flutter if channel available; otherwise show a fallback notification
+        val handler = AlarmMethodChannelHandler.getInstance()
+        if (handler != null) {
+            Log.d(TAG, "[AlarmReceiver] Sending android_alarm_fired event to Flutter")
+            val eventData = mapOf(
+                "alarmId" to alarmId,
+                "slotNumber" to slotNumber,
+                "batteryLevel" to 0,
+                "networkState" to "unknown",
+                "nodeRunning" to nodeRunning
+            )
+            handler.sendEventToFlutter("android_alarm_fired", eventData)
+        } else {
+            Log.w(TAG, "[AlarmReceiver] Flutter channel unavailable; showing fallback notification")
+            showFallbackNotification(context, slotNumber)
+        }
 
         // Start foreground service to keep app alive during monitoring
         Log.d(TAG, "[AlarmReceiver] Starting SlotMonitoringService")
@@ -63,8 +77,8 @@ class AlarmReceiver : BroadcastReceiver() {
             action = SlotMonitoringService.ACTION_START_MONITORING
             putExtra("alarmId", alarmId)
             putExtra("slotNumber", slotNumber)
+            putExtra("nodeRunning", nodeRunning)
         }
-
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 Log.d(TAG, "[AlarmReceiver] Using startForegroundService (API >= 26)")
@@ -76,21 +90,6 @@ class AlarmReceiver : BroadcastReceiver() {
             Log.d(TAG, "[AlarmReceiver] SlotMonitoringService start command sent")
         } catch (e: Exception) {
             Log.e(TAG, "[AlarmReceiver] Failed to start SlotMonitoringService", e)
-        }
-
-        // Also try to launch the app if possible
-        Log.d(TAG, "[AlarmReceiver] Attempting to launch app")
-        try {
-            val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
-            launchIntent?.let {
-                it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                it.putExtra("slotNumber", slotNumber)
-                it.putExtra("fromAlarm", true)
-                context.startActivity(it)
-                Log.d(TAG, "[AlarmReceiver] App launch intent sent")
-            } ?: Log.w(TAG, "[AlarmReceiver] Launch intent is null")
-        } catch (e: Exception) {
-            Log.w(TAG, "[AlarmReceiver] Could not launch app from alarm", e)
         }
     }
 
@@ -108,5 +107,37 @@ class AlarmReceiver : BroadcastReceiver() {
         }
 
         Log.i(TAG, "Boot reschedule service started")
+    }
+
+    private fun showFallbackNotification(context: Context, slotNumber: Int) {
+        val channelId = "slot_alarm_fallback"
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                channelId,
+                "Slot Alarm",
+                NotificationManager.IMPORTANCE_HIGH
+            )
+            nm.createNotificationChannel(channel)
+        }
+
+        val launchIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("slotNumber", slotNumber)
+            putExtra("fromAlarm", true)
+        }
+        val piFlags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        val pendingIntent = PendingIntent.getActivity(context, 0, launchIntent, piFlags)
+
+        val notification = NotificationCompat.Builder(context, channelId)
+            .setSmallIcon(R.drawable.launch_background)
+            .setContentTitle("Slot alarm fired")
+            .setContentText("Tap to resume monitoring for slot $slotNumber")
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentIntent(pendingIntent)
+            .build()
+
+        nm.notify(slotNumber, notification)
     }
 }

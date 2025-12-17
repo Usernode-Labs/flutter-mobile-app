@@ -11,14 +11,13 @@ import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/services/epoch_slot_scheduler_service.dart';
 import 'package:crypto_mobile_app/core/services/ios_foreground_keepalive_service.dart';
-import 'package:crypto_mobile_app/core/services/android_foreground_keepalive_service.dart';
 import 'package:crypto_mobile_app/core/data/slot_production_repository.dart';
 import 'package:crypto_mobile_app/features/node/node_provider.dart';
 import 'package:crypto_mobile_app/features/node/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 
-final _log = LoggingService.instance.withTag('BackgroundProductionSettings');
+final _log = LoggingService.instance.withTag('usernode/BackgroundProductionSettings');
 
 class BackgroundProductionSettingsScreen extends ConsumerStatefulWidget {
   const BackgroundProductionSettingsScreen({super.key});
@@ -34,7 +33,6 @@ class _BackgroundProductionSettingsScreenState
   bool _batteryOptDisabled = false;
   String? _deviceManufacturer;
   bool _iosKeepAliveActive = false;
-  bool _androidKeepAliveActive = false;
   Timer? _autoTimer;
   bool _refreshing = false;
   bool _active = false; // active when Settings tab is selected (index 2)
@@ -113,16 +111,11 @@ class _BackgroundProductionSettingsScreenState
         final deviceManufacturer =
             await PlatformAlarmService.instance.getDeviceManufacturer();
 
-        // Check Android keep-alive status
-        final androidKeepAliveActive =
-            await AndroidForegroundKeepAliveService.instance.refreshState();
-
         if (mounted) {
           setState(() {
             _hasPermissions = hasPermissions;
             _batteryOptDisabled = batteryOptDisabled;
             _deviceManufacturer = deviceManufacturer;
-            _androidKeepAliveActive = androidKeepAliveActive;
           });
         }
       } else if (Platform.isIOS) {
@@ -290,8 +283,6 @@ class _BackgroundProductionSettingsScreenState
               ],
               if (Platform.isAndroid) ...[
                 _buildAndroidBatterySection(theme, colorScheme),
-                const SizedBox(height: 8),
-                _buildAndroidKeepAliveSection(theme, colorScheme),
                 const SizedBox(height: 8),
                 _buildThemeSection(theme, colorScheme),
                 const SizedBox(height: 8),
@@ -1491,231 +1482,6 @@ class _BackgroundProductionSettingsScreenState
     );
   }
 
-  Widget _buildAndroidKeepAliveSection(
-      ThemeData theme, ColorScheme colorScheme) {
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: colorScheme.outlineVariant, width: 1),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    'Persistent Foreground Mode',
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.onPrimaryContainer,
-                    ),
-                  ),
-                ),
-                // Reliability badge
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Text(
-                    '100%',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.blue,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            // How it works
-            Text(
-              'How it works:',
-              style: theme.textTheme.labelMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: colorScheme.onPrimaryContainer,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Runs a continuous foreground service with a persistent notification. Android is prohibited from killing foreground services, ensuring the app is always ready to produce blocks.',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colorScheme.onPrimaryContainer.withValues(alpha: 0.8),
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 12),
-            // Battery and recommendation info
-            Row(
-              children: [
-                Expanded(
-                  child: _buildInfoChip(
-                    Icons.battery_3_bar,
-                    '~5-10%/hr',
-                    'Battery',
-                    colorScheme.onPrimaryContainer,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildInfoChip(
-                    Icons.verified,
-                    'Critical use',
-                    'Best for',
-                    colorScheme.onPrimaryContainer,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            // Trade-off comparison
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: colorScheme.surface.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Mode comparison:',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.onPrimaryContainer,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.green.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Text(
-                          '90-95%',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.green,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Default: Event-driven, minimal battery drain',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onPrimaryContainer
-                                .withValues(alpha: 0.8),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Text(
-                          '100%',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.blue,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Persistent: Guaranteed, higher battery usage',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onPrimaryContainer
-                                .withValues(alpha: 0.8),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            // Toggle
-            Container(
-              decoration: BoxDecoration(
-                color: colorScheme.surface.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: SwitchListTile(
-                value: _androidKeepAliveActive,
-                onChanged: _toggleAndroidKeepAlive,
-                title: Text(
-                  _androidKeepAliveActive ? 'Keep-Alive ON' : 'Keep-Alive OFF',
-                  style: TextStyle(
-                    color: colorScheme.onPrimaryContainer,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                subtitle: Text(
-                  _androidKeepAliveActive
-                      ? 'Persistent foreground service running'
-                      : 'Enable for guaranteed block production',
-                  style: TextStyle(
-                    color:
-                        colorScheme.onPrimaryContainer.withValues(alpha: 0.7),
-                  ),
-                ),
-              ),
-            ),
-            if (_androidKeepAliveActive) ...[
-              const SizedBox(height: 16),
-              const Divider(height: 1),
-              const SizedBox(height: 12),
-              Text(
-                'Tips for best results:',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: colorScheme.onPrimaryContainer,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              _buildTip('Connect device to charger for extended use'),
-              _buildTip('Battery optimization should be disabled'),
-              _buildTip('A persistent notification will be shown'),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
   Future<void> _requestPermissions() async {
     final granted = await PlatformAlarmService.instance.requestPermissions();
     await _checkStatus();
@@ -1752,20 +1518,6 @@ class _BackgroundProductionSettingsScreenState
     }
   }
 
-  Future<void> _toggleAndroidKeepAlive(bool value) async {
-    if (value) {
-      final success =
-          await AndroidForegroundKeepAliveService.instance.startKeepAlive();
-      if (success && mounted) {
-        setState(() => _androidKeepAliveActive = true);
-      }
-    } else {
-      await AndroidForegroundKeepAliveService.instance.stopKeepAlive();
-      if (mounted) {
-        setState(() => _androidKeepAliveActive = false);
-      }
-    }
-  }
 }
 
 class _CollapsibleCard extends StatefulWidget {

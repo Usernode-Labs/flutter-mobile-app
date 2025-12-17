@@ -4,7 +4,7 @@ import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import '../models/block_production_state.dart';
 
-final _log = LoggingService.instance.withTag('BlockProductionStateRepository');
+final _log = LoggingService.instance.withTag('usernode/BlockProductionStateRepository');
 
 /// Repository for persisting and loading BlockProductionState
 ///

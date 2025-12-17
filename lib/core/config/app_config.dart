@@ -32,16 +32,16 @@ class AppConfig {
   // Logging configuration
   // Global log level (trace, debug, info, warning, error)
   static const String logLevel =
-      String.fromEnvironment('LOG_LEVEL', defaultValue: 'info');
+      String.fromEnvironment('LOG_LEVEL', defaultValue: 'warning');
 
   // Per-tag log level overrides (format: tag:level,tag:level)
   static const String logTagLevels =
       String.fromEnvironment('LOG_TAG_LEVELS', defaultValue: '');
 
   // Rust-side log level (trace, debug, info, warn, error)
-  // If not set, Rust logging is disabled
+  // Default to warn level for production readiness
   static const String rustLogLevel =
-      String.fromEnvironment('RUST_LOG_LEVEL', defaultValue: '');
+      String.fromEnvironment('RUST_LOG_LEVEL', defaultValue: 'warn');
 
   static AppConfig get instance => AppConfig._(
         environment: _env,

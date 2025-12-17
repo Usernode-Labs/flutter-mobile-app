@@ -78,7 +78,9 @@ class BGTaskSchedulerManager {
                 "slotNumber": slotNumber,
                 "scheduledTime": alarmTimeMs
             ]
-            AppDelegate.shared?.sendEventToFlutter(eventType: "ios_bgtask_scheduled", eventData: eventData)
+            DispatchQueue.main.async {
+                AppDelegate.shared?.sendEventToFlutter(eventType: "ios_bgtask_scheduled", eventData: eventData)
+            }
 
             // Also schedule a local notification as backup
             print("[BGTaskScheduler] Scheduling backup notification...")
@@ -126,7 +128,9 @@ class BGTaskSchedulerManager {
             "slotNumber": 0, // Unknown slot number in BGTask handler
             "executionDuration": 0 // Will update on completion
         ]
-        AppDelegate.shared?.sendEventToFlutter(eventType: "ios_bgtask_executed", eventData: eventData)
+        DispatchQueue.main.async {
+            AppDelegate.shared?.sendEventToFlutter(eventType: "ios_bgtask_executed", eventData: eventData)
+        }
 
         // Track background task execution for metrics
         incrementBackgroundTaskStats()
@@ -153,7 +157,9 @@ class BGTaskSchedulerManager {
             let expiredEventData: [String: Any] = [
                 "slotNumber": 0 // Unknown slot number in BGTask handler
             ]
-            AppDelegate.shared?.sendEventToFlutter(eventType: "ios_bgtask_expired", eventData: expiredEventData)
+            DispatchQueue.main.async {
+                AppDelegate.shared?.sendEventToFlutter(eventType: "ios_bgtask_expired", eventData: expiredEventData)
+            }
 
             workItem.cancel()
         }
@@ -234,7 +240,9 @@ class BGTaskSchedulerManager {
                     "slotNumber": slotNumber,
                     "scheduledTime": Int64(alarmDate.timeIntervalSince1970 * 1000)
                 ]
-                AppDelegate.shared?.sendEventToFlutter(eventType: "ios_notification_scheduled", eventData: eventData)
+                DispatchQueue.main.async {
+                    AppDelegate.shared?.sendEventToFlutter(eventType: "ios_notification_scheduled", eventData: eventData)
+                }
             }
         }
     }

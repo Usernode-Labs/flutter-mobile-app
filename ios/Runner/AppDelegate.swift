@@ -79,10 +79,14 @@ import UserNotifications
         print("[AppDelegate] Notification authorization status: \(settings.authorizationStatus.rawValue)")
         if settings.authorizationStatus == .authorized {
           print("[AppDelegate] Sending ios_notification_permission_granted event (already authorized)")
-          self.sendEventToFlutter(eventType: "ios_notification_permission_granted", eventData: [:])
+          DispatchQueue.main.async {
+            self.sendEventToFlutter(eventType: "ios_notification_permission_granted", eventData: [:])
+          }
         } else if settings.authorizationStatus == .denied {
           print("[AppDelegate] Sending ios_notification_permission_denied event (denied)")
-          self.sendEventToFlutter(eventType: "ios_notification_permission_denied", eventData: [:])
+          DispatchQueue.main.async {
+            self.sendEventToFlutter(eventType: "ios_notification_permission_denied", eventData: [:])
+          }
         }
         // For .notDetermined status, we don't send an event - wait for explicit request
       }
@@ -218,13 +222,17 @@ import UserNotifications
 
           // Send permission granted event to Flutter
           print("[AppDelegate] Sending ios_notification_permission_granted event to Flutter")
-          self.sendEventToFlutter(eventType: "ios_notification_permission_granted", eventData: [:])
+          DispatchQueue.main.async {
+            self.sendEventToFlutter(eventType: "ios_notification_permission_granted", eventData: [:])
+          }
         } else {
           print("[AppDelegate] ✗ Notification permission DENIED")
 
           // Send permission denied event to Flutter
           print("[AppDelegate] Sending ios_notification_permission_denied event to Flutter")
-          self.sendEventToFlutter(eventType: "ios_notification_permission_denied", eventData: [:])
+          DispatchQueue.main.async {
+            self.sendEventToFlutter(eventType: "ios_notification_permission_denied", eventData: [:])
+          }
         }
 
         // Check detailed permission status
@@ -276,7 +284,9 @@ extension AppDelegate {
     // Send ios_notification_delivered event to Flutter
     print("[AppDelegate] Sending ios_notification_delivered event to Flutter")
     let eventData: [String: Any] = ["slotNumber": slotNumber]
-    sendEventToFlutter(eventType: "ios_notification_delivered", eventData: eventData)
+    DispatchQueue.main.async {
+      self.sendEventToFlutter(eventType: "ios_notification_delivered", eventData: eventData)
+    }
 
     // Show notification even when app is in foreground
     if #available(iOS 14.0, *) {
@@ -300,7 +310,9 @@ extension AppDelegate {
     // Send ios_notification_tapped event to Flutter
     print("[AppDelegate] Sending ios_notification_tapped event to Flutter")
     let eventData: [String: Any] = ["slotNumber": slotNumber]
-    sendEventToFlutter(eventType: "ios_notification_tapped", eventData: eventData)
+    DispatchQueue.main.async {
+      self.sendEventToFlutter(eventType: "ios_notification_tapped", eventData: eventData)
+    }
 
     completionHandler()
   }

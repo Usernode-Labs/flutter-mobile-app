@@ -23,6 +23,7 @@ import 'package:crypto_mobile_app/features/wallet/assets_provider.dart';
 import 'package:crypto_mobile_app/features/wallet/utxo_provider.dart';
 import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
 import 'package:crypto_mobile_app/features/wallet/models/account.dart';
+import 'package:crypto_mobile_app/features/node/node_service.dart';
 
 final _log = LoggingService.instance.withTag('usernode/NodeStatusScreen');
 
@@ -65,6 +66,13 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   // Device ID
   String? _deviceId;
 
+  // Chain ID
+  String? _chainId;
+  
+  // Chain ID cache per network
+  String? _cachedChainIdTestnet;
+  String? _cachedChainIdInternal;
+
   @override
   void initState() {
     super.initState();
@@ -75,6 +83,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       _refresh();
       _loadActiveAccount();
       _loadDeviceId();
+      _loadChainId();
     });
     // Start timer immediately since we're on this screen
     // The build() method will handle stopping it if tab changes
@@ -117,6 +126,65 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     });
   }
 
+  Future<void> _loadChainId() async {
+    // Get current network type to determine which cache to use
+    NetworkType? currentNetwork;
+    try {
+      currentNetwork = await RustBackendService.instance.getSelectedNetwork();
+    } catch (e) {
+      _log.debug('Failed to get network type: $e');
+    }
+
+    // Check cache first based on network type
+    String? cachedChainId;
+    if (currentNetwork == NetworkType.testnet) {
+      cachedChainId = _cachedChainIdTestnet;
+    } else if (currentNetwork == NetworkType.internal) {
+      cachedChainId = _cachedChainIdInternal;
+    }
+
+    // Use cached value if available
+    if (cachedChainId != null) {
+      if (!mounted) return;
+      setState(() {
+        _chainId = cachedChainId;
+      });
+      return;
+    }
+
+    // Set loading state only if no cache available
+    if (!mounted) return;
+    setState(() {
+      _chainId = 'Loading...';
+    });
+
+    // Load chain ID from node status
+    String? chainId;
+    try {
+      final status = await RustBackendService.instance.getStatus();
+      chainId = status?.node.chainId;
+    } catch (e) {
+      _log.debug('Failed to get chain_id from status: $e');
+    }
+    
+    // If we got a valid chain_id, cache it for the current network
+    if (chainId != null && chainId.isNotEmpty && currentNetwork != null) {
+      if (currentNetwork == NetworkType.testnet) {
+        _cachedChainIdTestnet = chainId;
+      } else if (currentNetwork == NetworkType.internal) {
+        _cachedChainIdInternal = chainId;
+      }
+    } else {
+      // Keep showing "Loading..." if chain_id is unavailable
+      chainId = 'Loading...';
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _chainId = chainId;
+    });
+  }
+
   Future<void> _refresh() async {
     if (!mounted) return;
     setState(() {
@@ -131,6 +199,9 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       await ref.read(epochRewardsProvider.notifier).refresh();
       // Refresh wallet UTXOs to update balance after node syncs (silent to avoid flicker)
       await ref.read(walletUtxosProvider.notifier).silentRefresh();
+
+      // Refresh chain ID in case network changed
+      await _loadChainId();
 
       // Check if still mounted after async operations
       if (!mounted) return;
@@ -313,7 +384,16 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
               const SizedBox(height: 2),
               _buildLabelValueRow(
                 'Device ID:',
-                _deviceId!,
+                _shortenMid(_deviceId!, head: 8, tail: 8),
+                theme,
+                colorScheme,
+              ),
+            ],
+            if (_chainId != null) ...[
+              const SizedBox(height: 2),
+              _buildLabelValueRow(
+                'Chain ID:',
+                _shortenMid(_chainId!, head: 8, tail: 8),
                 theme,
                 colorScheme,
               ),
@@ -324,7 +404,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     );
   }
 
-  // Helper for label-value row with fixed-width label
+  // Helper for label-value row with consistent label width
   Widget _buildLabelValueRow(
     String label,
     String value,
@@ -334,7 +414,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     return Row(
       children: [
         SizedBox(
-          width: 70,
+          width: 80, // Consistent width for all labels (Address:, Peer ID:, Device ID:, Chain ID:)
           child: Text(
             label,
             style: theme.textTheme.bodySmall?.copyWith(
@@ -360,9 +440,9 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
   // Helper for shortened address display
   String _shortAddr(String addr) {
-    if (addr.length <= 12) return addr;
-    final start = addr.substring(0, 12);
-    final end = addr.substring(addr.length - 12);
+    if (addr.length <= 17) return addr; // 8 + 1 + 8 = 17
+    final start = addr.substring(0, 8);
+    final end = addr.substring(addr.length - 8);
     return '$start…$end';
   }
 

@@ -207,9 +207,30 @@ class MetricsCollectorService {
     // Get peer ID from backend service - CACHED (static per session)
     _cachedPeerId ??= RustBackendService.instance.getPeerId();
     final peerId = _cachedPeerId;
+    
+    // Get chain ID from node status
+    String? chainId;
+    try {
+      final status = await RustBackendService.instance.getStatus();
+      chainId = status?.node.chainId;
+    } catch (e) {
+      _log.debug('Failed to get chain_id from status: $e');
+    }
+    
+    // Fallback: derive from selected network if chain_id unavailable
+    if (chainId == null || chainId.isEmpty) {
+      try {
+        final networkType = await RustBackendService.instance.getSelectedNetwork();
+        chainId = networkType.name; // 'testnet' or 'internal'
+      } catch (e) {
+        _log.debug('Failed to get network type for chain_id fallback: $e');
+        chainId = null;
+      }
+    }
 
     return IdentityMetrics(
       peerId: peerId,
+      chainId: chainId,
     );
   }
 

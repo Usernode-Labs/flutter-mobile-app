@@ -68,6 +68,10 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
   // Chain ID
   String? _chainId;
+  
+  // Chain ID cache per network
+  String? _cachedChainIdTestnet;
+  String? _cachedChainIdInternal;
 
   @override
   void initState() {
@@ -123,6 +127,37 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   }
 
   Future<void> _loadChainId() async {
+    // Get current network type to determine which cache to use
+    NetworkType? currentNetwork;
+    try {
+      currentNetwork = await RustBackendService.instance.getSelectedNetwork();
+    } catch (e) {
+      _log.debug('Failed to get network type: $e');
+    }
+
+    // Check cache first based on network type
+    String? cachedChainId;
+    if (currentNetwork == NetworkType.testnet) {
+      cachedChainId = _cachedChainIdTestnet;
+    } else if (currentNetwork == NetworkType.internal) {
+      cachedChainId = _cachedChainIdInternal;
+    }
+
+    // Use cached value if available
+    if (cachedChainId != null) {
+      if (!mounted) return;
+      setState(() {
+        _chainId = cachedChainId;
+      });
+      return;
+    }
+
+    // Set loading state only if no cache available
+    if (!mounted) return;
+    setState(() {
+      _chainId = 'Loading...';
+    });
+
     // Load chain ID from node status
     String? chainId;
     try {
@@ -132,15 +167,16 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       _log.debug('Failed to get chain_id from status: $e');
     }
     
-    // Fallback: derive from selected network if chain_id unavailable
-    if (chainId == null || chainId.isEmpty) {
-      try {
-        final networkType = await RustBackendService.instance.getSelectedNetwork();
-        chainId = networkType.name; // 'testnet' or 'internal'
-      } catch (e) {
-        _log.debug('Failed to get network type for chain_id fallback: $e');
-        chainId = null;
+    // If we got a valid chain_id, cache it for the current network
+    if (chainId != null && chainId.isNotEmpty && currentNetwork != null) {
+      if (currentNetwork == NetworkType.testnet) {
+        _cachedChainIdTestnet = chainId;
+      } else if (currentNetwork == NetworkType.internal) {
+        _cachedChainIdInternal = chainId;
       }
+    } else {
+      // Keep showing "Loading..." if chain_id is unavailable
+      chainId = 'Loading...';
     }
 
     if (!mounted) return;
@@ -368,7 +404,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     );
   }
 
-  // Helper for label-value row with fixed-width label
+  // Helper for label-value row with consistent label width
   Widget _buildLabelValueRow(
     String label,
     String value,
@@ -378,7 +414,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     return Row(
       children: [
         SizedBox(
-          width: 70,
+          width: 80, // Consistent width for all labels (Address:, Peer ID:, Device ID:, Chain ID:)
           child: Text(
             label,
             style: theme.textTheme.bodySmall?.copyWith(

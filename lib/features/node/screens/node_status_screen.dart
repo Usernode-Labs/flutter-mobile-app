@@ -23,6 +23,7 @@ import 'package:crypto_mobile_app/features/wallet/assets_provider.dart';
 import 'package:crypto_mobile_app/features/wallet/utxo_provider.dart';
 import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
 import 'package:crypto_mobile_app/features/wallet/models/account.dart';
+import 'package:crypto_mobile_app/features/node/node_service.dart';
 
 final _log = LoggingService.instance.withTag('usernode/NodeStatusScreen');
 
@@ -65,6 +66,9 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   // Device ID
   String? _deviceId;
 
+  // Chain ID
+  String? _chainId;
+
   @override
   void initState() {
     super.initState();
@@ -75,6 +79,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       _refresh();
       _loadActiveAccount();
       _loadDeviceId();
+      _loadChainId();
     });
     // Start timer immediately since we're on this screen
     // The build() method will handle stopping it if tab changes
@@ -117,6 +122,33 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     });
   }
 
+  Future<void> _loadChainId() async {
+    // Load chain ID from node status
+    String? chainId;
+    try {
+      final status = await RustBackendService.instance.getStatus();
+      chainId = status?.node.chainId;
+    } catch (e) {
+      _log.debug('Failed to get chain_id from status: $e');
+    }
+    
+    // Fallback: derive from selected network if chain_id unavailable
+    if (chainId == null || chainId.isEmpty) {
+      try {
+        final networkType = await RustBackendService.instance.getSelectedNetwork();
+        chainId = networkType.name; // 'testnet' or 'internal'
+      } catch (e) {
+        _log.debug('Failed to get network type for chain_id fallback: $e');
+        chainId = null;
+      }
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _chainId = chainId;
+    });
+  }
+
   Future<void> _refresh() async {
     if (!mounted) return;
     setState(() {
@@ -131,6 +163,9 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       await ref.read(epochRewardsProvider.notifier).refresh();
       // Refresh wallet UTXOs to update balance after node syncs (silent to avoid flicker)
       await ref.read(walletUtxosProvider.notifier).silentRefresh();
+
+      // Refresh chain ID in case network changed
+      await _loadChainId();
 
       // Check if still mounted after async operations
       if (!mounted) return;
@@ -313,7 +348,16 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
               const SizedBox(height: 2),
               _buildLabelValueRow(
                 'Device ID:',
-                _deviceId!,
+                _shortenMid(_deviceId!, head: 8, tail: 8),
+                theme,
+                colorScheme,
+              ),
+            ],
+            if (_chainId != null) ...[
+              const SizedBox(height: 2),
+              _buildLabelValueRow(
+                'Chain ID:',
+                _shortenMid(_chainId!, head: 8, tail: 8),
                 theme,
                 colorScheme,
               ),
@@ -360,9 +404,9 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
   // Helper for shortened address display
   String _shortAddr(String addr) {
-    if (addr.length <= 12) return addr;
-    final start = addr.substring(0, 12);
-    final end = addr.substring(addr.length - 12);
+    if (addr.length <= 17) return addr; // 8 + 1 + 8 = 17
+    final start = addr.substring(0, 8);
+    final end = addr.substring(addr.length - 8);
     return '$start…$end';
   }
 

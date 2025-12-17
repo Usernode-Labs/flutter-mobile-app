@@ -1116,6 +1116,7 @@ abstract class _EventMetrics extends EventMetrics {
 /// @nodoc
 mixin _$IdentityMetrics {
   String? get peerId => throw _privateConstructorUsedError;
+  String? get chainId => throw _privateConstructorUsedError;
 
   /// Create a copy of IdentityMetrics
   /// with the given fields replaced by the non-null parameter values.
@@ -1130,7 +1131,7 @@ abstract class $IdentityMetricsCopyWith<$Res> {
           IdentityMetrics value, $Res Function(IdentityMetrics) then) =
       _$IdentityMetricsCopyWithImpl<$Res, IdentityMetrics>;
   @useResult
-  $Res call({String? peerId});
+  $Res call({String? peerId, String? chainId});
 }
 
 /// @nodoc
@@ -1149,11 +1150,16 @@ class _$IdentityMetricsCopyWithImpl<$Res, $Val extends IdentityMetrics>
   @override
   $Res call({
     Object? peerId = freezed,
+    Object? chainId = freezed,
   }) {
     return _then(_value.copyWith(
       peerId: freezed == peerId
           ? _value.peerId
           : peerId // ignore: cast_nullable_to_non_nullable
+              as String?,
+      chainId: freezed == chainId
+          ? _value.chainId
+          : chainId // ignore: cast_nullable_to_non_nullable
               as String?,
     ) as $Val);
   }
@@ -1167,7 +1173,7 @@ abstract class _$$IdentityMetricsImplCopyWith<$Res>
       __$$IdentityMetricsImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({String? peerId});
+  $Res call({String? peerId, String? chainId});
 }
 
 /// @nodoc
@@ -1184,11 +1190,16 @@ class __$$IdentityMetricsImplCopyWithImpl<$Res>
   @override
   $Res call({
     Object? peerId = freezed,
+    Object? chainId = freezed,
   }) {
     return _then(_$IdentityMetricsImpl(
       peerId: freezed == peerId
           ? _value.peerId
           : peerId // ignore: cast_nullable_to_non_nullable
+              as String?,
+      chainId: freezed == chainId
+          ? _value.chainId
+          : chainId // ignore: cast_nullable_to_non_nullable
               as String?,
     ));
   }
@@ -1197,14 +1208,16 @@ class __$$IdentityMetricsImplCopyWithImpl<$Res>
 /// @nodoc
 
 class _$IdentityMetricsImpl extends _IdentityMetrics {
-  const _$IdentityMetricsImpl({this.peerId}) : super._();
+  const _$IdentityMetricsImpl({this.peerId, this.chainId}) : super._();
 
   @override
   final String? peerId;
+  @override
+  final String? chainId;
 
   @override
   String toString() {
-    return 'IdentityMetrics(peerId: $peerId)';
+    return 'IdentityMetrics(peerId: $peerId, chainId: $chainId)';
   }
 
   @override
@@ -1212,11 +1225,12 @@ class _$IdentityMetricsImpl extends _IdentityMetrics {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
             other is _$IdentityMetricsImpl &&
-            (identical(other.peerId, peerId) || other.peerId == peerId));
+            (identical(other.peerId, peerId) || other.peerId == peerId) &&
+            (identical(other.chainId, chainId) || other.chainId == chainId));
   }
 
   @override
-  int get hashCode => Object.hash(runtimeType, peerId);
+  int get hashCode => Object.hash(runtimeType, peerId, chainId);
 
   /// Create a copy of IdentityMetrics
   /// with the given fields replaced by the non-null parameter values.
@@ -1229,12 +1243,14 @@ class _$IdentityMetricsImpl extends _IdentityMetrics {
 }
 
 abstract class _IdentityMetrics extends IdentityMetrics {
-  const factory _IdentityMetrics({final String? peerId}) =
-      _$IdentityMetricsImpl;
+  const factory _IdentityMetrics(
+      {final String? peerId, final String? chainId}) = _$IdentityMetricsImpl;
   const _IdentityMetrics._() : super._();
 
   @override
   String? get peerId;
+  @override
+  String? get chainId;
 
   /// Create a copy of IdentityMetrics
   /// with the given fields replaced by the non-null parameter values.

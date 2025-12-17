@@ -299,16 +299,16 @@ jobs:
         run: |
           set -euo pipefail
           VARIANT="${{ steps.env_config.outputs.flavor }}Release"
-          MAPPING="build/app/outputs/mapping/$VARIANT/mapping.txt"
-          SYMBOLS="build/app/outputs/native-debug-symbols/$VARIANT/native-debug-symbols.zip"
+          MAPPING="android/app/build/outputs/mapping/$VARIANT/mapping.txt"
+          SYMBOLS="android/app/build/outputs/native-debug-symbols/$VARIANT/native-debug-symbols.zip"
           if [ ! -f "$MAPPING" ]; then
             echo "R8 mapping.txt not found at $MAPPING" >&2
-            ls -la "build/app/outputs/mapping" || true
+            ls -la "android/app/build/outputs/mapping" || true
             exit 1
           fi
           if [ ! -f "$SYMBOLS" ]; then
             echo "native-debug-symbols.zip not found at $SYMBOLS" >&2
-            ls -la "build/app/outputs/native-debug-symbols" || true
+            ls -la "android/app/build/outputs/native-debug-symbols" || true
             exit 1
           fi
           echo "mapping=$MAPPING" >> "$GITHUB_OUTPUT"

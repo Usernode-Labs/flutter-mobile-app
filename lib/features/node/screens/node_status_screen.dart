@@ -68,7 +68,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
   // Chain ID
   String? _chainId;
-  
+
   // Chain ID cache per network
   String? _cachedChainIdTestnet;
   String? _cachedChainIdInternal;
@@ -166,7 +166,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     } catch (e) {
       _log.debug('Failed to get chain_id from status: $e');
     }
-    
+
     // If we got a valid chain_id, cache it for the current network
     if (chainId != null && chainId.isNotEmpty && currentNetwork != null) {
       if (currentNetwork == NetworkType.testnet) {
@@ -414,7 +414,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     return Row(
       children: [
         SizedBox(
-          width: 80, // Consistent width for all labels (Address:, Peer ID:, Device ID:, Chain ID:)
+          width:
+              80, // Consistent width for all labels (Address:, Peer ID:, Device ID:, Chain ID:)
           child: Text(
             label,
             style: theme.textTheme.bodySmall?.copyWith(

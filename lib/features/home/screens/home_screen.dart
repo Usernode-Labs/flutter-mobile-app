@@ -36,12 +36,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final screenWidth = MediaQuery.of(context).size.width;
-    
+
     // Conditional colors based on network
     final backgroundColor = currentNetwork == 'internal'
         ? MaterialTheme.getInternalNetworkBackgroundColor(isDark)
         : theme.colorScheme.surfaceBright;
-    
+
     final borderColor = currentNetwork == 'internal'
         ? MaterialTheme.getInternalNetworkBorderColor(isDark)
         : theme.colorScheme.outlineVariant;
@@ -68,8 +68,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: NavigationBar(
           backgroundColor: Colors.transparent,
           selectedIndex: _index,
-          labelBehavior: screenWidth < 360 
-              ? NavigationDestinationLabelBehavior.alwaysHide 
+          labelBehavior: screenWidth < 360
+              ? NavigationDestinationLabelBehavior.alwaysHide
               : NavigationDestinationLabelBehavior.alwaysShow,
           onDestinationSelected: (i) {
             setState(() => _index = i);

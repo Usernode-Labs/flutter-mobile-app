@@ -294,25 +294,31 @@ jobs:
           path: build/flutter_symbols/android/${{ steps.env_config.outputs.flavor }}-${{ steps.version.outputs.build_number }}
           retention-days: 90
 
-      - name: Locate Play Console symbol files
-        id: play_symbols
-        run: |
-          set -euo pipefail
-          VARIANT="${{ steps.env_config.outputs.flavor }}Release"
-          MAPPING="android/app/build/outputs/mapping/$VARIANT/mapping.txt"
-          SYMBOLS="android/app/build/outputs/native-debug-symbols/$VARIANT/native-debug-symbols.zip"
-          if [ ! -f "$MAPPING" ]; then
-            echo "R8 mapping.txt not found at $MAPPING" >&2
-            ls -la "android/app/build/outputs/mapping" || true
-            exit 1
-          fi
-          if [ ! -f "$SYMBOLS" ]; then
-            echo "native-debug-symbols.zip not found at $SYMBOLS" >&2
-            ls -la "android/app/build/outputs/native-debug-symbols" || true
-            exit 1
-          fi
-          echo "mapping=$MAPPING" >> "$GITHUB_OUTPUT"
-          echo "symbols=$SYMBOLS" >> "$GITHUB_OUTPUT"
+      # FIXME(2025-12-17): Temporarily disable Play Console symbol uploads.
+      # This step hard-fails the workflow when the expected files are not generated:
+      # - android/app/build/outputs/mapping/<variant>/mapping.txt
+      # - android/app/build/outputs/native-debug-symbols/<variant>/native-debug-symbols.zip
+      # Re-enable once the Android Gradle Plugin/Flutter build is confirmed to generate these
+      # outputs for our release variants (e.g. internalRelease) in CI.
+      # - name: Locate Play Console symbol files
+      #   id: play_symbols
+      #   run: |
+      #     set -euo pipefail
+      #     VARIANT="${{ steps.env_config.outputs.flavor }}Release"
+      #     MAPPING="android/app/build/outputs/mapping/$VARIANT/mapping.txt"
+      #     SYMBOLS="android/app/build/outputs/native-debug-symbols/$VARIANT/native-debug-symbols.zip"
+      #     if [ ! -f "$MAPPING" ]; then
+      #       echo "R8 mapping.txt not found at $MAPPING" >&2
+      #       ls -la "android/app/build/outputs/mapping" || true
+      #       exit 1
+      #     fi
+      #     if [ ! -f "$SYMBOLS" ]; then
+      #       echo "native-debug-symbols.zip not found at $SYMBOLS" >&2
+      #       ls -la "android/app/build/outputs/native-debug-symbols" || true
+      #       exit 1
+      #     fi
+      #     echo "mapping=$MAPPING" >> "$GITHUB_OUTPUT"
+      #     echo "symbols=$SYMBOLS" >> "$GITHUB_OUTPUT"
 
       - name: Deploy to Track
         uses: r0adkll/upload-google-play@v1
@@ -320,8 +326,9 @@ jobs:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: com.usernode_labs.usernode
           releaseFiles: ${{ steps.env_config.outputs.aab_path }}
-          mappingFile: ${{ steps.play_symbols.outputs.mapping }}
-          debugSymbols: ${{ steps.play_symbols.outputs.symbols }}
+          # FIXME(2025-12-17): Re-enable when `Locate Play Console symbol files` is restored.
+          # mappingFile: ${{ steps.play_symbols.outputs.mapping }}
+          # debugSymbols: ${{ steps.play_symbols.outputs.symbols }}
           track: ${{ steps.env_config.outputs.track }}
           status: draft
           inAppUpdatePriority: ${{ steps.env_config.outputs.track == 'production' && '5' || '2' }}

@@ -22,3 +22,8 @@
 -keep class io.flutter.view.** { *; }
 -keep class io.flutter.** { *; }
 -keep class io.flutter.plugins.** { *; }
+
+# Ignore missing Play Core classes (not used in this app)
+-dontwarn com.google.android.play.core.**
+-dontwarn io.flutter.embedding.engine.deferredcomponents.PlayStoreDeferredComponentManager
+-dontwarn io.flutter.embedding.android.FlutterPlayStoreSplitApplication

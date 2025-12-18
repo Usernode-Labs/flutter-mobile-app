@@ -20,10 +20,14 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 
 final _log = LoggingService.instance.withTag('usernode/MetricsCollector');
 
-/// Hashes a device ID using MD5 (32 chars) for privacy
+/// Hashes a device ID using SHA-256 (64 chars) for privacy
+/// Returns 'unknown' as-is when device ID cannot be determined
 String _hashDeviceId(String deviceId) {
+  if (deviceId == 'unknown') {
+    return 'unknown';
+  }
   final bytes = utf8.encode(deviceId);
-  final digest = md5.convert(bytes);
+  final digest = sha256.convert(bytes);
   return digest.toString();
 }
 

@@ -216,7 +216,7 @@ class MetricsCollectorService {
     String? chainId;
     try {
       final status = await RustBackendService.instance.getStatus();
-      chainId = status?.node.chainId;
+      chainId = status?.node.chainId.toString();
     } catch (e) {
       _log.debug('Failed to get chain_id from status: $e');
     }

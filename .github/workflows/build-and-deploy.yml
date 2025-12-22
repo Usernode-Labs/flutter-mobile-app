@@ -6,7 +6,7 @@ on:
       usernode_branch:
         description: 'Usernode repository branch'
         required: false
-        default: 'testnet-phase-1'
+        default: 'main'
         type: string
       mobile_app_branch:
         description: 'Mobile app repository branch'
@@ -45,7 +45,7 @@ jobs:
         with:
           repository: Usernode-Labs/usernode
           path: usernode
-          ref: ${{ inputs.usernode_branch || 'testnet-phase-1' }}
+          ref: ${{ inputs.usernode_branch || 'main' }}
           token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
 
       - name: Move usernode repository next to workspace
@@ -186,6 +186,18 @@ jobs:
             ~/.cargo/bin/cargo-expand
             ~/.cargo/bin/flutter_rust_bridge_codegen
           key: ${{ runner.os }}-cargo-bins-${{ needs.determine-frb-rev.outputs.frb_rev }}-v2
+
+      - name: Ensure flutter_rust_bridge_codegen is installed
+        env:
+          FRB_REV: ${{ needs.determine-frb-rev.outputs.frb_rev }}
+        run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          if ! command -v flutter_rust_bridge_codegen >/dev/null 2>&1; then
+            cargo install flutter_rust_bridge_codegen --git https://github.com/Usernode-Labs/flutter_rust_bridge --rev "$FRB_REV" --locked
+          else
+            flutter_rust_bridge_codegen --version
+          fi
 
       - name: Cache FRB generated code
         id: cache-frb-gen
@@ -368,7 +380,7 @@ jobs:
         with:
           repository: Usernode-Labs/usernode
           path: usernode
-          ref: ${{ inputs.usernode_branch || 'testnet-phase-1' }}
+          ref: ${{ inputs.usernode_branch || 'main' }}
           token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
 
       - name: Determine usernode revision
@@ -411,7 +423,7 @@ jobs:
         with:
           repository: Usernode-Labs/usernode
           path: usernode
-          ref: ${{ inputs.usernode_branch || 'testnet-phase-1' }}
+          ref: ${{ inputs.usernode_branch || 'main' }}
           token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
 
       - name: Move usernode repository next to workspace
@@ -433,6 +445,10 @@ jobs:
 
       - name: Setup jq
         run: brew install jq
+
+      - name: Install host GMP dependencies (pkg-config)
+        run: |
+          brew install gmp mpfr pkg-config gawk m4 texinfo
 
       - name: Set build number from run
         id: version
@@ -486,6 +502,18 @@ jobs:
             ~/.cargo/bin/flutter_rust_bridge_codegen
           key: ${{ runner.os }}-cargo-bins-${{ needs.determine-frb-rev.outputs.frb_rev }}-v2
 
+      - name: Ensure flutter_rust_bridge_codegen is installed
+        env:
+          FRB_REV: ${{ needs.determine-frb-rev.outputs.frb_rev }}
+        run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          if ! command -v flutter_rust_bridge_codegen >/dev/null 2>&1; then
+            cargo install flutter_rust_bridge_codegen --git https://github.com/Usernode-Labs/flutter_rust_bridge --rev "$FRB_REV" --locked
+          else
+            flutter_rust_bridge_codegen --version
+          fi
+
       - name: Cache FRB generated code
         id: cache-frb-gen
         uses: actions/cache@v4
@@ -498,7 +526,12 @@ jobs:
             ${{ runner.os }}-frb-gen-${{ needs.determine-frb-rev.outputs.frb_rev }}-
 
       - name: Generate flutter_rust_bridge bindings
-        run: flutter_rust_bridge_codegen generate
+        env:
+          GMP_MPFR_SYS_USE_PKG_CONFIG: "1"
+          PKG_CONFIG_PATH: "/opt/homebrew/lib/pkgconfig:/usr/local/lib/pkgconfig"
+        run: |
+          export PATH="/opt/homebrew/opt/texinfo/bin:$HOME/.cargo/bin:$PATH"
+          flutter_rust_bridge_codegen generate
 
       - name: Verify flutter_rust_bridge bindings are up-to-date
         run: |

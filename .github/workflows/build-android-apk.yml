@@ -6,7 +6,7 @@ on:
       usernode_branch:
         description: 'Usernode repository branch'
         required: false
-        default: 'testnet-phase-1'
+        default: 'main'
         type: string
       mobile_app_branch:
         description: 'Mobile app repository branch'
@@ -39,7 +39,7 @@ jobs:
         with:
           repository: Usernode-Labs/usernode
           path: usernode
-          ref: ${{ inputs.usernode_branch || 'testnet-phase-1' }}
+          ref: ${{ inputs.usernode_branch || 'main' }}
           token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
 
       - name: Determine usernode revision
@@ -94,7 +94,7 @@ jobs:
         with:
           repository: Usernode-Labs/usernode
           path: usernode
-          ref: ${{ inputs.usernode_branch || 'testnet-phase-1' }}
+          ref: ${{ inputs.usernode_branch || 'main' }}
           token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
 
       - name: Move usernode repository next to workspace
@@ -331,7 +331,7 @@ jobs:
           echo "- **Build Number:** ${{ steps.version.outputs.build_number }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Flavor:** ${{ steps.env_config.outputs.flavor }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment:** ${{ steps.env_config.outputs.env_type }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Usernode Branch:** ${{ inputs.usernode_branch || 'testnet-phase-1' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Usernode Branch:** ${{ inputs.usernode_branch || 'main' }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Mobile App Branch:** ${{ inputs.mobile_app_branch || github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📥 Download APK" >> $GITHUB_STEP_SUMMARY

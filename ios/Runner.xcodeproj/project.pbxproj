@@ -495,9 +495,11 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
+				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 16;
-				DEVELOPMENT_TEAM = 785Y2C9VG2;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 785Y2C9VG2;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Usernode;
@@ -510,6 +512,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = org.usernode.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "mobile-apps";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
@@ -729,10 +732,10 @@
 					CLANG_ENABLE_MODULES = YES;
 					CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 					CODE_SIGN_IDENTITY = "Apple Development";
-					"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Development";
-					CODE_SIGN_STYLE = Automatic;
+					"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
+					CODE_SIGN_STYLE = Manual;
 					CURRENT_PROJECT_VERSION = 16;
-					DEVELOPMENT_TEAM = 785Y2C9VG2;
+					DEVELOPMENT_TEAM = "";
 					"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 785Y2C9VG2;
 					ENABLE_BITCODE = NO;
 					INFOPLIST_FILE = Runner/Info.plist;
@@ -746,7 +749,7 @@
 					PRODUCT_BUNDLE_IDENTIFIER = org.usernode.app;
 					PRODUCT_NAME = "$(TARGET_NAME)";
 					PROVISIONING_PROFILE_SPECIFIER = "";
-					"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "";
+					"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "mobile-apps";
 					SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 					SUPPORTS_MACCATALYST = NO;
 					SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;

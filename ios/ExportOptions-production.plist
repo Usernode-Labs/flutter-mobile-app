@@ -17,7 +17,7 @@
     <key>provisioningProfiles</key>
     <dict>
         <key>org.usernode.app</key>
-        <string>Usernode Production</string>
+        <string>mobile-apps</string>
     </dict>
 </dict>
 </plist>

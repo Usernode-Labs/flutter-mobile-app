@@ -199,7 +199,11 @@ class _BackgroundProductionSettingsScreenState
 
   Future<void> _showNetworkSwitcherDialog() async {
     final prefs = await SharedPreferences.getInstance();
-    final currentNetwork = prefs.getString('network:type') ?? 'testnet';
+    const allowedNetworks = {'testnet', 'internal', 'custom'};
+    final storedNetwork = prefs.getString('network:type');
+    final currentNetwork = allowedNetworks.contains(storedNetwork)
+        ? storedNetwork!
+        : 'testnet';
 
     if (!mounted) return;
 
@@ -218,6 +222,18 @@ class _BackgroundProductionSettingsScreenState
     }
   }
 
+  String _networkLabel(String network) {
+    switch (network) {
+      case 'internal':
+        return 'Internal';
+      case 'custom':
+        return 'Custom';
+      case 'testnet':
+      default:
+        return 'Testnet';
+    }
+  }
+
   Future<void> _showRestartDialog(String network) async {
     await showDialog<void>(
       context: context,
@@ -225,7 +241,7 @@ class _BackgroundProductionSettingsScreenState
       builder: (ctx) => AlertDialog(
         title: const Text('Restart Required'),
         content: Text(
-          'Network switched to ${network == 'testnet' ? 'Testnet' : 'Internal'}. '
+          'Network switched to ${_networkLabel(network)}. '
           '${Platform.isIOS ? 'Please manually close and reopen the app to connect to the new network.' : 'The app will now close. Please reopen it to connect to the new network.'}',
         ),
         actions: [
@@ -1630,7 +1646,7 @@ class _NetworkSwitcherDialogState extends State<_NetworkSwitcherDialog> {
   }
 
   String _formatUrl(String url) {
-    return url.replaceFirst('https://', '');
+    return url.replaceFirst(RegExp(r'^https?://'), '');
   }
 
   Widget _buildUrlRow(
@@ -1815,6 +1831,21 @@ class _NetworkSwitcherDialogState extends State<_NetworkSwitcherDialog> {
               isCurrentlyActive: widget.currentNetwork == 'internal',
               genesisUrl: AppConfig.internalGenesisUrl,
               seedlistUrl: AppConfig.internalSeedlistUrl,
+              theme: theme,
+              colorScheme: colorScheme,
+            ),
+
+            const SizedBox(height: 12),
+
+            // Custom Option
+            _buildNetworkOption(
+              networkType: 'custom',
+              displayName: 'Custom',
+              description: 'static.usernodelabs.org/custom',
+              isSelected: selectedNetwork == 'custom',
+              isCurrentlyActive: widget.currentNetwork == 'custom',
+              genesisUrl: AppConfig.customGenesisUrl,
+              seedlistUrl: AppConfig.customSeedlistUrl,
               theme: theme,
               colorScheme: colorScheme,
             ),

@@ -378,6 +378,10 @@ jobs:
         with:
           targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
 
+      - name: Install host GMP dependencies (pkg-config)
+        run: |
+          brew install gmp mpfr pkg-config gawk m4 texinfo
+
       # - name: Setup sccache for Rust compilation
       #   uses: mozilla-actions/sccache-action@v0.0.3
       #   continue-on-error: true
@@ -479,7 +483,12 @@ jobs:
         run: flutter pub get
 
       - name: Generate flutter_rust_bridge bindings
-        run: flutter_rust_bridge_codegen generate
+        env:
+          GMP_MPFR_SYS_USE_PKG_CONFIG: "1"
+          PKG_CONFIG_PATH: "/opt/homebrew/lib/pkgconfig:/usr/local/lib/pkgconfig"
+        run: |
+          export PATH="/opt/homebrew/opt/texinfo/bin:$HOME/.cargo/bin:$PATH"
+          flutter_rust_bridge_codegen generate
 
       - name: Verify flutter_rust_bridge bindings are up-to-date
         run: |

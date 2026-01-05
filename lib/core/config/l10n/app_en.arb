@@ -429,6 +429,10 @@
   "@walletTransactionSubmitted": {
     "description": "Transaction submitted success message"
   },
+  "walletNoRecentActivity": "You haven't made any transactions yet.",
+  "@walletNoRecentActivity": {
+    "description": "Empty state message for recent activity section"
+  },
 
   "nodeStatusTitle": "Node Status",
   "@nodeStatusTitle": {
@@ -705,6 +709,10 @@
   "navProducedBlocks": "Produced Blocks",
   "@navProducedBlocks": {
     "description": "Navigation bar label for produced blocks tab"
+  },
+  "navWallet": "Wallet",
+  "@navWallet": {
+    "description": "Navigation bar label for wallet tab"
   },
   "navNodeStatus": "Node Status",
   "@navNodeStatus": {

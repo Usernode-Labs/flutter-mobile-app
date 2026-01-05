@@ -31,37 +31,18 @@ class WalletUtxosController extends AsyncNotifier<List<OwnedUtxo>> {
 
   Future<List<OwnedUtxo>> _fetch() async {
     try {
-      // Determine owner from active account if available; fallback to a known test owner.
-      const fallbackOwner =
-          'ut1na9lq2yny9l2l6axf09g3mhhmhed3vj7tpejs4f28xe2cjd6n5qqg9ww4x';
-
-      String ownerStr = fallbackOwner;
-      bool usingFallback = true;
-      try {
-        final repo = await AccountsRepository.create();
-        final acc = await repo.getActive();
-        _log.debug('UTXO fetch: Active account=${acc?.address ?? "null"}');
-        if (acc != null && acc.address.isNotEmpty) {
-          // Only use if the format looks like a utxo address ("ut...") that backend expects.
-          // Otherwise keep fallback to avoid RPC errors until address formats are unified.
-          if (acc.address.startsWith('ut')) {
-            ownerStr = acc.address;
-            usingFallback = false;
-            _log.debug('UTXO fetch: Using account address (starts with "ut")');
-          } else {
-            _log.debug(
-                'UTXO fetch: Account address does NOT start with "ut", using fallback');
-          }
-        } else {
-          _log.debug(
-              'UTXO fetch: No active account or empty address, using fallback');
-        }
-      } catch (e) {
-        _log.debug('UTXO fetch: Repository error=$e, using fallback');
+      // Get active account address - no fallback, must have real account
+      final repo = await AccountsRepository.create();
+      final acc = await repo.getActive();
+      _log.debug('UTXO fetch: Active account=${acc?.address ?? "null"}');
+      
+      if (acc == null || acc.address.isEmpty) {
+        _log.error('UTXO fetch: No active account available');
+        throw Exception('No active account found. Please create or select an account.');
       }
 
-      _log.debug(
-          'UTXO fetch: Querying with address=$ownerStr (fallback=$usingFallback)');
+      final ownerStr = acc.address;
+      _log.debug('UTXO fetch: Querying with address=$ownerStr');
 
       final owner = rust_types.publicKeyHashFromString(s: ownerStr);
 

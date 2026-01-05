@@ -19,7 +19,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/features/node/node_provider.dart';
 import 'package:crypto_mobile_app/features/node/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/features/node/node_data_providers.dart';
-import 'package:crypto_mobile_app/features/wallet/assets_provider.dart';
+import 'package:crypto_mobile_app/features/wallet/wallet_provider.dart';
 import 'package:crypto_mobile_app/features/wallet/utxo_provider.dart';
 import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
 import 'package:crypto_mobile_app/features/wallet/models/account.dart';
@@ -229,11 +229,10 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
           }
 
           // Cache wallet balance
-          final assetsData = ref.read(walletAssetsProvider).value;
-          if (assetsData != null && assetsData.isNotEmpty) {
-            _cachedBalance = assetsData.fold<BigInt>(
-                BigInt.zero, (sum, a) => sum + a.totalBalance);
-            _cachedTokenSymbol = assetsData.first.tokenSymbol;
+          final walletData = ref.read(walletProvider).value;
+          if (walletData != null) {
+            _cachedBalance = walletData.balance.totalBalance;
+            _cachedTokenSymbol = walletData.balance.tokenSymbol;
           }
         });
       }

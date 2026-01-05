@@ -18,6 +18,7 @@ import 'package:crypto_mobile_app/features/node/screens/node_won_slots_screen.da
 import 'package:crypto_mobile_app/features/node/screens/node_status_produced_blocks_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/block_details_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/mempool_details_screen.dart';
+import 'package:crypto_mobile_app/features/wallet/screens/send_screen.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -46,6 +47,9 @@ class AppRoutes {
   // Standalone routes
   static const slotAssignments = '/produced/slot-assignments';
   static const producedBlockDetails = '/produced/block-details';
+
+  // Wallet routes
+  static const walletSend = '/wallet/send';
 
   // Main shell routes
   static const mainNode = '/main/node';
@@ -185,6 +189,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.mainNodeMempool,
         builder: (context, state) => const MempoolDetailsScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.walletSend,
+        builder: (context, state) => const SendScreen(),
       ),
     ],
     redirect: (context, state) {

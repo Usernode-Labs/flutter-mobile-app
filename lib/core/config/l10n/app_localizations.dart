@@ -700,6 +700,12 @@ abstract class AppLocalizations {
   /// **'Your transaction has been submitted successfully.'**
   String get walletTransactionSubmitted;
 
+  /// Empty state message for recent activity section
+  ///
+  /// In en, this message translates to:
+  /// **'You haven\'t made any transactions yet.'**
+  String get walletNoRecentActivity;
+
   /// Node status screen title
   ///
   /// In en, this message translates to:
@@ -1047,6 +1053,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Produced Blocks'**
   String get navProducedBlocks;
+
+  /// Navigation bar label for wallet tab
+  ///
+  /// In en, this message translates to:
+  /// **'Wallet'**
+  String get navWallet;
 
   /// Navigation bar label for node status tab
   ///

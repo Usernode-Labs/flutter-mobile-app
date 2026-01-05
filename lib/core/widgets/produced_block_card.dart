@@ -45,7 +45,7 @@ class ProducedBlockCard extends StatelessWidget {
 
     String producerPubkey;
     try {
-      producerPubkey = customProducer ?? block.producerPubkey;
+      producerPubkey = customProducer ?? block.producerPubkey.toString();
     } catch (_) {
       producerPubkey = '';
     }

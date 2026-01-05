@@ -15,6 +15,7 @@ import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:crypto_mobile_app/src/rust/frb_generated.dart';
+import 'package:crypto_mobile_app/src/rust/frb_types.dart';
 import 'package:crypto_mobile_app/src/rust/lib.dart' show enableLogging;
 import 'package:crypto_mobile_app/src/rust/tracing.dart' show TracingLevel;
 import 'package:crypto_mobile_app/src/rust/node.dart';
@@ -141,7 +142,7 @@ class RustBackendService {
     }
   }
 
-  /// Start the node using the active account's private key.
+  /// Start the node using the active account's secret key.
   /// Returns true if started successfully, false if no account or error.
   /// Safe to call multiple times; subsequent calls return true if already running.
   Future<bool> startNode({int? httpPort}) async {
@@ -180,23 +181,23 @@ class RustBackendService {
 
     _log.debug('Active account: ${account.id} (${account.name})');
 
-    // Get private key for active account
-    _log.trace('Retrieving private key for account ${account.id}...');
-    final privateKeyHex = await repo.getPrivateKey(account.id);
+    // Get secret key for active account
+    _log.trace('Retrieving secret key for account ${account.id}...');
+    final secretKey = await repo.getSecretKey(account.id);
 
-    if (privateKeyHex == null || privateKeyHex.isEmpty) {
+    if (secretKey == null || secretKey.isEmpty) {
       _log.error(
-        'Cannot start node: private key unavailable for account ${account.id}',
+        'Cannot start node: secret key unavailable for account ${account.id}',
       );
       await SentryUtil.captureMessage(
-        'Node start failed: private key unavailable',
+        'Node start failed: secret key unavailable',
         level: SentryLevel.error,
       );
       return false;
     }
 
     // SECURITY: Only log key length, not value
-    _log.trace('Private key retrieved (length: ${privateKeyHex.length})');
+    _log.trace('Secret key retrieved (length: ${secretKey.length})');
 
     // Start node
     try {
@@ -216,9 +217,9 @@ class RustBackendService {
       await _configureNetworkFromUrls(builder);
 
       _log.trace(
-        'Configuring block producer with user private key (length: ${privateKeyHex.length})',
+        'Configuring block producer with user secret key (length: ${secretKey.length})',
       );
-      builder.blockProducerHex(skHex: privateKeyHex);
+      builder.blockProducerSecretKey(secretKey: secretKey);
       builder.mempoolAutoinsertInterval(secs: BigInt.from(1));
 
       // Configure persistent VRF storage path so VRF evaluation progress survives restarts.
@@ -250,11 +251,12 @@ class RustBackendService {
       try {
         _log.debug('Configuring wallet signer for account ${account.id}...');
         final signerResponse = await _rpc!.walletSetSignerFromSecret(
-          secretKeyHex: privateKeyHex,
+          secretKey: secretKey,
         );
-        
+
         if (signerResponse != null && signerResponse.ok) {
-          _log.info('Wallet signer configured successfully for account ${account.id}');
+          _log.info(
+              'Wallet signer configured successfully for account ${account.id}');
         } else {
           final error = signerResponse?.error ?? 'Unknown error';
           _log.warn('Failed to configure wallet signer: $error');
@@ -449,7 +451,7 @@ class RustBackendService {
               'height': bestTip.height,
               'global_slot': bestTip.globalSlot,
               'epoch': bestTip.epoch,
-              'producer_pubkey': bestTip.producerPubkey,
+              'producer_pubkey': bestTip.producerPubkey.toString(),
               'transactions': bestTip.transactions.toString(),
               'batches': bestTip.batches
                   .map((b) => {
@@ -465,7 +467,7 @@ class RustBackendService {
                         'height': syncBlocks.bestTip.height,
                         'global_slot': syncBlocks.bestTip.globalSlot,
                         'epoch': syncBlocks.bestTip.epoch,
-                        'producer_pubkey': syncBlocks.bestTip.producerPubkey,
+                        'producer_pubkey': syncBlocks.bestTip.producerPubkey.toString(),
                         'transactions':
                             syncBlocks.bestTip.transactions.toString(),
                         'batches': syncBlocks.bestTip.batches
@@ -633,7 +635,7 @@ class RustBackendService {
                 'epoch': block.epoch,
                 'globalSlot': block.globalSlot,
                 'hash': block.hash.toString(),
-                'producerPubkey': block.producerPubkey,
+                'producerPubkey': block.producerPubkey.toString(),
                 'batches': block.batches.length,
                 'batchTransactions': block.batches
                     .map((b) => b.transactions.toString())
@@ -806,7 +808,7 @@ class RustBackendService {
       final winsInEpoch = rewards?.winsInEpoch ?? 0;
       final earnedSoFar = rewards?.earnedSoFar ?? BigInt.zero;
       final expectedTotal = rewards?.expectedTotal ?? BigInt.zero;
-      final producerPubkey = rewards?.producerPubkey;
+      final producerPubkey = rewards?.producerPubkey?.toString();
       final wonSlots = rewards?.wonSlots;
 
       // Build detailed won slots list

@@ -141,33 +141,46 @@ class RegistrationRepository {
 
 class RegistrationResult {
   RegistrationResult({
-    required this.identityUidHex,
-    required this.publicKeyHex,
-    required this.publicKeyHashBech32m,
+    required this.identityUid,
+    required this.publicKey,
+    required this.address,
     required this.tier,
-    required this.secretKeyHex,
+    required this.secretKey,
     this.phaseId,
     this.phaseName,
     this.phaseEndsAt,
   });
 
-  final String identityUidHex;
-  final String publicKeyHex;
-  final String publicKeyHashBech32m;
+  final String identityUid;
+  final String publicKey;
+  final String address;
   final String tier;
-  final String secretKeyHex;
+  final String secretKey;
   final int? phaseId;
   final String? phaseName;
   final String? phaseEndsAt;
 
   factory RegistrationResult.fromJson(Map<String, dynamic> json) {
     final phase = json['phase'];
+
+    String requiredString(List<String> keys) {
+      for (final key in keys) {
+        final value = json[key];
+        if (value is String && value.isNotEmpty) return value;
+      }
+      throw FormatException('Missing required field: ${keys.join(' or ')}');
+    }
+
     return RegistrationResult(
-      identityUidHex: json['identity_uid_hex'] as String,
-      publicKeyHex: json['public_key_hex'] as String,
-      publicKeyHashBech32m: json['public_key_hash_bech32m'] as String,
+      identityUid: requiredString(['identity_uid', 'identity_uid_hex']),
+      publicKey: requiredString(['public_key', 'public_key_hex']),
+      address: requiredString([
+        'address',
+        'public_key_hash_bech32m',
+        'public_key_hash',
+      ]),
       tier: json['tier'] as String,
-      secretKeyHex: json['secret_key_hex'] as String,
+      secretKey: requiredString(['secret_key', 'secret_key_hex']),
       phaseId: phase is Map<String, dynamic> ? phase['id'] as int? : null,
       phaseName:
           phase is Map<String, dynamic> ? phase['name'] as String? : null,

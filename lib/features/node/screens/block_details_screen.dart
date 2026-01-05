@@ -236,9 +236,17 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
                   const SizedBox(height: 12),
                   _InfoRow(
                     label: l10n.blockProducer,
-                    value: block.producerPubkey.length > 24
-                        ? '${block.producerPubkey.substring(0, 24)}...'
-                        : block.producerPubkey,
+                    value: (() {
+                      String producer;
+                      try {
+                        producer = block.producerPubkey.toString();
+                      } catch (_) {
+                        producer = '';
+                      }
+                      return producer.length > 24
+                          ? '${producer.substring(0, 24)}...'
+                          : producer;
+                    })(),
                   ),
                   const SizedBox(height: 12),
                   _InfoRow(

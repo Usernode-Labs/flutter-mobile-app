@@ -69,9 +69,16 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   // Chain ID
   String? _chainId;
 
+  // Chain Name
+  String? _chainName;
+
   // Chain ID cache per network
   String? _cachedChainIdTestnet;
   String? _cachedChainIdInternal;
+
+  // Chain Name cache per network
+  String? _cachedChainNameTestnet;
+  String? _cachedChainNameInternal;
 
   @override
   void initState() {
@@ -84,6 +91,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       _loadActiveAccount();
       _loadDeviceId();
       _loadChainId();
+      _loadChainName();
     });
     // Start timer immediately since we're on this screen
     // The build() method will handle stopping it if tab changes
@@ -185,6 +193,65 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     });
   }
 
+  Future<void> _loadChainName() async {
+    // Get current network type to determine which cache to use
+    NetworkType? currentNetwork;
+    try {
+      currentNetwork = await RustBackendService.instance.getSelectedNetwork();
+    } catch (e) {
+      _log.debug('Failed to get network type: $e');
+    }
+
+    // Check cache first based on network type
+    String? cachedChainName;
+    if (currentNetwork == NetworkType.testnet) {
+      cachedChainName = _cachedChainNameTestnet;
+    } else if (currentNetwork == NetworkType.internal) {
+      cachedChainName = _cachedChainNameInternal;
+    }
+
+    // Use cached value if available
+    if (cachedChainName != null) {
+      if (!mounted) return;
+      setState(() {
+        _chainName = cachedChainName;
+      });
+      return;
+    }
+
+    // Set loading state only if no cache available
+    if (!mounted) return;
+    setState(() {
+      _chainName = 'Loading...';
+    });
+
+    // Load chain name from node status
+    String? chainName;
+    try {
+      final status = await RustBackendService.instance.getStatus();
+      chainName = status?.node.chainName;
+    } catch (e) {
+      _log.debug('Failed to get chain_name from status: $e');
+    }
+
+    // If we got a valid chain_name, cache it for the current network
+    if (chainName != null && chainName.isNotEmpty && currentNetwork != null) {
+      if (currentNetwork == NetworkType.testnet) {
+        _cachedChainNameTestnet = chainName;
+      } else if (currentNetwork == NetworkType.internal) {
+        _cachedChainNameInternal = chainName;
+      }
+    } else {
+      // Keep showing "Loading..." if chain_name is unavailable
+      chainName = 'Loading...';
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _chainName = chainName;
+    });
+  }
+
   Future<void> _refresh() async {
     if (!mounted) return;
     setState(() {
@@ -202,6 +269,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
       // Refresh chain ID in case network changed
       await _loadChainId();
+      await _loadChainName();
 
       // Check if still mounted after async operations
       if (!mounted) return;
@@ -575,6 +643,17 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
           ),
           const SizedBox(height: 10),
 
+          // Chain card
+          _buildSyncDetailsCard(
+            context: context,
+            icon: Icons.layers_outlined,
+            iconColor: colorScheme.secondary,
+            title: 'Chain',
+            subtitle: _buildChainSubtitle(),
+            trailing: Icon(Icons.copy, color: colorScheme.primary, size: 20),
+          ),
+          const SizedBox(height: 12),
+
           // Node Sync Status card
           _buildSyncDetailsCard(
             context: context,
@@ -617,17 +696,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
               title: 'Best Tip',
               subtitle: _buildBestTipSubtitle(),
               trailing: Icon(Icons.copy, color: colorScheme.primary, size: 20)),
-          const SizedBox(height: 12),
-
-          // Chain card
-          _buildSyncDetailsCard(
-            context: context,
-            icon: Icons.layers_outlined,
-            iconColor: colorScheme.secondary,
-            title: 'Chain',
-            subtitle: _buildChainSubtitle(),
-            trailing: Icon(Icons.copy, color: colorScheme.primary, size: 20),
-          ),
           const SizedBox(height: 12),
 
           // Mempool card (restored)
@@ -896,22 +964,22 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     if (displayBestTip == null) return 'N/A';
 
     final height = displayBestTip.height;
-    final epoch = status?.epoch ?? _bestTipEpoch;
     final slot = status?.globalSlot ?? _bestTipGlobalSlot;
     final hash = displayBestTip.hash.toString();
 
-    final formattedHeight = 'Height ${NumberFormat('#,###').format(height)}';
-    final epochText = 'Epoch ${epoch ?? 'N/A'}';
+    final formattedHeight = 'Height $height';
     final slotText = 'Slot ${slot ?? 'N/A'}';
     final truncatedHash = hash.length > 16
         ? '${hash.substring(0, 8)}...${hash.substring(hash.length - 8)}'
         : hash;
 
-    return '$formattedHeight, $epochText, $slotText, $truncatedHash';
+    return '$formattedHeight, $slotText, $truncatedHash';
   }
 
   String _buildChainSubtitle() {
-    return _shortenMid(_chainId ?? 'Loading...', head: 8, tail: 8);
+    final chainIdText = _shortenMid(_chainId ?? 'Loading...', head: 8, tail: 8);
+    final chainNameText = _chainName ?? 'Loading...';
+    return 'ID: $chainIdText\nName: $chainNameText';
   }
 
   String _buildMempoolSubtitle() {
@@ -964,10 +1032,13 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   }
 
   void _copyChainId() {
-    if (_chainId != null && _chainId!.isNotEmpty) {
+    final chainIdText = _chainId ?? '';
+    final chainNameText = _chainName ?? '';
+    if (chainIdText.isNotEmpty || chainNameText.isNotEmpty) {
+      final copyText = 'Chain ID: $chainIdText\nChain Name: $chainNameText';
       // In a real app, you'd use Clipboard.setData here
       // For now, we'll just show a placeholder action
-      _log.debug('Copy chain ID: $_chainId');
+      _log.debug('Copy chain info: $copyText');
     }
   }
 

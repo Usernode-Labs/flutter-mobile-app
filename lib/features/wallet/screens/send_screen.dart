@@ -25,51 +25,8 @@ class _SendScreenState extends ConsumerState<SendScreen> {
     super.dispose();
   }
 
-  String? _validateAddress(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Please enter a recipient address';
-    }
-
-    // Basic validation for address format (you may want to add more specific validation)
-    final trimmed = value.trim();
-    if (trimmed.length < 20) {
-      return 'Address appears to be too short';
-    }
-
-    return null;
-  }
-
-  String? _validateAmount(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Please enter an amount';
-    }
-
-    final amount = double.tryParse(value.trim());
-    if (amount == null || amount <= 0) {
-      return 'Please enter a valid amount';
-    }
-
-    // TODO: Add balance check here when wallet balance is available
-
-    return null;
-  }
-
-  String? _validateFee(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Please enter a fee';
-    }
-
-    final fee = double.tryParse(value.trim());
-    if (fee == null || fee < 0) {
-      return 'Please enter a valid fee';
-    }
-
-    return null;
-  }
-
   void _onSend() {
     if (_formKey.currentState!.validate()) {
-      // TODO: Navigate to review screen or implement send functionality
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Send functionality will be implemented')),
       );
@@ -92,147 +49,44 @@ class _SendScreenState extends ConsumerState<SendScreen> {
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(16),
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Recipient Address Field
-                Container(
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest
-                        .withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: TextFormField(
-                    controller: _addressController,
-                    validator: _validateAddress,
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.all(16),
-                      hintText: 'ut1lhfa4mt8wrtkOau6dl72w542js2szyk2rk06...',
-                      hintStyle: TextStyle(
-                        color: Colors.grey,
-                        fontSize: 16,
-                      ),
-                    ),
-                    style: const TextStyle(fontSize: 16),
-                  ),
+                _buildField(
+                  theme: theme,
+                  controller: _addressController,
+                  hint: 'Recipient address',
+                  validator:
+                      _validateRequired('recipient address', minLength: 20),
                 ),
-                const SizedBox(height: 16),
-
-                // Amount Field
-                Container(
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest
-                        .withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: TextFormField(
-                    controller: _amountController,
-                    validator: _validateAmount,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.all(16),
-                      hintText: '100',
-                      hintStyle: TextStyle(
-                        color: Colors.grey,
-                        fontSize: 16,
-                      ),
-                    ),
-                    style: const TextStyle(fontSize: 16),
-                  ),
+                const SizedBox(height: 18),
+                _buildField(
+                  theme: theme,
+                  controller: _amountController,
+                  hint: 'Amount',
+                  isNumeric: true,
+                  validator: _validatePositiveNumber('amount'),
                 ),
-                const SizedBox(height: 16),
-
-                // Fee Field
-                Container(
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest
-                        .withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: TextFormField(
-                    controller: _feeController,
-                    validator: _validateFee,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.all(16),
-                      hintText: '1',
-                      hintStyle: TextStyle(
-                        color: Colors.grey,
-                        fontSize: 16,
-                      ),
-                    ),
-                    style: const TextStyle(fontSize: 16),
-                  ),
+                const SizedBox(height: 18),
+                _buildField(
+                  theme: theme,
+                  controller: _feeController,
+                  hint: 'Fee',
+                  isNumeric: true,
+                  validator: _validatePositiveNumber('fee', allowZero: true),
                 ),
-                const SizedBox(height: 16),
-
-                // Memo Field
-                Container(
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest
-                        .withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: TextFormField(
-                    controller: _memoController,
-                    maxLines: 5,
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.all(16),
-                      hintText: 'Memo',
-                      hintStyle: TextStyle(
-                        color: Colors.grey,
-                        fontSize: 16,
-                      ),
-                    ),
-                    style: const TextStyle(fontSize: 16),
-                  ),
+                const SizedBox(height: 18),
+                _buildField(
+                  theme: theme,
+                  controller: _memoController,
+                  hint: 'Memo (optional)',
+                  maxLines: 4,
                 ),
-
                 const Spacer(),
-
-                // Send Button
-                Container(
-                  width: double.infinity,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        theme.colorScheme.primary,
-                        theme.colorScheme.primary.withValues(alpha: 0.8),
-                      ],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    ),
-                    borderRadius: BorderRadius.circular(28),
-                  ),
-                  child: ElevatedButton(
-                    onPressed: _onSend,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      shadowColor: Colors.transparent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(28),
-                      ),
-                    ),
-                    child: const Text(
-                      'Send',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
+                _buildSendButton(theme),
                 const SizedBox(height: 24),
               ],
             ),
@@ -240,5 +94,115 @@ class _SendScreenState extends ConsumerState<SendScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildField({
+    required ThemeData theme,
+    required TextEditingController controller,
+    required String hint,
+    bool isNumeric = false,
+    int maxLines = 1,
+    String? Function(String?)? validator,
+  }) {
+    return ClipRRect(
+      borderRadius: const BorderRadius.only(
+        topLeft: Radius.circular(6),
+        topRight: Radius.circular(6),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.grey.shade300,
+          border: Border(
+            bottom: BorderSide(
+              color: Colors.grey.shade600,
+              width: 1,
+            ),
+          ),
+        ),
+        child: TextFormField(
+          controller: controller,
+          validator: validator,
+          maxLines: maxLines,
+          keyboardType: isNumeric
+              ? const TextInputType.numberWithOptions(decimal: true)
+              : null,
+          decoration: InputDecoration(
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            errorBorder: InputBorder.none,
+            focusedErrorBorder: InputBorder.none,
+            filled: false,
+            contentPadding: const EdgeInsets.all(16),
+            hintText: hint,
+            hintStyle: const TextStyle(color: Colors.black87, fontSize: 16),
+          ),
+          style: const TextStyle(fontSize: 16),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSendButton(ThemeData theme) {
+    return Container(
+      width: double.infinity,
+      height: 56,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            theme.colorScheme.primary,
+            theme.colorScheme.primary.withValues(alpha: 0.8),
+          ],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: ElevatedButton(
+        onPressed: _onSend,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28),
+          ),
+        ),
+        child: const Text(
+          'Send',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  String? Function(String?) _validateRequired(String fieldName,
+      {int minLength = 1}) {
+    return (value) {
+      if (value == null || value.trim().isEmpty) {
+        return 'Please enter a $fieldName';
+      }
+      if (value.trim().length < minLength) {
+        return '${fieldName[0].toUpperCase()}${fieldName.substring(1)} appears to be too short';
+      }
+      return null;
+    };
+  }
+
+  String? Function(String?) _validatePositiveNumber(String fieldName,
+      {bool allowZero = false}) {
+    return (value) {
+      if (value == null || value.trim().isEmpty) {
+        return 'Please enter a $fieldName';
+      }
+      final number = double.tryParse(value.trim());
+      if (number == null || (allowZero ? number < 0 : number <= 0)) {
+        return 'Please enter a valid $fieldName';
+      }
+      return null;
+    };
   }
 }

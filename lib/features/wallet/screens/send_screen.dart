@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:crypto_mobile_app/features/node/node_service.dart';
+import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
+import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
+import 'package:crypto_mobile_app/core/config/app_router.dart';
+
 class SendScreen extends ConsumerStatefulWidget {
   const SendScreen({super.key});
 
@@ -15,6 +20,8 @@ class _SendScreenState extends ConsumerState<SendScreen> {
   final _amountController = TextEditingController();
   final _feeController = TextEditingController(text: '1');
   final _memoController = TextEditingController();
+  
+  bool _isSending = false;
 
   @override
   void dispose() {
@@ -25,11 +32,70 @@ class _SendScreenState extends ConsumerState<SendScreen> {
     super.dispose();
   }
 
-  void _onSend() {
-    if (_formKey.currentState!.validate()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Send functionality will be implemented')),
+  Future<void> _onSend() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_isSending) return; // Prevent double submission
+
+    setState(() {
+      _isSending = true;
+    });
+
+    try {
+      // Get the current user's account
+      final accountsRepo = await AccountsRepository.create();
+      final userAccount = await accountsRepo.getActive();
+      
+      if (userAccount == null) {
+        throw Exception('No active account found');
+      }
+
+      // Convert user's address to PublicKeyHash
+      final fromPkHash = frb_types.publicKeyHashFromString(s: userAccount.address);
+      
+      // Convert recipient address to PublicKeyHash
+      final recipientAddress = _addressController.text.trim();
+      final toPkHash = frb_types.publicKeyHashFromString(s: recipientAddress);
+      
+      // Parse amount (convert to smallest unit - assuming integer tokens for now)
+      final amountStr = _amountController.text.trim();
+      final amount = BigInt.from((double.parse(amountStr) * 1000000).round()); // Convert to micro-tokens
+      
+      // Call the transfer funds RPC
+      final response = await RustBackendService.instance.transferFunds(
+        fromPkHash: fromPkHash,
+        amount: amount,
+        toPkHash: toPkHash,
       );
+
+      if (mounted) {
+        if (response != null && response.queued) {
+          // Transaction successful
+          context.push(AppRoutes.walletSendSuccess, extra: {
+            'amount': amountStr,
+            'tokenSymbol': '\$TOKEN', // TODO: Get actual token symbol
+            'recipientAddress': recipientAddress,
+          });
+        } else {
+          // Transaction failed
+          final errorMessage = response?.error ?? 'Unknown error occurred';
+          context.push(AppRoutes.walletSendFailed, extra: {
+            'errorMessage': errorMessage,
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        // Handle any errors (invalid address, parsing errors, etc.)
+        context.push(AppRoutes.walletSendFailed, extra: {
+          'errorMessage': e.toString(),
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSending = false;
+        });
+      }
     }
   }
 
@@ -150,8 +216,12 @@ class _SendScreenState extends ConsumerState<SendScreen> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            theme.colorScheme.primary,
-            theme.colorScheme.primary.withValues(alpha: 0.8),
+            _isSending 
+                ? theme.colorScheme.primary.withValues(alpha: 0.5)
+                : theme.colorScheme.primary,
+            _isSending
+                ? theme.colorScheme.primary.withValues(alpha: 0.3)
+                : theme.colorScheme.primary.withValues(alpha: 0.8),
           ],
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
@@ -159,7 +229,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
         borderRadius: BorderRadius.circular(28),
       ),
       child: ElevatedButton(
-        onPressed: _onSend,
+        onPressed: _isSending ? null : _onSend,
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
@@ -167,14 +237,37 @@ class _SendScreenState extends ConsumerState<SendScreen> {
             borderRadius: BorderRadius.circular(28),
           ),
         ),
-        child: const Text(
-          'Send',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        child: _isSending
+            ? Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  ),
+                  SizedBox(width: 12),
+                  Text(
+                    'Sending...',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              )
+            : const Text(
+                'Send',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
       ),
     );
   }

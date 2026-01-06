@@ -19,6 +19,8 @@ import 'package:crypto_mobile_app/features/node/screens/node_status_produced_blo
 import 'package:crypto_mobile_app/features/node/screens/block_details_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/mempool_details_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/screens/send_screen.dart';
+import 'package:crypto_mobile_app/features/wallet/screens/transaction_success_screen.dart';
+import 'package:crypto_mobile_app/features/wallet/screens/transaction_failed_screen.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -50,6 +52,8 @@ class AppRoutes {
 
   // Wallet routes
   static const walletSend = '/wallet/send';
+  static const walletSendSuccess = '/wallet/send/success';
+  static const walletSendFailed = '/wallet/send/failed';
 
   // Main shell routes
   static const mainNode = '/main/node';
@@ -193,6 +197,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.walletSend,
         builder: (context, state) => const SendScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.walletSendSuccess,
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>;
+          return TransactionSuccessScreen(
+            amount: extra['amount'] as String,
+            tokenSymbol: extra['tokenSymbol'] as String,
+            recipientAddress: extra['recipientAddress'] as String,
+          );
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.walletSendFailed,
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>;
+          return TransactionFailedScreen(
+            errorMessage: extra['errorMessage'] as String,
+          );
+        },
       ),
     ],
     redirect: (context, state) {

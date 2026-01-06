@@ -201,9 +201,8 @@ class _BackgroundProductionSettingsScreenState
     final prefs = await SharedPreferences.getInstance();
     const allowedNetworks = {'testnet', 'internal', 'custom'};
     final storedNetwork = prefs.getString('network:type');
-    final currentNetwork = allowedNetworks.contains(storedNetwork)
-        ? storedNetwork!
-        : 'testnet';
+    final currentNetwork =
+        allowedNetworks.contains(storedNetwork) ? storedNetwork! : 'testnet';
 
     if (!mounted) return;
 

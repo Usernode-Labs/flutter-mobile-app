@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:crypto_mobile_app/features/wallet/screens/wallet_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/produced_blocks_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/node_status_screen.dart';
 import 'package:crypto_mobile_app/features/settings/screens/background_production_settings_screen.dart';
@@ -52,6 +53,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         children: const [
           ProducedBlocksScreen(),
           NodeStatusScreen(),
+          WalletScreen(),
           BackgroundProductionSettingsScreen(),
         ],
       ),
@@ -65,33 +67,48 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
         ),
-        child: NavigationBar(
-          backgroundColor: Colors.transparent,
-          selectedIndex: _index,
-          labelBehavior: screenWidth < 360
-              ? NavigationDestinationLabelBehavior.alwaysHide
-              : NavigationDestinationLabelBehavior.alwaysShow,
-          onDestinationSelected: (i) {
-            setState(() => _index = i);
-            ref.read(currentHomeTabProvider.notifier).state = i;
-          },
-          destinations: [
-            NavigationDestination(
-              icon: const Icon(Icons.layers_outlined),
-              selectedIcon: const Icon(Icons.layers),
-              label: l10n.navProducedBlocks,
+        child: Theme(
+          data: theme.copyWith(
+            navigationBarTheme: NavigationBarThemeData(
+              labelTextStyle: WidgetStateTextStyle.resolveWith((states) {
+                return theme.textTheme.bodySmall?.copyWith(fontSize: 10) ??
+                    const TextStyle(fontSize: 10);
+              }),
             ),
-            NavigationDestination(
-              icon: const Icon(Icons.check_circle_outline),
-              selectedIcon: const Icon(Icons.check_circle),
-              label: l10n.navNodeStatus,
-            ),
-            NavigationDestination(
-              icon: const Icon(Icons.settings_outlined),
-              selectedIcon: const Icon(Icons.settings),
-              label: l10n.navSettings,
-            ),
-          ],
+          ),
+          child: NavigationBar(
+            backgroundColor: Colors.transparent,
+            selectedIndex: _index,
+            labelBehavior: screenWidth < 400
+                ? NavigationDestinationLabelBehavior.alwaysHide
+                : NavigationDestinationLabelBehavior.alwaysShow,
+            onDestinationSelected: (i) {
+              setState(() => _index = i);
+              ref.read(currentHomeTabProvider.notifier).state = i;
+            },
+            destinations: [
+              NavigationDestination(
+                icon: const Icon(Icons.layers_outlined),
+                selectedIcon: const Icon(Icons.layers),
+                label: l10n.navProducedBlocks,
+              ),
+              NavigationDestination(
+                icon: const Icon(Icons.check_circle_outline),
+                selectedIcon: const Icon(Icons.check_circle),
+                label: l10n.navNodeStatus,
+              ),
+              NavigationDestination(
+                icon: const Icon(Icons.account_balance_wallet_outlined),
+                selectedIcon: const Icon(Icons.account_balance_wallet),
+                label: l10n.navWallet,
+              ),
+              NavigationDestination(
+                icon: const Icon(Icons.settings_outlined),
+                selectedIcon: const Icon(Icons.settings),
+                label: l10n.navSettings,
+              ),
+            ],
+          ),
         ),
       ),
     );

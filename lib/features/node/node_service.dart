@@ -246,6 +246,24 @@ class RustBackendService {
       _node!.runForeverInNewThread();
       _nodeRunning = true;
 
+      // Set the signer in the usernode for transaction signing
+      try {
+        _log.debug('Configuring wallet signer for account ${account.id}...');
+        final signerResponse = await _rpc!.walletSetSignerFromSecret(
+          secretKeyHex: privateKeyHex,
+        );
+        
+        if (signerResponse != null && signerResponse.ok) {
+          _log.info('Wallet signer configured successfully for account ${account.id}');
+        } else {
+          final error = signerResponse?.error ?? 'Unknown error';
+          _log.warn('Failed to configure wallet signer: $error');
+        }
+      } catch (e, st) {
+        _log.warn('Exception while configuring wallet signer: $e $st');
+        // Don't fail node startup if signer configuration fails
+      }
+
       _log.info('Node started with user account block producer');
       await SentryUtil.captureMessage(
           'Backend started for active account ${account.id}');

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 enum TransactionType {
   receive,
@@ -78,26 +79,63 @@ class WalletBalance {
   final double tokenAmount;
   final String tokenSymbol;
   final double usdValue;
+  final BigInt totalBalance; // Total balance from all UTXOs
 
   WalletBalance({
     required this.tokenAmount,
     required this.tokenSymbol,
     required this.usdValue,
+    required this.totalBalance,
   });
 
   String get formattedTokenAmount =>
       '${tokenAmount.toStringAsFixed(2)} $tokenSymbol';
   String get formattedUsdValue => '≈ \$${usdValue.toStringAsFixed(2)} USD';
 
+  /// Get formatted balance with support for compact and full formatting
+  ///
+  /// [compact] - Use compact format (1.2M, 5.6K) vs full format (1,234,567)
+  /// [decimals] - Number of decimal places to show
+  String getFormattedBalance({bool compact = false, int decimals = 1}) {
+    if (compact) {
+      return _formatCompact(tokenAmount, decimals);
+    } else {
+      // For full format with comma separators
+      String pattern;
+      if (decimals == 0) {
+        pattern = '#,##0';
+      } else {
+        pattern = '#,##0.${'#' * decimals}';
+      }
+      final formatter = NumberFormat(pattern, 'en_US');
+      return formatter.format(tokenAmount);
+    }
+  }
+
+  /// Format number in compact notation (K, M, B)
+  String _formatCompact(double value, int decimals) {
+    if (value >= 1000000000) {
+      return '${(value / 1000000000).toStringAsFixed(decimals)}B';
+    } else if (value >= 1000000) {
+      return '${(value / 1000000).toStringAsFixed(decimals)}M';
+    } else if (value >= 1000) {
+      return '${(value / 1000).toStringAsFixed(decimals)}K';
+    } else {
+      return value.toStringAsFixed(decimals);
+    }
+  }
+
   WalletBalance copyWith({
     double? tokenAmount,
     String? tokenSymbol,
     double? usdValue,
+    BigInt? totalBalance,
   }) {
     return WalletBalance(
       tokenAmount: tokenAmount ?? this.tokenAmount,
       tokenSymbol: tokenSymbol ?? this.tokenSymbol,
       usdValue: usdValue ?? this.usdValue,
+      totalBalance: totalBalance ?? this.totalBalance,
     );
   }
 }

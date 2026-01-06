@@ -1,8 +1,13 @@
-import 'package:flutter/material.dart';
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/features/wallet/models/transaction_model.dart';
+import 'package:crypto_mobile_app/features/wallet/utxo_provider.dart';
+import 'package:crypto_mobile_app/features/wallet/token_registry.dart';
+import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
+
+final _log = LoggingService.instance.withTag('usernode/WalletProvider');
 
 class WalletState {
   final WalletBalance balance;
@@ -12,88 +17,116 @@ class WalletState {
 }
 
 class WalletController extends AsyncNotifier<WalletState> {
-  // Mock wallet balance
-  WalletBalance _balance = WalletBalance(
-    tokenAmount: 1234.56,
-    tokenSymbol: 'TOKENS',
-    usdValue: 2469.12,
-  );
-
-  // Mock transaction data
-  final List<TransactionModel> _transactions = [
-    TransactionModel(
-      id: '1',
-      title: 'Received from Network',
-      subtitle: '',
-      amount: 150.00,
-      tokenSymbol: AppConfig.defaultTokenSymbol,
-      type: TransactionType.receive,
-      status: TransactionStatus.completed,
-      timestamp: DateTime.now().subtract(const Duration(hours: 2)),
-      icon: Icons.arrow_downward,
-      color: Colors.green,
-    ),
-    TransactionModel(
-      id: '2',
-      title: 'Node Rewards',
-      subtitle: '',
-      amount: 25.50,
-      tokenSymbol: AppConfig.defaultTokenSymbol,
-      type: TransactionType.reward,
-      status: TransactionStatus.completed,
-      timestamp: DateTime.now().subtract(const Duration(days: 1)),
-      icon: Icons.hub,
-      color: Colors.green,
-    ),
-    TransactionModel(
-      id: '3',
-      title: 'Send to Wallet',
-      subtitle: '',
-      amount: -100.00,
-      tokenSymbol: AppConfig.defaultTokenSymbol,
-      type: TransactionType.send,
-      status: TransactionStatus.completed,
-      timestamp: DateTime.now().subtract(const Duration(days: 2)),
-      icon: Icons.arrow_upward,
-      color: Colors.blue,
-    ),
-    TransactionModel(
-      id: '4',
-      title: 'Network Fee',
-      subtitle: '',
-      amount: -2.50,
-      tokenSymbol: AppConfig.defaultTokenSymbol,
-      type: TransactionType.fee,
-      status: TransactionStatus.pending,
-      timestamp: DateTime.now().subtract(const Duration(days: 3)),
-      icon: Icons.schedule,
-      color: Colors.orange,
-    ),
-  ];
+  // Empty transaction list - real data would come from blockchain/API
+  final List<TransactionModel> _transactions = [];
 
   @override
   Future<WalletState> build() async {
+    final balance = await _calculateBalance();
     return WalletState(
-      balance: _balance,
+      balance: balance,
       recent: _transactions.take(10).toList(),
     );
+  }
+
+  /// Calculate wallet balance from UTXOs
+  Future<WalletBalance> _calculateBalance() async {
+    try {
+      // Get UTXOs from existing provider
+      final utxos = await ref.watch(walletUtxosProvider.future);
+
+      // Aggregate balances by token_id
+      final Map<String, BigInt> balancesByToken = {};
+      String? primaryTokenSymbol;
+
+      // Extract asset data from UTXOs via JSON serialization
+      for (var i = 0; i < utxos.length; i++) {
+        try {
+          final ownedUtxo = utxos[i];
+
+          // Serialize UTXO to JSON string
+          final jsonStr = frb_types.utxoToJson(utxo: ownedUtxo.utxo);
+          final utxoData = json.decode(jsonStr) as Map<String, dynamic>;
+
+          // Extract assets array
+          final assetsJson = utxoData['assets'] as List<dynamic>?;
+          if (assetsJson == null || assetsJson.isEmpty) {
+            _log.debug('  UTXO[$i]: No assets');
+            continue;
+          }
+
+          // Aggregate balances by token_id
+          for (final assetJson in assetsJson) {
+            final tokenId = assetJson['token_id'] as String;
+            final balance = BigInt.from(assetJson['balance'] as int);
+
+            balancesByToken[tokenId] =
+                (balancesByToken[tokenId] ?? BigInt.zero) + balance;
+          }
+        } catch (e, st) {
+          _log.error('Failed to parse UTXO[$i]', error: e, stackTrace: st);
+        }
+      }
+
+      // Calculate totals
+      final totalBalance = balancesByToken.values.fold<BigInt>(
+        BigInt.zero,
+        (sum, balance) => sum + balance,
+      );
+
+      // Get primary token info (first token or default)
+      if (balancesByToken.isNotEmpty) {
+        final primaryTokenId = balancesByToken.keys.first;
+        final metadata = _getTokenMetadata(primaryTokenId);
+        primaryTokenSymbol = metadata['symbol'] as String;
+      } else {
+        primaryTokenSymbol = 'TOKENS'; // Default fallback
+      }
+
+      // Convert BigInt to double for display
+      // Use toInt() instead of toDouble() to avoid precision issues with very large numbers
+      final tokenAmount = totalBalance.toInt().toDouble();
+
+      return WalletBalance(
+        tokenAmount: tokenAmount,
+        tokenSymbol: primaryTokenSymbol,
+        usdValue: 0.0, // TODO: Add USD value calculation
+        totalBalance: totalBalance,
+      );
+    } catch (e, st) {
+      _log.error('Failed to calculate wallet balance',
+          error: e, stackTrace: st);
+      // Return fallback balance
+      return WalletBalance(
+        tokenAmount: 0.0,
+        tokenSymbol: 'TOKENS',
+        usdValue: 0.0,
+        totalBalance: BigInt.zero,
+      );
+    }
+  }
+
+  /// Get token metadata (name, symbol) for a given token ID
+  Map<String, String> _getTokenMetadata(String tokenId) {
+    final metadata = TokenRegistry.instance.getMetadataOrFallback(tokenId);
+    return {
+      'name': metadata.name,
+      'symbol': metadata.symbol,
+    };
   }
 
   Future<void> refresh() async {
     state = const AsyncLoading();
 
-    // Simulate network delay
-    await Future.delayed(const Duration(seconds: 2));
-
-    // Simulate small balance update
-    _balance = _balance.copyWith(
-      tokenAmount: _balance.tokenAmount + 0.01,
-    );
-
-    state = AsyncValue.data(WalletState(
-      balance: _balance,
-      recent: _transactions.take(10).toList(),
-    ));
+    try {
+      final balance = await _calculateBalance();
+      state = AsyncValue.data(WalletState(
+        balance: balance,
+        recent: _transactions.take(10).toList(),
+      ));
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
   }
 }
 

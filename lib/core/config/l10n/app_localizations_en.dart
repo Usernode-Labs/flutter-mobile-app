@@ -346,6 +346,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Your transaction has been submitted successfully.';
 
   @override
+  String get walletNoRecentActivity =>
+      'You haven\'t made any transactions yet.';
+
+  @override
   String get nodeStatusTitle => 'Node Status';
 
   @override
@@ -538,6 +542,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get navProducedBlocks => 'Produced Blocks';
+
+  @override
+  String get navWallet => 'Wallet';
 
   @override
   String get navNodeStatus => 'Node Status';

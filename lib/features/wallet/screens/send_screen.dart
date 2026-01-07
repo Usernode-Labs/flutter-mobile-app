@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
+import 'package:crypto_mobile_app/features/wallet/recipient_history_provider.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 
@@ -69,6 +70,9 @@ class _SendScreenState extends ConsumerState<SendScreen> {
 
       if (mounted) {
         if (response != null && response.queued) {
+          await ref
+              .read(recipientHistoryProvider.notifier)
+              .addRecipient(recipientAddress);
           // Transaction successful
           context.push(AppRoutes.walletSendSuccess, extra: {
             'amount': amountStr,
@@ -102,6 +106,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final recipientHistory = ref.watch(recipientHistoryProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -125,6 +130,14 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                   theme: theme,
                   controller: _addressController,
                   hint: 'Recipient address',
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.history),
+                    tooltip: 'Recent recipients',
+                    onPressed: () => _showRecipientHistory(
+                      context,
+                      recipientHistory.value ?? const [],
+                    ),
+                  ),
                   validator:
                       _validateRequired('recipient address', minLength: 20),
                 ),
@@ -168,6 +181,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
     required String hint,
     bool isNumeric = false,
     int maxLines = 1,
+    Widget? suffixIcon,
     String? Function(String?)? validator,
   }) {
     return ClipRRect(
@@ -202,6 +216,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
             contentPadding: const EdgeInsets.all(16),
             hintText: hint,
             hintStyle: const TextStyle(color: Colors.black87, fontSize: 16),
+            suffixIcon: suffixIcon,
           ),
           style: const TextStyle(fontSize: 16),
         ),
@@ -297,5 +312,43 @@ class _SendScreenState extends ConsumerState<SendScreen> {
       }
       return null;
     };
+  }
+
+  void _showRecipientHistory(BuildContext context, List<String> recipients) {
+    showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        if (recipients.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.all(24),
+            child: Center(
+              child: Text('No recent addresses'),
+            ),
+          );
+        }
+        return ListView.separated(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          itemCount: recipients.length,
+          separatorBuilder: (_, __) => const Divider(height: 1),
+          itemBuilder: (context, index) {
+            final address = recipients[index];
+            return ListTile(
+              leading: const Icon(Icons.history),
+              title: Text(
+                address,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              onTap: () {
+                _addressController.text = address;
+                Navigator.of(sheetContext).pop();
+              },
+            );
+          },
+        );
+      },
+    );
   }
 }

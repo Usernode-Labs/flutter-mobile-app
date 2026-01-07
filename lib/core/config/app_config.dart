@@ -198,25 +198,37 @@ class AppConfig {
 
 /// Demo account model with metadata
 class DemoAccount {
-  final String secretKeyHex;
-  final String publicKeyHex;
-  final String publicKeyHashBech32m;
+  final String secretKey;
+  final String publicKey;
+  final String address;
   final int amount;
   final String tier;
 
   DemoAccount({
-    required this.secretKeyHex,
-    required this.publicKeyHex,
-    required this.publicKeyHashBech32m,
+    required this.secretKey,
+    required this.publicKey,
+    required this.address,
     required this.amount,
     required this.tier,
   });
 
   factory DemoAccount.fromJson(Map<String, dynamic> json) {
+    String requiredString(List<String> keys) {
+      for (final key in keys) {
+        final value = json[key];
+        if (value is String && value.isNotEmpty) return value;
+      }
+      throw FormatException('Missing required field: ${keys.join(' or ')}');
+    }
+
     return DemoAccount(
-      secretKeyHex: json['secret_key_hex'] as String,
-      publicKeyHex: json['public_key_hex'] as String,
-      publicKeyHashBech32m: json['public_key_hash_bech32m'] as String,
+      secretKey: requiredString(['secret_key', 'secret_key_hex']),
+      publicKey: requiredString(['public_key', 'public_key_hex']),
+      address: requiredString([
+        'address',
+        'public_key_hash_bech32m',
+        'public_key_hash',
+      ]),
       amount: json['amount'] as int,
       tier: json['tier'] as String,
     );

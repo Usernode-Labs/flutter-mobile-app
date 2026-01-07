@@ -88,39 +88,39 @@ class AccountsRepository {
     }
   }
 
-  /// Get the private key for a specific account from secure storage
-  Future<String?> getPrivateKey(String accountId) async {
+  /// Get the secret key for a specific account from secure storage.
+  Future<String?> getSecretKey(String accountId) async {
     try {
-      final key = '$_network:account:$accountId:privateKey';
-      final privateKey = await _secure.read(key: key);
-      return privateKey;
+      final key = '$_network:account:$accountId:secretKey';
+      final secretKey = await _secure.read(key: key);
+      return secretKey;
     } catch (e, st) {
-      _log.error('Failed to read private key for account $accountId',
+      _log.error('Failed to read secret key for account $accountId',
           error: e, stackTrace: st);
       return null;
     }
   }
 
-  /// Import an account from a hex-encoded private key.
-  Future<AccountMeta?> importFromPrivateKey({
+  /// Import an account from a bech32m-encoded secret key (HRP `utsk`).
+  Future<AccountMeta?> importFromSecretKey({
     required String name,
-    required String privateKeyHex,
+    required String secretKey,
     bool isDemo = false,
   }) async {
-    _log.trace('importFromPrivateKey - start (name: $name, isDemo: $isDemo)');
+    _log.trace('importFromSecretKey - start (name: $name, isDemo: $isDemo)');
 
     try {
       // Use Rust backend to derive public key and address from private key
       final accountExport = accountFromPrivateKey(
-        privateKeyHex: privateKeyHex.trim(),
+        secretKey: secretKey.trim(),
       );
 
       // Extract keys from AccountExport
-      final privateKey = accountExport.secretKeyHex;
-      final publicKey = accountExport.publicKeyHex;
-      final address = accountExport.publicKeyHashBech32M;
+      final derivedSecretKey = accountExport.secretKey;
+      final publicKey = accountExport.publicKey;
+      final address = accountExport.address;
 
-      _log.trace('Private key length: ${privateKey.length}');
+      _log.trace('Secret key length: ${derivedSecretKey.length}');
       _log.trace('Public key length: ${publicKey.length}');
       _log.trace('Address: $address');
 
@@ -128,14 +128,14 @@ class AccountsRepository {
         name: name,
         address: address,
         publicKey: publicKey,
-        privateKey: privateKey,
+        secretKey: derivedSecretKey,
         derivationPath: 'imported', // Mark as imported rather than HD path
         isDemo: isDemo,
       );
-      _log.trace('importFromPrivateKey - success (account id: ${result.id})');
+      _log.trace('importFromSecretKey - success (account id: ${result.id})');
       return result;
     } catch (e, stackTrace) {
-      _log.error('importFromPrivateKey - FAILED with exception',
+      _log.error('importFromSecretKey - FAILED with exception',
           error: e, stackTrace: stackTrace);
       return null;
     }
@@ -145,7 +145,7 @@ class AccountsRepository {
     required String name,
     required String address,
     required String publicKey,
-    required String privateKey,
+    required String secretKey,
     String? derivationPath,
     bool isDemo = false,
   }) async {
@@ -171,7 +171,7 @@ class AccountsRepository {
 
     _log.debug('Writing to secure storage (4 keys) for network: $_network...');
     await _secure.write(
-        key: '$_network:account:$id:privateKey', value: privateKey);
+        key: '$_network:account:$id:secretKey', value: secretKey);
     await _secure.write(
         key: '$_network:account:$id:publicKey', value: publicKey);
     await _secure.write(key: '$_network:account:$id:address', value: address);

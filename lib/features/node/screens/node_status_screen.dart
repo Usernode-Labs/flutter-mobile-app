@@ -2092,7 +2092,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
         String producerPubkey;
         try {
-          producerPubkey = block.producerPubkey;
+          producerPubkey = block.producerPubkey.toString();
         } catch (e) {
           producerPubkey = '';
         }

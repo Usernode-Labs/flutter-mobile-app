@@ -219,7 +219,7 @@ class AndroidForegroundTaskController {
         _log.info('Wakelock acquired');
       }
       _wakelockHeld = true;
-    } catch (e, st) {
+    } catch (e) {
       _log.warn('Failed to acquire wakelock: $e');
     }
   }
@@ -232,7 +232,7 @@ class AndroidForegroundTaskController {
         _log.info('Wakelock released');
       }
       _wakelockHeld = false;
-    } catch (e, st) {
+    } catch (e) {
       _log.warn('Failed to release wakelock: $e');
     }
   }

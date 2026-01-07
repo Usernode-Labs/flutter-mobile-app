@@ -1,29 +1,26 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:crypto/crypto.dart';
+import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/utils/utils.dart';
+import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
+import 'package:crypto_mobile_app/core/widgets/app_progress_bar.dart';
+import 'package:crypto_mobile_app/core/widgets/produced_block_card.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
+import 'package:crypto_mobile_app/features/node/node_data_providers.dart';
+import 'package:crypto_mobile_app/features/node/node_provider.dart';
+import 'package:crypto_mobile_app/features/node/node_service.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-import 'package:go_router/go_router.dart';
-import 'package:crypto_mobile_app/core/config/app_router.dart';
-import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
-import 'package:crypto_mobile_app/core/widgets/produced_block_card.dart';
-import 'package:crypto_mobile_app/core/widgets/app_progress_bar.dart';
-import 'package:crypto_mobile_app/core/utils/logger.dart';
-import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
-import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
-import 'node_peers_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:crypto_mobile_app/features/node/node_provider.dart';
-import 'package:crypto_mobile_app/features/node/epoch_rewards_provider.dart';
-import 'package:crypto_mobile_app/features/node/node_data_providers.dart';
-import 'package:crypto_mobile_app/features/wallet/wallet_provider.dart';
-import 'package:crypto_mobile_app/features/wallet/utxo_provider.dart';
-import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
-import 'package:crypto_mobile_app/features/wallet/models/account.dart';
-import 'package:crypto_mobile_app/features/node/node_service.dart';
+import 'package:go_router/go_router.dart';
+
+import 'node_peers_screen.dart';
 
 final _log = LoggingService.instance.withTag('usernode/NodeStatusScreen');
 
@@ -36,307 +33,204 @@ class NodeStatusScreen extends ConsumerStatefulWidget {
 
 class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     with SingleTickerProviderStateMixin {
+  // State flags
   bool _refreshing = false;
   String? _error;
-  // int? _peerCount; // unused
+  bool _active = true;
+  bool _isRecentBlocksExpanded = false;
+
+  // Cached data
   List<RpcPeerInfo> _peers = const [];
   int? _currentBlockHeight;
   int? _networkBestTipHeight;
   int? _bestTipGlobalSlot;
-  int? _bestTipEpoch;
 
-  // Cached rewards data
-  BigInt? _rewardPerBlock;
+  DateTime? _lastChecked;
+  String? _deviceId;
+  String? _chainId;
+  String? _chainName;
 
-  // Cached wallet balance
-  BigInt? _cachedBalance;
-  String? _cachedTokenSymbol;
+  // Network-specific caches (consolidated into maps)
+  final Map<NetworkType, String> _chainIdCache = {};
+  final Map<NetworkType, String> _chainNameCache = {};
 
   Timer? _autoTimer;
   late final TabController _tabController;
-  DateTime? _lastChecked;
-  bool _active = false; // active when NodeStatus tab is selected (index 1)
 
-  // Collapsible section states
-  bool _isRecentBlocksExpanded = false;
-
-  // Wallet balance state
-  AccountMeta? _account;
-
-  // Device ID
-  String? _deviceId;
-
-  // Chain ID
-  String? _chainId;
-
-  // Chain Name
-  String? _chainName;
-
-  // Chain ID cache per network
-  String? _cachedChainIdTestnet;
-  String? _cachedChainIdInternal;
-
-  // Chain Name cache per network
-  String? _cachedChainNameTestnet;
-  String? _cachedChainNameInternal;
+  // ============== LIFECYCLE ==============
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    // Defer provider modifications until after first frame to avoid
-    // "modify provider while building" errors when navigating.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _refresh();
-      _loadActiveAccount();
-      _loadDeviceId();
-      _loadChainId();
-      _loadChainName();
-    });
-    // Start timer immediately since we're on this screen
-    // The build() method will handle stopping it if tab changes
-    _active = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initializeData());
     _startTimer();
   }
 
-  Future<void> _loadActiveAccount() async {
-    final repo = await AccountsRepository.create();
-    final active = await repo.getActive();
-    if (!mounted) return;
-    setState(() {
-      _account = active;
-    });
-    // Prime UTXO provider to trigger asset loading
-    ref.read(walletUtxosProvider.future);
+  @override
+  void dispose() {
+    _autoTimer?.cancel();
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  // ============== INITIALIZATION ==============
+
+  /// Initialize all data in parallel where possible
+  Future<void> _initializeData() async {
+    await Future.wait([
+      _refresh(),
+      _loadDeviceId(),
+      _loadChainMetadata(),
+    ], eagerError: false);
   }
 
   Future<void> _loadDeviceId() async {
-    // Only load once - device ID doesn't change
     if (_deviceId != null) return;
 
-    final deviceInfo = DeviceInfoPlugin();
-    String rawDeviceId = 'unknown';
-    if (Platform.isAndroid) {
-      final androidInfo = await deviceInfo.androidInfo;
-      rawDeviceId = androidInfo.id;
-    } else if (Platform.isIOS) {
-      final iosInfo = await deviceInfo.iosInfo;
-      rawDeviceId = iosInfo.identifierForVendor ?? 'unknown';
-    }
-    // Hash the device ID (same as metrics collector - MD5 32 chars)
-    final bytes = utf8.encode(rawDeviceId);
-    final digest = md5.convert(bytes);
-    final hashedDeviceId = digest.toString();
+    try {
+      final deviceInfo = DeviceInfoPlugin();
+      final rawDeviceId = Platform.isAndroid
+          ? (await deviceInfo.androidInfo).id
+          : Platform.isIOS
+              ? (await deviceInfo.iosInfo).identifierForVendor ?? 'unknown'
+              : 'unknown';
 
-    if (!mounted) return;
-    setState(() {
-      _deviceId = hashedDeviceId;
-    });
+      final hashedDeviceId = md5.convert(utf8.encode(rawDeviceId)).toString();
+      if (!mounted) return;
+      setState(() => _deviceId = hashedDeviceId);
+    } catch (e) {
+      _log.debug('Failed to load device ID: $e');
+    }
   }
 
-  Future<void> _loadChainId() async {
-    // Get current network type to determine which cache to use
+  /// Consolidated chain metadata loading (chainId + chainName)
+  Future<void> _loadChainMetadata() async {
     NetworkType? currentNetwork;
     try {
       currentNetwork = await RustBackendService.instance.getSelectedNetwork();
     } catch (e) {
       _log.debug('Failed to get network type: $e');
+      return;
     }
 
-    // Check cache first based on network type
-    String? cachedChainId;
-    if (currentNetwork == NetworkType.testnet) {
-      cachedChainId = _cachedChainIdTestnet;
-    } else if (currentNetwork == NetworkType.internal) {
-      cachedChainId = _cachedChainIdInternal;
-    }
+    // Check caches first
+    final cachedId = _chainIdCache[currentNetwork];
+    final cachedName = _chainNameCache[currentNetwork];
 
-    // Use cached value if available
-    if (cachedChainId != null) {
+    if (cachedId != null && cachedName != null) {
       if (!mounted) return;
       setState(() {
-        _chainId = cachedChainId;
+        _chainId = cachedId;
+        _chainName = cachedName;
       });
       return;
     }
 
-    // Set loading state only if no cache available
+    // Set loading state only if no cache
     if (!mounted) return;
     setState(() {
-      _chainId = 'Loading...';
+      _chainId ??= 'Loading...';
+      _chainName ??= 'Loading...';
     });
 
-    // Load chain ID from node status
-    String? chainId;
+    // Fetch from status (single call for both values)
     try {
       final status = await RustBackendService.instance.getStatus();
-      chainId = status?.node.chainId.toString();
-    } catch (e) {
-      _log.debug('Failed to get chain_id from status: $e');
-    }
+      final chainId = status?.node.chainId.toString();
+      final chainName = status?.node.chainName;
 
-    // If we got a valid chain_id, cache it for the current network
-    if (chainId != null && chainId.isNotEmpty && currentNetwork != null) {
-      if (currentNetwork == NetworkType.testnet) {
-        _cachedChainIdTestnet = chainId;
-      } else if (currentNetwork == NetworkType.internal) {
-        _cachedChainIdInternal = chainId;
+      // Cache valid results
+      if (chainId != null && chainId.isNotEmpty) {
+        _chainIdCache[currentNetwork] = chainId;
       }
-    } else {
-      // Keep showing "Loading..." if chain_id is unavailable
-      chainId = 'Loading...';
-    }
+      if (chainName != null && chainName.isNotEmpty) {
+        _chainNameCache[currentNetwork] = chainName;
+      }
 
-    if (!mounted) return;
-    setState(() {
-      _chainId = chainId;
-    });
-  }
-
-  Future<void> _loadChainName() async {
-    // Get current network type to determine which cache to use
-    NetworkType? currentNetwork;
-    try {
-      currentNetwork = await RustBackendService.instance.getSelectedNetwork();
-    } catch (e) {
-      _log.debug('Failed to get network type: $e');
-    }
-
-    // Check cache first based on network type
-    String? cachedChainName;
-    if (currentNetwork == NetworkType.testnet) {
-      cachedChainName = _cachedChainNameTestnet;
-    } else if (currentNetwork == NetworkType.internal) {
-      cachedChainName = _cachedChainNameInternal;
-    }
-
-    // Use cached value if available
-    if (cachedChainName != null) {
       if (!mounted) return;
       setState(() {
-        _chainName = cachedChainName;
+        _chainId = chainId?.isNotEmpty == true ? chainId : 'Loading...';
+        _chainName = chainName?.isNotEmpty == true ? chainName : 'Loading...';
       });
-      return;
-    }
-
-    // Set loading state only if no cache available
-    if (!mounted) return;
-    setState(() {
-      _chainName = 'Loading...';
-    });
-
-    // Load chain name from node status
-    String? chainName;
-    try {
-      final status = await RustBackendService.instance.getStatus();
-      chainName = status?.node.chainName;
     } catch (e) {
-      _log.debug('Failed to get chain_name from status: $e');
+      _log.debug('Failed to get chain metadata: $e');
     }
-
-    // If we got a valid chain_name, cache it for the current network
-    if (chainName != null && chainName.isNotEmpty && currentNetwork != null) {
-      if (currentNetwork == NetworkType.testnet) {
-        _cachedChainNameTestnet = chainName;
-      } else if (currentNetwork == NetworkType.internal) {
-        _cachedChainNameInternal = chainName;
-      }
-    } else {
-      // Keep showing "Loading..." if chain_name is unavailable
-      chainName = 'Loading...';
-    }
-
-    if (!mounted) return;
-    setState(() {
-      _chainName = chainName;
-    });
   }
+
+  // ============== REFRESH LOGIC ==============
 
   Future<void> _refresh() async {
     if (!mounted) return;
     setState(() {
       _refreshing = true;
-      _error = null; // keep content visible; show error inline
+      _error = null;
     });
+
     try {
-      // Refresh all providers (using notifier.refresh() to avoid loading state flicker)
-      await ref.read(nodeStatusProvider.notifier).refresh();
-      await ref.read(nodeMempoolProvider.notifier).refresh();
-      await ref.read(nodeBlockchainProvider.notifier).refresh();
-      await ref.read(epochRewardsProvider.notifier).refresh();
-      // Refresh wallet UTXOs to update balance after node syncs (silent to avoid flicker)
-      await ref.read(walletUtxosProvider.notifier).silentRefresh();
+      // Refresh all providers in parallel
+      await Future.wait([
+        ref.read(nodeStatusProvider.notifier).refresh(),
+        ref.read(nodeMempoolProvider.notifier).refresh(),
+        ref.read(nodeBlockchainProvider.notifier).refresh(),
+      ]);
 
-      // Refresh chain ID in case network changed
-      await _loadChainId();
-      await _loadChainName();
+      await _loadChainMetadata();
 
-      // Check if still mounted after async operations
       if (!mounted) return;
 
-      // Get the status for UI state
       final status = ref.read(nodeStatusProvider).value;
       if (status != null) {
         final localBestTip = status.localBest;
         final networkBestTip = status.networkBest;
         final displayBestTip = networkBestTip ?? localBestTip;
 
-        if (!mounted) return;
         setState(() {
           _peers = status.peers;
           _currentBlockHeight = localBestTip?.height;
           _networkBestTipHeight = networkBestTip?.height;
           _bestTipGlobalSlot = displayBestTip?.globalSlot;
-          _bestTipEpoch = displayBestTip?.epoch;
           _lastChecked = DateTime.now();
-
-          // Cache rewards data
-          final rewardsData = ref.read(epochRewardsProvider).value;
-          if (rewardsData != null) {
-            _rewardPerBlock = rewardsData.rewardPerBlock;
-          }
-
-          // Cache wallet balance
-          final walletData = ref.read(walletProvider).value;
-          if (walletData != null) {
-            _cachedBalance = walletData.balance.totalBalance;
-            _cachedTokenSymbol = walletData.balance.tokenSymbol;
-          }
         });
       }
     } on StateError catch (e, st) {
-      // Happens if a late timer tick fires after disposal; just log quietly.
       _log.debug('Skipped refresh on disposed node screen');
-      _log.debug('StateError during refresh: $e');
-      _log.debug('Stack trace: $st');
-      return;
+      _log.debug('StateError during refresh: $e\n$st');
     } catch (e, st) {
       _log.error('Refresh failed', error: e, stackTrace: st);
-      if (mounted) {
-        setState(() {
-          _error = e.toString();
-        });
-      }
+      if (mounted) setState(() => _error = e.toString());
     } finally {
-      if (mounted) {
-        setState(() => _refreshing = false);
-      }
+      if (mounted) setState(() => _refreshing = false);
     }
   }
 
+  // ============== TIMER MANAGEMENT ==============
+
+  void _startTimer() {
+    _autoTimer?.cancel();
+    _autoTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (mounted && _active && !_refreshing) _refresh();
+    });
+  }
+
+  void _stopTimer() {
+    _autoTimer?.cancel();
+    _autoTimer = null;
+  }
+
+  // ============== BUILD ==============
+
   @override
   Widget build(BuildContext context) {
-    // React to tab changes and start/stop timers
+    // React to tab changes
     final currentTab = ref.watch(currentHomeTabProvider);
     final shouldBeActive = currentTab == 1;
     if (shouldBeActive != _active) {
       _active = shouldBeActive;
-      if (_active) {
-        _startTimer();
-      } else {
-        _stopTimer();
-      }
+      shouldBeActive ? _startTimer() : _stopTimer();
     }
+
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
@@ -350,31 +244,13 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              if (_error != null)
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(l10n.commonError,
-                        style: TextStyle(color: colorScheme.error)),
-                    const SizedBox(height: 6),
-                    Text(_error!, style: theme.textTheme.bodySmall),
-                    const SizedBox(height: 16),
-                  ],
-                ),
-
-              // CENTRAL STATUS INDICATOR
+              if (_error != null) _buildErrorSection(theme, colorScheme, l10n),
               _buildCentralStatusIndicator(context),
               const SizedBox(height: 32),
-
-              // EPOCH PROGRESS Section
               _buildEpochProgressSection(context),
               const SizedBox(height: 2),
-
-              // SYNC DETAILS Section
               _buildSyncDetailsSection(context),
               const SizedBox(height: 8),
-
-              // RECENT BLOCKS Section (collapsible, separate card)
               _buildRecentBlocksSection(context),
               const SizedBox(height: 8),
             ],
@@ -384,68 +260,38 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     );
   }
 
-  // Central status indicator widget
+  // ============== UI SECTIONS ==============
+
+  Widget _buildErrorSection(
+      ThemeData theme, ColorScheme colorScheme, AppLocalizations l10n) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(l10n.commonError, style: TextStyle(color: colorScheme.error)),
+        const SizedBox(height: 6),
+        Text(_error!, style: theme.textTheme.bodySmall),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
   Widget _buildCentralStatusIndicator(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final statusFromProvider = ref.read(nodeStatusProvider).value;
     final sync = statusFromProvider?.syncStatus;
-    final isSynced = sync?.isSynced ?? false;
-
-    // Calculate sync percentage - based on applied blocks progress from sync status
     final syncPercentage = sync?.progress ?? 0.0;
 
-    // Determine what to display for block counts
-    String blockDisplayText;
-    final currentHeight =
-        statusFromProvider?.localBestHeight ?? _currentBlockHeight ?? 0;
-    final networkHeight = statusFromProvider?.networkBestHeight ??
-        _networkBestTipHeight ??
-        currentHeight;
-    if (sync == null || sync.isConnecting) {
-      // Don't show block count when connecting
-      blockDisplayText = '';
-    } else if (isSynced) {
-      // When synced, show block height
-      blockDisplayText = 'Block $currentHeight / $networkHeight';
-    } else if (sync.appliedBlocks != null && sync.targetBlocks != null) {
-      // Use applied blocks data when syncing
-      final appliedStr = _formatBigIntStatic(sync.appliedBlocks!);
-      final targetStr = _formatBigIntStatic(sync.targetBlocks!);
-      blockDisplayText = 'Block $appliedStr / $targetStr';
-    } else {
-      // Fallback to height-based display
-      blockDisplayText = 'Block $currentHeight / $networkHeight';
-    }
+    // Determine block display text
+    final blockDisplayText = _getBlockDisplayText(statusFromProvider, sync);
 
     // Determine status display
-    final IconData statusIcon;
-    final String statusLabel;
-    final Color circleColor;
-
-    if (_error != null) {
-      // Show offline state when there's an error
-      statusIcon = Icons.close;
-      statusLabel = 'Offline';
-      circleColor = const Color(0xFFF56E98); // Pink/red
-    } else if (sync == null || sync.isConnecting) {
-      statusIcon = Icons.hourglass_empty;
-      statusLabel = 'Connecting';
-      circleColor = const Color(0xFFF1B440); // Amber
-    } else if (isSynced) {
-      statusIcon = Icons.check;
-      statusLabel = 'Synced';
-      circleColor = const Color(0xFF4CAF50); // Green
-    } else {
-      statusIcon = Icons.hourglass_empty;
-      statusLabel = 'Syncing';
-      circleColor = const Color(0xFFF1B440); // Amber
-    }
+    final (statusIcon, statusLabel, circleColor) = _getStatusDisplay(sync);
 
     return Column(
       children: [
-        // Large circular indicator
         const SizedBox(height: 16),
+        // Large circular indicator
         Container(
           width: 100,
           height: 100,
@@ -453,11 +299,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             color: circleColor.withValues(alpha: 0.2),
             shape: BoxShape.circle,
           ),
-          child: Icon(
-            statusIcon,
-            size: 40,
-            color: circleColor.withValues(alpha: 0.8),
-          ),
+          child: Icon(statusIcon,
+              size: 40, color: circleColor.withValues(alpha: 0.8)),
         ),
         const SizedBox(height: 16),
         // Status text
@@ -476,9 +319,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             children: [
               Text(
                 blockDisplayText,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(color: colorScheme.onSurfaceVariant),
               ),
               const SizedBox(width: 8),
               Text(
@@ -508,24 +350,53 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     );
   }
 
-  // Epoch progress section
+  String _getBlockDisplayText(dynamic statusFromProvider, dynamic sync) {
+    if (sync == null || sync.isConnecting) return '';
+
+    final currentHeight =
+        statusFromProvider?.localBestHeight ?? _currentBlockHeight ?? 0;
+    final networkHeight = statusFromProvider?.networkBestHeight ??
+        _networkBestTipHeight ??
+        currentHeight;
+
+    if (sync.isSynced) {
+      return 'Block $currentHeight / $networkHeight';
+    }
+
+    if (sync.appliedBlocks != null && sync.targetBlocks != null) {
+      return 'Block ${Utils.formatBigInt(sync.appliedBlocks!)} / ${Utils.formatBigInt(sync.targetBlocks!)}';
+    }
+
+    return 'Block $currentHeight / $networkHeight';
+  }
+
+  (IconData, String, Color) _getStatusDisplay(dynamic sync) {
+    if (_error != null) {
+      return (Icons.close, 'Offline', const Color(0xFFF56E98));
+    }
+    if (sync == null || sync.isConnecting) {
+      return (Icons.hourglass_empty, 'Connecting', const Color(0xFFF1B440));
+    }
+    if (sync.isSynced) {
+      return (Icons.check, 'Synced', const Color(0xFF4CAF50));
+    }
+    return (Icons.hourglass_empty, 'Syncing', const Color(0xFFF1B440));
+  }
+
   Widget _buildEpochProgressSection(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final statusFromProvider = ref.read(nodeStatusProvider).value;
 
-    // Get epoch data
     final currentEpoch = statusFromProvider?.currentEpoch ?? 0;
     final currentGlobalSlot = statusFromProvider?.currentGlobalSlot ?? 0;
     final slotsInEpoch = statusFromProvider?.slotsInEpoch ?? 1;
 
-    // Calculate epoch progress
     final epochSlotPosition = currentGlobalSlot % slotsInEpoch;
     final epochProgress = (epochSlotPosition / slotsInEpoch * 100).round();
 
-    // Calculate time remaining
     final slotsRemaining = slotsInEpoch - epochSlotPosition;
-    final secondsRemaining = slotsRemaining * 3; // Assuming 3 seconds per slot
+    final secondsRemaining = slotsRemaining * 3;
     final hoursRemaining = secondsRemaining ~/ 3600;
     final minutesRemaining = (secondsRemaining % 3600) ~/ 60;
 
@@ -541,15 +412,13 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 'Current Epoch $currentEpoch',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w600),
               ),
               Text(
                 '$epochProgress%',
@@ -561,7 +430,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             ],
           ),
           const SizedBox(height: 12),
-          // Progress bar
           AppProgressBar(
             value: epochProgress / 100.0,
             backgroundColor: colorScheme.surfaceContainerHighest,
@@ -569,21 +437,18 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             height: 8,
           ),
           const SizedBox(height: 8),
-          // Slot progress and time remaining
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 'Current slot: $epochSlotPosition / $slotsInEpoch',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(color: colorScheme.onSurfaceVariant),
               ),
               Text(
                 '${hoursRemaining}h ${minutesRemaining}m left',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(color: colorScheme.onSurfaceVariant),
               ),
             ],
           ),
@@ -592,31 +457,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     );
   }
 
-  // Helper method to build diary-style card wrapper
-  Widget _buildDiaryCard({
-    required BuildContext context,
-    required List<Widget> children,
-  }) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(top: 0, bottom: 0),
-      child: Container(
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceBright,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: children,
-          ),
-        ),
-      ),
-    );
-  }
-
-  // Sync Details section with new card layout
   Widget _buildSyncDetailsSection(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
@@ -642,8 +482,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             ),
           ),
           const SizedBox(height: 10),
-
-          // Chain card
           _buildSyncDetailsCard(
             context: context,
             icon: Icons.layers_outlined,
@@ -653,8 +491,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             trailing: Icon(Icons.copy, color: colorScheme.primary, size: 20),
           ),
           const SizedBox(height: 12),
-
-          // Node Sync Status card
           _buildSyncDetailsCard(
             context: context,
             icon: Icons.sync,
@@ -662,10 +498,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             title: 'Node Sync Status',
             subtitle: _buildNodeSyncStatusSubtitle(),
           ),
-
           const SizedBox(height: 12),
-
-          // Peers card
           _buildSyncDetailsCard(
             context: context,
             icon: Icons.hub_outlined,
@@ -673,11 +506,9 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             title: 'Peers',
             subtitle: _buildPeersSubtitle(),
             trailing: _buildPeersTrailing(),
-            onTap: () => _navigateToPeers(),
+            onTap: _navigateToPeers,
           ),
           const SizedBox(height: 12),
-
-          // VRF card
           _buildSyncDetailsCard(
             context: context,
             icon: Icons.calculate_outlined,
@@ -687,18 +518,15 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             trailing: _buildVrfTrailing(),
           ),
           const SizedBox(height: 12),
-
-          // Best Tip card
           _buildSyncDetailsCard(
-              context: context,
-              icon: Icons.star_border_outlined,
-              iconColor: colorScheme.primary,
-              title: 'Best Tip',
-              subtitle: _buildBestTipSubtitle(),
-              trailing: Icon(Icons.copy, color: colorScheme.primary, size: 20)),
+            context: context,
+            icon: Icons.star_border_outlined,
+            iconColor: colorScheme.primary,
+            title: 'Best Tip',
+            subtitle: _buildBestTipSubtitle(),
+            trailing: Icon(Icons.copy, color: colorScheme.primary, size: 20),
+          ),
           const SizedBox(height: 12),
-
-          // Mempool card (restored)
           _buildSyncDetailsCard(
             context: context,
             icon: Icons.account_tree,
@@ -713,7 +541,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     );
   }
 
-  // Helper method to build individual sync details cards
   Widget _buildSyncDetailsCard({
     required BuildContext context,
     required IconData icon,
@@ -725,28 +552,21 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   }) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final peerId = ref.read(nodeStatusProvider).value?.peerId;
 
     final cardContent = Container(
       padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
       child: Row(
         children: [
-          // Icon circle
           Container(
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: theme.colorScheme.secondaryContainer,
+              color: colorScheme.secondaryContainer,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              icon,
-              color: theme.colorScheme.onSurface,
-              size: 24,
-            ),
+            child: Icon(icon, color: colorScheme.onSurface, size: 24),
           ),
           const SizedBox(width: 12),
-          // Title and subtitle
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -766,1040 +586,53 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                     fontWeight: FontWeight.w400,
                   ),
                 ),
-                /**
-                if (peerId != null) ...[
-                  const SizedBox(height: 2),
-                  _buildLabelValueRow(
-                    'Peer ID:',
-                    _shortenMid(peerId, head: 8, tail: 8),
-                    theme,
-                    colorScheme,
-                  ),
-                ],
-                if (_deviceId != null) ...[
-                  const SizedBox(height: 2),
-                  _buildLabelValueRow(
-                    'Device ID:',
-                    _shortenMid(_deviceId!, head: 8, tail: 8),
-                    theme,
-                    colorScheme,
-                  ),
-                ],
-                if (_chainId != null) ...[
-                  const SizedBox(height: 2),
-                  _buildLabelValueRow(
-                    'Chain ID:',
-                    _shortenMid(_chainId!, head: 8, tail: 8),
-                    theme,
-                    colorScheme,
-                  ),
-                ],
-                 */
               ],
             ),
           ),
-          // Trailing widget
           if (trailing != null) ...[
             const SizedBox(width: 8),
             trailing,
           ],
           if (onTap != null) ...[
             const SizedBox(width: 8),
-            Icon(
-              Icons.chevron_right,
-              color: colorScheme.onSurfaceVariant,
-              size: 20,
-            ),
+            Icon(Icons.chevron_right,
+                color: colorScheme.onSurfaceVariant, size: 20),
           ],
         ],
       ),
     );
 
-    if (onTap != null) {
-      return InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: cardContent,
-      );
-    }
-
-    return cardContent;
+    return onTap != null
+        ? InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(12),
+            child: cardContent)
+        : cardContent;
   }
 
-  // Helper methods for building card subtitles and actions
-  String _buildNodeSyncStatusSubtitle() {
-    final status = ref.read(nodeStatusProvider).value;
-    final fetchProgress = status?.fetchProgress;
-    final applyProgress = status?.applyProgress;
-
-    // Calculate fetch percentage and counts
-    double fetchPercentage = 100.0;
-    String fetchCounts = '';
-    if (fetchProgress != null) {
-      final total =
-          fetchProgress.idle + fetchProgress.pending + fetchProgress.done;
-      if (total > BigInt.zero) {
-        fetchPercentage =
-            (fetchProgress.done.toDouble() / total.toDouble()) * 100;
-        fetchCounts = '(${fetchProgress.done}/$total)';
-      }
-    }
-
-    // Calculate apply percentage and counts
-    double applyPercentage = 100.0;
-    String applyCounts = '';
-    if (applyProgress != null) {
-      final total =
-          applyProgress.idle + applyProgress.pending + applyProgress.done;
-      if (total > BigInt.zero) {
-        applyPercentage =
-            (applyProgress.done.toDouble() / total.toDouble()) * 100;
-        applyCounts = '(${applyProgress.done}/$total)';
-      }
-    }
-
-    return 'Fetched blocks ${fetchPercentage.toStringAsFixed(0)}% $fetchCounts | Applied blocks ${applyPercentage.toStringAsFixed(0)}% $applyCounts';
-  }
-
-  String _buildPeersSubtitle() {
-    final statusFromProvider = ref.read(nodeStatusProvider).value;
-    int connectedPeers = 0;
-    int totalPeers = 0;
-
-    if (statusFromProvider != null) {
-      connectedPeers = statusFromProvider.connectedPeers;
-      totalPeers = statusFromProvider.totalPeers;
-    }
-
-    final healthStatus = connectedPeers > 0 && connectedPeers == totalPeers
-        ? 'All connected'
-        : 'Some offline';
-
-    final peerId = statusFromProvider?.peerId;
-    final peerIdText = peerId != null
-        ? '\nPeer ID: ${_shortenMid(peerId, head: 8, tail: 8)}'
-        : '';
-
-    return '$connectedPeers/$totalPeers $healthStatus$peerIdText';
-  }
-
-  Widget _buildPeersTrailing() {
-    final statusFromProvider = ref.read(nodeStatusProvider).value;
-    final connectedPeers = statusFromProvider?.connectedPeers ?? 0;
-
-    return Text(
-      '$connectedPeers',
-      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            color: Theme.of(context).colorScheme.primary,
-            fontWeight: FontWeight.bold,
-          ),
-    );
-  }
-
-  String _buildVrfSubtitle() {
-    final statusFromProvider = ref.read(nodeStatusProvider).value;
-    final vrf = statusFromProvider?.vrfEvaluator;
-
-    if (vrf == null) return 'Evaluated ---';
-
-    final evaluatedSlots = vrf.details?.evaluatedCurrentEpoch ?? 0;
-    final slotsPerEpoch = statusFromProvider?.slotsInEpoch ?? 720;
-
-    return 'Evaluated $evaluatedSlots/$slotsPerEpoch';
-  }
-
-  Widget _buildVrfTrailing() {
-    final statusFromProvider = ref.read(nodeStatusProvider).value;
-    final vrf = statusFromProvider?.vrfEvaluator;
-
-    if (vrf == null) {
-      return Text(
-        'N/A',
-        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.bold,
-            ),
-      );
-    }
-
-    // Map VRF status to display text
-    String statusText;
-    try {
-      final statusName = vrf.currentEpochVrfEvaluationStatus.name.toLowerCase();
-      switch (statusName) {
-        case 'ready':
-          statusText = 'Ready';
-          break;
-        case 'pending':
-          statusText = 'Pending';
-          break;
-        case 'evaluating':
-          statusText = 'Evaluating';
-          break;
-        default:
-          statusText = statusName.isNotEmpty
-              ? statusName.substring(0, 1).toUpperCase() +
-                  statusName.substring(1)
-              : 'Pending';
-      }
-    } catch (e) {
-      statusText = 'Pending';
-    }
-
-    return Text(
-      statusText,
-      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            color: Theme.of(context).colorScheme.primary,
-            fontWeight: FontWeight.bold,
-          ),
-    );
-  }
-
-  String _buildBestTipSubtitle() {
-    final status = ref.read(nodeStatusProvider).value;
-    final localBestTip = status?.localBest;
-    final networkBestTip = status?.networkBest;
-    final displayBestTip = networkBestTip ?? localBestTip;
-
-    if (displayBestTip == null) return 'N/A';
-
-    final height = displayBestTip.height;
-    final slot = status?.globalSlot ?? _bestTipGlobalSlot;
-    final hash = displayBestTip.hash.toString();
-
-    final formattedHeight = 'Height $height';
-    final slotText = 'Slot ${slot ?? 'N/A'}';
-    final truncatedHash = hash.length > 16
-        ? '${hash.substring(0, 8)}...${hash.substring(hash.length - 8)}'
-        : hash;
-
-    return '$formattedHeight, $slotText, $truncatedHash';
-  }
-
-  String _buildChainSubtitle() {
-    final chainIdText = _shortenMid(_chainId ?? 'Loading...', head: 8, tail: 8);
-    final chainNameText = _chainName ?? 'Loading...';
-    return 'ID: $chainIdText\nName: $chainNameText';
-  }
-
-  String _buildMempoolSubtitle() {
-    final mempool = ref.read(nodeMempoolProvider).value;
-    if (mempool == null) return 'N/A';
-
-    final count = mempool.count.toInt();
-    final sizeKB = (mempool.totalSize.toInt() / 1024).toStringAsFixed(1);
-    final orphans = mempool.orphans.toInt();
-
-    return '$count txns, $sizeKB KB, $orphans orphans';
-  }
-
-  Widget _buildMempoolTrailing() {
-    final mempool = ref.read(nodeMempoolProvider).value;
-    final count = mempool?.count.toInt() ?? 0;
-
-    return Text(
-      '$count',
-      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            color: Theme.of(context).colorScheme.secondary,
-            fontWeight: FontWeight.bold,
-          ),
-    );
-  }
-
-  void _navigateToPeers() {
-    final status = ref.read(nodeStatusProvider).value;
-    final peers = (status?.peers.isNotEmpty == true) ? status!.peers : _peers;
-    if (peers.isEmpty) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => NodePeersScreen(peers: peers),
-      ),
-    );
-  }
-
-  void _copyBestTip() {
-    final status = ref.read(nodeStatusProvider).value;
-    final localBestTip = status?.localBest;
-    final networkBestTip = status?.networkBest;
-    final displayBestTip = networkBestTip ?? localBestTip;
-
-    if (displayBestTip != null) {
-      final hash = displayBestTip.hash.toString();
-      // In a real app, you'd use Clipboard.setData here
-      // For now, we'll just show a placeholder action
-      _log.debug('Copy best tip hash: $hash');
-    }
-  }
-
-  void _copyChainId() {
-    final chainIdText = _chainId ?? '';
-    final chainNameText = _chainName ?? '';
-    if (chainIdText.isNotEmpty || chainNameText.isNotEmpty) {
-      final copyText = 'Chain ID: $chainIdText\nChain Name: $chainNameText';
-      // In a real app, you'd use Clipboard.setData here
-      // For now, we'll just show a placeholder action
-      _log.debug('Copy chain info: $copyText');
-    }
-  }
-
-  // Wallet balance card widget
-  Widget _buildWalletBalanceCard(BuildContext context, ThemeData theme) {
-    final colorScheme = theme.colorScheme;
-    final l10n = AppLocalizations.of(context);
-
+  Widget _buildDiaryCard({
+    required BuildContext context,
+    required List<Widget> children,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.surfaceBright,
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [],
-        ),
-      ),
-    );
-  }
-
-  // Helper for label-value row with consistent label width
-  Widget _buildLabelValueRow(
-    String label,
-    String value,
-    ThemeData theme,
-    ColorScheme colorScheme,
-  ) {
-    return Row(
-      children: [
-        SizedBox(
-          width:
-              80, // Consistent width for all labels (Address:, Peer ID:, Device ID:, Chain ID:)
-          child: Text(
-            label,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontFamily: 'monospace',
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontFamily: 'monospace',
-              fontSize: 13,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // Helper for shortened address display
-  String _shortAddr(String addr) {
-    if (addr.length <= 17) return addr; // 8 + 1 + 8 = 17
-    final start = addr.substring(0, 8);
-    final end = addr.substring(addr.length - 8);
-    return '$start…$end';
-  }
-
-  // Helper for formatting balance
-  String _formatBalance(double amount) {
-    final formatter = NumberFormat('#,##0.##', 'en_US');
-    return formatter.format(amount);
-  }
-
-  // Helper method for section headers (unused - integrated into cards)
-  Widget _buildSectionHeader(BuildContext context, String title) {
-    final theme = Theme.of(context);
-    return Text(
-      title,
-      style: theme.textTheme.bodyLarge!.copyWith(
-        fontWeight: FontWeight.w600,
-      ),
-    );
-  }
-
-  Widget _buildOverviewSection(
-      BuildContext context, NodeStatusState? statusFromProvider) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final sync = statusFromProvider?.syncStatus;
-    final isSynced = sync?.isSynced ?? false;
-
-    // Calculate sync percentage - now based on applied blocks progress from sync status
-    final syncPercentage = sync?.progress ?? 0.0;
-
-    // Determine what to display for block counts
-    String blockDisplayText;
-    final currentHeight =
-        statusFromProvider?.localBestHeight ?? _currentBlockHeight ?? 0;
-    final networkHeight = statusFromProvider?.networkBestHeight ??
-        _networkBestTipHeight ??
-        currentHeight;
-    if (sync == null || sync.isConnecting) {
-      // Don't show block count when connecting
-      blockDisplayText = '';
-    } else if (isSynced) {
-      // When synced, show block height
-      blockDisplayText = 'Block $currentHeight / $networkHeight';
-    } else if (sync.appliedBlocks != null && sync.targetBlocks != null) {
-      // Use applied blocks data when syncing
-      final appliedStr = _formatBigIntStatic(sync.appliedBlocks!);
-      final targetStr = _formatBigIntStatic(sync.targetBlocks!);
-      blockDisplayText = 'Block $appliedStr / $targetStr';
-    } else {
-      // Fallback to height-based display
-      blockDisplayText = 'Block $currentHeight / $networkHeight';
-    }
-
-    // Derive the current slot within the epoch from global slot, epoch, and slots per epoch.
-    final curGlobalSlot = statusFromProvider?.currentGlobalSlot;
-    final curEpoch = statusFromProvider?.currentEpoch;
-    final slotsInEpoch = statusFromProvider?.slotsInEpoch;
-    if (curGlobalSlot != null &&
-        curEpoch != null &&
-        slotsInEpoch != null &&
-        slotsInEpoch > 0) {}
-
-    // Peer status
-    int connectedPeers;
-    int totalPeers;
-    if (statusFromProvider != null) {
-      connectedPeers = statusFromProvider.connectedPeers;
-      totalPeers = statusFromProvider.totalPeers;
-    } else {
-      final status = ref.read(nodeStatusProvider).value;
-      if (status != null) {
-        connectedPeers = status.connectedPeers;
-        totalPeers = status.totalPeers;
-      } else {
-        connectedPeers = 0;
-        totalPeers = 0;
-      }
-    }
-    final peerHealthy = connectedPeers > 0 && connectedPeers == totalPeers;
-
-    // Determine status display based on connection state
-    final IconData statusIcon;
-    final String statusLabel;
-    final Color accentColor;
-
-    if (sync == null || sync.isConnecting) {
-      statusIcon = Icons.hourglass_empty;
-      statusLabel = 'Connecting';
-      accentColor = colorScheme.outline;
-    } else if (isSynced) {
-      statusIcon = Icons.check_circle;
-      statusLabel = 'Synced';
-      accentColor = colorScheme.tertiary;
-    } else {
-      statusIcon = Icons.sync;
-      statusLabel = 'Syncing';
-      accentColor = colorScheme.primary;
-    }
-
-    return _buildDiaryCard(
-      context: context,
-      children: [
-        _buildSectionHeader(context, 'Overview'),
-        const SizedBox(height: 12),
-
-        // Status line
-        Row(
-          children: [
-            Icon(
-              statusIcon,
-              size: 18,
-              color: accentColor,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              statusLabel,
-              style: theme.textTheme.titleMedium!
-                  .copyWith(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      letterSpacing: 0.18)
-                  .copyWith(
-                    color: accentColor,
-                  ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              '•',
-              style: theme.textTheme.bodyMedium!
-                  .copyWith(fontSize: 14, letterSpacing: 0.2)
-                  .copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                blockDisplayText,
-                style: theme.textTheme.bodyMedium!
-                    .copyWith(fontSize: 14, letterSpacing: 0.2),
-              ),
-            ),
-            Text(
-              '${(syncPercentage * 100).toStringAsFixed(1)}%',
-              style: theme.textTheme.titleMedium!
-                  .copyWith(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      letterSpacing: 0.18)
-                  .copyWith(
-                    color: accentColor,
-                  ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-
-        // Progress bar
-        AppProgressBar(
-          value: syncPercentage,
-          backgroundColor: colorScheme.surfaceContainerHighest,
-          valueColor: accentColor,
-        ),
-
-        const SizedBox(height: 12),
-
-        // Sync Details subsection
-        _buildSyncDetailsSubsection(context),
-
-        const SizedBox(height: 12),
-
-        // Peers and Epoch info row
-        IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: _buildCompactInfoCard(
-                  context,
-                  label: 'Peers',
-                  value: '$connectedPeers/$totalPeers',
-                  subtitle: peerHealthy ? 'All connected' : 'Some offline',
-                  color: peerHealthy
-                      ? colorScheme.tertiary
-                      : colorScheme.error.withValues(alpha: 0.7),
-                  colorScheme: colorScheme,
-                  onTap: () {
-                    final status = ref.read(nodeStatusProvider).value;
-                    final peers = (status?.peers.isNotEmpty == true)
-                        ? status!.peers
-                        : _peers;
-                    if (peers.isEmpty) return;
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => NodePeersScreen(peers: peers),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildCompactInfoCard(
-                  context,
-                  label: 'Cur. Epoch',
-                  value: '${statusFromProvider?.currentEpoch ?? 'N/A'}',
-                  subtitle: 'Cur. Slot $curGlobalSlot',
-                  color: colorScheme.primary,
-                  colorScheme: colorScheme,
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 12),
-
-        // Best Tip and Mempool row
-        IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: _buildMultiLineInfoCard(
-                  context,
-                  label: 'Best Tip',
-                  lines: () {
-                    final status = ref.read(nodeStatusProvider).value;
-                    final localBestTip = status?.localBest;
-                    final networkBestTip = status?.networkBest;
-                    final displayBestTip = networkBestTip ?? localBestTip;
-
-                    if (displayBestTip == null) return ['N/A'];
-
-                    final height = displayBestTip.height;
-                    final hash = displayBestTip.hash.toString();
-                    final epoch = status?.epoch ?? _bestTipEpoch;
-                    final slot = status?.globalSlot ?? _bestTipGlobalSlot;
-
-                    final formattedHeight =
-                        'Height ${NumberFormat('#,###').format(height)}';
-                    final epochText = 'Epoch ${epoch ?? 'N/A'}';
-                    final slotText = 'Slot ${slot ?? 'N/A'}';
-                    final truncatedHash = hash.length > 16
-                        ? '${hash.substring(0, 8)}...${hash.substring(hash.length - 8)}'
-                        : hash;
-
-                    return [
-                      formattedHeight,
-                      epochText,
-                      slotText,
-                      truncatedHash
-                    ];
-                  }(),
-                  color: colorScheme.tertiary,
-                  colorScheme: colorScheme,
-                  useGradient: false,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildMultiLineInfoCard(
-                  context,
-                  label: 'Mempool',
-                  lines: () {
-                    final mempool = ref.read(nodeMempoolProvider).value;
-                    if (mempool == null) return ['N/A'];
-
-                    final count = mempool.count.toInt();
-                    final orphans = mempool.orphans.toInt();
-                    final sizeKB =
-                        (mempool.totalSize.toInt() / 1024).toStringAsFixed(1);
-
-                    return [
-                      count == 1 ? '1 txn' : '$count txns',
-                      '$sizeKB KB',
-                      orphans == 1 ? '1 orphan' : '$orphans orphans',
-                    ];
-                  }(),
-                  color: colorScheme.secondary,
-                  colorScheme: colorScheme,
-                  onTap: () => context.push(AppRoutes.mainNodeMempool),
-                  useGradient: false,
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        if (_lastChecked != null) ...[
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              _formatLastChecked(),
-              style: theme.textTheme.bodySmall!
-                  .copyWith(
-                      fontSize: 12,
-                      letterSpacing: 0.2,
-                      color: colorScheme.onSurfaceVariant)
-                  .copyWith(
-                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-                    fontSize: 10,
-                  ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildCompactInfoCard(
-    BuildContext context, {
-    required String label,
-    required String value,
-    required String subtitle,
-    required Color color,
-    required ColorScheme colorScheme,
-    VoidCallback? onTap,
-    bool useGradient = false,
-  }) {
-    final theme = Theme.of(context);
-
-    final card = Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      decoration: BoxDecoration(
-          color: useGradient ? null : Colors.transparent,
-          gradient: useGradient
-              ? LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    // Glassmorphism: white overlay blended with color
-                    Color.alphaBlend(
-                      Colors.white.withValues(alpha: 0.04),
-                      color.withValues(alpha: 0.08),
-                    ),
-                    Color.alphaBlend(
-                      Colors.white.withValues(alpha: 0.02),
-                      color.withValues(alpha: 0.04),
-                    ),
-                  ],
-                )
-              : null,
-          border: useGradient
-              ? Border.all(
-                  color:
-                      color.withValues(alpha: 0.8), // Semi-transparent border
-                  width: 1.0,
-                )
-              : Border.all(
-                  color: colorScheme.outlineVariant,
-                  width: 1.0,
-                ),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: useGradient
-              ? [
-                  // Soft glow with color tint
-                  BoxShadow(
-                    color: color.withValues(alpha: 0.2),
-                    offset: const Offset(0, 2),
-                    blurRadius: 8.0,
-                    spreadRadius: 2,
-                  ),
-                  // Subtle depth shadow
-                ]
-              : null),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      label,
-                      style: theme.textTheme.bodySmall!.copyWith(
-                          fontWeight: FontWeight.w500,
-                          fontSize: 12,
-                          letterSpacing: 0.2,
-                          color: colorScheme.onSurfaceVariant),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      value,
-                      style: theme.textTheme.bodyMedium!.copyWith(
-                        letterSpacing: 0.2,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: theme.textTheme.bodySmall!.copyWith(
-                    color: color,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Show chevron arrow for clickable cards
-          if (onTap != null)
-            Icon(
-              Icons.chevron_right,
-              size: 20,
-              color: color.withValues(alpha: 0.5),
-            ),
-        ],
-      ),
-    );
-
-    if (onTap != null) {
-      return InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: card,
-      );
-    }
-
-    return card;
-  }
-
-  Widget _buildMultiLineInfoCard(
-    BuildContext context, {
-    required String label,
-    required List<String> lines,
-    required Color color,
-    required ColorScheme colorScheme,
-    VoidCallback? onTap,
-    bool useGradient = false,
-  }) {
-    final theme = Theme.of(context);
-
-    final card = Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      decoration: BoxDecoration(
-          color: useGradient ? null : Colors.transparent,
-          gradient: useGradient
-              ? LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color.alphaBlend(
-                      Colors.white.withValues(alpha: 0.04),
-                      color.withValues(alpha: 0.08),
-                    ),
-                    Color.alphaBlend(
-                      Colors.white.withValues(alpha: 0.02),
-                      color.withValues(alpha: 0.04),
-                    ),
-                  ],
-                )
-              : null,
-          border: useGradient
-              ? Border.all(
-                  color: color.withValues(alpha: 0.8),
-                  width: 1.0,
-                )
-              : Border.all(
-                  color: colorScheme.outlineVariant,
-                  width: 1.0,
-                ),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: useGradient
-              ? [
-                  BoxShadow(
-                    color: color.withValues(alpha: 0.2),
-                    offset: const Offset(0, 2),
-                    blurRadius: 8.0,
-                    spreadRadius: 2,
-                  ),
-                ]
-              : null),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  label,
-                  style: theme.textTheme.bodySmall!.copyWith(
-                      fontWeight: FontWeight.w500,
-                      fontSize: 12,
-                      letterSpacing: 0.2,
-                      color: colorScheme.onSurfaceVariant),
-                ),
-                const SizedBox(height: 4),
-                ...lines.map((line) => Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        line,
-                        style: theme.textTheme.bodySmall!.copyWith(
-                          color: color,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.1,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    )),
-              ],
-            ),
-          ),
-          // Show chevron arrow for clickable cards
-          if (onTap != null)
-            Icon(
-              Icons.chevron_right,
-              size: 20,
-              color: color.withValues(alpha: 0.5),
-            ),
-        ],
-      ),
-    );
-
-    if (onTap != null) {
-      return InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: card,
-      );
-    }
-
-    return card;
-  }
-
-  // Sync Details subsection - shown within Overview card
-  Widget _buildSyncDetailsSubsection(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final status = ref.read(nodeStatusProvider).value;
-    final fetchProgress = status?.fetchProgress;
-    final applyProgress = status?.applyProgress;
-
-    // Calculate percentages
-    double fetchPercentage = 0.0;
-    double applyPercentage = 0.0;
-
-    if (fetchProgress != null) {
-      final total =
-          fetchProgress.idle + fetchProgress.pending + fetchProgress.done;
-      if (total > BigInt.zero) {
-        fetchPercentage =
-            (fetchProgress.done.toDouble() / total.toDouble()) * 100;
-      } else {
-        fetchPercentage = 100.0;
-      }
-    } else {
-      fetchPercentage = 100.0;
-    }
-
-    if (applyProgress != null) {
-      final total =
-          applyProgress.idle + applyProgress.pending + applyProgress.done;
-      if (total > BigInt.zero) {
-        applyPercentage =
-            (applyProgress.done.toDouble() / total.toDouble()) * 100;
-      } else {
-        applyPercentage = 100.0;
-      }
-    } else {
-      applyPercentage = 100.0;
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Subsection header
-        Text(
-          'Sync Details',
-          style: theme.textTheme.bodySmall!
-              .copyWith(
-                  fontSize: 12,
-                  letterSpacing: 0.2,
-                  color: colorScheme.onSurfaceVariant)
-              .copyWith(
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-                letterSpacing: 0.3,
-              ),
-        ),
-        const SizedBox(height: 12),
-      ],
-    );
-  }
-
-  // Helper method to build linear progress card with row layout
-  Widget _buildLinearProgressCard({
-    required BuildContext context,
-    required String label,
-    required double percentage,
-    required Color color,
-    BigInt? done,
-    BigInt? pending,
-    BigInt? idle,
-  }) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      decoration: BoxDecoration(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: colorScheme.outlineVariant,
-            width: 1.0,
-          )),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                label,
-                style: theme.textTheme.bodyMedium!.copyWith(
-                  letterSpacing: 0.2,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
-                ),
-              ),
-              Text(
-                '${percentage.toStringAsFixed(0)}%',
-                style: theme.textTheme.titleMedium!.copyWith(
-                    fontSize: 12, fontWeight: FontWeight.bold, color: color),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          AppProgressBar(
-            value: percentage / 100.0,
-            valueColor: color,
-            height: 12,
-          ),
-          const SizedBox(height: 8),
-          // Stats (if available)
-          if (done != null && pending != null && idle != null)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Done: $done',
-                  style: theme.textTheme.bodySmall!
-                      .copyWith(
-                          fontSize: 12,
-                          letterSpacing: 0.2,
-                          color: colorScheme.onSurfaceVariant)
-                      .copyWith(
-                        fontSize: 10,
-                      ),
-                ),
-                Text(
-                  'Pending: $pending',
-                  style: theme.textTheme.bodySmall!
-                      .copyWith(
-                          fontSize: 12,
-                          letterSpacing: 0.2,
-                          color: colorScheme.onSurfaceVariant)
-                      .copyWith(
-                        fontSize: 10,
-                      ),
-                ),
-                Text(
-                  'Idle: $idle',
-                  style: theme.textTheme.bodySmall!
-                      .copyWith(
-                          fontSize: 12,
-                          letterSpacing: 0.2,
-                          color: colorScheme.onSurfaceVariant)
-                      .copyWith(
-                        fontSize: 10,
-                      ),
-                ),
-              ],
-            ),
-        ],
+        children: children,
       ),
     );
   }
 
-  // NEW method: Separate Recent Blocks section
   Widget _buildRecentBlocksSection(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final blockchain = ref.read(nodeBlockchainProvider).value;
 
-    // Don't show section if no blocks available
     if (blockchain == null || blockchain.items.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -1807,21 +640,16 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     return _buildDiaryCard(
       context: context,
       children: [
-        // Header row with expand/collapse icon
         InkWell(
-          onTap: () {
-            setState(() {
-              _isRecentBlocksExpanded = !_isRecentBlocksExpanded;
-            });
-          },
+          onTap: () => setState(
+              () => _isRecentBlocksExpanded = !_isRecentBlocksExpanded),
           child: Row(
             children: [
               Expanded(
                 child: Text(
                   'Recent Blocks',
-                  style: theme.textTheme.bodyLarge!.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: theme.textTheme.bodyLarge
+                      ?.copyWith(fontWeight: FontWeight.w600),
                 ),
               ),
               if (!_isRecentBlocksExpanded)
@@ -1839,14 +667,11 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                     children: [
                       Text(
                         'View All',
-                        style: theme.textTheme.bodySmall!
-                            .copyWith(
-                                fontSize: 12,
-                                letterSpacing: 0.2,
-                                color: colorScheme.onSurfaceVariant)
-                            .copyWith(
-                              color: colorScheme.primary,
-                            ),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontSize: 12,
+                          letterSpacing: 0.2,
+                          color: colorScheme.primary,
+                        ),
                       ),
                       const SizedBox(width: 4),
                       Icon(Icons.arrow_forward,
@@ -1861,8 +686,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             ],
           ),
         ),
-
-        // Collapsible content
         if (_isRecentBlocksExpanded) ...[
           const SizedBox(height: 12),
           _buildProducedBlocksTab(context),
@@ -1871,191 +694,11 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     );
   }
 
-  // ignore: unused_element
-  Color _statusColor(ThemeData theme, PeerConnectionStatus s) {
-    final colorScheme = theme.colorScheme;
-    switch (s) {
-      case PeerConnectionStatus.connected:
-        return colorScheme.tertiary;
-      case PeerConnectionStatus.connecting:
-        return colorScheme.primary;
-      case PeerConnectionStatus.disconnected:
-        return colorScheme.error;
-      case PeerConnectionStatus.disconnecting:
-        return colorScheme.error.withValues(alpha: 0.7);
-    }
-  }
-
-  // ignore: unused_element
-  String? _peerIp(RpcPeerInfo p) {
-    // Prefer address field, then connectingDetails
-    final addr = _extractIpPort(p.address);
-    if (addr != null) return addr;
-    final det = _extractIpPort(p.connectingDetails);
-    return det;
-  }
-
-  // ignore: unused_element
-  String? _peerIpOnly(RpcPeerInfo p) {
-    // Prefer address field, then connectingDetails
-    final addr = _extractIpOnly(p.address);
-    if (addr != null) return addr;
-    final det = _extractIpOnly(p.connectingDetails);
-    return det;
-  }
-
-  String? _extractIpPort(String? text) {
-    if (text == null) return null;
-    final s = text.trim();
-    // Multiaddr form: /ip4/<ip>/tcp/<port>/p2p/<peerId> (or ip6/dns)
-    if (s.startsWith('/')) {
-      final parts = s.split('/').where((e) => e.isNotEmpty).toList();
-      String? host;
-      String? port;
-      for (var i = 0; i < parts.length - 1; i++) {
-        final t = parts[i].toLowerCase();
-        if (t == 'ip4' || t == 'ip6' || t.startsWith('dns')) {
-          host = parts[i + 1];
-        }
-        if (t == 'tcp' || t == 'udp') {
-          port = i + 1 < parts.length ? parts[i + 1] : null;
-        }
-      }
-      if (host != null && port != null) return '$host:$port';
-      if (host != null) return host;
-    }
-    // IPv6 in brackets, include optional port
-    final ipv6 = RegExp(r'\[([0-9a-fA-F:]+)\](?::\d+)?').firstMatch(s);
-    if (ipv6 != null) return ipv6.group(0);
-    // IPv4 with optional port
-    final ipv4 = RegExp(r'(\d{1,3}(?:\.\d{1,3}){3})(?::\d+)?').firstMatch(s);
-    if (ipv4 != null) return ipv4.group(0);
-    // Fallback: hostname:port
-    final host = RegExp(r'([A-Za-z0-9.-]+(?::\d+)?)').firstMatch(s)?.group(0);
-    return host;
-  }
-
-  String? _extractIpOnly(String? text) {
-    if (text == null) return null;
-    final s = text.trim();
-    // Multiaddr form: /ip4/<ip>/tcp/<port>/p2p/<peerId> (or ip6/dns)
-    if (s.startsWith('/')) {
-      final parts = s.split('/').where((e) => e.isNotEmpty).toList();
-      for (var i = 0; i < parts.length - 1; i++) {
-        final t = parts[i].toLowerCase();
-        if (t == 'ip4' || t == 'ip6' || t.startsWith('dns')) {
-          return parts[i + 1];
-        }
-      }
-    }
-    // IPv6 in brackets or raw
-    final ipv6Br = RegExp(r'\[([0-9a-fA-F:]+)\]').firstMatch(s);
-    if (ipv6Br != null) return ipv6Br.group(0);
-    final ipv6Raw = RegExp(r'\b[0-9a-fA-F:]{2,}\b').firstMatch(s);
-    if (ipv6Raw != null && ipv6Raw.group(0)!.contains(':')) {
-      return ipv6Raw.group(0);
-    }
-    // IPv4 only
-    final ipv4 = RegExp(r'(\d{1,3}(?:\.\d{1,3}){3})').firstMatch(s);
-    if (ipv4 != null) return ipv4.group(1);
-    // Hostname only
-    final hostOnly = RegExp(r'^([A-Za-z0-9.-]+)').firstMatch(s)?.group(1);
-    return hostOnly;
-  }
-
-  String _formatUtc(BigInt value) {
-    // Heuristic to interpret epoch unit from digit length
-    final digits = value.toString().length;
-    BigInt ms;
-    if (digits >= 19) {
-      // nanoseconds -> ms
-      ms = value ~/ BigInt.from(1000000);
-    } else if (digits >= 16) {
-      // microseconds -> ms
-      ms = value ~/ BigInt.from(1000);
-    } else if (digits >= 13) {
-      // already milliseconds
-      ms = value;
-    } else {
-      // seconds -> ms
-      ms = value * BigInt.from(1000);
-    }
-    final millis = ms.toInt();
-    final dt = DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true);
-    // ISO 8601 UTC
-    return dt.toIso8601String();
-  }
-
-  // ignore: unused_element
-  String _formatTimeAgo(BigInt value) {
-    // Convert using the same unit heuristic as _formatUtc
-    final iso = _formatUtc(value);
-    late final DateTime dt;
-    try {
-      dt = DateTime.parse(iso).toUtc();
-    } catch (_) {
-      return 'just now';
-    }
-    final now = DateTime.now().toUtc();
-    final diff = now.difference(dt);
-    if (diff.inSeconds < 45) return 'just now';
-    if (diff.inMinutes < 2) return 'a minute ago';
-    if (diff.inMinutes < 60) return '${diff.inMinutes} minutes ago';
-    if (diff.inHours < 2) return 'an hour ago';
-    if (diff.inHours < 24) return '${diff.inHours} hours ago';
-    if (diff.inDays < 2) return 'yesterday';
-    if (diff.inDays < 7) return '${diff.inDays} days ago';
-    final weeks = (diff.inDays / 7).floor();
-    if (weeks < 5) return '$weeks week${weeks > 1 ? 's' : ''} ago';
-    final months = (diff.inDays / 30).floor();
-    if (months < 12) return '$months month${months > 1 ? 's' : ''} ago';
-    final years = (diff.inDays / 365).floor();
-    return '$years year${years > 1 ? 's' : ''} ago';
-  }
-
-  String _formatLastChecked() {
-    if (_lastChecked == null) return '';
-
-    final now = DateTime.now();
-    final checked = _lastChecked!;
-
-    // Format time as HH:MM:SS
-    final hour = checked.hour.toString().padLeft(2, '0');
-    final minute = checked.minute.toString().padLeft(2, '0');
-    final second = checked.second.toString().padLeft(2, '0');
-
-    // Check if it's today
-    final isToday = now.year == checked.year &&
-        now.month == checked.month &&
-        now.day == checked.day;
-
-    if (isToday) {
-      return 'Last checked at $hour:$minute:$second';
-    } else {
-      // Show date if not today
-      final month = checked.month.toString().padLeft(2, '0');
-      final day = checked.day.toString().padLeft(2, '0');
-      return 'Last checked on ${checked.year}-$month-$day at $hour:$minute:$second';
-    }
-  }
-
-  static String _formatBigIntStatic(BigInt value) {
-    final formatter = NumberFormat('#,###', 'en_US');
-    // Convert BigInt to int for formatting (safe for reasonable block counts)
-    try {
-      return formatter.format(value.toInt());
-    } catch (e) {
-      // Fallback for very large numbers that don't fit in int
-      return value.toString();
-    }
-  }
-
   Widget _buildProducedBlocksTab(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final blockchain = ref.read(nodeBlockchainProvider).value;
     final status = ref.read(nodeStatusProvider).value;
-    final rewards = ref.read(epochRewardsProvider).value;
 
     if (blockchain == null || blockchain.items.isEmpty) {
       return Center(
@@ -2063,76 +706,215 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
           padding: const EdgeInsets.all(24),
           child: Text(
             'No produced blocks available',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
+            style: theme.textTheme.bodyMedium
+                ?.copyWith(color: colorScheme.onSurfaceVariant),
           ),
         ),
       );
     }
 
-    // Display blocks from the blockchain
     final blocks = blockchain.items.take(10).toList();
     final bestTipSlot = status?.globalSlot ?? _bestTipGlobalSlot;
-    final rewardPerBlock =
-        rewards?.rewardPerBlock ?? _rewardPerBlock ?? BigInt.zero;
+    final rewardPerBlock = BigInt.from(20);
 
     return Column(
-      children: blocks.asMap().entries.map((entry) {
-        final block = entry.value;
-        final isBestTip =
-            bestTipSlot != null && block.globalSlot == bestTipSlot;
-
-        String blockHash;
-        try {
-          blockHash = block.hash.toString();
-        } catch (e) {
-          blockHash = 'N/A';
-        }
-
-        String producerPubkey;
-        try {
-          producerPubkey = block.producerPubkey.toString();
-        } catch (e) {
-          producerPubkey = '';
-        }
-
-        return ProducedBlockCard(
-          block: block,
-          isBestTip: isBestTip,
-          customHash: blockHash,
-          customProducer: producerPubkey,
-          rewardPerBlock: rewardPerBlock,
-          variant: BlockCardVariant.detailed,
-        );
-      }).toList(),
+      children: [
+        for (final block in blocks)
+          ProducedBlockCard(
+            block: block,
+            isBestTip: bestTipSlot != null && block.globalSlot == bestTipSlot,
+            customHash: _safeGetBlockHash(block),
+            customProducer: _safeGetBlockProducer(block),
+            rewardPerBlock: rewardPerBlock,
+            variant: BlockCardVariant.detailed,
+          ),
+      ],
     );
   }
 
-  // Helper method to shorten long strings (e.g., peer IDs) for display
-  String _shortenMid(String s, {int head = 12, int tail = 12}) {
-    if (s.length <= head + tail + 1) return s;
-    return '${s.substring(0, head)}…${s.substring(s.length - tail)}';
+  // ============== SUBTITLE BUILDERS ==============
+
+  String _buildNodeSyncStatusSubtitle() {
+    final status = ref.read(nodeStatusProvider).value;
+    final fetchProgress = status?.fetchProgress;
+    final applyProgress = status?.applyProgress;
+
+    final (fetchPct, fetchCounts) = _calculateProgress(fetchProgress);
+    final (applyPct, applyCounts) = _calculateProgress(applyProgress);
+
+    return 'Fetched blocks ${fetchPct.toStringAsFixed(0)}% $fetchCounts | Applied blocks ${applyPct.toStringAsFixed(0)}% $applyCounts';
   }
 
-  @override
-  void dispose() {
-    _autoTimer?.cancel();
-    _tabController.dispose();
-    super.dispose();
+  (double, String) _calculateProgress(dynamic progress) {
+    if (progress == null) return (100.0, '');
+    final total = progress.idle + progress.pending + progress.done;
+    if (total <= BigInt.zero) return (100.0, '');
+    final pct = (progress.done.toDouble() / total.toDouble()) * 100;
+    return (pct, '(${progress.done}/$total)');
   }
 
-  void _startTimer() {
-    _autoTimer?.cancel();
-    _autoTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-      if (mounted && _active && !_refreshing) {
-        _refresh();
-      }
-    });
+  String _buildPeersSubtitle() {
+    final statusFromProvider = ref.read(nodeStatusProvider).value;
+    final connectedPeers = statusFromProvider?.connectedPeers ?? 0;
+    final totalPeers = statusFromProvider?.totalPeers ?? 0;
+
+    final healthStatus = connectedPeers > 0 && connectedPeers == totalPeers
+        ? 'All connected'
+        : 'Some offline';
+
+    final peerId = statusFromProvider?.peerId;
+    final peerIdText = peerId != null
+        ? '\nPeer ID: ${Utils.shortenID(peerId, head: 8, tail: 8)}'
+        : '';
+
+    return '$connectedPeers/$totalPeers $healthStatus$peerIdText';
   }
 
-  void _stopTimer() {
-    _autoTimer?.cancel();
-    _autoTimer = null;
+  Widget _buildPeersTrailing() {
+    final connectedPeers =
+        ref.read(nodeStatusProvider).value?.connectedPeers ?? 0;
+    return Text(
+      '$connectedPeers',
+      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            color: Theme.of(context).colorScheme.primary,
+            fontWeight: FontWeight.bold,
+          ),
+    );
+  }
+
+  String _buildVrfSubtitle() {
+    final statusFromProvider = ref.read(nodeStatusProvider).value;
+    final vrf = statusFromProvider?.vrfEvaluator;
+    if (vrf == null) return 'Evaluated ---';
+
+    final evaluatedSlots = vrf.details?.evaluatedCurrentEpoch ?? 0;
+    final slotsPerEpoch = statusFromProvider?.slotsInEpoch ?? 720;
+    return 'Evaluated $evaluatedSlots/$slotsPerEpoch';
+  }
+
+  Widget _buildVrfTrailing() {
+    final vrf = ref.read(nodeStatusProvider).value?.vrfEvaluator;
+    final theme = Theme.of(context);
+
+    if (vrf == null) {
+      return Text(
+        'N/A',
+        style: theme.textTheme.titleSmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+    }
+
+    final statusText = _mapVrfStatus(vrf.currentEpochVrfEvaluationStatus.name);
+    return Text(
+      statusText,
+      style: theme.textTheme.titleSmall?.copyWith(
+        color: theme.colorScheme.primary,
+        fontWeight: FontWeight.bold,
+      ),
+    );
+  }
+
+  String _mapVrfStatus(String statusName) {
+    switch (statusName.toLowerCase()) {
+      case 'ready':
+        return 'Ready';
+      case 'pending':
+        return 'Pending';
+      case 'evaluating':
+        return 'Evaluating';
+      default:
+        return statusName.isNotEmpty
+            ? '${statusName[0].toUpperCase()}${statusName.substring(1)}'
+            : 'Pending';
+    }
+  }
+
+  String _buildBestTipSubtitle() {
+    final status = ref.read(nodeStatusProvider).value;
+    final displayBestTip = status?.networkBest ?? status?.localBest;
+    if (displayBestTip == null) return 'N/A';
+
+    final height = displayBestTip.height;
+    final slot = status?.globalSlot ?? _bestTipGlobalSlot;
+    final hash = displayBestTip.hash.toString();
+    final truncatedHash = Utils.shortenID(hash, head: 8, tail: 8);
+
+    return 'Height $height, Slot ${slot ?? 'N/A'}, $truncatedHash';
+  }
+
+  String _buildChainSubtitle() {
+    final chainIdText =
+        Utils.shortenID(_chainId ?? 'Loading...', head: 8, tail: 8);
+    final chainNameText = _chainName ?? 'Loading...';
+    return 'ID: $chainIdText\nName: $chainNameText';
+  }
+
+  String _buildMempoolSubtitle() {
+    final mempool = ref.read(nodeMempoolProvider).value;
+    if (mempool == null) return 'N/A';
+
+    final count = mempool.count.toInt();
+    final sizeKB = (mempool.totalSize.toInt() / 1024).toStringAsFixed(1);
+    final orphans = mempool.orphans.toInt();
+    return '$count txns, $sizeKB KB, $orphans orphans';
+  }
+
+  Widget _buildMempoolTrailing() {
+    final count = ref.read(nodeMempoolProvider).value?.count.toInt() ?? 0;
+    return Text(
+      '$count',
+      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            color: Theme.of(context).colorScheme.secondary,
+            fontWeight: FontWeight.bold,
+          ),
+    );
+  }
+
+  // ============== NAVIGATION ==============
+
+  void _navigateToPeers() {
+    final status = ref.read(nodeStatusProvider).value;
+    final peers = status?.peers.isNotEmpty == true ? status!.peers : _peers;
+    if (peers.isEmpty) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => NodePeersScreen(peers: peers)),
+    );
+  }
+
+  // ============== UTILITY METHODS ==============
+  String _formatLastChecked() {
+    if (_lastChecked == null) return '';
+
+    final now = DateTime.now();
+    final checked = _lastChecked!;
+    final timeStr =
+        '${checked.hour.toString().padLeft(2, '0')}:${checked.minute.toString().padLeft(2, '0')}:${checked.second.toString().padLeft(2, '0')}';
+
+    final isToday = now.year == checked.year &&
+        now.month == checked.month &&
+        now.day == checked.day;
+
+    if (isToday) {
+      return 'Last checked at $timeStr';
+    }
+    return 'Last checked on ${checked.year}-${checked.month.toString().padLeft(2, '0')}-${checked.day.toString().padLeft(2, '0')} at $timeStr';
+  }
+
+  String _safeGetBlockHash(dynamic block) {
+    try {
+      return block.hash.toString();
+    } catch (_) {
+      return 'N/A';
+    }
+  }
+
+  String _safeGetBlockProducer(dynamic block) {
+    try {
+      return block.producerPubkey;
+    } catch (_) {
+      return '';
+    }
   }
 }

@@ -20,7 +20,6 @@ class _NotificationPermission3ScreenState
     extends ConsumerState<NotificationPermission3Screen> {
   bool? _granted;
   bool _requesting = false;
-  bool _permanentlyDenied = false;
 
   Future<void> _completeOnboardingAndGoToProducedBlocks() async {
     await markOnboardingComplete();
@@ -40,7 +39,6 @@ class _NotificationPermission3ScreenState
     if (!mounted) return;
     setState(() {
       _granted = status.isGranted;
-      _permanentlyDenied = status.isPermanentlyDenied;
     });
     // If notifications are already enabled, advance automatically.
     if (status.isGranted && mounted) {
@@ -61,7 +59,6 @@ class _NotificationPermission3ScreenState
       final isGranted = status.isGranted;
       if (!mounted) return;
       setState(() => _granted = isGranted);
-      setState(() => _permanentlyDenied = status.isPermanentlyDenied);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(

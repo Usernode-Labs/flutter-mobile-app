@@ -7,7 +7,8 @@ set -euo pipefail
 # - Ensures bindgen sees the iOS SDK (fixes uint16_t/uint32_t errors)
 # - Prompts for a target device and runs flutter run -d <device> --verbose
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd -P)"
 cd "$ROOT_DIR"
 
 usage() {
@@ -27,12 +28,16 @@ Notes:
 EOF
 }
 
-ENV_FILE=".env"
+ENV_FILE="$ROOT_DIR/.env"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --env-file)
       ENV_FILE="${2:-}"
+      # Convert to absolute path if it's relative
+      if [[ "$ENV_FILE" != /* ]]; then
+        ENV_FILE="$ROOT_DIR/$ENV_FILE"
+      fi
       shift 2
       ;;
     --help|-h)
@@ -71,8 +76,8 @@ export BINDGEN_EXTRA_CLANG_ARGS_aarch64_apple_ios_sim="--target=arm64-apple-ios-
 unset BINDGEN_EXTRA_CLANG_ARGS_x86_64_apple_ios || true
 export PKG_CONFIG_ALLOW_CROSS=1
 
-# CMake compatibility (plog/libjuice/usrsctp expect policy minimum >=3.5).
-export CMAKE_POLICY_VERSION_MINIMUM=3.5
+# CMake compatibility (plog/libjuice/usrsctp expect policy minimum >=3.10).
+export CMAKE_POLICY_VERSION_MINIMUM=3.10
 
 # Prefer Xcode clang to avoid Homebrew LLVM picking up the wrong SDK.
 export CC="$(xcrun --sdk iphoneos --find clang)"
@@ -85,16 +90,19 @@ export CODE_SIGN_STYLE="Manual"
 export PROVISIONING_PROFILE_SPECIFIER="mobile-apps Development"
 
 # Version/build handling (same script as CI). Use pubspec.yaml values.
-chmod +x scripts/version_manager.sh
-BUILD_NUMBER=$(scripts/version_manager.sh get-build production)
-BUILD_NAME=$(scripts/version_manager.sh get production)
+chmod +x "$ROOT_DIR/scripts/version_manager.sh"
+BUILD_NUMBER=$("$ROOT_DIR/scripts/version_manager.sh" get-build production)
+BUILD_NAME=$("$ROOT_DIR/scripts/version_manager.sh" get production)
 echo "[info] Build name: $BUILD_NAME | Build number: $BUILD_NUMBER"
+
+echo "[step] flutter clean (to clear CMake cache)"
+flutter clean
 
 echo "[step] flutter pub get"
 flutter pub get
 
 echo "[step] pod install"
-pushd ios >/dev/null
+pushd "$ROOT_DIR/ios" >/dev/null
 pod install
 popd >/dev/null
 

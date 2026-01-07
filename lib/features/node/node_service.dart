@@ -77,6 +77,16 @@ class RustBackendService {
     _instanceId = id;
   }
 
+  Future<void> _cachePeerIdFromRpc(NodeRpcClient rpc) async {
+    try {
+      final status = await rpc.status(includeVrfDetails: false);
+      _cachedPeerId = status?.node.peerId.toString();
+    } catch (e) {
+      _log.warn('Failed to cache peer ID from RPC status(): $e');
+      _cachedPeerId = null;
+    }
+  }
+
   /// Initialize flutter_rust_bridge and load the dynamic library.
   /// Call once at app startup (before runApp).
   /// Thread-safe: concurrent calls will await the same initialization.
@@ -208,6 +218,19 @@ class RustBackendService {
         data: {'httpPort': httpPort},
       );
 
+      // First try to reuse an already-running *global* node (shared across Dart
+      // isolates / FlutterEngines in the same process) by grabbing its RPC client.
+      // This avoids spinning up a second node when another engine already started it.
+      final existingRpc = Node.getGlobal();
+      if (existingRpc != null) {
+        _rpc = existingRpc;
+        _nodeRunning = true;
+        await _cachePeerIdFromRpc(existingRpc);
+        _log.info('Reused previously started node');
+        return true;
+      }
+
+      // No global node exists yet, so build/configure a new one.
       final builder = NodeBuilder();
       if (httpPort != null) {
         builder.httpServer(port: httpPort);
@@ -235,13 +258,9 @@ class RustBackendService {
       _node = builder.build();
       _rpc = _node!.rpc();
 
-      // Cache peer ID once on startup (it doesn't change during node lifetime)
-      try {
-        _cachedPeerId = _node!.peerId().toString();
-      } catch (e) {
-        _log.warn('Failed to cache peer ID: $e');
-        _cachedPeerId = null;
-      }
+      // Cache peer ID once on startup.
+      // Prefer RPC status so callers don't depend on holding a Node handle.
+      await _cachePeerIdFromRpc(_rpc!);
 
       // Run the node in a background thread.
       _node!.runForeverInNewThread();

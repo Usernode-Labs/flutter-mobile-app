@@ -58,13 +58,12 @@ class _OnboardingImportApiAccountScreenState
       final contact = _contactController.text.trim();
       final activationCode = _activationCodeController.text.trim();
 
-      final privateKeyHex =
-          await _requestPrivateKeyFromApi(contact, activationCode);
+      final secretKey = await _requestSecretKeyFromApi(contact, activationCode);
 
       final repo = await AccountsRepository.create();
-      final result = await repo.importFromPrivateKey(
+      final result = await repo.importFromSecretKey(
         name: 'API Account',
-        privateKeyHex: privateKeyHex,
+        secretKey: secretKey,
       );
 
       if (!mounted) return;
@@ -110,11 +109,11 @@ class _OnboardingImportApiAccountScreenState
     }
   }
 
-  Future<String> _requestPrivateKeyFromApi(String contact, String code) async {
+  Future<String> _requestSecretKeyFromApi(String contact, String code) async {
     final repo = RegistrationRepository();
     final result =
         await repo.register(registrationCode: code, identifier: contact);
-    return result.secretKeyHex;
+    return result.secretKey;
   }
 
   @override

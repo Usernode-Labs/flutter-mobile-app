@@ -77,9 +77,12 @@ class WalletScreen extends ConsumerWidget {
                       Container(
                         decoration: BoxDecoration(
                           color: theme.colorScheme.surfaceBright,
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(20),
+                            topRight: Radius.circular(20),
+                          ),
                         ),
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                        padding: const EdgeInsets.all(20),
                         child: accountsAsync.when(
                           data: (accountsRepo) => FutureBuilder(
                             future: accountsRepo.getActive(),
@@ -167,13 +170,16 @@ class WalletScreen extends ConsumerWidget {
                               child: Text('Error loading address')),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 2),
 
                       // Recent Activity section
                       Container(
                         decoration: BoxDecoration(
                           color: theme.colorScheme.surfaceBright,
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: const BorderRadius.only(
+                            bottomRight: Radius.circular(20),
+                            bottomLeft: Radius.circular(20),
+                          ),
                         ),
                         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                         child: Column(

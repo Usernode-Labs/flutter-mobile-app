@@ -81,8 +81,8 @@ class RustBackendService {
     try {
       final status = await rpc.status(includeVrfDetails: false);
       _cachedPeerId = status?.node.peerId.toString();
-    } catch (e) {
-      _log.warn('Failed to cache peer ID from RPC status(): $e');
+    } catch (e, st) {
+      _log.error('_cachePeerIdFromRpc: Failed to cache peer ID from RPC status()', error: e, stackTrace: st);
       _cachedPeerId = null;
     }
   }
@@ -96,6 +96,8 @@ class RustBackendService {
       _initialized = true; // Sync our flag with FRB state (handles hot restart)
       return;
     }
+
+    _log.warn('FRB Init');
 
     // If initialization is in progress, await it
     if (_initCompleter != null) {
@@ -258,13 +260,19 @@ class RustBackendService {
       _node = builder.build();
       _rpc = _node!.rpc();
 
-      // Cache peer ID once on startup.
-      // Prefer RPC status so callers don't depend on holding a Node handle.
-      await _cachePeerIdFromRpc(_rpc!);
-
       // Run the node in a background thread.
       _node!.runForeverInNewThread();
       _nodeRunning = true;
+
+      // Cache peer ID once on startup.
+      // Prefer RPC status so callers don't depend on holding a Node handle.
+      // Wait a bit for the node to be ready before trying to cache peer ID
+      await Future.delayed(const Duration(milliseconds: 500));
+      try {
+        await _cachePeerIdFromRpc(_rpc!);
+      } catch (e) {
+        _log.warn('Failed to cache peer ID (node may still be starting): $e');
+      }
 
       // Set the signer in the usernode for transaction signing
       try {

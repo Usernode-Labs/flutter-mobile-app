@@ -50,6 +50,9 @@ class SentryUtil {
   // Gate for logging large payloads (enable in dev/staging)
   static const bool logStatusPayload =
       bool.fromEnvironment('SENTRY_LOG_STATUS_PAYLOAD', defaultValue: true);
+
+  static bool get enabled => _enabled;
+
   static Future<void> bootstrap(
     FutureOr<void> Function() appRunner, {
     SentrySettings? settings,

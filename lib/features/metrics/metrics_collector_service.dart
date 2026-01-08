@@ -251,7 +251,13 @@ class MetricsCollectorService {
         : 0;
 
     // Check if wakelock is held
-    final wakelockActive = await WakelockPlus.enabled;
+    //
+    // On Android, `wakelock_plus` requires a foreground Activity and will throw when the UI
+    // is destroyed (e.g. during background execution / "Don't keep activities").
+    // We instead track the native PARTIAL_WAKE_LOCK held by our foreground service.
+    final wakelockActive = Platform.isAndroid
+        ? await PlatformAlarmService.instance.isWakelockHeld()
+        : await WakelockPlus.enabled;
 
     // Check notification permission
     final notificationStatus = await Permission.notification.status;

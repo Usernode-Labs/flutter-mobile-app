@@ -10,10 +10,7 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import com.usernode_labs.usernode.MainActivity
 import com.usernode_labs.usernode.R
-import io.flutter.embedding.engine.FlutterEngine
-import io.flutter.embedding.engine.dart.DartExecutor
 import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.*
 
@@ -32,10 +29,9 @@ class BootRescheduleService : Service() {
         private const val NOTIFICATION_ID = 9001
         private const val CHANNEL_ID = "boot_reschedule"
         private const val CHANNEL_NAME = "Boot Alarm Rescheduling"
-        private const val TIMEOUT_MS = 30000L // 30 seconds max
+        private const val TIMEOUT_MS = 1800000L // 30 mins max
     }
 
-    private var flutterEngine: FlutterEngine? = null
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     override fun onCreate() {
@@ -99,37 +95,29 @@ class BootRescheduleService : Service() {
         serviceScope.cancel()
         Log.d(TAG, "[BootRescheduleService] Service scope cancelled")
 
-        flutterEngine?.destroy()
-        flutterEngine = null
-        Log.d(TAG, "[BootRescheduleService] Flutter engine destroyed")
-
         Log.i(TAG, "[BootRescheduleService] ✗ Service destroyed")
     }
 
     private suspend fun rescheduleAlarms() = withContext(Dispatchers.Main) {
         Log.i(TAG, "[BootRescheduleService] Starting alarm rescheduling process...")
 
-        // Create a Flutter engine in background
-        Log.d(TAG, "[BootRescheduleService] Creating Flutter engine...")
-        flutterEngine = FlutterEngine(applicationContext)
-        Log.d(TAG, "[BootRescheduleService] Flutter engine created")
-
-        // Execute Dart entrypoint
-        Log.d(TAG, "[BootRescheduleService] Executing Dart entrypoint...")
-        flutterEngine?.dartExecutor?.executeDartEntrypoint(
-            DartExecutor.DartEntrypoint.createDefault()
+        // Boot-time reschedule runs without UI: create a fresh engine for this run.
+        Log.d(TAG, "[BootRescheduleService] Creating fresh Flutter engine for boot reschedule...")
+        val flutterEngine = BackgroundAlarmEngine.createAndCacheNewEngine(
+            context = applicationContext,
+            reason = "boot_reschedule",
+            registerPlugins = true,
         )
-        Log.d(TAG, "[BootRescheduleService] Dart entrypoint executed")
+        Log.d(TAG, "[BootRescheduleService] Boot reschedule engine ready")
 
-        // Wait for engine to initialize
-        Log.d(TAG, "[BootRescheduleService] Waiting 2s for Flutter engine initialization...")
-        delay(2000)
-        Log.d(TAG, "[BootRescheduleService] Flutter engine should be ready")
+        // Give Dart a brief moment to set up channel handlers on cold start.
+        // (If the engine already existed, this is effectively a no-op delay.)
+        delay(500)
 
         // Create method channel to communicate with Flutter
         Log.d(TAG, "[BootRescheduleService] Creating method channel...")
         val channel = MethodChannel(
-            flutterEngine!!.dartExecutor.binaryMessenger,
+            flutterEngine.dartExecutor.binaryMessenger,
             "com.usernode.app/alarm"
         )
         Log.d(TAG, "[BootRescheduleService] Method channel created")

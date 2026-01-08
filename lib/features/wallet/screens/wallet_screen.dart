@@ -276,29 +276,20 @@ class _RecentActivityCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Recent Activity',
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w500),
-              ),
-              Text(
-                'All',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w500,
-                  color: theme.colorScheme.primary,
-                ),
-              ),
-            ],
+          Text(
+            'Recent Activity',
+            style: theme.textTheme.titleMedium
+                ?.copyWith(fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 16),
           walletState.when(
             data: (state) => state.recent.isEmpty
                 ? _EmptyState(message: l10n.walletNoRecentActivity)
                 : Column(
-                    children: state.recent.map(_TransactionTile.new).toList()),
+                    children: state.recent
+                        .map<Widget>(
+                            (transaction) => _TransactionTile(transaction))
+                        .toList()),
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (_, __) =>
                 const Center(child: Text('Error loading transactions')),

@@ -117,12 +117,14 @@ class AppBootstrap {
         await RustBackendService.instance.init();
         log.info('FRB initialized, starting node...');
         final started = await RustBackendService.instance.startNode();
-        log.info('Backend startNode => $started, isRunning=${RustBackendService.instance.isRunning}');
+        log.info(
+            'Backend startNode => $started, isRunning=${RustBackendService.instance.isRunning}');
         await SentryUtil.captureMessage(
           started ? 'backend startNode: started' : 'backend startNode: skipped',
         );
         if (started) {
-          log.info('Node started successfully, waiting 1 second for node to be ready...');
+          log.info(
+              'Node started successfully, waiting 1 second for node to be ready...');
           await Future.delayed(const Duration(seconds: 1));
           log.info('Node should be ready now');
         }
@@ -162,5 +164,3 @@ class AppBootstrap {
     };
   }
 }
-
-

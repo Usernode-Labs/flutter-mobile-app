@@ -81,7 +81,10 @@ class RustBackendService {
       final status = await rpc.status(includeVrfDetails: false);
       _cachedPeerId = status?.node.peerId.toString();
     } catch (e, st) {
-      _log.error('_cachePeerIdFromRpc: Failed to cache peer ID from RPC status()', error: e, stackTrace: st);
+      _log.error(
+          '_cachePeerIdFromRpc: Failed to cache peer ID from RPC status()',
+          error: e,
+          stackTrace: st);
       _cachedPeerId = null;
     }
   }
@@ -493,7 +496,8 @@ class RustBackendService {
                         'height': syncBlocks.bestTip.height,
                         'global_slot': syncBlocks.bestTip.globalSlot,
                         'epoch': syncBlocks.bestTip.epoch,
-                        'producer_pubkey': syncBlocks.bestTip.producerPubkey.toString(),
+                        'producer_pubkey':
+                            syncBlocks.bestTip.producerPubkey.toString(),
                         'transactions':
                             syncBlocks.bestTip.transactions.toString(),
                         'batches': syncBlocks.bestTip.batches

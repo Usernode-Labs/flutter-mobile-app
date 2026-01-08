@@ -50,7 +50,7 @@ Future<void> main() async {
 
 /// Headless entrypoint for background Flutter engine
 /// This is used when the app runs without UI (e.g., background services)
-/// 
+///
 /// This function is called from native code via DartExecutor.DartEntrypoint
 /// with entrypoint name "headlessMain"
 @pragma('vm:entry-point')
@@ -67,14 +67,15 @@ Future<void> headlessMain() async {
     log.debug('hasAnyAccounts: ${boot.hasAnyAccounts}');
 
     log.debug('Starting headless bootstrap');
-    
+
     try {
       // Start headless services
       log.debug('Starting headless services...');
       await _startHeadlessServices(container, log);
       log.debug('Headless services started');
     } catch (e, st) {
-      log.error('Error during headless bootstrap: $e', error: e, stackTrace: st);
+      log.error('Error during headless bootstrap: $e',
+          error: e, stackTrace: st);
       rethrow;
     }
   } catch (e, st) {
@@ -86,7 +87,7 @@ Future<void> headlessMain() async {
     } catch (_) {
       // If logging fails, at least we have the print statements
     }
-    
+
     // Re-throw to let Flutter handle it
     rethrow;
   }
@@ -97,7 +98,7 @@ Future<void> _startHeadlessServices(
     ProviderContainer container, TaggedLogger log) async {
   try {
     log.info('Starting headless services (metrics, lifecycle, etc.)');
-    
+
     // Start metrics reporting service if enabled
     if (AppConfig.metricsEnabled && AppConfig.metricsEndpoint.isNotEmpty) {
       log.info('Starting metrics reporting service in headless mode', context: {
@@ -106,7 +107,7 @@ Future<void> _startHeadlessServices(
       });
       await MetricsReportingService.instance.start();
       log.info('Metrics reporting service started successfully');
-      
+
       // Set wallet data callback for metrics collection
       MetricsReportingService.instance.setWalletDataCallback(() async {
         try {
@@ -115,20 +116,21 @@ Future<void> _startHeadlessServices(
           if (account == null || account.address.isEmpty) {
             return (balance: null, address: null);
           }
-          
+
           // Only fetch UTXOs if address is in UTXO format (starts with 'ut')
           if (!account.address.startsWith('ut')) {
-            log.debug('Account address not in UTXO format, skipping balance calculation');
+            log.debug(
+                'Account address not in UTXO format, skipping balance calculation');
             return (balance: null, address: account.address);
           }
-          
+
           // Parse address to PublicKeyHash
           final owner = frb_types.publicKeyHashFromString(s: account.address);
           final utxosResp = await RustBackendService.instance.listUtxosByOwner(
             owner: owner,
           );
           final utxos = utxosResp?.items ?? [];
-          
+
           // Calculate total balance by summing all UTXO amounts
           BigInt totalBalance = BigInt.zero;
           for (final ownedUtxo in utxos) {
@@ -136,7 +138,7 @@ Future<void> _startHeadlessServices(
               // Serialize UTXO to JSON to access its fields
               final jsonStr = frb_types.utxoToJson(utxo: ownedUtxo.utxo);
               final utxoData = json.decode(jsonStr) as Map<String, dynamic>;
-              
+
               // Extract assets and sum their balances
               final assetsJson = utxoData['assets'] as List<dynamic>? ?? [];
               for (final assetJson in assetsJson) {
@@ -148,7 +150,7 @@ Future<void> _startHeadlessServices(
               log.warn('Error parsing UTXO for balance: $e');
             }
           }
-          
+
           return (balance: totalBalance, address: account.address);
         } catch (e) {
           log.warn('Error fetching wallet data for metrics: $e');
@@ -158,10 +160,10 @@ Future<void> _startHeadlessServices(
     } else {
       log.debug('Metrics disabled or not configured in headless mode');
     }
-    
+
     // Initialize backend lifecycle provider manually
     container.read(backendLifecycleProvider);
-    
+
     log.info('Headless services started successfully');
   } catch (e, st) {
     log.error('Error starting headless services: $e', error: e, stackTrace: st);

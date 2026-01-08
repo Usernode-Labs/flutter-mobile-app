@@ -468,8 +468,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             context: context,
             icon: Icons.hub_outlined,
             iconColor: colorScheme.secondary,
-            title: 'Peers',
-            subtitle: _buildPeersSubtitle(),
+            title: const Text('Peers'),
+            subtitle: _buildPeersSubtitle(context),
             trailing: _buildPeersTrailing(),
             onTap: _navigateToPeers,
           ),
@@ -487,7 +487,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             context: context,
             icon: Icons.calculate_outlined,
             iconColor: colorScheme.tertiary,
-            title: 'VRF',
+            title: const Text('VRF'),
             subtitle: _buildVrfSubtitle(),
             trailing: _buildVrfTrailing(),
           ),
@@ -496,7 +496,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             context: context,
             icon: Icons.star_border_outlined,
             iconColor: colorScheme.primary,
-            title: 'Best Tip',
+            title: const Text('Best Tip'),
             subtitle: _buildBestTipSubtitle(),
             trailing: Icon(Icons.copy, color: colorScheme.primary, size: 20),
           ),
@@ -505,7 +505,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             context: context,
             icon: Icons.account_tree,
             iconColor: colorScheme.secondary,
-            title: 'Mempool',
+            title: const Text('Mempool'),
             subtitle: _buildMempoolSubtitle(),
             trailing: _buildMempoolTrailing(),
             onTap: () => context.push(AppRoutes.mainNodeMempool),
@@ -519,8 +519,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     required BuildContext context,
     required IconData icon,
     required Color iconColor,
-    required String title,
-    required String subtitle,
+    required Widget title,
+    required Widget subtitle,
     Widget? trailing,
     VoidCallback? onTap,
   }) {
@@ -545,20 +545,22 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
+                DefaultTextStyle(
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w500,
-                  ),
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.w500,
+                      ) ??
+                      const TextStyle(),
+                  child: title,
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  subtitle,
+                DefaultTextStyle(
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w400,
-                  ),
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.w400,
+                      ) ??
+                      const TextStyle(),
+                  child: subtitle,
                 ),
               ],
             ),
@@ -716,7 +718,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     return (pct, '(${progress.done}/$total)');
   }
 
-  String _buildPeersSubtitle() {
+  Widget _buildPeersSubtitle(BuildContext context) {
     final statusFromProvider = ref.read(nodeStatusProvider).value;
     final connectedPeers = statusFromProvider?.connectedPeers ?? 0;
     final totalPeers = statusFromProvider?.totalPeers ?? 0;
@@ -726,11 +728,48 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
         : 'Some offline';
 
     final peerId = statusFromProvider?.peerId;
-    final peerIdText = peerId != null
-        ? '\nPeer ID: ${Utils.shortenID(peerId, head: 8, tail: 8)}'
-        : '';
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
-    return '$connectedPeers/$totalPeers $healthStatus$peerIdText';
+    if (peerId != null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('$connectedPeers/$totalPeers $healthStatus'),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              GestureDetector(
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: peerId));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Peer ID copied to clipboard'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
+                child: Icon(
+                  Icons.copy,
+                  size: 16,
+                  color: colorScheme.primary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text('Peer ID: '),
+              Expanded(
+                child: Text(
+                  Utils.shortenID(peerId, head: 8, tail: 8),
+                  style: const TextStyle(fontFamily: 'monospace'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+    }
+
+    return Text('$connectedPeers/$totalPeers $healthStatus');
   }
 
   Widget _buildPeersTrailing() {
@@ -745,18 +784,28 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     );
   }
 
-  String _buildEpochTitle() {
+  Widget _buildEpochTitle() {
     final statusFromProvider = ref.read(nodeStatusProvider).value;
     final currentEpoch = statusFromProvider?.currentEpoch ?? 0;
-    return 'Epoch $currentEpoch';
+    return Text('Epoch $currentEpoch');
   }
 
-  String _buildEpochSubtitle() {
+  Widget _buildEpochSubtitle() {
     final statusFromProvider = ref.read(nodeStatusProvider).value;
     final currentSlot = statusFromProvider?.currentGlobalSlot ?? 0;
     final slotsPerEpoch = statusFromProvider?.slotsInEpoch ?? 720;
     final slotInEpoch = currentSlot % slotsPerEpoch;
-    return 'Slot $slotInEpoch/$slotsPerEpoch';
+
+    final bestTipGlobalSlot = statusFromProvider?.globalSlot ?? currentSlot;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Slot $slotInEpoch/$slotsPerEpoch'),
+        const SizedBox(height: 2),
+        Text('Global slot $currentSlot / $bestTipGlobalSlot'),
+      ],
+    );
   }
 
   Widget _buildEpochTrailing() {
@@ -776,14 +825,14 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     );
   }
 
-  String _buildVrfSubtitle() {
+  Widget _buildVrfSubtitle() {
     final statusFromProvider = ref.read(nodeStatusProvider).value;
     final vrf = statusFromProvider?.vrfEvaluator;
-    if (vrf == null) return 'Evaluated ---';
+    if (vrf == null) return const Text('Evaluated ---');
 
     final evaluatedSlots = vrf.details?.evaluatedCurrentEpoch ?? 0;
     final slotsPerEpoch = statusFromProvider?.slotsInEpoch ?? 720;
-    return 'Evaluated $evaluatedSlots/$slotsPerEpoch';
+    return Text('Evaluated $evaluatedSlots/$slotsPerEpoch');
   }
 
   Widget _buildVrfTrailing() {
@@ -825,27 +874,40 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     }
   }
 
-  String _buildBestTipSubtitle() {
+  Widget _buildBestTipSubtitle() {
     final status = ref.read(nodeStatusProvider).value;
     final displayBestTip = status?.networkBest ?? status?.localBest;
-    if (displayBestTip == null) return 'N/A';
+
+    if (displayBestTip == null) {
+      return const Text('N/A');
+    }
 
     final height = displayBestTip.height;
-    final slot = status?.globalSlot ?? _bestTipGlobalSlot;
+    final localSlot = displayBestTip.globalSlot % (status?.slotsInEpoch ?? 720);
+    final globalSlot = displayBestTip.globalSlot;
     final hash = displayBestTip.hash.toString();
-    final truncatedHash = Utils.shortenID(hash, head: 8, tail: 8);
 
-    return 'Height $height, Slot ${slot ?? 'N/A'}, $truncatedHash';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Height: $height / Slot: $localSlot / Global Slot: $globalSlot'),
+        const SizedBox(height: 2),
+        Text(
+          Utils.shortenID(hash, head: 8, tail: 8),
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+        ),
+      ],
+    );
   }
 
-  String _buildMempoolSubtitle() {
+  Widget _buildMempoolSubtitle() {
     final mempool = ref.read(nodeMempoolProvider).value;
-    if (mempool == null) return 'N/A';
+    if (mempool == null) return const Text('N/A');
 
     final count = mempool.count.toInt();
     final sizeKB = (mempool.totalSize.toInt() / 1024).toStringAsFixed(1);
     final orphans = mempool.orphans.toInt();
-    return '$count txns, $sizeKB KB, $orphans orphans';
+    return Text('$count txns, $sizeKB KB, $orphans orphans');
   }
 
   Widget _buildMempoolTrailing() {

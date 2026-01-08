@@ -41,13 +41,16 @@ class AndroidForegroundTaskController {
       // In headless mode, PermissionHandler cannot detect an Activity.
       // Just check the status instead of requesting.
       if (e.code == 'PermissionHandler.PermissionManager' &&
-          e.message?.contains('Unable to detect current Android Activity') == true) {
-        _log.debug('Running in headless mode, checking notification permission status instead of requesting');
+          e.message?.contains('Unable to detect current Android Activity') ==
+              true) {
+        _log.debug(
+            'Running in headless mode, checking notification permission status instead of requesting');
         try {
           final status = await Permission.notification.status;
           _log.info('Notification permission status (headless): $status');
         } catch (statusError) {
-          _log.warn('Could not check notification permission status: $statusError');
+          _log.warn(
+              'Could not check notification permission status: $statusError');
         }
       } else {
         // Re-throw if it's a different error

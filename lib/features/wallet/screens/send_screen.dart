@@ -21,7 +21,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
   final _amountController = TextEditingController();
   final _feeController = TextEditingController(text: '1');
   final _memoController = TextEditingController();
-  
+
   bool _isSending = false;
 
   @override
@@ -45,22 +45,24 @@ class _SendScreenState extends ConsumerState<SendScreen> {
       // Get the current user's account
       final accountsRepo = await AccountsRepository.create();
       final userAccount = await accountsRepo.getActive();
-      
+
       if (userAccount == null) {
         throw Exception('No active account found');
       }
 
       // Convert user's address to PublicKeyHash
-      final fromPkHash = frb_types.publicKeyHashFromString(s: userAccount.address);
-      
+      final fromPkHash =
+          frb_types.publicKeyHashFromString(s: userAccount.address);
+
       // Convert recipient address to PublicKeyHash
       final recipientAddress = _addressController.text.trim();
       final toPkHash = frb_types.publicKeyHashFromString(s: recipientAddress);
-      
+
       // Parse amount (convert to smallest unit - assuming integer tokens for now)
       final amountStr = _amountController.text.trim();
-      final amount = BigInt.from((double.parse(amountStr) * 1000000).round()); // Convert to micro-tokens
-      
+      final amount = BigInt.from((double.parse(amountStr) * 1000000)
+          .round()); // Convert to micro-tokens
+
       // Call the transfer funds RPC
       final response = await RustBackendService.instance.transferFunds(
         fromPkHash: fromPkHash,
@@ -231,7 +233,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            _isSending 
+            _isSending
                 ? theme.colorScheme.primary.withValues(alpha: 0.5)
                 : theme.colorScheme.primary,
             _isSending

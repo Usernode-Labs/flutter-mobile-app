@@ -16,7 +16,7 @@ class TransactionSuccessScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     // Format the recipient address to show first 8 and last 8 characters
     final displayAddress = recipientAddress.length > 16
         ? '${recipientAddress.substring(0, 8)}..${recipientAddress.substring(recipientAddress.length - 8)}'
@@ -30,7 +30,7 @@ class TransactionSuccessScreen extends StatelessWidget {
           child: Column(
             children: [
               const Spacer(flex: 2),
-              
+
               // Success title
               Text(
                 'Sent successfully!',
@@ -39,9 +39,9 @@ class TransactionSuccessScreen extends StatelessWidget {
                 ),
                 textAlign: TextAlign.center,
               ),
-              
+
               const SizedBox(height: 24),
-              
+
               // Transaction details
               Text(
                 '$amount $tokenSymbol sent to',
@@ -50,9 +50,9 @@ class TransactionSuccessScreen extends StatelessWidget {
                 ),
                 textAlign: TextAlign.center,
               ),
-              
+
               const SizedBox(height: 8),
-              
+
               Text(
                 displayAddress,
                 style: theme.textTheme.bodyLarge?.copyWith(
@@ -60,9 +60,9 @@ class TransactionSuccessScreen extends StatelessWidget {
                 ),
                 textAlign: TextAlign.center,
               ),
-              
+
               const Spacer(flex: 1),
-              
+
               // Success checkmark circle
               Container(
                 width: 120,
@@ -79,9 +79,9 @@ class TransactionSuccessScreen extends StatelessWidget {
                   ),
                 ),
               ),
-              
+
               const Spacer(flex: 2),
-              
+
               // Done button
               Container(
                 width: double.infinity,
@@ -119,7 +119,7 @@ class TransactionSuccessScreen extends StatelessWidget {
                   ),
                 ),
               ),
-              
+
               const SizedBox(height: 24),
             ],
           ),

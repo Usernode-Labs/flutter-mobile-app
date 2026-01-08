@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/services.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -41,8 +42,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
   // Cached data
   List<RpcPeerInfo> _peers = const [];
-  int? _currentBlockHeight;
-  int? _networkBestTipHeight;
   int? _bestTipGlobalSlot;
 
   DateTime? _lastChecked;
@@ -188,8 +187,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
         setState(() {
           _peers = status.peers;
-          _currentBlockHeight = localBestTip?.height;
-          _networkBestTipHeight = networkBestTip?.height;
           _bestTipGlobalSlot = displayBestTip?.globalSlot;
           _lastChecked = DateTime.now();
         });
@@ -246,8 +243,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             children: [
               if (_error != null) _buildErrorSection(theme, colorScheme, l10n),
               _buildCentralStatusIndicator(context),
-              const SizedBox(height: 32),
-              _buildEpochProgressSection(context),
+              const SizedBox(height: 40),
+              _buildBlockSyncProgressSection(context),
               const SizedBox(height: 2),
               _buildSyncDetailsSection(context),
               const SizedBox(height: 8),
@@ -280,10 +277,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     final colorScheme = theme.colorScheme;
     final statusFromProvider = ref.read(nodeStatusProvider).value;
     final sync = statusFromProvider?.syncStatus;
-    final syncPercentage = sync?.progress ?? 0.0;
-
-    // Determine block display text
-    final blockDisplayText = _getBlockDisplayText(statusFromProvider, sync);
 
     // Determine status display
     final (statusIcon, statusLabel, circleColor) = _getStatusDisplay(sync);
@@ -312,22 +305,33 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
           ),
         ),
         const SizedBox(height: 8),
-        // Block sync details
-        if (blockDisplayText.isNotEmpty) ...[
+        // Chain name with copy functionality
+        if (_chainName != null &&
+            _chainName!.isNotEmpty &&
+            _chainName != 'Loading...') ...[
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                blockDisplayText,
+                _chainName!,
                 style: theme.textTheme.bodyMedium
                     ?.copyWith(color: colorScheme.onSurfaceVariant),
               ),
               const SizedBox(width: 8),
-              Text(
-                '• ${(syncPercentage * 100).toStringAsFixed(0)}%',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: circleColor,
-                  fontWeight: FontWeight.w600,
+              GestureDetector(
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: _chainId ?? ''));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Chain ID copied to clipboard'),
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                },
+                child: Icon(
+                  Icons.copy,
+                  size: 16,
+                  color: colorScheme.primary,
                 ),
               ),
             ],
@@ -344,30 +348,9 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
               ),
             ),
           ),
-          const SizedBox(height: 8),
         ],
       ],
     );
-  }
-
-  String _getBlockDisplayText(dynamic statusFromProvider, dynamic sync) {
-    if (sync == null || sync.isConnecting) return '';
-
-    final currentHeight =
-        statusFromProvider?.localBestHeight ?? _currentBlockHeight ?? 0;
-    final networkHeight = statusFromProvider?.networkBestHeight ??
-        _networkBestTipHeight ??
-        currentHeight;
-
-    if (sync.isSynced) {
-      return 'Block $currentHeight / $networkHeight';
-    }
-
-    if (sync.appliedBlocks != null && sync.targetBlocks != null) {
-      return 'Block ${Utils.formatBigInt(sync.appliedBlocks!)} / ${Utils.formatBigInt(sync.targetBlocks!)}';
-    }
-
-    return 'Block $currentHeight / $networkHeight';
   }
 
   (IconData, String, Color) _getStatusDisplay(dynamic sync) {
@@ -383,22 +366,22 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     return (Icons.hourglass_empty, 'Syncing', const Color(0xFFF1B440));
   }
 
-  Widget _buildEpochProgressSection(BuildContext context) {
+  Widget _buildBlockSyncProgressSection(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final statusFromProvider = ref.read(nodeStatusProvider).value;
 
-    final currentEpoch = statusFromProvider?.currentEpoch ?? 0;
-    final currentGlobalSlot = statusFromProvider?.currentGlobalSlot ?? 0;
-    final slotsInEpoch = statusFromProvider?.slotsInEpoch ?? 1;
+    final sync = statusFromProvider?.syncStatus;
+    final syncPercentage = sync?.progress ?? 0.0;
+    final localHeight = sync?.localHeight ?? 0;
+    final networkHeight = sync?.networkHeight ?? localHeight;
+    final progressPercent = (syncPercentage * 100).round();
 
-    final epochSlotPosition = currentGlobalSlot % slotsInEpoch;
-    final epochProgress = (epochSlotPosition / slotsInEpoch * 100).round();
-
-    final slotsRemaining = slotsInEpoch - epochSlotPosition;
-    final secondsRemaining = slotsRemaining * 3;
-    final hoursRemaining = secondsRemaining ~/ 3600;
-    final minutesRemaining = (secondsRemaining % 3600) ~/ 60;
+    // Get fetch and apply progress percentages
+    final fetchProgress = statusFromProvider?.fetchProgress;
+    final applyProgress = statusFromProvider?.applyProgress;
+    final (fetchPct, _) = _calculateProgress(fetchProgress);
+    final (applyPct, _) = _calculateProgress(applyProgress);
 
     return Container(
       decoration: BoxDecoration(
@@ -416,42 +399,41 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Current Epoch $currentEpoch',
+                'Block $localHeight / $networkHeight',
                 style: theme.textTheme.titleMedium
                     ?.copyWith(fontWeight: FontWeight.w600),
               ),
               Text(
-                '$epochProgress%',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.primary,
-                ),
+                '$progressPercent%',
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w600),
               ),
             ],
           ),
           const SizedBox(height: 12),
           AppProgressBar(
-            value: epochProgress / 100.0,
+            value: syncPercentage,
             backgroundColor: colorScheme.surfaceContainerHighest,
             valueColor: colorScheme.primary,
             height: 8,
           ),
           const SizedBox(height: 8),
           Row(
+            mainAxisSize: MainAxisSize.max,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Current slot: $epochSlotPosition / $slotsInEpoch',
+                'Fetched blocks: ${fetchPct.toStringAsFixed(0)}%',
                 style: theme.textTheme.bodyMedium
                     ?.copyWith(color: colorScheme.onSurfaceVariant),
               ),
               Text(
-                '${hoursRemaining}h ${minutesRemaining}m left',
+                'Applied blocks: ${applyPct.toStringAsFixed(0)}%',
                 style: theme.textTheme.bodyMedium
                     ?.copyWith(color: colorScheme.onSurfaceVariant),
               ),
             ],
-          ),
+          )
         ],
       ),
     );
@@ -484,29 +466,21 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
           const SizedBox(height: 10),
           _buildSyncDetailsCard(
             context: context,
-            icon: Icons.layers_outlined,
-            iconColor: colorScheme.secondary,
-            title: 'Chain',
-            subtitle: _buildChainSubtitle(),
-            trailing: Icon(Icons.copy, color: colorScheme.primary, size: 20),
-          ),
-          const SizedBox(height: 12),
-          _buildSyncDetailsCard(
-            context: context,
-            icon: Icons.sync,
-            iconColor: colorScheme.primary,
-            title: 'Node Sync Status',
-            subtitle: _buildNodeSyncStatusSubtitle(),
-          ),
-          const SizedBox(height: 12),
-          _buildSyncDetailsCard(
-            context: context,
             icon: Icons.hub_outlined,
             iconColor: colorScheme.secondary,
             title: 'Peers',
             subtitle: _buildPeersSubtitle(),
             trailing: _buildPeersTrailing(),
             onTap: _navigateToPeers,
+          ),
+          const SizedBox(height: 12),
+          _buildSyncDetailsCard(
+            context: context,
+            icon: Icons.collections_bookmark_outlined,
+            iconColor: colorScheme.secondary,
+            title: _buildEpochTitle(),
+            subtitle: _buildEpochSubtitle(),
+            trailing: _buildEpochTrailing(),
           ),
           const SizedBox(height: 12),
           _buildSyncDetailsCard(
@@ -734,17 +708,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
   // ============== SUBTITLE BUILDERS ==============
 
-  String _buildNodeSyncStatusSubtitle() {
-    final status = ref.read(nodeStatusProvider).value;
-    final fetchProgress = status?.fetchProgress;
-    final applyProgress = status?.applyProgress;
-
-    final (fetchPct, fetchCounts) = _calculateProgress(fetchProgress);
-    final (applyPct, applyCounts) = _calculateProgress(applyProgress);
-
-    return 'Fetched blocks ${fetchPct.toStringAsFixed(0)}% $fetchCounts | Applied blocks ${applyPct.toStringAsFixed(0)}% $applyCounts';
-  }
-
   (double, String) _calculateProgress(dynamic progress) {
     if (progress == null) return (100.0, '');
     final total = progress.idle + progress.pending + progress.done;
@@ -775,6 +738,37 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
         ref.read(nodeStatusProvider).value?.connectedPeers ?? 0;
     return Text(
       '$connectedPeers',
+      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            color: Theme.of(context).colorScheme.primary,
+            fontWeight: FontWeight.bold,
+          ),
+    );
+  }
+
+  String _buildEpochTitle() {
+    final statusFromProvider = ref.read(nodeStatusProvider).value;
+    final currentEpoch = statusFromProvider?.currentEpoch ?? 0;
+    return 'Epoch $currentEpoch';
+  }
+
+  String _buildEpochSubtitle() {
+    final statusFromProvider = ref.read(nodeStatusProvider).value;
+    final currentSlot = statusFromProvider?.currentGlobalSlot ?? 0;
+    final slotsPerEpoch = statusFromProvider?.slotsInEpoch ?? 720;
+    final slotInEpoch = currentSlot % slotsPerEpoch;
+    return 'Slot $slotInEpoch/$slotsPerEpoch';
+  }
+
+  Widget _buildEpochTrailing() {
+    final statusFromProvider = ref.read(nodeStatusProvider).value;
+    final currentSlot = statusFromProvider?.currentGlobalSlot ?? 0;
+    final slotsPerEpoch = statusFromProvider?.slotsInEpoch ?? 720;
+    final slotInEpoch = currentSlot % slotsPerEpoch;
+    final progress =
+        slotsPerEpoch > 0 ? (slotInEpoch / slotsPerEpoch * 100) : 0.0;
+
+    return Text(
+      '${progress.round()}%',
       style: Theme.of(context).textTheme.titleSmall?.copyWith(
             color: Theme.of(context).colorScheme.primary,
             fontWeight: FontWeight.bold,
@@ -842,13 +836,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     final truncatedHash = Utils.shortenID(hash, head: 8, tail: 8);
 
     return 'Height $height, Slot ${slot ?? 'N/A'}, $truncatedHash';
-  }
-
-  String _buildChainSubtitle() {
-    final chainIdText =
-        Utils.shortenID(_chainId ?? 'Loading...', head: 8, tail: 8);
-    final chainNameText = _chainName ?? 'Loading...';
-    return 'ID: $chainIdText\nName: $chainNameText';
   }
 
   String _buildMempoolSubtitle() {

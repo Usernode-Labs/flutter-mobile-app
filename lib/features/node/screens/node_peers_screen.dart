@@ -131,14 +131,15 @@ class NodePeersScreen extends StatelessWidget {
                   return ListTile(
                     contentPadding:
                         const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    leading: CircleAvatar(
-                      backgroundColor: statusColor.withValues(alpha: 0.12),
-                      foregroundColor: statusColor,
-                      radius: 16,
-                      child: Icon(
-                        Icons.hub,
-                        size: 16,
+                    leading: Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: colorScheme.secondaryContainer,
+                        borderRadius: BorderRadius.circular(12),
                       ),
+                      child: Icon(Icons.hub_outlined,
+                          color: colorScheme.onSurface, size: 24),
                     ),
                     title: Text(
                       titleText,
@@ -171,7 +172,7 @@ class NodePeersScreen extends StatelessWidget {
                                 ),
                                 child: Icon(
                                   directionIcon,
-                                  size: 10,
+                                  size: 16,
                                   color: directionColor,
                                 ),
                               ),
@@ -256,14 +257,14 @@ class NodePeersScreen extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: statusColor.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: statusColor, width: 1.5),
+                        border: Border.all(color: statusColor, width: 1),
                       ),
                       child: Text(
                         status.toUpperCase(),
                         style: TextStyle(
                           color: statusColor,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11,
+                          fontWeight: FontWeight.w400,
+                          fontSize: 10,
                           letterSpacing: 0.5,
                         ),
                       ),

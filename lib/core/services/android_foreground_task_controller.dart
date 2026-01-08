@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:wakelock_plus/wakelock_plus.dart';
 
 import 'package:crypto_mobile_app/core/models/vrf_status.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -32,9 +32,30 @@ class AndroidForegroundTaskController {
     WidgetsFlutterBinding.ensureInitialized();
 
     // Request notification permission on Android 13+ so the foreground
-    // notification is visible.
-    final notificationStatus = await Permission.notification.request();
-    _log.info('Notification permission status: $notificationStatus');
+    // notification is visible. In headless mode (no Activity), we can only
+    // check the status, not request it.
+    try {
+      final notificationStatus = await Permission.notification.request();
+      _log.info('Notification permission status: $notificationStatus');
+    } on PlatformException catch (e) {
+      // In headless mode, PermissionHandler cannot detect an Activity.
+      // Just check the status instead of requesting.
+      if (e.code == 'PermissionHandler.PermissionManager' &&
+          e.message?.contains('Unable to detect current Android Activity') == true) {
+        _log.debug('Running in headless mode, checking notification permission status instead of requesting');
+        try {
+          final status = await Permission.notification.status;
+          _log.info('Notification permission status (headless): $status');
+        } catch (statusError) {
+          _log.warn('Could not check notification permission status: $statusError');
+        }
+      } else {
+        // Re-throw if it's a different error
+        rethrow;
+      }
+    } catch (e) {
+      _log.warn('Error handling notification permission: $e');
+    }
 
     _initialized = true;
     _log.info('AndroidForegroundTask initialized');
@@ -213,12 +234,10 @@ class AndroidForegroundTaskController {
 
   Future<void> _acquireWakelock() async {
     try {
-      final enabled = await WakelockPlus.enabled;
-      if (!enabled) {
-        await WakelockPlus.enable();
-        _log.info('Wakelock acquired');
-      }
-      _wakelockHeld = true;
+      // Use a native PARTIAL_WAKE_LOCK so it works without a foreground Activity.
+      final ok = await PlatformAlarmService.instance.acquireWakelock();
+      _wakelockHeld = ok;
+      if (ok) _log.info('Native wakelock acquired');
     } catch (e) {
       _log.warn('Failed to acquire wakelock: $e');
     }
@@ -226,12 +245,9 @@ class AndroidForegroundTaskController {
 
   Future<void> _releaseWakelock() async {
     try {
-      final enabled = await WakelockPlus.enabled;
-      if (enabled) {
-        await WakelockPlus.disable();
-        _log.info('Wakelock released');
-      }
+      final ok = await PlatformAlarmService.instance.releaseWakelock();
       _wakelockHeld = false;
+      if (ok) _log.info('Native wakelock released');
     } catch (e) {
       _log.warn('Failed to release wakelock: $e');
     }
@@ -257,7 +273,7 @@ class AndroidForegroundTaskController {
     if (!Platform.isAndroid) return false;
     if (_wakelockHeld) return true;
     try {
-      return await WakelockPlus.enabled;
+      return await PlatformAlarmService.instance.isWakelockHeld();
     } catch (_) {
       return false;
     }

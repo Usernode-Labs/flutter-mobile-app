@@ -58,19 +58,25 @@ class SlotMonitoringService : Service() {
                 val safeSlot = if (slotNumber != -1) slotNumber else 0
                 startMonitoring(safeSlot, nodeRunning)
 
-                // If Flutter channel is detached, deliver the alarm event via background engine
-                if (AlarmMethodChannelHandler.getInstance() == null) {
-                    Log.w(TAG, "[SlotMonitoringService] Flutter channel null; sending alarm event via background engine")
+                val eventData = mapOf(
+                    "alarmId" to (alarmId ?: "unknown"),
+                    "slotNumber" to safeSlot,
+                    "batteryLevel" to 0,
+                    "networkState" to "unknown",
+                    "nodeRunning" to nodeRunning
+                )
+
+                // Enforce a single-engine policy:
+                // - If the UI engine/channel exists, deliver the event through it (no headless engine).
+                // - Otherwise, spin up the headless engine to deliver the alarm event.
+                val handler = AlarmMethodChannelHandler.getInstance()
+                if (handler != null) {
+                    handler.sendEventToFlutter("android_alarm_fired", eventData)
+                } else {
                     BackgroundAlarmEngine.sendAlarmEvent(
                         applicationContext,
                         "android_alarm_fired",
-                        mapOf(
-                            "alarmId" to (alarmId ?: "unknown"),
-                            "slotNumber" to safeSlot,
-                            "batteryLevel" to 0,
-                            "networkState" to "unknown",
-                            "nodeRunning" to nodeRunning
-                        )
+                        eventData
                     )
                 }
             }

@@ -5,7 +5,6 @@ import android.os.Build
 import android.os.Bundle
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
-import io.flutter.embedding.engine.FlutterEngineCache
 import io.flutter.plugin.common.MethodChannel
 import com.usernode_labs.usernode.alarm.AlarmMethodChannelHandler
 import com.usernode_labs.usernode.alarm.BackgroundAlarmEngine
@@ -15,20 +14,18 @@ class MainActivity: FlutterActivity() {
     private lateinit var alarmHandler: AlarmMethodChannelHandler
 
     override fun provideFlutterEngine(context: android.content.Context): FlutterEngine? {
-        // Reuse shared background engine if it exists to avoid dual engines.
-        return FlutterEngineCache.getInstance().get(BackgroundAlarmEngine.ENGINE_ID)
+        return null
+    }
+
+    override fun shouldDestroyEngineWithHost(): Boolean {
+        return true
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
-        // If no shared engine cached yet, cache this one so background side can reuse it.
-        val cache = FlutterEngineCache.getInstance()
-        if (cache.get(BackgroundAlarmEngine.ENGINE_ID) == null) {
-            cache.put(BackgroundAlarmEngine.ENGINE_ID, flutterEngine)
-        }
-
-        alarmHandler = AlarmMethodChannelHandler(this)
+        alarmHandler = AlarmMethodChannelHandler.getOrCreate(applicationContext)
+        alarmHandler.attachActivity(this)
 
         val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
         alarmHandler.setMethodChannel(channel)
@@ -39,6 +36,10 @@ class MainActivity: FlutterActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Enforce a single-engine policy: if a headless/background engine is running
+        // (e.g., from alarms/boot reschedule), kill it BEFORE FlutterActivity creates
+        // the UI engine to avoid two engines being alive simultaneously.
+        BackgroundAlarmEngine.destroyCachedEngine("ui_activity_onCreate")
         super.onCreate(savedInstanceState)
 
         // Handle alarm intent if launched from alarm receiver
@@ -87,5 +88,18 @@ class MainActivity: FlutterActivity() {
         // TODO check if this could create issues for being accepted
         // in google play
         moveTaskToBack(true)
+    }
+
+    override fun onDestroy() {
+        if (::alarmHandler.isInitialized) {
+            alarmHandler.detachActivity(this)
+        }
+        super.onDestroy()
+        // Activity destroyed => create background engine in case scheduling alarms isn't finished
+        BackgroundAlarmEngine.createAndCacheNewEngine(
+            context = applicationContext,
+            reason = "activity_destroyed",
+            registerPlugins = true
+        )
     }
 }

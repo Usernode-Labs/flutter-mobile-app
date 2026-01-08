@@ -2,8 +2,10 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:crypto_mobile_app/features/wallet/models/transaction_model.dart';
-import 'package:crypto_mobile_app/features/wallet/utxo_provider.dart';
+import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
 import 'package:crypto_mobile_app/features/wallet/token_registry.dart';
+import 'package:crypto_mobile_app/features/node/node_service.dart';
+import 'package:crypto_mobile_app/features/node/node_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 
@@ -32,8 +34,28 @@ class WalletController extends AsyncNotifier<WalletState> {
   /// Calculate wallet balance from UTXOs
   Future<WalletBalance> _calculateBalance() async {
     try {
-      // Get UTXOs from existing provider
-      final utxos = await ref.watch(walletUtxosProvider.future);
+      // Log current node status
+      final nodeStatusAsync = ref.read(nodeStatusProvider);
+      final nodeStatus = nodeStatusAsync.valueOrNull;
+      final syncStatus = nodeStatus?.syncStatus;
+      
+      _log.debug('Node status: ${syncStatus?.label ?? 'unknown'}');
+
+      // Get active account
+      final accountsRepo = await AccountsRepository.create();
+      final activeAccount = await accountsRepo.getActive();
+
+      if (activeAccount == null || activeAccount.address.isEmpty) {
+        _log.debug('No active account available for balance calculation');
+        throw Exception('No active account found. Please create or select an account.');
+      }
+
+      // Fetch UTXOs directly from backend
+      _log.debug('Fetching UTXOs for balance calculation', context: {'address': activeAccount.address});
+      final owner = frb_types.publicKeyHashFromString(s: activeAccount.address);
+      final utxosResp = await RustBackendService.instance.listUtxosByOwner(owner: owner);
+      final utxos = utxosResp?.items ?? [];
+      _log.debug('Got ${utxos.length} UTXOs for balance calculation');
 
       // Aggregate balances by token_id
       final Map<String, BigInt> balancesByToken = {};
@@ -83,9 +105,17 @@ class WalletController extends AsyncNotifier<WalletState> {
         primaryTokenSymbol = 'TOKENS'; // Default fallback
       }
 
+      // Log the calculated balance (matching MetricsProvider format)
+      _log.debug(
+        'Calculated wallet balance from UTXOs',
+        context: {
+          'utxo_count': utxos.length,
+          'raw_balance': totalBalance.toString(),
+        },
+      );
+
       // Convert BigInt to double for display
-      // Use toInt() instead of toDouble() to avoid precision issues with very large numbers
-      final tokenAmount = totalBalance.toInt().toDouble();
+      final tokenAmount = totalBalance.toDouble();
 
       return WalletBalance(
         tokenAmount: tokenAmount,
@@ -126,6 +156,20 @@ class WalletController extends AsyncNotifier<WalletState> {
       ));
     } catch (e, st) {
       state = AsyncValue.error(e, st);
+    }
+  }
+
+  /// Silent refresh - updates data without showing loading spinner
+  Future<void> silentRefresh() async {
+    try {
+      final balance = await _calculateBalance();
+      state = AsyncValue.data(WalletState(
+        balance: balance,
+        recent: _transactions.take(10).toList(),
+      ));
+    } catch (e, st) {
+      // Keep existing state on error during silent refresh
+      _log.debug('Silent refresh failed: $e');
     }
   }
 }

@@ -179,6 +179,11 @@ class NodeStatusController extends AsyncNotifier<NodeStatusState?> {
     state = await AsyncValue.guard(_load);
   }
 
+  /// Silent refresh - same as refresh for node provider (already doesn't show loading)
+  Future<void> silentRefresh() async {
+    state = await AsyncValue.guard(_load);
+  }
+
   Future<NodeStatusState?> _load() async {
     final stopwatch = Stopwatch()..start();
     _log.debug('NodeStatusProvider: load start');

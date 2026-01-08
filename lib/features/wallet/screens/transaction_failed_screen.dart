@@ -21,7 +21,7 @@ class TransactionFailedScreen extends StatelessWidget {
           child: Column(
             children: [
               const Spacer(flex: 2),
-              
+
               // Failure title
               Text(
                 'Transaction Failed',
@@ -30,20 +30,22 @@ class TransactionFailedScreen extends StatelessWidget {
                 ),
                 textAlign: TextAlign.center,
               ),
-              
+
               const SizedBox(height: 24),
-              
+
               // Error message
               Text(
-                errorMessage.isNotEmpty ? errorMessage : 'An error occurred while processing your transaction',
+                errorMessage.isNotEmpty
+                    ? errorMessage
+                    : 'An error occurred while processing your transaction',
                 style: theme.textTheme.bodyLarge?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
                 textAlign: TextAlign.center,
               ),
-              
+
               const Spacer(flex: 1),
-              
+
               // Failure X circle
               Container(
                 width: 120,
@@ -60,9 +62,9 @@ class TransactionFailedScreen extends StatelessWidget {
                   ),
                 ),
               ),
-              
+
               const Spacer(flex: 2),
-              
+
               // Got it button
               Container(
                 width: double.infinity,
@@ -100,7 +102,7 @@ class TransactionFailedScreen extends StatelessWidget {
                   ),
                 ),
               ),
-              
+
               const SizedBox(height: 24),
             ],
           ),

@@ -35,10 +35,11 @@ class WalletUtxosController extends AsyncNotifier<List<OwnedUtxo>> {
       final repo = await AccountsRepository.create();
       final acc = await repo.getActive();
       _log.debug('UTXO fetch: Active account=${acc?.address ?? "null"}');
-      
+
       if (acc == null || acc.address.isEmpty) {
         _log.error('UTXO fetch: No active account available');
-        throw Exception('No active account found. Please create or select an account.');
+        throw Exception(
+            'No active account found. Please create or select an account.');
       }
 
       final ownerStr = acc.address;

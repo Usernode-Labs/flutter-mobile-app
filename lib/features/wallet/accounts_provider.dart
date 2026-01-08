@@ -107,7 +107,7 @@ class AccountsRepository {
     required String secretKey,
     bool isDemo = false,
   }) async {
-    _log.trace('importFromSecretKey - start (name: $name, isDemo: $isDemo)');
+    _log.debug('importFromSecretKey - start (name: $name, isDemo: $isDemo)');
 
     try {
       // Use Rust backend to derive public key and address from private key
@@ -120,9 +120,9 @@ class AccountsRepository {
       final publicKey = accountExport.publicKey;
       final address = accountExport.address;
 
-      _log.trace('Secret key length: ${derivedSecretKey.length}');
-      _log.trace('Public key length: ${publicKey.length}');
-      _log.trace('Address: $address');
+      _log.debug('Secret key length: ${derivedSecretKey.length}');
+      _log.debug('Public key length: ${publicKey.length}');
+      _log.debug('Address: $address');
 
       final result = await _persistNew(
         name: name,

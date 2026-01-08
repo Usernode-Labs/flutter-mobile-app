@@ -15,7 +15,6 @@ import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:crypto_mobile_app/src/rust/frb_generated.dart';
-import 'package:crypto_mobile_app/src/rust/frb_types.dart';
 import 'package:crypto_mobile_app/src/rust/lib.dart' show enableLogging;
 import 'package:crypto_mobile_app/src/rust/tracing.dart' show TracingLevel;
 import 'package:crypto_mobile_app/src/rust/node.dart';

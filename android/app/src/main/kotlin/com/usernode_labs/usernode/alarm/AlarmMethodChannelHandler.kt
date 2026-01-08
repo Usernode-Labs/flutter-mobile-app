@@ -16,13 +16,29 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import android.os.Handler
+import android.os.Looper
+import java.lang.ref.WeakReference
 
-class AlarmMethodChannelHandler(private val activity: Activity) {
+/**
+ * Android-side handler for the `com.usernode.app/alarm` channel.
+ *
+ * This is **not Activity-focused**:
+ * - Constructed with an application [Context] so it can exist in background-only processes.
+ * - Optionally an [Activity] can be attached for UI-only operations (permission prompts / settings).
+ */
+class AlarmMethodChannelHandler(context: Context) {
 
-    private val alarmManager: AlarmManager = activity.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-    private val alarmScheduler: AlarmScheduler = AlarmScheduler(activity, alarmManager)
-    private val foregroundServiceManager: ForegroundServiceManager = ForegroundServiceManager(activity)
-    private val powerManager: PowerManager = activity.getSystemService(Context.POWER_SERVICE) as PowerManager
+    private val appContext: Context = context.applicationContext
+
+    // Activity is optional; only required for UI-only flows like permission prompts.
+    @Volatile
+    private var activityRef: WeakReference<Activity>? = null
+
+    private val alarmManager: AlarmManager = appContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+    private val alarmScheduler: AlarmScheduler = AlarmScheduler(appContext, alarmManager)
+    private val foregroundServiceManager: ForegroundServiceManager = ForegroundServiceManager(appContext)
+    private val powerManager: PowerManager = appContext.getSystemService(Context.POWER_SERVICE) as PowerManager
 
     private var methodChannel: MethodChannel? = null
 
@@ -36,6 +52,21 @@ class AlarmMethodChannelHandler(private val activity: Activity) {
 
         fun getInstance(): AlarmMethodChannelHandler? = instance
 
+        /**
+         * Get the singleton if present, otherwise create it.
+         *
+         * Safe to call from services/receivers where no Activity exists.
+         */
+        fun getOrCreate(context: Context): AlarmMethodChannelHandler {
+            val existing = instance
+            if (existing != null) return existing
+            synchronized(this) {
+                val again = instance
+                if (again != null) return again
+                return AlarmMethodChannelHandler(context).also { instance = it }
+            }
+        }
+
         internal fun setInstance(handler: AlarmMethodChannelHandler) {
             instance = handler
         }
@@ -43,23 +74,50 @@ class AlarmMethodChannelHandler(private val activity: Activity) {
 
     init {
         setInstance(this)
-        Log.d(TAG, "[AlarmMethodChannelHandler] Handler initialized")
+        Log.d(TAG, "Handler initialized")
+    }
+
+    fun attachActivity(activity: Activity) {
+        activityRef = WeakReference(activity)
+        Log.d(TAG, "Activity attached (${activity::class.java.simpleName})")
+    }
+
+    fun detachActivity(activity: Activity? = null) {
+        val current = activityRef?.get()
+        if (activity == null || current === activity) {
+            activityRef = null
+            Log.d(TAG, "Activity detached")
+        }
+    }
+
+    /**
+     * Check if an Activity is currently attached.
+     * 
+     * @return true if an Activity is attached and not garbage collected, false otherwise
+     */
+    fun isActivityAttached(): Boolean {
+        return activityRef?.get() != null
     }
 
     /// Set the method channel for bidirectional communication
     fun setMethodChannel(channel: MethodChannel) {
         methodChannel = channel
-        Log.d(TAG, "[AlarmMethodChannelHandler] Method channel set")
+        Log.d(TAG, "Method channel set")
+    }
+
+    fun clearMethodChannel(reason: String) {
+        methodChannel = null
+        Log.d(TAG, "Method channel cleared (reason=$reason)")
     }
 
     /// Send a block production event to Flutter
     fun sendEventToFlutter(eventType: String, eventData: Map<String, Any?>) {
         if (methodChannel == null) {
-            Log.w(TAG, "[AlarmMethodChannelHandler] Cannot send event '$eventType' - method channel not set")
+            Log.w(TAG, "Cannot send event '$eventType' - method channel not set")
             return
         }
 
-        Log.d(TAG, "[AlarmMethodChannelHandler] Sending event to Flutter: $eventType")
+        Log.d(TAG, "Sending event to Flutter: $eventType")
 
         val args = mapOf(
             "eventType" to eventType,
@@ -75,19 +133,16 @@ class AlarmMethodChannelHandler(private val activity: Activity) {
                 result.success(hasExactAlarmPermission())
             }
             "requestExactAlarmPermission" -> {
-                requestExactAlarmPermission()
-                result.success(true)
+                result.success(requestExactAlarmPermission())
             }
             "hasPostNotificationsPermission" -> {
                 result.success(hasPostNotificationsPermission())
             }
             "requestPostNotificationsPermission" -> {
-                requestPostNotificationsPermission()
-                result.success(true)
+                result.success(requestPostNotificationsPermission())
             }
             "requestBatteryOptimizationExemption" -> {
-                requestBatteryOptimizationExemption()
-                result.success(true)
+                result.success(requestBatteryOptimizationExemption())
             }
             "scheduleExactAlarm" -> {
                 val alarmId = call.argument<String>("alarmId")
@@ -144,46 +199,45 @@ class AlarmMethodChannelHandler(private val activity: Activity) {
                 result.success(success)
             }
             "startPersistentForegroundService" -> {
-                Log.d(TAG, "[AlarmMethodChannelHandler] Starting persistent foreground service")
-                val intent = Intent(activity, SlotMonitoringService::class.java).apply {
+                Log.d(TAG, "Starting persistent foreground service")
+                val intent = Intent(appContext, SlotMonitoringService::class.java).apply {
                     action = SlotMonitoringService.ACTION_START_PERSISTENT
                 }
                 try {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        activity.startForegroundService(intent)
+                        appContext.startForegroundService(intent)
                     } else {
-                        activity.startService(intent)
+                        appContext.startService(intent)
                     }
                     result.success(true)
                 } catch (e: Exception) {
-                    Log.e(TAG, "[AlarmMethodChannelHandler] Failed to start persistent foreground service", e)
+                    Log.e(TAG, "Failed to start persistent foreground service", e)
                     result.success(false)
                 }
             }
             "stopPersistentForegroundService" -> {
-                Log.d(TAG, "[AlarmMethodChannelHandler] Stopping persistent foreground service")
-                val intent = Intent(activity, SlotMonitoringService::class.java).apply {
+                Log.d(TAG, "Stopping persistent foreground service")
+                val intent = Intent(appContext, SlotMonitoringService::class.java).apply {
                     action = SlotMonitoringService.ACTION_STOP_PERSISTENT
                 }
                 try {
-                    activity.startService(intent)
+                    appContext.startService(intent)
                     result.success(true)
                 } catch (e: Exception) {
-                    Log.e(TAG, "[AlarmMethodChannelHandler] Failed to stop persistent foreground service", e)
+                    Log.e(TAG, "Failed to stop persistent foreground service", e)
                     result.success(false)
                 }
             }
             "isPersistentForegroundRunning" -> {
                 val isRunning = SlotMonitoringService.isPersistentModeActive
-                Log.d(TAG, "[AlarmMethodChannelHandler] isPersistentForegroundRunning: $isRunning")
+                Log.d(TAG, "isPersistentForegroundRunning: $isRunning")
                 result.success(isRunning)
             }
             "isBatteryOptimizationDisabled" -> {
                 result.success(isBatteryOptimizationDisabled())
             }
             "openBatterySettings" -> {
-                openBatteryOptimizationSettings()
-                result.success(true)
+                result.success(openBatteryOptimizationSettings())
             }
             "getDeviceManufacturer" -> {
                 result.success(Build.MANUFACTURER)
@@ -201,6 +255,20 @@ class AlarmMethodChannelHandler(private val activity: Activity) {
                 incrementBackgroundTaskCount()
                 result.success(true)
             }
+            "acquireWakelock" -> {
+                NativeWakeLockManager.acquire(appContext)
+                result.success(true)
+            }
+            "releaseWakelock" -> {
+                NativeWakeLockManager.release()
+                result.success(true)
+
+                // // Treat wakelock release as "app suspended" for engine lifecycle:
+                // // destroy engine + remove from cache so next open/alarm starts fresh.
+                // Handler(Looper.getMainLooper()).post {
+                //     BackgroundAlarmEngine.destroyCachedEngine("wakelock_release")
+                // }
+            }
             else -> {
                 result.notImplemented()
             }
@@ -215,24 +283,30 @@ class AlarmMethodChannelHandler(private val activity: Activity) {
         }
     }
 
-    private fun requestExactAlarmPermission() {
+    private fun requestExactAlarmPermission(): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             if (!alarmManager.canScheduleExactAlarms()) {
+                val activity = activityRef?.get()
+                if (activity == null) {
+                    Log.w(TAG, "Cannot request exact alarm permission - no Activity attached")
+                    return false
+                }
                 val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
                 activity.startActivity(intent)
             } else {
                 // Permission already granted
-                Log.d(TAG, "[AlarmMethodChannelHandler] Exact alarm permission already granted")
+                Log.d(TAG, "Exact alarm permission already granted")
                 sendEventToFlutter("android_exact_alarm_permission_granted", emptyMap())
             }
         }
+        return true
     }
 
     // Call this method to check and notify permission status
     fun checkAndNotifyExactAlarmPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val hasPermission = alarmManager.canScheduleExactAlarms()
-            Log.d(TAG, "[AlarmMethodChannelHandler] Exact alarm permission check: $hasPermission")
+            Log.d(TAG, "Exact alarm permission check: $hasPermission")
             if (hasPermission) {
                 sendEventToFlutter("android_exact_alarm_permission_granted", emptyMap())
             } else {
@@ -244,7 +318,7 @@ class AlarmMethodChannelHandler(private val activity: Activity) {
     private fun hasPostNotificationsPermission(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             ContextCompat.checkSelfPermission(
-                activity,
+                appContext,
                 Manifest.permission.POST_NOTIFICATIONS
             ) == PackageManager.PERMISSION_GRANTED
         } else {
@@ -252,10 +326,15 @@ class AlarmMethodChannelHandler(private val activity: Activity) {
         }
     }
 
-    private fun requestPostNotificationsPermission() {
+    private fun requestPostNotificationsPermission(): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (!hasPostNotificationsPermission()) {
-                Log.d(TAG, "[AlarmMethodChannelHandler] Requesting POST_NOTIFICATIONS permission")
+                val activity = activityRef?.get()
+                if (activity == null) {
+                    Log.w(TAG, "Cannot request POST_NOTIFICATIONS permission - no Activity attached")
+                    return false
+                }
+                Log.d(TAG, "Requesting POST_NOTIFICATIONS permission")
                 ActivityCompat.requestPermissions(
                     activity,
                     arrayOf(Manifest.permission.POST_NOTIFICATIONS),
@@ -263,20 +342,21 @@ class AlarmMethodChannelHandler(private val activity: Activity) {
                 )
             } else {
                 // Permission already granted
-                Log.d(TAG, "[AlarmMethodChannelHandler] POST_NOTIFICATIONS permission already granted")
+                Log.d(TAG, "POST_NOTIFICATIONS permission already granted")
                 sendEventToFlutter("android_post_notifications_permission_granted", emptyMap())
             }
         } else {
             // Not required before Android 13
             sendEventToFlutter("android_post_notifications_permission_granted", emptyMap())
         }
+        return true
     }
 
     // Call this method to check and notify POST_NOTIFICATIONS permission status
     fun checkAndNotifyPostNotificationsPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val hasPermission = hasPostNotificationsPermission()
-            Log.d(TAG, "[AlarmMethodChannelHandler] POST_NOTIFICATIONS permission check: $hasPermission")
+            Log.d(TAG, "POST_NOTIFICATIONS permission check: $hasPermission")
             if (hasPermission) {
                 sendEventToFlutter("android_post_notifications_permission_granted", emptyMap())
             } else {
@@ -293,7 +373,7 @@ class AlarmMethodChannelHandler(private val activity: Activity) {
         when (requestCode) {
             REQUEST_POST_NOTIFICATIONS -> {
                 val granted = grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
-                Log.d(TAG, "[AlarmMethodChannelHandler] POST_NOTIFICATIONS permission result: $granted")
+                Log.d(TAG, "POST_NOTIFICATIONS permission result: $granted")
                 if (granted) {
                     sendEventToFlutter("android_post_notifications_permission_granted", emptyMap())
                 } else {
@@ -305,62 +385,74 @@ class AlarmMethodChannelHandler(private val activity: Activity) {
 
     private fun isBatteryOptimizationDisabled(): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val powerManager = activity.getSystemService(Context.POWER_SERVICE) as PowerManager
-            return powerManager.isIgnoringBatteryOptimizations(activity.packageName)
+            return powerManager.isIgnoringBatteryOptimizations(appContext.packageName)
         }
         return true
     }
 
-    private fun openBatteryOptimizationSettings() {
+    private fun openBatteryOptimizationSettings(): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val activity = activityRef?.get()
+            if (activity == null) {
+                Log.w(TAG, "Cannot open battery settings - no Activity attached")
+                return false
+            }
             try {
                 // Open this app's detail page so the user can adjust battery settings
                 val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                    data = Uri.fromParts("package", activity.packageName, null)
+                    data = Uri.fromParts("package", appContext.packageName, null)
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 activity.startActivity(intent)
             } catch (e: Exception) {
-                Log.e(TAG, "[AlarmMethodChannelHandler] Failed to open app details settings", e)
+                Log.e(TAG, "Failed to open app details settings", e)
                 // Fallback to the general battery optimization settings screen
                 try {
                     val fallbackIntent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
                     activity.startActivity(fallbackIntent)
                 } catch (fallback: Exception) {
-                    Log.e(TAG, "[AlarmMethodChannelHandler] Failed to open battery optimization settings", fallback)
+                    Log.e(TAG, "Failed to open battery optimization settings", fallback)
+                    return false
                 }
             }
         }
+        return true
     }
 
-    private fun requestBatteryOptimizationExemption() {
+    private fun requestBatteryOptimizationExemption(): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (!powerManager.isIgnoringBatteryOptimizations(activity.packageName)) {
-                Log.d(TAG, "[AlarmMethodChannelHandler] Requesting battery optimization exemption")
+            val activity = activityRef?.get()
+            if (activity == null) {
+                Log.w(TAG, "Cannot request battery optimization exemption - no Activity attached")
+                return false
+            }
+            if (!powerManager.isIgnoringBatteryOptimizations(appContext.packageName)) {
+                Log.d(TAG, "Requesting battery optimization exemption")
                 try {
                     // Direct exemption request - shows app-specific dialog
                     val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                        data = Uri.parse("package:${activity.packageName}")
+                        data = Uri.parse("package:${appContext.packageName}")
                     }
                     activity.startActivity(intent)
                 } catch (e: Exception) {
-                    Log.e(TAG, "[AlarmMethodChannelHandler] Failed to request battery optimization exemption", e)
+                    Log.e(TAG, "Failed to request battery optimization exemption", e)
                     // Fallback to general settings page
-                    openBatteryOptimizationSettings()
+                    if (!openBatteryOptimizationSettings()) return false
                 }
             } else {
                 // Already exempted
-                Log.d(TAG, "[AlarmMethodChannelHandler] Battery optimization already disabled")
+                Log.d(TAG, "Battery optimization already disabled")
                 sendEventToFlutter("android_battery_optimization_disabled", emptyMap())
             }
         }
+        return true
     }
 
     // Call this method to check and notify battery optimization status
     fun checkAndNotifyBatteryOptimization() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val isDisabled = powerManager.isIgnoringBatteryOptimizations(activity.packageName)
-            Log.d(TAG, "[AlarmMethodChannelHandler] Battery optimization disabled: $isDisabled")
+            val isDisabled = powerManager.isIgnoringBatteryOptimizations(appContext.packageName)
+            Log.d(TAG, "Battery optimization disabled: $isDisabled")
             if (isDisabled) {
                 sendEventToFlutter("android_battery_optimization_disabled", emptyMap())
             }
@@ -368,7 +460,7 @@ class AlarmMethodChannelHandler(private val activity: Activity) {
     }
 
     private fun isForegroundServiceRunning(): Boolean {
-        val activityManager = activity.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val activityManager = appContext.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         @Suppress("DEPRECATION")
         for (service in activityManager.getRunningServices(Int.MAX_VALUE)) {
             if (SlotMonitoringService::class.java.name == service.service.className) {
@@ -379,18 +471,11 @@ class AlarmMethodChannelHandler(private val activity: Activity) {
     }
 
     private fun isWakelockHeld(): Boolean {
-        // Check if device is holding any partial wakelocks
-        // Note: We can't directly check app-specific wakelocks without root
-        // Return approximate status based on power manager state
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            !powerManager.isDeviceIdleMode && !powerManager.isPowerSaveMode
-        } else {
-            !powerManager.isPowerSaveMode
-        }
+        return NativeWakeLockManager.isHeld()
     }
 
     private fun getBackgroundTaskStats(): Map<String, Any> {
-        val prefs = activity.getSharedPreferences("background_task_stats", Context.MODE_PRIVATE)
+        val prefs = appContext.getSharedPreferences("background_task_stats", Context.MODE_PRIVATE)
         return mapOf(
             "execution_count" to prefs.getInt("execution_count", 0),
             "last_execution_time" to prefs.getLong("last_execution_time", 0),
@@ -400,7 +485,7 @@ class AlarmMethodChannelHandler(private val activity: Activity) {
     }
 
     private fun incrementBackgroundTaskCount() {
-        val prefs = activity.getSharedPreferences("background_task_stats", Context.MODE_PRIVATE)
+        val prefs = appContext.getSharedPreferences("background_task_stats", Context.MODE_PRIVATE)
         val currentCount = prefs.getInt("execution_count", 0)
         prefs.edit().apply {
             putInt("execution_count", currentCount + 1)

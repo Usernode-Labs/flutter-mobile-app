@@ -700,6 +700,33 @@ class PlatformAlarmService {
     }
   }
 
+  /// Acquire a native Android PARTIAL_WAKE_LOCK (does not require a foreground Activity).
+  ///
+  /// This is used for background/foreground service work where `wakelock_plus` would throw
+  /// `NoActivityException`.
+  Future<bool> acquireWakelock() async {
+    if (!Platform.isAndroid) return false;
+    try {
+      await _channel.invokeMethod('acquireWakelock');
+      return true;
+    } catch (e) {
+      _log.error('Error acquiring wakelock: $e');
+      return false;
+    }
+  }
+
+  /// Release the native Android PARTIAL_WAKE_LOCK.
+  Future<bool> releaseWakelock() async {
+    if (!Platform.isAndroid) return false;
+    try {
+      await _channel.invokeMethod('releaseWakelock');
+      return true;
+    } catch (e) {
+      _log.error('Error releasing wakelock: $e');
+      return false;
+    }
+  }
+
   /// Get background task execution statistics (Android only)
   Future<Map<String, dynamic>> getBackgroundTaskStats() async {
     if (!Platform.isAndroid) {

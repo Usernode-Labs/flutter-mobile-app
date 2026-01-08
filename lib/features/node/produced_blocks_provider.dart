@@ -532,8 +532,7 @@ Future<RpcProducedBlockMetadata?> persistedGetProducedBlockMetadata(
 }
 
 final producedBlocksSummaryProvider =
-    FutureProvider.autoDispose<ProducedBlocksSummary>(
-        _buildProducedBlocksSummary);
+    FutureProvider<ProducedBlocksSummary>(_buildProducedBlocksSummary);
 
 /// Simple stand-in implementations for testing UI without relying on backend metadata.
 class _TestBlockHash implements BlockHash {

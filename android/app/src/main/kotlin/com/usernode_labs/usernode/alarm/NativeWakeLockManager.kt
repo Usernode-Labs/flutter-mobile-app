@@ -1,0 +1,57 @@
+package com.usernode_labs.usernode.alarm
+
+import android.content.Context
+import android.os.PowerManager
+import android.util.Log
+
+/**
+ * Holds a native PARTIAL_WAKE_LOCK that does NOT require a foreground Activity.
+ *
+ * This is intended for background/foreground services to keep the CPU running while work
+ * continues even if the UI Activity is destroyed (e.g. "Don't keep activities").
+ */
+object NativeWakeLockManager {
+    private const val TAG = "usernode/NativeWakeLock"
+    private const val WAKELOCK_TAG = "usernode:foreground_task"
+
+    @Volatile
+    private var wakeLock: PowerManager.WakeLock? = null
+
+    @Synchronized
+    fun acquire(context: Context) {
+        val existing = wakeLock
+        if (existing?.isHeld == true) return
+
+        val pm = context.applicationContext.getSystemService(Context.POWER_SERVICE) as PowerManager
+        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WAKELOCK_TAG).apply {
+            setReferenceCounted(false)
+            try {
+                acquire()
+                Log.i(TAG, "PARTIAL_WAKE_LOCK acquired")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to acquire PARTIAL_WAKE_LOCK", e)
+            }
+        }
+    }
+
+    @Synchronized
+    fun release() {
+        val wl = wakeLock
+        if (wl == null) return
+        try {
+            if (wl.isHeld) {
+                wl.release()
+                Log.i(TAG, "PARTIAL_WAKE_LOCK released")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to release PARTIAL_WAKE_LOCK", e)
+        } finally {
+            wakeLock = null
+        }
+    }
+
+    @Synchronized
+    fun isHeld(): Boolean = wakeLock?.isHeld == true
+}
+
+

@@ -1,27 +1,24 @@
-import 'dart:io' show Platform;
+import 'dart:convert';
+
+import 'package:crypto_mobile_app/core/config/app_config.dart';
+import 'package:crypto_mobile_app/features/metrics/metrics_reporting_service.dart';
+import 'package:crypto_mobile_app/features/node/node_service.dart';
+import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:crypto_mobile_app/core/bootstrap/app_bootstrap.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/core/config/theme.dart';
 import 'core/config/l10n/app_localizations.dart';
-import 'package:crypto_mobile_app/features/node/node_service.dart';
-import 'package:crypto_mobile_app/core/feature_flags.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
-import 'package:crypto_mobile_app/core/config/app_config.dart';
-import 'package:crypto_mobile_app/core/utils/lifecycle.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
-import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_provider.dart';
-import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
-import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
-import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
 import 'package:crypto_mobile_app/features/node/produced_blocks_provider.dart';
-import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/core/services/app_version_check.dart';
+import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 
 Future<void> main() async {
   // NOTE: Do NOT call WidgetsFlutterBinding.ensureInitialized() here.
@@ -29,120 +26,146 @@ Future<void> main() async {
   // is required for FramesTrackingIntegration to work properly.
 
   await SentryUtil.bootstrap(() async {
-    // Initialize network preferences early (before any SharedPreferences access)
-    await NetworkPrefs.init();
-
     // Lock orientation to portrait mode
     await SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
     ]);
 
-    // Initialize logging with file output
-    await LoggingService.initialize();
-
-    // Initialize platform alarm service early to capture native events
-    // The callback is registered now so iOS notification events aren't lost
-    await PlatformAlarmService.instance.initialize();
-    PlatformAlarmService.instance.setNativeEventCallback(
-      AndroidForegroundTaskController.instance.handleNativeEvent,
-    );
-
-    final log = LoggingService.instance.withTag('usernode/Bootstrap');
-
-    // Set up Flutter framework error handler to capture build/layout errors
-    FlutterError.onError = (FlutterErrorDetails details) {
-      FlutterError.presentError(details);
-      SentryUtil.captureError(
-        details.exception,
-        details.stack ?? StackTrace.current,
-        tag: 'flutter_error',
-        context: {'library': details.library ?? 'unknown'},
-      );
-    };
-
-    // Set up handler for uncaught async errors
-    PlatformDispatcher.instance.onError = (error, stack) {
-      SentryUtil.captureError(error, stack, tag: 'uncaught_async');
-      return true;
-    };
+    final boot = await AppBootstrap.initNonUi(logTag: 'usernode/Bootstrap');
+    final log = boot.log;
 
     SentryUtil.addBreadcrumb(category: 'app', message: 'startup begin');
     log.info('App started');
-
-    // Create provider container
-    final container = ProviderContainer();
-
-    final repo = await AccountsRepository.create();
-    final hasAnyAccounts = await repo.hasAny();
-    log.info('hasAnyAccounts: $hasAnyAccounts');
-
-    // Set Sentry user context if there's an active account
-    final activeId = repo.getActiveId();
-    if (activeId != null) {
-      SentryUtil.setUser(id: activeId);
-      log.debug('Set Sentry user context for existing account: $activeId');
-    }
-
-    // Initialize metrics collector early so it has the container before UI starts
-    MetricsCollectorService.instance.initialize(container);
 
     // Render UI immediately; perform heavy bootstrap asynchronously.
     log.info('Running app UI');
 
     SentryUtil.addBreadcrumb(category: 'app', message: 'runApp');
     runApp(UncontrolledProviderScope(
-        container: container,
-        child: CryptoMobileApp(hasAccount: hasAnyAccounts)));
-    // Track lifecycle changes for breadcrumbs/diagnostics
-    AppLifecycleLogger.register();
-
-    // Kick off non-blocking bootstrap work (feature flags, backend, etc).
-    // ignore: unawaited_futures
-    _bootstrapAsync(log, container);
+        container: boot.container,
+        child: CryptoMobileApp(hasAccount: boot.hasAnyAccounts)));
   });
 }
 
-Future<void> _bootstrapAsync(
-    TaggedLogger log, ProviderContainer container) async {
+/// Headless entrypoint for background Flutter engine
+/// This is used when the app runs without UI (e.g., background services)
+/// 
+/// This function is called from native code via DartExecutor.DartEntrypoint
+/// with entrypoint name "headlessMain"
+@pragma('vm:entry-point')
+Future<void> headlessMain() async {
+  // Initialize Flutter binding manually (no Sentry in headless mode)
+  WidgetsFlutterBinding.ensureInitialized();
   try {
-    SentryUtil.addBreadcrumb(category: 'app', message: 'bootstrap begin');
-    log.info('Initializing application');
+    final boot = await AppBootstrap.initNonUi(
+      logTag: 'usernode/HeadlessBootstrap',
+    );
+    final log = boot.log;
+    final container = boot.container;
 
-    // Log environment/config for diagnostics
-    final cfg = AppConfig.instance;
-    SentryUtil.addBreadcrumb(category: 'config', message: 'env', data: {
-      'environment': cfg.environment,
-      'verboseLogging': cfg.verboseLogging,
-    });
+    log.debug('hasAnyAccounts: ${boot.hasAnyAccounts}');
 
-    // Load feature flags from assets (if provided)
-    await FeatureFlags.loadFromAssetIfAvailable();
-    if (kDebugMode) {
-      log.debug(
-          'Feature flags loaded: ${FeatureFlags.ordered.where(FeatureFlags.isEnabled).toList()}');
+    log.debug('Starting headless bootstrap');
+    
+    try {
+      // Start headless services
+      log.debug('Starting headless services...');
+      await _startHeadlessServices(container, log);
+      log.debug('Headless services started');
+    } catch (e, st) {
+      log.error('Error during headless bootstrap: $e', error: e, stackTrace: st);
+      rethrow;
     }
-
-    // Initialize FRB only; start backend only if an account exists
-    if (!RustBackendService.instance.isRunning) {
-      await RustBackendService.instance.init();
-      final started = await RustBackendService.instance.startNode();
-      log.info('Backend startNode => $started');
-      await SentryUtil.captureMessage(
-        started ? 'backend startNode: started' : 'backend startNode: skipped',
-      );
-    }
-
-    // Kick off Android foreground VRF monitoring once the node is running
-    if (Platform.isAndroid) {
-      log.info('Starting Android foreground VRF monitoring');
-      await AndroidForegroundTaskController.instance.onNodeStarted();
-    }
-
-    SentryUtil.addBreadcrumb(category: 'app', message: 'bootstrap end');
   } catch (e, st) {
-    log.error('Bootstrap failed: $e');
-    await SentryUtil.captureError(e, st, tag: 'bootstrap');
+    // Try to initialize logging if it's not already initialized
+    try {
+      await LoggingService.initialize();
+      final log = LoggingService.instance.withTag('usernode/HeadlessBootstrap');
+      log.error('Fatal error in headless main()', error: e, stackTrace: st);
+    } catch (_) {
+      // If logging fails, at least we have the print statements
+    }
+    
+    // Re-throw to let Flutter handle it
+    rethrow;
+  }
+}
+
+/// Start services that are normally started by providers in headless mode
+Future<void> _startHeadlessServices(
+    ProviderContainer container, TaggedLogger log) async {
+  try {
+    log.info('Starting headless services (metrics, lifecycle, etc.)');
+    
+    // Start metrics reporting service if enabled
+    if (AppConfig.metricsEnabled && AppConfig.metricsEndpoint.isNotEmpty) {
+      log.info('Starting metrics reporting service in headless mode', context: {
+        'endpoint': AppConfig.metricsEndpoint,
+        'interval_seconds': AppConfig.metricsCollectionIntervalSeconds,
+      });
+      await MetricsReportingService.instance.start();
+      log.info('Metrics reporting service started successfully');
+      
+      // Set wallet data callback for metrics collection
+      MetricsReportingService.instance.setWalletDataCallback(() async {
+        try {
+          final repo = await AccountsRepository.create();
+          final account = await repo.getActive();
+          if (account == null || account.address.isEmpty) {
+            return (balance: null, address: null);
+          }
+          
+          // Only fetch UTXOs if address is in UTXO format (starts with 'ut')
+          if (!account.address.startsWith('ut')) {
+            log.debug('Account address not in UTXO format, skipping balance calculation');
+            return (balance: null, address: account.address);
+          }
+          
+          // Parse address to PublicKeyHash
+          final owner = frb_types.publicKeyHashFromString(s: account.address);
+          final utxosResp = await RustBackendService.instance.listUtxosByOwner(
+            owner: owner,
+          );
+          final utxos = utxosResp?.items ?? [];
+          
+          // Calculate total balance by summing all UTXO amounts
+          BigInt totalBalance = BigInt.zero;
+          for (final ownedUtxo in utxos) {
+            try {
+              // Serialize UTXO to JSON to access its fields
+              final jsonStr = frb_types.utxoToJson(utxo: ownedUtxo.utxo);
+              final utxoData = json.decode(jsonStr) as Map<String, dynamic>;
+              
+              // Extract assets and sum their balances
+              final assetsJson = utxoData['assets'] as List<dynamic>? ?? [];
+              for (final assetJson in assetsJson) {
+                final balance = assetJson['balance'] as int;
+                totalBalance += BigInt.from(balance);
+              }
+            } catch (e) {
+              // Skip this UTXO if parsing fails
+              log.warn('Error parsing UTXO for balance: $e');
+            }
+          }
+          
+          return (balance: totalBalance, address: account.address);
+        } catch (e) {
+          log.warn('Error fetching wallet data for metrics: $e');
+          return (balance: null, address: null);
+        }
+      });
+    } else {
+      log.debug('Metrics disabled or not configured in headless mode');
+    }
+    
+    // Initialize backend lifecycle provider manually
+    container.read(backendLifecycleProvider);
+    
+    log.info('Headless services started successfully');
+  } catch (e, st) {
+    log.error('Error starting headless services: $e', error: e, stackTrace: st);
+    await SentryUtil.captureError(e, st, tag: 'headless_services');
   }
 }
 

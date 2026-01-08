@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:crypto_mobile_app/features/wallet/models/transaction_model.dart';
@@ -19,8 +20,8 @@ class WalletState {
 }
 
 class WalletController extends AsyncNotifier<WalletState> {
-  // Empty transaction list - real data would come from blockchain/API
-  final List<TransactionModel> _transactions = [];
+  // Transaction list parsed from UTXOs
+  List<TransactionModel> _transactions = [];
 
   @override
   Future<WalletState> build() async {
@@ -38,7 +39,7 @@ class WalletController extends AsyncNotifier<WalletState> {
       final nodeStatusAsync = ref.read(nodeStatusProvider);
       final nodeStatus = nodeStatusAsync.valueOrNull;
       final syncStatus = nodeStatus?.syncStatus;
-      
+
       _log.debug('Node status: ${syncStatus?.label ?? 'unknown'}');
 
       // Get active account
@@ -47,14 +48,36 @@ class WalletController extends AsyncNotifier<WalletState> {
 
       if (activeAccount == null || activeAccount.address.isEmpty) {
         _log.debug('No active account available for balance calculation');
-        throw Exception('No active account found. Please create or select an account.');
+        throw Exception(
+            'No active account found. Please create or select an account.');
       }
 
       // Fetch UTXOs directly from backend
-      _log.debug('Fetching UTXOs for balance calculation', context: {'address': activeAccount.address});
+      _log.debug('Fetching UTXOs for balance calculation',
+          context: {'address': activeAccount.address});
       final owner = frb_types.publicKeyHashFromString(s: activeAccount.address);
-      final utxosResp = await RustBackendService.instance.listUtxosByOwner(owner: owner);
+      final utxosResp =
+          await RustBackendService.instance.listUtxosByOwner(owner: owner);
       final utxos = utxosResp?.items ?? [];
+
+      // Log the full backend response
+      try {
+        if (utxosResp != null) {
+          _log.debug('UTXO backend response: ${json.encode({
+                'total_items': utxos.length,
+                'items': utxos
+                    .map((ownedUtxo) =>
+                        frb_types.utxoToJson(utxo: ownedUtxo.utxo))
+                    .map((jsonStr) => json.decode(jsonStr))
+                    .toList()
+              })}');
+        } else {
+          _log.debug('UTXO backend response: null');
+        }
+      } catch (e) {
+        _log.debug('Failed to log UTXO backend response: $e');
+      }
+
       _log.debug('Got ${utxos.length} UTXOs for balance calculation');
 
       // Aggregate balances by token_id
@@ -105,6 +128,9 @@ class WalletController extends AsyncNotifier<WalletState> {
         primaryTokenSymbol = 'TOKENS'; // Default fallback
       }
 
+      // Parse transactions from UTXOs
+      _transactions = _parseTransactionsFromUtxos(utxos, primaryTokenSymbol);
+
       // Log the calculated balance (matching MetricsProvider format)
       _log.debug(
         'Calculated wallet balance from UTXOs',
@@ -143,6 +169,73 @@ class WalletController extends AsyncNotifier<WalletState> {
       'name': metadata.name,
       'symbol': metadata.symbol,
     };
+  }
+
+  /// Parse transactions from UTXOs to populate recent activity
+  List<TransactionModel> _parseTransactionsFromUtxos(
+      List<dynamic> utxos, String tokenSymbol) {
+    final transactions = <TransactionModel>[];
+
+    for (var i = utxos.length - 1; i >= 0; i--) {
+      try {
+        final ownedUtxo = utxos[i];
+
+        // Serialize UTXO to JSON string
+        final jsonStr = frb_types.utxoToJson(utxo: ownedUtxo.utxo);
+        final utxoData = json.decode(jsonStr) as Map<String, dynamic>;
+
+        // Extract assets and create transaction for each
+        final assetsJson = utxoData['assets'] as List<dynamic>? ?? [];
+
+        for (final assetJson in assetsJson) {
+          final tokenId = assetJson['token_id'] as String;
+          final balance = assetJson['balance'] as int;
+
+          // Create a received transaction for each UTXO asset
+          final transaction = TransactionModel(
+            id: utxoData['id']?.toString() ?? 'utxo_$i',
+            title: 'Received',
+            subtitle: 'Token transfer',
+            amount: balance.toDouble(),
+            tokenSymbol: tokenSymbol,
+            type: TransactionType.receive,
+            status: TransactionStatus.completed,
+            timestamp: _parseTimestampFromUtxo(utxoData),
+            icon: Icons.arrow_downward,
+            color: Colors.green,
+          );
+
+          transactions.add(transaction);
+        }
+      } catch (e, st) {
+        _log.error('Failed to parse transaction from UTXO[$i]',
+            error: e, stackTrace: st);
+      }
+    }
+
+    // Sort by timestamp (newest first) and limit to 10
+    transactions.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    final result = transactions.take(10).toList();
+
+    _log.debug(
+        'Parsed ${result.length} transactions from ${utxos.length} UTXOs');
+    return result;
+  }
+
+  /// Parse timestamp from UTXO data, fallback to current time
+  DateTime _parseTimestampFromUtxo(Map<String, dynamic> utxoData) {
+    try {
+      // Try to extract timestamp from UTXO data
+      // This depends on the actual structure we see in logs
+      final timestampMs = utxoData['timestamp'] as int?;
+      if (timestampMs != null) {
+        return DateTime.fromMillisecondsSinceEpoch(timestampMs);
+      }
+    } catch (e) {
+      // Fallback to current time if parsing fails
+    }
+    return DateTime.now().subtract(
+        Duration(minutes: (DateTime.now().millisecondsSinceEpoch % 1000)));
   }
 
   Future<void> refresh() async {

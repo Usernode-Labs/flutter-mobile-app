@@ -26,7 +26,7 @@ class TransactionLimitsService {
   Future<void> _resetCountIfNewDay() async {
     final today = DateTime.now().toIso8601String().split('T')[0];
     final lastReset = _prefs.getString(_lastResetDateKey);
-    
+
     if (lastReset != today) {
       await _prefs.setInt(_transactionCountKey, 0);
       await _prefs.setString(_lastResetDateKey, today);

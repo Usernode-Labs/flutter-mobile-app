@@ -99,7 +99,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
         if (response != null && response.queued) {
           // Increment transaction count after successful transaction
           await _limitsService?.incrementTransactionCount();
-          
+
           await ref
               .read(recipientHistoryProvider.notifier)
               .addRecipient(recipientAddress);
@@ -340,7 +340,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
       if (number == null || (allowZero ? number < 0 : number <= 0)) {
         return 'Please enter a valid $fieldName';
       }
-      
+
       // Check amount limit for amount field
       if (fieldName == 'amount' && _limitsService != null) {
         final amountError = _limitsService!.getAmountError(number);
@@ -348,7 +348,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
           return amountError;
         }
       }
-      
+
       return null;
     };
   }

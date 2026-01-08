@@ -43,7 +43,8 @@ class TransactionModel {
 
   String get formattedAmount {
     final prefix = isPositive ? '+' : '';
-    return '$prefix${amount.toStringAsFixed(2)}';
+    final formatter = NumberFormat('#,##0', 'en_US');
+    return '$prefix${formatter.format(amount)}';
   }
 
   String get statusText {

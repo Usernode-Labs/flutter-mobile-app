@@ -7,8 +7,8 @@ import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
-import 'package:crypto_mobile_app/features/node/node_provider.dart';
-import 'package:crypto_mobile_app/features/node/produced_blocks_provider.dart';
+import 'package:crypto_mobile_app/core/providers/node_provider.dart';
+import 'package:crypto_mobile_app/core/providers/produced_blocks_provider.dart';
 import 'package:crypto_mobile_app/core/widgets/app_progress_bar.dart';
 
 // TODO use translation file to replace hard coded strings

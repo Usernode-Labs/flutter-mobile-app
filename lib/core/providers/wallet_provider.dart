@@ -3,10 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:crypto_mobile_app/features/wallet/models/transaction_model.dart';
-import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
-import 'package:crypto_mobile_app/features/wallet/token_registry.dart';
+import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
-import 'package:crypto_mobile_app/features/node/node_provider.dart';
+import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 
@@ -121,9 +120,7 @@ class WalletController extends AsyncNotifier<WalletState> {
 
       // Get primary token info (first token or default)
       if (balancesByToken.isNotEmpty) {
-        final primaryTokenId = balancesByToken.keys.first;
-        final metadata = _getTokenMetadata(primaryTokenId);
-        primaryTokenSymbol = metadata['symbol'] as String;
+        primaryTokenSymbol = 'TKN';
       } else {
         primaryTokenSymbol = 'TOKENS'; // Default fallback
       }
@@ -160,15 +157,6 @@ class WalletController extends AsyncNotifier<WalletState> {
         totalBalance: BigInt.zero,
       );
     }
-  }
-
-  /// Get token metadata (name, symbol) for a given token ID
-  Map<String, String> _getTokenMetadata(String tokenId) {
-    final metadata = TokenRegistry.instance.getMetadataOrFallback(tokenId);
-    return {
-      'name': metadata.name,
-      'symbol': metadata.symbol,
-    };
   }
 
   /// Parse transactions from UTXOs to populate recent activity

@@ -314,8 +314,41 @@ Future<dynamic> _buildProducedBlocksPreWork() async {
   // Ensure we have node status before proceeding
   final statusNode = _initialStatusNode;
   if (statusNode == null) {
+    _log.warn(
+        'Node status unavailable, trying to use genesis timestamp fallback');
+
+    // Try to use genesis timestamp as fallback
+    final genesisTimestamp =
+        await RustBackendService.instance.getGenesisTimestamp();
+    if (genesisTimestamp != null) {
+      _log.debug('Using genesis timestamp fallback: $genesisTimestamp ms');
+      _initialTimestampMs = genesisTimestamp;
+      _initialFromGenesis = true;
+
+      // Use default values for missing node status
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      const defaultSlotMs = 2000; // 2 seconds default slot duration
+      const defaultSlotsInEpoch = 30; // 30 slots per epoch default
+
+      final currentGlobalSlot = (nowMs - _initialTimestampMs) ~/ defaultSlotMs;
+      final currentEpoch = currentGlobalSlot ~/ defaultSlotsInEpoch;
+      final currentSlot = currentGlobalSlot % defaultSlotsInEpoch;
+
+      _log.debug(
+          'Using fallback values: slot=$defaultSlotMs ms, slotsInEpoch=$defaultSlotsInEpoch');
+
+      return {
+        'currentGlobalSlot': currentGlobalSlot,
+        'currentEpoch': currentEpoch,
+        'currentSlot': currentSlot,
+        'slotsInEpoch': defaultSlotsInEpoch,
+        'slotMs': defaultSlotMs,
+        'rewardsPerBlock': _rewardsPerBlock
+      };
+    }
+
     throw StateError(
-        'Cannot build produced blocks: node status unavailable. Is the backend running?');
+        'Cannot build produced blocks: node status unavailable and genesis timestamp fallback failed. Is the backend running?');
   }
 
   final nowMs = DateTime.now().millisecondsSinceEpoch;

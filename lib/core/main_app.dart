@@ -3,7 +3,6 @@ import 'package:crypto_mobile_app/features/settings/screens/background_productio
 import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/feature_flags.dart';
-import 'package:crypto_mobile_app/features/feedback/widgets/feedback_fab.dart';
 import 'package:go_router/go_router.dart';
 
 class MainApp extends StatefulWidget {
@@ -68,8 +67,6 @@ class _MainAppState extends State<MainApp> {
 
     return Scaffold(
       body: widget.child ?? screens[index],
-      floatingActionButton:
-          FeatureFlags.on('feedback') ? const FeedbackFab() : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: Container(
         decoration: BoxDecoration(

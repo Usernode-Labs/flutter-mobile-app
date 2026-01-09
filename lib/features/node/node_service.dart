@@ -11,7 +11,7 @@ import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_blockchain.da
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_slots.dart';
 import 'package:crypto_mobile_app/src/rust/rpc.dart';
-import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
+import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:crypto_mobile_app/src/rust/frb_generated.dart';
@@ -25,6 +25,7 @@ import 'package:crypto_mobile_app/core/models/backend_rpc_response.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
 
 final _log = LoggingService.instance.withTag('usernode/NodeService');
 
@@ -67,6 +68,7 @@ class RustBackendService {
   bool _nodeRunning = false;
   String? _instanceId;
   String? _cachedPeerId;
+  int? _cachedGenesisTimestamp;
 
   Node? _node;
   NodeRpcClient? _rpc;
@@ -415,9 +417,14 @@ class RustBackendService {
   Future<RpcStatusResp?> getStatus({
     bool includeVrfDetails = true,
   }) async {
-    _log.trace('getStatus called');
+    final stopwatch = Stopwatch()..start();
+    _log.debug('getStatus RPC call started (includeVrfDetails: $includeVrfDetails)');
     final r = _rpc;
-    if (r == null) return null;
+    if (r == null) {
+      stopwatch.stop();
+      _log.debug('getStatus failed: RPC client is null (${stopwatch.elapsedMilliseconds}ms)');
+      return null;
+    }
 
     // Call into FRB with defensive handling for panics / transport errors.
     RpcStatusResp? status;
@@ -425,9 +432,12 @@ class RustBackendService {
       status = await r.status(
         includeVrfDetails: includeVrfDetails,
       );
+      stopwatch.stop();
+      _log.debug('getStatus RPC completed successfully in ${stopwatch.elapsedMilliseconds}ms');
     } on PanicException catch (e, st) {
+      stopwatch.stop();
       // FRB surfaced a Rust-side panic (e.g., stdout transport failure in process mode).
-      _log.error('FRB panic during getStatus', error: e, stackTrace: st);
+      _log.error('FRB panic during getStatus after ${stopwatch.elapsedMilliseconds}ms', error: e, stackTrace: st);
       // Mark backend as not running and drop RPC handle to avoid cascading failures.
       _nodeRunning = false;
       _rpc = null;
@@ -435,8 +445,9 @@ class RustBackendService {
       // Return null gracefully so UI can keep rendering with an error message.
       return null;
     } catch (e, st) {
+      stopwatch.stop();
       // Any other error from the bridge/RPC call.
-      _log.warn('RPC getStatus failed: $e\$st');
+      _log.warn('RPC getStatus failed after ${stopwatch.elapsedMilliseconds}ms: $e\$st');
       await SentryUtil.captureError(e, st, tag: 'rpc_getStatus');
       return null;
     }
@@ -621,11 +632,14 @@ class RustBackendService {
     int? epoch,
     AccountPublicKey? blockProducer,
   }) async {
-    _log.trace(
-      'listBlockchain called with params: limit=$limit, fromTip=$fromTip, epoch=$epoch, blockProducer=$blockProducer',
-    );
+    final stopwatch = Stopwatch()..start();
+    _log.debug('listBlockchain RPC call started (limit: $limit, fromTip: $fromTip, epoch: $epoch)');
     final r = _rpc;
-    if (r == null) return null;
+    if (r == null) {
+      stopwatch.stop();
+      _log.debug('listBlockchain failed: RPC client is null (${stopwatch.elapsedMilliseconds}ms)');
+      return null;
+    }
 
     // Call into FRB with defensive handling for panics / transport errors.
     RpcListBlockchainResp? blockchain;
@@ -636,9 +650,12 @@ class RustBackendService {
         epoch: epoch,
         blockProducer: blockProducer,
       );
+      stopwatch.stop();
+      _log.debug('listBlockchain RPC completed successfully in ${stopwatch.elapsedMilliseconds}ms');
     } on PanicException catch (e, st) {
+      stopwatch.stop();
       // FRB surfaced a Rust-side panic.
-      _log.error('FRB panic during listBlockchain', error: e, stackTrace: st);
+      _log.error('FRB panic during listBlockchain after ${stopwatch.elapsedMilliseconds}ms', error: e, stackTrace: st);
       // Mark backend as not running and drop RPC handle to avoid cascading failures.
       _nodeRunning = false;
       _rpc = null;
@@ -646,8 +663,9 @@ class RustBackendService {
       // Return null gracefully so UI can keep rendering with an error message.
       return null;
     } catch (e, st) {
+      stopwatch.stop();
       // Any other error from the bridge/RPC call.
-      _log.warn('RPC listBlockchain failed: $e\$st');
+      _log.warn('RPC listBlockchain failed after ${stopwatch.elapsedMilliseconds}ms: $e\$st');
       await SentryUtil.captureError(e, st, tag: 'rpc_listBlockchain');
       return null;
     }
@@ -715,11 +733,14 @@ class RustBackendService {
     bool? idsOnly,
     TransactionHash? cursorAfter,
   }) async {
-    _log.trace(
-      'listMempool called with params: owner=${owner != null ? '[PublicKeyHash]' : 'null'}, limit=$limit, idsOnly=$idsOnly, cursorAfter=${cursorAfter != null ? '[TransactionHash]' : 'null'}',
-    );
+    final stopwatch = Stopwatch()..start();
+    _log.debug('listMempool RPC call started (limit: $limit, idsOnly: $idsOnly)');
     final r = _rpc;
-    if (r == null) return null;
+    if (r == null) {
+      stopwatch.stop();
+      _log.debug('listMempool failed: RPC client is null (${stopwatch.elapsedMilliseconds}ms)');
+      return null;
+    }
 
     // Call into FRB with defensive handling for panics / transport errors.
     RpcListMempoolResp? mempool;
@@ -730,17 +751,21 @@ class RustBackendService {
         idsOnly: idsOnly,
         cursorAfter: cursorAfter,
       );
+      stopwatch.stop();
+      _log.debug('listMempool RPC completed successfully in ${stopwatch.elapsedMilliseconds}ms');
     } on PanicException catch (e, st) {
+      stopwatch.stop();
       // FRB surfaced a Rust-side panic.
-      _log.error('FRB panic during listMempool', error: e, stackTrace: st);
+      _log.error('FRB panic during listMempool after ${stopwatch.elapsedMilliseconds}ms', error: e, stackTrace: st);
       // Mark backend as not running and drop RPC handle to avoid cascading failures.
       _nodeRunning = false;
       _rpc = null;
       // Return null gracefully so UI can keep rendering with an error message.
       return null;
     } catch (e, st) {
+      stopwatch.stop();
       // Any other error from the bridge/RPC call.
-      _log.warn('RPC listMempool failed: $e\$st');
+      _log.warn('RPC listMempool failed after ${stopwatch.elapsedMilliseconds}ms: $e\$st');
       await SentryUtil.captureError(e, st, tag: 'rpc_listMempool');
       return null;
     }
@@ -1238,11 +1263,62 @@ class RustBackendService {
     return response;
   }
 
+  /// Get genesis timestamp from genesis JSON file.
+  /// Returns cached value if available, otherwise fetches from URL.
+  Future<int?> getGenesisTimestamp() async {
+    if (_cachedGenesisTimestamp != null) {
+      return _cachedGenesisTimestamp!;
+    }
+
+    try {
+      final networkType = await _getSelectedNetwork();
+      final String genesisUrl;
+
+      switch (networkType) {
+        case NetworkType.testnet:
+          genesisUrl = AppConfig.testnetGenesisUrl;
+        case NetworkType.internal:
+          genesisUrl = AppConfig.internalGenesisUrl;
+        case NetworkType.custom:
+          genesisUrl = AppConfig.customGenesisUrl;
+      }
+
+      _log.debug('Fetching genesis timestamp from: $genesisUrl');
+
+      final response = await http.get(Uri.parse(genesisUrl));
+      if (response.statusCode != 200) {
+        _log.error('Failed to fetch genesis file: HTTP ${response.statusCode}');
+        return null;
+      }
+
+      final genesisJson = jsonDecode(response.body) as Map<String, dynamic>;
+      final timestampStr = genesisJson['timestamp'] as String?;
+
+      if (timestampStr == null) {
+        _log.error('Genesis file does not contain timestamp field');
+        return null;
+      }
+
+      // Parse ISO 8601 timestamp and convert to milliseconds
+      final timestamp = DateTime.parse(timestampStr);
+      _cachedGenesisTimestamp = timestamp.millisecondsSinceEpoch;
+
+      _log.info(
+          'Genesis timestamp cached: ${timestamp.toIso8601String()} (${_cachedGenesisTimestamp}ms)');
+      return _cachedGenesisTimestamp!;
+    } catch (e, st) {
+      _log.error('Failed to get genesis timestamp', error: e, stackTrace: st);
+      await SentryUtil.captureError(e, st, tag: 'getGenesisTimestamp');
+      return null;
+    }
+  }
+
   /// Dispose bridge resources when the app is exiting.
   void dispose() {
     // Keep FRB initialized for app lifetime to avoid double-init errors.
     _nodeRunning = false;
     _node = null;
     _rpc = null;
+    _cachedGenesisTimestamp = null;
   }
 }

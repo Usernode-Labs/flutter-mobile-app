@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:crypto_mobile_app/features/node/node_provider.dart';
+import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/features/node/screens/widgets/node_status_summary_modal.dart';
 
 /// Icon button that displays current node sync status in the app bar

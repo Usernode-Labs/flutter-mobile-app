@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:crypto_mobile_app/features/wallet/models/transaction_model.dart';
-import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
-import 'package:crypto_mobile_app/features/wallet/token_registry.dart';
+import 'package:crypto_mobile_app/features/wallet/models/transaction_item.dart' as transaction_item;
+import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
-import 'package:crypto_mobile_app/features/node/node_provider.dart';
+import 'package:crypto_mobile_app/core/providers/node_provider.dart';
+import 'package:crypto_mobile_app/core/providers/mempool_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 
@@ -26,9 +27,10 @@ class WalletController extends AsyncNotifier<WalletState> {
   @override
   Future<WalletState> build() async {
     final balance = await _calculateBalance();
+    final allTransactions = await _getAllTransactions();
     return WalletState(
       balance: balance,
-      recent: _transactions.take(10).toList(),
+      recent: allTransactions.take(10).toList(),
     );
   }
 
@@ -121,9 +123,7 @@ class WalletController extends AsyncNotifier<WalletState> {
 
       // Get primary token info (first token or default)
       if (balancesByToken.isNotEmpty) {
-        final primaryTokenId = balancesByToken.keys.first;
-        final metadata = _getTokenMetadata(primaryTokenId);
-        primaryTokenSymbol = metadata['symbol'] as String;
+        primaryTokenSymbol = 'TKN';
       } else {
         primaryTokenSymbol = 'TOKENS'; // Default fallback
       }
@@ -162,15 +162,6 @@ class WalletController extends AsyncNotifier<WalletState> {
     }
   }
 
-  /// Get token metadata (name, symbol) for a given token ID
-  Map<String, String> _getTokenMetadata(String tokenId) {
-    final metadata = TokenRegistry.instance.getMetadataOrFallback(tokenId);
-    return {
-      'name': metadata.name,
-      'symbol': metadata.symbol,
-    };
-  }
-
   /// Parse transactions from UTXOs to populate recent activity
   List<TransactionModel> _parseTransactionsFromUtxos(
       List<dynamic> utxos, String tokenSymbol) {
@@ -190,18 +181,21 @@ class WalletController extends AsyncNotifier<WalletState> {
         for (final assetJson in assetsJson) {
           final balance = assetJson['balance'] as int;
 
-          // Create a received transaction for each UTXO asset
+          // Determine if this is a block reward (exactly 20 TKN)
+          final isBlockReward = balance == 20;
+          
+          // Create a transaction for each UTXO asset
           final transaction = TransactionModel(
             id: utxoData['id']?.toString() ?? 'utxo_$i',
-            title: 'Received',
-            subtitle: 'Token transfer',
+            title: isBlockReward ? 'Block Reward' : 'Received',
+            subtitle: isBlockReward ? 'Mining reward' : 'Token transfer',
             amount: balance.toDouble(),
             tokenSymbol: tokenSymbol,
-            type: TransactionType.receive,
+            type: isBlockReward ? TransactionType.reward : TransactionType.receive,
             status: TransactionStatus.completed,
             timestamp: _parseTimestampFromUtxo(utxoData),
-            icon: Icons.arrow_downward,
-            color: Colors.green,
+            icon: isBlockReward ? Icons.star : Icons.south_west,
+            color: isBlockReward ? Colors.orange : Colors.green,
           );
 
           transactions.add(transaction);
@@ -237,14 +231,148 @@ class WalletController extends AsyncNotifier<WalletState> {
         Duration(minutes: (DateTime.now().millisecondsSinceEpoch % 1000)));
   }
 
+  /// Get all transactions (confirmed + pending) sorted by timestamp
+  Future<List<TransactionModel>> _getAllTransactions() async {
+    try {
+      // Get current user address
+      final accountsRepo = await AccountsRepository.create();
+      final activeAccount = await accountsRepo.getActive();
+      
+      if (activeAccount == null || activeAccount.address.isEmpty) {
+        _log.debug('No active account for mempool fetch');
+        return _transactions.take(10).toList();
+      }
+
+      // Get pending transactions from mempool
+      final mempoolTransactions = await _getPendingTransactions(activeAccount.address);
+      
+      // Convert mempool transactions to TransactionModel format
+      final pendingTransactionModels = mempoolTransactions
+          .map((tx) => _convertMempoolToTransactionModel(tx))
+          .toList();
+
+      // Combine confirmed and pending transactions
+      final allTransactions = <TransactionModel>[];
+      allTransactions.addAll(pendingTransactionModels);
+      allTransactions.addAll(_transactions);
+
+      // Sort by timestamp (newest first) with pending transactions prioritized
+      allTransactions.sort((a, b) {
+        // Pending transactions should come first
+        if (a.status == TransactionStatus.pending && 
+            b.status == TransactionStatus.completed) {
+          return -1;
+        }
+        if (a.status == TransactionStatus.completed && 
+            b.status == TransactionStatus.pending) {
+          return 1;
+        }
+        // Same status, sort by timestamp
+        return b.timestamp.compareTo(a.timestamp);
+      });
+
+      _log.debug(
+        'Combined transactions: ${pendingTransactionModels.length} pending + ${_transactions.length} confirmed'
+      );
+
+      return allTransactions;
+    } catch (e, st) {
+      _log.error('Failed to get all transactions', error: e, stackTrace: st);
+      // Return just confirmed transactions on error
+      return _transactions.take(10).toList();
+    }
+  }
+
+  /// Get pending transactions from mempool for current user
+  Future<List<transaction_item.TransactionItem>> _getPendingTransactions(String ownerAddress) async {
+    try {
+      final mempoolProvider = ref.read(walletMempoolProvider);
+      final mempoolSummaries = mempoolProvider.valueOrNull ?? [];
+      
+      return mempoolSummaries
+          .map((tx) => transaction_item.TransactionItem.fromMempoolTx(
+                tx: tx,
+                ownerAddress: ownerAddress,
+              ))
+          .toList();
+    } catch (e, st) {
+      _log.error('Failed to fetch pending transactions', error: e, stackTrace: st);
+      return [];
+    }
+  }
+
+  /// Convert TransactionItem (from mempool) to TransactionModel format
+  TransactionModel _convertMempoolToTransactionModel(transaction_item.TransactionItem txItem) {
+    // Determine icon and color based on transaction type
+    IconData icon;
+    Color color;
+    String title;
+    String subtitle;
+    TransactionType modelType;
+
+    switch (txItem.type) {
+      case transaction_item.TransactionType.sent:
+        icon = Icons.north_east;
+        color = Colors.red;
+        title = 'Sending';
+        subtitle = 'Transaction pending';
+        modelType = TransactionType.send;
+        break;
+      case transaction_item.TransactionType.received:
+        icon = Icons.south_west;
+        color = Colors.green;
+        title = 'Receiving';
+        subtitle = 'Transaction pending';
+        modelType = TransactionType.receive;
+        break;
+      case transaction_item.TransactionType.coinbaseReward:
+        icon = Icons.star;
+        color = Colors.orange;
+        title = 'Mining Reward';
+        subtitle = 'Pending confirmation';
+        modelType = TransactionType.reward;
+        break;
+      case transaction_item.TransactionType.genesis:
+        icon = Icons.diamond;
+        color = Colors.purple;
+        title = 'Genesis';
+        subtitle = 'Pending confirmation';
+        modelType = TransactionType.reward;
+        break;
+    }
+
+    // Calculate total amount (approximation since we may not have access to full amounts)
+    double amount = 0.0;
+    if (txItem.amounts.isNotEmpty) {
+      amount = txItem.amounts.first.amount.toDouble();
+    }
+
+    return TransactionModel(
+      id: txItem.id,
+      title: title,
+      subtitle: subtitle,
+      amount: amount,
+      tokenSymbol: 'TKN',
+      type: modelType,
+      status: TransactionStatus.pending,
+      timestamp: DateTime.now(), // Use current time for pending transactions
+      icon: icon,
+      color: color,
+    );
+  }
+
   Future<void> refresh() async {
     state = const AsyncLoading();
 
     try {
+      // Also refresh the mempool data
+      await ref.read(walletMempoolProvider.notifier).refresh();
+      
       final balance = await _calculateBalance();
+      final allTransactions = await _getAllTransactions();
       state = AsyncValue.data(WalletState(
         balance: balance,
-        recent: _transactions.take(10).toList(),
+        recent: allTransactions.take(10).toList(),
       ));
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -254,10 +382,14 @@ class WalletController extends AsyncNotifier<WalletState> {
   /// Silent refresh - updates data without showing loading spinner
   Future<void> silentRefresh() async {
     try {
+      // Silently refresh mempool data too
+      await ref.read(walletMempoolProvider.notifier).refresh();
+      
       final balance = await _calculateBalance();
+      final allTransactions = await _getAllTransactions();
       state = AsyncValue.data(WalletState(
         balance: balance,
-        recent: _transactions.take(10).toList(),
+        recent: allTransactions.take(10).toList(),
       ));
     } catch (e) {
       // Keep existing state on error during silent refresh

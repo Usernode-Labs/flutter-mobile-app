@@ -12,8 +12,8 @@ import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/services/epoch_slot_scheduler_service.dart';
 import 'package:crypto_mobile_app/core/services/ios_foreground_keepalive_service.dart';
 import 'package:crypto_mobile_app/core/data/slot_production_repository.dart';
-import 'package:crypto_mobile_app/features/node/node_provider.dart';
-import 'package:crypto_mobile_app/features/node/epoch_rewards_provider.dart';
+import 'package:crypto_mobile_app/core/providers/node_provider.dart';
+import 'package:crypto_mobile_app/core/providers/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 

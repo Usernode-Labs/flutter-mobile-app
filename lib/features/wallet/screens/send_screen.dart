@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:crypto_mobile_app/features/node/node_service.dart';
-import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
-import 'package:crypto_mobile_app/features/wallet/recipient_history_provider.dart';
+import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
+import 'package:crypto_mobile_app/core/providers/recipient_history_provider.dart';
 import 'package:crypto_mobile_app/features/wallet/transaction_limits_service.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 import 'package:crypto_mobile_app/core/config/app_router.dart';
@@ -347,6 +347,11 @@ class _SendScreenState extends ConsumerState<SendScreen> {
         if (amountError != null) {
           return amountError;
         }
+      }
+
+      // Prevent sending exactly 20 TKN (block reward amount)
+      if (fieldName == 'amount' && number == 20) {
+        return 'Cannot send exactly 20 TKN (temporary workaround / reserved for block rewards)';
       }
 
       return null;

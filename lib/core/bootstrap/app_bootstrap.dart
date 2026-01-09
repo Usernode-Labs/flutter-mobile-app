@@ -13,7 +13,7 @@ import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
-import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
+import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 
 class AppBootstrapResult {
   final ProviderContainer container;

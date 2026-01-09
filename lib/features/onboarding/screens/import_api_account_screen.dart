@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/features/onboarding/data/repositories/registration_repository.dart';
 import 'package:crypto_mobile_app/features/onboarding/data/onboarding_providers.dart';
-import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
+import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';

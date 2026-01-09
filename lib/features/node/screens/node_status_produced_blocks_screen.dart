@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/core/widgets/produced_block_card.dart';
-import 'package:crypto_mobile_app/features/node/node_data_providers.dart';
-import 'package:crypto_mobile_app/features/node/epoch_rewards_provider.dart';
-import 'package:crypto_mobile_app/features/node/node_provider.dart';
+import 'package:crypto_mobile_app/core/providers/node_data_providers.dart';
+import 'package:crypto_mobile_app/core/providers/epoch_rewards_provider.dart';
+import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 

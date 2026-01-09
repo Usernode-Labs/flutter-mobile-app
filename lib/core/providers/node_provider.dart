@@ -130,10 +130,10 @@ class NodeStatusState {
       Duration(milliseconds: blockInterval * slotsInEpoch);
 
   /// Slots per minute
-  int get slotsPerMinute => 60000 ~/ blockInterval;
+  int get slotsPerMinute => blockInterval > 0 ? 60000 ~/ blockInterval : 0;
 
   /// Slots per hour
-  int get slotsPerHour => 3600000 ~/ blockInterval;
+  int get slotsPerHour => blockInterval > 0 ? 3600000 ~/ blockInterval : 0;
 
   /// Listener auto-cancel timeout (24 slots)
   Duration get listenerAutoCancel => Duration(milliseconds: blockInterval * 24);
@@ -144,7 +144,7 @@ class NodeStatusState {
 
   /// Convert Duration to slots
   int durationToSlots(Duration duration) =>
-      duration.inMilliseconds ~/ blockInterval;
+      blockInterval > 0 ? duration.inMilliseconds ~/ blockInterval : 0;
 
   /// Dynamic epoch check interval based on progress
   static Duration getEpochCheckInterval(double epochProgress) {

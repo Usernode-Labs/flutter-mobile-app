@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
-import 'package:crypto_mobile_app/features/wallet/accounts_provider.dart';
+import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_mempool.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as rust_types;
 

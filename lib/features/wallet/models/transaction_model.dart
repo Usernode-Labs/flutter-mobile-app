@@ -73,7 +73,13 @@ class TransactionModel {
     }
   }
 
-  String get fullSubtitle => '$statusText • $timeAgo';
+  String get fullSubtitle => shortHash;
+  
+  /// Get shortened transaction hash for display
+  String get shortHash {
+    if (id.length <= 16) return id;
+    return '${id.substring(0, 8)}...${id.substring(id.length - 8)}';
+  }
 }
 
 class WalletBalance {

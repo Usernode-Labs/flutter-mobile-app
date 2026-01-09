@@ -160,15 +160,13 @@ jobs:
             main|refs/heads/main|origin/main|refs/tags/*)
               echo "env_type=PROD" >> $GITHUB_OUTPUT
               echo "track=production" >> $GITHUB_OUTPUT
-              echo "flavor=production" >> $GITHUB_OUTPUT
-              echo "aab_path=build/app/outputs/bundle/productionRelease/app-production-release.aab" >> $GITHUB_OUTPUT
+              echo "aab_path=build/app/outputs/bundle/release/app-release.aab" >> $GITHUB_OUTPUT
               echo "📦 Building for PRODUCTION ($REF)"
               ;;
             *)
               echo "env_type=NONPROD" >> $GITHUB_OUTPUT
               echo "track=internal" >> $GITHUB_OUTPUT
-              echo "flavor=internal" >> $GITHUB_OUTPUT
-              echo "aab_path=build/app/outputs/bundle/internalRelease/app-internal-release.aab" >> $GITHUB_OUTPUT
+              echo "aab_path=build/app/outputs/bundle/release/app-release.aab" >> $GITHUB_OUTPUT
               echo "📦 Building for NON-PRODUCTION ($REF)"
               ;;
           esac
@@ -357,10 +355,9 @@ jobs:
           export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$CARGO_TARGET_AARCH64_LINUX_ANDROID_CC"
           export CARGO_TARGET_AARCH64_LINUX_ANDROID_AR="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
           export CARGO_TARGET_AARCH64_LINUX_ANDROID_RANLIB="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
-          SPLIT_DEBUG_INFO_DIR="build/flutter_symbols/android/${{ steps.env_config.outputs.flavor }}-${{ steps.version.outputs.build_number }}"
+          SPLIT_DEBUG_INFO_DIR="build/flutter_symbols/android/${{ steps.env_config.outputs.env_type }}-${{ steps.version.outputs.build_number }}"
           mkdir -p "$SPLIT_DEBUG_INFO_DIR"
           CARGOKIT_ONLY_ANDROID_ARM64=1 flutter build appbundle \
-            --flavor ${{ steps.env_config.outputs.flavor }} \
             --release \
             --split-debug-info="$SPLIT_DEBUG_INFO_DIR" \
             --build-number=${{ steps.version.outputs.build_number }} \
@@ -378,7 +375,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: android-flutter-symbols-manual-${{ github.event.inputs.version }}
-          path: build/flutter_symbols/android/${{ steps.env_config.outputs.flavor }}-${{ steps.version.outputs.build_number }}
+          path: build/flutter_symbols/android/${{ steps.env_config.outputs.env_type }}-${{ steps.version.outputs.build_number }}
           retention-days: 90
 
       # FIXME(2025-12-17): Temporarily disable Play Console symbol uploads.
@@ -391,7 +388,7 @@ jobs:
       #   id: play_symbols
       #   run: |
       #     set -euo pipefail
-      #     VARIANT="${{ steps.env_config.outputs.flavor }}Release"
+      #     VARIANT="Release"
       #     MAPPING="android/app/build/outputs/mapping/$VARIANT/mapping.txt"
       #     SYMBOLS="android/app/build/outputs/native-debug-symbols/$VARIANT/native-debug-symbols.zip"
       #     if [ ! -f "$MAPPING" ]; then
@@ -467,12 +464,10 @@ jobs:
           case "$REF" in
             main|refs/heads/main|origin/main|refs/tags/*)
               echo "env_type=PROD" >> $GITHUB_OUTPUT
-              echo "flavor=production" >> $GITHUB_OUTPUT
               echo "📦 Building iOS for PRODUCTION ($REF)"
               ;;
             *)
               echo "env_type=NONPROD" >> $GITHUB_OUTPUT
-              echo "flavor=internal" >> $GITHUB_OUTPUT
               echo "📦 Building iOS for NON-PRODUCTION ($REF)"
               ;;
           esac
@@ -700,7 +695,12 @@ jobs:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
         run: |
-          bundle exec fastlane ios release flavor:${{ steps.env_config.outputs.flavor }}
+          if [ "${{ steps.env_config.outputs.env_type }}" == "PROD" ]; then
+            export BUILD_ENV=PROD
+          else
+            export BUILD_ENV=NONPROD
+          fi
+          bundle exec fastlane ios release
 
       - name: Upload IPA artifact
         if: always()

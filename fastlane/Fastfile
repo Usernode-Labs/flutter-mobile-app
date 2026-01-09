@@ -34,21 +34,22 @@ def get_current_version
   { semantic: semantic, build: build.to_i, full: version_string }
 end
 
-def get_version_string(flavor, version_info = get_current_version)
+def get_version_string(env_type = nil, version_info = get_current_version)
+  env_type ||= ENV['BUILD_ENV'] || 'PROD'
   semantic = version_info[:semantic]
   build = version_info[:build]
 
-  if flavor == 'production'
+  if env_type == 'PROD'
     semantic
   else
-    # For backward compatibility with old format
-    "#{semantic}.#{build}-#{flavor}"
+    # NONPROD builds get internal suffix
+    "#{semantic}.#{build}-internal"
   end
 end
 
-def increment_pubspec_build_number(flavor)
-  # Note: Flavor parameter accepted for backward compatibility but ignored
-  # All flavors now share the same build number
+def increment_pubspec_build_number(env_type = nil)
+  # Note: Environment parameter accepted but ignored
+  # All environments now share the same build number
   version_info = get_current_version
   new_build = version_info[:build] + 1
   new_version = "#{version_info[:semantic]}+#{new_build}"
@@ -63,14 +64,15 @@ def increment_pubspec_build_number(flavor)
   new_build
 end
 
-def next_build_info(flavor)
+def next_build_info(env_type = nil)
+  env_type ||= ENV['BUILD_ENV'] || 'PROD'
   unless ENV['CI'] == 'true'
-    increment_pubspec_build_number(flavor)
+    increment_pubspec_build_number(env_type)
   end
 
   version_info = get_current_version
   build_number = version_info[:build]
-  version_string = get_version_string(flavor, version_info)
+  version_string = get_version_string(env_type, version_info)
 
   [build_number, version_string]
 end
@@ -90,14 +92,20 @@ end
 platform :ios do
   desc "Build and upload iOS app to TestFlight"
   lane :release do |options|
-    flavor = options[:flavor] || 'production'
+    env_type = ENV['BUILD_ENV'] || 'PROD'
     scheme = options[:scheme] || 'Runner'
     configuration = options[:configuration] || 'Release'
-    default_profile = "mobile-apps"
-    provisioning_profile = options[:provisioning_profile] || default_profile
+    
+    # Environment-based provisioning profile selection
+    if env_type == 'PROD'
+      default_profile = "mobile-apps"
+    else
+      default_profile = "Usernode Internal"
+    end
+    provisioning_profile = ENV['PROVISIONING_PROFILE_NAME'] || default_profile
     team_id = ENV['APPLE_TEAM_ID'] || '785Y2C9VG2'
 
-    build_number, version_string = next_build_info(flavor)
+    build_number, version_string = next_build_info(env_type)
 
     # Update version in Xcode
     increment_build_number(
@@ -125,7 +133,7 @@ platform :ios do
       },
       xcargs: %(DEVELOPMENT_TEAM=#{team_id} CODE_SIGN_IDENTITY="iPhone Distribution"),
       output_directory: "build/ios",
-      output_name: "Usernode-#{flavor}-#{version_string}.ipa"
+      output_name: "Usernode-#{env_type}-#{version_string}.ipa"
     )
 
     # Upload to TestFlight
@@ -144,7 +152,7 @@ platform :ios do
     upload_params = {
       skip_waiting_for_build_processing: true,
       app_identifier: "org.usernode.app",
-      ipa: "build/ios/Usernode-#{flavor}-#{version_string}.ipa"
+      ipa: "build/ios/Usernode-#{env_type}-#{version_string}.ipa"
     }
 
     # Add api_key only if it's available
@@ -155,28 +163,20 @@ platform :ios do
     # Commit version bump
     commit_version_bump(
       ["pubspec.yaml"],
-      "Bump iOS #{flavor} build to #{build_number}"
+      "Bump iOS #{env_type} build to #{build_number}"
     )
   end
 
   desc "Build iOS app for internal testing"
   lane :internal do
-    release(flavor: 'internal')
-  end
-
-  desc "Build iOS app for alpha testing"
-  lane :alpha do
-    release(flavor: 'alpha')
-  end
-
-  desc "Build iOS app for beta testing"
-  lane :beta do
-    release(flavor: 'beta')
+    ENV['BUILD_ENV'] = 'NONPROD'
+    release
   end
 
   desc "Build iOS app for production"
   lane :production do
-    release(flavor: 'production')
+    ENV['BUILD_ENV'] = 'PROD'
+    release
   end
 end
 
@@ -184,16 +184,21 @@ end
 platform :android do
   desc "Build and upload Android app to Google Play"
   lane :release do |options|
-    flavor = options[:flavor] || 'production'
-    track = options[:track] || 'internal'
+    env_type = ENV['BUILD_ENV'] || 'PROD'
+    
+    # Environment-based track selection
+    if env_type == 'PROD'
+      track = options[:track] || 'production'
+    else
+      track = options[:track] || 'internal'
+    end
 
     # Increment build number (handled externally on CI)
-    build_number, version_string = next_build_info(flavor)
+    build_number, version_string = next_build_info(env_type)
 
-    # Build the app
+    # Build the app (no flavor needed)
     gradle(
       task: "bundle",
-      flavor: flavor,
       build_type: "Release",
       project_dir: "android",
       properties: {
@@ -206,7 +211,7 @@ platform :android do
     upload_to_play_store(
       track: track,
       package_name: "org.usernode.app",
-      aab: "build/app/outputs/bundle/#{flavor}Release/app-#{flavor}-release.aab",
+      aab: "build/app/outputs/bundle/release/app-release.aab",
       skip_upload_metadata: true,
       skip_upload_images: true,
       skip_upload_screenshots: true
@@ -215,27 +220,19 @@ platform :android do
     # Commit version bump
     commit_version_bump(
       ["pubspec.yaml"],
-      "Bump Android #{flavor} build to #{build_number}"
+      "Bump Android #{env_type} build to #{build_number}"
     )
   end
 
   desc "Build Android app for internal testing"
   lane :internal do
-    release(flavor: 'internal', track: 'internal')
-  end
-
-  desc "Build Android app for alpha testing"
-  lane :alpha do
-    release(flavor: 'alpha', track: 'alpha')
-  end
-
-  desc "Build Android app for beta testing"
-  lane :beta do
-    release(flavor: 'beta', track: 'beta')
+    ENV['BUILD_ENV'] = 'NONPROD'
+    release(track: 'internal')
   end
 
   desc "Build Android app for production"
   lane :production do
-    release(flavor: 'production', track: 'production')
+    ENV['BUILD_ENV'] = 'PROD'
+    release(track: 'production')
   end
 end

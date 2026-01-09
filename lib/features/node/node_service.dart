@@ -417,9 +417,14 @@ class RustBackendService {
   Future<RpcStatusResp?> getStatus({
     bool includeVrfDetails = true,
   }) async {
-    _log.trace('getStatus called');
+    final stopwatch = Stopwatch()..start();
+    _log.debug('getStatus RPC call started (includeVrfDetails: $includeVrfDetails)');
     final r = _rpc;
-    if (r == null) return null;
+    if (r == null) {
+      stopwatch.stop();
+      _log.debug('getStatus failed: RPC client is null (${stopwatch.elapsedMilliseconds}ms)');
+      return null;
+    }
 
     // Call into FRB with defensive handling for panics / transport errors.
     RpcStatusResp? status;
@@ -427,9 +432,12 @@ class RustBackendService {
       status = await r.status(
         includeVrfDetails: includeVrfDetails,
       );
+      stopwatch.stop();
+      _log.debug('getStatus RPC completed successfully in ${stopwatch.elapsedMilliseconds}ms');
     } on PanicException catch (e, st) {
+      stopwatch.stop();
       // FRB surfaced a Rust-side panic (e.g., stdout transport failure in process mode).
-      _log.error('FRB panic during getStatus', error: e, stackTrace: st);
+      _log.error('FRB panic during getStatus after ${stopwatch.elapsedMilliseconds}ms', error: e, stackTrace: st);
       // Mark backend as not running and drop RPC handle to avoid cascading failures.
       _nodeRunning = false;
       _rpc = null;
@@ -437,8 +445,9 @@ class RustBackendService {
       // Return null gracefully so UI can keep rendering with an error message.
       return null;
     } catch (e, st) {
+      stopwatch.stop();
       // Any other error from the bridge/RPC call.
-      _log.warn('RPC getStatus failed: $e\$st');
+      _log.warn('RPC getStatus failed after ${stopwatch.elapsedMilliseconds}ms: $e\$st');
       await SentryUtil.captureError(e, st, tag: 'rpc_getStatus');
       return null;
     }
@@ -623,11 +632,14 @@ class RustBackendService {
     int? epoch,
     AccountPublicKey? blockProducer,
   }) async {
-    _log.trace(
-      'listBlockchain called with params: limit=$limit, fromTip=$fromTip, epoch=$epoch, blockProducer=$blockProducer',
-    );
+    final stopwatch = Stopwatch()..start();
+    _log.debug('listBlockchain RPC call started (limit: $limit, fromTip: $fromTip, epoch: $epoch)');
     final r = _rpc;
-    if (r == null) return null;
+    if (r == null) {
+      stopwatch.stop();
+      _log.debug('listBlockchain failed: RPC client is null (${stopwatch.elapsedMilliseconds}ms)');
+      return null;
+    }
 
     // Call into FRB with defensive handling for panics / transport errors.
     RpcListBlockchainResp? blockchain;
@@ -638,9 +650,12 @@ class RustBackendService {
         epoch: epoch,
         blockProducer: blockProducer,
       );
+      stopwatch.stop();
+      _log.debug('listBlockchain RPC completed successfully in ${stopwatch.elapsedMilliseconds}ms');
     } on PanicException catch (e, st) {
+      stopwatch.stop();
       // FRB surfaced a Rust-side panic.
-      _log.error('FRB panic during listBlockchain', error: e, stackTrace: st);
+      _log.error('FRB panic during listBlockchain after ${stopwatch.elapsedMilliseconds}ms', error: e, stackTrace: st);
       // Mark backend as not running and drop RPC handle to avoid cascading failures.
       _nodeRunning = false;
       _rpc = null;
@@ -648,8 +663,9 @@ class RustBackendService {
       // Return null gracefully so UI can keep rendering with an error message.
       return null;
     } catch (e, st) {
+      stopwatch.stop();
       // Any other error from the bridge/RPC call.
-      _log.warn('RPC listBlockchain failed: $e\$st');
+      _log.warn('RPC listBlockchain failed after ${stopwatch.elapsedMilliseconds}ms: $e\$st');
       await SentryUtil.captureError(e, st, tag: 'rpc_listBlockchain');
       return null;
     }
@@ -717,11 +733,14 @@ class RustBackendService {
     bool? idsOnly,
     TransactionHash? cursorAfter,
   }) async {
-    _log.trace(
-      'listMempool called with params: owner=${owner != null ? '[PublicKeyHash]' : 'null'}, limit=$limit, idsOnly=$idsOnly, cursorAfter=${cursorAfter != null ? '[TransactionHash]' : 'null'}',
-    );
+    final stopwatch = Stopwatch()..start();
+    _log.debug('listMempool RPC call started (limit: $limit, idsOnly: $idsOnly)');
     final r = _rpc;
-    if (r == null) return null;
+    if (r == null) {
+      stopwatch.stop();
+      _log.debug('listMempool failed: RPC client is null (${stopwatch.elapsedMilliseconds}ms)');
+      return null;
+    }
 
     // Call into FRB with defensive handling for panics / transport errors.
     RpcListMempoolResp? mempool;
@@ -732,17 +751,21 @@ class RustBackendService {
         idsOnly: idsOnly,
         cursorAfter: cursorAfter,
       );
+      stopwatch.stop();
+      _log.debug('listMempool RPC completed successfully in ${stopwatch.elapsedMilliseconds}ms');
     } on PanicException catch (e, st) {
+      stopwatch.stop();
       // FRB surfaced a Rust-side panic.
-      _log.error('FRB panic during listMempool', error: e, stackTrace: st);
+      _log.error('FRB panic during listMempool after ${stopwatch.elapsedMilliseconds}ms', error: e, stackTrace: st);
       // Mark backend as not running and drop RPC handle to avoid cascading failures.
       _nodeRunning = false;
       _rpc = null;
       // Return null gracefully so UI can keep rendering with an error message.
       return null;
     } catch (e, st) {
+      stopwatch.stop();
       // Any other error from the bridge/RPC call.
-      _log.warn('RPC listMempool failed: $e\$st');
+      _log.warn('RPC listMempool failed after ${stopwatch.elapsedMilliseconds}ms: $e\$st');
       await SentryUtil.captureError(e, st, tag: 'rpc_listMempool');
       return null;
     }

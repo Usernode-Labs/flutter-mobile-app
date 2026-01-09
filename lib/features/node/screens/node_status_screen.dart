@@ -61,12 +61,12 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   @override
   void initState() {
     super.initState();
-    _log.debug('🚀 NodeStatusScreen initialized');
+    _log.debug('NodeStatusScreen initialized');
     _tabController = TabController(length: 2, vsync: this);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _log.debug(
-          '📋 Post-frame callback triggered - initializing data and starting timer');
+          'Post-frame callback triggered - initializing data and starting timer');
       _initializeData();
       // Start timer immediately after post-frame to ensure continuous refresh
       _startTimer();
@@ -75,7 +75,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
   @override
   void dispose() {
-    _log.debug('🗑️ NodeStatusScreen disposing - cancelling timer');
+    _log.debug('NodeStatusScreen disposing - cancelling timer');
     _autoTimer?.cancel();
     _tabController.dispose();
     super.dispose();
@@ -188,11 +188,14 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
           'Starting parallel provider refresh (nodeStatus, mempool, blockchain)');
       final providerRefreshStart = DateTime.now();
 
-      // Refresh all providers in parallel
-      await Future.wait([
-        ref.read(nodeStatusProvider.notifier).refresh(),
-        ref.read(nodeMempoolProvider.notifier).refresh(),
-        ref.read(nodeBlockchainProvider.notifier).refresh(),
+      // Refresh all providers in parallel with individual timing
+      final results = await Future.wait([
+        _timedProviderRefresh('nodeStatus',
+            () => ref.read(nodeStatusProvider.notifier).refresh()),
+        _timedProviderRefresh(
+            'mempool', () => ref.read(nodeMempoolProvider.notifier).refresh()),
+        _timedProviderRefresh('blockchain',
+            () => ref.read(nodeBlockchainProvider.notifier).refresh()),
       ]);
 
       final providerRefreshDuration =
@@ -280,26 +283,26 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
   void _startTimer() {
     _autoTimer?.cancel();
-    _log.debug('🔄 Starting auto refresh timer (2s interval)');
+    _log.debug('Starting auto refresh timer (2s interval)');
     _autoTimer = Timer.periodic(const Duration(seconds: 2), (_) {
       final now = DateTime.now();
       _log.debug(
-          '⏰ Timer tick at ${now.toIso8601String()} - checking conditions...');
+          'Timer tick at ${now.toIso8601String()} - checking conditions...');
       _log.debug(
-          '   mounted: $mounted, active: $_active, refreshing: $_refreshing');
+          'mounted: $mounted, active: $_active, refreshing: $_refreshing');
 
       if (mounted && _active && !_refreshing) {
-        _log.debug('✅ All conditions met - triggering auto refresh');
+        _log.debug('All conditions met - triggering auto refresh');
         _refresh();
       } else {
         _log.debug(
-            '❌ Auto refresh skipped - mounted: $mounted, active: $_active, refreshing: $_refreshing');
+            'Auto refresh skipped - mounted: $mounted, active: $_active, refreshing: $_refreshing');
       }
     });
   }
 
   void _stopTimer() {
-    _log.debug('🛑 Stopping auto refresh timer');
+    _log.debug('Stopping auto refresh timer');
     _autoTimer?.cancel();
     _autoTimer = null;
   }
@@ -313,13 +316,13 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     final shouldBeActive = currentTab == 1;
     if (shouldBeActive != _active) {
       _log.debug(
-          '📱 Tab change detected: currentTab=$currentTab, shouldBeActive=$shouldBeActive, _active=$_active');
+          'Tab change detected: currentTab=$currentTab, shouldBeActive=$shouldBeActive, _active=$_active');
       _active = shouldBeActive;
       if (shouldBeActive) {
-        _log.debug('🟢 Node status tab activated - starting timer');
+        _log.debug('Node status tab activated - starting timer');
         _startTimer();
       } else {
-        _log.debug('🔴 Node status tab deactivated - stopping timer');
+        _log.debug('Node status tab deactivated - stopping timer');
         _stopTimer();
       }
     }
@@ -534,7 +537,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                 Expanded(
                   child: _buildPhaseCard(
                     context: context,
-                    title: 'Fetch Phase',
+                    title: 'Fetch',
                     progress: fetchPct,
                     done: fetchProgress?.done ?? BigInt.zero,
                     pending: fetchProgress?.pending ?? BigInt.zero,
@@ -545,7 +548,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                 Expanded(
                   child: _buildPhaseCard(
                     context: context,
-                    title: 'Apply Phase',
+                    title: 'Apply',
                     progress: applyPct,
                     done: applyProgress?.done ?? BigInt.zero,
                     pending: applyProgress?.pending ?? BigInt.zero,
@@ -914,8 +917,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   Widget _buildEpochSubtitle() {
     final statusFromProvider = ref.read(nodeStatusProvider).value;
     final currentSlot = statusFromProvider?.currentGlobalSlot ?? 0;
-    final slotsPerEpoch = statusFromProvider?.slotsInEpoch ?? 720;
-    final slotInEpoch = currentSlot % slotsPerEpoch;
+    final slotsPerEpoch = statusFromProvider?.slotsInEpoch ?? 0;
+    final slotInEpoch = slotsPerEpoch > 0 ? currentSlot % slotsPerEpoch : 0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -930,8 +933,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   Widget _buildEpochTrailing() {
     final statusFromProvider = ref.read(nodeStatusProvider).value;
     final currentSlot = statusFromProvider?.currentGlobalSlot ?? 0;
-    final slotsPerEpoch = statusFromProvider?.slotsInEpoch ?? 720;
-    final slotInEpoch = currentSlot % slotsPerEpoch;
+    final slotsPerEpoch = statusFromProvider?.slotsInEpoch ?? 0;
+    final slotInEpoch = slotsPerEpoch > 0 ? currentSlot % slotsPerEpoch : 0;
     final progress =
         slotsPerEpoch > 0 ? (slotInEpoch / slotsPerEpoch * 100) : 0.0;
 
@@ -950,7 +953,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     if (vrf == null) return const Text('Evaluated ---');
 
     final evaluatedSlots = vrf.details?.evaluatedCurrentEpoch ?? 0;
-    final slotsPerEpoch = statusFromProvider?.slotsInEpoch ?? 720;
+    final slotsPerEpoch = statusFromProvider?.slotsInEpoch ?? 0;
     return Text('Evaluated $evaluatedSlots/$slotsPerEpoch');
   }
 
@@ -1001,19 +1004,13 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       return const Text('N/A');
     }
 
-    final height = displayBestTip.height;
-    final localSlot = displayBestTip.globalSlot % (status?.slotsInEpoch ?? 720);
-    final globalSlot = displayBestTip.globalSlot;
     final hash = displayBestTip.hash.toString();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-            'Height:$height • Epoch Slot:$localSlot • Global Slot:$globalSlot'),
-        const SizedBox(height: 2),
-        Text(
-          Utils.shortenID(hash, head: 8, tail: 8),
+          Utils.shortenID(hash, head: 10, tail: 10),
           style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
         ),
       ],
@@ -1085,14 +1082,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            'Progress: ${progress.toStringAsFixed(0)}%',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w500,
-              color: colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
             'Done: $done',
             style: theme.textTheme.bodySmall?.copyWith(
               color: colorScheme.onSurfaceVariant,
@@ -1116,6 +1105,23 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   }
 
   // ============== UTILITY METHODS ==============
+
+  Future<void> _timedProviderRefresh(
+      String providerName, Future<void> Function() refreshFunction) async {
+    final stopwatch = Stopwatch()..start();
+    try {
+      await refreshFunction();
+      stopwatch.stop();
+      _log.debug(
+          '$providerName provider refreshed in ${stopwatch.elapsedMilliseconds}ms');
+    } catch (e) {
+      stopwatch.stop();
+      _log.debug(
+          '$providerName provider failed after ${stopwatch.elapsedMilliseconds}ms: $e');
+      rethrow;
+    }
+  }
+
   String _formatLastChecked() {
     final now = DateTime.now();
     final checked = _lastChecked;

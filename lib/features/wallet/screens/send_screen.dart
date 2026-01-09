@@ -349,6 +349,11 @@ class _SendScreenState extends ConsumerState<SendScreen> {
         }
       }
 
+      // Prevent sending exactly 20 TKN (block reward amount)
+      if (fieldName == 'amount' && number == 20) {
+        return 'Cannot send exactly 20 TKN (temporary workaround / reserved for block rewards)';
+      }
+
       return null;
     };
   }

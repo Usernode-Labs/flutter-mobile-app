@@ -326,35 +326,94 @@ class _TransactionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isPending = transaction.status.toString().contains('pending');
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.secondaryContainer,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(transaction.icon, color: transaction.color),
+          Stack(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.secondaryContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(transaction.icon,
+                    color: theme.colorScheme.onSurface, size: 20),
+              ),
+              if (isPending)
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: Colors.orange,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                          color: theme.colorScheme.surface, width: 2),
+                    ),
+                    child: const Icon(
+                      Icons.schedule,
+                      color: Colors.white,
+                      size: 8,
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  transaction.title,
-                  style: theme.textTheme.bodyMedium
-                      ?.copyWith(fontWeight: FontWeight.w500),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        transaction.title,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w500,
+                          color: isPending
+                              ? theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.8)
+                              : theme.colorScheme.onSurface,
+                        ),
+                      ),
+                    ),
+                    if (isPending)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                              color: Colors.orange.withValues(alpha: 0.3)),
+                        ),
+                        child: Text(
+                          'PENDING',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: Colors.orange.shade700,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 9,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 2),
                 Text(
                   transaction.fullSubtitle,
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.secondary),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: isPending
+                        ? theme.colorScheme.secondary.withValues(alpha: 0.7)
+                        : theme.colorScheme.secondary,
+                  ),
                 ),
               ],
             ),
@@ -364,9 +423,13 @@ class _TransactionTile extends StatelessWidget {
             '${transaction.formattedAmount} ${transaction.tokenSymbol}',
             style: theme.textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w600,
-              color: transaction.isPositive
-                  ? Colors.green
-                  : theme.colorScheme.onSurface,
+              color: isPending
+                  ? (transaction.isPositive
+                      ? Colors.green.withValues(alpha: 0.7)
+                      : theme.colorScheme.onSurface.withValues(alpha: 0.7))
+                  : (transaction.isPositive
+                      ? Colors.green
+                      : theme.colorScheme.onSurface),
             ),
           ),
         ],

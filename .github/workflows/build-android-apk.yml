@@ -136,13 +136,11 @@ jobs:
         run: |
           if [ "${{ github.ref_name }}" == "main" ] || [ "${{ inputs.mobile_app_branch }}" == "main" ]; then
             echo "env_type=PROD" >> $GITHUB_OUTPUT
-            echo "flavor=production" >> $GITHUB_OUTPUT
-            echo "apk_path=build/app/outputs/flutter-apk/app-production-release.apk" >> $GITHUB_OUTPUT
+            echo "apk_path=build/app/outputs/flutter-apk/app-release.apk" >> $GITHUB_OUTPUT
             echo "📦 Building for PRODUCTION (main branch)"
           else
             echo "env_type=NONPROD" >> $GITHUB_OUTPUT
-            echo "flavor=internal" >> $GITHUB_OUTPUT
-            echo "apk_path=build/app/outputs/flutter-apk/app-internal-release.apk" >> $GITHUB_OUTPUT
+            echo "apk_path=build/app/outputs/flutter-apk/app-release.apk" >> $GITHUB_OUTPUT
             echo "📦 Building for NON-PRODUCTION (develop/other branch)"
           fi
 
@@ -298,10 +296,9 @@ jobs:
           export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$CARGO_TARGET_AARCH64_LINUX_ANDROID_CC"
           export CARGO_TARGET_AARCH64_LINUX_ANDROID_AR="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
           export CARGO_TARGET_AARCH64_LINUX_ANDROID_RANLIB="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
-          SPLIT_DEBUG_INFO_DIR="build/flutter_symbols/android/${{ steps.env_config.outputs.flavor }}-${{ steps.version.outputs.build_number }}"
+          SPLIT_DEBUG_INFO_DIR="build/flutter_symbols/android/${{ steps.env_config.outputs.env_type }}-${{ steps.version.outputs.build_number }}"
           mkdir -p "$SPLIT_DEBUG_INFO_DIR"
           CARGOKIT_ONLY_ANDROID_ARM64=1 flutter build apk \
-            --flavor ${{ steps.env_config.outputs.flavor }} \
             --release \
             --split-debug-info="$SPLIT_DEBUG_INFO_DIR" \
             --build-number=${{ steps.version.outputs.build_number }} \
@@ -311,15 +308,15 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: android-apk-${{ steps.env_config.outputs.flavor }}-${{ steps.version.outputs.build_number }}
+          name: android-apk-${{ steps.env_config.outputs.env_type }}-${{ steps.version.outputs.build_number }}
           path: ${{ steps.env_config.outputs.apk_path }}
           retention-days: 90
 
       - name: Upload Flutter split debug info (Dart/AOT)
         uses: actions/upload-artifact@v4
         with:
-          name: android-flutter-symbols-${{ steps.env_config.outputs.flavor }}-${{ steps.version.outputs.build_number }}
-          path: build/flutter_symbols/android/${{ steps.env_config.outputs.flavor }}-${{ steps.version.outputs.build_number }}
+          name: android-flutter-symbols-${{ steps.env_config.outputs.env_type }}-${{ steps.version.outputs.build_number }}
+          path: build/flutter_symbols/android/${{ steps.env_config.outputs.env_type }}-${{ steps.version.outputs.build_number }}
           retention-days: 90
 
       - name: Build summary
@@ -329,12 +326,12 @@ jobs:
           echo "### Build Details" >> $GITHUB_STEP_SUMMARY
           echo "- **Version:** ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Build Number:** ${{ steps.version.outputs.build_number }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Flavor:** ${{ steps.env_config.outputs.flavor }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment:** ${{ steps.env_config.outputs.env_type }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment:** ${{ steps.env_config.outputs.env_type }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Usernode Branch:** ${{ inputs.usernode_branch || 'main' }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Mobile App Branch:** ${{ inputs.mobile_app_branch || github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📥 Download APK" >> $GITHUB_STEP_SUMMARY
-          echo "The APK file is available as an artifact named: **android-apk-${{ steps.env_config.outputs.flavor }}-${{ steps.version.outputs.build_number }}**" >> $GITHUB_STEP_SUMMARY
+          echo "The APK file is available as an artifact named: **android-apk-${{ steps.env_config.outputs.env_type }}-${{ steps.version.outputs.build_number }}**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "You can download it from the [Actions tab](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) of this workflow run." >> $GITHUB_STEP_SUMMARY

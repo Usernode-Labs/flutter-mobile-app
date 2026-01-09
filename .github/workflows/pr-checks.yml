@@ -330,7 +330,6 @@ jobs:
           export CARGO_TARGET_AARCH64_LINUX_ANDROID_RANLIB="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
           CARGOKIT_ONLY_ANDROID_ARM64=1 flutter build apk \
             --debug \
-            --flavor internal \
             --dart-define-from-file=.env
 
   build-ios:

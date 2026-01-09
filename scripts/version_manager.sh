@@ -72,16 +72,21 @@ get_build_number_only() {
 # For backward compatibility with old script interface
 # Ignores flavor parameter since we now have single build number
 get_version() {
-    local flavor=$1
+    local env_type="${1:-PROD}"
+    # Support legacy flavor parameters for backward compatibility
+    case "$env_type" in
+        production) env_type="PROD" ;;
+        internal|alpha|beta) env_type="NONPROD" ;;
+    esac
+    
     local semantic_version=$(get_semantic_version)
     local build_number=$(get_build_number_only)
 
-    if [ "$flavor" == "production" ]; then
+    if [ "$env_type" == "PROD" ]; then
         echo "${semantic_version}"
     else
-        # For non-production flavors, append build number and flavor suffix
-        # This maintains backward compatibility with old format
-        echo "${semantic_version}.${build_number}-${flavor}"
+        # For NONPROD builds, append build number and internal suffix
+        echo "${semantic_version}.${build_number}-internal"
     fi
 }
 
@@ -199,27 +204,29 @@ display_version_info() {
     print_info "Build Number: ${build_number}"
     print_info "Full Version String: ${full_version}"
     print_info ""
-    print_info "Format Compatibility:"
+    print_info "Environment Versions:"
+    echo "  - PROD:        $(get_version PROD)"
+    echo "  - NONPROD:     $(get_version NONPROD)"
+    print_info ""
+    print_info "Legacy Format Compatibility:"
     echo "  - Production:  $(get_version production)"
     echo "  - Internal:    $(get_version internal)"
-    echo "  - Alpha:       $(get_version alpha)"
-    echo "  - Beta:        $(get_version beta)"
-    print_warning "Note: All flavors now share the same build number"
+    print_warning "Note: All environments now share the same build number"
 }
 
 # Main command handling
 case "${1:-}" in
     get)
-        flavor="${2:-production}"
-        get_version "$flavor"
+        env_type="${2:-PROD}"
+        get_version "$env_type"
         ;;
     get-build)
-        flavor="${2:-production}"
-        get_build_number "$flavor"
+        env_type="${2:-PROD}"  # Parameter ignored for compatibility
+        get_build_number "$env_type"
         ;;
     increment)
-        flavor="${2:-production}"
-        increment_build "$flavor"
+        env_type="${2:-PROD}"  # Parameter ignored for compatibility
+        increment_build "$env_type"
         ;;
     set-build)
         new_build="${2:-}"
@@ -240,7 +247,7 @@ case "${1:-}" in
         echo "Usage: $0 {get|get-build|increment|set-build|bump|info} [args]"
         echo ""
         echo "Commands:"
-        echo "  get [flavor]           - Get version string for flavor (default: production)"
+        echo "  get [env]              - Get version string for environment (PROD/NONPROD, default: PROD)"
         echo "  get-build [flavor]     - Get build number (flavor parameter ignored)"
         echo "  increment [flavor]     - Increment build number (flavor parameter ignored)"
         echo "  set-build <number>     - Force build number to a specific value"

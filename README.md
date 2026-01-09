@@ -967,20 +967,23 @@ flutter run
 
 #### Release Build
 
-**Understanding Flavors:**
+**Understanding Build Environments:**
 
-The app supports two build flavors for different environments:
+The app supports environment-based builds determined by branch and environment variables:
 
-- **production**: For production releases (Play Store, App Store)
-- **internal**: For internal testing (TestFlight internal track, Play Store internal track)
+- **PROD**: For production releases (Play Store, App Store) - triggered by `main` branch
+- **NONPROD**: For testing and development - triggered by other branches (develop, feature branches)
 
 **Version Management:**
 
 The project uses `scripts/version_manager.sh` to manage version numbers and build numbers:
 
 ```bash
-# Get current version
-./scripts/version_manager.sh get production
+# Get current version for PROD environment
+./scripts/version_manager.sh get PROD
+
+# Get current version for NONPROD environment  
+./scripts/version_manager.sh get NONPROD
 
 # Set build number (typically done in CI)
 ./scripts/version_manager.sh set-build 1234
@@ -992,27 +995,22 @@ The project uses `scripts/version_manager.sh` to manage version numbers and buil
 **Android Release Builds:**
 
 ```bash
-# Build for production flavor (main/release builds)
+# Build app bundle (environment determined by .env file configuration)
 flutter build appbundle \
-  --flavor production \
   --release \
   --dart-define-from-file=.env
 
-# Build for internal flavor (testing/develop builds)
-flutter build appbundle \
-  --flavor internal \
-  --release \
-  --dart-define-from-file=.env
+# The build environment (PROD/NONPROD) is controlled by:
+# - Branch: main = PROD, others = NONPROD (in CI/CD)  
+# - Environment variables in .env file (for local builds)
 
-# Build APK for testing (production flavor)
+# Build APK for testing
 flutter build apk \
-  --flavor production \
   --release \
   --dart-define-from-file=.env
 
 # Optimize build for ARM64 only (faster, matches CI)
 CARGOKIT_ONLY_ANDROID_ARM64=1 flutter build appbundle \
-  --flavor production \
   --release \
   --dart-define-from-file=.env
 ```
@@ -1028,7 +1026,8 @@ flutter build ios \
 
 # Build IPA using Fastlane (recommended for App Store)
 cd ios
-bundle exec fastlane ios release flavor:production
+# Environment is determined by BUILD_ENV variable or branch in CI
+bundle exec fastlane ios release
 cd ..
 
 # Or build IPA directly (if not using Fastlane)
@@ -1224,13 +1223,13 @@ The GitHub Actions workflow automatically selects the correct environment based 
 ```yaml
 # main branch
 → Uses PROD_* secrets
-→ Builds with --flavor production
+→ Builds for PROD environment
 → Deploys to Google Play production track
 → Tags release as v{VERSION}
 
-# develop branch
+# develop/other branches
 → Uses NONPROD_* secrets
-→ Builds with --flavor internal
+→ Builds for NONPROD environment
 → Deploys to Google Play internal track
 → Tags build as ci-v{VERSION}-run{RUN_NUMBER}
 ```
@@ -2271,36 +2270,29 @@ version: 0.1.2+17 # format: MAJOR.MINOR.PATCH+BUILD_NUMBER
 
 #### 1. Prepare Release Build
 
-**Production flavor (for Play Store):**
+**Release Build (environment determined by .env configuration):**
 
 ```bash
-# Generate App Bundle with production flavor (recommended)
+# Generate App Bundle (recommended for Play Store)
 flutter build appbundle \
-  --flavor production \
   --release \
   --dart-define-from-file=.env
 
 # Or generate APK (for testing)
 flutter build apk \
-  --flavor production \
   --release \
   --dart-define-from-file=.env
 
 # Optimize for ARM64 only (faster builds, matches CI)
 CARGOKIT_ONLY_ANDROID_ARM64=1 flutter build appbundle \
-  --flavor production \
   --release \
   --dart-define-from-file=.env
 ```
 
-**Internal flavor (for testing):**
-
-```bash
-flutter build appbundle \
-  --flavor internal \
-  --release \
-  --dart-define-from-file=.env
-```
+**Environment Configuration:**
+- PROD/NONPROD behavior is controlled by environment variables in `.env` file
+- In CI/CD: main branch = PROD, other branches = NONPROD
+- App name and version suffixes are determined automatically
 
 #### 2. Sign APK/AAB
 
@@ -2422,7 +2414,7 @@ flutter build ios \
 
 # Use Fastlane to archive, sign, and upload
 cd ios
-bundle exec fastlane ios release flavor:production
+bundle exec fastlane ios release
 cd ..
 ```
 
@@ -2491,12 +2483,12 @@ Before releasing:
 - [ ] Test on physical devices (both iOS and Android)
 - [ ] Verify background production works end-to-end
 - [ ] Test slot monitoring and notifications
-- [ ] Test with production flavor: `flutter run --flavor production`
-- [ ] Test with internal flavor: `flutter run --flavor internal`
+- [ ] Test with PROD environment: `flutter run --dart-define-from-file=.env` (with PROD config)
+- [ ] Test with NONPROD environment: `flutter run --dart-define-from-file=.env` (with NONPROD config)
 
 **Build Verification:**
 
-- [ ] Build Android production: `flutter build appbundle --flavor production --release --dart-define-from-file=.env`
+- [ ] Build Android release: `flutter build appbundle --release --dart-define-from-file=.env`
 - [ ] Build iOS release: `flutter build ios --release --no-codesign --dart-define-from-file=.env`
 - [ ] Verify proper code signing (Android keystore, iOS certificates)
 - [ ] Verify proper obfuscation if needed

@@ -188,7 +188,6 @@ class WalletController extends AsyncNotifier<WalletState> {
         final assetsJson = utxoData['assets'] as List<dynamic>? ?? [];
 
         for (final assetJson in assetsJson) {
-          final tokenId = assetJson['token_id'] as String;
           final balance = assetJson['balance'] as int;
 
           // Create a received transaction for each UTXO asset
@@ -260,7 +259,7 @@ class WalletController extends AsyncNotifier<WalletState> {
         balance: balance,
         recent: _transactions.take(10).toList(),
       ));
-    } catch (e, st) {
+    } catch (e) {
       // Keep existing state on error during silent refresh
       _log.debug('Silent refresh failed: $e');
     }

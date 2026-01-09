@@ -44,7 +44,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   List<RpcPeerInfo> _peers = const [];
   int? _bestTipGlobalSlot;
 
-  DateTime? _lastChecked;
+  DateTime _lastChecked = DateTime.now();
   String? _deviceId;
   String? _chainId;
   String? _chainName;
@@ -61,14 +61,21 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   @override
   void initState() {
     super.initState();
+    _log.debug('🚀 NodeStatusScreen initialized');
     _tabController = TabController(length: 2, vsync: this);
 
-    WidgetsBinding.instance.addPostFrameCallback((_) => _initializeData());
-    _startTimer();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _log.debug(
+          '📋 Post-frame callback triggered - initializing data and starting timer');
+      _initializeData();
+      // Start timer immediately after post-frame to ensure continuous refresh
+      _startTimer();
+    });
   }
 
   @override
   void dispose() {
+    _log.debug('🗑️ NodeStatusScreen disposing - cancelling timer');
     _autoTimer?.cancel();
     _tabController.dispose();
     super.dispose();
@@ -161,13 +168,26 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   // ============== REFRESH LOGIC ==============
 
   Future<void> _refresh() async {
-    if (!mounted) return;
+    final refreshStartTime = DateTime.now();
+    _log.debug('=== REFRESH START ===');
+    _log.debug('Refresh triggered at ${refreshStartTime.toIso8601String()}');
+
+    if (!mounted) {
+      _log.debug('Widget not mounted, skipping refresh');
+      return;
+    }
+
+    _log.debug('Setting refreshing=true and clearing error');
     setState(() {
       _refreshing = true;
       _error = null;
     });
 
     try {
+      _log.debug(
+          'Starting parallel provider refresh (nodeStatus, mempool, blockchain)');
+      final providerRefreshStart = DateTime.now();
+
       // Refresh all providers in parallel
       await Future.wait([
         ref.read(nodeStatusProvider.notifier).refresh(),
@@ -175,9 +195,23 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
         ref.read(nodeBlockchainProvider.notifier).refresh(),
       ]);
 
-      await _loadChainMetadata();
+      final providerRefreshDuration =
+          DateTime.now().difference(providerRefreshStart);
+      _log.debug(
+          'Provider refresh completed in ${providerRefreshDuration.inMilliseconds}ms');
 
-      if (!mounted) return;
+      _log.debug('Loading chain metadata');
+      final chainMetadataStart = DateTime.now();
+      await _loadChainMetadata();
+      final chainMetadataDuration =
+          DateTime.now().difference(chainMetadataStart);
+      _log.debug(
+          'Chain metadata loaded in ${chainMetadataDuration.inMilliseconds}ms');
+
+      if (!mounted) {
+        _log.debug('Widget unmounted during refresh, aborting');
+        return;
+      }
 
       final status = ref.read(nodeStatusProvider).value;
       if (status != null) {
@@ -185,20 +219,60 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
         final networkBestTip = status.networkBest;
         final displayBestTip = networkBestTip ?? localBestTip;
 
+        _log.debug(
+            'Status data received - updating state with peers: ${status.peers.length}, bestTip: ${displayBestTip?.globalSlot}');
         setState(() {
           _peers = status.peers;
           _bestTipGlobalSlot = displayBestTip?.globalSlot;
           _lastChecked = DateTime.now();
         });
+        _log.debug('State updated successfully');
+      } else {
+        _log.debug(
+            'Status is null (connecting state) - updating only last checked');
+        // Even if status is null (connecting state), update last checked
+        if (mounted) {
+          setState(() {
+            _lastChecked = DateTime.now();
+          });
+        }
       }
     } on StateError catch (e, st) {
-      _log.debug('Skipped refresh on disposed node screen');
-      _log.debug('StateError during refresh: $e\n$st');
+      _log.debug('StateError during refresh: $e');
+      _log.debug('StateError stackTrace: $st');
+      // Update last checked even on StateError
+      if (mounted) {
+        _log.debug('Updating last checked after StateError');
+        setState(() {
+          _lastChecked = DateTime.now();
+        });
+      }
     } catch (e, st) {
-      _log.error('Refresh failed', error: e, stackTrace: st);
-      if (mounted) setState(() => _error = e.toString());
+      _log.error('Refresh failed with error: $e', error: e, stackTrace: st);
+      if (mounted) {
+        _log.debug('Setting error state and updating last checked');
+        setState(() {
+          _error = e.toString();
+          _lastChecked = DateTime.now(); // Update last checked even on error
+        });
+      }
     } finally {
-      if (mounted) setState(() => _refreshing = false);
+      // Always update _lastChecked and rebuild UI, even if no data changed
+      if (mounted) {
+        final finalUpdateTime = DateTime.now();
+        _log.debug(
+            'Final update - setting refreshing=false and updating last checked to ${finalUpdateTime.toIso8601String()}');
+        setState(() {
+          _refreshing = false;
+          _lastChecked = finalUpdateTime;
+        });
+
+        final totalDuration = finalUpdateTime.difference(refreshStartTime);
+        _log.debug(
+            '=== REFRESH COMPLETE === Total duration: ${totalDuration.inMilliseconds}ms');
+      } else {
+        _log.debug('Widget unmounted in finally block');
+      }
     }
   }
 
@@ -206,12 +280,26 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
   void _startTimer() {
     _autoTimer?.cancel();
+    _log.debug('🔄 Starting auto refresh timer (2s interval)');
     _autoTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-      if (mounted && _active && !_refreshing) _refresh();
+      final now = DateTime.now();
+      _log.debug(
+          '⏰ Timer tick at ${now.toIso8601String()} - checking conditions...');
+      _log.debug(
+          '   mounted: $mounted, active: $_active, refreshing: $_refreshing');
+
+      if (mounted && _active && !_refreshing) {
+        _log.debug('✅ All conditions met - triggering auto refresh');
+        _refresh();
+      } else {
+        _log.debug(
+            '❌ Auto refresh skipped - mounted: $mounted, active: $_active, refreshing: $_refreshing');
+      }
     });
   }
 
   void _stopTimer() {
+    _log.debug('🛑 Stopping auto refresh timer');
     _autoTimer?.cancel();
     _autoTimer = null;
   }
@@ -224,8 +312,16 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     final currentTab = ref.watch(currentHomeTabProvider);
     final shouldBeActive = currentTab == 1;
     if (shouldBeActive != _active) {
+      _log.debug(
+          '📱 Tab change detected: currentTab=$currentTab, shouldBeActive=$shouldBeActive, _active=$_active');
       _active = shouldBeActive;
-      shouldBeActive ? _startTimer() : _stopTimer();
+      if (shouldBeActive) {
+        _log.debug('🟢 Node status tab activated - starting timer');
+        _startTimer();
+      } else {
+        _log.debug('🔴 Node status tab deactivated - stopping timer');
+        _stopTimer();
+      }
     }
 
     final theme = Theme.of(context);
@@ -337,7 +433,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             ],
           ),
         ],
-        if (_lastChecked != null) ...[
+        ...[
           Align(
             alignment: Alignment.center,
             child: Text(
@@ -372,16 +468,28 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     final statusFromProvider = ref.read(nodeStatusProvider).value;
 
     final sync = statusFromProvider?.syncStatus;
-    final syncPercentage = sync?.progress ?? 0.0;
-    final localHeight = sync?.localHeight ?? 0;
-    final networkHeight = sync?.networkHeight ?? localHeight;
-    final progressPercent = (syncPercentage * 100).round();
+    final isNodeSynced = sync?.isSynced == true;
 
-    // Get fetch and apply progress percentages
+    // Get fetch and apply progress percentages and counts
     final fetchProgress = statusFromProvider?.fetchProgress;
     final applyProgress = statusFromProvider?.applyProgress;
-    final (fetchPct, _) = _calculateProgress(fetchProgress);
-    final (applyPct, _) = _calculateProgress(applyProgress);
+    final (fetchPct, fetchCounts) = _calculateProgress(fetchProgress);
+    final (applyPct, applyCounts) = _calculateProgress(applyProgress);
+
+    // Use applied blocks progress for main progress bar when syncing
+    final mainProgress =
+        sync?.isSyncing == true ? (applyPct / 100.0) : (sync?.progress ?? 0.0);
+    final progressPercent = (mainProgress * 100).round();
+
+    // For display: use node/chain height when synced, applied blocks when syncing
+    final displayCurrentBlocks = isNodeSynced
+        ? (sync?.localHeight ?? 0)
+        : (applyProgress?.done ?? BigInt.zero);
+    final displayTotalBlocks = isNodeSynced
+        ? (sync?.networkHeight ?? sync?.localHeight ?? 0)
+        : ((applyProgress?.idle ?? BigInt.zero) +
+            (applyProgress?.pending ?? BigInt.zero) +
+            (applyProgress?.done ?? BigInt.zero));
 
     return Container(
       decoration: BoxDecoration(
@@ -399,9 +507,11 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Block $localHeight / $networkHeight',
+                isNodeSynced
+                    ? 'Synced Blocks $displayCurrentBlocks/$displayTotalBlocks'
+                    : 'Syncing Blocks $displayCurrentBlocks/$displayTotalBlocks',
                 style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w600),
+                    ?.copyWith(fontWeight: FontWeight.w500),
               ),
               Text(
                 '$progressPercent%',
@@ -412,28 +522,39 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
           ),
           const SizedBox(height: 12),
           AppProgressBar(
-            value: syncPercentage,
+            value: mainProgress,
             backgroundColor: colorScheme.surfaceContainerHighest,
             valueColor: colorScheme.primary,
             height: 8,
           ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisSize: MainAxisSize.max,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Fetched blocks: ${fetchPct.toStringAsFixed(0)}%',
-                style: theme.textTheme.bodyMedium
-                    ?.copyWith(color: colorScheme.onSurfaceVariant),
-              ),
-              Text(
-                'Applied blocks: ${applyPct.toStringAsFixed(0)}%',
-                style: theme.textTheme.bodyMedium
-                    ?.copyWith(color: colorScheme.onSurfaceVariant),
-              ),
-            ],
-          )
+          if (sync?.isSyncing == true) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildPhaseCard(
+                    context: context,
+                    title: 'Fetch Phase',
+                    progress: fetchPct,
+                    done: fetchProgress?.done ?? BigInt.zero,
+                    pending: fetchProgress?.pending ?? BigInt.zero,
+                    idle: fetchProgress?.idle ?? BigInt.zero,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildPhaseCard(
+                    context: context,
+                    title: 'Apply Phase',
+                    progress: applyPct,
+                    done: applyProgress?.done ?? BigInt.zero,
+                    pending: applyProgress?.pending ?? BigInt.zero,
+                    idle: applyProgress?.idle ?? BigInt.zero,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -796,14 +917,12 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     final slotsPerEpoch = statusFromProvider?.slotsInEpoch ?? 720;
     final slotInEpoch = currentSlot % slotsPerEpoch;
 
-    final bestTipGlobalSlot = statusFromProvider?.globalSlot ?? currentSlot;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Slot $slotInEpoch/$slotsPerEpoch'),
+        Text('Epoch Slot:$slotInEpoch/$slotsPerEpoch'),
         const SizedBox(height: 2),
-        Text('Global slot $currentSlot / $bestTipGlobalSlot'),
+        Text('Global slot:$currentSlot'),
       ],
     );
   }
@@ -890,7 +1009,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Height: $height / Slot: $localSlot / Global Slot: $globalSlot'),
+        Text(
+            'Height:$height • Epoch Slot:$localSlot • Global Slot:$globalSlot'),
         const SizedBox(height: 2),
         Text(
           Utils.shortenID(hash, head: 8, tail: 8),
@@ -932,12 +1052,73 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     );
   }
 
+  Widget _buildPhaseCard({
+    required BuildContext context,
+    required String title,
+    required double progress,
+    required BigInt done,
+    required BigInt pending,
+    required BigInt idle,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: colorScheme.outline.withValues(alpha: 0.1),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: theme.textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Progress: ${progress.toStringAsFixed(0)}%',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w500,
+              color: colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Done: $done',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          Text(
+            'Pending: $pending',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          Text(
+            'Idle: $idle',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ============== UTILITY METHODS ==============
   String _formatLastChecked() {
-    if (_lastChecked == null) return '';
-
     final now = DateTime.now();
-    final checked = _lastChecked!;
+    final checked = _lastChecked;
     final timeStr =
         '${checked.hour.toString().padLeft(2, '0')}:${checked.minute.toString().padLeft(2, '0')}:${checked.second.toString().padLeft(2, '0')}';
 

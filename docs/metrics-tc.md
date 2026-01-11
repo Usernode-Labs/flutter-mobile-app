@@ -127,7 +127,7 @@ For each metric submission, data about connected peers is also collected:
 | `ACCESS_NETWORK_STATE`         | Detect connectivity                   |
 | `POST_NOTIFICATIONS`           | Slot production alerts                |
 | `SCHEDULE_EXACT_ALARM`         | Precise wake-up for block production  |
-| `USE_EXACT_ALARM`              | Alternative alarm API                 |
+| ~~`USE_EXACT_ALARM`~~          | ~~Alternative alarm API~~ (removed for Google Play compliance) |
 | `WAKE_LOCK`                    | Prevent sleep during block production |
 | `RECEIVE_BOOT_COMPLETED`       | Reschedule alarms after reboot        |
 | `FOREGROUND_SERVICE`           | Background block monitoring           |

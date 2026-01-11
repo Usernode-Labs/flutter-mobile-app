@@ -38,7 +38,7 @@ flowchart TB
 
     subgraph Android["Android Native - Kotlin"]
         ChannelHandler["AlarmMethodChannelHandler<br/>scheduleExactAlarm / startForegroundService / cancelAlarm<br/>startPersistentForegroundSvc / stopPersistentForegroundSvc<br/>isPersistentForegroundRunning"]
-        AlarmScheduler["AlarmScheduler<br/>Exact alarms<br/>setExactAndAllowWhileIdle()"]
+        AlarmScheduler["AlarmScheduler<br/>Alarm Clock API<br/>setAlarmClock()"]
         SlotService["SlotMonitoringService<br/>ACTION_START_MONITORING<br/>ACTION_STOP_MONITORING<br/>ACTION_START_PERSISTENT<br/>ACTION_STOP_PERSISTENT"]
         AlarmReceiver["AlarmReceiver<br/>SLOT_ALARM<br/>BOOT_COMPLETED"]
     end
@@ -73,7 +73,7 @@ flowchart TB
     end
 
     subgraph Step3["3. Alarm Scheduling"]
-        C1["PlatformAlarmService.scheduleAlarm()"] --> C2["AlarmManager.setExactAndAllowWhileIdle()"]
+        C1["PlatformAlarmService.scheduleAlarm()"] --> C2["AlarmManager.setAlarmClock()"]
         C2 --> C3["Save alarm ID to SharedPreferences"]
     end
 
@@ -111,7 +111,7 @@ sequenceDiagram
 
     F->>H: scheduleExactAlarm()
     H->>S: scheduleExactAlarm()
-    S->>M: setExactAndAllowWhileIdle()
+    S->>M: setAlarmClock()
     M-->>S:
     S-->>H:
     H-->>F: success
@@ -279,7 +279,7 @@ sequenceDiagram
 <uses-permission android:name="android.permission.WAKE_LOCK" />
 <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-<uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+<!-- USE_EXACT_ALARM removed - using SET_ALARM_CLOCK API instead for Google Play compliance -->
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 ```

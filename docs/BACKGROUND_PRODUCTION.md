@@ -114,8 +114,9 @@ This adaptive approach maximizes battery life while ensuring reliable wake-ups.
    - Stops foreground service when no imminent slots
 
 2. **AlarmScheduler** (`AlarmScheduler.kt`)
-   - Uses `setExactAndAllowWhileIdle()` for precise timing
-   - Bypasses Doze mode restrictions
+   - Uses `setAlarmClock()` for precise timing (Google Play compliant)
+   - Highest priority alarms, visible in system clock app
+   - Automatically bypasses battery optimization and Doze mode
    - Persists alarms in SharedPreferences
 
 3. **AlarmReceiver** (`AlarmReceiver.kt`)

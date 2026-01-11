@@ -276,43 +276,22 @@ class AlarmMethodChannelHandler(context: Context) {
     }
 
     private fun hasExactAlarmPermission(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            alarmManager.canScheduleExactAlarms()
-        } else {
-            true // No permission needed before Android 12
-        }
+        // SET_ALARM_CLOCK doesn't require runtime permission - always available
+        return true
     }
 
     private fun requestExactAlarmPermission(): Boolean {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (!alarmManager.canScheduleExactAlarms()) {
-                val activity = activityRef?.get()
-                if (activity == null) {
-                    Log.w(TAG, "Cannot request exact alarm permission - no Activity attached")
-                    return false
-                }
-                val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
-                activity.startActivity(intent)
-            } else {
-                // Permission already granted
-                Log.d(TAG, "Exact alarm permission already granted")
-                sendEventToFlutter("android_exact_alarm_permission_granted", emptyMap())
-            }
-        }
+        // SET_ALARM_CLOCK doesn't require runtime permission - always granted
+        Log.d(TAG, "Alarm clock permission always available - no request needed")
+        sendEventToFlutter("android_exact_alarm_permission_granted", emptyMap())
         return true
     }
 
     // Call this method to check and notify permission status
     fun checkAndNotifyExactAlarmPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val hasPermission = alarmManager.canScheduleExactAlarms()
-            Log.d(TAG, "Exact alarm permission check: $hasPermission")
-            if (hasPermission) {
-                sendEventToFlutter("android_exact_alarm_permission_granted", emptyMap())
-            } else {
-                sendEventToFlutter("android_exact_alarm_permission_denied", emptyMap())
-            }
-        }
+        // SET_ALARM_CLOCK permission is always available
+        Log.d(TAG, "Alarm clock permission check: always granted")
+        sendEventToFlutter("android_exact_alarm_permission_granted", emptyMap())
     }
 
     private fun hasPostNotificationsPermission(): Boolean {

@@ -207,7 +207,7 @@ class PlatformAlarmService {
     }
   }
 
-  /// Request Android permissions (POST_NOTIFICATIONS, SCHEDULE_EXACT_ALARM, Battery Optimization)
+  /// Request Android permissions (POST_NOTIFICATIONS, Battery Optimization; alarm scheduling always available)
   Future<bool> _requestAndroidPermissions() async {
     try {
       _log.info('Requesting Android permissions...');

@@ -129,7 +129,7 @@ This is **not a light client** - it's a full validator node with consensus parti
 ### Block Production & Rewards
 
 - **Android background**: `AndroidForegroundTaskController` + exact alarms manage foreground service start/stop with adaptive VRF polling
-- **Startup Permission Requests**: Automatic one-time permission requests at app launch (POST_NOTIFICATIONS, SCHEDULE_EXACT_ALARM, battery optimization)
+- **Startup Permission Requests**: Automatic one-time permission requests at app launch (POST_NOTIFICATIONS, battery optimization; alarm scheduling always available)
 - **Slot Calculator**: Calculate won slots for current epoch
 - **Slot Scheduler**: Schedule alarms for upcoming block production windows
 - **Slot Monitor**: Real-time monitoring during block production (5-minute windows)

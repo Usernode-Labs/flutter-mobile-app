@@ -254,7 +254,7 @@ sequenceDiagram
 | `startPersistentForegroundService` | - | **Start persistent mode** |
 | `stopPersistentForegroundService` | - | **Stop persistent mode** |
 | `isPersistentForegroundRunning` | - | **Check persistent mode status** |
-| `requestExactAlarmPermission` | - | Request SCHEDULE_EXACT_ALARM |
+| `requestExactAlarmPermission` | - | Always returns true (SET_ALARM_CLOCK API) |
 | `requestBatteryOptimizationExemption` | - | Request battery exemption |
 | `isBatteryOptimizationDisabled` | - | Check battery optimization |
 
@@ -278,8 +278,7 @@ sequenceDiagram
 <!-- AndroidManifest.xml:14-20 -->
 <uses-permission android:name="android.permission.WAKE_LOCK" />
 <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-<!-- USE_EXACT_ALARM removed - using SET_ALARM_CLOCK API instead for Google Play compliance -->
+<!-- SCHEDULE_EXACT_ALARM and USE_EXACT_ALARM removed - using SET_ALARM_CLOCK API instead for Google Play compliance -->
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 ```

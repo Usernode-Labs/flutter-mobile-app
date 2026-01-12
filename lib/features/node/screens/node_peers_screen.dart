@@ -64,6 +64,7 @@ class NodePeersScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppAppBar(
         title: l10n.nodePeersTitle,
+        showNodeStatus: false,
       ),
       body: SafeArea(
         child: Column(

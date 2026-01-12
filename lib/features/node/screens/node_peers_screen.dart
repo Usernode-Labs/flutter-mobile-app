@@ -105,8 +105,6 @@ class NodePeersScreen extends StatelessWidget {
                 ),
                 itemBuilder: (_, i) {
                   final p = sortedPeers[i];
-                  final status = p.connectionStatus.toString().split('.').last;
-                  final statusColor = _statusColor(theme, p.connectionStatus);
                   final details = p.connectingDetails;
 
                   // Safely stringify peerId
@@ -251,24 +249,7 @@ class NodePeersScreen extends StatelessWidget {
                         ],
                       ),
                     ),
-                    trailing: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: statusColor.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: statusColor, width: 1),
-                      ),
-                      child: Text(
-                        status.toUpperCase(),
-                        style: TextStyle(
-                          color: statusColor,
-                          fontWeight: FontWeight.w400,
-                          fontSize: 10,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ),
+                    trailing: null,
                     dense: true,
                     visualDensity: VisualDensity.compact,
                   );
@@ -281,19 +262,6 @@ class NodePeersScreen extends StatelessWidget {
     );
   }
 
-  Color _statusColor(ThemeData theme, PeerConnectionStatus s) {
-    final colorScheme = theme.colorScheme;
-    switch (s) {
-      case PeerConnectionStatus.connected:
-        return colorScheme.tertiary; // Green
-      case PeerConnectionStatus.connecting:
-        return MaterialTheme.warningColor; // Orange
-      case PeerConnectionStatus.disconnected:
-        return colorScheme.error; // Red
-      case PeerConnectionStatus.disconnecting:
-        return MaterialTheme.accentYellow; // Amber
-    }
-  }
 
   String? _peerIpOnly(RpcPeerInfo p) {
     final addr = _extractIpOnly(p.address);

@@ -48,6 +48,9 @@ class NodeStatusState {
   int? get globalSlot => (networkBest ?? localBest)?.globalSlot;
   int? get currentEpoch => node.curEpoch;
   int? get currentGlobalSlot => node.curGlobalSlot;
+  
+  /// Get chain ID directly from node status
+  String? get chainId => node.chainId.toString();
 
   int? get epochUpperBound {
     final details = vrfEvaluator?.details;

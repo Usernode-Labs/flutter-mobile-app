@@ -175,6 +175,30 @@ class AppConfig {
       Duration(seconds: versionCheckIntervalSeconds);
   static bool get versionCheckEnabled => versionCheckApiUrl.isNotEmpty;
 
+  // Explorer API configuration
+  static const String primaryExplorerUrl = String.fromEnvironment(
+    'EXPLORER_PRIMARY_URL',
+    defaultValue: 'https://alpha1.usernodelabs.org/explorer',
+  );
+  static const String secondaryExplorerUrl = String.fromEnvironment(
+    'EXPLORER_SECONDARY_URL',
+    defaultValue: 'https://alpha2.usernodelabs.org/explorer',
+  );
+  static const int explorerTimeoutSeconds = int.fromEnvironment(
+    'EXPLORER_TIMEOUT_SECONDS',
+    defaultValue: 10,
+  );
+  static const int explorerCacheTtlMinutes = int.fromEnvironment(
+    'EXPLORER_CACHE_TTL_MINUTES',
+    defaultValue: 5,
+  );
+  
+  // Convert to Duration for convenience
+  static Duration get explorerTimeout =>
+      Duration(seconds: explorerTimeoutSeconds);
+  static Duration get explorerCacheTtl =>
+      Duration(minutes: explorerCacheTtlMinutes);
+
   // Demo accounts configuration (JSON object with account metadata)
   static const String _demoAccountsJson = String.fromEnvironment(
       'DEMO_ACCOUNTS_JSON',

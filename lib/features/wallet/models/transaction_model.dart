@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:crypto_mobile_app/core/services/explorer_service.dart';
 
 enum TransactionType {
   receive,
@@ -25,6 +26,7 @@ class TransactionModel {
   final DateTime timestamp;
   final IconData icon;
   final Color color;
+  final DataSource dataSource;
 
   TransactionModel({
     required this.id,
@@ -37,6 +39,7 @@ class TransactionModel {
     required this.timestamp,
     required this.icon,
     required this.color,
+    this.dataSource = DataSource.local,
   });
 
   bool get isPositive => amount > 0;
@@ -80,6 +83,104 @@ class TransactionModel {
     if (id.length <= 16) return id;
     return '${id.substring(0, 8)}...${id.substring(id.length - 8)}';
   }
+
+  /// Create TransactionModel from ExplorerTransaction
+  factory TransactionModel.fromExplorerTransaction(
+    ExplorerTransaction explorerTx, 
+    DataSource dataSource,
+    String userAddress,
+  ) {
+    // Determine transaction type based on addresses
+    TransactionType txType;
+    bool isOutgoing = false;
+    
+    if (explorerTx.type.toLowerCase().contains('reward') || 
+        explorerTx.type.toLowerCase().contains('mining') ||
+        explorerTx.type.toLowerCase().contains('coinbase')) {
+      txType = TransactionType.reward;
+    } else if (explorerTx.fromAddress == userAddress) {
+      txType = TransactionType.send;
+      isOutgoing = true;
+    } else {
+      txType = TransactionType.receive;
+    }
+
+    // Determine title and icon
+    String title;
+    IconData icon;
+    Color color;
+    
+    switch (txType) {
+      case TransactionType.reward:
+        title = explorerTx.amount == 20 ? 'Block Reward' : 'Mining Reward';
+        icon = Icons.star;
+        color = Colors.orange;
+        break;
+      case TransactionType.send:
+        title = 'Sent';
+        icon = Icons.north_east;
+        color = Colors.red;
+        break;
+      case TransactionType.receive:
+        title = 'Received';
+        icon = Icons.south_west;
+        color = Colors.green;
+        break;
+      case TransactionType.fee:
+        title = 'Fee';
+        icon = Icons.payment;
+        color = Colors.grey;
+        break;
+    }
+
+    // Create subtitle
+    String subtitle;
+    if (explorerTx.toAddress != null && explorerTx.fromAddress != null) {
+      if (isOutgoing) {
+        subtitle = 'To ${_shortenAddress(explorerTx.toAddress!)}';
+      } else {
+        subtitle = 'From ${_shortenAddress(explorerTx.fromAddress!)}';
+      }
+    } else {
+      subtitle = explorerTx.type.isNotEmpty ? explorerTx.type : 'Transaction';
+    }
+
+    return TransactionModel(
+      id: explorerTx.id,
+      title: title,
+      subtitle: subtitle,
+      amount: isOutgoing ? -explorerTx.amount.abs() : explorerTx.amount.abs(),
+      tokenSymbol: explorerTx.tokenSymbol,
+      type: txType,
+      status: _parseTransactionStatus(explorerTx.status),
+      timestamp: explorerTx.timestamp,
+      icon: icon,
+      color: color,
+      dataSource: dataSource,
+    );
+  }
+
+  static String _shortenAddress(String address) {
+    if (address.length <= 16) return address;
+    return '${address.substring(0, 8)}...${address.substring(address.length - 8)}';
+  }
+
+  static TransactionStatus _parseTransactionStatus(String status) {
+    switch (status.toLowerCase()) {
+      case 'confirmed':
+      case 'success':
+      case 'completed':
+        return TransactionStatus.completed;
+      case 'pending':
+      case 'unconfirmed':
+        return TransactionStatus.pending;
+      case 'failed':
+      case 'error':
+        return TransactionStatus.failed;
+      default:
+        return TransactionStatus.completed;
+    }
+  }
 }
 
 class WalletBalance {
@@ -87,12 +188,16 @@ class WalletBalance {
   final String tokenSymbol;
   final double usdValue;
   final BigInt totalBalance; // Total balance from all UTXOs
+  final DataSource dataSource;
+  final DateTime? lastUpdated;
 
   WalletBalance({
     required this.tokenAmount,
     required this.tokenSymbol,
     required this.usdValue,
     required this.totalBalance,
+    this.dataSource = DataSource.local,
+    this.lastUpdated,
   });
 
   String get formattedTokenAmount =>
@@ -137,12 +242,72 @@ class WalletBalance {
     String? tokenSymbol,
     double? usdValue,
     BigInt? totalBalance,
+    DataSource? dataSource,
+    DateTime? lastUpdated,
   }) {
     return WalletBalance(
       tokenAmount: tokenAmount ?? this.tokenAmount,
       tokenSymbol: tokenSymbol ?? this.tokenSymbol,
       usdValue: usdValue ?? this.usdValue,
       totalBalance: totalBalance ?? this.totalBalance,
+      dataSource: dataSource ?? this.dataSource,
+      lastUpdated: lastUpdated ?? this.lastUpdated,
     );
+  }
+
+  /// Create WalletBalance from ExplorerBalanceResponse
+  factory WalletBalance.fromExplorerBalance(ExplorerBalanceResponse response) {
+    return WalletBalance(
+      tokenAmount: response.balance,
+      tokenSymbol: response.tokenSymbol,
+      usdValue: 0.0, // TODO: Add USD conversion
+      totalBalance: BigInt.from(response.balance.toInt()),
+      dataSource: response.dataSource,
+      lastUpdated: response.fetchedAt,
+    );
+  }
+
+  /// Get data source display text
+  String get dataSourceText {
+    switch (dataSource) {
+      case DataSource.explorerPrimary:
+        return 'Live (Primary)';
+      case DataSource.explorerSecondary:
+        return 'Live (Secondary)';
+      case DataSource.cached:
+        return 'Cached';
+      case DataSource.local:
+        return 'Local';
+    }
+  }
+
+  /// Check if data is from a live explorer API
+  bool get isLiveData => 
+    dataSource == DataSource.explorerPrimary || 
+    dataSource == DataSource.explorerSecondary;
+
+  /// Get time ago text for last update
+  String get lastUpdatedText {
+    if (lastUpdated == null) return '';
+    
+    final now = DateTime.now();
+    final isToday = now.day == lastUpdated!.day && 
+                   now.month == lastUpdated!.month && 
+                   now.year == lastUpdated!.year;
+    
+    if (isToday) {
+      // Format as time with seconds: 14:32:45
+      final hour = lastUpdated!.hour;
+      final minute = lastUpdated!.minute.toString().padLeft(2, '0');
+      final second = lastUpdated!.second.toString().padLeft(2, '0');
+      
+      // Use 24-hour format with seconds
+      return '$hour:$minute:$second';
+    } else {
+      // For dates not today, show the date
+      final month = lastUpdated!.month.toString().padLeft(2, '0');
+      final day = lastUpdated!.day.toString().padLeft(2, '0');
+      return '$month/$day';
+    }
   }
 }

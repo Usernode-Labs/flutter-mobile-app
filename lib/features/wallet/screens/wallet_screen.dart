@@ -8,6 +8,7 @@ import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:crypto_mobile_app/core/services/explorer_service.dart';
 
 class WalletScreen extends ConsumerStatefulWidget {
   const WalletScreen({super.key});
@@ -161,6 +162,27 @@ class _BalanceSection extends StatelessWidget {
                   ),
                 ),
               ),
+            // Data source indicator
+            walletState.when(
+              data: (state) {
+                final balance = state.balance;
+                if (balance.lastUpdated != null) {
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      'Last checked: ${balance.lastUpdatedText}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontSize: 11,
+                      ),
+                    ),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
+            ),
           ],
         ),
       ),
@@ -282,6 +304,47 @@ class _RecentActivityCard extends StatelessWidget {
                 ?.copyWith(fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 16),
+          // API status banner for transaction data
+          walletState.when(
+            data: (state) {
+              // Check if we have non-local transactions
+              final hasExplorerData = state.recent.any((tx) => 
+                tx.dataSource != DataSource.local);
+              final hasOnlyCachedData = state.recent.every((tx) => 
+                tx.dataSource == DataSource.cached || tx.dataSource == DataSource.local);
+              
+              if (hasExplorerData && hasOnlyCachedData && state.recent.isNotEmpty) {
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning_amber, 
+                           color: Colors.orange.shade700, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Explorer API unavailable. Showing cached data.',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: Colors.orange.shade700,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+          ),
           walletState.when(
             data: (state) => state.recent.isEmpty
                 ? _EmptyState(message: l10n.walletNoRecentActivity)
@@ -437,3 +500,4 @@ class _TransactionTile extends StatelessWidget {
     );
   }
 }
+

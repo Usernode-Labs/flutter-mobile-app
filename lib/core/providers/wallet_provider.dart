@@ -403,19 +403,20 @@ class WalletController extends AsyncNotifier<WalletState> {
 
     // Calculate total amount - check locally stored pending transactions first
     double amount = 0.0;
-    
+
     try {
       // Try to get amount from locally stored pending transactions
       final pendingTxService = await PendingTransactionService.getInstance();
       final storedAmount = await pendingTxService.getAmountForTransaction(
         fromAddress: null, // We don't always have this from mempool
-        toAddress: null,   // We don't always have this from mempool  
+        toAddress: null, // We don't always have this from mempool
         timestamp: DateTime.now(),
       );
-      
+
       if (storedAmount != null) {
         amount = storedAmount;
-        _log.debug('Found stored amount for pending transaction ${txItem.id}: $amount');
+        _log.debug(
+            'Found stored amount for pending transaction ${txItem.id}: $amount');
       } else if (txItem.amounts.isNotEmpty) {
         // Fallback to mempool amount if available
         amount = txItem.amounts.first.amount.toDouble();
@@ -425,7 +426,8 @@ class WalletController extends AsyncNotifier<WalletState> {
       if (txItem.amounts.isNotEmpty) {
         amount = txItem.amounts.first.amount.toDouble();
       }
-      _log.debug('Could not get stored amount for transaction ${txItem.id}, using mempool amount: $amount');
+      _log.debug(
+          'Could not get stored amount for transaction ${txItem.id}, using mempool amount: $amount');
     }
 
     return TransactionModel(
@@ -449,7 +451,7 @@ class WalletController extends AsyncNotifier<WalletState> {
     try {
       // Cleanup old pending transactions
       await _cleanupPendingTransactions();
-      
+
       // Also refresh the mempool data
       await ref.read(walletMempoolProvider.notifier).refresh();
 
@@ -469,7 +471,7 @@ class WalletController extends AsyncNotifier<WalletState> {
     try {
       // Cleanup old pending transactions
       await _cleanupPendingTransactions();
-      
+
       // Silently refresh mempool data too
       await ref.read(walletMempoolProvider.notifier).refresh();
 

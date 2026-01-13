@@ -192,7 +192,7 @@ class AppConfig {
     'EXPLORER_CACHE_TTL_MINUTES',
     defaultValue: 5,
   );
-  
+
   // Convert to Duration for convenience
   static Duration get explorerTimeout =>
       Duration(seconds: explorerTimeoutSeconds);

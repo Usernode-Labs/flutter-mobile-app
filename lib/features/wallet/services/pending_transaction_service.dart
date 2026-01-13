@@ -11,8 +11,9 @@ class PendingTransactionService {
   static const Duration _defaultMaxAge = Duration(hours: 24);
 
   static String get _key => NetworkPrefs.prefixKey(_keyBase);
-  
-  static final _log = LoggingService.instance.withTag('usernode/PendingTransactionService');
+
+  static final _log =
+      LoggingService.instance.withTag('usernode/PendingTransactionService');
 
   static PendingTransactionService? _instance;
 
@@ -31,7 +32,7 @@ class PendingTransactionService {
     if (_initialized) return;
     _prefs = await SharedPreferences.getInstance();
     _initialized = true;
-    
+
     // Clean up old entries on initialization
     await _cleanupExpiredTransactions();
   }
@@ -39,12 +40,13 @@ class PendingTransactionService {
   /// Store a pending transaction locally
   Future<void> storePendingTransaction(PendingTransaction transaction) async {
     await _ensureInitialized();
-    
+
     try {
       final existingTransactions = await _getAllTransactions();
       final newTransactions = <PendingTransaction>[
         transaction,
-        ...existingTransactions.where((tx) => tx.storageKey != transaction.storageKey),
+        ...existingTransactions
+            .where((tx) => tx.storageKey != transaction.storageKey),
       ];
 
       // Limit the number of stored transactions
@@ -53,8 +55,9 @@ class PendingTransactionService {
           : newTransactions;
 
       await _saveAllTransactions(limitedTransactions);
-      
-      _log.info('Stored pending transaction: ${transaction.amount} to ${transaction.toAddress}');
+
+      _log.info(
+          'Stored pending transaction: ${transaction.amount} to ${transaction.toAddress}');
     } catch (e) {
       _log.error('Failed to store pending transaction: $e');
     }
@@ -74,7 +77,7 @@ class PendingTransactionService {
     Duration timestampTolerance = const Duration(minutes: 10),
   }) async {
     await _ensureInitialized();
-    
+
     final allTransactions = await _getAllTransactions();
     return allTransactions
         .where((tx) => tx.matches(
@@ -89,7 +92,7 @@ class PendingTransactionService {
   /// Remove a specific pending transaction
   Future<void> removePendingTransaction(PendingTransaction transaction) async {
     await _ensureInitialized();
-    
+
     try {
       final allTransactions = await _getAllTransactions();
       final filteredTransactions = allTransactions
@@ -97,7 +100,7 @@ class PendingTransactionService {
           .toList();
 
       await _saveAllTransactions(filteredTransactions);
-      
+
       _log.debug('Removed pending transaction: ${transaction.storageKey}');
     } catch (e) {
       _log.error('Failed to remove pending transaction: $e');
@@ -127,7 +130,8 @@ class PendingTransactionService {
 
     if (matches.isNotEmpty) {
       final match = matches.first;
-      _log.debug('Found amount match: ${match.amount} for transaction at $timestamp');
+      _log.debug(
+          'Found amount match: ${match.amount} for transaction at $timestamp');
       return match.amount;
     }
 
@@ -164,12 +168,12 @@ class PendingTransactionService {
   }
 
   /// Internal: Save all transactions to storage
-  Future<void> _saveAllTransactions(List<PendingTransaction> transactions) async {
+  Future<void> _saveAllTransactions(
+      List<PendingTransaction> transactions) async {
     try {
-      final jsonStringList = transactions
-          .map((tx) => tx.toJsonString())
-          .toList();
-      
+      final jsonStringList =
+          transactions.map((tx) => tx.toJsonString()).toList();
+
       await _prefs.setStringList(_key, jsonStringList);
     } catch (e) {
       _log.error('Failed to save pending transactions: $e');
@@ -177,16 +181,17 @@ class PendingTransactionService {
   }
 
   /// Internal: Remove expired transactions
-  Future<void> _cleanupExpiredTransactions({Duration maxAge = _defaultMaxAge}) async {
+  Future<void> _cleanupExpiredTransactions(
+      {Duration maxAge = _defaultMaxAge}) async {
     try {
       final allTransactions = await _getAllTransactions();
-      final validTransactions = allTransactions
-          .where((tx) => !tx.isExpired(maxAge: maxAge))
-          .toList();
+      final validTransactions =
+          allTransactions.where((tx) => !tx.isExpired(maxAge: maxAge)).toList();
 
       if (validTransactions.length != allTransactions.length) {
         await _saveAllTransactions(validTransactions);
-        _log.info('Cleaned up ${allTransactions.length - validTransactions.length} expired pending transactions');
+        _log.info(
+            'Cleaned up ${allTransactions.length - validTransactions.length} expired pending transactions');
       }
     } catch (e) {
       _log.error('Failed to cleanup expired transactions: $e');

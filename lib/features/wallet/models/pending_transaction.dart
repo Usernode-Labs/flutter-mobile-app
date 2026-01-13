@@ -76,7 +76,8 @@ class PendingTransaction {
     // Use timestamp + amount + first 8 chars of toAddress for uniqueness
     final timestampKey = timestamp.millisecondsSinceEpoch.toString();
     final amountKey = amount.toStringAsFixed(2);
-    final addressKey = toAddress.length >= 8 ? toAddress.substring(0, 8) : toAddress;
+    final addressKey =
+        toAddress.length >= 8 ? toAddress.substring(0, 8) : toAddress;
     return '${timestampKey}_${amountKey}_$addressKey';
   }
 

@@ -111,8 +111,8 @@ class _SendScreenState extends ConsumerState<SendScreen> {
               toAddress: recipientAddress,
               amount: double.parse(amountStr),
               timestamp: DateTime.now(),
-              memo: _memoController.text.trim().isNotEmpty 
-                  ? _memoController.text.trim() 
+              memo: _memoController.text.trim().isNotEmpty
+                  ? _memoController.text.trim()
                   : null,
             );
             await _pendingTxService!.storePendingTransaction(pendingTx);
@@ -366,7 +366,6 @@ class _SendScreenState extends ConsumerState<SendScreen> {
           return amountError;
         }
       }
-
 
       return null;
     };

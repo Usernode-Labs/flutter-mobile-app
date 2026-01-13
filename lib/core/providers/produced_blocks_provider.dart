@@ -360,7 +360,8 @@ Future<dynamic> _buildProducedBlocksPreWork() async {
   int currentGlobalSlot;
   if (_initialFromGenesis) {
     // Time since genesis, divided by slot duration.
-    currentGlobalSlot = (nowMs - _initialTimestampMs) ~/ slotMs;
+    currentGlobalSlot =
+        slotMs > 0 ? (nowMs - _initialTimestampMs) ~/ slotMs : 0;
   } else {
     // Legacy behavior: advance from the snapshot slot using wall-clock delta.
     final passedTime = nowMs - _initialTimestampMs;
@@ -369,11 +370,11 @@ Future<dynamic> _buildProducedBlocksPreWork() async {
       throw StateError(
           'Cannot build produced blocks: current global slot unavailable');
     }
-    currentGlobalSlot = curSlot + (passedTime ~/ slotMs);
+    currentGlobalSlot = curSlot + (slotMs > 0 ? passedTime ~/ slotMs : 0);
   }
   int slotsInEpoch = statusNode.slotsInEpoch;
-  int currentEpoch = currentGlobalSlot ~/ slotsInEpoch;
-  int currentSlot = currentGlobalSlot % slotsInEpoch;
+  int currentEpoch = slotsInEpoch > 0 ? currentGlobalSlot ~/ slotsInEpoch : 0;
+  int currentSlot = slotsInEpoch > 0 ? currentGlobalSlot % slotsInEpoch : 0;
 
   //final upToDateStatus = await RustBackendService.instance.getStatusNode();
 

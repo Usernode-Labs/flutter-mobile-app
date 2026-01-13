@@ -302,7 +302,8 @@ class ExplorerService {
   bool _isValidTransactionsResponse(Map<String, dynamic> data) {
     // Consider response valid if it has proper structure even with empty transactions
     // This handles accounts that legitimately have no transactions yet
-    return data.containsKey('transactions') ||
+    return data.containsKey('items') ||
+           data.containsKey('transactions') ||
            data.containsKey('txs') ||
            data.containsKey('data');
   }
@@ -392,7 +393,7 @@ class ExplorerTransactionsResponse {
   });
 
   factory ExplorerTransactionsResponse.fromJson(Map<String, dynamic> json, DataSource source) {
-    final txList = json['transactions'] as List<dynamic>? ?? [];
+    final txList = json['items'] as List<dynamic>? ?? [];
     final transactions = txList
         .map((tx) => ExplorerTransaction.fromJson(tx as Map<String, dynamic>))
         .toList();
@@ -416,50 +417,65 @@ class ExplorerTransactionsResponse {
 /// Individual transaction from explorer API
 class ExplorerTransaction {
   final String id;
-  final String type;
+  final String txType;          // "transfer", "reward", "genesis"
+  final String direction;       // "in", "out" 
   final double amount;
   final String tokenSymbol;
   final DateTime timestamp;
   final String status;
   final String? fromAddress;
   final String? toAddress;
+  final int? blockHeight;
+  final String? blockHash;
 
   ExplorerTransaction({
     required this.id,
-    required this.type,
+    required this.txType,
+    required this.direction,
     required this.amount,
     required this.tokenSymbol,
     required this.timestamp,
     required this.status,
     this.fromAddress,
     this.toAddress,
+    this.blockHeight,
+    this.blockHash,
   });
+
+  /// Legacy getter for backward compatibility
+  String get type => direction;
 
   factory ExplorerTransaction.fromJson(Map<String, dynamic> json) {
     return ExplorerTransaction(
-      id: json['id'] as String? ?? '',
-      type: json['type'] as String? ?? 'unknown',
+      id: json['tx_id'] as String? ?? '',
+      txType: json['tx_type'] as String? ?? 'transfer',
+      direction: json['direction'] as String? ?? 'unknown',
       amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
-      tokenSymbol: json['token_symbol'] as String? ?? 'TKN',
+      tokenSymbol: 'TKN', // API doesn't provide token_symbol, default to TKN
       timestamp: DateTime.fromMillisecondsSinceEpoch(
-        json['timestamp'] as int? ?? DateTime.now().millisecondsSinceEpoch
+        json['timestamp_ms'] as int? ?? DateTime.now().millisecondsSinceEpoch
       ),
       status: json['status'] as String? ?? 'confirmed',
-      fromAddress: json['from_address'] as String?,
-      toAddress: json['to_address'] as String?,
+      fromAddress: json['source'] as String?,
+      toAddress: json['destination'] as String?,
+      blockHeight: json['block_height'] as int?,
+      blockHash: json['block_hash'] as String?,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'type': type,
+      'tx_type': txType,
+      'direction': direction,
       'amount': amount,
       'token_symbol': tokenSymbol,
       'timestamp': timestamp.millisecondsSinceEpoch,
       'status': status,
       'from_address': fromAddress,
       'to_address': toAddress,
+      'block_height': blockHeight,
+      'block_hash': blockHash,
     };
   }
 }

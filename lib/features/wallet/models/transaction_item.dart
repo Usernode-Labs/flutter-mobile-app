@@ -86,8 +86,8 @@ class TransactionItem {
       TransactionType txType = TransactionType.received;
       if (amounts.isNotEmpty) {
         final firstAmount = amounts.first.amount.toInt();
-        final rewardAmount = coinbaseRewardAmount?.toInt() ?? 20;
-        if (firstAmount == rewardAmount) {
+        final rewardAmount = coinbaseRewardAmount?.toInt();
+        if (rewardAmount != null && firstAmount == rewardAmount) {
           txType = TransactionType.coinbaseReward;
         } else if (firstAmount == 50000000) {
           txType = TransactionType.genesis;

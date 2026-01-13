@@ -14,6 +14,7 @@ import 'package:crypto_mobile_app/core/widgets/produced_block_card.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/core/providers/node_data_providers.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
+import 'package:crypto_mobile_app/core/providers/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -815,7 +816,9 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
     final blocks = blockchain.items.take(10).toList();
     final bestTipSlot = status?.globalSlot ?? _bestTipGlobalSlot;
-    final rewardPerBlock = BigInt.from(20);
+    // Get reward per block from epoch rewards, with fallback to reasonable default
+    final rewardsAsync = ref.watch(epochRewardsProvider);
+    final rewardPerBlock = rewardsAsync.value?.rewardPerBlock ?? BigInt.zero;
 
     return Column(
       children: [

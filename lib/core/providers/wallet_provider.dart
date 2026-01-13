@@ -10,6 +10,7 @@ import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/core/providers/mempool_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/services/explorer_service.dart';
+import 'package:crypto_mobile_app/features/wallet/services/pending_transaction_service.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 
 final _log = LoggingService.instance.withTag('usernode/WalletProvider');
@@ -31,7 +32,7 @@ class WalletController extends AsyncNotifier<WalletState> {
     final allTransactions = await _getAllTransactions();
     return WalletState(
       balance: balance,
-      recent: allTransactions.take(10).toList(),
+      recent: allTransactions,
     );
   }
 
@@ -175,23 +176,19 @@ class WalletController extends AsyncNotifier<WalletState> {
         for (final assetJson in assetsJson) {
           final balance = assetJson['balance'] as int;
 
-          // Determine if this is a block reward (exactly 20 TKN)
-          final isBlockReward = balance == 20;
-
-          // Create a transaction for each UTXO asset
+          // For UTXOs, treat all as received transactions
+          // Block reward determination should come from the explorer API instead
           final transaction = TransactionModel(
             id: utxoData['id']?.toString() ?? 'utxo_$i',
-            title: isBlockReward ? 'Block Reward' : 'Received',
-            subtitle: isBlockReward ? 'Mining reward' : 'Token transfer',
+            title: 'Received',
+            subtitle: 'Token transfer',
             amount: balance.toDouble(),
             tokenSymbol: tokenSymbol,
-            type: isBlockReward
-                ? TransactionType.reward
-                : TransactionType.receive,
+            type: TransactionType.receive,
             status: TransactionStatus.completed,
             timestamp: _parseTimestampFromUtxo(utxoData),
-            icon: isBlockReward ? Icons.star : Icons.south_west,
-            color: isBlockReward ? Colors.orange : Colors.green,
+            icon: Icons.south_west,
+            color: Colors.green,
             dataSource: DataSource.local, // UTXO transactions are local
           );
 
@@ -203,9 +200,9 @@ class WalletController extends AsyncNotifier<WalletState> {
       }
     }
 
-    // Sort by timestamp (newest first) and limit to 10
+    // Sort by timestamp (newest first)
     transactions.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-    final result = transactions.take(10).toList();
+    final result = transactions;
 
     _log.debug(
         'Parsed ${result.length} transactions from ${utxos.length} UTXOs');
@@ -237,7 +234,7 @@ class WalletController extends AsyncNotifier<WalletState> {
 
       if (activeAccount == null || activeAccount.address.isEmpty) {
         _log.debug('No active account for transaction fetch');
-        return _transactions.take(10).toList();
+        return _transactions;
       }
 
       final userAddress = activeAccount.address;
@@ -284,7 +281,7 @@ class WalletController extends AsyncNotifier<WalletState> {
     } catch (e, st) {
       _log.error('Failed to get all transactions', error: e, stackTrace: st);
       // Return just local transactions on error
-      return _transactions.take(10).toList();
+      return _transactions;
     }
   }
 
@@ -317,10 +314,9 @@ class WalletController extends AsyncNotifier<WalletState> {
           .toList();
     }
 
-    // Fallback to UTXO-based transactions
-    _log.debug('Using UTXO-based transactions as fallback');
-    await _ensureUtxoTransactionsLoaded();
-    return _transactions;
+    // No explorer data available - return empty list
+    _log.debug('No explorer transaction data available');
+    return [];
   }
 
   /// Get pending transaction models from mempool
@@ -331,9 +327,12 @@ class WalletController extends AsyncNotifier<WalletState> {
       final mempoolTransactions = await _getPendingTransactions(userAddress);
 
       // Convert mempool transactions to TransactionModel format
-      return mempoolTransactions
-          .map((tx) => _convertMempoolToTransactionModel(tx))
-          .toList();
+      final transactionModels = <TransactionModel>[];
+      for (final tx in mempoolTransactions) {
+        final model = await _convertMempoolToTransactionModel(tx);
+        transactionModels.add(model);
+      }
+      return transactionModels;
     } catch (e, st) {
       _log.error('Failed to get pending transactions',
           error: e, stackTrace: st);
@@ -362,8 +361,8 @@ class WalletController extends AsyncNotifier<WalletState> {
   }
 
   /// Convert TransactionItem (from mempool) to TransactionModel format
-  TransactionModel _convertMempoolToTransactionModel(
-      transaction_item.TransactionItem txItem) {
+  Future<TransactionModel> _convertMempoolToTransactionModel(
+      transaction_item.TransactionItem txItem) async {
     // Determine icon and color based on transaction type
     IconData icon;
     Color color;
@@ -402,10 +401,31 @@ class WalletController extends AsyncNotifier<WalletState> {
         break;
     }
 
-    // Calculate total amount (approximation since we may not have access to full amounts)
+    // Calculate total amount - check locally stored pending transactions first
     double amount = 0.0;
-    if (txItem.amounts.isNotEmpty) {
-      amount = txItem.amounts.first.amount.toDouble();
+    
+    try {
+      // Try to get amount from locally stored pending transactions
+      final pendingTxService = await PendingTransactionService.getInstance();
+      final storedAmount = await pendingTxService.getAmountForTransaction(
+        fromAddress: null, // We don't always have this from mempool
+        toAddress: null,   // We don't always have this from mempool  
+        timestamp: DateTime.now(),
+      );
+      
+      if (storedAmount != null) {
+        amount = storedAmount;
+        _log.debug('Found stored amount for pending transaction ${txItem.id}: $amount');
+      } else if (txItem.amounts.isNotEmpty) {
+        // Fallback to mempool amount if available
+        amount = txItem.amounts.first.amount.toDouble();
+      }
+    } catch (e) {
+      // Fallback to mempool amount if pending transaction service fails
+      if (txItem.amounts.isNotEmpty) {
+        amount = txItem.amounts.first.amount.toDouble();
+      }
+      _log.debug('Could not get stored amount for transaction ${txItem.id}, using mempool amount: $amount');
     }
 
     return TransactionModel(
@@ -423,37 +443,13 @@ class WalletController extends AsyncNotifier<WalletState> {
     );
   }
 
-  /// Ensure UTXO transactions are loaded when needed as fallback
-  Future<void> _ensureUtxoTransactionsLoaded() async {
-    if (_transactions.isNotEmpty) return; // Already loaded
-    
-    try {
-      _log.debug('Loading UTXO transactions for fallback');
-      
-      // Get active account address for UTXO lookup
-      final accountsRepo = await AccountsRepository.create();
-      final activeAccount = await accountsRepo.getActive();
-      if (activeAccount == null || activeAccount.address.isEmpty) {
-        _log.debug('No active account for UTXO fallback');
-        return;
-      }
-      
-      final owner = frb_types.publicKeyHashFromString(s: activeAccount.address);
-      final utxosResp = await RustBackendService.instance.listUtxosByOwner(owner: owner);
-      final utxos = utxosResp?.items ?? [];
-      final primaryTokenSymbol = 'TKN';
-      _transactions = _parseTransactionsFromUtxos(utxos, primaryTokenSymbol);
-      _log.debug('Loaded ${_transactions.length} UTXO transactions for fallback');
-    } catch (e, st) {
-      _log.error('Failed to load UTXO transactions for fallback', error: e, stackTrace: st);
-      _transactions = [];
-    }
-  }
-
   Future<void> refresh() async {
     state = const AsyncLoading();
 
     try {
+      // Cleanup old pending transactions
+      await _cleanupPendingTransactions();
+      
       // Also refresh the mempool data
       await ref.read(walletMempoolProvider.notifier).refresh();
 
@@ -461,7 +457,7 @@ class WalletController extends AsyncNotifier<WalletState> {
       final allTransactions = await _getAllTransactions();
       state = AsyncValue.data(WalletState(
         balance: balance,
-        recent: allTransactions.take(10).toList(),
+        recent: allTransactions,
       ));
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -471,6 +467,9 @@ class WalletController extends AsyncNotifier<WalletState> {
   /// Silent refresh - updates data without showing loading spinner
   Future<void> silentRefresh() async {
     try {
+      // Cleanup old pending transactions
+      await _cleanupPendingTransactions();
+      
       // Silently refresh mempool data too
       await ref.read(walletMempoolProvider.notifier).refresh();
 
@@ -478,11 +477,21 @@ class WalletController extends AsyncNotifier<WalletState> {
       final allTransactions = await _getAllTransactions();
       state = AsyncValue.data(WalletState(
         balance: balance,
-        recent: allTransactions.take(10).toList(),
+        recent: allTransactions,
       ));
     } catch (e) {
       // Keep existing state on error during silent refresh
       _log.debug('Silent refresh failed: $e');
+    }
+  }
+
+  /// Cleanup old pending transactions
+  Future<void> _cleanupPendingTransactions() async {
+    try {
+      final pendingTxService = await PendingTransactionService.getInstance();
+      await pendingTxService.cleanupTransactions();
+    } catch (e) {
+      _log.debug('Failed to cleanup pending transactions: $e');
     }
   }
 }

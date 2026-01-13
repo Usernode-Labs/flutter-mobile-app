@@ -9,6 +9,8 @@ import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/services/explorer_service.dart';
+import 'package:crypto_mobile_app/features/wallet/models/transaction_model.dart';
+import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 
 class WalletScreen extends ConsumerStatefulWidget {
   const WalletScreen({super.key});
@@ -34,22 +36,17 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
 
   void _startAutoRefresh() {
     _refreshTimer?.cancel();
-    _refreshTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
-      final syncStatus = ref.read(nodeStatusProvider).valueOrNull?.syncStatus;
-
-      if (syncStatus?.isSynced == true) {
-        timer.cancel();
-      } else {
-        ref.read(walletProvider.notifier).silentRefresh();
-        ref.read(nodeStatusProvider.notifier).silentRefresh();
-      }
+    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      // Always refresh wallet and node status to get latest data
+      ref.read(walletProvider.notifier).silentRefresh();
+      ref.read(nodeStatusProvider.notifier).silentRefresh();
     });
   }
 
   Future<void> _onRefresh() async {
     await Future.wait([
-      ref.read(walletProvider.notifier).refresh(),
-      ref.read(nodeStatusProvider.notifier).refresh(),
+      ref.read(walletProvider.notifier).silentRefresh(),
+      ref.read(nodeStatusProvider.notifier).silentRefresh(),
     ]);
     _startAutoRefresh();
   }
@@ -60,6 +57,19 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     final l10n = AppLocalizations.of(context);
     final walletState = ref.watch(walletProvider);
     final nodeStatus = ref.watch(nodeStatusProvider);
+    final currentTab = ref.watch(currentHomeTabProvider);
+
+    print('DEBUG: WalletScreen build() called, current tab: $currentTab');
+
+    // Listen for tab changes to refresh when wallet tab becomes active
+    ref.listen<int>(currentHomeTabProvider, (previous, next) {
+      print('DEBUG: Tab changed from $previous to $next');
+      // Refresh wallet data when switching to wallet tab (index 2)
+      if (next == 2 && previous != 2) {
+        print('DEBUG: Switching to wallet tab - triggering refresh');
+        _onRefresh();
+      }
+    });
 
     return Scaffold(
       body: RefreshIndicator(
@@ -170,7 +180,7 @@ class _BalanceSection extends StatelessWidget {
                   return Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
-                      'Last checked: ${balance.lastUpdatedText}',
+                      'Last checked at ${balance.lastUpdatedText}',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                         fontSize: 11,
@@ -308,24 +318,29 @@ class _RecentActivityCard extends StatelessWidget {
           walletState.when(
             data: (state) {
               // Check if we have non-local transactions
-              final hasExplorerData = state.recent.any((tx) => 
-                tx.dataSource != DataSource.local);
-              final hasOnlyCachedData = state.recent.every((tx) => 
-                tx.dataSource == DataSource.cached || tx.dataSource == DataSource.local);
-              
-              if (hasExplorerData && hasOnlyCachedData && state.recent.isNotEmpty) {
+              final hasExplorerData =
+                  state.recent.any((tx) => tx.dataSource != DataSource.local);
+              final hasOnlyCachedData = state.recent.every((tx) =>
+                  tx.dataSource == DataSource.cached ||
+                  tx.dataSource == DataSource.local);
+
+              if (hasExplorerData &&
+                  hasOnlyCachedData &&
+                  state.recent.isNotEmpty) {
                 return Container(
                   margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: Colors.orange.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                    border:
+                        Border.all(color: Colors.orange.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.warning_amber, 
-                           color: Colors.orange.shade700, size: 16),
+                      Icon(Icons.warning_amber,
+                          color: Colors.orange.shade700, size: 16),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -389,94 +404,96 @@ class _TransactionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final isPending = transaction.status.toString().contains('pending');
+    
+    // Determine container color based on transaction type
+    Color containerColor;
+    if (transaction.type == TransactionType.reward || 
+        transaction.type == TransactionType.genesis) {
+      containerColor = Colors.orange.withValues(alpha: 0.2);
+    } else {
+      // Use secondaryContainer for all other types (send, receive, pending)
+      containerColor = colorScheme.secondaryContainer;
+    }
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
       child: Row(
         children: [
-          Stack(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.secondaryContainer,
-                  borderRadius: BorderRadius.circular(12),
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: containerColor,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Stack(
+              children: [
+                Center(
+                  child: isPending && transaction.type == TransactionType.send
+                      ? Icon(Icons.hourglass_empty,
+                          color: colorScheme.onSurface, size: 20)
+                      : Icon(transaction.icon,
+                          color: colorScheme.onSurface, size: 20),
                 ),
-                child: Icon(transaction.icon,
-                    color: theme.colorScheme.onSurface, size: 20),
-              ),
-              if (isPending)
-                Positioned(
-                  top: 0,
-                  right: 0,
-                  child: Container(
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      color: Colors.orange,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                          color: theme.colorScheme.surface, width: 2),
-                    ),
-                    child: const Icon(
-                      Icons.schedule,
-                      color: Colors.white,
-                      size: 8,
+                if (isPending)
+                  Positioned(
+                    top: 2,
+                    right: 2,
+                    child: Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: Colors.orange,
+                        borderRadius: BorderRadius.circular(6),
+                        border:
+                            Border.all(color: colorScheme.surface, width: 1),
+                      ),
+                      child: const Icon(
+                        Icons.schedule,
+                        color: Colors.white,
+                        size: 6,
+                      ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        transaction.title,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w500,
-                          color: isPending
-                              ? theme.colorScheme.onSurface
-                                  .withValues(alpha: 0.8)
-                              : theme.colorScheme.onSurface,
-                        ),
-                      ),
-                    ),
-                    if (isPending)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                              color: Colors.orange.withValues(alpha: 0.3)),
-                        ),
-                        child: Text(
-                          'PENDING',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: Colors.orange.shade700,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 9,
-                          ),
-                        ),
-                      ),
-                  ],
+                Text(
+                  transaction.title,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  transaction.fullSubtitle,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: isPending
-                        ? theme.colorScheme.secondary.withValues(alpha: 0.7)
-                        : theme.colorScheme.secondary,
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      transaction.shortHash,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.w400,
+                        fontFamily: 'monospace',
+                        fontSize: 11,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      transaction.formattedTimestamp,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -485,14 +502,8 @@ class _TransactionTile extends StatelessWidget {
           Text(
             '${transaction.formattedAmount} ${transaction.tokenSymbol}',
             style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: isPending
-                  ? (transaction.isPositive
-                      ? Colors.green.withValues(alpha: 0.7)
-                      : theme.colorScheme.onSurface.withValues(alpha: 0.7))
-                  : (transaction.isPositive
-                      ? Colors.green
-                      : theme.colorScheme.onSurface),
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -500,4 +511,3 @@ class _TransactionTile extends StatelessWidget {
     );
   }
 }
-

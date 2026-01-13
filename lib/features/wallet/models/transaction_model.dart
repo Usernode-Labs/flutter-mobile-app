@@ -6,6 +6,7 @@ enum TransactionType {
   receive,
   send,
   reward,
+  genesis,
   fee,
 }
 
@@ -76,8 +77,20 @@ class TransactionModel {
     }
   }
 
+  /// Format timestamp in ISO format: YYYY-MM-DD HH:MM:SS
+  String get formattedTimestamp {
+    final year = timestamp.year.toString();
+    final month = timestamp.month.toString().padLeft(2, '0');
+    final day = timestamp.day.toString().padLeft(2, '0');
+    final hour = timestamp.hour.toString().padLeft(2, '0');
+    final minute = timestamp.minute.toString().padLeft(2, '0');
+    final second = timestamp.second.toString().padLeft(2, '0');
+
+    return '$year-$month-$day $hour:$minute:$second';
+  }
+
   String get fullSubtitle => shortHash;
-  
+
   /// Get shortened transaction hash for display
   String get shortHash {
     if (id.length <= 16) return id;
@@ -86,45 +99,58 @@ class TransactionModel {
 
   /// Create TransactionModel from ExplorerTransaction
   factory TransactionModel.fromExplorerTransaction(
-    ExplorerTransaction explorerTx, 
+    ExplorerTransaction explorerTx,
     DataSource dataSource,
     String userAddress,
   ) {
-    // Determine transaction type based on addresses
+    // Determine transaction type using new structured API fields
     TransactionType txType;
     bool isOutgoing = false;
-    
-    if (explorerTx.type.toLowerCase().contains('reward') || 
-        explorerTx.type.toLowerCase().contains('mining') ||
-        explorerTx.type.toLowerCase().contains('coinbase')) {
-      txType = TransactionType.reward;
-    } else if (explorerTx.fromAddress == userAddress) {
-      txType = TransactionType.send;
-      isOutgoing = true;
-    } else {
-      txType = TransactionType.receive;
+
+    switch (explorerTx.txType.toLowerCase()) {
+      case 'reward':
+        txType = TransactionType.reward;
+        break;
+      case 'genesis':
+        txType = TransactionType.genesis;
+        break;
+      case 'transfer':
+      default:
+        // Use direction field to determine if outgoing or incoming
+        if (explorerTx.direction.toLowerCase() == 'out') {
+          txType = TransactionType.send;
+          isOutgoing = true;
+        } else {
+          txType = TransactionType.receive;
+        }
+        break;
     }
 
     // Determine title and icon
     String title;
     IconData icon;
     Color color;
-    
+
     switch (txType) {
       case TransactionType.reward:
-        title = explorerTx.amount == 20 ? 'Block Reward' : 'Mining Reward';
+        title = 'Block Reward';
         icon = Icons.star;
+        color = Colors.orange;
+        break;
+      case TransactionType.genesis:
+        title = 'Genesis Allocation';
+        icon = Icons.diamond;
         color = Colors.orange;
         break;
       case TransactionType.send:
         title = 'Sent';
         icon = Icons.north_east;
-        color = Colors.red;
+        color = Colors.grey;
         break;
       case TransactionType.receive:
         title = 'Received';
         icon = Icons.south_west;
-        color = Colors.green;
+        color = Colors.grey;
         break;
       case TransactionType.fee:
         title = 'Fee';
@@ -133,16 +159,26 @@ class TransactionModel {
         break;
     }
 
-    // Create subtitle
+    // Create subtitle based on transaction type and available data
     String subtitle;
-    if (explorerTx.toAddress != null && explorerTx.fromAddress != null) {
-      if (isOutgoing) {
-        subtitle = 'To ${_shortenAddress(explorerTx.toAddress!)}';
-      } else {
-        subtitle = 'From ${_shortenAddress(explorerTx.fromAddress!)}';
-      }
-    } else {
-      subtitle = explorerTx.type.isNotEmpty ? explorerTx.type : 'Transaction';
+    switch (explorerTx.txType.toLowerCase()) {
+      case 'reward':
+        subtitle = 'Block ${explorerTx.blockHeight ?? '?'}';
+        break;
+      case 'genesis':
+        subtitle = 'Initial distribution';
+        break;
+      case 'transfer':
+      default:
+        if (isOutgoing && explorerTx.toAddress != null) {
+          subtitle = 'To ${_shortenAddress(explorerTx.toAddress!)}';
+        } else if (!isOutgoing && explorerTx.fromAddress != null) {
+          subtitle = 'From ${_shortenAddress(explorerTx.fromAddress!)}';
+        } else {
+          subtitle =
+              explorerTx.txType.isNotEmpty ? explorerTx.txType : 'Transaction';
+        }
+        break;
     }
 
     return TransactionModel(
@@ -282,25 +318,25 @@ class WalletBalance {
   }
 
   /// Check if data is from a live explorer API
-  bool get isLiveData => 
-    dataSource == DataSource.explorerPrimary || 
-    dataSource == DataSource.explorerSecondary;
+  bool get isLiveData =>
+      dataSource == DataSource.explorerPrimary ||
+      dataSource == DataSource.explorerSecondary;
 
   /// Get time ago text for last update
   String get lastUpdatedText {
     if (lastUpdated == null) return '';
-    
+
     final now = DateTime.now();
-    final isToday = now.day == lastUpdated!.day && 
-                   now.month == lastUpdated!.month && 
-                   now.year == lastUpdated!.year;
-    
+    final isToday = now.day == lastUpdated!.day &&
+        now.month == lastUpdated!.month &&
+        now.year == lastUpdated!.year;
+
     if (isToday) {
       // Format as time with seconds: 14:32:45
       final hour = lastUpdated!.hour;
       final minute = lastUpdated!.minute.toString().padLeft(2, '0');
       final second = lastUpdated!.second.toString().padLeft(2, '0');
-      
+
       // Use 24-hour format with seconds
       return '$hour:$minute:$second';
     } else {

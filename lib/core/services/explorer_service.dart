@@ -160,7 +160,7 @@ class ExplorerService {
     }
 
     try {
-      final url = '$baseUrl/api/$chainId/accounts/$account/txs';
+      final url = '$baseUrl/api/$chainId/accounts/$account/txs?limit=25';
       _log.debug('Requesting transactions from: $url');
       
       final response = await _client

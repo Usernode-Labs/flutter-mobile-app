@@ -11,6 +11,7 @@ import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/services/explorer_service.dart';
 import 'package:crypto_mobile_app/features/wallet/models/transaction_model.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
+import 'package:crypto_mobile_app/core/utils/logger.dart';
 
 class WalletScreen extends ConsumerStatefulWidget {
   const WalletScreen({super.key});
@@ -19,13 +20,23 @@ class WalletScreen extends ConsumerStatefulWidget {
   ConsumerState<WalletScreen> createState() => _WalletScreenState();
 }
 
+final _log = LoggingService.instance.withTag('usernode/WalletScreen');
+
 class _WalletScreenState extends ConsumerState<WalletScreen> {
   Timer? _refreshTimer;
+  late AsyncValue _walletState;
+  late AsyncValue _nodeStatus;
 
   @override
   void initState() {
     super.initState();
+    _loadInitialData();
     _startAutoRefresh();
+  }
+
+  void _loadInitialData() {
+    _walletState = ref.read(walletProvider);
+    _nodeStatus = ref.read(nodeStatusProvider);
   }
 
   @override
@@ -36,10 +47,21 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
 
   void _startAutoRefresh() {
     _refreshTimer?.cancel();
-    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
-      // Always refresh wallet and node status to get latest data
-      ref.read(walletProvider.notifier).silentRefresh();
-      ref.read(nodeStatusProvider.notifier).silentRefresh();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) async {
+      // Only refresh if currently on wallet tab (index 2)
+      final currentTab = ref.read(currentHomeTabProvider);
+      if (currentTab == 2) {
+        await ref.read(walletProvider.notifier).silentRefresh();
+        await ref.read(nodeStatusProvider.notifier).silentRefresh();
+        
+        // Update local state with fresh data
+        if (mounted) {
+          setState(() {
+            _walletState = ref.read(walletProvider);
+            _nodeStatus = ref.read(nodeStatusProvider);
+          });
+        }
+      }
     });
   }
 
@@ -48,6 +70,13 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       ref.read(walletProvider.notifier).silentRefresh(),
       ref.read(nodeStatusProvider.notifier).silentRefresh(),
     ]);
+    
+    // Update local state with fresh data
+    setState(() {
+      _walletState = ref.read(walletProvider);
+      _nodeStatus = ref.read(nodeStatusProvider);
+    });
+    
     _startAutoRefresh();
   }
 
@@ -55,18 +84,18 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
-    final walletState = ref.watch(walletProvider);
-    final nodeStatus = ref.watch(nodeStatusProvider);
+    final walletState = _walletState;
+    final nodeStatus = _nodeStatus;
     final currentTab = ref.watch(currentHomeTabProvider);
 
-    print('DEBUG: WalletScreen build() called, current tab: $currentTab');
+    _log.debug('WalletScreen build() called, current tab: $currentTab');
 
     // Listen for tab changes to refresh when wallet tab becomes active
     ref.listen<int>(currentHomeTabProvider, (previous, next) {
-      print('DEBUG: Tab changed from $previous to $next');
+      _log.debug('Tab changed from $previous to $next');
       // Refresh wallet data when switching to wallet tab (index 2)
       if (next == 2 && previous != 2) {
-        print('DEBUG: Switching to wallet tab - triggering refresh');
+        _log.debug('Switching to wallet tab - triggering refresh');
         _onRefresh();
       }
     });
@@ -406,10 +435,10 @@ class _TransactionTile extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isPending = transaction.status.toString().contains('pending');
-    
+
     // Determine container color based on transaction type
     Color containerColor;
-    if (transaction.type == TransactionType.reward || 
+    if (transaction.type == TransactionType.reward ||
         transaction.type == TransactionType.genesis) {
       containerColor = Colors.orange.withValues(alpha: 0.2);
     } else {

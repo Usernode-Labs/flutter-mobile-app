@@ -429,9 +429,13 @@
   "@walletTransactionSubmitted": {
     "description": "Transaction submitted success message"
   },
-  "walletNoRecentActivity": "You haven't made any transactions yet.",
+  "walletNoRecentActivity": "No transactions to display so far",
   "@walletNoRecentActivity": {
-    "description": "Empty state message for recent activity section"
+    "description": "Empty state title for recent activity section"
+  },
+  "walletNoRecentActivitySubtitle": "This page refreshes continuously and will display your transactions here.",
+  "@walletNoRecentActivitySubtitle": {
+    "description": "Empty state subtitle explaining auto-refresh behavior"
   },
 
   "nodeStatusTitle": "Node Status",

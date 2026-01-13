@@ -700,11 +700,17 @@ abstract class AppLocalizations {
   /// **'Your transaction has been submitted successfully.'**
   String get walletTransactionSubmitted;
 
-  /// Empty state message for recent activity section
+  /// Empty state title for recent activity section
   ///
   /// In en, this message translates to:
-  /// **'You haven\'t made any transactions yet.'**
+  /// **'No transactions to display so far'**
   String get walletNoRecentActivity;
+
+  /// Empty state subtitle explaining auto-refresh behavior
+  ///
+  /// In en, this message translates to:
+  /// **'This page refreshes continuously and will display your transactions here.'**
+  String get walletNoRecentActivitySubtitle;
 
   /// Node status screen title
   ///

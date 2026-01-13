@@ -346,8 +346,11 @@ class AppLocalizationsEn extends AppLocalizations {
       'Your transaction has been submitted successfully.';
 
   @override
-  String get walletNoRecentActivity =>
-      'You haven\'t made any transactions yet.';
+  String get walletNoRecentActivity => 'No transactions to display so far';
+
+  @override
+  String get walletNoRecentActivitySubtitle =>
+      'This page refreshes continuously and will display your transactions here.';
 
   @override
   String get nodeStatusTitle => 'Node Status';

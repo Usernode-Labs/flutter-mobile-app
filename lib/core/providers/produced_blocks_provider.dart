@@ -360,7 +360,8 @@ Future<dynamic> _buildProducedBlocksPreWork() async {
   int currentGlobalSlot;
   if (_initialFromGenesis) {
     // Time since genesis, divided by slot duration.
-    currentGlobalSlot = slotMs > 0 ? (nowMs - _initialTimestampMs) ~/ slotMs : 0;
+    currentGlobalSlot =
+        slotMs > 0 ? (nowMs - _initialTimestampMs) ~/ slotMs : 0;
   } else {
     // Legacy behavior: advance from the snapshot slot using wall-clock delta.
     final passedTime = nowMs - _initialTimestampMs;

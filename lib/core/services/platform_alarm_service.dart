@@ -145,7 +145,7 @@ class PlatformAlarmService {
           await _channel.invokeMethod<bool>('hasPostNotificationsPermission') ??
               false;
       final hasAlarmScheduling =
-          await _channel.invokeMethod<bool>('hasExactAlarmPermission') ?? 
+          await _channel.invokeMethod<bool>('hasExactAlarmPermission') ??
               true; // Default to true for alarm clock API
 
       _permissionsGranted = hasNotifications && hasAlarmScheduling;
@@ -154,10 +154,12 @@ class PlatformAlarmService {
         _log.warn('Android POST_NOTIFICATIONS permission not granted');
       }
       if (!hasAlarmScheduling) {
-        _log.warn('Android alarm scheduling not available (unexpected with alarm clock API)');
+        _log.warn(
+            'Android alarm scheduling not available (unexpected with alarm clock API)');
       }
       if (_permissionsGranted) {
-        _log.info('All Android permissions granted (alarm clock API always available)');
+        _log.info(
+            'All Android permissions granted (alarm clock API always available)');
       }
     } on PlatformException catch (e) {
       _log.error('Error initializing Android alarm service: ${e.message}');
@@ -302,7 +304,8 @@ class PlatformAlarmService {
     try {
       await _channel.invokeMethod('requestExactAlarmPermission');
       // SET_ALARM_CLOCK doesn't require user permission
-      _log.info('Alarm scheduling permission always available with alarm clock API');
+      _log.info(
+          'Alarm scheduling permission always available with alarm clock API');
       return true;
     } on PlatformException catch (e) {
       _log.error('Error with alarm permission: ${e.message}');

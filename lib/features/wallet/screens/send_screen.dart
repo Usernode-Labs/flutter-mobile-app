@@ -6,6 +6,8 @@ import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/providers/recipient_history_provider.dart';
 import 'package:crypto_mobile_app/features/wallet/transaction_limits_service.dart';
+import 'package:crypto_mobile_app/features/wallet/services/pending_transaction_service.dart';
+import 'package:crypto_mobile_app/features/wallet/models/pending_transaction.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 
@@ -25,6 +27,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
 
   bool _isSending = false;
   TransactionLimitsService? _limitsService;
+  PendingTransactionService? _pendingTxService;
 
   @override
   void initState() {
@@ -34,6 +37,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
 
   Future<void> _initLimitsService() async {
     _limitsService = await TransactionLimitsService.getInstance();
+    _pendingTxService = await PendingTransactionService.getInstance();
   }
 
   @override
@@ -99,6 +103,20 @@ class _SendScreenState extends ConsumerState<SendScreen> {
         if (response != null && response.queued) {
           // Increment transaction count after successful transaction
           await _limitsService?.incrementTransactionCount();
+
+          // Store pending transaction for amount association
+          if (_pendingTxService != null) {
+            final pendingTx = PendingTransaction(
+              fromAddress: userAccount.address,
+              toAddress: recipientAddress,
+              amount: double.parse(amountStr),
+              timestamp: DateTime.now(),
+              memo: _memoController.text.trim().isNotEmpty
+                  ? _memoController.text.trim()
+                  : null,
+            );
+            await _pendingTxService!.storePendingTransaction(pendingTx);
+          }
 
           await ref
               .read(recipientHistoryProvider.notifier)
@@ -347,11 +365,6 @@ class _SendScreenState extends ConsumerState<SendScreen> {
         if (amountError != null) {
           return amountError;
         }
-      }
-
-      // Prevent sending exactly 20 TKN (block reward amount)
-      if (fieldName == 'amount' && number == 20) {
-        return 'Cannot send exactly 20 TKN (temporary workaround / reserved for block rewards)';
       }
 
       return null;

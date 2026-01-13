@@ -144,22 +144,20 @@ class PlatformAlarmService {
       final hasNotifications =
           await _channel.invokeMethod<bool>('hasPostNotificationsPermission') ??
               false;
-      final hasAlarmScheduling =
+      final hasExactAlarm =
           await _channel.invokeMethod<bool>('hasExactAlarmPermission') ??
-              true; // Default to true for alarm clock API
+              false;
 
-      _permissionsGranted = hasNotifications && hasAlarmScheduling;
+      _permissionsGranted = hasNotifications && hasExactAlarm;
 
       if (!hasNotifications) {
         _log.warn('Android POST_NOTIFICATIONS permission not granted');
       }
-      if (!hasAlarmScheduling) {
-        _log.warn(
-            'Android alarm scheduling not available (unexpected with alarm clock API)');
+      if (!hasExactAlarm) {
+        _log.warn('Android exact alarm permission not granted');
       }
       if (_permissionsGranted) {
-        _log.info(
-            'All Android permissions granted (alarm clock API always available)');
+        _log.info('All Android permissions granted');
       }
     } on PlatformException catch (e) {
       _log.error('Error initializing Android alarm service: ${e.message}');
@@ -209,7 +207,7 @@ class PlatformAlarmService {
     }
   }
 
-  /// Request Android permissions (POST_NOTIFICATIONS, Battery Optimization; alarm scheduling always available)
+  /// Request Android permissions (POST_NOTIFICATIONS, SCHEDULE_EXACT_ALARM, Battery Optimization)
   Future<bool> _requestAndroidPermissions() async {
     try {
       _log.info('Requesting Android permissions...');
@@ -229,15 +227,15 @@ class PlatformAlarmService {
             false;
       }
 
-      // 2. Alarm scheduling (always available with SET_ALARM_CLOCK API)
-      bool hasAlarmScheduling =
-          await _channel.invokeMethod<bool>('hasExactAlarmPermission') ?? true;
+      // 2. Request SCHEDULE_EXACT_ALARM (Android 12+)
+      bool hasExactAlarm =
+          await _channel.invokeMethod<bool>('hasExactAlarmPermission') ?? false;
 
-      if (!hasAlarmScheduling) {
-        _log.info('Requesting alarm scheduling permission...');
+      if (!hasExactAlarm) {
+        _log.info('Requesting SCHEDULE_EXACT_ALARM permission...');
         await _channel.invokeMethod('requestExactAlarmPermission');
-        // SET_ALARM_CLOCK doesn't require user permission, so this should always succeed
-        hasAlarmScheduling = true;
+        // This opens settings, so we'll need to wait for user to return
+        // The permission check will happen when app resumes
       }
 
       // 3. Request Battery Optimization Exemption
@@ -256,10 +254,10 @@ class PlatformAlarmService {
       }
 
       // Update permissions granted status
-      _permissionsGranted = hasNotifications && hasAlarmScheduling;
+      _permissionsGranted = hasNotifications && hasExactAlarm;
 
       _log.info(
-          'Permissions status - Notifications: $hasNotifications, Alarm Scheduling: $hasAlarmScheduling, Battery: $hasBatteryExemption');
+          'Permissions status - Notifications: $hasNotifications, Exact Alarm: $hasExactAlarm, Battery: $hasBatteryExemption');
 
       return _permissionsGranted;
     } on PlatformException catch (e) {
@@ -289,27 +287,33 @@ class PlatformAlarmService {
     }
   }
 
-  /// Request alarm scheduling permission (always granted with SET_ALARM_CLOCK API)
+  /// Request ONLY the Android exact alarm permission (NEW_UX onboarding step 1)
   ///
-  /// With SET_ALARM_CLOCK API, no permission request is needed.
-  /// This method is kept for compatibility but always returns true.
+  /// On Android 12+ this opens the system settings where the user can allow
+  /// exact alarms for the app. On other platforms, this returns true.
   Future<bool> requestExactAlarmOnly() async {
     if (!Platform.isAndroid) {
       return true;
     }
     if (!_initialized) {
-      _log.warn('Cannot request alarm permission: service not initialized');
+      _log.warn('Cannot request exact alarm: service not initialized');
       return false;
     }
     try {
       await _channel.invokeMethod('requestExactAlarmPermission');
-      // SET_ALARM_CLOCK doesn't require user permission
-      _log.info(
-          'Alarm scheduling permission always available with alarm clock API');
-      return true;
+      // Give the system a moment and then re-check
+      await Future.delayed(const Duration(milliseconds: 500));
+      final hasExact = await hasExactAlarmPermission();
+      // Do not force notifications here; just update combined flag conservatively
+      if (hasExact) {
+        _log.info('Exact alarm permission granted');
+      } else {
+        _log.warn('Exact alarm permission still not granted');
+      }
+      return hasExact;
     } on PlatformException catch (e) {
-      _log.error('Error with alarm permission: ${e.message}');
-      return true; // Still return true as alarm clock API should work
+      _log.error('Error requesting exact alarm permission: ${e.message}');
+      return false;
     }
   }
 
@@ -329,16 +333,15 @@ class PlatformAlarmService {
     }
   }
 
-  /// Check if alarm scheduling is available (always true with SET_ALARM_CLOCK API)
+  /// Check if SCHEDULE_EXACT_ALARM permission is granted (Android 12+)
   Future<bool> hasExactAlarmPermission() async {
     if (!Platform.isAndroid) return true;
     try {
-      // SET_ALARM_CLOCK doesn't require runtime permission - always available
       return await _channel.invokeMethod<bool>('hasExactAlarmPermission') ??
-          true;
+          false;
     } on PlatformException catch (e) {
-      _log.error('Error checking alarm permission: ${e.message}');
-      return true; // Default to true for alarm clock API
+      _log.error('Error checking exact alarm permission: ${e.message}');
+      return false;
     }
   }
 

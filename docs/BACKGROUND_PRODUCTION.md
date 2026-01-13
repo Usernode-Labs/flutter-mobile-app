@@ -114,9 +114,8 @@ This adaptive approach maximizes battery life while ensuring reliable wake-ups.
    - Stops foreground service when no imminent slots
 
 2. **AlarmScheduler** (`AlarmScheduler.kt`)
-   - Uses `setAlarmClock()` for precise timing (Google Play compliant)
-   - Highest priority alarms, visible in system clock app
-   - Automatically bypasses battery optimization and Doze mode
+   - Uses `setExactAndAllowWhileIdle()` for precise timing
+   - Bypasses Doze mode restrictions
    - Persists alarms in SharedPreferences
 
 3. **AlarmReceiver** (`AlarmReceiver.kt`)
@@ -190,7 +189,7 @@ flowchart TB
 
 #### Android 12+ Requirements
 
-- **Alarm Scheduling**: Always available with SET_ALARM_CLOCK API (no permission required)
+- **Exact Alarm Permission**: User must grant `SCHEDULE_EXACT_ALARM`
 - **Foreground Service Type**: Must declare `foregroundServiceType="dataSync"`
 - **Notification Required**: Must post notification within 5 seconds of FGS start
 - **Fallback Strategy**: Expedited WorkManager if exact alarms unavailable
@@ -199,7 +198,7 @@ flowchart TB
 
 **Runtime (require user approval):**
 - `POST_NOTIFICATIONS` (Android 13+) - Display notifications
-- ~~`SCHEDULE_EXACT_ALARM`~~ (removed - using SET_ALARM_CLOCK API instead)
+- `SCHEDULE_EXACT_ALARM` (Android 12+) - Schedule precise alarms
 - `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` - Prevent aggressive killing
 
 **Manifest-only (auto-granted):**
@@ -343,7 +342,7 @@ Permissions are automatically requested at app startup (one-time on first launch
 
 1. Check `has_requested_permissions_at_startup` in SharedPreferences
 2. If false (first launch):
-   - **Android**: Request `POST_NOTIFICATIONS`, battery optimization exemption (alarm scheduling always available)
+   - **Android**: Request `POST_NOTIFICATIONS`, `SCHEDULE_EXACT_ALARM`, battery optimization exemption
    - **iOS**: Request notification permissions (alert, sound, badge)
 3. Set flag to true (prevents repeated requests)
 
@@ -365,7 +364,7 @@ See [startup flow diagram](#startup-permission-flow) for details.
 flowchart TB
     A["App Startup"] --> B{"Check 'has_requested_permissions_at_startup'"}
     B -->|FALSE - first launch| C["[Android] Request POST_NOTIFICATIONS"]
-    C --> D["[Android] Alarm scheduling always available<br/>with SET_ALARM_CLOCK API"]
+    C --> D["[Android] Request SCHEDULE_EXACT_ALARM<br/>opens Settings"]
     D --> E["[Android] Request Battery Optimization Exemption"]
     E --> F["[iOS] Request Notifications"]
     F --> G["Set flag = TRUE"]
@@ -512,7 +511,7 @@ flutter run --dart-define-from-file=.env
 **Symptom**: Scheduled alarms don't wake the app
 
 **Possible Causes:**
-1. Alarm scheduling issues (rare with SET_ALARM_CLOCK API)
+1. `SCHEDULE_EXACT_ALARM` permission denied
 2. Battery optimization enabled
 3. OEM-specific battery saver (Xiaomi, Oppo, Samsung)
 

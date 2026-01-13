@@ -28,8 +28,17 @@ class AlarmScheduler(
         try {
             Log.d(TAG, "[AlarmScheduler] Attempting to schedule alarm - ID: $alarmId, Slot: $slotNumber, Time: $alarmTimeMs")
 
-            // SET_ALARM_CLOCK doesn't require runtime permission - always available
-            Log.d(TAG, "[AlarmScheduler] Using SET_ALARM_CLOCK API - no permission check needed (API ${Build.VERSION.SDK_INT})")
+            // Check if we can schedule exact alarms
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val canSchedule = alarmManager.canScheduleExactAlarms()
+                Log.d(TAG, "[AlarmScheduler] Exact alarm permission status: $canSchedule (API ${Build.VERSION.SDK_INT})")
+                if (!canSchedule) {
+                    Log.w(TAG, "[AlarmScheduler] Cannot schedule exact alarms - permission not granted")
+                    return false
+                }
+            } else {
+                Log.d(TAG, "[AlarmScheduler] No permission check needed (API ${Build.VERSION.SDK_INT} < 31)")
+            }
 
             // Create intent for alarm receiver
             Log.d(TAG, "[AlarmScheduler] Creating PendingIntent for alarm broadcast")
@@ -59,26 +68,35 @@ class AlarmScheduler(
             )
             Log.d(TAG, "[AlarmScheduler] PendingIntent created with hashCode: ${alarmId.hashCode()}")
 
-            // Schedule alarm clock - visible to user, highest priority
+            // Schedule exact alarm
             val currentTime = System.currentTimeMillis()
             val delayMs = alarmTimeMs - currentTime
             Log.d(TAG, "[AlarmScheduler] Current time: $currentTime, Alarm time: $alarmTimeMs, Delay: ${delayMs}ms (${delayMs/1000}s)")
 
-            Log.d(TAG, "[AlarmScheduler] Using setAlarmClock for slot $slotNumber - will appear in system alarm list")
-            val alarmClockInfo = AlarmManager.AlarmClockInfo(
-                alarmTimeMs,
-                pendingIntent // Show intent when alarm is tapped in system UI
-            )
-            alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                Log.d(TAG, "[AlarmScheduler] Using setExactAndAllowWhileIdle (API >= 23)")
+                alarmManager.setExactAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    alarmTimeMs,
+                    pendingIntent
+                )
+            } else {
+                Log.d(TAG, "[AlarmScheduler] Using setExact (API < 23)")
+                alarmManager.setExact(
+                    AlarmManager.RTC_WAKEUP,
+                    alarmTimeMs,
+                    pendingIntent
+                )
+            }
 
             // Save alarm ID for tracking
             saveScheduledAlarm(alarmId, slotNumber)
             Log.d(TAG, "[AlarmScheduler] Alarm saved to SharedPreferences")
 
-            Log.i(TAG, "[AlarmScheduler] ✓ Successfully scheduled alarm clock for slot $slotNumber at $alarmTimeMs (in ${delayMs/1000}s)")
+            Log.i(TAG, "[AlarmScheduler] ✓ Successfully scheduled exact alarm for slot $slotNumber at $alarmTimeMs (in ${delayMs/1000}s)")
             return true
         } catch (e: Exception) {
-            Log.e(TAG, "[AlarmScheduler] ✗ Error scheduling alarm clock for slot $slotNumber", e)
+            Log.e(TAG, "[AlarmScheduler] ✗ Error scheduling exact alarm for slot $slotNumber", e)
             return false
         }
     }

@@ -817,7 +817,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     final blocks = blockchain.items.take(10).toList();
     final bestTipSlot = status?.globalSlot ?? _bestTipGlobalSlot;
     // Get reward per block from epoch rewards, with fallback to reasonable default
-    final rewardsAsync = ref.watch(epochRewardsProvider);
+    final rewardsAsync = ref.read(epochRewardsProvider);
     final rewardPerBlock = rewardsAsync.value?.rewardPerBlock ?? BigInt.zero;
 
     return Column(

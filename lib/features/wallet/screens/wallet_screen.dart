@@ -53,7 +53,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       if (currentTab == 2) {
         await ref.read(walletProvider.notifier).silentRefresh();
         await ref.read(nodeStatusProvider.notifier).silentRefresh();
-        
+
         // Update local state with fresh data
         if (mounted) {
           setState(() {
@@ -70,13 +70,13 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       ref.read(walletProvider.notifier).silentRefresh(),
       ref.read(nodeStatusProvider.notifier).silentRefresh(),
     ]);
-    
+
     // Update local state with fresh data
     setState(() {
       _walletState = ref.read(walletProvider);
       _nodeStatus = ref.read(nodeStatusProvider);
     });
-    
+
     _startAutoRefresh();
   }
 
@@ -413,14 +413,38 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
+
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 32),
-      child: Text(
-        message,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.receipt_long,
+            size: 48,
+            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            l10n.walletNoRecentActivity,
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: theme.colorScheme.onSurface,
+              fontWeight: FontWeight.w500,
             ),
-        textAlign: TextAlign.center,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            l10n.walletNoRecentActivitySubtitle,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              height: 1.4,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }

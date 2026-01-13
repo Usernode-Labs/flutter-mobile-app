@@ -134,7 +134,7 @@ class TransactionModel {
     switch (txType) {
       case TransactionType.reward:
         title = 'Block Reward';
-        icon = Icons.star;
+        icon = Icons.layers_outlined;
         color = Colors.orange;
         break;
       case TransactionType.genesis:

@@ -186,7 +186,7 @@ class AppConfig {
   );
   static const int explorerTimeoutSeconds = int.fromEnvironment(
     'EXPLORER_TIMEOUT_SECONDS',
-    defaultValue: 10,
+    defaultValue: 5,
   );
   static const int explorerCacheTtlMinutes = int.fromEnvironment(
     'EXPLORER_CACHE_TTL_MINUTES',

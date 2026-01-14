@@ -1,8 +1,6 @@
 import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
-import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import '../../features/node/node_service.dart';
 import '../../features/metrics/metrics_collector_service.dart';
 import '../services/android_foreground_task_controller.dart';
@@ -24,25 +22,18 @@ class AppLifecycleLogger with WidgetsBindingObserver {
   static void register() {
     _instance ??= AppLifecycleLogger();
     WidgetsBinding.instance.addObserver(_instance!);
-    SentryUtil.addBreadcrumb(
-        category: 'lifecycle', message: 'observer registered');
+    _log.debug('Lifecycle observer registered');
   }
 
   static void unregister() {
     if (_instance != null) {
       WidgetsBinding.instance.removeObserver(_instance!);
-      SentryUtil.addBreadcrumb(
-          category: 'lifecycle', message: 'observer removed');
+      _log.debug('Lifecycle observer removed');
     }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    SentryUtil.addBreadcrumb(
-      category: 'lifecycle',
-      message: 'state: ${state.name}',
-    );
-
     _log.info('App lifecycle state changed: ${state.name}');
 
     // Update metrics collector with new state
@@ -89,11 +80,6 @@ class AppLifecycleLogger with WidgetsBindingObserver {
       _log.info('App resume handling complete');
     } catch (e) {
       _log.error('Error handling app resume: $e');
-      SentryUtil.addBreadcrumb(
-        category: 'lifecycle',
-        message: 'resume error: $e',
-        level: SentryLevel.error,
-      );
     } finally {
       _isHandlingResume = false;
     }
@@ -117,17 +103,8 @@ class AppLifecycleLogger with WidgetsBindingObserver {
 
         if (rustBackend.isRunning) {
           _log.info('✓ Node successfully restarted');
-          SentryUtil.addBreadcrumb(
-            category: 'lifecycle',
-            message: 'node restarted on resume',
-          );
         } else {
           _log.error('✗ Failed to restart node');
-          SentryUtil.addBreadcrumb(
-            category: 'lifecycle',
-            message: 'failed to restart node',
-            level: SentryLevel.error,
-          );
         }
       } else {
         _log.debug('Node already running');

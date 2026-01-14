@@ -22,7 +22,6 @@ import 'package:crypto_mobile_app/src/rust/node/builder.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/core/models/backend_rpc_response.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
@@ -177,8 +176,6 @@ class RustBackendService {
     _log.trace('Account check result: hasAny = $hasAny');
     if (!hasAny) {
       _log.trace('No accounts found - skipping node start');
-      SentryUtil.addBreadcrumb(
-          category: 'backend', message: 'no accounts; skipping start');
       return false;
     }
 
@@ -188,10 +185,6 @@ class RustBackendService {
 
     if (account == null) {
       _log.error('Failed to retrieve active account');
-      await SentryUtil.captureMessage(
-        'Node start failed: no active account found',
-        level: SentryLevel.warning,
-      );
       return false;
     }
 
@@ -205,10 +198,6 @@ class RustBackendService {
       _log.error(
         'Cannot start node: secret key unavailable for account ${account.id}',
       );
-      await SentryUtil.captureMessage(
-        'Node start failed: secret key unavailable',
-        level: SentryLevel.error,
-      );
       return false;
     }
 
@@ -218,11 +207,6 @@ class RustBackendService {
     // Start node
     try {
       _log.trace('Starting node${httpPort != null ? ' on $httpPort' : ''}');
-      SentryUtil.addBreadcrumb(
-        category: 'backend',
-        message: 'Starting node',
-        data: {'httpPort': httpPort},
-      );
 
       // First try to reuse an already-running *global* node (shared across Dart
       // isolates / FlutterEngines in the same process) by grabbing its RPC client.
@@ -298,8 +282,6 @@ class RustBackendService {
       }
 
       _log.info('Node started with user account block producer');
-      await SentryUtil.captureMessage(
-          'Backend started for active account ${account.id}');
       return true;
     } catch (e, st) {
       _log.error('Failed to start node with account ${account.id}',
@@ -315,7 +297,6 @@ class RustBackendService {
     _log.warn(
       'Stopping node (dropping references; FRB stays initialized)',
     );
-    SentryUtil.addBreadcrumb(category: 'backend', message: 'Stopping node');
     _nodeRunning = false;
     _node = null;
     _rpc = null;
@@ -382,7 +363,6 @@ class RustBackendService {
   /// Restart node using current active account context.
   Future<void> restartNode() async {
     _log.info('Restarting node');
-    SentryUtil.addBreadcrumb(category: 'backend', message: 'restartNode');
     await stopNode();
     await startNode();
   }
@@ -580,20 +560,16 @@ class RustBackendService {
       final peerCount = peersList.length;
       final outgoing = peerCount - incoming;
 
-      // Log as breadcrumb only (not an Issue) for routine RPC operations
-      SentryUtil.addBreadcrumb(
-        category: 'rpc',
-        message: 'getStatus ok',
-        data: {
-          'peerCount': peerCount,
-          'connected': connected,
-          'connecting': connecting,
-          'disconnected': disconnected,
-          'disconnecting': disconnecting,
-          'incoming': incoming,
-          'outgoing': outgoing,
-        },
-      );
+      // Log successful RPC operation
+      _log.debug('getStatus ok', context: {
+        'peerCount': peerCount,
+        'connected': connected,
+        'connecting': connecting,
+        'disconnected': disconnected,
+        'disconnecting': disconnecting,
+        'incoming': incoming,
+        'outgoing': outgoing,
+      });
     } catch (e, st) {
       LoggingService.instance
           .warn('Failed to encode getStatus to JSON: $e\$st');
@@ -723,11 +699,10 @@ class RustBackendService {
       final json = jsonEncode(fullResponse);
       _log.debug('listBlockchain response: $json');
 
-      // Log as breadcrumb only (not an Issue) for routine RPC operations
-      SentryUtil.addBreadcrumb(
-        category: 'rpc',
-        message: 'listBlockchain ok',
-        data: {
+      // Log successful RPC operation
+      _log.debug(
+'listBlockchain ok',
+      context: {
           'totalBlocks': totalBlocks.toString(),
           'itemsCount': itemsCount,
         },
@@ -822,11 +797,10 @@ class RustBackendService {
       final json = jsonEncode(fullResponse);
       _log.trace('listMempool response: $json');
 
-      // Log as breadcrumb only (not an Issue) for routine RPC operations
-      SentryUtil.addBreadcrumb(
-        category: 'rpc',
-        message: 'listMempool ok',
-        data: {
+      // Log successful RPC operation
+      _log.debug(
+'listMempool ok',
+      context: {
           'count': count.toString(),
           'orphans': orphans.toString(),
           'totalSize': totalSize.toString(),
@@ -845,11 +819,6 @@ class RustBackendService {
     int? epoch,
   }) async {
     _log.trace('epochRewards called with params: epoch=$epoch');
-    SentryUtil.addBreadcrumb(
-      category: 'rpc',
-      message: 'epochRewards called',
-      data: {'epoch': epoch},
-    );
     final r = _rpc;
     if (r == null) return null;
 
@@ -916,11 +885,10 @@ class RustBackendService {
       final json = jsonEncode(fullResponse);
       _log.debug('epochRewards response: $json');
 
-      // Log as breadcrumb only (not an Issue) for routine RPC operations
-      SentryUtil.addBreadcrumb(
-        category: 'rpc',
-        message: 'epochRewards ok',
-        data: {
+      // Log successful RPC operation
+      _log.debug(
+'epochRewards ok',
+      context: {
           'epoch': epochNum,
           'producedInEpoch': producedInEpoch,
           'winsInEpoch': winsInEpoch,
@@ -975,11 +943,10 @@ class RustBackendService {
         'listUtxosByOwner response: itemsCount=$itemsCount',
       );
 
-      // Log as breadcrumb only (not an Issue) for routine RPC operations
-      SentryUtil.addBreadcrumb(
-        category: 'rpc',
-        message: 'listUtxosByOwner ok',
-        data: {
+      // Log successful RPC operation
+      _log.debug(
+'listUtxosByOwner ok',
+      context: {
           'itemsCount': itemsCount,
         },
       );
@@ -1035,11 +1002,10 @@ class RustBackendService {
         'transferFunds response: queued=$queued, error=$error',
       );
 
-      // Log as breadcrumb only (not an Issue) for routine RPC operations
-      SentryUtil.addBreadcrumb(
-        category: 'rpc',
-        message: 'transferFunds ${queued ? 'queued' : 'failed'}',
-        data: {
+      // Log successful RPC operation
+      _log.debug(
+'transferFunds ${queued ? 'queued' : 'failed'}',
+      context: {
           'queued': queued,
           if (error != null) 'error': error,
         },
@@ -1133,10 +1099,9 @@ class RustBackendService {
       final epochsCount = response?.epochs.length ?? 0;
       _log.trace('getEpochsWithData response: epochsCount=$epochsCount');
 
-      SentryUtil.addBreadcrumb(
-        category: 'rpc',
-        message: 'getEpochsWithData ok',
-        data: {'epochsCount': epochsCount},
+      _log.debug(
+'getEpochsWithData ok',
+      context: {'epochsCount': epochsCount},
       );
     } catch (e, st) {
       _log.warn('Failed to log getEpochsWithData response: $e\$st');
@@ -1176,10 +1141,9 @@ class RustBackendService {
         'getEpochSlotResults response: epoch=${response?.epoch}, resultsCount=$resultsCount',
       );
 
-      SentryUtil.addBreadcrumb(
-        category: 'rpc',
-        message: 'getEpochSlotResults ok',
-        data: {'epoch': response?.epoch, 'resultsCount': resultsCount},
+      _log.debug(
+'getEpochSlotResults ok',
+      context: {'epoch': response?.epoch, 'resultsCount': resultsCount},
       );
     } catch (e, st) {
       _log.warn('Failed to log getEpochSlotResults response: $e\$st');
@@ -1217,10 +1181,9 @@ class RustBackendService {
         'getSlotTime response: epoch=${response?.epoch}, slot=${response?.slot}, timestampMs=${response?.timestampMs}',
       );
 
-      SentryUtil.addBreadcrumb(
-        category: 'rpc',
-        message: 'getSlotTime ok',
-        data: {
+      _log.debug(
+'getSlotTime ok',
+      context: {
           'epoch': response?.epoch,
           'slot': response?.slot,
           'hasTimestamp': response?.timestampMs != null,
@@ -1266,10 +1229,9 @@ class RustBackendService {
         'getProducedBlockMetadata response: epoch=${response?.epoch}, slot=${response?.slot}, hasMetadata=${metadata != null}',
       );
 
-      SentryUtil.addBreadcrumb(
-        category: 'rpc',
-        message: 'getProducedBlockMetadata ok',
-        data: {
+      _log.debug(
+'getProducedBlockMetadata ok',
+      context: {
           'epoch': response?.epoch,
           'slot': response?.slot,
           'hasMetadata': metadata != null,

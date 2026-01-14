@@ -134,8 +134,8 @@ class LoggingService {
       }
     }
 
-    // Add breadcrumb for info+ logs (always, including release mode)
-    if (level.index >= Level.info.index) {
+    // Only add breadcrumbs for warning+ logs to reduce noise
+    if (level.index >= Level.warning.index) {
       SentryUtil.addBreadcrumb(
         category: tag ?? 'logging',
         message: message,

@@ -139,8 +139,8 @@ class AppVersionCheck {
   }
 
   static String get storeUrl => Platform.isIOS
-      ? 'https://apps.apple.com/app/usernode/id0000000000' // TODO: real ID
-      : 'https://play.google.com/store/apps/details?id=com.usernodelabs.crypto_mobile_app';
+      ? 'https://testflight.apple.com/join/H9puE1gu'
+      : 'https://play.google.com/apps/internaltest/4701340899701151099';
 }
 
 // =============================================================================

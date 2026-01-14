@@ -93,12 +93,12 @@ class AppBootstrap {
     required ProviderContainer container,
   }) async {
     try {
-      SentryUtil.addBreadcrumb(category: 'app', message: 'bootstrap begin');
+      log.debug('Bootstrap begin');
       log.info('Initializing application');
 
       // Log environment/config for diagnostics
       final cfg = AppConfig.instance;
-      SentryUtil.addBreadcrumb(category: 'config', message: 'env', data: {
+      log.debug('Environment config loaded', context: {
         'environment': cfg.environment,
         'verboseLogging': cfg.verboseLogging,
       });
@@ -119,9 +119,7 @@ class AppBootstrap {
         final started = await RustBackendService.instance.startNode();
         log.info(
             'Backend startNode => $started, isRunning=${RustBackendService.instance.isRunning}');
-        await SentryUtil.captureMessage(
-          started ? 'backend startNode: started' : 'backend startNode: skipped',
-        );
+        log.info(started ? 'backend startNode: started' : 'backend startNode: skipped');
         if (started) {
           log.info(
               'Node started successfully, waiting 1 second for node to be ready...');
@@ -138,7 +136,7 @@ class AppBootstrap {
         await AndroidForegroundTaskController.instance.onNodeStarted();
       }
 
-      SentryUtil.addBreadcrumb(category: 'app', message: 'bootstrap end');
+      log.debug('Bootstrap end');
     } catch (e, st) {
       log.error('Bootstrap failed: $e', error: e, stackTrace: st);
       await SentryUtil.captureError(e, st, tag: 'bootstrap');

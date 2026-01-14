@@ -35,13 +35,10 @@ Future<void> main() async {
     final boot = await AppBootstrap.initNonUi(logTag: 'usernode/Bootstrap');
     final log = boot.log;
 
-    SentryUtil.addBreadcrumb(category: 'app', message: 'startup begin');
     log.info('App started');
 
     // Render UI immediately; perform heavy bootstrap asynchronously.
     log.info('Running app UI');
-
-    SentryUtil.addBreadcrumb(category: 'app', message: 'runApp');
     runApp(UncontrolledProviderScope(
         container: boot.container,
         child: CryptoMobileApp(hasAccount: boot.hasAnyAccounts)));

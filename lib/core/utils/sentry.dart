@@ -9,12 +9,16 @@ class SentrySettings {
   final String environment;
   final double tracesSampleRate;
   final double profilesSampleRate;
+  final bool enableBreadcrumbs;
+  final bool enablePerformanceTracking;
 
   const SentrySettings({
     required this.dsn,
     required this.environment,
     required this.tracesSampleRate,
     required this.profilesSampleRate,
+    required this.enableBreadcrumbs,
+    required this.enablePerformanceTracking,
   });
 
   // DSN is read from --dart-define SENTRY_DSN. No hard-coded default.
@@ -24,10 +28,14 @@ class SentrySettings {
   static const String _env =
       String.fromEnvironment('SENTRY_ENVIRONMENT', defaultValue: 'development');
   static const String _traces =
-      String.fromEnvironment('SENTRY_TRACES_SAMPLE_RATE', defaultValue: '0.2');
+      String.fromEnvironment('SENTRY_TRACES_SAMPLE_RATE', defaultValue: '0.0');
   static const String _profiles = String.fromEnvironment(
       'SENTRY_PROFILES_SAMPLE_RATE',
       defaultValue: '0.0');
+  static const String _enableBreadcrumbs =
+      String.fromEnvironment('SENTRY_ENABLE_BREADCRUMBS', defaultValue: 'false');
+  static const String _enablePerformance =
+      String.fromEnvironment('SENTRY_ENABLE_PERFORMANCE', defaultValue: 'false');
 
   static double _parseRate(String s, double fallback) {
     final v = double.tryParse(s);
@@ -39,14 +47,18 @@ class SentrySettings {
     return SentrySettings(
       dsn: _dsn,
       environment: _env,
-      tracesSampleRate: _parseRate(_traces, 0.2),
+      tracesSampleRate: _parseRate(_traces, 0.0),
       profilesSampleRate: _parseRate(_profiles, 0.0),
+      enableBreadcrumbs: _enableBreadcrumbs.toLowerCase() == 'true',
+      enablePerformanceTracking: _enablePerformance.toLowerCase() == 'true',
     );
   }
 }
 
 class SentryUtil {
   static bool _enabled = false;
+  static bool _breadcrumbsEnabled = false;
+  static bool _performanceTrackingEnabled = false;
   // Gate for logging large payloads (enable in dev/staging)
   static const bool logStatusPayload =
       bool.fromEnvironment('SENTRY_LOG_STATUS_PAYLOAD', defaultValue: true);
@@ -74,17 +86,19 @@ class SentryUtil {
       options.profilesSampleRate = opts.profilesSampleRate;
       options.attachThreads = true;
       options.reportPackages = true;
-      options.enableAutoPerformanceTracing = true;
+      options.enableAutoPerformanceTracing = opts.enablePerformanceTracking;
       options.sendDefaultPii = false;
-      options.enableAppLifecycleBreadcrumbs = true;
+      options.enableAppLifecycleBreadcrumbs = opts.enableBreadcrumbs;
     }, appRunner: () async {
       _enabled = true;
+      _breadcrumbsEnabled = opts.enableBreadcrumbs;
+      _performanceTrackingEnabled = opts.enablePerformanceTracking;
       await Future.sync(appRunner);
     });
   }
 
   static List<NavigatorObserver> navigatorObservers() {
-    if (!_enabled) return const <NavigatorObserver>[];
+    if (!_enabled || !_performanceTrackingEnabled) return const <NavigatorObserver>[];
     return [SentryNavigatorObserver()];
   }
 
@@ -163,7 +177,8 @@ class SentryUtil {
     Map<String, dynamic>? data,
     SentryLevel level = SentryLevel.info,
   }) {
-    // Breadcrumbs are best-effort even if Sentry is disabled.
+    // Only add breadcrumbs if enabled and Sentry is active
+    if (!_enabled || !_breadcrumbsEnabled) return;
     Sentry.addBreadcrumb(Breadcrumb(
       category: category,
       message: message,
@@ -175,10 +190,13 @@ class SentryUtil {
   /// Log a routine RPC operation as a breadcrumb (not an Issue).
   /// Use this for normal operational data that should only appear
   /// when an actual error occurs.
+  /// Note: This is disabled by default to reduce noise.
   static void logRpcBreadcrumb(
     String rpcMethod,
     Map<String, dynamic> data,
   ) {
+    // Only log RPC breadcrumbs if explicitly enabled
+    if (!_enabled || !_breadcrumbsEnabled) return;
     addBreadcrumb(
       category: 'rpc',
       message: rpcMethod,

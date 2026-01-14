@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
@@ -19,6 +20,8 @@ import 'package:crypto_mobile_app/core/providers/metrics_provider.dart';
 import 'package:crypto_mobile_app/core/providers/produced_blocks_provider.dart';
 import 'package:crypto_mobile_app/core/services/app_version_check.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
+
+Timer? _headlessProducedBlocksRefreshTimer;
 
 Future<void> main() async {
   // NOTE: Do NOT call WidgetsFlutterBinding.ensureInitialized() here.
@@ -96,6 +99,8 @@ Future<void> _startHeadlessServices(
   try {
     log.info('Starting headless services (metrics, lifecycle, etc.)');
 
+    _startHeadlessProducedBlocksRefresh(container, log);
+
     // Start metrics reporting service if enabled
     if (AppConfig.metricsEnabled && AppConfig.metricsEndpoint.isNotEmpty) {
       log.info('Starting metrics reporting service in headless mode', context: {
@@ -166,6 +171,42 @@ Future<void> _startHeadlessServices(
     log.error('Error starting headless services: $e', error: e, stackTrace: st);
     await SentryUtil.captureError(e, st, tag: 'headless_services');
   }
+}
+
+void _startHeadlessProducedBlocksRefresh(
+  ProviderContainer container,
+  TaggedLogger log,
+) {
+  // IMPORTANT:
+  // - `invalidate(producedBlocksSummaryProvider)` alone does not recompute unless something
+  //   reads the provider again.
+  // - In headless/background mode we proactively `refresh(...future)` on a timer so the
+  //   provider's cached value stays current even without UI screens.
+
+  _headlessProducedBlocksRefreshTimer?.cancel();
+
+  final interval = AppConfig.metricsCollectionInterval;
+  log.debug(
+    'Starting headless produced blocks refresh timer',
+    context: {'interval': interval.toString()},
+  );
+
+  void refreshOnce() {
+    if (!RustBackendService.instance.isRunning) return;
+    unawaited(() async {
+      try {
+        await container.refresh(producedBlocksSummaryProvider.future);
+      } catch (e) {
+        log.debug('Produced blocks refresh failed: $e');
+      }
+    }());
+  }
+
+  // Prime immediately, then keep it fresh.
+  refreshOnce();
+  _headlessProducedBlocksRefreshTimer = Timer.periodic(interval, (_) {
+    refreshOnce();
+  });
 }
 
 class CryptoMobileApp extends ConsumerWidget {

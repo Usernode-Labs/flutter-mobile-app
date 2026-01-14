@@ -90,7 +90,7 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
           slotTimeMs: i < slotTimesMs.length ? slotTimesMs[i] : null,
           producedMeta: i < producedMeta.length ? producedMeta[i] : null,
         );
-      }).reversed.toList();
+      }).toList();
     } catch (_) {
       return null;
     }
@@ -136,7 +136,17 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final secondary = theme.colorScheme.secondary;
-    final filtered = _items.where(_matchesFilters).toList(growable: false);
+
+    // Build the filtered list
+    final List<_AssignmentItem> filtered;
+    if (_selected.contains(_Filter.upcoming)) {
+      // Sort upcoming slots ascending (chronological)
+      filtered = _items.where(_matchesFilters).toList(growable: false);
+    } else {
+      // Sort all, produced and missed views descending (newest first)
+      filtered = _items.reversed.where(_matchesFilters).toList(growable: false);
+    }
+
     final args = widget.args ?? const <String, dynamic>{};
     final epoch = (args['epoch'] as int?) ?? 0;
     final slotsInEpoch = (args['slotsInEpoch'] as int?) ?? 0;

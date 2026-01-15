@@ -813,62 +813,6 @@ class MetricsCollectorService {
       _log.debug('P2P metrics collected successfully');
       return result;
     } catch (e) {
-      _log.debug('Error collecting P2P metrics: $e');
-=======
-      // Get cached peer ID
-      _cachedPeerId ??= RustBackendService.instance.getPeerId();
-      final peerId = _cachedPeerId;
-
-      // Get node status for P2P data
-      NodeStatusState? rawStatus;
-      if (_container != null) {
-        try {
-          final rawStatusAsync = _container!.read(nodeStatusProvider);
-          rawStatus = rawStatusAsync.valueOrNull;
-        } catch (e) {
-          _log.warn('Failed to read nodeStatusProvider for P2P metrics: $e');
-        }
-      }
-
-      if (rawStatus == null) {
-        _log.debug('No node status available for P2P metrics');
-        return null;
-      }
-
-      // Collect basic P2P metrics
-      final connectedPeers = rawStatus.connectedPeers;
-      final totalPeers = rawStatus.peers.length;
-
-      // Get network info
-      String? networkType;
-      try {
-        final selectedNetwork = await RustBackendService.instance.getSelectedNetwork();
-        networkType = selectedNetwork.name;
-      } catch (e) {
-        _log.debug('Failed to get network type for P2P metrics: $e');
-      }
-
-      // Build P2P metrics payload
-      final p2pMetrics = {
-        'timestamp': DateTime.now().toUtc().toIso8601String(),
-        'peer_id': peerId,
-        'network_type': networkType,
-        'connected_peers': connectedPeers,
-        'total_known_peers': totalPeers,
-        'peers': rawStatus.peers.map((peer) => {
-          'peer_id': peer.peerId.toString(),
-          'address': peer.address,
-          'connection_status': peer.connectionStatus.toString().split('.').last,
-          'incoming': peer.incoming,
-          'best_tip_height': peer.bestTipHeight,
-          'best_tip_slot': peer.bestTipGlobalSlot,
-        }).toList(),
-      };
-
-      _log.debug('Collected P2P metrics: $connectedPeers/$totalPeers peers');
-      return p2pMetrics;
-
-    } catch (e) {
       _log.warn('Error collecting P2P metrics: $e');
       return null;
     }

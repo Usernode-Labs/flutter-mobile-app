@@ -138,8 +138,9 @@ class AppConfig {
   // Metrics configuration (compile-time)
   static const bool metricsEnabled =
       bool.fromEnvironment('METRICS_ENABLED', defaultValue: true);
-  static const String metricsEndpoint =
-      String.fromEnvironment('METRICS_ENDPOINT', defaultValue: 'https://api.topo.usernodelabs.org/api/v1/metrics');
+  static const String metricsEndpoint = String.fromEnvironment(
+      'METRICS_ENDPOINT',
+      defaultValue: 'https://api.topo.usernodelabs.org/api/v1/metrics');
   static const int metricsInterval =
       int.fromEnvironment('METRICS_INTERVAL', defaultValue: 30);
   static const String metricsHealthEndpoint =
@@ -148,11 +149,13 @@ class AppConfig {
   // P2P Metrics configuration (compile-time)
   static const bool p2pMetricsEnabled =
       bool.fromEnvironment('P2P_METRICS_ENABLED', defaultValue: true);
-  static const String p2pMetricsEndpoint =
-      String.fromEnvironment('P2P_METRICS_ENDPOINT', defaultValue: 'https://api.topo.usernodelabs.org/api/v1/metrics/p2p');
-  static const int p2pMetricsIntervalSeconds =
-      int.fromEnvironment('P2P_METRICS_INTERVAL_SECONDS', defaultValue: 60);
-  
+  static const String p2pMetricsEndpoint = String.fromEnvironment(
+      'P2P_METRICS_ENDPOINT',
+      defaultValue: 'https://api.topo.usernodelabs.org/api/v1/metrics/p2p');
+  static const int p2pMetricsIntervalSeconds = int.fromEnvironment(
+      'P2P_METRICS_INTERVAL_SECONDS',
+      defaultValue: 30);
+
   // Convert to Duration for convenience
   static Duration get p2pMetricsInterval =>
       Duration(seconds: p2pMetricsIntervalSeconds);
@@ -175,8 +178,6 @@ class AppConfig {
       Duration(seconds: blockProductionWakeBeforeSlotSeconds);
   static Duration get epochMonitorBaseInterval =>
       Duration(seconds: epochMonitorBaseIntervalSeconds);
-  static Duration get p2pMetricsInterval =>
-      Duration(seconds: p2pMetricsIntervalSeconds);
 
   // Version check configuration
   // If empty, version checking is disabled

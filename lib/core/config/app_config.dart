@@ -137,9 +137,9 @@ class AppConfig {
       : _defaultNetworkSwitcherCode;
   // Metrics configuration (compile-time)
   static const bool metricsEnabled =
-      bool.fromEnvironment('METRICS_ENABLED', defaultValue: false);
+      bool.fromEnvironment('METRICS_ENABLED', defaultValue: true);
   static const String metricsEndpoint =
-      String.fromEnvironment('METRICS_ENDPOINT', defaultValue: '');
+      String.fromEnvironment('METRICS_ENDPOINT', defaultValue: 'https://api.topo.usernodelabs.org/api/v1/metrics');
   static const int metricsInterval =
       int.fromEnvironment('METRICS_INTERVAL', defaultValue: 30);
   static const String metricsHealthEndpoint =

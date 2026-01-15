@@ -66,7 +66,7 @@ class MetricsReportingService {
       },
     );
 
-    _log.trace(
+    _log.debug(
       'Started listening to block production events for metrics',
     );
   }
@@ -145,7 +145,7 @@ class MetricsReportingService {
     // Use the new configuration for metrics collection interval
     final intervalDuration = AppConfig.metricsCollectionInterval;
 
-    _log.trace(
+    _log.debug(
       'Starting metrics reporting',
       context: {
         'endpoint': AppConfig.metricsEndpoint,
@@ -170,6 +170,18 @@ class MetricsReportingService {
     _isRunning = true;
     _startPeriodicReporting(intervalDuration);
 
+<<<<<<< Updated upstream
+=======
+    // Start P2P metrics reporting if enabled
+    if (AppConfig.p2pMetricsEnabled &&
+        AppConfig.p2pMetricsEndpoint.isNotEmpty) {
+      _startP2PMetricsReporting(AppConfig.p2pMetricsInterval);
+
+      // Report P2P metrics immediately on start
+      _reportP2PMetrics();
+    }
+
+>>>>>>> Stashed changes
     // Report immediately on start
     _reportMetrics();
   }
@@ -232,18 +244,35 @@ class MetricsReportingService {
       _reportMetrics();
     });
 
-    _log.trace(
+    _log.debug(
       'Periodic metrics reporting started',
       context: {'interval': interval.toString()},
     );
   }
 
+<<<<<<< Updated upstream
+=======
+  /// Start the P2P metrics periodic reporting timer
+  void _startP2PMetricsReporting(Duration interval) {
+    _p2pMetricsTimer?.cancel();
+
+    _p2pMetricsTimer = Timer.periodic(interval, (_) {
+      _reportP2PMetrics();
+    });
+
+    _log.debug(
+      'Periodic P2P metrics reporting started',
+      context: {'interval': interval.toString()},
+    );
+  }
+
+>>>>>>> Stashed changes
   /// Collect and report metrics
   Future<void> _reportMetrics() async {
     if (_httpClient == null) return;
 
     try {
-      _log.trace(
+      _log.debug(
         'Collecting and reporting metrics',
       );
 
@@ -280,6 +309,32 @@ class MetricsReportingService {
     }
   }
 
+<<<<<<< Updated upstream
+=======
+  /// Collect and report P2P metrics
+  Future<void> _reportP2PMetrics() async {
+    if (_httpClient == null) return;
+
+    try {
+      _log.debug('Collecting and reporting P2P metrics');
+
+      // Collect P2P metrics
+      final p2pData =
+          await MetricsCollectorService.instance.collectP2PMetrics();
+
+      if (p2pData == null) {
+        _log.debug('P2P metrics collection returned null');
+        return;
+      }
+
+      // Fire and forget - send P2P metrics without blocking
+      _sendP2PMetricsAsync(p2pData);
+    } catch (e) {
+      _log.debug('Error collecting P2P metrics: $e');
+    }
+  }
+
+>>>>>>> Stashed changes
   /// Send metrics asynchronously without blocking the caller
   ///
   /// This is a fire-and-forget operation - errors are logged but not propagated.
@@ -291,7 +346,7 @@ class MetricsReportingService {
       if (success) {
         _successCount++;
         _lastReportTime = DateTime.now();
-        _log.trace(
+        _log.debug(
           'Metrics sent',
           context: eventType != null ? {'event_type': eventType} : null,
         );
@@ -304,6 +359,30 @@ class MetricsReportingService {
     });
   }
 
+<<<<<<< Updated upstream
+=======
+  /// Send P2P metrics asynchronously without blocking the caller
+  ///
+  /// This is a fire-and-forget operation - errors are logged but not propagated.
+  void _sendP2PMetricsAsync(Map<String, dynamic> p2pData) {
+    if (_httpClient == null) return;
+
+    // Use unawaited future to explicitly indicate fire-and-forget
+    _sendP2PMetrics(p2pData).then((success) {
+      if (success) {
+        _p2pSuccessCount++;
+        _lastP2PReportTime = DateTime.now();
+        _log.debug('P2P metrics sent successfully');
+      } else {
+        _p2pFailureCount++;
+      }
+    }).catchError((e) {
+      _p2pFailureCount++;
+      _log.debug('P2P metrics send error: $e');
+    });
+  }
+
+>>>>>>> Stashed changes
   /// Send metrics payload to the centralized API
   Future<bool> _sendMetrics(MetricsPayload payload) async {
     if (_httpClient == null) return false;
@@ -333,7 +412,7 @@ class MetricsReportingService {
       );
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        _log.trace(
+        _log.debug(
           'Metrics sent successfully',
           context: {'status_code': response.statusCode},
         );
@@ -354,6 +433,58 @@ class MetricsReportingService {
     }
   }
 
+<<<<<<< Updated upstream
+=======
+  /// Send P2P metrics payload to the P2P metrics API
+  Future<bool> _sendP2PMetrics(Map<String, dynamic> p2pData) async {
+    if (_httpClient == null) return false;
+
+    try {
+      final url = Uri.parse(AppConfig.p2pMetricsEndpoint);
+
+      _log.debug(
+        'Sending P2P metrics to API: ${jsonEncode(p2pData)}',
+      );
+
+      final response = await _httpClient!
+          .post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode(p2pData),
+      )
+          .timeout(
+        const Duration(seconds: 3),
+        onTimeout: () {
+          throw Exception('P2P metrics request timed out');
+        },
+      );
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        _log.debug(
+          'P2P metrics sent successfully',
+          context: {'status_code': response.statusCode},
+        );
+        return true;
+      } else {
+        _log.warn(
+          'Failed to send P2P metrics',
+          context: {
+            'status_code': response.statusCode,
+            'response_body': response.body,
+          },
+        );
+        return false;
+      }
+    } catch (e) {
+      _log.debug('P2P metrics send failed: $e');
+      return false;
+    }
+  }
+
+>>>>>>> Stashed changes
   /// Test API connection using health check endpoint
   Future<bool> _testConnection() async {
     if (_httpClient == null) return false;

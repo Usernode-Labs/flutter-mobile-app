@@ -239,10 +239,10 @@ class _SendScreenState extends ConsumerState<SendScreen> {
       ),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.grey.shade300,
+          color: theme.colorScheme.surfaceContainerHighest,
           border: Border(
             bottom: BorderSide(
-              color: Colors.grey.shade600,
+              color: theme.colorScheme.outline,
               width: 1,
             ),
           ),
@@ -263,10 +263,16 @@ class _SendScreenState extends ConsumerState<SendScreen> {
             filled: false,
             contentPadding: const EdgeInsets.all(16),
             hintText: hint,
-            hintStyle: const TextStyle(color: Colors.black87, fontSize: 16),
+            hintStyle: TextStyle(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontSize: 16,
+            ),
             suffixIcon: suffixIcon,
           ),
-          style: const TextStyle(fontSize: 16),
+          style: TextStyle(
+            color: theme.colorScheme.onSurface,
+            fontSize: 16,
+          ),
         ),
       ),
     );

@@ -152,6 +152,10 @@ class AppConfig {
       String.fromEnvironment('P2P_METRICS_ENDPOINT', defaultValue: 'https://api.topo.usernodelabs.org/api/v1/metrics/p2p');
   static const int p2pMetricsIntervalSeconds =
       int.fromEnvironment('P2P_METRICS_INTERVAL_SECONDS', defaultValue: 60);
+  
+  // Convert to Duration for convenience
+  static Duration get p2pMetricsInterval =>
+      Duration(seconds: p2pMetricsIntervalSeconds);
 
   // Block Production configuration (all in seconds)
   static const int metricsCollectionIntervalSeconds = int.fromEnvironment(

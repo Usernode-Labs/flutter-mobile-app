@@ -775,6 +775,46 @@ class MetricsCollectorService {
       return [];
     }
   }
+
+  /// Collect P2P metrics from the node
+  Future<Map<String, dynamic>?> collectP2PMetrics() async {
+    if (!RustBackendService.instance.isRunning) {
+      _log.debug('Cannot collect P2P metrics: node not running');
+      return null;
+    }
+
+    try {
+      _log.debug('Collecting P2P metrics via RPC');
+      
+      // Get P2P metrics from the node service
+      final p2pData = await RustBackendService.instance.getP2PMetrics();
+      
+      if (p2pData == null) {
+        _log.debug('P2P metrics returned null');
+        return null;
+      }
+
+      // Get peer ID for the API request
+      _cachedPeerId ??= RustBackendService.instance.getPeerId();
+      
+      // Build the API request format
+      final result = <String, dynamic>{
+        'timestamp': DateTime.now().toUtc().toIso8601String(),
+        ...p2pData,
+      };
+
+      // Add peer_id if available
+      if (_cachedPeerId != null && _cachedPeerId!.isNotEmpty) {
+        result['peer_id'] = _cachedPeerId;
+      }
+
+      _log.debug('P2P metrics collected successfully');
+      return result;
+    } catch (e) {
+      _log.debug('Error collecting P2P metrics: $e');
+      return null;
+    }
+  }
 }
 
 /// Helper class for caching permissions data

@@ -24,13 +24,17 @@ class MetricsReportingService {
   static final MetricsReportingService instance = MetricsReportingService._();
 
   Timer? _reportingTimer;
+  Timer? _p2pMetricsTimer;
   http.Client? _httpClient;
   WalletDataCallback? _walletDataCallback;
   StreamSubscription<BlockProductionEvent>? _eventSubscription;
   bool _isRunning = false;
   DateTime? _lastReportTime;
+  DateTime? _lastP2PReportTime;
   int _successCount = 0;
   int _failureCount = 0;
+  int _p2pSuccessCount = 0;
+  int _p2pFailureCount = 0;
 
   /// Whether the service is currently running
   bool get isRunning => _isRunning;
@@ -38,11 +42,20 @@ class MetricsReportingService {
   /// Last time metrics were successfully reported
   DateTime? get lastReportTime => _lastReportTime;
 
+  /// Last time P2P metrics were successfully reported
+  DateTime? get lastP2PReportTime => _lastP2PReportTime;
+
   /// Number of successful metric reports
   int get successCount => _successCount;
 
   /// Number of failed metric reports
   int get failureCount => _failureCount;
+
+  /// Number of successful P2P metric reports
+  int get p2pSuccessCount => _p2pSuccessCount;
+
+  /// Number of failed P2P metric reports
+  int get p2pFailureCount => _p2pFailureCount;
 
   /// Set the callback for fetching wallet data
   void setWalletDataCallback(WalletDataCallback callback) {
@@ -170,6 +183,14 @@ class MetricsReportingService {
     _isRunning = true;
     _startPeriodicReporting(intervalDuration);
 
+    // Start P2P metrics reporting if enabled
+    if (AppConfig.p2pMetricsEnabled && AppConfig.p2pMetricsEndpoint.isNotEmpty) {
+      _startP2PMetricsReporting(AppConfig.p2pMetricsInterval);
+      
+      // Report P2P metrics immediately on start
+      _reportP2PMetrics();
+    }
+
     // Report immediately on start
     _reportMetrics();
   }
@@ -188,6 +209,8 @@ class MetricsReportingService {
 
     _reportingTimer?.cancel();
     _reportingTimer = null;
+    _p2pMetricsTimer?.cancel();
+    _p2pMetricsTimer = null;
     stopListeningToEvents();
     _httpClient?.close();
     _httpClient = null;
@@ -238,6 +261,20 @@ class MetricsReportingService {
     );
   }
 
+  /// Start the P2P metrics periodic reporting timer
+  void _startP2PMetricsReporting(Duration interval) {
+    _p2pMetricsTimer?.cancel();
+
+    _p2pMetricsTimer = Timer.periodic(interval, (_) {
+      _reportP2PMetrics();
+    });
+
+    _log.trace(
+      'Periodic P2P metrics reporting started',
+      context: {'interval': interval.toString()},
+    );
+  }
+
   /// Collect and report metrics
   Future<void> _reportMetrics() async {
     if (_httpClient == null) return;
@@ -280,6 +317,28 @@ class MetricsReportingService {
     }
   }
 
+  /// Collect and report P2P metrics
+  Future<void> _reportP2PMetrics() async {
+    if (_httpClient == null) return;
+
+    try {
+      _log.trace('Collecting and reporting P2P metrics');
+
+      // Collect P2P metrics
+      final p2pData = await MetricsCollectorService.instance.collectP2PMetrics();
+      
+      if (p2pData == null) {
+        _log.debug('P2P metrics collection returned null');
+        return;
+      }
+
+      // Fire and forget - send P2P metrics without blocking
+      _sendP2PMetricsAsync(p2pData);
+    } catch (e) {
+      _log.debug('Error collecting P2P metrics: $e');
+    }
+  }
+
   /// Send metrics asynchronously without blocking the caller
   ///
   /// This is a fire-and-forget operation - errors are logged but not propagated.
@@ -301,6 +360,27 @@ class MetricsReportingService {
     }).catchError((e) {
       _failureCount++;
       _log.debug('Metrics send error: $e');
+    });
+  }
+
+  /// Send P2P metrics asynchronously without blocking the caller
+  ///
+  /// This is a fire-and-forget operation - errors are logged but not propagated.
+  void _sendP2PMetricsAsync(Map<String, dynamic> p2pData) {
+    if (_httpClient == null) return;
+
+    // Use unawaited future to explicitly indicate fire-and-forget
+    _sendP2PMetrics(p2pData).then((success) {
+      if (success) {
+        _p2pSuccessCount++;
+        _lastP2PReportTime = DateTime.now();
+        _log.trace('P2P metrics sent successfully');
+      } else {
+        _p2pFailureCount++;
+      }
+    }).catchError((e) {
+      _p2pFailureCount++;
+      _log.debug('P2P metrics send error: $e');
     });
   }
 
@@ -350,6 +430,55 @@ class MetricsReportingService {
       }
     } catch (e) {
       _log.debug('Metrics send failed: $e');
+      return false;
+    }
+  }
+
+  /// Send P2P metrics payload to the P2P metrics API
+  Future<bool> _sendP2PMetrics(Map<String, dynamic> p2pData) async {
+    if (_httpClient == null) return false;
+
+    try {
+      final url = Uri.parse(AppConfig.p2pMetricsEndpoint);
+
+      _log.debug(
+        'Sending P2P metrics to API: ${jsonEncode(p2pData)}',
+      );
+
+      final response = await _httpClient!
+          .post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode(p2pData),
+      )
+          .timeout(
+        const Duration(seconds: 3),
+        onTimeout: () {
+          throw Exception('P2P metrics request timed out');
+        },
+      );
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        _log.trace(
+          'P2P metrics sent successfully',
+          context: {'status_code': response.statusCode},
+        );
+        return true;
+      } else {
+        _log.warn(
+          'Failed to send P2P metrics',
+          context: {
+            'status_code': response.statusCode,
+            'response_body': response.body,
+          },
+        );
+        return false;
+      }
+    } catch (e) {
+      _log.debug('P2P metrics send failed: $e');
       return false;
     }
   }
@@ -407,5 +536,8 @@ class MetricsReportingService {
     _successCount = 0;
     _failureCount = 0;
     _lastReportTime = null;
+    _p2pSuccessCount = 0;
+    _p2pFailureCount = 0;
+    _lastP2PReportTime = null;
   }
 }

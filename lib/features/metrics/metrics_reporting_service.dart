@@ -24,13 +24,17 @@ class MetricsReportingService {
   static final MetricsReportingService instance = MetricsReportingService._();
 
   Timer? _reportingTimer;
+  Timer? _p2pMetricsTimer;
   http.Client? _httpClient;
   WalletDataCallback? _walletDataCallback;
   StreamSubscription<BlockProductionEvent>? _eventSubscription;
   bool _isRunning = false;
   DateTime? _lastReportTime;
+  DateTime? _lastP2PReportTime;
   int _successCount = 0;
   int _failureCount = 0;
+  int _p2pSuccessCount = 0;
+  int _p2pFailureCount = 0;
 
   /// Whether the service is currently running
   bool get isRunning => _isRunning;
@@ -38,11 +42,20 @@ class MetricsReportingService {
   /// Last time metrics were successfully reported
   DateTime? get lastReportTime => _lastReportTime;
 
+  /// Last time P2P metrics were successfully reported
+  DateTime? get lastP2PReportTime => _lastP2PReportTime;
+
   /// Number of successful metric reports
   int get successCount => _successCount;
 
   /// Number of failed metric reports
   int get failureCount => _failureCount;
+
+  /// Number of successful P2P metric reports
+  int get p2pSuccessCount => _p2pSuccessCount;
+
+  /// Number of failed P2P metric reports
+  int get p2pFailureCount => _p2pFailureCount;
 
   /// Set the callback for fetching wallet data
   void setWalletDataCallback(WalletDataCallback callback) {
@@ -170,18 +183,14 @@ class MetricsReportingService {
     _isRunning = true;
     _startPeriodicReporting(intervalDuration);
 
-<<<<<<< Updated upstream
-=======
     // Start P2P metrics reporting if enabled
-    if (AppConfig.p2pMetricsEnabled &&
-        AppConfig.p2pMetricsEndpoint.isNotEmpty) {
+    if (AppConfig.p2pMetricsEnabled && AppConfig.p2pMetricsEndpoint.isNotEmpty) {
       _startP2PMetricsReporting(AppConfig.p2pMetricsInterval);
-
+      
       // Report P2P metrics immediately on start
       _reportP2PMetrics();
     }
 
->>>>>>> Stashed changes
     // Report immediately on start
     _reportMetrics();
   }
@@ -200,6 +209,8 @@ class MetricsReportingService {
 
     _reportingTimer?.cancel();
     _reportingTimer = null;
+    _p2pMetricsTimer?.cancel();
+    _p2pMetricsTimer = null;
     stopListeningToEvents();
     _httpClient?.close();
     _httpClient = null;
@@ -250,8 +261,6 @@ class MetricsReportingService {
     );
   }
 
-<<<<<<< Updated upstream
-=======
   /// Start the P2P metrics periodic reporting timer
   void _startP2PMetricsReporting(Duration interval) {
     _p2pMetricsTimer?.cancel();
@@ -265,8 +274,6 @@ class MetricsReportingService {
       context: {'interval': interval.toString()},
     );
   }
-
->>>>>>> Stashed changes
   /// Collect and report metrics
   Future<void> _reportMetrics() async {
     if (_httpClient == null) return;
@@ -309,8 +316,6 @@ class MetricsReportingService {
     }
   }
 
-<<<<<<< Updated upstream
-=======
   /// Collect and report P2P metrics
   Future<void> _reportP2PMetrics() async {
     if (_httpClient == null) return;
@@ -319,9 +324,8 @@ class MetricsReportingService {
       _log.debug('Collecting and reporting P2P metrics');
 
       // Collect P2P metrics
-      final p2pData =
-          await MetricsCollectorService.instance.collectP2PMetrics();
-
+      final p2pData = await MetricsCollectorService.instance.collectP2PMetrics();
+      
       if (p2pData == null) {
         _log.debug('P2P metrics collection returned null');
         return;
@@ -333,8 +337,6 @@ class MetricsReportingService {
       _log.debug('Error collecting P2P metrics: $e');
     }
   }
-
->>>>>>> Stashed changes
   /// Send metrics asynchronously without blocking the caller
   ///
   /// This is a fire-and-forget operation - errors are logged but not propagated.
@@ -359,8 +361,6 @@ class MetricsReportingService {
     });
   }
 
-<<<<<<< Updated upstream
-=======
   /// Send P2P metrics asynchronously without blocking the caller
   ///
   /// This is a fire-and-forget operation - errors are logged but not propagated.
@@ -381,8 +381,6 @@ class MetricsReportingService {
       _log.debug('P2P metrics send error: $e');
     });
   }
-
->>>>>>> Stashed changes
   /// Send metrics payload to the centralized API
   Future<bool> _sendMetrics(MetricsPayload payload) async {
     if (_httpClient == null) return false;
@@ -433,8 +431,6 @@ class MetricsReportingService {
     }
   }
 
-<<<<<<< Updated upstream
-=======
   /// Send P2P metrics payload to the P2P metrics API
   Future<bool> _sendP2PMetrics(Map<String, dynamic> p2pData) async {
     if (_httpClient == null) return false;
@@ -483,8 +479,6 @@ class MetricsReportingService {
       return false;
     }
   }
-
->>>>>>> Stashed changes
   /// Test API connection using health check endpoint
   Future<bool> _testConnection() async {
     if (_httpClient == null) return false;
@@ -538,5 +532,8 @@ class MetricsReportingService {
     _successCount = 0;
     _failureCount = 0;
     _lastReportTime = null;
+    _p2pSuccessCount = 0;
+    _p2pFailureCount = 0;
+    _lastP2PReportTime = null;
   }
 }

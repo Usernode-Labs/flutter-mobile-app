@@ -579,6 +579,57 @@ class RustBackendService {
     return status;
   }
 
+  /// Fetch P2P metrics via RPC.
+  Future<Map<String, dynamic>?> getP2PMetrics() async {
+    final stopwatch = Stopwatch()..start();
+    _log.debug('getP2PMetrics RPC call started');
+    final r = _rpc;
+    if (r == null) {
+      stopwatch.stop();
+      _log.debug(
+          'getP2PMetrics failed: RPC client is null (${stopwatch.elapsedMilliseconds}ms)');
+      return null;
+    }
+
+    try {
+      final p2pMetrics = await r.p2PMetrics();
+      stopwatch.stop();
+      _log.debug(
+          'getP2PMetrics RPC completed successfully in ${stopwatch.elapsedMilliseconds}ms');
+      
+      if (p2pMetrics == null) {
+        _log.debug('getP2PMetrics returned null');
+        return null;
+      }
+
+      // Convert the response to a JSON map
+      // Note: The actual structure will depend on the P2P metrics response type
+      final result = <String, dynamic>{
+        'timestamp': DateTime.now().toUtc().toIso8601String(),
+        // Add the P2P metrics data here when the response type is available
+        'raw_response': p2pMetrics.toString(),
+      };
+
+      return result;
+    } on PanicException catch (e, st) {
+      stopwatch.stop();
+      _log.error(
+          'FRB panic during getP2PMetrics after ${stopwatch.elapsedMilliseconds}ms',
+          error: e,
+          stackTrace: st);
+      _nodeRunning = false;
+      _rpc = null;
+      await SentryUtil.captureError(e, st, tag: 'frb_panic_getP2PMetrics');
+      return null;
+    } catch (e, st) {
+      stopwatch.stop();
+      _log.warn(
+          'RPC getP2PMetrics failed after ${stopwatch.elapsedMilliseconds}ms: $e\$st');
+      await SentryUtil.captureError(e, st, tag: 'rpc_getP2PMetrics');
+      return null;
+    }
+  }
+
   /// Fetch block producer and VRF evaluator status via RPC.
   Future<RpcBlockProducerStatusResp?> getBlockProducerStatus({
     bool includeVrfDetails = true,

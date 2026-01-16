@@ -6,8 +6,6 @@ import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/providers/recipient_history_provider.dart';
 import 'package:crypto_mobile_app/features/wallet/transaction_limits_service.dart';
-import 'package:crypto_mobile_app/features/wallet/services/pending_transaction_service.dart';
-import 'package:crypto_mobile_app/features/wallet/models/pending_transaction.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 
@@ -27,7 +25,6 @@ class _SendScreenState extends ConsumerState<SendScreen> {
 
   bool _isSending = false;
   TransactionLimitsService? _limitsService;
-  PendingTransactionService? _pendingTxService;
 
   @override
   void initState() {
@@ -37,7 +34,6 @@ class _SendScreenState extends ConsumerState<SendScreen> {
 
   Future<void> _initLimitsService() async {
     _limitsService = await TransactionLimitsService.getInstance();
-    _pendingTxService = await PendingTransactionService.getInstance();
   }
 
   @override
@@ -104,20 +100,6 @@ class _SendScreenState extends ConsumerState<SendScreen> {
           // Increment transaction count after successful transaction
           await _limitsService?.incrementTransactionCount();
 
-          // Store pending transaction for amount association
-          if (_pendingTxService != null) {
-            final pendingTx = PendingTransaction(
-              fromAddress: userAccount.address,
-              toAddress: recipientAddress,
-              amount: double.parse(amountStr),
-              timestamp: DateTime.now(),
-              memo: _memoController.text.trim().isNotEmpty
-                  ? _memoController.text.trim()
-                  : null,
-            );
-            await _pendingTxService!.storePendingTransaction(pendingTx);
-          }
-
           await ref
               .read(recipientHistoryProvider.notifier)
               .addRecipient(recipientAddress);
@@ -167,57 +149,69 @@ class _SendScreenState extends ConsumerState<SendScreen> {
         title: const Text('Send'),
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildField(
-                  theme: theme,
-                  controller: _addressController,
-                  hint: 'Recipient address',
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.history),
-                    tooltip: 'Recent recipients',
-                    onPressed: () => _showRecipientHistory(
-                      context,
-                      recipientHistory.value ?? const [],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: IntrinsicHeight(
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildField(
+                          theme: theme,
+                          controller: _addressController,
+                          hint: 'Recipient address',
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.history),
+                            tooltip: 'Recent recipients',
+                            onPressed: () => _showRecipientHistory(
+                              context,
+                              recipientHistory.value ?? const [],
+                            ),
+                          ),
+                          validator: _validateRequired(
+                            'recipient address',
+                            minLength: 20,
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        _buildField(
+                          theme: theme,
+                          controller: _amountController,
+                          hint: 'Amount',
+                          isNumeric: true,
+                          validator: _validatePositiveNumber('amount'),
+                        ),
+                        const SizedBox(height: 18),
+                        _buildField(
+                          theme: theme,
+                          controller: _feeController,
+                          hint: 'Fee',
+                          isNumeric: true,
+                          validator:
+                              _validatePositiveNumber('fee', allowZero: true),
+                        ),
+                        const SizedBox(height: 18),
+                        _buildField(
+                          theme: theme,
+                          controller: _memoController,
+                          hint: 'Memo (optional)',
+                          maxLines: 4,
+                        ),
+                        const Spacer(),
+                        _buildSendButton(theme),
+                        const SizedBox(height: 24),
+                      ],
                     ),
                   ),
-                  validator:
-                      _validateRequired('recipient address', minLength: 20),
                 ),
-                const SizedBox(height: 18),
-                _buildField(
-                  theme: theme,
-                  controller: _amountController,
-                  hint: 'Amount',
-                  isNumeric: true,
-                  validator: _validatePositiveNumber('amount'),
-                ),
-                const SizedBox(height: 18),
-                _buildField(
-                  theme: theme,
-                  controller: _feeController,
-                  hint: 'Fee',
-                  isNumeric: true,
-                  validator: _validatePositiveNumber('fee', allowZero: true),
-                ),
-                const SizedBox(height: 18),
-                _buildField(
-                  theme: theme,
-                  controller: _memoController,
-                  hint: 'Memo (optional)',
-                  maxLines: 4,
-                ),
-                const Spacer(),
-                _buildSendButton(theme),
-                const SizedBox(height: 24),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         ),
       ),
     );

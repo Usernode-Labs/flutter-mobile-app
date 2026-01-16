@@ -452,13 +452,40 @@ class _EmptyState extends StatelessWidget {
 
 class _TransactionTile extends StatelessWidget {
   const _TransactionTile(this.transaction);
-  final dynamic transaction;
+  final TransactionModel transaction;
+
+  String _shorten(String value) {
+    if (value.length <= 16) return value;
+    return '${value.substring(0, 8)}...${value.substring(value.length - 8)}';
+  }
+
+  String _displayDetails() {
+    switch (transaction.type) {
+      case TransactionType.send:
+        return transaction.subtitle.startsWith('To:')
+            ? transaction.subtitle
+            : transaction.shortHash;
+      case TransactionType.receive:
+        return transaction.subtitle.startsWith('From:')
+            ? transaction.subtitle
+            : transaction.shortHash;
+      case TransactionType.reward:
+        const prefix = 'reward:';
+        final id = transaction.id;
+        final normalized =
+            id.startsWith(prefix) ? id.substring(prefix.length) : id;
+        return _shorten(normalized);
+      case TransactionType.genesis:
+      case TransactionType.fee:
+        return transaction.shortHash;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isPending = transaction.status.toString().contains('pending');
+    final isPending = transaction.status == TransactionStatus.pending;
 
     // Determine container color based on transaction type
     Color containerColor;
@@ -530,7 +557,7 @@ class _TransactionTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      transaction.shortHash,
+                      _displayDetails(),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: colorScheme.onSurface,
                         fontWeight: FontWeight.w400,

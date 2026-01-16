@@ -171,9 +171,9 @@ class TransactionModel {
       case 'transfer':
       default:
         if (isOutgoing && explorerTx.toAddress != null) {
-          subtitle = 'To ${_shortenAddress(explorerTx.toAddress!)}';
+          subtitle = 'To: ${_shortenAddress(explorerTx.toAddress!)}';
         } else if (!isOutgoing && explorerTx.fromAddress != null) {
-          subtitle = 'From ${_shortenAddress(explorerTx.fromAddress!)}';
+          subtitle = 'From: ${_shortenAddress(explorerTx.fromAddress!)}';
         } else {
           subtitle =
               explorerTx.txType.isNotEmpty ? explorerTx.txType : 'Transaction';

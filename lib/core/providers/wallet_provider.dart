@@ -10,7 +10,6 @@ import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/core/providers/mempool_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/services/explorer_service.dart';
-import 'package:crypto_mobile_app/features/wallet/services/pending_transaction_service.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 
 final _log = LoggingService.instance.withTag('usernode/WalletProvider');
@@ -329,7 +328,7 @@ class WalletController extends AsyncNotifier<WalletState> {
       // Convert mempool transactions to TransactionModel format
       final transactionModels = <TransactionModel>[];
       for (final tx in mempoolTransactions) {
-        final model = await _convertMempoolToTransactionModel(tx);
+        final model = _convertMempoolToTransactionModel(tx);
         transactionModels.add(model);
       }
       return transactionModels;
@@ -361,8 +360,13 @@ class WalletController extends AsyncNotifier<WalletState> {
   }
 
   /// Convert TransactionItem (from mempool) to TransactionModel format
-  Future<TransactionModel> _convertMempoolToTransactionModel(
-      transaction_item.TransactionItem txItem) async {
+  TransactionModel _convertMempoolToTransactionModel(
+      transaction_item.TransactionItem txItem) {
+    String shortenAddress(String address) {
+      if (address.length <= 16) return address;
+      return '${address.substring(0, 8)}...${address.substring(address.length - 8)}';
+    }
+
     // Determine icon and color based on transaction type
     IconData icon;
     Color color;
@@ -375,7 +379,9 @@ class WalletController extends AsyncNotifier<WalletState> {
         icon = Icons.north_east;
         color = Colors.red;
         title = 'Sending';
-        subtitle = 'Transaction pending';
+        subtitle = txItem.recipientAddress != null
+            ? 'To: ${shortenAddress(txItem.recipientAddress!)}'
+            : 'Transaction pending';
         modelType = TransactionType.send;
         break;
       case transaction_item.TransactionType.received:
@@ -403,31 +409,15 @@ class WalletController extends AsyncNotifier<WalletState> {
 
     // Calculate total amount - check locally stored pending transactions first
     double amount = 0.0;
+    if (txItem.amounts.isNotEmpty) {
+      amount = txItem.amounts.first.amount.toDouble();
+    }
 
-    try {
-      // Try to get amount from locally stored pending transactions
-      final pendingTxService = await PendingTransactionService.getInstance();
-      final storedAmount = await pendingTxService.getAmountForTransaction(
-        fromAddress: null, // We don't always have this from mempool
-        toAddress: null, // We don't always have this from mempool
-        timestamp: DateTime.now(),
-      );
-
-      if (storedAmount != null) {
-        amount = storedAmount;
-        _log.debug(
-            'Found stored amount for pending transaction ${txItem.id}: $amount');
-      } else if (txItem.amounts.isNotEmpty) {
-        // Fallback to mempool amount if available
-        amount = txItem.amounts.first.amount.toDouble();
-      }
-    } catch (e) {
-      // Fallback to mempool amount if pending transaction service fails
-      if (txItem.amounts.isNotEmpty) {
-        amount = txItem.amounts.first.amount.toDouble();
-      }
-      _log.debug(
-          'Could not get stored amount for transaction ${txItem.id}, using mempool amount: $amount');
+    // Ensure pending "send" amounts are displayed as negative in the UI.
+    if (modelType == TransactionType.send) {
+      amount = -amount.abs();
+    } else {
+      amount = amount.abs();
     }
 
     return TransactionModel(
@@ -449,9 +439,6 @@ class WalletController extends AsyncNotifier<WalletState> {
     state = const AsyncLoading();
 
     try {
-      // Cleanup old pending transactions
-      await _cleanupPendingTransactions();
-
       // Also refresh the mempool data
       await ref.read(walletMempoolProvider.notifier).refresh();
 
@@ -469,9 +456,6 @@ class WalletController extends AsyncNotifier<WalletState> {
   /// Silent refresh - updates data without showing loading spinner
   Future<void> silentRefresh() async {
     try {
-      // Cleanup old pending transactions
-      await _cleanupPendingTransactions();
-
       // Silently refresh mempool data too
       await ref.read(walletMempoolProvider.notifier).refresh();
 
@@ -484,16 +468,6 @@ class WalletController extends AsyncNotifier<WalletState> {
     } catch (e) {
       // Keep existing state on error during silent refresh
       _log.debug('Silent refresh failed: $e');
-    }
-  }
-
-  /// Cleanup old pending transactions
-  Future<void> _cleanupPendingTransactions() async {
-    try {
-      final pendingTxService = await PendingTransactionService.getInstance();
-      await pendingTxService.cleanupTransactions();
-    } catch (e) {
-      _log.debug('Failed to cleanup pending transactions: $e');
     }
   }
 }

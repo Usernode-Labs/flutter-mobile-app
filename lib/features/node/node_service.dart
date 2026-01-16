@@ -11,6 +11,7 @@ import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_blockchain.da
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_slots.dart';
 import 'package:crypto_mobile_app/src/rust/rpc.dart';
+import 'package:crypto_mobile_app/src/rust/frb_types.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
@@ -207,18 +208,6 @@ class RustBackendService {
     // Start node
     try {
       _log.trace('Starting node${httpPort != null ? ' on $httpPort' : ''}');
-
-      // First try to reuse an already-running *global* node (shared across Dart
-      // isolates / FlutterEngines in the same process) by grabbing its RPC client.
-      // This avoids spinning up a second node when another engine already started it.
-      final existingRpc = Node.getGlobal();
-      if (existingRpc != null) {
-        _rpc = existingRpc;
-        _nodeRunning = true;
-        await _cachePeerIdFromRpc(existingRpc);
-        _log.info('Reused previously started node');
-        return true;
-      }
 
       // No global node exists yet, so build/configure a new one.
       final builder = NodeBuilder();
@@ -701,8 +690,8 @@ class RustBackendService {
 
       // Log successful RPC operation
       _log.debug(
-'listBlockchain ok',
-      context: {
+        'listBlockchain ok',
+        context: {
           'totalBlocks': totalBlocks.toString(),
           'itemsCount': itemsCount,
         },
@@ -799,8 +788,8 @@ class RustBackendService {
 
       // Log successful RPC operation
       _log.debug(
-'listMempool ok',
-      context: {
+        'listMempool ok',
+        context: {
           'count': count.toString(),
           'orphans': orphans.toString(),
           'totalSize': totalSize.toString(),
@@ -887,8 +876,8 @@ class RustBackendService {
 
       // Log successful RPC operation
       _log.debug(
-'epochRewards ok',
-      context: {
+        'epochRewards ok',
+        context: {
           'epoch': epochNum,
           'producedInEpoch': producedInEpoch,
           'winsInEpoch': winsInEpoch,
@@ -945,8 +934,8 @@ class RustBackendService {
 
       // Log successful RPC operation
       _log.debug(
-'listUtxosByOwner ok',
-      context: {
+        'listUtxosByOwner ok',
+        context: {
           'itemsCount': itemsCount,
         },
       );
@@ -1004,8 +993,8 @@ class RustBackendService {
 
       // Log successful RPC operation
       _log.debug(
-'transferFunds ${queued ? 'queued' : 'failed'}',
-      context: {
+        'transferFunds ${queued ? 'queued' : 'failed'}',
+        context: {
           'queued': queued,
           if (error != null) 'error': error,
         },
@@ -1100,8 +1089,8 @@ class RustBackendService {
       _log.trace('getEpochsWithData response: epochsCount=$epochsCount');
 
       _log.debug(
-'getEpochsWithData ok',
-      context: {'epochsCount': epochsCount},
+        'getEpochsWithData ok',
+        context: {'epochsCount': epochsCount},
       );
     } catch (e, st) {
       _log.warn('Failed to log getEpochsWithData response: $e\$st');
@@ -1142,8 +1131,8 @@ class RustBackendService {
       );
 
       _log.debug(
-'getEpochSlotResults ok',
-      context: {'epoch': response?.epoch, 'resultsCount': resultsCount},
+        'getEpochSlotResults ok',
+        context: {'epoch': response?.epoch, 'resultsCount': resultsCount},
       );
     } catch (e, st) {
       _log.warn('Failed to log getEpochSlotResults response: $e\$st');
@@ -1182,8 +1171,8 @@ class RustBackendService {
       );
 
       _log.debug(
-'getSlotTime ok',
-      context: {
+        'getSlotTime ok',
+        context: {
           'epoch': response?.epoch,
           'slot': response?.slot,
           'hasTimestamp': response?.timestampMs != null,
@@ -1230,8 +1219,8 @@ class RustBackendService {
       );
 
       _log.debug(
-'getProducedBlockMetadata ok',
-      context: {
+        'getProducedBlockMetadata ok',
+        context: {
           'epoch': response?.epoch,
           'slot': response?.slot,
           'hasMetadata': metadata != null,

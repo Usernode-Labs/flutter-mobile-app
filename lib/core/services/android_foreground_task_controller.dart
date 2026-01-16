@@ -9,6 +9,7 @@ import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
+import 'package:crypto_mobile_app/src/rust/node/builder.dart';
 
 final _log = LoggingService.instance.withTag('usernode/AndroidForegroundTask');
 
@@ -24,6 +25,8 @@ class AndroidForegroundTaskController {
   Timer? _pollTimer;
   bool _initialized = false;
   bool _wakelockHeld = false;
+  AccountPublicKey? _cachedOurPubKey;
+  ({int height, DateTime since})? _awaitingOtherProducerState;
 
   Future<void> initialize() async {
     if (!Platform.isAndroid) return;
@@ -154,7 +157,6 @@ class AndroidForegroundTaskController {
             slotTime.subtract(_alarmLead),
             'next_won_slot:${nextWon.globalSlot}',
           );
-          await stopMonitoring(reason: 'next_won_slot_scheduled');
         } else {
           _log.info(
             'Next won slot ${nextWon.globalSlot} in <1m, keeping foreground running',
@@ -181,7 +183,6 @@ class AndroidForegroundTaskController {
           epochEnd.subtract(_alarmLead),
           'epoch_end_${info.currentEpoch}',
         );
-        await stopMonitoring(reason: 'epoch_fully_evaluated');
       } else {
         _log.info('Epoch end <1m, keeping foreground until end');
       }
@@ -190,7 +191,86 @@ class AndroidForegroundTaskController {
     }
   }
 
+  Future<bool> _shouldHoldForOtherProducerBlock({bool doubleCheck = true}) async {
+    try {
+      if (_cachedOurPubKey == null) {
+        final bpStatus =
+            await RustBackendService.instance.getBlockProducerStatus();
+        _cachedOurPubKey = bpStatus?.blockProducer?.pubKey;
+      }
+      if (_cachedOurPubKey == null) {
+        _awaitingOtherProducerState = null;
+        return false;
+      }
+
+      if (_awaitingOtherProducerState == null) {
+        final ownBlocks = await RustBackendService.instance.listBlockchain(
+          limit: 1,
+          fromTip: true,
+          blockProducer: _cachedOurPubKey,
+        );
+        final ownBlock =
+            (ownBlocks?.items.isNotEmpty ?? false) ? ownBlocks!.items.first : null;
+        if (ownBlock == null) {
+          _awaitingOtherProducerState = null;
+          return false;
+        }
+        _awaitingOtherProducerState =
+            (height: ownBlock.height, since: DateTime.now());
+      }
+
+
+      if (_awaitingOtherProducerState == null) {
+        return false;
+      }
+
+      final waitingSince = _awaitingOtherProducerState!.since;
+      if (DateTime.now().difference(waitingSince) >
+          const Duration(seconds: 30)) {
+        _log.info(
+          'Waited 30 seconds for another producer block after height ${_awaitingOtherProducerState!.height}; releasing',
+        );
+        _awaitingOtherProducerState = null;
+        return false;
+      }
+
+      final recentBlocks = await RustBackendService.instance.listBlockchain(
+        limit: 1,
+        fromTip: true,
+      );
+      final items = recentBlocks?.items ?? const [];
+      final ourPubKeyStr = _cachedOurPubKey.toString();
+      final hasOtherAfter = items.any((block) =>
+          block.height > _awaitingOtherProducerState!.height &&
+          block.producerPubkey.toString() != ourPubKeyStr);
+
+      if (hasOtherAfter) {
+        if (doubleCheck) {
+          return await _shouldHoldForOtherProducerBlock(doubleCheck: false);
+        }
+        _awaitingOtherProducerState = null;
+        return false;
+      }
+
+      return true;
+    } catch (e, st) {
+      _log.warn(
+        'Failed to check post-production block status: $e',
+      );
+      _log.debug('$st');
+      return _awaitingOtherProducerState != null;
+    }
+  }
+
   Future<void> _scheduleResume(DateTime time, String reason) async {
+    if (await _shouldHoldForOtherProducerBlock()) {
+      final height = _awaitingOtherProducerState?.height;
+      _log.info(
+        'Keeping wakelock: waiting for another producer block after height ${height ?? 'unknown'}',
+      );
+      return;
+    }
+
     final success = await PlatformAlarmService.instance.scheduleAlarm(
       alarmId: 'fg_resume',
       alarmTime: time,
@@ -204,11 +284,12 @@ class AndroidForegroundTaskController {
     _log.info('Scheduled resume alarm at $time for $reason (success=$success)');
     await _releaseWakelock();
     await PlatformAlarmService.instance.stopForegroundService();
+    await stopMonitoring(reason: reason);
   }
 
   RpcEpochWonSlot? _nextWonSlot(List<RpcEpochWonSlot> slots, DateTime now) {
     final futureSlots = slots
-        .where((s) => s.expectedTimeMs.toInt() > now.millisecondsSinceEpoch)
+        .where((s) => s.expectedTimeMs.toInt() + 5000 > now.millisecondsSinceEpoch)
         .toList()
       ..sort((a, b) => a.expectedTimeMs.compareTo(b.expectedTimeMs));
     if (futureSlots.isEmpty) return null;

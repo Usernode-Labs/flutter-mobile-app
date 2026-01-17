@@ -11,6 +11,7 @@ import 'package:crypto_mobile_app/core/providers/mempool_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/services/explorer_service.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
+import 'package:crypto_mobile_app/core/config/token_config.dart';
 
 final _log = LoggingService.instance.withTag('usernode/WalletProvider');
 
@@ -147,7 +148,7 @@ class WalletController extends AsyncNotifier<WalletState> {
     _log.debug('Calculated balance from UTXOs: ${totalBalance.toString()}');
 
     return WalletBalance(
-      tokenAmount: totalBalance.toDouble(),
+      tokenAmount: TokenConfig.fromSmallestUnit(totalBalance),
       tokenSymbol: primaryTokenSymbol,
       usdValue: 0.0,
       totalBalance: totalBalance,
@@ -181,7 +182,7 @@ class WalletController extends AsyncNotifier<WalletState> {
             id: utxoData['id']?.toString() ?? 'utxo_$i',
             title: 'Received',
             subtitle: 'Token transfer',
-            amount: balance.toDouble(),
+            amount: TokenConfig.fromSmallestUnit(BigInt.from(balance)),
             tokenSymbol: tokenSymbol,
             type: TransactionType.receive,
             status: TransactionStatus.completed,
@@ -410,7 +411,7 @@ class WalletController extends AsyncNotifier<WalletState> {
     // Calculate total amount - check locally stored pending transactions first
     double amount = 0.0;
     if (txItem.amounts.isNotEmpty) {
-      amount = txItem.amounts.first.amount.toDouble();
+      amount = TokenConfig.fromSmallestUnit(txItem.amounts.first.amount);
     }
 
     // Ensure pending "send" amounts are displayed as negative in the UI.

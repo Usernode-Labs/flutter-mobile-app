@@ -8,6 +8,7 @@ import 'package:crypto_mobile_app/core/providers/recipient_history_provider.dart
 import 'package:crypto_mobile_app/features/wallet/transaction_limits_service.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:crypto_mobile_app/core/config/token_config.dart';
 
 class SendScreen extends ConsumerStatefulWidget {
   const SendScreen({super.key});
@@ -84,9 +85,11 @@ class _SendScreenState extends ConsumerState<SendScreen> {
       final recipientAddress = _addressController.text.trim();
       final toPkHash = frb_types.publicKeyHashFromString(s: recipientAddress);
 
-      // Parse amount (keep as entered, no multiplication)
+      // Parse amount and convert to smallest units
+      // Example: 0.1 TOKEN -> 10000000 smallest units
       final amountStr = _amountController.text.trim();
-      final amount = BigInt.from(double.parse(amountStr).round());
+      final userAmount = double.parse(amountStr);
+      final amount = TokenConfig.toSmallestUnit(userAmount);
 
       // Call the transfer funds RPC
       final response = await RustBackendService.instance.transferFunds(

@@ -13,6 +13,10 @@ set(APPLICATION_ID "com.usernode_labs.usernode")
 # versions of CMake.
 cmake_policy(SET CMP0063 NEW)
 
+# Suppress noisy warnings from third-party native deps (e.g. sentry-native).
+add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-Wno-nontrivial-memcall>)
+add_compile_options(-Wno-attribute-warning)
+
 # Load bundled libraries from the lib/ directory relative to the binary.
 set(CMAKE_INSTALL_RPATH "$ORIGIN/lib")
 
@@ -42,6 +46,11 @@ endif()
 function(APPLY_STANDARD_SETTINGS TARGET)
   target_compile_features(${TARGET} PUBLIC cxx_std_14)
   target_compile_options(${TARGET} PRIVATE -Wall -Werror)
+  target_compile_options(${TARGET} PRIVATE -Wno-error=deprecated-literal-operator)
+  # Suppress noisy third-party warnings surfaced by newer toolchains.
+  target_compile_options(${TARGET} PRIVATE -Wno-deprecated-literal-operator)
+  target_compile_options(${TARGET} PRIVATE -Wno-nontrivial-memcall)
+  target_compile_options(${TARGET} PRIVATE -Wno-attribute-warning)
   target_compile_options(${TARGET} PRIVATE "$<$<NOT:$<CONFIG:Debug>>:-O3>")
   target_compile_definitions(${TARGET} PRIVATE "$<$<NOT:$<CONFIG:Debug>>:NDEBUG>")
 endfunction()

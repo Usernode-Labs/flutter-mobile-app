@@ -191,10 +191,12 @@ jobs:
         run: |
           export PATH="$HOME/.cargo/bin:$PATH"
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-          if ! command -v flutter_rust_bridge_codegen >/dev/null 2>&1; then
-            cargo install flutter_rust_bridge_codegen --git https://github.com/Usernode-Labs/flutter_rust_bridge --rev "$FRB_REV" --locked
+          if ! command -v flutter_rust_bridge_codegen >/dev/null 2>&1 || \
+             ! flutter_rust_bridge_codegen --version | grep -q "$FRB_REV"; then
+            echo "Installing flutter_rust_bridge_codegen at $FRB_REV"
+            cargo install flutter_rust_bridge_codegen --git https://github.com/Usernode-Labs/flutter_rust_bridge --rev "$FRB_REV" --locked --force
           else
-            flutter_rust_bridge_codegen --version
+            echo "flutter_rust_bridge_codegen already at $FRB_REV"
           fi
 
       - name: Cache FRB generated code
@@ -505,10 +507,12 @@ jobs:
         run: |
           export PATH="$HOME/.cargo/bin:$PATH"
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-          if ! command -v flutter_rust_bridge_codegen >/dev/null 2>&1; then
-            cargo install flutter_rust_bridge_codegen --git https://github.com/Usernode-Labs/flutter_rust_bridge --rev "$FRB_REV" --locked
+          if ! command -v flutter_rust_bridge_codegen >/dev/null 2>&1 || \
+             ! flutter_rust_bridge_codegen --version | grep -q "$FRB_REV"; then
+            echo "Installing flutter_rust_bridge_codegen at $FRB_REV"
+            cargo install flutter_rust_bridge_codegen --git https://github.com/Usernode-Labs/flutter_rust_bridge --rev "$FRB_REV" --locked --force
           else
-            flutter_rust_bridge_codegen --version
+            echo "flutter_rust_bridge_codegen already at $FRB_REV"
           fi
 
       - name: Cache FRB generated code

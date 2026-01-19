@@ -30,6 +30,19 @@ class BootRescheduleService : Service() {
         private const val CHANNEL_ID = "boot_reschedule"
         private const val CHANNEL_NAME = "Boot Alarm Rescheduling"
         private const val TIMEOUT_MS = 1800000L // 30 mins max
+        private const val EXTRA_TRIGGER_REASON = "trigger_reason"
+
+        fun startReschedule(context: Context, reason: String) {
+            val serviceIntent = Intent(context, BootRescheduleService::class.java).apply {
+                putExtra(EXTRA_TRIGGER_REASON, reason)
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(serviceIntent)
+            } else {
+                context.startService(serviceIntent)
+            }
+        }
     }
 
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
@@ -50,8 +63,9 @@ class BootRescheduleService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val triggerReason = intent?.getStringExtra(EXTRA_TRIGGER_REASON) ?: "unknown"
         Log.i(TAG, "[BootRescheduleService] ✓ onStartCommand() - StartId: $startId, Time: ${System.currentTimeMillis()}")
-        Log.d(TAG, "[BootRescheduleService] Timeout limit: ${TIMEOUT_MS}ms")
+        Log.d(TAG, "[BootRescheduleService] Trigger reason: $triggerReason, Timeout limit: ${TIMEOUT_MS}ms")
 
         // Send boot reschedule started event to Flutter
         Log.d(TAG, "[BootRescheduleService] Sending android_boot_reschedule_started event to Flutter")

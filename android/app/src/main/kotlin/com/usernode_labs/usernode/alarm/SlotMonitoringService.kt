@@ -48,6 +48,7 @@ class SlotMonitoringService : Service() {
 
         if (intent == null) {
             Log.w(TAG, "[SlotMonitoringService] Received null intent in onStartCommand")
+            BootRescheduleService.startReschedule(applicationContext, "slot_monitoring_null_intent")
             return START_STICKY
         }
 

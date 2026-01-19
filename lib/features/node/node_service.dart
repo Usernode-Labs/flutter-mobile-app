@@ -11,7 +11,6 @@ import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_blockchain.da
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_slots.dart';
 import 'package:crypto_mobile_app/src/rust/rpc.dart';
-import 'package:crypto_mobile_app/src/rust/frb_types.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';

@@ -325,12 +325,12 @@ class NodeStatusController extends AsyncNotifier<NodeStatusState?> {
       return SyncStatus.connecting();
     }
 
-    // Step 2: Get block data
+    // Step 2: Get block apply data
     final localHeight = state.localBestHeight ?? 0;
     final appliedBlocks = state.appliedBlocksCount;
     final targetBlocks = state.totalBlocksToApply;
 
-    // Calculate network height
+    // Calculate network height for informational purposes
     int? highestPeerHeight;
     final peerHeights = state.peers
         .where((p) => p.bestTipHeight != null)
@@ -342,12 +342,14 @@ class NodeStatusController extends AsyncNotifier<NodeStatusState?> {
     final networkHeight =
         highestPeerHeight ?? state.networkBestHeight ?? localHeight;
 
-    // Step 3: Check if applied blocks complete
+    // Step 3: Check sync status based on applied blocks or peer connectivity
     bool synced = false;
-    if (appliedBlocks != null && targetBlocks != null) {
+    if (appliedBlocks != null && targetBlocks != null && targetBlocks > BigInt.zero) {
+      // Apply block data available - use normal comparison
       synced = appliedBlocks >= targetBlocks;
-    } else {
-      synced = localHeight >= networkHeight;
+    } else if (connectedPeers > 0) {
+      // No apply block data but have connected peers - consider synced
+      synced = true;
     }
 
     _log.trace(
@@ -355,7 +357,7 @@ class NodeStatusController extends AsyncNotifier<NodeStatusState?> {
       'applied=$appliedBlocks, target=$targetBlocks, synced=$synced',
     );
 
-    // Step 4: Return Synced or Syncing
+    // Step 4: Return Synced or Syncing based only on apply progress
     if (synced) {
       return SyncStatus.synced(
         localHeight: localHeight,

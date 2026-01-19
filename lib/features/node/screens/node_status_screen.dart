@@ -190,7 +190,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       final providerRefreshStart = DateTime.now();
 
       // Refresh all providers in parallel with individual timing
-      final results = await Future.wait([
+      await Future.wait([
         _timedProviderRefresh('nodeStatus',
             () => ref.read(nodeStatusProvider.notifier).refresh()),
         _timedProviderRefresh(
@@ -480,20 +480,34 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     final (fetchPct, fetchCounts) = _calculateProgress(fetchProgress);
     final (applyPct, applyCounts) = _calculateProgress(applyProgress);
 
-    // Use applied blocks progress for main progress bar when syncing
-    final mainProgress =
-        sync?.isSyncing == true ? (applyPct / 100.0) : (sync?.progress ?? 0.0);
+    // Use only applied blocks progress for main progress bar
+    final mainProgress = sync?.progress ?? 0.0;
     final progressPercent = (mainProgress * 100).round();
 
-    // For display: use node/chain height when synced, applied blocks when syncing
-    final displayCurrentBlocks = isNodeSynced
-        ? (sync?.localHeight ?? 0)
-        : (applyProgress?.done ?? BigInt.zero);
-    final displayTotalBlocks = isNodeSynced
-        ? (sync?.networkHeight ?? sync?.localHeight ?? 0)
-        : ((applyProgress?.idle ?? BigInt.zero) +
-            (applyProgress?.pending ?? BigInt.zero) +
-            (applyProgress?.done ?? BigInt.zero));
+    // Use different display values based on sync status
+    final (displayCurrentBlocks, displayTotalBlocks, displayText) = 
+        sync?.isConnecting == true || sync == null
+            ? (
+                // When connecting or sync status unavailable: show connecting message
+                BigInt.zero,
+                BigInt.zero, 
+                'Connecting...'
+              )
+            : isNodeSynced
+                ? (
+                    // When synced: both values are best tip height
+                    BigInt.from(statusFromProvider?.localBestHeight ?? 0),
+                    BigInt.from(statusFromProvider?.localBestHeight ?? 0),
+                    'Chain synced'
+                  )
+                : (
+                    // When syncing: use apply progress
+                    applyProgress?.done ?? BigInt.zero,
+                    ((applyProgress?.idle ?? BigInt.zero) + 
+                     (applyProgress?.pending ?? BigInt.zero) + 
+                     (applyProgress?.done ?? BigInt.zero)),
+                    'Syncing blocks'
+                  );
 
     return Container(
       decoration: BoxDecoration(
@@ -511,9 +525,9 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                isNodeSynced
-                    ? 'Synced Blocks $displayCurrentBlocks/$displayTotalBlocks'
-                    : 'Syncing Blocks $displayCurrentBlocks/$displayTotalBlocks',
+                sync?.isConnecting == true || sync == null
+                    ? displayText 
+                    : '$displayText $displayCurrentBlocks/$displayTotalBlocks',
                 style: theme.textTheme.titleMedium
                     ?.copyWith(fontWeight: FontWeight.w500),
               ),

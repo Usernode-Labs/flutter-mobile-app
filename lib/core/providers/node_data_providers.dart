@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
-import 'package:crypto_mobile_app/src/rust/frb_types.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_mempool.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_blockchain.dart';
 import 'package:crypto_mobile_app/src/rust/node/builder.dart';

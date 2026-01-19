@@ -95,18 +95,13 @@ class SyncStatus {
     BigInt? appliedBlocks,
     BigInt? targetBlocks,
   }) {
-    // Calculate progress based on applied blocks if available
-    double progress;
+    // Calculate progress based only on applied blocks
+    double progress = 0.0;
     if (appliedBlocks != null &&
         targetBlocks != null &&
         targetBlocks > BigInt.zero) {
       progress =
           (appliedBlocks.toDouble() / targetBlocks.toDouble()).clamp(0.0, 1.0);
-    } else {
-      // Fallback to height-based calculation
-      progress = networkHeight > 0
-          ? (localHeight / networkHeight).clamp(0.0, 1.0)
-          : 0.0;
     }
 
     final percentage = (progress * 100).toStringAsFixed(1);

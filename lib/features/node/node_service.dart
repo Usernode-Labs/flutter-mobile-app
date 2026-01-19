@@ -69,7 +69,7 @@ class RustBackendService {
   String? _cachedPeerId;
   int? _cachedGenesisTimestamp;
 
-  Node? _node;
+  NodeControl? _control;
   NodeRpcClient? _rpc;
   bool get isRunning => _nodeRunning;
   String? get instanceId => _instanceId;
@@ -204,6 +204,20 @@ class RustBackendService {
     // SECURITY: Only log key length, not value
     _log.trace('Secret key retrieved (length: ${secretKey.length})');
 
+    // First try to reuse an already-running *global* node (shared across Dart
+    // isolates / FlutterEngines in the same process) by grabbing its RPC client.
+    // This avoids spinning up a second node when another engine already started it.
+    final existing = Node.getGlobal();
+    if (existing case (final rpc, final control)) {
+      _rpc = rpc;
+      _control = control;
+      _nodeRunning = true;
+      control.resume();
+      await _cachePeerIdFromRpc(rpc);
+      _log.info('Reused previously started node');
+      return true;
+    }
+
     // Start node
     try {
       _log.trace('Starting node${httpPort != null ? ' on $httpPort' : ''}');
@@ -233,11 +247,11 @@ class RustBackendService {
       _log.trace('Using VRF storage path: $vrfPath');
       builder.vrfStoragePath(path: vrfPath);
 
-      _node = builder.build();
-      _rpc = _node!.rpc();
+      final node = builder.build();
+      _rpc = node.rpc();
 
       // Run the node in a background thread.
-      _node!.runForeverInNewThread();
+      _control = node.runForeverInNewThread();
       _nodeRunning = true;
 
       // Cache peer ID once on startup.
@@ -279,15 +293,24 @@ class RustBackendService {
     }
   }
 
+  Future<void> resumeNode() async {
+    _control?.resume();
+  }
+
+  Future<void> pauseNode() async {
+    _control?.pause();
+  }
+
   Future<void> stopNode() async {
     if (!_initialized && !_nodeRunning) return;
     // Currently frb-generated API does not expose a graceful shutdown; dispose bridge.
     _log.warn(
       'Stopping node (dropping references; FRB stays initialized)',
     );
+    _control?.shutdown();
     _nodeRunning = false;
-    _node = null;
     _rpc = null;
+    _control = null;
     _cachedPeerId = null;
   }
 
@@ -415,6 +438,7 @@ class RustBackendService {
       // Mark backend as not running and drop RPC handle to avoid cascading failures.
       _nodeRunning = false;
       _rpc = null;
+      _control = null;
       await SentryUtil.captureError(e, st, tag: 'frb_panic_getStatus');
       // Return null gracefully so UI can keep rendering with an error message.
       return null;
@@ -585,6 +609,7 @@ class RustBackendService {
           error: e, stackTrace: st);
       _nodeRunning = false;
       _rpc = null;
+      _control = null;
       await SentryUtil.captureError(e, st,
           tag: 'frb_panic_getBlockProducerStatus');
       return null;
@@ -636,6 +661,7 @@ class RustBackendService {
       // Mark backend as not running and drop RPC handle to avoid cascading failures.
       _nodeRunning = false;
       _rpc = null;
+      _control = null;
       await SentryUtil.captureError(e, st, tag: 'frb_panic_listBlockchain');
       // Return null gracefully so UI can keep rendering with an error message.
       return null;
@@ -743,6 +769,7 @@ class RustBackendService {
       // Mark backend as not running and drop RPC handle to avoid cascading failures.
       _nodeRunning = false;
       _rpc = null;
+      _control = null;
       // Return null gracefully so UI can keep rendering with an error message.
       return null;
     } catch (e, st) {
@@ -823,6 +850,7 @@ class RustBackendService {
       // Mark backend as not running and drop RPC handle to avoid cascading failures.
       _nodeRunning = false;
       _rpc = null;
+      _control = null;
       await SentryUtil.captureError(e, st, tag: 'frb_panic_epochRewards');
       // Return null gracefully so UI can keep rendering with an error message.
       return null;
@@ -913,6 +941,7 @@ class RustBackendService {
       // Mark backend as not running and drop RPC handle to avoid cascading failures.
       _nodeRunning = false;
       _rpc = null;
+      _control = null;
       await SentryUtil.captureError(e, st, tag: 'frb_panic_listUtxosByOwner');
       // Return null gracefully so UI can keep rendering with an error message.
       return null;
@@ -971,6 +1000,7 @@ class RustBackendService {
       // Mark backend as not running and drop RPC handle to avoid cascading failures.
       _nodeRunning = false;
       _rpc = null;
+      _control = null;
       await SentryUtil.captureError(e, st, tag: 'frb_panic_transferFunds');
       // Return null gracefully so UI can keep rendering with an error message.
       return null;
@@ -1075,6 +1105,7 @@ class RustBackendService {
           error: e, stackTrace: st);
       _nodeRunning = false;
       _rpc = null;
+      _control = null;
       await SentryUtil.captureError(e, st, tag: 'frb_panic_getEpochsWithData');
       return null;
     } catch (e, st) {
@@ -1114,6 +1145,7 @@ class RustBackendService {
           error: e, stackTrace: st);
       _nodeRunning = false;
       _rpc = null;
+      _control = null;
       await SentryUtil.captureError(e, st,
           tag: 'frb_panic_getEpochSlotResults');
       return null;
@@ -1156,6 +1188,7 @@ class RustBackendService {
       _log.error('FRB panic during getSlotTime', error: e, stackTrace: st);
       _nodeRunning = false;
       _rpc = null;
+      _control = null;
       await SentryUtil.captureError(e, st, tag: 'frb_panic_getSlotTime');
       return null;
     } catch (e, st) {
@@ -1202,6 +1235,7 @@ class RustBackendService {
           error: e, stackTrace: st);
       _nodeRunning = false;
       _rpc = null;
+      _control = null;
       await SentryUtil.captureError(e, st,
           tag: 'frb_panic_getProducedBlockMetadata');
       return null;
@@ -1287,9 +1321,10 @@ class RustBackendService {
   /// Dispose bridge resources when the app is exiting.
   void dispose() {
     // Keep FRB initialized for app lifetime to avoid double-init errors.
+    RustBackendService.instance.pauseNode();
     _nodeRunning = false;
-    _node = null;
     _rpc = null;
+    _control = null;
     _cachedGenesisTimestamp = null;
   }
 }

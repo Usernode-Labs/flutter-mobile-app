@@ -372,8 +372,8 @@ packages:
     dependency: "direct main"
     description:
       path: frb_dart
-      ref: "1a911e6435156487cb73929f652dd983ce3fabf6"
-      resolved-ref: "1a911e6435156487cb73929f652dd983ce3fabf6"
+      ref: "229548e05286634674c29df08ef457e534e52b2e"
+      resolved-ref: "229548e05286634674c29df08ef457e534e52b2e"
       url: "https://github.com/Usernode-Labs/flutter_rust_bridge"
     source: git
     version: "2.11.1"

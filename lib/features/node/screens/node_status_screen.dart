@@ -261,10 +261,14 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
   void _startSimpleTimer() {
     _autoTimer?.cancel();
-    _log.debug('Starting simple auto refresh timer (3s interval)');
+    _log.debug('Starting tab-aware auto refresh timer (3s interval)');
     _autoTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       if (mounted) {
-        _refresh();
+        // Only refresh when on NodeStatus tab (tab index 1)
+        final currentTab = ref.read(currentHomeTabProvider);
+        if (currentTab == 1) {
+          _refresh();
+        }
       }
     });
   }

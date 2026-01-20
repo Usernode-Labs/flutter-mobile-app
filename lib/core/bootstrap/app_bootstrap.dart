@@ -119,7 +119,9 @@ class AppBootstrap {
         final started = await RustBackendService.instance.startNode();
         log.info(
             'Backend startNode => $started, isRunning=${RustBackendService.instance.isRunning}');
-        log.info(started ? 'backend startNode: started' : 'backend startNode: skipped');
+        log.info(started
+            ? 'backend startNode: started'
+            : 'backend startNode: skipped');
         if (started) {
           log.info(
               'Node started successfully, waiting 1 second for node to be ready...');

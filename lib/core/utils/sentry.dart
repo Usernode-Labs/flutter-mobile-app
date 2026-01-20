@@ -32,10 +32,12 @@ class SentrySettings {
   static const String _profiles = String.fromEnvironment(
       'SENTRY_PROFILES_SAMPLE_RATE',
       defaultValue: '0.0');
-  static const String _enableBreadcrumbs =
-      String.fromEnvironment('SENTRY_ENABLE_BREADCRUMBS', defaultValue: 'false');
-  static const String _enablePerformance =
-      String.fromEnvironment('SENTRY_ENABLE_PERFORMANCE', defaultValue: 'false');
+  static const String _enableBreadcrumbs = String.fromEnvironment(
+      'SENTRY_ENABLE_BREADCRUMBS',
+      defaultValue: 'false');
+  static const String _enablePerformance = String.fromEnvironment(
+      'SENTRY_ENABLE_PERFORMANCE',
+      defaultValue: 'false');
 
   static double _parseRate(String s, double fallback) {
     final v = double.tryParse(s);
@@ -98,7 +100,8 @@ class SentryUtil {
   }
 
   static List<NavigatorObserver> navigatorObservers() {
-    if (!_enabled || !_performanceTrackingEnabled) return const <NavigatorObserver>[];
+    if (!_enabled || !_performanceTrackingEnabled)
+      return const <NavigatorObserver>[];
     return [SentryNavigatorObserver()];
   }
 

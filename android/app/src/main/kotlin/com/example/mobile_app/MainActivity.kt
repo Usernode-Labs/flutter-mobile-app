@@ -3,15 +3,23 @@ package com.usernode_labs.usernode
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import com.usernode_labs.usernode.alarm.AlarmMethodChannelHandler
 import com.usernode_labs.usernode.alarm.BackgroundAlarmEngine
+import com.usernode_labs.usernode.alarm.SlotMonitoringService
 
 class MainActivity: FlutterActivity() {
     private val CHANNEL = "com.usernode.app/alarm"
     private lateinit var alarmHandler: AlarmMethodChannelHandler
+    private val backgroundStopHandler = Handler(Looper.getMainLooper())
+    private val backgroundStopTimeoutMs = 5 * 60 * 1000L
+    private val backgroundStopRunnable = Runnable {
+        finish()
+    }
 
     override fun provideFlutterEngine(context: android.content.Context): FlutterEngine? {
         return null
@@ -54,6 +62,7 @@ class MainActivity: FlutterActivity() {
 
     override fun onResume() {
         super.onResume()
+        backgroundStopHandler.removeCallbacks(backgroundStopRunnable)
         // Check and notify permission status when app resumes
         // This catches permission changes made in system settings
         if (::alarmHandler.isInitialized) {
@@ -61,6 +70,18 @@ class MainActivity: FlutterActivity() {
             alarmHandler.checkAndNotifyExactAlarmPermission()
             alarmHandler.checkAndNotifyBatteryOptimization()
         }
+    }
+
+    override fun onRestart() {
+        super.onRestart()
+        backgroundStopHandler.removeCallbacks(backgroundStopRunnable)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        backgroundStopHandler.removeCallbacks(backgroundStopRunnable)
+        // stop activity by at most after 10 minutes of being in the background.
+        backgroundStopHandler.postDelayed(backgroundStopRunnable, backgroundStopTimeoutMs)
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
@@ -81,25 +102,19 @@ class MainActivity: FlutterActivity() {
         }
     }
 
-    override fun onBackPressed() {
-        // When the Flutter navigation stack can't handle a back press
-        // (i.e., on the root route), move the task to the background
-        // instead of finishing the activity. This keeps the app running.
-        // TODO check if this could create issues for being accepted
-        // in google play
-        moveTaskToBack(true)
-    }
-
     override fun onDestroy() {
         if (::alarmHandler.isInitialized) {
             alarmHandler.detachActivity(this)
         }
+        backgroundStopHandler.removeCallbacks(backgroundStopRunnable)
+        if (SlotMonitoringService.isForegroundServiceActive) {
+            // Activity destroyed => keep a background engine alive for the running foreground service.
+            BackgroundAlarmEngine.createAndCacheNewEngine(
+                context = applicationContext,
+                reason = "activity_destroyed_foreground_service",
+                registerPlugins = true
+            )
+        }
         super.onDestroy()
-        // Activity destroyed => create background engine in case scheduling alarms isn't finished
-        BackgroundAlarmEngine.createAndCacheNewEngine(
-            context = applicationContext,
-            reason = "activity_destroyed",
-            registerPlugins = true
-        )
     }
 }

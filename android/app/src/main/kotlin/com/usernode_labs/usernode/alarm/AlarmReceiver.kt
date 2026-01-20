@@ -98,13 +98,7 @@ class AlarmReceiver : BroadcastReceiver() {
 
         // Start a background service to reschedule alarms
         // This ensures alarms are restored even if user doesn't open the app
-        val serviceIntent = Intent(context, BootRescheduleService::class.java)
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            context.startForegroundService(serviceIntent)
-        } else {
-            context.startService(serviceIntent)
-        }
+        BootRescheduleService.startReschedule(context, "boot_completed")
 
         Log.i(TAG, "Boot reschedule service started")
     }

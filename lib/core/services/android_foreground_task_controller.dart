@@ -103,6 +103,14 @@ class AndroidForegroundTaskController {
     if (!Platform.isAndroid) return;
     _pollTimer?.cancel();
     _pollTimer = null;
+    final lifecycleState = WidgetsBinding.instance.lifecycleState;
+    final isResumed = lifecycleState == AppLifecycleState.resumed;
+    if (!isResumed) {
+      await RustBackendService.instance.pauseNode();
+    } else {
+      _log.info(
+          'Activity is resumed; skipping node pause on stopMonitoring ($reason)');
+    }
     await _releaseWakelock();
     await PlatformAlarmService.instance.stopForegroundService();
   }
@@ -128,6 +136,7 @@ class AndroidForegroundTaskController {
       }
       _log.info('Node not running; starting node before monitoring');
       final started = await RustBackendService.instance.startNode();
+      await RustBackendService.instance.resumeNode();
       _log.info('Node start result: $started');
       return started;
     } catch (e, st) {
@@ -282,8 +291,6 @@ class AndroidForegroundTaskController {
     );
 
     _log.info('Scheduled resume alarm at $time for $reason (success=$success)');
-    await _releaseWakelock();
-    await PlatformAlarmService.instance.stopForegroundService();
     await stopMonitoring(reason: reason);
   }
 

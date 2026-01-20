@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import '../../features/node/node_service.dart';
 import '../../features/metrics/metrics_collector_service.dart';
 import '../services/android_foreground_task_controller.dart';
+import '../services/platform_alarm_service.dart';
 
 final _log = LoggingService.instance.withTag('usernode/Lifecycle');
 
@@ -85,10 +87,21 @@ class AppLifecycleLogger with WidgetsBindingObserver {
     }
   }
 
-  /// Handle app paused - no special handling needed for now
-  void _handleAppPaused() {
+  /// Handle app paused
+  Future<void> _handleAppPaused() async {
     _log.debug('App paused');
-    // iOS could stop node after 30s here in the future if needed
+    if (!Platform.isAndroid) return;
+
+    if (await PlatformAlarmService.instance.isForegroundServiceRunning()) {
+      _log.info('Foreground service running; not pausing Rust node');
+    } else {
+      _log.info('Foreground service not running; pausing Rust node');
+      await RustBackendService.instance.pauseNode();
+      if (await PlatformAlarmService.instance.isForegroundServiceRunning()) {
+        _log.info('Foreground service started; ensuring Rust node is resumed');
+        await RustBackendService.instance.resumeNode();
+      }
+    }
   }
 
   /// Ensure node is running (Android only)
@@ -100,6 +113,7 @@ class AppLifecycleLogger with WidgetsBindingObserver {
         _log.warn('Node not running on resume, restarting...');
 
         await rustBackend.startNode();
+        await rustBackend.resumeNode();
 
         if (rustBackend.isRunning) {
           _log.info('✓ Node successfully restarted');

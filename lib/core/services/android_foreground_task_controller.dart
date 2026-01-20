@@ -104,12 +104,15 @@ class AndroidForegroundTaskController {
     _pollTimer?.cancel();
     _pollTimer = null;
     final lifecycleState = WidgetsBinding.instance.lifecycleState;
-    final isResumed = lifecycleState == AppLifecycleState.resumed;
-    if (!isResumed) {
+    final isActive = lifecycleState == AppLifecycleState.resumed || 
+                     lifecycleState == AppLifecycleState.inactive;
+
+    if (!isActive) {
+      _log.info('App truly backgrounded (state: $lifecycleState); pausing node on stopMonitoring ($reason)');
       await RustBackendService.instance.pauseNode();
     } else {
       _log.info(
-          'Activity is resumed; skipping node pause on stopMonitoring ($reason)');
+          'App still active (state: $lifecycleState); keeping node running on stopMonitoring ($reason)');
     }
     await _releaseWakelock();
     await PlatformAlarmService.instance.stopForegroundService();

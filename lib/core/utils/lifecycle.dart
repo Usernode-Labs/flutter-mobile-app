@@ -92,10 +92,20 @@ class AppLifecycleLogger with WidgetsBindingObserver {
     _log.debug('App paused');
     if (!Platform.isAndroid) return;
 
+    // Check if app is truly backgrounded or just transitioning
+    final lifecycleState = WidgetsBinding.instance.lifecycleState;
+    final isInForeground = lifecycleState == AppLifecycleState.resumed || 
+                          lifecycleState == AppLifecycleState.inactive;
+
+    if (isInForeground) {
+      _log.info('App still in foreground (state: $lifecycleState); keeping node active');
+      return;
+    }
+
     if (await PlatformAlarmService.instance.isForegroundServiceRunning()) {
       _log.info('Foreground service running; not pausing Rust node');
     } else {
-      _log.info('Foreground service not running; pausing Rust node');
+      _log.info('App backgrounded and foreground service not running; pausing Rust node');
       await RustBackendService.instance.pauseNode();
       if (await PlatformAlarmService.instance.isForegroundServiceRunning()) {
         _log.info('Foreground service started; ensuring Rust node is resumed');

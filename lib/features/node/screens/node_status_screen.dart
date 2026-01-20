@@ -485,29 +485,35 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     final progressPercent = (mainProgress * 100).round();
 
     // Use different display values based on sync status
-    final (displayCurrentBlocks, displayTotalBlocks, displayText) = 
-        sync?.isConnecting == true || sync == null
+    final (
+      displayCurrentBlocks,
+      displayTotalBlocks,
+      displayText
+    ) = sync?.isConnecting == true || sync == null
+        ? (
+            // When connecting or sync status unavailable: show connecting message
+            BigInt.zero,
+            BigInt.zero,
+            'Connecting...'
+          )
+        : isNodeSynced
             ? (
-                // When connecting or sync status unavailable: show connecting message
-                BigInt.zero,
-                BigInt.zero, 
-                'Connecting...'
-              )
-            : isNodeSynced
-                ? (
-                    // When synced: both values are best tip height
-                    BigInt.from(statusFromProvider?.localBestHeight ?? 0),
-                    BigInt.from(statusFromProvider?.localBestHeight ?? 0),
-                    'Chain synced'
-                  )
-                : (
-                    // When syncing: use apply progress
-                    applyProgress?.done ?? BigInt.zero,
-                    ((applyProgress?.idle ?? BigInt.zero) + 
-                     (applyProgress?.pending ?? BigInt.zero) + 
-                     (applyProgress?.done ?? BigInt.zero)),
-                    'Syncing blocks'
-                  );
+                // When synced: check if genesis block (height 1) for special display
+                (statusFromProvider?.localBestHeight ?? 0) == 1
+                    ? (BigInt.zero, BigInt.zero, 'Loaded genesis')
+                    : (
+                        BigInt.from(statusFromProvider?.localBestHeight ?? 0),
+                        BigInt.from(statusFromProvider?.localBestHeight ?? 0),
+                        'Chain Synced'
+                      ))
+            : (
+                // When syncing: use apply progress
+                applyProgress?.done ?? BigInt.zero,
+                ((applyProgress?.idle ?? BigInt.zero) +
+                    (applyProgress?.pending ?? BigInt.zero) +
+                    (applyProgress?.done ?? BigInt.zero)),
+                'Syncing blocks'
+              );
 
     return Container(
       decoration: BoxDecoration(
@@ -526,8 +532,10 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             children: [
               Text(
                 sync?.isConnecting == true || sync == null
-                    ? displayText 
-                    : '$displayText $displayCurrentBlocks/$displayTotalBlocks',
+                    ? displayText
+                    : displayText == 'Loaded genesis'
+                        ? displayText
+                        : '$displayText $displayCurrentBlocks/$displayTotalBlocks',
                 style: theme.textTheme.titleMedium
                     ?.copyWith(fontWeight: FontWeight.w500),
               ),

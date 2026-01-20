@@ -35,7 +35,7 @@ class AppLifecycleLogger with WidgetsBindingObserver {
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
+  void didChangeAppLifecycleState(AppLifecycleState state) async {
     _log.info('App lifecycle state changed: ${state.name}');
 
     // Update metrics collector with new state
@@ -43,10 +43,10 @@ class AppLifecycleLogger with WidgetsBindingObserver {
 
     switch (state) {
       case AppLifecycleState.resumed:
-        _handleAppResumed();
+        await _handleAppResumed();
         break;
       case AppLifecycleState.paused:
-        _handleAppPaused();
+        await _handleAppPaused();
         break;
       case AppLifecycleState.inactive:
       case AppLifecycleState.detached:

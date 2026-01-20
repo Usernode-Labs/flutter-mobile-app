@@ -36,9 +36,7 @@ class NodeStatusScreen extends ConsumerStatefulWidget {
 class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     with SingleTickerProviderStateMixin {
   // State flags
-  bool _refreshing = false;
   String? _error;
-  bool _active = true;
   bool _isRecentBlocksExpanded = false;
 
   // Cached data
@@ -66,11 +64,9 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     _tabController = TabController(length: 2, vsync: this);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _log.debug(
-          'Post-frame callback triggered - initializing data and starting timer');
+      _log.debug('Post-frame callback - starting simple auto refresh');
       _initializeData();
-      // Start timer immediately after post-frame to ensure continuous refresh
-      _startTimer();
+      _startSimpleTimer();
     });
   }
 
@@ -169,20 +165,12 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   // ============== REFRESH LOGIC ==============
 
   Future<void> _refresh() async {
-    final refreshStartTime = DateTime.now();
-    _log.debug('=== REFRESH START ===');
-    _log.debug('Refresh triggered at ${refreshStartTime.toIso8601String()}');
+    if (!mounted) return;
 
-    if (!mounted) {
-      _log.debug('Widget not mounted, skipping refresh');
-      return;
+    // Clear any previous errors
+    if (_error != null && mounted) {
+      setState(() => _error = null);
     }
-
-    _log.debug('Setting refreshing=true and clearing error');
-    setState(() {
-      _refreshing = true;
-      _error = null;
-    });
 
     try {
       _log.debug(
@@ -261,73 +249,30 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
         });
       }
     } finally {
-      // Always update _lastChecked and rebuild UI, even if no data changed
       if (mounted) {
-        final finalUpdateTime = DateTime.now();
-        _log.debug(
-            'Final update - setting refreshing=false and updating last checked to ${finalUpdateTime.toIso8601String()}');
         setState(() {
-          _refreshing = false;
-          _lastChecked = finalUpdateTime;
+          _lastChecked = DateTime.now();
         });
-
-        final totalDuration = finalUpdateTime.difference(refreshStartTime);
-        _log.debug(
-            '=== REFRESH COMPLETE === Total duration: ${totalDuration.inMilliseconds}ms');
-      } else {
-        _log.debug('Widget unmounted in finally block');
       }
     }
   }
 
   // ============== TIMER MANAGEMENT ==============
 
-  void _startTimer() {
+  void _startSimpleTimer() {
     _autoTimer?.cancel();
-    _log.debug('Starting auto refresh timer (2s interval)');
-    _autoTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-      final now = DateTime.now();
-      _log.debug(
-          'Timer tick at ${now.toIso8601String()} - checking conditions...');
-      _log.debug(
-          'mounted: $mounted, active: $_active, refreshing: $_refreshing');
-
-      if (mounted && _active && !_refreshing) {
-        _log.debug('All conditions met - triggering auto refresh');
+    _log.debug('Starting simple auto refresh timer (3s interval)');
+    _autoTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (mounted) {
         _refresh();
-      } else {
-        _log.debug(
-            'Auto refresh skipped - mounted: $mounted, active: $_active, refreshing: $_refreshing');
       }
     });
-  }
-
-  void _stopTimer() {
-    _log.debug('Stopping auto refresh timer');
-    _autoTimer?.cancel();
-    _autoTimer = null;
   }
 
   // ============== BUILD ==============
 
   @override
   Widget build(BuildContext context) {
-    // React to tab changes
-    final currentTab = ref.watch(currentHomeTabProvider);
-    final shouldBeActive = currentTab == 1;
-    if (shouldBeActive != _active) {
-      _log.debug(
-          'Tab change detected: currentTab=$currentTab, shouldBeActive=$shouldBeActive, _active=$_active');
-      _active = shouldBeActive;
-      if (shouldBeActive) {
-        _log.debug('Node status tab activated - starting timer');
-        _startTimer();
-      } else {
-        _log.debug('Node status tab deactivated - stopping timer');
-        _stopTimer();
-      }
-    }
-
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);

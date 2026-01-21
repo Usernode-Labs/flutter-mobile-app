@@ -89,19 +89,7 @@ class AppLifecycleLogger with WidgetsBindingObserver {
 
   /// Handle app paused
   Future<void> _handleAppPaused() async {
-    _log.debug('App paused');
-    if (!Platform.isAndroid) return;
-
-    if (await PlatformAlarmService.instance.isForegroundServiceRunning()) {
-      _log.info('Foreground service running; not pausing Rust node');
-    } else {
-      _log.info('Foreground service not running; pausing Rust node');
-      await RustBackendService.instance.pauseNode();
-      if (await PlatformAlarmService.instance.isForegroundServiceRunning()) {
-        _log.info('Foreground service started; ensuring Rust node is resumed');
-        await RustBackendService.instance.resumeNode();
-      }
-    }
+    // Rust Node will be paused by the foreground service or MainActivity destructor.
   }
 
   /// Ensure node is running (Android only)
@@ -109,19 +97,13 @@ class AppLifecycleLogger with WidgetsBindingObserver {
     try {
       final rustBackend = RustBackendService.instance;
 
-      if (!rustBackend.isRunning) {
-        _log.warn('Node not running on resume, restarting...');
+      await rustBackend.startNode();
+      await rustBackend.resumeNode();
 
-        await rustBackend.startNode();
-        await rustBackend.resumeNode();
-
-        if (rustBackend.isRunning) {
-          _log.info('✓ Node successfully restarted');
-        } else {
-          _log.error('✗ Failed to restart node');
-        }
+      if (rustBackend.isRunning) {
+        _log.info('✓ Node successfully ensured running');
       } else {
-        _log.debug('Node already running');
+        _log.error('✗ Failed to start and resume node');
       }
     } catch (e) {
       _log.error('Error ensuring node running: $e');

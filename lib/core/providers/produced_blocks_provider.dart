@@ -76,6 +76,7 @@ final _log = LoggingService.instance.withTag('usernode/ProducedBlocksProvider');
 const _kEpochsWithDataKeyBase = 'node:epochs_with_data';
 const _kProducedBlockMetadataKeyPrefixBase = 'node:produced_block_metadata';
 const _kEpochSlotResultsKeyPrefixBase = 'node:epoch_slot_results';
+const _kSlotTimeKeyPrefixBase = 'node:slot_time';
 
 String networkPrefix = '';
 
@@ -86,6 +87,8 @@ String get _kProducedBlockMetadataKeyPrefix => NetworkPrefs.prefixKey(
     _kProducedBlockMetadataKeyPrefixBase + ':' + networkPrefix);
 String get _kEpochSlotResultsKeyPrefix => NetworkPrefs.prefixKey(
     _kEpochSlotResultsKeyPrefixBase + ':' + networkPrefix);
+String get _kSlotTimeKeyPrefix => NetworkPrefs.prefixKey(
+    _kSlotTimeKeyPrefixBase + ':' + networkPrefix);
 
 Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
   final stopwatch = Stopwatch()..start();
@@ -126,9 +129,7 @@ Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
               slotStatuses[slot] == RpcSlotResult.missed ||
               slotStatuses[slot] == RpcSlotResult.produced ||
               slotStatuses[slot] == RpcSlotResult.orphaned) {
-            slotTimeMs = (await RustBackendService.instance
-                    .getSlotTime(epoch: index, slot: slot))
-                ?.timestampMs;
+            slotTimeMs = await persistedGetSlotTime(index, slot);
           }
           var producedBlockMetadata;
           if (slotStatuses[slot] == RpcSlotResult.produced ||
@@ -563,6 +564,48 @@ Future<RpcProducedBlockMetadata?> persistedGetProducedBlockMetadata(
   }
 
   return producedBlockMetadata;
+}
+
+/// Convenience helper to fetch slot time with caching.
+Future<BigInt?> persistedGetSlotTime(int epoch, int slot) async {
+  final prefs = await SharedPreferences.getInstance();
+  final key = '$_kSlotTimeKeyPrefix:$epoch:$slot';
+
+  // Try to read from local cache first
+  final cachedTimestamp = prefs.getString(key);
+  if (cachedTimestamp != null) {
+    try {
+      return BigInt.parse(cachedTimestamp);
+    } catch (e, st) {
+      _log.error(
+        'Error decoding cached slot time for $epoch/$slot: $e',
+        error: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  // Fallback to backend if nothing (or invalid) in cache
+  final slotTimeResponse = await RustBackendService.instance.getSlotTime(
+    epoch: epoch,
+    slot: slot,
+  );
+  final timestampMs = slotTimeResponse?.timestampMs;
+
+  // Store fetched timestamp back to cache for future reads
+  if (timestampMs != null) {
+    try {
+      await prefs.setString(key, timestampMs.toString());
+    } catch (e, st) {
+      _log.error(
+        'Error caching slot time for $epoch/$slot: $e',
+        error: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  return timestampMs;
 }
 
 final producedBlocksSummaryProvider =

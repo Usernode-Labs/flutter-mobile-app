@@ -40,6 +40,7 @@ class ForegroundServiceManager(private val context: Context) {
             }
 
             context.stopService(intent)
+            BackgroundAlarmEngine.destroyCachedEngine("stopForegroundService")
 
             Log.i(TAG, "Stopped foreground service")
             true

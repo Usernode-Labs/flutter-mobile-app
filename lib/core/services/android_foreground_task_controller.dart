@@ -104,8 +104,8 @@ class AndroidForegroundTaskController {
     _pollTimer?.cancel();
     _pollTimer = null;
     final lifecycleState = WidgetsBinding.instance.lifecycleState;
-    final isResumed = lifecycleState == AppLifecycleState.resumed;
-    if (!isResumed) {
+    final isAppMinimized = lifecycleState == AppLifecycleState.paused || lifecycleState == AppLifecycleState.detached;
+    if (isAppMinimized) {
       await RustBackendService.instance.pauseNode();
     } else {
       _log.info(
@@ -130,11 +130,6 @@ class AndroidForegroundTaskController {
 
   Future<bool> _ensureNodeRunning() async {
     try {
-      if (RustBackendService.instance.isRunning) {
-        _log.debug('Node already running; skip start');
-        return true;
-      }
-      _log.info('Node not running; starting node before monitoring');
       final started = await RustBackendService.instance.startNode();
       await RustBackendService.instance.resumeNode();
       _log.info('Node start result: $started');

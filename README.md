@@ -2537,6 +2537,12 @@ git merge hotfix/critical-bug
 
 ---
 
+### Useful Log Filters
+
+- Foreground/Background logs:
+
+  `adb logcat | grep -E "(usernode/AndroidForegroundTask)|(freezing.*usernode)|(lifecycle state changed)|(\[usernode/NodeService\] Service)|(usernode/MainActivity)"`
+
 ## Acknowledgements
 
 ### Technologies

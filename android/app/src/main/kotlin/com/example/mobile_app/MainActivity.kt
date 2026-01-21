@@ -5,6 +5,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -12,6 +13,7 @@ import com.usernode_labs.usernode.alarm.AlarmMethodChannelHandler
 import com.usernode_labs.usernode.alarm.BackgroundAlarmEngine
 import com.usernode_labs.usernode.alarm.SlotMonitoringService
 
+private const val TAG = "usernode/MainActivity"
 class MainActivity: FlutterActivity() {
     private val CHANNEL = "com.usernode.app/alarm"
     private lateinit var alarmHandler: AlarmMethodChannelHandler
@@ -41,9 +43,11 @@ class MainActivity: FlutterActivity() {
         channel.setMethodCallHandler { call, result ->
             alarmHandler.handleMethodCall(call, result)
         }
+        BackgroundAlarmEngine.destroyCachedEngine("ui_activity_onCreate")
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        Log.i(TAG, "created - foreground service active: ${SlotMonitoringService.isForegroundServiceActive}");
         // Enforce a single-engine policy: if a headless/background engine is running
         // (e.g., from alarms/boot reschedule), kill it BEFORE FlutterActivity creates
         // the UI engine to avoid two engines being alive simultaneously.
@@ -107,6 +111,8 @@ class MainActivity: FlutterActivity() {
             alarmHandler.detachActivity(this)
         }
         backgroundStopHandler.removeCallbacks(backgroundStopRunnable)
+        super.onDestroy()
+        Log.i(TAG, "destroyed - foreground service active: ${SlotMonitoringService.isForegroundServiceActive}");
         if (SlotMonitoringService.isForegroundServiceActive) {
             // Activity destroyed => keep a background engine alive for the running foreground service.
             BackgroundAlarmEngine.createAndCacheNewEngine(
@@ -115,6 +121,5 @@ class MainActivity: FlutterActivity() {
                 registerPlugins = true
             )
         }
-        super.onDestroy()
     }
 }

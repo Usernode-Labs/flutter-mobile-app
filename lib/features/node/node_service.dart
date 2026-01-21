@@ -56,7 +56,9 @@ const _kNetworkTypeKey = 'network:type';
 /// A small façade around flutter_rust_bridge generated APIs.
 /// Centralizes initialization and access to the Rust node / RPC.
 class RustBackendService {
-  RustBackendService._();
+  RustBackendService._() {
+    _log.info('Service created');
+  }
   static RustBackendService? _instance;
   static RustBackendService get instance =>
       _instance ??= RustBackendService._();
@@ -294,10 +296,12 @@ class RustBackendService {
   }
 
   Future<void> resumeNode() async {
+    _log.info('Resuming node');
     _control?.resume();
   }
 
   Future<void> pauseNode() async {
+    _log.info('Pausing node');
     _control?.pause();
   }
 
@@ -1202,14 +1206,14 @@ class RustBackendService {
         'getSlotTime response: epoch=${response?.epoch}, slot=${response?.slot}, timestampMs=${response?.timestampMs}',
       );
 
-      _log.debug(
-        'getSlotTime ok',
-        context: {
-          'epoch': response?.epoch,
-          'slot': response?.slot,
-          'hasTimestamp': response?.timestampMs != null,
-        },
-      );
+      // _log.debug(
+      //   'getSlotTime ok',
+      //   context: {
+      //     'epoch': response?.epoch,
+      //     'slot': response?.slot,
+      //     'hasTimestamp': response?.timestampMs != null,
+      //   },
+      // );
     } catch (e, st) {
       _log.warn('Failed to log getSlotTime response: $e\$st');
       await SentryUtil.captureError(e, st, tag: 'getSlotTime_logging');
@@ -1320,6 +1324,7 @@ class RustBackendService {
 
   /// Dispose bridge resources when the app is exiting.
   void dispose() {
+    _log.info('Service disposed');
     // Keep FRB initialized for app lifetime to avoid double-init errors.
     RustBackendService.instance.pauseNode();
     _nodeRunning = false;

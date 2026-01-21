@@ -34,7 +34,7 @@ jobs:
       - name: Setup Rust for Android
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-linux-android,armv7-linux-androideabi
+          targets: aarch64-linux-android
 
       - name: Cache cargo registry and git dependencies
         uses: actions/cache@v4

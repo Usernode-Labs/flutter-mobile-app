@@ -19,12 +19,6 @@ class Target {
 
   static final all = [
     Target(
-      rust: 'armv7-linux-androideabi',
-      flutter: 'android-arm',
-      android: 'armeabi-v7a',
-      androidMinSdkVersion: 16,
-    ),
-    Target(
       rust: 'aarch64-linux-android',
       flutter: 'android-arm64',
       android: 'arm64-v8a',

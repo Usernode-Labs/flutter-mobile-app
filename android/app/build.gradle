@@ -29,10 +29,12 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
 
-android {
-    namespace "com.usernode_labs.usernode"
-    compileSdk flutter.compileSdkVersion
-    ndkVersion flutter.ndkVersion
+    android {
+        namespace "com.usernode_labs.usernode"
+        compileSdk flutter.compileSdkVersion
+        def ndkVersionOverride =
+                System.getenv("NDK_VERSION") ?: System.getenv("ANDROID_NDK_VERSION")
+        ndkVersion ndkVersionOverride ?: flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17

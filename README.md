@@ -734,8 +734,7 @@ stateDiagram-v2
   # Required for modern devices (CI builds only this)
   rustup target add aarch64-linux-android
 
-  # Optional: for older devices and emulators (not used in CI)
-  rustup target add armv7-linux-androideabi  # ARMv7 devices
+  # Optional: for emulators (not used in CI)
   rustup target add x86_64-linux-android     # Intel-based emulators
   ```
 
@@ -929,9 +928,6 @@ cd ../usernode/crates/usernode
 
 # ARM64 (most modern devices)
 cargo build --release --target aarch64-linux-android
-
-# ARMv7 (older devices)
-cargo build --release --target armv7-linux-androideabi
 
 # x86_64 (emulator)
 cargo build --release --target x86_64-linux-android

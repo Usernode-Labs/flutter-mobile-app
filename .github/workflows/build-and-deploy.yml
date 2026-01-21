@@ -20,6 +20,7 @@ permissions:
 env:
   FLUTTER_VERSION: "3.35.7"
   JAVA_VERSION: "17"
+  NDK_VERSION: "29.0.14206865"
 
 jobs:
   build-android:
@@ -234,13 +235,18 @@ jobs:
         id: ndk
         run: |
           set -euo pipefail
-          if [ -d "/usr/local/lib/android/sdk/ndk" ]; then
-            NDK_ROOT=$(ls -d /usr/local/lib/android/sdk/ndk/* | head -n 1)
-          elif [ -n "${ANDROID_NDK_HOME:-}" ]; then
-            NDK_ROOT="$ANDROID_NDK_HOME"
-          else
-            echo "Unable to locate Android NDK installation" >&2
-            exit 1
+          ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
+          NDK_ROOT="${ANDROID_SDK_ROOT}/ndk/${NDK_VERSION}"
+          if [ ! -d "$NDK_ROOT" ]; then
+            sdkmanager="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
+            if [ ! -x "$sdkmanager" ]; then
+              sdkmanager="$(command -v sdkmanager || true)"
+            fi
+            if [ -z "$sdkmanager" ]; then
+              echo "Unable to locate sdkmanager for NDK install" >&2
+              exit 1
+            fi
+            yes | "$sdkmanager" --install "ndk;${NDK_VERSION}"
           fi
           echo "ndk_root=$NDK_ROOT" >> "$GITHUB_OUTPUT"
           echo "Using NDK at $NDK_ROOT"

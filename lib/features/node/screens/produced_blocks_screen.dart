@@ -47,7 +47,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
   void _startAutoRefreshTimer() {
     // Avoid creating multiple timers on repeated hot reloads.
     _refreshTimer?.cancel();
-    _refreshTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
+    _refreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       if (!mounted) return;
       // Avoid overlapping refreshes; if a refresh is in progress, skip.
       _refreshSummary();

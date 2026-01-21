@@ -327,8 +327,8 @@ Future<dynamic> _buildProducedBlocksPreWork() async {
 
       // Use default values for missing node status
       final nowMs = DateTime.now().millisecondsSinceEpoch;
-      const defaultSlotMs = 2000; // 2 seconds default slot duration
-      const defaultSlotsInEpoch = 30; // 30 slots per epoch default
+      const defaultSlotMs = 5000; // 5 seconds default slot duration
+      const defaultSlotsInEpoch = 17280; // 17280 slots per epoch default
 
       final currentGlobalSlot = (nowMs - _initialTimestampMs) ~/ defaultSlotMs;
       final currentEpoch = currentGlobalSlot ~/ defaultSlotsInEpoch;

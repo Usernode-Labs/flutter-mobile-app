@@ -104,6 +104,24 @@ class AndroidEnvironment {
 
     final minSdkVersion =
         math.max(target.androidMinSdkVersion!, this.minSdkVersion);
+    final androidAbi = target.android!;
+    final androidPlatform = 'android-$minSdkVersion';
+    final cmakeToolchainFile =
+        path.join(ndkPath, 'build', 'cmake', 'android.toolchain.cmake');
+    final toolchainDir = path.join(targetTempDir, 'cargokit');
+    final toolchainOverridePath =
+        path.join(toolchainDir, 'android.toolchain.cmake');
+    Directory(toolchainDir).createSync(recursive: true);
+    final toolchainIncludePath = cmakeToolchainFile.replaceAll('\\', '/');
+    File(toolchainOverridePath).writeAsStringSync([
+      'set(ANDROID_ABI "$androidAbi")',
+      'set(ANDROID_PLATFORM "$androidPlatform")',
+      'set(CMAKE_ANDROID_ARCH_ABI "$androidAbi")',
+      'set(CMAKE_ANDROID_API "$minSdkVersion")',
+      'include("$toolchainIncludePath")',
+      '',
+    ].join('\n'));
+    final targetEnvSuffix = target.rust.replaceAll('-', '_');
 
     final exe = Platform.isWindows ? '.exe' : '';
 
@@ -169,6 +187,12 @@ class AndroidEnvironment {
       'ANDROID_NDK_ROOT': ndkPath,
       'ANDROID_HOME': sdkPath,
       'ANDROID_SDK_ROOT': sdkPath,
+      'ANDROID_ABI': androidAbi,
+      'ANDROID_PLATFORM': androidPlatform,
+      'CMAKE_ANDROID_ARCH_ABI': androidAbi,
+      'CMAKE_ANDROID_API': '$minSdkVersion',
+      'CMAKE_TOOLCHAIN_FILE': toolchainOverridePath,
+      'AWS_LC_SYS_CMAKE_TOOLCHAIN_FILE_$targetEnvSuffix': toolchainOverridePath,
       // Recognized by main() so we know when we're acting as a wrapper
       '_CARGOKIT_NDK_LINK_TARGET': targetArg,
       '_CARGOKIT_NDK_LINK_CLANG': ccValue,

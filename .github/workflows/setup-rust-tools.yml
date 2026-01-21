@@ -4,16 +4,16 @@ on:
   workflow_call:
     inputs:
       frb_rev:
-        description: 'Flutter Rust Bridge revision to use'
+        description: "Flutter Rust Bridge revision to use"
         required: true
         type: string
       usernode_ref:
-        description: 'Usernode repository reference (branch/tag/commit)'
+        description: "Usernode repository reference (branch/tag/commit)"
         required: true
         type: string
     outputs:
       cache-hit:
-        description: 'Whether cargo binaries were found in cache'
+        description: "Whether cargo binaries were found in cache"
         value: ${{ jobs.setup.outputs.cache-hit }}
 
 jobs:
@@ -34,7 +34,7 @@ jobs:
       - name: Setup Rust for iOS
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim
 
       - name: Cache cargo registry and git dependencies
         uses: actions/cache@v4

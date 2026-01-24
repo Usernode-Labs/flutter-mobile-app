@@ -81,6 +81,7 @@
             <intent-filter>
                 <action android:name="com.usernode.app.SLOT_ALARM" />
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
 
@@ -91,12 +92,6 @@
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
-        <!-- Boot reschedule service - runs after device reboot to restore alarms -->
-        <service
-            android:name=".alarm.BootRescheduleService"
-            android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="dataSync" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility?hl=en and

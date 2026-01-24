@@ -46,9 +46,33 @@ class SlotMonitoringService : Service() {
         val currentTime = System.currentTimeMillis()
         Log.i(TAG, "[SlotMonitoringService] onStartCommand() - Action: ${intent?.action}, StartId: $startId, Time: $currentTime")
 
+        // happens on crash
         if (intent == null) {
             Log.w(TAG, "[SlotMonitoringService] Received null intent in onStartCommand")
-            BootRescheduleService.startReschedule(applicationContext, "slot_monitoring_null_intent")
+
+            startMonitoring(0, false)
+
+            val eventData = mapOf(
+                "alarmId" to "slot_monitoring_null_intent",
+                "slotNumber" to 0,
+                "batteryLevel" to 0,
+                "networkState" to "unknown",
+                "nodeRunning" to false
+            )
+
+            // Enforce a single-engine policy:
+            // - If the UI engine/channel exists, deliver the event through it (no headless engine).
+            // - Otherwise, spin up the headless engine to deliver the alarm event.
+            val handler = AlarmMethodChannelHandler.getInstance()
+            if (handler != null && handler.isActivityAttached()) {
+                handler.sendEventToFlutter("android_alarm_fired", eventData)
+            } else {
+                BackgroundAlarmEngine.sendAlarmEvent(
+                    applicationContext,
+                    "android_alarm_fired",
+                    eventData
+                )
+            }
             return START_STICKY
         }
 

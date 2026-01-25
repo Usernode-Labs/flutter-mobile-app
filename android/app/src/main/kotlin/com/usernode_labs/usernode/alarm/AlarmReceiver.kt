@@ -27,6 +27,9 @@ class AlarmReceiver : BroadcastReceiver() {
             Intent.ACTION_BOOT_COMPLETED -> {
                 handleBootCompleted(context)
             }
+            Intent.ACTION_MY_PACKAGE_REPLACED -> {
+                handlePackageReplaced(context)
+            }
             else -> {
                 Log.w(TAG, "[AlarmReceiver] Unknown action received: ${intent.action}")
             }
@@ -94,13 +97,45 @@ class AlarmReceiver : BroadcastReceiver() {
     }
 
     private fun handleBootCompleted(context: Context) {
-        Log.i(TAG, "Device boot completed - alarms need to be rescheduled")
+        Log.i(TAG, "Device boot completed - starting monitoring")
+        startMonitoringService(
+            context = context,
+            alarmId = "boot_completed",
+            slotNumber = 0,
+            nodeRunning = false
+        )
+    }
 
-        // Start a background service to reschedule alarms
-        // This ensures alarms are restored even if user doesn't open the app
-        BootRescheduleService.startReschedule(context, "boot_completed")
+    private fun handlePackageReplaced(context: Context) {
+        Log.i(TAG, "App updated - starting monitoring")
+        startMonitoringService(
+            context = context,
+            alarmId = "package_replaced",
+            slotNumber = 0,
+            nodeRunning = false
+        )
+    }
 
-        Log.i(TAG, "Boot reschedule service started")
+    private fun startMonitoringService(
+        context: Context,
+        alarmId: String,
+        slotNumber: Int,
+        nodeRunning: Boolean
+    ) {
+        val serviceIntent = Intent(context, SlotMonitoringService::class.java).apply {
+            action = SlotMonitoringService.ACTION_START_MONITORING
+            putExtra("alarmId", alarmId)
+            putExtra("slotNumber", slotNumber)
+            putExtra("nodeRunning", nodeRunning)
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.startForegroundService(serviceIntent)
+        } else {
+            context.startService(serviceIntent)
+        }
+
+        Log.i(TAG, "SlotMonitoringService started (alarmId=$alarmId, slot=$slotNumber)")
     }
 
     private fun showFallbackNotification(context: Context, slotNumber: Int) {

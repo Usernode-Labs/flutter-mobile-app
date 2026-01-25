@@ -20,6 +20,7 @@ import 'package:crypto_mobile_app/src/rust/tracing.dart' show TracingLevel;
 import 'package:crypto_mobile_app/src/rust/node.dart';
 import 'package:crypto_mobile_app/src/rust/node/builder.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
+import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/core/models/backend_rpc_response.dart';
 import 'package:path_provider/path_provider.dart';
@@ -1325,8 +1326,9 @@ class RustBackendService {
   /// Dispose bridge resources when the app is exiting.
   void dispose() {
     _log.info('Service disposed');
-    // Keep FRB initialized for app lifetime to avoid double-init errors.
-    RustBackendService.instance.pauseNode();
+    if (!AndroidForegroundTaskController.instance.isWakelockHeldSync()) {
+      RustBackendService.instance.pauseNode();
+    }
     _nodeRunning = false;
     _rpc = null;
     _control = null;

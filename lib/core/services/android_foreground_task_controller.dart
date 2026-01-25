@@ -364,6 +364,11 @@ class AndroidForegroundTaskController {
       return false;
     }
   }
+
+  bool isWakelockHeldSync() {
+    if (!Platform.isAndroid) return false;
+    return _wakelockHeld;
+  }
 }
 
 // Foreground service lifecycle is handled natively via PlatformAlarmService.

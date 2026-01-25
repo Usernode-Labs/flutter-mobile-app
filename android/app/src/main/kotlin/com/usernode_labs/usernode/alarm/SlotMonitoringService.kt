@@ -81,11 +81,12 @@ class SlotMonitoringService : Service() {
                 val slotNumber = intent.getIntExtra("slotNumber", -1)
                 val alarmId = intent.getStringExtra("alarmId")
                 val nodeRunning = intent.getBooleanExtra("nodeRunning", false)
+                val alarmTimeMs = intent.getLongExtra("alarmTimeMs", -1L)
                 Log.d(TAG, "[SlotMonitoringService] START_MONITORING - Slot: $slotNumber, AlarmId: $alarmId, nodeRunning=$nodeRunning")
 
                 // Allow alarmId-only wake (e.g., fg_resume) by using 0 as placeholder
                 val safeSlot = if (slotNumber != -1) slotNumber else 0
-                startMonitoring(safeSlot, nodeRunning)
+                startMonitoring(safeSlot, nodeRunning, alarmTimeMs)
 
                 val eventData = mapOf(
                     "alarmId" to (alarmId ?: "unknown"),
@@ -130,13 +131,25 @@ class SlotMonitoringService : Service() {
         return START_STICKY
     }
 
-    private fun startMonitoring(slotNumber: Int, nodeRunning: Boolean) {
+    private fun startMonitoring(slotNumber: Int, nodeRunning: Boolean, alarmTimeMs: Long = -1L) {
         currentSlotNumber = slotNumber
         Log.i(TAG, "[SlotMonitoringService] ✓ Starting foreground monitoring for slot $slotNumber")
 
+        val scheduledTime = AlarmTimeFormatter.formatScheduledTime(alarmTimeMs)
+        val baseMessage = if (nodeRunning) {
+            "Monitoring slot $slotNumber for block production"
+        } else {
+            "Warming up node to monitor slots"
+        }
+        val messageWithTime = if (scheduledTime != null) {
+            "$baseMessage (since $scheduledTime)"
+        } else {
+            baseMessage
+        }
+
         val notification = createNotification(
             title = if (nodeRunning) "Block Production Monitoring" else "Starting node...",
-            message = if (nodeRunning) "Monitoring slot $slotNumber for block production" else "Warming up node to monitor slots"
+            message = messageWithTime
         )
 
         try {
@@ -314,4 +327,5 @@ class SlotMonitoringService : Service() {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.notify(NOTIFICATION_ID, notification)
     }
+
 }

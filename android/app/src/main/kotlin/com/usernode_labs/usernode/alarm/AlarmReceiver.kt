@@ -71,7 +71,7 @@ class AlarmReceiver : BroadcastReceiver() {
             handler.sendEventToFlutter("android_alarm_fired", eventData)
         } else {
             Log.w(TAG, "[AlarmReceiver] Flutter channel unavailable; showing fallback notification")
-            showFallbackNotification(context, slotNumber)
+            showFallbackNotification(context, slotNumber, scheduledTimeMs)
         }
 
         // Start foreground service to keep app alive during monitoring
@@ -81,6 +81,7 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra("alarmId", alarmId)
             putExtra("slotNumber", slotNumber)
             putExtra("nodeRunning", nodeRunning)
+            putExtra("alarmTimeMs", scheduledTimeMs)
         }
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -138,7 +139,11 @@ class AlarmReceiver : BroadcastReceiver() {
         Log.i(TAG, "SlotMonitoringService started (alarmId=$alarmId, slot=$slotNumber)")
     }
 
-    private fun showFallbackNotification(context: Context, slotNumber: Int) {
+    private fun showFallbackNotification(
+        context: Context,
+        slotNumber: Int,
+        scheduledTimeMs: Long
+    ) {
         val channelId = "slot_alarm_fallback"
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -158,10 +163,17 @@ class AlarmReceiver : BroadcastReceiver() {
         val piFlags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         val pendingIntent = PendingIntent.getActivity(context, 0, launchIntent, piFlags)
 
+        val scheduledTimeText = AlarmTimeFormatter.formatScheduledTime(scheduledTimeMs)
+        val message = if (scheduledTimeText != null) {
+            "Resumed for slot $slotNumber (scheduled $scheduledTimeText)"
+        } else {
+            "Resumed for slot $slotNumber"
+        }
+
         val notification = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.launch_background)
             .setContentTitle("Slot alarm fired")
-            .setContentText("Tap to resume monitoring for slot $slotNumber")
+            .setContentText(message)
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setContentIntent(pendingIntent)
@@ -169,4 +181,5 @@ class AlarmReceiver : BroadcastReceiver() {
 
         nm.notify(slotNumber, notification)
     }
+
 }

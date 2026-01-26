@@ -1,11 +1,15 @@
 package com.usernode_labs.usernode.alarm
 
 import android.app.AlarmManager
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.util.Log
+import androidx.core.app.NotificationCompat
+import com.usernode_labs.usernode.R
 
 class AlarmScheduler(
     private val context: Context,
@@ -15,6 +19,8 @@ class AlarmScheduler(
         private const val TAG = "usernode/AlarmScheduler"
         private const val PREFS_NAME = "alarm_prefs"
         private const val SCHEDULED_ALARMS_KEY = "scheduled_alarms"
+        private const val SCHEDULED_CHANNEL_ID = "slot_alarm_scheduled"
+        private const val SCHEDULED_CHANNEL_NAME = "Scheduled Slot Alarms"
     }
 
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -92,6 +98,8 @@ class AlarmScheduler(
             // Save alarm ID for tracking
             saveScheduledAlarm(alarmId, slotNumber)
             Log.d(TAG, "[AlarmScheduler] Alarm saved to SharedPreferences")
+
+            showScheduledNotification(alarmId, slotNumber, alarmTimeMs)
 
             Log.i(TAG, "[AlarmScheduler] ✓ Successfully scheduled exact alarm for slot $slotNumber at $alarmTimeMs (in ${delayMs/1000}s)")
             return true
@@ -180,4 +188,43 @@ class AlarmScheduler(
     private fun clearScheduledAlarms() {
         prefs.edit().remove(SCHEDULED_ALARMS_KEY).apply()
     }
+
+    private fun showScheduledNotification(
+        alarmId: String,
+        slotNumber: Int,
+        alarmTimeMs: Long
+    ) {
+        try {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val channel = NotificationChannel(
+                    SCHEDULED_CHANNEL_ID,
+                    SCHEDULED_CHANNEL_NAME,
+                    NotificationManager.IMPORTANCE_LOW
+                )
+                nm.createNotificationChannel(channel)
+            }
+
+            val scheduledText = AlarmTimeFormatter.formatScheduledTime(alarmTimeMs)
+            // val message = if (scheduledText != null) {
+            //     "Scheduled slot $slotNumber at $scheduledText"
+            // } else {
+            //     "Scheduled slot $slotNumber"
+            // }
+            val message = "wakeup at $scheduledText"
+
+            val notification = NotificationCompat.Builder(context, SCHEDULED_CHANNEL_ID)
+                .setSmallIcon(R.drawable.launch_background)
+                .setContentTitle("Slot alarm scheduled")
+                .setContentText(message)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setAutoCancel(true)
+                .build()
+
+            nm.notify(alarmId.hashCode(), notification)
+        } catch (e: Exception) {
+            Log.w(TAG, "[AlarmScheduler] Failed to show scheduled notification", e)
+        }
+    }
+
 }

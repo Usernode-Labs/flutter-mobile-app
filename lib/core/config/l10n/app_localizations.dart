@@ -1057,7 +1057,7 @@ abstract class AppLocalizations {
   /// Navigation bar label for produced blocks tab
   ///
   /// In en, this message translates to:
-  /// **'Produced Blocks'**
+  /// **'Blocks'**
   String get navProducedBlocks;
 
   /// Navigation bar label for wallet tab
@@ -1065,6 +1065,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Wallet'**
   String get navWallet;
+
+  /// Navigation bar label for dapps tab
+  ///
+  /// In en, this message translates to:
+  /// **'dApps'**
+  String get navDapps;
 
   /// Navigation bar label for node status tab
   ///

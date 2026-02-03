@@ -544,10 +544,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get nodeNotAvailable => 'Not available';
 
   @override
-  String get navProducedBlocks => 'Produced Blocks';
+  String get navProducedBlocks => 'Blocks';
 
   @override
   String get navWallet => 'Wallet';
+
+  @override
+  String get navDapps => 'dApps';
 
   @override
   String get navNodeStatus => 'Node Status';

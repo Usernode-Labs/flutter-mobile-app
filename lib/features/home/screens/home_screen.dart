@@ -4,6 +4,7 @@ import 'package:crypto_mobile_app/features/wallet/screens/wallet_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/produced_blocks_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/node_status_screen.dart';
 import 'package:crypto_mobile_app/features/settings/screens/background_production_settings_screen.dart';
+import 'package:crypto_mobile_app/dapps/dapps_screen.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
@@ -52,8 +53,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         index: _index,
         children: const [
           ProducedBlocksScreen(),
-          NodeStatusScreen(),
           WalletScreen(),
+          DappsScreen(),
+          NodeStatusScreen(),
           BackgroundProductionSettingsScreen(),
         ],
       ),
@@ -93,14 +95,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 label: l10n.navProducedBlocks,
               ),
               NavigationDestination(
-                icon: const Icon(Icons.check_circle_outline),
-                selectedIcon: const Icon(Icons.check_circle),
-                label: l10n.navNodeStatus,
-              ),
-              NavigationDestination(
                 icon: const Icon(Icons.account_balance_wallet_outlined),
                 selectedIcon: const Icon(Icons.account_balance_wallet),
                 label: l10n.navWallet,
+              ),
+              NavigationDestination(
+                icon: const Icon(Icons.apps_outlined),
+                selectedIcon: const Icon(Icons.apps),
+                label: l10n.navDapps,
+              ),
+              NavigationDestination(
+                icon: const Icon(Icons.check_circle_outline),
+                selectedIcon: const Icon(Icons.check_circle),
+                label: l10n.navNodeStatus,
               ),
               NavigationDestination(
                 icon: const Icon(Icons.settings_outlined),

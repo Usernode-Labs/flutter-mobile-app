@@ -710,13 +710,17 @@
     "description": "Not available fallback text"
   },
 
-  "navProducedBlocks": "Produced Blocks",
+  "navProducedBlocks": "Blocks",
   "@navProducedBlocks": {
     "description": "Navigation bar label for produced blocks tab"
   },
   "navWallet": "Wallet",
   "@navWallet": {
     "description": "Navigation bar label for wallet tab"
+  },
+  "navDapps": "dApps",
+  "@navDapps": {
+    "description": "Navigation bar label for dapps tab"
   },
   "navNodeStatus": "Node Status",
   "@navNodeStatus": {

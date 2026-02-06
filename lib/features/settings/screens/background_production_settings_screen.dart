@@ -36,7 +36,7 @@ class _BackgroundProductionSettingsScreenState
   bool _iosKeepAliveActive = false;
   Timer? _autoTimer;
   bool _refreshing = false;
-  bool _active = false; // active when Settings tab is selected (index 2)
+  bool _active = false; // active when Settings tab is selected (index 4)
 
   // Package info (app version)
   PackageInfo? _packageInfo;
@@ -69,7 +69,7 @@ class _BackgroundProductionSettingsScreenState
 
   bool _isActiveTab() {
     try {
-      return ref.read(currentHomeTabProvider) == 2;
+      return ref.read(currentHomeTabProvider) == 4;
     } catch (_) {
       return false;
     }

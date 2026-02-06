@@ -314,7 +314,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   Widget build(BuildContext context) {
     // React to tab changes
     final currentTab = ref.watch(currentHomeTabProvider);
-    final shouldBeActive = currentTab == 1;
+    final shouldBeActive = currentTab == 3;
     if (shouldBeActive != _active) {
       _log.debug(
           'Tab change detected: currentTab=$currentTab, shouldBeActive=$shouldBeActive, _active=$_active');

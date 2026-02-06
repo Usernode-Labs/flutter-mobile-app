@@ -48,9 +48,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   void _startAutoRefresh() {
     _refreshTimer?.cancel();
     _refreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) async {
-      // Only refresh if currently on wallet tab (index 2)
+      // Only refresh if currently on wallet tab (index 1)
       final currentTab = ref.read(currentHomeTabProvider);
-      if (currentTab == 2) {
+      if (currentTab == 1) {
         await ref.read(walletProvider.notifier).silentRefresh();
         await ref.read(nodeStatusProvider.notifier).silentRefresh();
 
@@ -93,8 +93,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     // Listen for tab changes to refresh when wallet tab becomes active
     ref.listen<int>(currentHomeTabProvider, (previous, next) {
       _log.debug('Tab changed from $previous to $next');
-      // Refresh wallet data when switching to wallet tab (index 2)
-      if (next == 2 && previous != 2) {
+      // Refresh wallet data when switching to wallet tab (index 1)
+      if (next == 1 && previous != 1) {
         _log.debug('Switching to wallet tab - triggering refresh');
         _onRefresh();
       }

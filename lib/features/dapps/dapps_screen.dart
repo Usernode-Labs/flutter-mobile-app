@@ -1,14 +1,13 @@
-import 'dart:convert';
 import 'dart:async';
-
-import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
-import 'package:webview_flutter/webview_flutter.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:convert';
 
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 class DappsScreen extends ConsumerStatefulWidget {
   const DappsScreen({super.key});

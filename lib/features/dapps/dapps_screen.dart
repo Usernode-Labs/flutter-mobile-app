@@ -33,10 +33,24 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
     // Note: "localhost" inside a mobile simulator/device refers to the device itself.
     // - Android emulator: use 10.0.2.2 to reach the host machine's localhost.
     // - iOS simulator / Flutter web: localhost usually works as expected.
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      return Uri.parse('http://10.0.2.2:8000');
+
+    const raw = String.fromEnvironment(
+      'DAPP_HOMEPAGE',
+      defaultValue: 'http://localhost:8000',
+    );
+
+    // Allow specifying without scheme (e.g. "localhost:8000").
+    final withScheme = raw.contains('://') ? raw : 'http://$raw';
+    final uri = Uri.tryParse(withScheme) ?? Uri.parse('http://localhost:8000');
+
+    // Android emulator: "localhost" refers to the emulator. Use 10.0.2.2 for host machine.
+    if (!kIsWeb &&
+        defaultTargetPlatform == TargetPlatform.android &&
+        (uri.host == 'localhost' || uri.host == '127.0.0.1')) {
+      return uri.replace(host: '10.0.2.2');
     }
-    return Uri.parse('http://localhost:8000');
+
+    return uri;
   }
 
   @override

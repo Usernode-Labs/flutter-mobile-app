@@ -91,11 +91,10 @@ Future<({BigInt? balance, String? address})> _fetchWalletData() async {
         final jsonStr = frb_types.utxoToJson(utxo: ownedUtxo.utxo);
         final utxoData = json.decode(jsonStr) as Map<String, dynamic>;
 
-        // Extract assets and sum their balances
-        final assetsJson = utxoData['assets'] as List<dynamic>? ?? [];
-        for (final assetJson in assetsJson) {
-          final balance = assetJson['balance'] as int;
-          totalBalance += BigInt.from(balance);
+        // Extract the single-asset amount and sum it.
+        final amount = _parseBigInt(utxoData['amount'] ?? utxoData['balance']);
+        if (amount != null) {
+          totalBalance += amount;
         }
       } catch (e, st) {
         // Skip this UTXO if parsing fails, but report to Sentry
@@ -130,4 +129,12 @@ Future<({BigInt? balance, String? address})> _fetchWalletData() async {
     );
     return (balance: null, address: null);
   }
+}
+
+BigInt? _parseBigInt(dynamic value) {
+  if (value is BigInt) return value;
+  if (value is int) return BigInt.from(value);
+  if (value is num) return BigInt.from(value.toInt());
+  if (value is String) return BigInt.tryParse(value);
+  return null;
 }

@@ -27,8 +27,21 @@ class WalletController extends AsyncNotifier<WalletState> {
 
   @override
   Future<WalletState> build() async {
-    final balance = await _calculateBalance();
-    final allTransactions = await _getAllTransactions();
+    var balance = await _calculateBalance();
+    var allTransactions = await _getAllTransactions();
+
+    // Startup race guard: wallet can initialize before node/RPC is running.
+    // Retry once so initial UI does not get stuck on transient 0 balance.
+    if (balance.totalBalance == BigInt.zero &&
+        allTransactions.isEmpty &&
+        !RustBackendService.instance.isRunning) {
+      _log.debug(
+          'Initial wallet load happened before node start; retrying once');
+      await Future.delayed(const Duration(seconds: 2));
+      balance = await _calculateBalance();
+      allTransactions = await _getAllTransactions();
+    }
+
     return WalletState(
       balance: balance,
       recent: allTransactions,
@@ -118,17 +131,12 @@ class WalletController extends AsyncNotifier<WalletState> {
         final ownedUtxo = utxos[i];
         final jsonStr = frb_types.utxoToJson(utxo: ownedUtxo.utxo);
         final utxoData = json.decode(jsonStr) as Map<String, dynamic>;
-        final assetsJson = utxoData['assets'] as List<dynamic>?;
-
-        if (assetsJson == null || assetsJson.isEmpty) continue;
+        final asset = _parseSingleAssetUtxo(utxoData);
+        if (asset == null) continue;
 
         // Aggregate balances by token_id
-        for (final assetJson in assetsJson) {
-          final tokenId = assetJson['token_id'] as String;
-          final balance = BigInt.from(assetJson['balance'] as int);
-          balancesByToken[tokenId] =
-              (balancesByToken[tokenId] ?? BigInt.zero) + balance;
-        }
+        balancesByToken[asset.tokenId] =
+            (balancesByToken[asset.tokenId] ?? BigInt.zero) + asset.amount;
       } catch (e, st) {
         _log.error('Failed to parse UTXO[$i]', error: e, stackTrace: st);
       }
@@ -169,30 +177,27 @@ class WalletController extends AsyncNotifier<WalletState> {
         final jsonStr = frb_types.utxoToJson(utxo: ownedUtxo.utxo);
         final utxoData = json.decode(jsonStr) as Map<String, dynamic>;
 
-        // Extract assets and create transaction for each
-        final assetsJson = utxoData['assets'] as List<dynamic>? ?? [];
+        final asset = _parseSingleAssetUtxo(utxoData);
+        if (asset == null) continue;
+        final balance = asset.amount;
 
-        for (final assetJson in assetsJson) {
-          final balance = assetJson['balance'] as int;
+        // For UTXOs, treat all as received transactions
+        // Block reward determination should come from the explorer API instead
+        final transaction = TransactionModel(
+          id: utxoData['id']?.toString() ?? 'utxo_$i',
+          title: 'Received',
+          subtitle: 'Token transfer',
+          amount: balance.toDouble(),
+          tokenSymbol: tokenSymbol,
+          type: TransactionType.receive,
+          status: TransactionStatus.completed,
+          timestamp: _parseTimestampFromUtxo(utxoData),
+          icon: Icons.south_west,
+          color: Colors.green,
+          dataSource: DataSource.local, // UTXO transactions are local
+        );
 
-          // For UTXOs, treat all as received transactions
-          // Block reward determination should come from the explorer API instead
-          final transaction = TransactionModel(
-            id: utxoData['id']?.toString() ?? 'utxo_$i',
-            title: 'Received',
-            subtitle: 'Token transfer',
-            amount: balance.toDouble(),
-            tokenSymbol: tokenSymbol,
-            type: TransactionType.receive,
-            status: TransactionStatus.completed,
-            timestamp: _parseTimestampFromUtxo(utxoData),
-            icon: Icons.south_west,
-            color: Colors.green,
-            dataSource: DataSource.local, // UTXO transactions are local
-          );
-
-          transactions.add(transaction);
-        }
+        transactions.add(transaction);
       } catch (e, st) {
         _log.error('Failed to parse transaction from UTXO[$i]',
             error: e, stackTrace: st);
@@ -222,6 +227,24 @@ class WalletController extends AsyncNotifier<WalletState> {
     }
     return DateTime.now().subtract(
         Duration(minutes: (DateTime.now().millisecondsSinceEpoch % 1000)));
+  }
+
+  _AssetBalance? _parseSingleAssetUtxo(Map<String, dynamic> utxoData) {
+    final tokenId =
+        (utxoData['token_id'] ?? utxoData['tokenId'])?.toString() ?? '';
+    final amount = _parseBigInt(utxoData['amount'] ?? utxoData['balance']);
+    if (tokenId.isNotEmpty && amount != null) {
+      return _AssetBalance(tokenId: tokenId, amount: amount);
+    }
+    return null;
+  }
+
+  BigInt? _parseBigInt(dynamic value) {
+    if (value is BigInt) return value;
+    if (value is int) return BigInt.from(value);
+    if (value is num) return BigInt.from(value.toInt());
+    if (value is String) return BigInt.tryParse(value);
+    return null;
   }
 
   /// Get all transactions (confirmed from explorer/UTXO + pending from mempool) sorted by timestamp
@@ -407,10 +430,10 @@ class WalletController extends AsyncNotifier<WalletState> {
         break;
     }
 
-    // Calculate total amount - check locally stored pending transactions first
+    // Extract pending transaction amount.
     double amount = 0.0;
-    if (txItem.amounts.isNotEmpty) {
-      amount = txItem.amounts.first.amount.toDouble();
+    if (txItem.asset != null) {
+      amount = txItem.asset!.amount.toDouble();
     }
 
     // Ensure pending "send" amounts are displayed as negative in the UI.
@@ -475,3 +498,10 @@ class WalletController extends AsyncNotifier<WalletState> {
 final walletProvider = AsyncNotifierProvider<WalletController, WalletState>(
   WalletController.new,
 );
+
+class _AssetBalance {
+  final String tokenId;
+  final BigInt amount;
+
+  const _AssetBalance({required this.tokenId, required this.amount});
+}

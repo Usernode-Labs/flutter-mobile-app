@@ -6,7 +6,7 @@ import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 
 typedef ParsedMempoolOutput = ({
   String? recipientAddress,
-  List<AssetAmount> amounts,
+  AssetAmount? asset,
 });
 
 /// Select the output we should display as the "amount" for a pending mempool tx.
@@ -16,7 +16,7 @@ typedef ParsedMempoolOutput = ({
 /// - 2 outputs: [payment, change]
 ///
 /// In the 2-output case we drop the output that pays back to `ownerAddress`
-/// (change) and display the other output's amounts.
+/// (change) and display the other output's asset.
 ///
 /// Self-send edge case:
 /// If the transaction sends to the same address as `ownerAddress`, filtering out
@@ -49,7 +49,7 @@ class TransactionItem {
   final String id;
   final TransactionType type;
   final TransactionStatus status;
-  final List<AssetAmount> amounts;
+  final AssetAmount? asset;
   final String? recipientAddress;
   final BigInt? fee;
 
@@ -57,7 +57,7 @@ class TransactionItem {
     required this.id,
     required this.type,
     required this.status,
-    required this.amounts,
+    this.asset,
     this.recipientAddress,
     this.fee,
   });
@@ -70,7 +70,7 @@ class TransactionItem {
           id == other.id &&
           type == other.type &&
           status == other.status &&
-          amounts == other.amounts &&
+          asset == other.asset &&
           recipientAddress == other.recipientAddress &&
           fee == other.fee;
 
@@ -79,13 +79,13 @@ class TransactionItem {
       id.hashCode ^
       type.hashCode ^
       status.hashCode ^
-      amounts.hashCode ^
+      asset.hashCode ^
       recipientAddress.hashCode ^
       fee.hashCode;
 
   @override
   String toString() =>
-      'TransactionItem(id: $id, type: $type, status: $status, amounts: ${amounts.length})';
+      'TransactionItem(id: $id, type: $type, status: $status, hasAsset: ${asset != null})';
 
   /// Create from a confirmed UTXO (received transaction)
   factory TransactionItem.fromUtxo({
@@ -98,16 +98,16 @@ class TransactionItem {
       final jsonStr = frb_types.utxoToJson(utxo: utxo.utxo);
       final utxoData = json.decode(jsonStr) as Map<String, dynamic>;
 
-      // Extract assets
-      final amounts = _parseAssetAmounts(utxoData);
+      // Extract the single asset.
+      final asset = _parseAssetAmount(utxoData);
 
       // Extract recipient
       final recipientAddress = _parseRecipientAddress(utxoData);
 
       // Determine transaction type based on amount
       TransactionType txType = TransactionType.received;
-      if (amounts.isNotEmpty) {
-        final firstAmount = amounts.first.amount.toInt();
+      if (asset != null) {
+        final firstAmount = asset.amount.toInt();
         final rewardAmount = coinbaseRewardAmount?.toInt();
         if (rewardAmount != null && firstAmount == rewardAmount) {
           txType = TransactionType.coinbaseReward;
@@ -120,7 +120,7 @@ class TransactionItem {
         id: commitmentHex,
         type: txType,
         status: TransactionStatus.confirmed,
-        amounts: amounts,
+        asset: asset,
         recipientAddress: recipientAddress,
         fee: null,
       );
@@ -130,7 +130,7 @@ class TransactionItem {
         id: commitmentHex,
         type: TransactionType.received,
         status: TransactionStatus.confirmed,
-        amounts: const [],
+        asset: null,
         recipientAddress: null,
         fee: null,
       );
@@ -147,17 +147,17 @@ class TransactionItem {
     // If we have no inputs but have outputs, we're receiving
     final isSent = tx.inputs.isNotEmpty;
 
-    // Parse outputs via JSON serialization to extract recipient + asset amounts.
+    // Parse outputs via JSON serialization to extract recipient + asset.
     final parsedOutputs = tx.outputs.map((output) {
       try {
         final jsonStr = frb_types.utxoToJson(utxo: output);
         final utxoData = json.decode(jsonStr) as Map<String, dynamic>;
         return (
           recipientAddress: _parseRecipientAddress(utxoData),
-          amounts: _parseAssetAmounts(utxoData),
+          asset: _parseAssetAmount(utxoData),
         );
       } catch (_) {
-        return (recipientAddress: null, amounts: const <AssetAmount>[]);
+        return (recipientAddress: null, asset: null);
       }
     }).toList();
 
@@ -171,7 +171,7 @@ class TransactionItem {
       id: tx.id.toString(),
       type: isSent ? TransactionType.sent : TransactionType.received,
       status: TransactionStatus.pending,
-      amounts: selected?.amounts ?? const [],
+      asset: selected?.asset,
       recipientAddress: isSent ? selected?.recipientAddress : null,
       fee: tx.fee,
     );
@@ -185,19 +185,15 @@ class TransactionItem {
     return null;
   }
 
-  static List<AssetAmount> _parseAssetAmounts(Map<String, dynamic> utxoData) {
-    final assetsJson = utxoData['assets'] as List<dynamic>? ?? [];
-    final amounts = <AssetAmount>[];
-
-    for (final asset in assetsJson) {
-      if (asset is! Map<String, dynamic>) continue;
-      final tokenId = asset['token_id'] as String? ?? '';
-      final balance = _parseBigInt(asset['balance']);
-      if (tokenId.isEmpty || balance == null) continue;
-      amounts.add(AssetAmount(tokenId: tokenId, amount: balance));
+  static AssetAmount? _parseAssetAmount(Map<String, dynamic> utxoData) {
+    final tokenId =
+        (utxoData['token_id'] ?? utxoData['tokenId'])?.toString() ?? '';
+    final amount = _parseBigInt(utxoData['amount'] ?? utxoData['balance']);
+    if (tokenId.isNotEmpty && amount != null) {
+      return AssetAmount(tokenId: tokenId, amount: amount);
     }
 
-    return amounts;
+    return null;
   }
 
   static String? _parseRecipientAddress(Map<String, dynamic> utxoData) {

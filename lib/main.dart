@@ -141,11 +141,18 @@ Future<void> _startHeadlessServices(
               final jsonStr = frb_types.utxoToJson(utxo: ownedUtxo.utxo);
               final utxoData = json.decode(jsonStr) as Map<String, dynamic>;
 
-              // Extract assets and sum their balances
-              final assetsJson = utxoData['assets'] as List<dynamic>? ?? [];
-              for (final assetJson in assetsJson) {
-                final balance = assetJson['balance'] as int;
-                totalBalance += BigInt.from(balance);
+              final rawAmount = utxoData['amount'] ?? utxoData['balance'];
+              if (rawAmount is BigInt) {
+                totalBalance += rawAmount;
+              } else if (rawAmount is int) {
+                totalBalance += BigInt.from(rawAmount);
+              } else if (rawAmount is num) {
+                totalBalance += BigInt.from(rawAmount.toInt());
+              } else if (rawAmount is String) {
+                final parsed = BigInt.tryParse(rawAmount);
+                if (parsed != null) {
+                  totalBalance += parsed;
+                }
               }
             } catch (e) {
               // Skip this UTXO if parsing fails

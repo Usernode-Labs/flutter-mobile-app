@@ -67,6 +67,7 @@ class RustBackendService {
   bool _initialized = false;
   Completer<void>?
       _initCompleter; // Prevents race condition on concurrent init() calls
+  Completer<bool>? _startNodeCompleter;
   bool _nodeRunning = false;
   String? _instanceId;
   String? _cachedPeerId;
@@ -164,6 +165,30 @@ class RustBackendService {
   /// Returns true if started successfully, false if no account or error.
   /// Safe to call multiple times; subsequent calls return true if already running.
   Future<bool> startNode({int? httpPort}) async {
+    if (_startNodeCompleter != null) {
+      _log.debug('startNode already in progress; waiting for existing start');
+      return _startNodeCompleter!.future;
+    }
+
+    final completer = Completer<bool>();
+    _startNodeCompleter = completer;
+    try {
+      final started = await _startNodeInternal(httpPort: httpPort);
+      completer.complete(started);
+      return started;
+    } catch (e, st) {
+      if (!completer.isCompleted) {
+        completer.completeError(e, st);
+      }
+      rethrow;
+    } finally {
+      if (identical(_startNodeCompleter, completer)) {
+        _startNodeCompleter = null;
+      }
+    }
+  }
+
+  Future<bool> _startNodeInternal({int? httpPort}) async {
     if (!_initialized) {
       await init();
     }
@@ -238,6 +263,8 @@ class RustBackendService {
         'Configuring block producer with user secret key (length: ${secretKey.length})',
       );
       builder.blockProducerSecretKey(secretKey: secretKey);
+      _log.info('Forcing real prover mode');
+      builder.enableRealProver();
       builder.mempoolAutoinsertInterval(secs: BigInt.from(1));
 
       // Configure persistent VRF storage path so VRF evaluation progress survives restarts.

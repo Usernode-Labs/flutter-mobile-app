@@ -94,7 +94,7 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
               final destinationPubkey =
                   (args['destination_pubkey'] as String?)?.trim();
               final amountRaw = args['amount'];
-              final memo = (args['memo'] as String?)?.trim();
+              final memo = _parseMemoToBytes(args['memo']);
 
               if (destinationPubkey == null || destinationPubkey.isEmpty) {
                 await _resolveJsPromise(
@@ -115,6 +115,16 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
                 return;
               }
 
+              if (memo == null) {
+                await _resolveJsPromise(
+                  id: id,
+                  value: null,
+                  error: 'Invalid memo; expected UTF-8 string or byte array',
+                );
+                return;
+              }
+              final memoBytes = memo;
+
               final fromAddress = await _getActiveNodeAddress();
               if (fromAddress == null || fromAddress.isEmpty) {
                 await _resolveJsPromise(
@@ -125,20 +135,26 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
                 return;
               }
 
-              // NOTE: memo is accepted for API compatibility, but not yet
-              // supported by the underlying transfer RPC.
-              // TODO: plumb memo through once Rust RPC supports it.
-              final _ = memo;
-
               final fromPkHash =
                   frb_types.publicKeyHashFromString(s: fromAddress);
               final toPkHash =
                   frb_types.publicKeyHashFromString(s: destinationPubkey);
 
-              final resp = await RustBackendService.instance.transferFunds(
+              final rpc = RustBackendService.instance.rpc;
+              if (rpc == null) {
+                await _resolveJsPromise(
+                  id: id,
+                  value: null,
+                  error: 'Node RPC unavailable',
+                );
+                return;
+              }
+
+              final resp = await rpc.wallet().txSend(
                 fromPkHash: fromPkHash,
                 amount: amount,
                 toPkHash: toPkHash,
+                memo: memoBytes,
               );
 
               await _resolveJsPromise(
@@ -303,6 +319,23 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
     return null;
   }
 
+  List<int>? _parseMemoToBytes(Object? memoRaw) {
+    if (memoRaw is String) {
+      final trimmed = memoRaw.trim();
+      if (trimmed.isEmpty) return <int>[];
+      return utf8.encode(trimmed);
+    }
+    if (memoRaw is List) {
+      final bytes = <int>[];
+      for (final item in memoRaw) {
+        if (item is! int || item < 0 || item > 255) return null;
+        bytes.add(item);
+      }
+      return bytes;
+    }
+    return <int>[];
+  }
+
   Future<void> _syncNavState() async {
     final canGoBack = await _controller.canGoBack();
     if (!mounted) return;
@@ -395,4 +428,3 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
     );
   }
 }
-

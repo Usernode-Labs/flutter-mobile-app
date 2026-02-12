@@ -6,13 +6,13 @@ import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/block_producer_status.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_mempool.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_utxos_by_owner.dart';
-import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/transfer_funds.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_blockchain.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_slots.dart';
 import 'package:crypto_mobile_app/src/rust/rpc.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/wallet_tx.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:crypto_mobile_app/src/rust/frb_generated.dart';
 import 'package:crypto_mobile_app/src/rust/lib.dart' show enableLogging;
@@ -1007,7 +1007,7 @@ class RustBackendService {
   }
 
   /// Convenience helper to transfer funds via RPC.
-  Future<RpcTransferFundsResp?> transferFunds({
+  Future<RpcWalletTxSendResp?> transferFunds({
     required PublicKeyHash fromPkHash,
     required BigInt amount,
     required PublicKeyHash toPkHash,
@@ -1019,13 +1019,19 @@ class RustBackendService {
     if (r == null) return null;
 
     // Call into FRB with defensive handling for panics / transport errors.
-    RpcTransferFundsResp? response;
+    RpcWalletTxSendResp? response;
     try {
-      response = await r.transferFunds(
+      final rpcResponse = await r.transferFunds(
         fromPkHash: fromPkHash,
         amount: amount,
         toPkHash: toPkHash,
       );
+      if (rpcResponse != null) {
+        response = RpcWalletTxSendResp(
+          queued: rpcResponse.queued,
+          error: rpcResponse.error,
+        );
+      }
     } on PanicException catch (e, st) {
       // FRB surfaced a Rust-side panic.
       _log.error('FRB panic during transferFunds', error: e, stackTrace: st);

@@ -12,13 +12,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 
 // FRB-generated types used by the façade and UI
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/wallet_tx.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_mempool.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_blockchain.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_utxos_by_owner.dart';
-import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/transfer_funds.dart';
 import 'package:crypto_mobile_app/src/rust/rpc.dart';
 
 typedef ListBlockchainFn = Future<RpcListBlockchainResp?> Function(
@@ -29,7 +29,7 @@ typedef GetStatusFn = Future<RpcStatusResp?> Function({bool includeVrfDetails});
 typedef BuildEnvFn = BuildInfo Function();
 typedef ListUtxosByOwnerFn = Future<RpcListUtxosByOwnerResp?> Function(
     {required PublicKeyHash owner, int? limit});
-typedef TransferFundsFn = Future<RpcTransferFundsResp?> Function(
+typedef TransferFundsFn = Future<RpcWalletTxSendResp?> Function(
     {required PublicKeyHash fromPkHash,
     required BigInt amount,
     required PublicKeyHash toPkHash});
@@ -138,8 +138,8 @@ void main() {
       expect(check, isNotNull);
     });
 
-    test('RpcTransferFundsResp members', () {
-      void check(RpcTransferFundsResp r) {
+    test('RpcWalletTxSendResp members', () {
+      void check(RpcWalletTxSendResp r) {
         final queued = r.queued; // bool
         final error = r.error; // String?
         expect([queued, error].length, greaterThan(0));

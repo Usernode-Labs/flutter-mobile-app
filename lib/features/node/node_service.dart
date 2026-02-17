@@ -263,8 +263,10 @@ class RustBackendService {
         'Configuring block producer with user secret key (length: ${secretKey.length})',
       );
       builder.blockProducerSecretKey(secretKey: secretKey);
-      _log.info('Forcing real prover mode');
-      builder.enableRealProver();
+      if (AppConfig.enableRealProver) {
+        _log.info('Forcing real prover mode');
+        builder.enableRealProver();
+      }
       builder.mempoolAutoinsertInterval(secs: BigInt.from(1));
 
       // Configure persistent VRF storage path so VRF evaluation progress survives restarts.

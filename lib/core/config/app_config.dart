@@ -136,6 +136,10 @@ class AppConfig {
       ? _rawNetworkSwitcherCode
       : _defaultNetworkSwitcherCode;
   // Metrics configuration (compile-time)
+  // Node prover configuration
+  static const bool enableRealProver =
+      bool.fromEnvironment('ENABLE_REAL_PROVER', defaultValue: false);
+
   static const bool metricsEnabled =
       bool.fromEnvironment('METRICS_ENABLED', defaultValue: false);
   static const String metricsEndpoint =

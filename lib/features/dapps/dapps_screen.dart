@@ -58,6 +58,9 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
     super.initState();
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setOnConsoleMessage((JavaScriptConsoleMessage message) {
+        debugPrint('[WebView ${message.level.name}] ${message.message}');
+      })
       ..addJavaScriptChannel(
         _jsChannelName,
         onMessageReceived: (message) async {
@@ -94,7 +97,7 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
               final destinationPubkey =
                   (args['destination_pubkey'] as String?)?.trim();
               final amountRaw = args['amount'];
-              final memo = _parseMemoToBytes(args['memo']);
+              final memoString = _parseMemoString(args['memo']);
 
               if (destinationPubkey == null || destinationPubkey.isEmpty) {
                 await _resolveJsPromise(
@@ -115,15 +118,16 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
                 return;
               }
 
-              if (memo == null) {
+              if (memoString == null) {
                 await _resolveJsPromise(
                   id: id,
                   value: null,
-                  error: 'Invalid memo; expected UTF-8 string or byte array',
+                  error: 'Invalid memo; expected UTF-8 string',
                 );
                 return;
               }
-              final memoBytes = memo;
+              final memo =
+                  frb_types.Memo.fromUtf8Str(s: memoString);
 
               final fromAddress = await _getActiveNodeAddress();
               if (fromAddress == null || fromAddress.isEmpty) {
@@ -154,7 +158,7 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
                 fromPkHash: fromPkHash,
                 amount: amount,
                 toPkHash: toPkHash,
-                memo: memoBytes,
+                memo: memo,
               );
 
               await _resolveJsPromise(
@@ -319,21 +323,10 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
     return null;
   }
 
-  List<int>? _parseMemoToBytes(Object? memoRaw) {
-    if (memoRaw is String) {
-      final trimmed = memoRaw.trim();
-      if (trimmed.isEmpty) return <int>[];
-      return utf8.encode(trimmed);
-    }
-    if (memoRaw is List) {
-      final bytes = <int>[];
-      for (final item in memoRaw) {
-        if (item is! int || item < 0 || item > 255) return null;
-        bytes.add(item);
-      }
-      return bytes;
-    }
-    return <int>[];
+  String? _parseMemoString(Object? memoRaw) {
+    if (memoRaw is String) return memoRaw.trim();
+    if (memoRaw == null) return '';
+    return null;
   }
 
   Future<void> _syncNavState() async {

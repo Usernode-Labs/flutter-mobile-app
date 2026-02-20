@@ -3,6 +3,10 @@
     "dart": {
       "command": "dart",
       "args": ["language-server", "--protocol=lsp"]
+    },
+    "figma": {
+      "type": "url",
+      "url": "https://mcp.figma.com/mcp"
     }
   }
 }

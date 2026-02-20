@@ -28,4 +28,6 @@ All new design system work lives in `lib/design_system/`. Existing code is untou
 - **Tokens**: Access via `Theme.of(context).extension<T>()!` (e.g., `AppSpacing`, `AppRadii`, `AppElevation`)
 - **Colors**: `Theme.of(context).colorScheme`
 - **Typography**: `Theme.of(context).textTheme`
+- **Presentation-only**: Design system widgets take all state via constructor params (data + callbacks). No providers, no `ConsumerWidget`, no services. No FRB-generated types in constructor params (they transitively import native FFI). Screens in `lib/features/` wire state to widgets.
+- **Widgetbook rule**: Every new design system widget gets a use case that imports the **real widget** with mock data via knobs — never hand-built replicas.
 - **Quality gate**: `dart format` clean, `flutter analyze` passes, tests pass

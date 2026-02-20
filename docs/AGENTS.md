@@ -54,6 +54,7 @@ Common flags
 - Reuse shared widgets: `AppAppBar`, `AppDrawer`, `AppActionButton`, etc. under `lib/core/widgets/`.
 - Use design tokens from `core/design/design_tokens.dart` for spacing/radius/sizes instead of literals.
 - Material 3 theming is configured globally; follow existing typography and component patterns.
+- New design system widgets (`lib/design_system/`) must be presentation-only (`StatelessWidget` or `StatefulWidget`, never `ConsumerWidget`). See `lib/design_system/DESIGN_SYSTEM.md`.
 
 ## State & Data Flow
 - Riverpod is the standard for state/DI. Providers are in feature modules and `core/di/providers.dart`.

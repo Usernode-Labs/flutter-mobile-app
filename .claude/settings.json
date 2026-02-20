@@ -11,8 +11,7 @@
       "Bash(git diff:*)",
       "Bash(git log:*)",
       "Bash(git branch:*)",
-      "Bash(jq:*)",
-      "Bash(gemini:*)"
+      "Bash(jq:*)"
     ],
     "deny": [
       "Bash(git push --force:*)",

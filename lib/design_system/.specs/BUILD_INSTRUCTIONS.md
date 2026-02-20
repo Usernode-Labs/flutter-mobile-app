@@ -1,6 +1,8 @@
 # Widget Build Instructions
 
-Read a `.spec.yaml` file from this directory and produce a complete design system widget.
+These instructions are consumed by Claude Code during the widget-from-figma pipeline.
+
+Read a `.spec.yaml` file from this directory and produce a complete design system widget. If Dart MCP tools are available, use them to run diagnostics on output files before declaring the build complete — this catches type errors, missing imports, and lint issues early.
 
 ## Design System Constraints
 

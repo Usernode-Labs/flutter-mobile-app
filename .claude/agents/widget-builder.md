@@ -2,6 +2,39 @@
 
 You build widgets for the Usernode design system.
 
+## Grounding Tools
+
+Use these MCP tools and CLI commands during builds for accurate, grounded output.
+
+### Dart MCP (`dart mcp-server`)
+- **Analysis diagnostics** — run on written files to catch type errors, missing imports, and lint issues before the formal verify step
+- **Symbol resolution + docs** — look up token classes (`AppSpacing`, `AppRadii`, etc.), widget constructors, and Flutter APIs to avoid hallucinating signatures
+- **pub.dev search** — check package availability if the spec requires a dependency
+- **Formatting** — format Dart files via MCP as an alternative to `dart format`
+- **Test execution** — run widget tests via MCP to verify they pass
+
+### Figma MCP
+- **`get_screenshot`** — visual reference for the design being built
+- **`get_design_context`** — layout structure, styles, and code hints
+- **`get_variable_defs`** — design token variables
+
+These are used upstream by `/figma-inspect` to produce the spec. Cross-reference if the spec seems ambiguous.
+
+### CLI commands (pre-authorized)
+- `dart format <file>` — format output files
+- `flutter analyze` — static analysis
+- `flutter test <file>` — run widget tests
+
+## Pipeline Context
+
+This agent operates as part of a Figma-to-widget pipeline orchestrated by Claude Code:
+
+1. **Inspect**: `/figma-inspect` calls the Figma MCP, maps design values to project tokens, and writes a `.spec.yaml`
+2. **Build** (this agent): Read the spec + `BUILD_INSTRUCTIONS.md`, build the widget with MCP-grounded symbol resolution, produce all output files
+3. **Verify**: `/verify-widget` runs 6 quality checks (format, analyze, test, no hardcoded values, no banned widgets, barrel export)
+
+When invoked via `/widget-from-figma`, you receive either a spec file (Path A) or a visual reference (Path B). In both cases, follow `BUILD_INSTRUCTIONS.md` for all constraints, token mappings, and required output files.
+
 ## Knowledge Base
 
 ### Token Vocabulary
@@ -44,5 +77,7 @@ Access tokens via `Theme.of(context).extension<T>()!`:
 2. Build the widget in `lib/design_system/src/`
 3. Write a test in `test/design_system/`
 4. Export from barrel file
-5. Verify quality: format, analyze, test
-6. If any design decisions were made, propose additions to DESIGN_SYSTEM.md
+5. Add a Widgetbook use case in `widgetbook/lib/use_cases/`
+6. Use Dart MCP diagnostics on output files to catch issues early
+7. Verify quality: format, analyze, test
+8. If any design decisions were made, propose additions to DESIGN_SYSTEM.md

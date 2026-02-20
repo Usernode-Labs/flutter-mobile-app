@@ -1,4 +1,4 @@
-Create a widget from a Figma design or visual reference using the agent pipeline.
+Create a widget from a Figma design or visual reference.
 
 ## Input
 
@@ -16,15 +16,16 @@ If the input contains `figma.com/design/`:
 
 Run `/figma-inspect` with the Figma URL. This calls the Figma MCP, maps tokens, and writes a `.spec.yaml` to `lib/design_system/.specs/`.
 
-**Step 2: Invoke Gemini to build the widget**
+**Step 2: Build the widget**
 
-Read the generated spec file to get the widget name and path. Then invoke Gemini headlessly:
+Read the generated spec file and `lib/design_system/.specs/BUILD_INSTRUCTIONS.md`. Build the widget following those instructions exactly.
 
-```bash
-gemini -p "Read the design spec at lib/design_system/.specs/<WidgetName>.spec.yaml and the build instructions at lib/design_system/.specs/BUILD_INSTRUCTIONS.md. Build the widget following those instructions exactly." --yolo
-```
+During the build, use Dart MCP tools to ground your work:
+- Resolve token APIs and widget signatures via symbol lookup
+- Run diagnostics on written files to catch issues early
+- Look up documentation for any unfamiliar Flutter APIs
 
-Wait for Gemini to complete.
+Produce all required output files: widget, test, barrel export, and Widgetbook use case.
 
 **Step 3: Verify the widget**
 
@@ -40,14 +41,13 @@ Report the final result to the user.
 
 If the input is a screenshot path, image, or text description (not a Figma URL):
 
-Fall back to the single-shot approach:
-
 1. Read `lib/design_system/DESIGN_SYSTEM.md` — constraints and decisions
 2. Read `lib/design_system/design_system.dart` — current exports
 3. Read `lib/design_system/tokens/` — available token vocabulary
 4. Read `lib/core/widgets/` — existing widgets available for composition
-5. Build the widget directly based on the visual reference
-6. Run `/verify-widget` to validate
+5. Read `lib/design_system/.specs/BUILD_INSTRUCTIONS.md` — build constraints and token-to-code reference
+6. Build the widget directly based on the visual reference, using Dart MCP tools to resolve symbols and run diagnostics
+7. Run `/verify-widget` to validate
 
 ## Context to Read First
 

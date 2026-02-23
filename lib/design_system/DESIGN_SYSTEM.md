@@ -10,7 +10,6 @@ This document grows from real widget creation sessions. Rules are added when age
 - **Code + tokens = truth.** The widget implementation and its design tokens are authoritative.
 - **Figma = inspiration.** A useful reference, not a spec to match. Figma screenshots are kept for context, not compliance.
 - **Every deviation is a decision.** When the implementation differs from the inspiration, that's not drift — it's a choice. The genesis file documents the reasoning.
-- **Golden tests = what the widget actually looks like.** A rendered PNG of the real widget, committed to git.
 
 ## Bottom-Up from Primitives
 
@@ -25,7 +24,7 @@ Example: `Button` (not `FilledButton`, `ElevatedButton`, `OutlinedButton`) start
 - Tokens via `Theme.of(context).extension<T>()!`
 - Colors via `Theme.of(context).colorScheme`
 - Typography via `Theme.of(context).textTheme`
-- Quality: `dart format` clean, `flutter analyze` passes, tests pass (golden tests excluded from default runs — see Golden Tests below)
+- Quality: `dart format` clean, `flutter analyze` passes, tests pass
 - Every widget in `src/` must have a genesis doc (`.specs/<WidgetName>.genesis.md`) and a row in the Widget Catalog below
 
 <!-- COLOR_PHILOSOPHY_START -->
@@ -101,16 +100,6 @@ final semantic = Theme.of(context).extension<AppSemanticColors>()!;
 ```
 <!-- COLOR_ACCESS_END -->
 
-## Golden Tests
-
-Golden tests are tagged `golden` and **excluded from default test runs**. They are snapshot tests that compare rendered widget PNGs — they break on any visual change, which is noise during iterative development.
-
-- **Created during** `/widget-from-figma` — the builder generates golden assertions and runs `flutter test --update-goldens` to produce baseline PNGs
-- **Skipped during** `/verify-widget` and `flutter test` — unit tests still run, but golden comparisons are excluded
-- **Run explicitly** with `flutter test --tags golden` or `flutter test --update-goldens --tags golden test/design_system/<widget_name>_test.dart` to regenerate after intentional visual changes
-
-Convention: golden tests live in a separate `<widget_name>_golden_test.dart` file with `@Tags(['golden'])` library annotation. Flutter's `group()` doesn't support `tags`, so a separate file is required.
-
 ## Presentation-Only Widgets
 
 Applies to all widgets created in `lib/design_system/`. Existing `lib/core/widgets/` are out of scope until individually migrated.
@@ -136,8 +125,7 @@ End-to-end builder. If given a Figma URL, runs `/figma-inspect` first, then buil
 Uses Dart MCP tools throughout: `resolve_workspace_symbol` to find tokens and existing widgets,
 `hover` for docs, `signature_help` for constructors, `analyze_files` after each file. Produces:
 - `src/<widget_name>.dart` — the widget (presentation-only, tokens from theme)
-- `test/design_system/<widget_name>_test.dart` — tests + golden screenshot assertion
-- `test/design_system/goldens/<widget_name>.png` — rendered widget PNG
+- `test/design_system/<widget_name>_test.dart` — tests
 - Widgetbook use case with knobs for each parameter
 - `.specs/<WidgetName>.genesis.md` — appends implementation decisions to the genesis doc started by `/figma-inspect`
 - Barrel export in `design_system.dart`
@@ -149,14 +137,13 @@ Also accepts a screenshot or text description instead of a Figma URL.
 Quality gate. Uses Dart MCP tools (`dart_format`, `analyze_files`, `run_tests`) instead of shell commands. Checks:
 1. `dart format` clean (via `dart_format` MCP)
 2. `flutter analyze` passes (via `analyze_files` MCP)
-3. Tests pass (via `run_tests` MCP) — golden tests excluded by default
+3. Tests pass (via `run_tests` MCP)
 4. No hardcoded values (all from tokens)
 5. No banned Material/Cupertino widgets
 6. Exported from barrel file
-7. Golden screenshot exists (goldens are **not re-run** during verify — only generated/updated during `/widget-from-figma`)
-8. Genesis document exists; visual comparison of Figma reference vs golden confirms documented decisions cover visible differences
-9. Widget Catalog entry exists in this file
-10. Widgetbook visual review — launches Widgetbook for human sign-off as the final gate
+7. Genesis document exists with Inspiration and Design Decisions sections
+8. Widget Catalog entry exists in this file
+9. Widgetbook visual review — launches Widgetbook for human sign-off as the final gate
 
 ## Token Vocabulary
 

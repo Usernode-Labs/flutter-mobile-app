@@ -145,8 +145,7 @@ class PlatformAlarmService {
           await _channel.invokeMethod<bool>('hasPostNotificationsPermission') ??
               false;
       final hasExactAlarm =
-          await _channel.invokeMethod<bool>('hasExactAlarmPermission') ??
-              false;
+          await _channel.invokeMethod<bool>('hasExactAlarmPermission') ?? false;
 
       _permissionsGranted = hasNotifications && hasExactAlarm;
 

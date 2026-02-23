@@ -344,7 +344,9 @@ class NodeStatusController extends AsyncNotifier<NodeStatusState?> {
 
     // Step 3: Check sync status based on applied blocks or peer connectivity
     bool synced = false;
-    if (appliedBlocks != null && targetBlocks != null && targetBlocks > BigInt.zero) {
+    if (appliedBlocks != null &&
+        targetBlocks != null &&
+        targetBlocks > BigInt.zero) {
       // Apply block data available - use normal comparison
       synced = appliedBlocks >= targetBlocks;
     } else if (connectedPeers > 0) {

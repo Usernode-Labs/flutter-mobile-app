@@ -87,8 +87,8 @@ String get _kProducedBlockMetadataKeyPrefix => NetworkPrefs.prefixKey(
     _kProducedBlockMetadataKeyPrefixBase + ':' + networkPrefix);
 String get _kEpochSlotResultsKeyPrefix => NetworkPrefs.prefixKey(
     _kEpochSlotResultsKeyPrefixBase + ':' + networkPrefix);
-String get _kSlotTimeKeyPrefix => NetworkPrefs.prefixKey(
-    _kSlotTimeKeyPrefixBase + ':' + networkPrefix);
+String get _kSlotTimeKeyPrefix =>
+    NetworkPrefs.prefixKey(_kSlotTimeKeyPrefixBase + ':' + networkPrefix);
 
 Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
   final stopwatch = Stopwatch()..start();

@@ -14,8 +14,12 @@ export 'tokens/app_semantic_colors.dart';
 export 'tokens/app_spacing.dart';
 
 // Widgets
+export 'src/button.dart';
 export 'src/challenge_card.dart';
 export 'src/challenge_category_icon.dart';
+export 'src/dropdown_chain.dart';
+export 'src/dropdown_chip.dart';
+export 'src/score_header.dart';
 
 // Theme
 export 'theme/color_is_expensive_theme.dart';

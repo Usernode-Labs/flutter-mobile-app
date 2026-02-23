@@ -12,6 +12,12 @@ This document grows from real widget creation sessions. Rules are added when age
 - **Every deviation is a decision.** When the implementation differs from the inspiration, that's not drift — it's a choice. The genesis file documents the reasoning.
 - **Golden tests = what the widget actually looks like.** A rendered PNG of the real widget, committed to git.
 
+## Bottom-Up from Primitives
+
+The design system names widgets in its own vocabulary, not Material Design's. We build bottom-up from Flutter core primitives (`GestureDetector`, `Container`, `Text`, etc.) and start with the simplest variant needed. Additional styles and variants are added as Figma designs demand them — not speculatively.
+
+Example: `Button` (not `FilledButton`, `ElevatedButton`, `OutlinedButton`) starts with one secondary/tonal style because that's what ScoreHeader needs. More styles arrive when real designs require them.
+
 ## Core Constraints
 
 - New widgets use Flutter core primitives (no Material/Cupertino widgets)
@@ -178,6 +184,9 @@ When the entire app needs a different typographic feel, refactor the `TextTheme`
 - **ChallengeCard title weight**: Figma shows 16px/medium title. Closest Material style is `titleMedium` (16px/w500). No heavier 16px variant exists without `copyWith(fontWeight: w600)`. Decided to keep `titleMedium` as-is — no hard overrides. If we need a different weight scale, we refactor the entire `TextTheme`. (2026-02-23)
 - **ChallengeCard state demotion**: Replaced blanket `Opacity` with color-based demotion for completed/missed variants. `Opacity` on entire card reduces text contrast below accessible thresholds. Use `onSurfaceVariant` for muted text and `surfaceContainerLow` for tinted background instead. Never use `Opacity` to communicate semantic state on readable content. (2026-02-23)
 - **ChallengeCard animation loop seam**: Removed `CurvedAnimation(Curves.easeInOut)` from the ongoing border animation. `easeInOut` has zero velocity at both endpoints, causing a visible stall when the repeating controller wraps. Linear rotation is seamless; asymmetric gradient shape provides organic character. For looping animations, prefer linear or a custom curve with matching endpoint derivatives (C1 continuity). (2026-02-23)
+- **ScoreHeader score monospace**: `displaySmall.copyWith(fontFamily: 'monospace')` — Figma uses IBM Plex Mono which isn't in the project. This is a functional `copyWith` for tabular number alignment, not a decorative override. System monospace is acceptable. (2026-02-23)
+- **ScoreHeader countdown bold**: `labelSmall.copyWith(fontWeight: FontWeight.w700)` for the countdown time value. Deliberate deviation from "no copyWith" principle — the time is actionable data needing visual separation from the "ENDS IN" label. Weight contrast serves information hierarchy. (2026-02-23)
+- **Bottom-up widget naming**: Design system names widgets in its own vocabulary (e.g., `Button`, not `FilledButton`). Start with the simplest needed variant; add more as Figma designs demand them. (2026-02-23)
 
 ## Widget Catalog
 
@@ -186,3 +195,7 @@ When the entire app needs a different typographic feel, refactor the `TextTheme`
 |--------|--------|---------|
 | `ChallengeCard` | [Figma (list)](https://figma.com/design/rsh9wLMKsMnFPOEBkHJUvg/?node-id=2943:19310), [Figma (ongoing)](https://figma.com/design/rsh9wLMKsMnFPOEBkHJUvg/?node-id=3012:2402) | [genesis](.specs/ChallengeCard.genesis.md) |
 | `ChallengeCategoryIcon` | [Figma](https://figma.com/design/rsh9wLMKsMnFPOEBkHJUvg/?node-id=3012:2775) | [genesis](.specs/ChallengeCategoryIcon.genesis.md) |
+| `Button` | — (built bottom-up from primitives) | [genesis](.specs/ScoreHeader.genesis.md) |
+| `DropdownChain` | [Figma](https://figma.com/design/Eu4jn5o8finpZ28IAGPyru/?node-id=2994:2860) | [genesis](.specs/DropdownChain.genesis.md) |
+| `DropdownChip` | [Figma](https://figma.com/design/Eu4jn5o8finpZ28IAGPyru/?node-id=2994:2860) | [genesis](.specs/DropdownChip.genesis.md) |
+| `ScoreHeader` | [Figma (default)](https://figma.com/design/Eu4jn5o8finpZ28IAGPyru/?node-id=2994:2193), [Figma (glow)](https://figma.com/design/Eu4jn5o8finpZ28IAGPyru/?node-id=2994:3259) | [genesis](.specs/ScoreHeader.genesis.md) |

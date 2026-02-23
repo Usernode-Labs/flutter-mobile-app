@@ -228,6 +228,11 @@ jobs:
           LOAD_GENESIS_NB_RETRIES=${{ secrets.LOAD_GENESIS_NB_RETRIES }}
           VERSION_CHECK_API_URL=${{ secrets.PROD_VERSION_CHECK_API_URL }}
           VERSION_CHECK_INTERVAL_SECONDS=${{ secrets.PROD_VERSION_CHECK_INTERVAL_SECONDS }}
+          DAPP_HOMEPAGE=https://testnet-mini-apps.usernodelabs.org/
+          EXPLORER_PRIMARY_URL=https://alpha1.usernodelabs.org/explorer
+          EXPLORER_SECONDARY_URL=https://alpha2.usernodelabs.org/explorer
+          EXPLORER_TIMEOUT_SECONDS=10
+          EXPLORER_CACHE_TTL_MINUTES=5
           EOF
           else
             cat > .env << EOF
@@ -252,6 +257,11 @@ jobs:
           LOAD_GENESIS_NB_RETRIES=${{ secrets.LOAD_GENESIS_NB_RETRIES }}
           VERSION_CHECK_API_URL=${{ secrets.NONPROD_VERSION_CHECK_API_URL }}
           VERSION_CHECK_INTERVAL_SECONDS=${{ secrets.NONPROD_VERSION_CHECK_INTERVAL_SECONDS }}
+          DAPP_HOMEPAGE=https://testnet-mini-apps.usernodelabs.org/
+          EXPLORER_PRIMARY_URL=https://alpha1.usernodelabs.org/explorer
+          EXPLORER_SECONDARY_URL=https://alpha2.usernodelabs.org/explorer
+          EXPLORER_TIMEOUT_SECONDS=10
+          EXPLORER_CACHE_TTL_MINUTES=5
           EOF
           fi
           echo "✅ Created .env file with ${{ steps.env_config.outputs.env_type }} secrets"
@@ -464,6 +474,11 @@ jobs:
           METRICS_INTERVAL=${{ secrets.PROD_METRICS_INTERVAL }}
           VERSION_CHECK_API_URL=${{ secrets.PROD_VERSION_CHECK_API_URL }}
           VERSION_CHECK_INTERVAL_SECONDS=${{ secrets.PROD_VERSION_CHECK_INTERVAL_SECONDS }}
+          DAPP_HOMEPAGE=https://testnet-mini-apps.usernodelabs.org/
+          EXPLORER_PRIMARY_URL=https://alpha1.usernodelabs.org/explorer
+          EXPLORER_SECONDARY_URL=https://alpha2.usernodelabs.org/explorer
+          EXPLORER_TIMEOUT_SECONDS=10
+          EXPLORER_CACHE_TTL_MINUTES=5
           EOF
           else
             cat > .env << EOF
@@ -481,6 +496,11 @@ jobs:
           METRICS_INTERVAL=${{ secrets.NONPROD_METRICS_INTERVAL }}
           VERSION_CHECK_API_URL=${{ secrets.NONPROD_VERSION_CHECK_API_URL }}
           VERSION_CHECK_INTERVAL_SECONDS=${{ secrets.NONPROD_VERSION_CHECK_INTERVAL_SECONDS }}
+          DAPP_HOMEPAGE=https://testnet-mini-apps.usernodelabs.org/
+          EXPLORER_PRIMARY_URL=https://alpha1.usernodelabs.org/explorer
+          EXPLORER_SECONDARY_URL=https://alpha2.usernodelabs.org/explorer
+          EXPLORER_TIMEOUT_SECONDS=10
+          EXPLORER_CACHE_TTL_MINUTES=5
           EOF
           fi
           echo "✅ Created .env file with ${{ steps.env_config.outputs.env_type }} secrets"

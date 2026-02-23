@@ -37,11 +37,23 @@ Color should be scarce, and therefore valuable. In a world of saturated interfac
 | Role | Seed | Purpose |
 |------|------|---------|
 | **Primary** | `#18191B` (near-black) | The attention locker. Maximum contrast CTAs. Same darkness as body text, distinguished by shape (button vs paragraph). |
-| **Secondary** | `#2563EB` (blue) | Technical precision. Progress indicators, earned states, computation accents. |
-| **Tertiary** | `#C49A22` (amber) | Flash/achievement warmth. Ranking, urgency, time-sensitive energy. |
+| **Secondary** | achromatic (neutral-variant) | Structural emphasis without hue. Cool-leaning grey for secondary actions. |
+| **Tertiary** | achromatic (pure neutral) | **Ghost role.** Barely-visible grey that passes APCA Lc 60 floor. Container nearly invisible against surface. Forces developers toward `AppSemanticColors` for any real emphasis. |
 | **Error** | `#DC362E` (red) | Signal red. Clear error state, functional not emotional. |
 | **Neutral** | `#6B6B6B` (gray) | True achromatic. Zero chroma. The paper substrate. |
 | **Neutral Variant** | `#696C73` (cool gray) | Faintest cool lean for outlines and structural elements. |
+
+### Ghost Tertiary — Contrast Cascade
+
+Tertiary is deliberately starved of contrast. A developer reaching for `colorScheme.tertiary*` gets nearly nothing — the main color barely clears the APCA Lc 60 floor, and containers are almost indistinguishable from the surface. This makes tertiary a **trap role**: technically accessible, practically invisible. Real emphasis demands `AppSemanticColors`.
+
+The system compensates across contrast levels to maintain accessibility:
+
+| Contrast Level | Tertiary Behavior |
+|---------------|-------------------|
+| **Standard** | Ghost — barely Lc 60, containers ~ΔY 6 from surface |
+| **Medium** | Partial compensation — moderately above Lc 60 |
+| **High** | Full compensation — normal M3 contrast, no ghost effect |
 
 ### Extended Semantic Colors
 
@@ -60,7 +72,7 @@ All color pairs are APCA-verified for perceptual contrast (body text Lc >= 90, a
 
 **Do:**
 - Use `primary` for CTAs and interactive elements demanding attention
-- Use semantic colors only for their defined category
+- Use `AppSemanticColors` for any visible chromatic emphasis (technical, flash, community, success)
 - Use neutrals for backgrounds -- let the paper breathe
 - Pair `colorContainer` + `onColorContainer` together
 - Access colors via `Theme.of(context).colorScheme` and `.extension<AppSemanticColors>()`
@@ -68,6 +80,7 @@ All color pairs are APCA-verified for perceptual contrast (body text Lc >= 90, a
 **Don't:**
 - Use chromatic color decoratively -- every colored pixel must carry meaning
 - Hardcode hex values -- always use theme tokens
+- Reach for `colorScheme.tertiary*` expecting visible emphasis -- it's a ghost role by design
 - Mix semantic purposes (e.g., amber for Technical content, blue for Community)
 - Use `primary` and `onSurface` interchangeably (same darkness, different contexts)
 - Override APCA-verified contrast pairings
@@ -80,8 +93,8 @@ All color pairs are APCA-verified for perceptual contrast (body text Lc >= 90, a
 ```dart
 final colors = Theme.of(context).colorScheme;
 // Primary: colors.primary, .onPrimary, .primaryContainer, .onPrimaryContainer
-// Secondary: colors.secondary, .onSecondary, ...
-// Tertiary: colors.tertiary, .onTertiary, ...
+// Secondary (achromatic): colors.secondary, .onSecondary, ...
+// Tertiary (ghost): colors.tertiary, .onTertiary, ... — near-invisible, use AppSemanticColors instead
 // Error: colors.error, .onError, ...
 // Surface hierarchy: colors.surface, .surfaceDim, .surfaceBright
 //   .surfaceContainerLowest -> .surfaceContainerHighest
@@ -99,6 +112,43 @@ final semantic = Theme.of(context).extension<AppSemanticColors>()!;
 // Same pattern: semantic.flash, semantic.community, semantic.success
 ```
 <!-- COLOR_ACCESS_END -->
+
+<!-- SURFACE_ARCHITECTURE_START -->
+## Surface Architecture
+
+The light theme uses a grey-scaffold / white-content layering model derived from the Figma Home screen (`#F6F6F6` background with white cards). `surface` is set to T96 (`#F5F5F5`) so that M3's default `scaffoldBackgroundColor = surface` produces the grey substrate naturally.
+
+```
+┌─────────────────────────────────┐
+│  Scaffold: surface (#F5F5F5)    │  ← grey "paper" substrate
+│                                  │
+│  ┌───────────────────────────┐  │
+│  │ Content sheet:            │  │  ← white surface, rounded top
+│  │ surfaceContainerLowest    │  │
+│  │                           │  │
+│  │  ┌─────────────────────┐  │  │
+│  │  │ Card:               │  │  │  ← white card on white sheet
+│  │  │ surfaceContainerLow │  │  │     (border = outlineVariant)
+│  │  │ est + outlineVariant│  │  │
+│  │  └─────────────────────┘  │  │
+│  └───────────────────────────┘  │
+│                                  │
+│  ┌───────────────────────────┐  │
+│  │ Nav bar:                  │  │
+│  │ surfaceContainerLowest    │  │
+│  └───────────────────────────┘  │
+└─────────────────────────────────┘
+```
+
+| Layer | Token | Light Value | Purpose |
+|-------|-------|-------------|---------|
+| Scaffold | `surface` | `#F5F5F5` (T96) | Grey page background |
+| Content sheet | `surfaceContainerLowest` | `#FFFFFF` | White content area |
+| Card on sheet | `surfaceContainerLowest` + `outlineVariant` border | `#FFFFFF` + `#C4C6CC` | Distinct card via border, not elevation |
+| Nav bar | `surfaceContainerLowest` | `#FFFFFF` | White bottom bar |
+
+Dark mode keeps `surface` at `#1B1B1B` — no Figma dark reference justifies a shift. The grey-scaffold pattern is light-mode only.
+<!-- SURFACE_ARCHITECTURE_END -->
 
 ## Presentation-Only Widgets
 
@@ -174,6 +224,9 @@ When the entire app needs a different typographic feel, refactor the `TextTheme`
 - **ScoreHeader score monospace**: `displaySmall.copyWith(fontFamily: 'monospace')` — Figma uses IBM Plex Mono which isn't in the project. This is a functional `copyWith` for tabular number alignment, not a decorative override. System monospace is acceptable. (2026-02-23)
 - **ScoreHeader countdown bold**: `labelSmall.copyWith(fontWeight: FontWeight.w700)` for the countdown time value. Deliberate deviation from "no copyWith" principle — the time is actionable data needing visual separation from the "ENDS IN" label. Weight contrast serves information hierarchy. (2026-02-23)
 - **Bottom-up widget naming**: Design system names widgets in its own vocabulary (e.g., `Button`, not `FilledButton`). Start with the simplest needed variant; add more as Figma designs demand them. (2026-02-23)
+- **Achromatic secondary & tertiary**: Moved secondary to neutral-variant palette and tertiary to pure neutral palette. All chromatic color now lives exclusively in `AppSemanticColors`. M3 structural roles render grey — a developer must consciously reach for a semantic extension to introduce hue. (2026-02-23)
+- **Ghost tertiary**: Pushed tertiary further into near-invisibility. Standard contrast: main color barely clears APCA Lc 60, container ~ΔY 6 from surface. Medium contrast partially compensates; high contrast fully restores normal M3 levels. This makes `colorScheme.tertiary*` a trap role that forces use of `AppSemanticColors` for visible emphasis. (2026-02-23)
+- **Surface shifted to T96 for grey scaffold**: Moved light `surface` from `#FCFCFC` (T99, near-white) to `#F5F5F5` (T96, visible grey) so M3's default `scaffoldBackgroundColor = surface` produces the grey page background shown in Figma. Cards and content sheets use `surfaceContainerLowest` (`#FFFFFF`) for white fills. Dark mode unchanged. (2026-02-23)
 
 ## Widget Catalog
 

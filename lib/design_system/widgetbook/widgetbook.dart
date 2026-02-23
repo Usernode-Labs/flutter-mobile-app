@@ -11,6 +11,7 @@ import 'color_catalog.dart';
 import 'dropdown_chain_use_case.dart';
 import 'dropdown_chip_use_case.dart';
 import 'score_header_use_case.dart';
+import 'tabs_use_case.dart';
 
 void main() {
   runApp(const WidgetbookApp());
@@ -121,6 +122,7 @@ class WidgetbookApp extends StatelessWidget {
             dropdownChainComponent(),
             dropdownChipComponent(),
             scoreHeaderComponent(),
+            tabsComponent(),
           ],
         ),
       ],

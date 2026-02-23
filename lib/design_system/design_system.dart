@@ -20,6 +20,7 @@ export 'src/challenge_category_icon.dart';
 export 'src/dropdown_chain.dart';
 export 'src/dropdown_chip.dart';
 export 'src/score_header.dart';
+export 'src/tabs.dart';
 
 // Theme
 export 'theme/color_is_expensive_theme.dart';

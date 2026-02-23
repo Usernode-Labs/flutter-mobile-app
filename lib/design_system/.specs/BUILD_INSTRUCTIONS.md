@@ -2,7 +2,7 @@
 
 These instructions are consumed by Claude Code during the widget-from-figma pipeline.
 
-Read a `.spec.yaml` file from this directory and produce a complete design system widget. If Dart MCP tools are available, use them to run diagnostics on output files before declaring the build complete — this catches type errors, missing imports, and lint issues early.
+Read a `.spec.yaml` file from this directory and produce a complete design system widget. Use Dart MCP tools throughout — see "Dart MCP Tools" section below for prescribed usage.
 
 ## Design System Constraints
 
@@ -97,6 +97,21 @@ final animation = Theme.of(context).extension<AppAnimation>()!;
 // Available: animation.fast (100ms), .normal (150ms), .slow (200ms), .complex (300ms)
 AnimatedContainer(duration: animation.normal, ...)
 ```
+
+### Semantic Colors (`AppSemanticColors`)
+```dart
+final semantic = Theme.of(context).extension<AppSemanticColors>()!;
+// Groups: semantic.technical, .flash, .community, .success
+// Each group has: .color, .onColor, .colorContainer, .onColorContainer
+// Standalone accent:
+Container(color: semantic.technical.color)
+// Tinted background with text:
+Container(
+  color: semantic.flash.colorContainer,
+  child: Text('Flash', style: TextStyle(color: semantic.flash.onColorContainer)),
+)
+```
+See DESIGN_SYSTEM.md "Color Philosophy" section for usage guidelines.
 
 ### Colors (`ColorScheme`)
 ```dart
@@ -199,3 +214,90 @@ Before finishing:
 ## Mapping Notes
 
 If the spec contains `mapping_notes` with `confidence: nearest`, those values were snapped to the closest token and may not be pixel-perfect. Use the mapped token anyway — the design system prioritizes consistency over pixel-perfection.
+
+## Dart MCP Tools
+
+Use Dart MCP tools at every stage of the build. Do not fall back to shell commands when an MCP tool exists.
+
+**Before writing code:**
+- `resolve_workspace_symbol` — look up tokens (AppSpacing, AppRadii, etc.) and existing widgets before using them. Catches typos, confirms APIs exist.
+- `hover` — get docs and type info for any token or widget you plan to compose.
+- `signature_help` — verify constructor signatures of `lib/core/widgets/` components before composing them.
+
+**After writing each file:**
+- `analyze_files` — run analysis to catch type errors, missing imports, and lint issues before moving to the next file.
+- `dart_fix` — auto-fix any fixable issues found by analysis.
+
+**For formatting:** use `dart_format` MCP tool (not `dart format` shell command).
+
+**For tests:** use `run_tests` MCP tool (not `flutter test` shell command). The Dart MCP server states: "ALWAYS use instead of `dart test` or `flutter test` shell commands."
+
+## Golden Tests
+
+Every widget test includes a golden screenshot assertion:
+
+```dart
+testWidgets('golden', (tester) async {
+  await tester.pumpWidget(
+    MaterialApp(
+      theme: <theme with all design system extensions>,
+      home: Scaffold(body: Center(child: <WidgetName>(<mock params>))),
+    ),
+  );
+  await expectLater(
+    find.byType(<WidgetName>),
+    matchesGoldenFile('goldens/<widget_name>.png'),
+  );
+});
+```
+
+- Wrap in `MaterialApp` with full theme (all design system ThemeExtensions registered)
+- Use `Center` + `Scaffold(body:)` for consistent framing
+- Run `flutter test --update-goldens test/design_system/<widget_name>_test.dart` to generate the baseline PNG
+- Golden files live at `test/design_system/goldens/` — committed to git
+
+## Genesis Document
+
+Every widget gets a `.genesis.md` file in `lib/design_system/.specs/`:
+
+```markdown
+# <WidgetName> — Genesis
+
+## Inspiration
+- **Source**: Figma / screenshot / description
+- **Figma URL**: <url or "N/A">
+- **Reference screenshot**: `<WidgetName>.reference.png`
+
+## Design Decisions
+
+### <Decision title>
+- **What Figma showed**: <description>
+- **What we implemented**: <description>
+- **Why**: <rationale — token snap, design system constraint, accessibility, simplification, etc.>
+
+## Token Mapping
+| Figma Value | Design System Token | Notes |
+|-------------|-------------------|-------|
+| 14px padding | `space16` (16px) | Snapped to nearest spacing token |
+| #2563EC | `colorScheme.secondary` | Exact match |
+
+## Golden Reference
+- **Golden file**: `test/design_system/goldens/<widget_name>.png`
+- Rendered with light theme, default viewport
+```
+
+Key principles:
+- Figma is inspiration, not ground truth — the code and tokens are canonical
+- The "why" behind each decision matters more than the "what"
+- `mapping_notes` with `confidence: nearest` from the spec must appear as decisions with rationale
+- The format is intentionally freeform markdown — decisions are described in prose
+
+## Widget Catalog
+
+After creating a widget, add a row to the Widget Catalog table in `DESIGN_SYSTEM.md`:
+
+```markdown
+| `WidgetName` | [Figma](<url>) | [genesis](.specs/WidgetName.genesis.md) |
+```
+
+This keeps the living document as the central index of all design system components.

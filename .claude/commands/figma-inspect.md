@@ -22,6 +22,11 @@ Run these in parallel:
 2. **`get_screenshot`** with `fileKey` and `nodeId` — visual reference
 3. **`get_variable_defs`** with `fileKey` and `nodeId` — design token variables
 
+After retrieving the screenshot, save it to
+`lib/design_system/.specs/<WidgetName>.reference.png`.
+This is the visual inspiration for the widget — not a spec to match,
+but context for understanding the design intent.
+
 ### 3. Map Figma values to project tokens
 
 Read `lib/core/config/theme.dart` and `lib/design_system/DESIGN_SYSTEM.md` for the token vocabulary.
@@ -108,6 +113,7 @@ meta:
   description: "<one-line description from Figma context>"
   generated_by: claude
   date: "<today's date>"
+  reference_screenshot: "<WidgetName>.reference.png"
 
 layout:
   type: <column|row|stack|wrap|single>
@@ -144,4 +150,4 @@ If there are `nearest` confidence mappings, mention them explicitly so the human
 
 ### 7. Confirm output
 
-Print the path to the generated spec file and a brief summary of the widget structure.
+Print the path to the generated spec file, the saved reference screenshot path, and a brief summary of the widget structure.

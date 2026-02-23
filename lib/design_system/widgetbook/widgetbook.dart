@@ -5,11 +5,14 @@ import 'package:crypto_mobile_app/design_system/theme/color_is_expensive_theme.d
 import 'package:crypto_mobile_app/design_system/theme/design_system_theme.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_semantic_colors.dart';
 
+import 'bottom_nav_use_case.dart';
 import 'button_use_case.dart';
 import 'challenge_card_use_case.dart';
+import 'challenges_page_use_case.dart';
 import 'color_catalog.dart';
 import 'dropdown_chain_use_case.dart';
 import 'dropdown_chip_use_case.dart';
+import 'dropdown_sheet_use_case.dart';
 import 'score_header_use_case.dart';
 import 'tabs_use_case.dart';
 
@@ -117,12 +120,20 @@ class WidgetbookApp extends StatelessWidget {
         WidgetbookCategory(
           name: 'Widgets',
           children: [
+            bottomNavComponent(),
             buttonComponent(),
             challengeCardComponent(),
             dropdownChainComponent(),
             dropdownChipComponent(),
+            dropdownSheetComponent(),
             scoreHeaderComponent(),
             tabsComponent(),
+          ],
+        ),
+        WidgetbookCategory(
+          name: 'Pages',
+          children: [
+            challengesPageComponent(),
           ],
         ),
       ],

@@ -14,11 +14,13 @@ export 'tokens/app_semantic_colors.dart';
 export 'tokens/app_spacing.dart';
 
 // Widgets
+export 'src/bottom_nav.dart';
 export 'src/button.dart';
 export 'src/challenge_card.dart';
 export 'src/challenge_category_icon.dart';
 export 'src/dropdown_chain.dart';
 export 'src/dropdown_chip.dart';
+export 'src/dropdown_sheet.dart';
 export 'src/score_header.dart';
 export 'src/tabs.dart';
 

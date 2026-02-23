@@ -20,6 +20,16 @@ WidgetbookComponent dropdownChipComponent() {
             initialValue: false,
           );
 
+          final selected = context.knobs.boolean(
+            label: 'Selected',
+            initialValue: false,
+          );
+
+          final enabled = context.knobs.boolean(
+            label: 'Enabled',
+            initialValue: true,
+          );
+
           return Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
@@ -29,12 +39,16 @@ WidgetbookComponent dropdownChipComponent() {
                         child: DropdownChip(
                           label: label,
                           expanded: expanded,
+                          selected: selected,
+                          enabled: enabled,
                           onTap: () {},
                         ),
                       )
                     : DropdownChip(
                         label: label,
                         expanded: expanded,
+                        selected: selected,
+                        enabled: enabled,
                         onTap: () {},
                       ),
               ],

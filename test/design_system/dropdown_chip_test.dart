@@ -105,5 +105,46 @@ void main() {
       );
       expect(container.constraints?.maxHeight, equals(32));
     });
+
+    testWidgets('selected: true applies secondaryContainer fill',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        const DropdownChip(label: 'Season 2', selected: true),
+      ));
+
+      final container = tester.widget<Container>(
+        find.descendant(
+          of: find.byType(DropdownChip),
+          matching: find.byType(Container),
+        ),
+      );
+      final decoration = container.decoration! as BoxDecoration;
+      final theme = themeWithExtensions();
+      expect(decoration.color, equals(theme.colorScheme.secondaryContainer));
+    });
+
+    testWidgets('enabled: false wraps in Opacity with disabled value',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        const DropdownChip(label: 'Season 2', enabled: false),
+      ));
+
+      final opacityWidget = tester.widget<Opacity>(find.byType(Opacity));
+      expect(opacityWidget.opacity, equals(0.30));
+    });
+
+    testWidgets('enabled: false ignores onTap', (tester) async {
+      var tapped = false;
+      await tester.pumpWidget(wrap(
+        DropdownChip(
+          label: 'Season 2',
+          enabled: false,
+          onTap: () => tapped = true,
+        ),
+      ));
+
+      await tester.tap(find.text('Season 2'));
+      expect(tapped, isFalse);
+    });
   });
 }

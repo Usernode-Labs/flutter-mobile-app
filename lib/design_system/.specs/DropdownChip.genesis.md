@@ -28,3 +28,17 @@ The `expanded` flag controls whether the chip shrink-wraps or fills available wi
 
 ### Presentation-only
 No selection state, no dropdown menu logic. The screen passes the current label and handles the tap to show a bottom sheet or menu. This follows the design system's presentation-only rule.
+
+## Phase 2: Visual States (2026-02-23)
+
+### `selected` prop
+Added `selected: bool` (default `false`). When true, the chip fills with `secondaryContainer` and uses `onSecondaryContainer` for text and icon color. This matches M3 filter chip semantics (tonal fill = active filter) without using any Material Chip classes. The border remains `outlineVariant` in both states to maintain structural consistency in filter rows.
+
+### `enabled` prop
+Added `enabled: bool` (default `true`). When false, the entire chip is wrapped in `Opacity(opacity: appOpacity.disabled)` (0.30) and `onTap` is nulled out. Chose whole-chip `Opacity` over per-element color manipulation because:
+1. Simpler implementation — one wrapper vs modifying every color individually
+2. Consistent dimming across border, text, icon, and any future fill
+3. Disabled chips are non-interactive visual hints, not readable content, so the APCA contrast concern from ChallengeCard's state demotion doesn't apply here (users don't need to read disabled filter labels at body-text contrast levels)
+
+### Backward compatibility
+Both props are optional with defaults matching the previous behavior (`selected: false`, `enabled: true`). Existing call sites require no changes.

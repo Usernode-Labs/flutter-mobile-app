@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../tokens/app_opacity.dart';
 import '../tokens/app_radii.dart';
 import '../tokens/app_spacing.dart';
 
@@ -17,6 +18,8 @@ class DropdownChip extends StatelessWidget {
     required this.label,
     this.onTap,
     this.expanded = false,
+    this.selected = false,
+    this.enabled = true,
   });
 
   /// The chip label text, e.g. "Season 2" or "DApps Integration".
@@ -29,6 +32,14 @@ class DropdownChip extends StatelessWidget {
   /// When false, the chip shrink-wraps to its content.
   final bool expanded;
 
+  /// When true, the chip uses `secondaryContainer` fill and
+  /// `onSecondaryContainer` text/icon color to indicate active selection.
+  final bool selected;
+
+  /// When false, the chip is visually dimmed via [AppOpacity.disabled] and
+  /// ignores taps.
+  final bool enabled;
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
@@ -36,8 +47,11 @@ class DropdownChip extends StatelessWidget {
     final radii = Theme.of(context).extension<AppRadii>()!;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
 
-    return GestureDetector(
-      onTap: onTap,
+    final contentColor =
+        selected ? colors.onSecondaryContainer : colors.onSurfaceVariant;
+
+    Widget chip = GestureDetector(
+      onTap: enabled ? onTap : null,
       child: Container(
         height: 32,
         padding: EdgeInsets.only(
@@ -45,6 +59,7 @@ class DropdownChip extends StatelessWidget {
           right: spacing.space8,
         ),
         decoration: BoxDecoration(
+          color: selected ? colors.secondaryContainer : null,
           border: Border.all(color: colors.outlineVariant),
           borderRadius: radii.borderRadiusSmall,
         ),
@@ -56,7 +71,7 @@ class DropdownChip extends StatelessWidget {
                     child: Text(
                       label,
                       style: textTheme.labelLarge?.copyWith(
-                        color: colors.onSurfaceVariant,
+                        color: contentColor,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -64,18 +79,25 @@ class DropdownChip extends StatelessWidget {
                 : Text(
                     label,
                     style: textTheme.labelLarge?.copyWith(
-                      color: colors.onSurfaceVariant,
+                      color: contentColor,
                     ),
                   ),
             SizedBox(width: spacing.space8),
             Icon(
               Icons.arrow_drop_down,
               size: 24,
-              color: colors.onSurfaceVariant,
+              color: contentColor,
             ),
           ],
         ),
       ),
     );
+
+    if (!enabled) {
+      final opacity = Theme.of(context).extension<AppOpacity>()!;
+      chip = Opacity(opacity: opacity.disabled, child: chip);
+    }
+
+    return chip;
   }
 }

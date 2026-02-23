@@ -36,22 +36,33 @@ After writing each file:
 
 Produce all required output files: widget, test (with golden assertion), barrel export, and Widgetbook use case.
 
-**Golden test** — when generating the widget's test file, include a golden assertion:
+**Golden test** — golden tests go in a **separate file** (`test/design_system/<widget_name>_golden_test.dart`) tagged with `@Tags(['golden'])` so they are excluded from default test runs. This prevents golden mismatches from blocking iterative development.
+
 ```dart
-testWidgets('golden', (tester) async {
-  await tester.pumpWidget(
-    MaterialApp(
-      theme: <theme with all design system extensions>,
-      home: Scaffold(body: Center(child: <WidgetName>(<mock params>))),
-    ),
-  );
-  await expectLater(
-    find.byType(<WidgetName>),
-    matchesGoldenFile('goldens/<widget_name>.png'),
-  );
-});
+@Tags(['golden'])
+library;
+
+import 'package:flutter_test/flutter_test.dart';
+// ... imports
+
+void main() {
+  group('<WidgetName> golden', () {
+    testWidgets('<variant>', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: <theme with all design system extensions>,
+          home: Scaffold(body: Center(child: <WidgetName>(<mock params>))),
+        ),
+      );
+      await expectLater(
+        find.byType(<WidgetName>),
+        matchesGoldenFile('goldens/<widget_name>_<variant>.png'),
+      );
+    });
+  });
+}
 ```
-After writing the test, run `flutter test --update-goldens test/design_system/<widget_name>_test.dart` to generate the baseline PNG.
+After writing the golden test file, run `flutter test --update-goldens test/design_system/<widget_name>_golden_test.dart` to generate the baseline PNGs.
 
 **Write the genesis document** at `lib/design_system/.specs/<WidgetName>.genesis.md`:
 - Record the inspiration source (Figma URL, screenshot, description)

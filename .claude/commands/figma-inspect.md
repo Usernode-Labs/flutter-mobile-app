@@ -49,8 +49,9 @@ Apply these snapping rules:
 |----------|-------|
 | 0-10 | `small` (8) |
 | 11-14 | `medium` (12) |
-| 15-20 | `large` (16) |
-| 21-100 | `xLarge` (24) |
+| 15-18 | `large` (16) |
+| 19-22 | `largeIncreased` (20) |
+| 23-100 | `xLarge` (24) |
 | 100+ | `full` (999) |
 
 **Colors** — match against `ColorScheme` properties from `theme.dart`:
@@ -148,6 +149,55 @@ After writing the spec, output a summary:
 
 If there are `nearest` confidence mappings, mention them explicitly so the human can verify.
 
-### 7. Confirm output
+### 7. Write the initial genesis document
 
-Print the path to the generated spec file, the saved reference screenshot path, and a brief summary of the widget structure.
+Output to `lib/design_system/.specs/<WidgetName>.genesis.md`. This captures early decisions made *during* inspection — before the user even reviews the spec. Later pipeline steps append to it.
+
+Review everything you did in steps 2-6 and extract decisions worth recording:
+
+**What counts as a decision:**
+- **Non-obvious token snaps** — any `nearest` confidence mapping where you picked one token over a plausible alternative (e.g., `surfaceContainerLowest` vs `surfaceBright` when both are `#FFFFFF`)
+- **Figma ambiguity resolved** — when the Figma node was a list/group and you had to identify the repeating unit, or when layer names were generic and you inferred the widget boundary
+- **Structural interpretation** — choosing column vs stack, deciding what's a variant vs a separate widget, identifying which content is dynamic vs static
+- **Missing tokens flagged** — Figma values that don't snap cleanly and might need a new token (like `20px` radius before `largeIncreased` existed)
+- **Params derived** — why certain Figma text was made a param vs hardcoded, callbacks inferred from tap targets
+
+**What is NOT a decision** (skip these):
+- Exact 1:1 token matches (Figma 16px padding -> `space16` — obvious, no decision)
+- Standard text style mappings that match by size+weight
+- Boilerplate structure (meta fields, file paths)
+
+Use this format:
+
+```markdown
+# <WidgetName> — Genesis Document
+
+> Tracks every design decision from Figma inspection through implementation.
+> New sections are appended as the widget evolves.
+
+## Phase 1: Figma Inspection (<today's date>)
+
+### Source
+- **Figma node**: `<nodeId>` — <brief description of what the node contains>
+- <any notes about the node scope — e.g., "this is a list, the widget is the repeating item">
+
+### Decisions During Inspection
+
+#### <Decision title>
+<What was decided and why. Keep it concise — 1-3 sentences.>
+
+#### <Next decision>
+...
+
+### Non-Exact Mappings
+| Element | Figma value | Mapped to | Why this choice |
+|---------|------------|-----------|-----------------|
+| ... | ... | ... | ... |
+```
+
+Only include sections that have content. If the inspection was clean (all exact matches, obvious structure), a short genesis with just the source section is fine — don't pad it with non-decisions.
+
+### 8. Confirm output
+
+Print the paths to all generated files and a brief summary of the widget structure.
+Then list the decisions captured in the genesis doc so the user can verify them.

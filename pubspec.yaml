@@ -41,6 +41,9 @@ dependencies:
   url_launcher: "^6.2.0"
   webview_flutter: "^4.10.0"
   widgetbook: "^3.10.0"
+  flutter_markdown: "^0.7.6"
+  material_symbols_icons: ^4.2906.0
+  flutter_svg: ^2.2.3
 dev_dependencies:
   flutter_lints: "^5.0.0"
   flutter_test:
@@ -56,6 +59,7 @@ flutter:
   assets:
   - assets/feature_flags.json
   - assets/images/
+  - lib/design_system/DESIGN_SYSTEM.md
 flutter_launcher_icons:
   android: true
   ios: true

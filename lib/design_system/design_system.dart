@@ -10,7 +10,13 @@ export 'tokens/app_elevation.dart';
 export 'tokens/app_opacity.dart';
 export 'tokens/app_radii.dart';
 export 'tokens/app_sizing.dart';
+export 'tokens/app_semantic_colors.dart';
 export 'tokens/app_spacing.dart';
 
+// Widgets
+export 'src/challenge_card.dart';
+export 'src/challenge_category_icon.dart';
+
 // Theme
+export 'theme/color_is_expensive_theme.dart';
 export 'theme/design_system_theme.dart';

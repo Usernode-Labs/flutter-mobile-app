@@ -19,7 +19,8 @@ This document grows from real widget creation sessions. Rules are added when age
 - Tokens via `Theme.of(context).extension<T>()!`
 - Colors via `Theme.of(context).colorScheme`
 - Typography via `Theme.of(context).textTheme`
-- Quality: `dart format` clean, `flutter analyze` passes, tests pass
+- Quality: `dart format` clean, `flutter analyze` passes, tests pass (golden tests excluded from default runs — see Golden Tests below)
+- Every widget in `src/` must have a genesis doc (`.specs/<WidgetName>.genesis.md`) and a row in the Widget Catalog below
 
 <!-- COLOR_PHILOSOPHY_START -->
 ## Color Philosophy: "Color is Expensive"
@@ -94,6 +95,16 @@ final semantic = Theme.of(context).extension<AppSemanticColors>()!;
 ```
 <!-- COLOR_ACCESS_END -->
 
+## Golden Tests
+
+Golden tests are tagged `golden` and **excluded from default test runs**. They are snapshot tests that compare rendered widget PNGs — they break on any visual change, which is noise during iterative development.
+
+- **Created during** `/widget-from-figma` — the builder generates golden assertions and runs `flutter test --update-goldens` to produce baseline PNGs
+- **Skipped during** `/verify-widget` and `flutter test` — unit tests still run, but golden comparisons are excluded
+- **Run explicitly** with `flutter test --tags golden` or `flutter test --update-goldens --tags golden test/design_system/<widget_name>_test.dart` to regenerate after intentional visual changes
+
+Convention: golden tests live in a separate `<widget_name>_golden_test.dart` file with `@Tags(['golden'])` library annotation. Flutter's `group()` doesn't support `tags`, so a separate file is required.
+
 ## Presentation-Only Widgets
 
 Applies to all widgets created in `lib/design_system/`. Existing `lib/core/widgets/` are out of scope until individually migrated.
@@ -112,6 +123,7 @@ Three slash commands drive the design system from inspiration to verified widget
 Extracts design data from Figma and maps it to design system tokens. Produces:
 - `.specs/<WidgetName>.spec.yaml` — structural spec with token mappings
 - `.specs/<WidgetName>.reference.png` — screenshot of the Figma design (inspiration, not spec)
+- `.specs/<WidgetName>.genesis.md` — initial genesis document capturing non-obvious decisions made during inspection (ambiguous token snaps, Figma scope interpretation, missing tokens flagged, structural choices). Later pipeline steps append to it.
 
 ### `/widget-from-figma <Figma URL or screenshot>`
 End-to-end builder. If given a Figma URL, runs `/figma-inspect` first, then builds.
@@ -121,7 +133,7 @@ Uses Dart MCP tools throughout: `resolve_workspace_symbol` to find tokens and ex
 - `test/design_system/<widget_name>_test.dart` — tests + golden screenshot assertion
 - `test/design_system/goldens/<widget_name>.png` — rendered widget PNG
 - Widgetbook use case with knobs for each parameter
-- `.specs/<WidgetName>.genesis.md` — narrative of design decisions and rationale
+- `.specs/<WidgetName>.genesis.md` — appends implementation decisions to the genesis doc started by `/figma-inspect`
 - Barrel export in `design_system.dart`
 - Row in the Widget Catalog below
 
@@ -143,22 +155,31 @@ Quality gate. Uses Dart MCP tools (`dart_format`, `analyze_files`, `run_tests`) 
 | Extension | Access | Values |
 |-----------|--------|--------|
 | `AppSpacing` | `.space4` .. `.space48` | 4, 8, 12, 16, 24, 32, 48 |
-| `AppRadii` | `.small` .. `.full` | 8, 12, 16, 24, 999 |
+| `AppRadii` | `.small` .. `.full` | 8, 12, 16, 20, 24, 999 |
 | `AppElevation` | `.none` .. `.max` | 0, 1, 2, 4, 8 |
 | `AppOpacity` | `.subtle` .. `.secondary` | 0.08, 0.12, 0.20, 0.30, 0.40 |
 | `AppSizing` | `.iconSmall` .. `.iconXLarge` + `.icon*` | containers: 40-64, icons: 20-32 |
 | `AppAnimation` | `.fast` .. `.complex` | 100ms, 150ms, 200ms, 300ms |
 | `AppSemanticColors` | `.technical`, `.flash`, `.community`, `.success` | Each group: `.color`, `.onColor`, `.colorContainer`, `.onColorContainer` |
 
+## Typography Principle
+
+Use Material 3 `textTheme` styles as-is. Do not override font weight, letter spacing, or other properties with `copyWith` unless a new text style is genuinely missing from the scale. If the standard scale doesn't have the exact weight or size you want, pick the closest match and move on — a consistent type scale matters more than pixel-matching Figma.
+
+When the entire app needs a different typographic feel, refactor the `TextTheme` at the theme level rather than sprinkling `copyWith` overrides across individual widgets. Keep individual widget styling simple.
+
 ## Decisions Log
 
 <!-- Decisions are captured here as they emerge from widget creation sessions -->
 <!-- Format: "- **Context**: Decision (date)" -->
 - **Widgetbook failed to compile on web** because `AppAppBar` → `NodeStatusIcon` → `nodeStatusProvider` → Rust FFI. Adopted presentation-only rule: design system widgets take data as props, never fetch state. Containers live in `lib/features/`. (2026-02-20)
+- **ChallengeCard title weight**: Figma shows 16px/medium title. Closest Material style is `titleMedium` (16px/w500). No heavier 16px variant exists without `copyWith(fontWeight: w600)`. Decided to keep `titleMedium` as-is — no hard overrides. If we need a different weight scale, we refactor the entire `TextTheme`. (2026-02-23)
+- **ChallengeCard state demotion**: Replaced blanket `Opacity` with color-based demotion for completed/missed variants. `Opacity` on entire card reduces text contrast below accessible thresholds. Use `onSurfaceVariant` for muted text and `surfaceContainerLow` for tinted background instead. Never use `Opacity` to communicate semantic state on readable content. (2026-02-23)
 
 ## Widget Catalog
 
 <!-- Updated by the widget builder after each new component -->
 | Widget | Source | Genesis |
 |--------|--------|---------|
-<!-- | `FooBar` | [Figma](<url>) | [genesis](.specs/FooBar.genesis.md) | -->
+| `ChallengeCard` | [Figma (list)](https://figma.com/design/rsh9wLMKsMnFPOEBkHJUvg/?node-id=2943:19310), [Figma (ongoing)](https://figma.com/design/rsh9wLMKsMnFPOEBkHJUvg/?node-id=3012:2402) | [genesis](.specs/ChallengeCard.genesis.md) |
+| `ChallengeCategoryIcon` | [Figma](https://figma.com/design/rsh9wLMKsMnFPOEBkHJUvg/?node-id=3012:2775) | [genesis](.specs/ChallengeCategoryIcon.genesis.md) |

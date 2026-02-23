@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:widgetbook/widgetbook.dart';
 
-import 'package:crypto_mobile_app/core/config/theme.dart';
+import 'package:crypto_mobile_app/design_system/theme/color_is_expensive_theme.dart';
 import 'package:crypto_mobile_app/design_system/theme/design_system_theme.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_semantic_colors.dart';
+
+import 'challenge_card_use_case.dart';
+import 'color_catalog.dart';
 
 void main() {
   runApp(const WidgetbookApp());
@@ -13,37 +17,105 @@ class WidgetbookApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final materialTheme = MaterialTheme(ThemeData.light().textTheme);
+    final cieTheme = ColorIsExpensiveTheme(ThemeData.light().textTheme);
+
+    ThemeData withSemanticColors(ThemeData base, AppSemanticColors semantic) {
+      return base.copyWith(
+        extensions: [
+          ...DesignSystemTheme.standardExtensions(semanticColors: semantic),
+        ],
+      );
+    }
 
     return Widgetbook.material(
       addons: [
         ThemeAddon<ThemeData>(
           themes: [
-            WidgetbookTheme(name: 'Light', data: materialTheme.light()),
-            WidgetbookTheme(name: 'Dark', data: materialTheme.dark()),
+            WidgetbookTheme(
+              name: 'Light',
+              data: withSemanticColors(
+                  cieTheme.light(), AppSemanticColors.light()),
+            ),
+            WidgetbookTheme(
+              name: 'Light Medium Contrast',
+              data: withSemanticColors(cieTheme.lightMediumContrast(),
+                  AppSemanticColors.lightMediumContrast()),
+            ),
             WidgetbookTheme(
               name: 'Light High Contrast',
-              data: materialTheme.lightHighContrast(),
+              data: withSemanticColors(cieTheme.lightHighContrast(),
+                  AppSemanticColors.lightHighContrast()),
+            ),
+            WidgetbookTheme(
+              name: 'Dark',
+              data:
+                  withSemanticColors(cieTheme.dark(), AppSemanticColors.dark()),
+            ),
+            WidgetbookTheme(
+              name: 'Dark Medium Contrast',
+              data: withSemanticColors(cieTheme.darkMediumContrast(),
+                  AppSemanticColors.darkMediumContrast()),
             ),
             WidgetbookTheme(
               name: 'Dark High Contrast',
-              data: materialTheme.darkHighContrast(),
+              data: withSemanticColors(cieTheme.darkHighContrast(),
+                  AppSemanticColors.darkHighContrast()),
             ),
           ],
           themeBuilder: (context, theme, child) {
-            return DesignSystemTheme(
-              child: Theme(data: theme, child: child),
+            return Theme(
+              data: theme,
+              child: ColoredBox(
+                color: theme.scaffoldBackgroundColor,
+                child: child,
+              ),
             );
           },
         ),
         ViewportAddon([
-          IosViewports.iPhone13,
-          IosViewports.iPadPro11Inches,
-          AndroidViewports.samsungGalaxyS20,
+          Viewports.none,
+          AndroidViewports.samsungGalaxyS20, // 360w — compact
+          AndroidViewports.samsungGalaxyA50, // 412w — standard
+          AndroidViewports.smallTablet, // 800w — small tablet
+          AndroidViewports.mediumTablet, // 1024w — 10" tablet
         ]),
+        AlignmentAddon(),
         TextScaleAddon(min: 1.0, max: 2.0),
       ],
-      directories: [],
+      directories: [
+        WidgetbookCategory(
+          name: 'Foundations',
+          children: [
+            WidgetbookComponent(
+              name: 'Color System',
+              useCases: [
+                WidgetbookUseCase(
+                  name: 'Core Roles',
+                  builder: (context) => const CoreRolesCatalog(),
+                ),
+                WidgetbookUseCase(
+                  name: 'Surface & Neutral',
+                  builder: (context) => const SurfaceNeutralCatalog(),
+                ),
+                WidgetbookUseCase(
+                  name: 'Semantic Colors',
+                  builder: (context) => const SemanticColorsCatalog(),
+                ),
+                WidgetbookUseCase(
+                  name: 'Guidelines',
+                  builder: (context) => const GuidelinesCatalog(),
+                ),
+              ],
+            ),
+          ],
+        ),
+        WidgetbookCategory(
+          name: 'Widgets',
+          children: [
+            challengeCardComponent(),
+          ],
+        ),
+      ],
     );
   }
 }

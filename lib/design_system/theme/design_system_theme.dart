@@ -4,6 +4,7 @@ import '../tokens/app_animation.dart';
 import '../tokens/app_elevation.dart';
 import '../tokens/app_opacity.dart';
 import '../tokens/app_radii.dart';
+import '../tokens/app_semantic_colors.dart';
 import '../tokens/app_sizing.dart';
 import '../tokens/app_spacing.dart';
 
@@ -28,6 +29,7 @@ class DesignSystemTheme extends StatelessWidget {
     this.opacity,
     this.sizing,
     this.animation,
+    this.semanticColors,
   });
 
   final Widget child;
@@ -37,15 +39,20 @@ class DesignSystemTheme extends StatelessWidget {
   final AppOpacity? opacity;
   final AppSizing? sizing;
   final AppAnimation? animation;
+  final AppSemanticColors? semanticColors;
 
   /// All standard design system extensions.
-  static List<ThemeExtension> standardExtensions() => [
+  static List<ThemeExtension> standardExtensions({
+    AppSemanticColors? semanticColors,
+  }) =>
+      [
         AppSpacing.standard(),
         AppRadii.standard(),
         AppElevation.standard(),
         AppOpacity.standard(),
         AppSizing.standard(),
         AppAnimation.standard(),
+        if (semanticColors != null) semanticColors,
       ];
 
   @override
@@ -59,6 +66,7 @@ class DesignSystemTheme extends StatelessWidget {
           opacity ?? AppOpacity.standard(),
           sizing ?? AppSizing.standard(),
           animation ?? AppAnimation.standard(),
+          if (semanticColors != null) semanticColors!,
         ],
       ),
       child: child,

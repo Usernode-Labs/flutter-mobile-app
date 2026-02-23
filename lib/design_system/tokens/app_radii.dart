@@ -8,6 +8,7 @@ class AppRadii extends ThemeExtension<AppRadii> {
     required this.small,
     required this.medium,
     required this.large,
+    required this.largeIncreased,
     required this.xLarge,
     required this.full,
   });
@@ -16,6 +17,7 @@ class AppRadii extends ThemeExtension<AppRadii> {
         small: 8.0,
         medium: 12.0,
         large: 16.0,
+        largeIncreased: 20.0,
         xLarge: 24.0,
         full: 999.0,
       );
@@ -23,6 +25,7 @@ class AppRadii extends ThemeExtension<AppRadii> {
   final double small;
   final double medium;
   final double large;
+  final double largeIncreased;
   final double xLarge;
   final double full;
 
@@ -33,6 +36,8 @@ class AppRadii extends ThemeExtension<AppRadii> {
       BorderRadius.all(Radius.circular(medium));
   BorderRadius get borderRadiusLarge =>
       BorderRadius.all(Radius.circular(large));
+  BorderRadius get borderRadiusLargeIncreased =>
+      BorderRadius.all(Radius.circular(largeIncreased));
   BorderRadius get borderRadiusXLarge =>
       BorderRadius.all(Radius.circular(xLarge));
   BorderRadius get borderRadiusFull => BorderRadius.all(Radius.circular(full));
@@ -48,6 +53,7 @@ class AppRadii extends ThemeExtension<AppRadii> {
     double? small,
     double? medium,
     double? large,
+    double? largeIncreased,
     double? xLarge,
     double? full,
   }) {
@@ -55,6 +61,7 @@ class AppRadii extends ThemeExtension<AppRadii> {
       small: small ?? this.small,
       medium: medium ?? this.medium,
       large: large ?? this.large,
+      largeIncreased: largeIncreased ?? this.largeIncreased,
       xLarge: xLarge ?? this.xLarge,
       full: full ?? this.full,
     );
@@ -67,6 +74,7 @@ class AppRadii extends ThemeExtension<AppRadii> {
       small: lerpDouble(small, other.small, t)!,
       medium: lerpDouble(medium, other.medium, t)!,
       large: lerpDouble(large, other.large, t)!,
+      largeIncreased: lerpDouble(largeIncreased, other.largeIncreased, t)!,
       xLarge: lerpDouble(xLarge, other.xLarge, t)!,
       full: lerpDouble(full, other.full, t)!,
     );

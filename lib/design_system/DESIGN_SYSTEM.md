@@ -143,12 +143,14 @@ Also accepts a screenshot or text description instead of a Figma URL.
 Quality gate. Uses Dart MCP tools (`dart_format`, `analyze_files`, `run_tests`) instead of shell commands. Checks:
 1. `dart format` clean (via `dart_format` MCP)
 2. `flutter analyze` passes (via `analyze_files` MCP)
-3. Tests pass (via `run_tests` MCP)
+3. Tests pass (via `run_tests` MCP) — golden tests excluded by default
 4. No hardcoded values (all from tokens)
 5. No banned Material/Cupertino widgets
 6. Exported from barrel file
-7. Golden screenshot exists and test passes
+7. Golden screenshot exists (goldens are **not re-run** during verify — only generated/updated during `/widget-from-figma`)
 8. Genesis document exists; visual comparison of Figma reference vs golden confirms documented decisions cover visible differences
+9. Widget Catalog entry exists in this file
+10. Widgetbook visual review — launches Widgetbook for human sign-off as the final gate
 
 ## Token Vocabulary
 
@@ -175,6 +177,7 @@ When the entire app needs a different typographic feel, refactor the `TextTheme`
 - **Widgetbook failed to compile on web** because `AppAppBar` → `NodeStatusIcon` → `nodeStatusProvider` → Rust FFI. Adopted presentation-only rule: design system widgets take data as props, never fetch state. Containers live in `lib/features/`. (2026-02-20)
 - **ChallengeCard title weight**: Figma shows 16px/medium title. Closest Material style is `titleMedium` (16px/w500). No heavier 16px variant exists without `copyWith(fontWeight: w600)`. Decided to keep `titleMedium` as-is — no hard overrides. If we need a different weight scale, we refactor the entire `TextTheme`. (2026-02-23)
 - **ChallengeCard state demotion**: Replaced blanket `Opacity` with color-based demotion for completed/missed variants. `Opacity` on entire card reduces text contrast below accessible thresholds. Use `onSurfaceVariant` for muted text and `surfaceContainerLow` for tinted background instead. Never use `Opacity` to communicate semantic state on readable content. (2026-02-23)
+- **ChallengeCard animation loop seam**: Removed `CurvedAnimation(Curves.easeInOut)` from the ongoing border animation. `easeInOut` has zero velocity at both endpoints, causing a visible stall when the repeating controller wraps. Linear rotation is seamless; asymmetric gradient shape provides organic character. For looping animations, prefer linear or a custom curve with matching endpoint derivatives (C1 continuity). (2026-02-23)
 
 ## Widget Catalog
 

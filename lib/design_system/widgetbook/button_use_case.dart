@@ -65,6 +65,40 @@ WidgetbookComponent buttonComponent() {
           );
         },
       ),
+      WidgetbookUseCase(
+        name: 'All Variants',
+        builder: (context) {
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final variant in ButtonVariant.values) ...[
+                  Text(
+                    variant.name.toUpperCase(),
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    children: [
+                      for (final size in ButtonSize.values)
+                        Button(
+                          label: '${size.name} ${variant.name}',
+                          size: size,
+                          variant: variant,
+                          onTap: () {},
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ],
+            ),
+          );
+        },
+      ),
     ],
   );
 }

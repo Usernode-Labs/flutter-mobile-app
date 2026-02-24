@@ -134,6 +134,52 @@ void main() {
       expect(text.style.color, equals(theme.colorScheme.onSurface));
     });
 
+    testWidgets('large size uses buttonHeightLarge', (tester) async {
+      await tester.pumpWidget(wrap(
+        const Button(label: 'Large', size: ButtonSize.large),
+      ));
+
+      final buttonSize = tester.getSize(find.byType(Button));
+      expect(buttonSize.height, equals(56));
+    });
+
+    testWidgets('primary variant renders FilledButton with primary fill',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        const Button(label: 'Primary', variant: ButtonVariant.primary),
+      ));
+
+      expect(find.byType(FilledButton), findsOneWidget);
+      expect(find.byType(OutlinedButton), findsNothing);
+
+      final theme = themeWithExtensions();
+      final material = tester.widget<Material>(
+        find.descendant(
+          of: find.byType(FilledButton),
+          matching: find.byType(Material),
+        ),
+      );
+      expect(material.color, equals(theme.colorScheme.primary));
+    });
+
+    testWidgets('primary variant uses onPrimary foreground color',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        const Button(label: 'Primary Text', variant: ButtonVariant.primary),
+      ));
+
+      final theme = themeWithExtensions();
+      final text = tester.widget<DefaultTextStyle>(
+        find
+            .ancestor(
+              of: find.text('Primary Text'),
+              matching: find.byType(DefaultTextStyle),
+            )
+            .first,
+      );
+      expect(text.style.color, equals(theme.colorScheme.onPrimary));
+    });
+
     testWidgets('disabled button does not fire onTap', (tester) async {
       var tapped = false;
       await tester.pumpWidget(wrap(

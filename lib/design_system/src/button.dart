@@ -11,14 +11,20 @@ enum ButtonSize {
 
   /// 48px height (default).
   regular,
+
+  /// 56px height.
+  large,
 }
 
 /// Button visual variant.
 enum ButtonVariant {
+  /// Highest-emphasis CTA — `primary` fill, `onPrimary` text.
+  primary,
+
   /// Soft tonal fill (`secondaryContainer`) with no border (default).
   tonal,
 
-  /// White fill with `outlineVariant` border, pill shape.
+  /// Transparent fill with `outlineVariant` border, pill shape.
   outlined,
 
   /// White fill (`surfaceContainerLowest`), no border — for use on dark/colored
@@ -28,7 +34,7 @@ enum ButtonVariant {
 
 /// A design system button backed by M3 Material components.
 ///
-/// Supports two sizes ([ButtonSize]) and three variants ([ButtonVariant]).
+/// Supports three sizes ([ButtonSize]) and four variants ([ButtonVariant]).
 /// Provides ink splash, focus/hover states, and accessibility semantics via
 /// [FilledButton] / [OutlinedButton].
 class Button extends StatelessWidget {
@@ -63,9 +69,11 @@ class Button extends StatelessWidget {
     final sizing = Theme.of(context).extension<AppSizing>()!;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
 
-    final height = size == ButtonSize.small
-        ? sizing.buttonHeightSmall
-        : sizing.buttonHeightRegular;
+    final height = switch (size) {
+      ButtonSize.small => sizing.buttonHeightSmall,
+      ButtonSize.regular => sizing.buttonHeightRegular,
+      ButtonSize.large => sizing.buttonHeightLarge,
+    };
 
     final shape = RoundedRectangleBorder(borderRadius: radii.borderRadiusFull);
     final padding = EdgeInsets.symmetric(horizontal: spacing.space16);
@@ -80,6 +88,25 @@ class Button extends StatelessWidget {
     );
 
     switch (variant) {
+      case ButtonVariant.primary:
+        final style = baseStyle.copyWith(
+          backgroundColor: WidgetStatePropertyAll(colors.primary),
+          foregroundColor: WidgetStatePropertyAll(colors.onPrimary),
+        );
+        if (leadingIcon != null) {
+          return FilledButton.icon(
+            onPressed: onTap,
+            style: style,
+            icon: leadingIcon!,
+            label: Text(label),
+          );
+        }
+        return FilledButton(
+          onPressed: onTap,
+          style: style,
+          child: Text(label),
+        );
+
       case ButtonVariant.tonal:
         // FilledButton.tonal defaults match our tonal spec — no overrides.
         final style = baseStyle;
@@ -99,8 +126,7 @@ class Button extends StatelessWidget {
 
       case ButtonVariant.outlined:
         final style = baseStyle.copyWith(
-          backgroundColor:
-              WidgetStatePropertyAll(colors.surfaceContainerLowest),
+          backgroundColor: const WidgetStatePropertyAll(Colors.transparent),
           side: WidgetStatePropertyAll(
             BorderSide(color: colors.outlineVariant),
           ),

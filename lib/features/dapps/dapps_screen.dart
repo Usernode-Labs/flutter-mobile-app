@@ -484,6 +484,8 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
                           detailRow('To', to, mono: true),
                           const Divider(height: 1),
                           detailRow('Amount', amount.toString()),
+                          const Divider(height: 1),
+                          detailRow('Fee', '0'),
                           memoBox,
                         ],
                       ),

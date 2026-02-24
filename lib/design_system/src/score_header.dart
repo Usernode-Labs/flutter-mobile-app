@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -81,6 +82,7 @@ class ScoreHeader extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        SizedBox(height: spacing.space32),
         _ScoreCircle(
           score: score,
           scoreLabel: scoreLabel,
@@ -90,18 +92,23 @@ class ScoreHeader extends StatelessWidget {
           variant: variant,
           glowIntensity: glowIntensity,
         ),
-        SizedBox(height: spacing.space24),
+        if (countdownTime != null || ctaLabel != null)
+          SizedBox(height: spacing.space16),
         if (countdownTime != null)
           _CountdownRow(
             label: countdownLabel ?? 'ENDS IN',
             time: countdownTime!,
           ),
-        if (countdownTime != null) SizedBox(height: spacing.space24),
+        if (countdownTime != null && ctaLabel != null)
+          SizedBox(height: spacing.space48),
         if (ctaLabel != null)
           Button(
             label: ctaLabel!,
             onTap: onCtaTap,
+            size: ButtonSize.small,
+            variant: ButtonVariant.surface,
           ),
+        SizedBox(height: spacing.space32),
       ],
     );
   }
@@ -149,9 +156,9 @@ class _ScoreCircle extends StatelessWidget {
           Container(
             width: circleSize,
             height: circleSize,
-            decoration: const BoxDecoration(
-              color: Colors.white,
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
+              color: isGlow ? colors.surfaceContainerLowest : null,
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -301,77 +308,148 @@ class _GlowPainter extends CustomPainter {
     // Oversized bounds so radial gradients can extend beyond the child widget.
     final layerBounds = Rect.fromCenter(
       center: center,
-      width: size.width + 400 * intensity,
-      height: size.height + 400 * intensity,
+      width: size.width + 600 * intensity,
+      height: size.height + 600 * intensity,
     );
 
     canvas.saveLayer(layerBounds, Paint());
 
-    // -- Community green (centered) --
-    _drawGlow(canvas, center, communityColor, 140, 0.55, BlendMode.srcOver);
-    _drawGlow(canvas, center, communityColor, 250, 0.25, BlendMode.plus);
+    // -- Layer 0: Sweep gradient base (angular continuity) --
+    // Cycles green→amber→blue→green with dwell zones for organic mesh feel.
+    final sweepAlpha = 0.45 * intensity;
+    final sweepRadius = 300 * intensity;
+    final sweepPaint = Paint()
+      ..blendMode = BlendMode.srcOver
+      ..shader = ui.Gradient.sweep(
+        center,
+        [
+          // stop 0.000 — amber dwell start (6 o'clock after rotation)
+          flashColor.withValues(alpha: sweepAlpha),
+          // stop 0.083 — amber dwell end (~30°)
+          flashColor.withValues(alpha: sweepAlpha),
+          // stop 0.333 — green dwell start (~90° transition)
+          communityColor.withValues(alpha: sweepAlpha),
+          // stop 0.417 — green dwell end (~30°)
+          communityColor.withValues(alpha: sweepAlpha),
+          // stop 0.667 — blue dwell start (~90° transition)
+          technicalColor.withValues(alpha: sweepAlpha),
+          // stop 0.750 — blue dwell end (~30°)
+          technicalColor.withValues(alpha: sweepAlpha),
+          // stop 1.000 — wrap back to amber (~90° transition)
+          flashColor.withValues(alpha: sweepAlpha),
+        ],
+        [0.0, 0.083, 0.333, 0.417, 0.667, 0.750, 1.0],
+        TileMode.clamp,
+        0.0, // startAngle
+        math.pi * 2, // endAngle
+        // Rotate so amber sits at 6 o'clock (π/2 from default)
+        _rotationMatrix(center, math.pi / 2),
+      );
+    canvas.drawCircle(center, sweepRadius, sweepPaint);
 
-    // -- Flash amber (offset right / down) --
-    _drawGlow(
+    // -- Layer 1: Radial fade mask (dstIn) --
+    // Pseudo-Gaussian falloff so the sweep disc fades center→edge.
+    final maskRadius = 330 * intensity;
+    final maskPaint = Paint()
+      ..blendMode = BlendMode.dstIn
+      ..shader = ui.Gradient.radial(
+        center,
+        maskRadius,
+        [
+          const Color.fromRGBO(255, 255, 255, 1.0),
+          const Color.fromRGBO(255, 255, 255, 0.75),
+          const Color.fromRGBO(255, 255, 255, 0.40),
+          const Color.fromRGBO(255, 255, 255, 0.10),
+          const Color.fromRGBO(255, 255, 255, 0.0),
+        ],
+        [0.0, 0.30, 0.60, 0.85, 1.0],
+      );
+    canvas.drawCircle(center, maskRadius, maskPaint);
+
+    // -- Layer 2: Three offset radial lobes (organic asymmetry) --
+    // One lobe per color adds localized intensity and depth.
+    _drawLobe(
       canvas,
-      center + Offset(80 * intensity, 60 * intensity),
-      flashColor,
-      120,
-      0.50,
-      BlendMode.plus,
+      center + Offset(-130 * intensity, -75 * intensity),
+      communityColor,
+      220,
+      0.35,
     );
-    _drawGlow(
+    _drawLobe(
       canvas,
-      center + Offset(150 * intensity, 100 * intensity),
+      center + Offset(0, 150 * intensity),
       flashColor,
-      200,
-      0.22,
-      BlendMode.plus,
+      220,
+      0.35,
+    );
+    _drawLobe(
+      canvas,
+      center + Offset(130 * intensity, -75 * intensity),
+      technicalColor,
+      220,
+      0.35,
     );
 
-    // -- Technical blue (offset left / up) --
-    _drawGlow(
-      canvas,
-      center + Offset(-80 * intensity, -60 * intensity),
-      technicalColor,
-      120,
-      0.50,
-      BlendMode.plus,
-    );
-    _drawGlow(
-      canvas,
-      center + Offset(-150 * intensity, -100 * intensity),
-      technicalColor,
-      200,
-      0.22,
-      BlendMode.plus,
-    );
+    // -- Layer 3: Center white lift (subtle luminance boost) --
+    final liftRadius = 100 * intensity;
+    final liftAlpha = 0.12 * intensity;
+    final liftPaint = Paint()
+      ..blendMode = BlendMode.plus
+      ..shader = ui.Gradient.radial(
+        center,
+        liftRadius,
+        [
+          Color.fromRGBO(255, 255, 255, liftAlpha),
+          Color.fromRGBO(255, 255, 255, 0),
+        ],
+        [0.0, 1.0],
+      );
+    canvas.drawCircle(center, liftRadius, liftPaint);
 
     canvas.restore();
   }
 
-  void _drawGlow(
+  /// Rotation matrix for sweep gradient alignment.
+  Float64List _rotationMatrix(Offset center, double radians) {
+    final cos = math.cos(radians);
+    final sin = math.sin(radians);
+    final tx = center.dx - cos * center.dx + sin * center.dy;
+    final ty = center.dy - sin * center.dx - cos * center.dy;
+    return Float64List.fromList([
+      cos, sin, 0, 0, // column 0
+      -sin, cos, 0, 0, // column 1
+      0, 0, 1, 0, // column 2
+      tx, ty, 0, 1, // column 3
+    ]);
+  }
+
+  /// Draws a single radial lobe with 6-stop Gaussian falloff.
+  void _drawLobe(
     Canvas canvas,
     Offset center,
     Color color,
     double baseRadius,
-    double baseAlpha,
-    BlendMode blendMode,
+    double peakAlpha,
   ) {
     final radius = baseRadius * intensity;
-    final alpha = baseAlpha * intensity;
+    final alpha = peakAlpha * intensity;
     final paint = Paint()
-      ..blendMode = blendMode
-      ..shader = ui.Gradient.radial(
-        center,
-        radius,
-        [
-          color.withValues(alpha: alpha),
-          color.withValues(alpha: alpha * 0.4),
-          color.withValues(alpha: 0),
-        ],
-        [0.0, 0.5, 1.0],
-      );
+      ..blendMode = BlendMode.plus
+      ..shader = ui.Gradient.radial(center, radius, [
+        color.withValues(alpha: alpha),
+        color.withValues(alpha: alpha * 0.85),
+        color.withValues(alpha: alpha * 0.55),
+        color.withValues(alpha: alpha * 0.25),
+        color.withValues(alpha: alpha * 0.08),
+        color.withValues(alpha: 0),
+      ], [
+        0.0,
+        0.15,
+        0.35,
+        0.55,
+        0.78,
+        1.0,
+      ]);
     canvas.drawCircle(center, radius, paint);
   }
 

@@ -64,5 +64,84 @@ void main() {
       // Should only find the button text, no icon widgets
       expect(find.byType(Icon), findsNothing);
     });
+
+    testWidgets('small size uses buttonHeightSmall', (tester) async {
+      await tester.pumpWidget(wrap(
+        const Button(label: 'Small', size: ButtonSize.small),
+      ));
+
+      final buttonSize = tester.getSize(find.byType(Button));
+      expect(buttonSize.height, equals(40));
+    });
+
+    testWidgets('tonal variant renders FilledButton.tonal', (tester) async {
+      await tester.pumpWidget(wrap(
+        const Button(label: 'Tonal'),
+      ));
+
+      // FilledButton.tonal creates a FilledButton under the hood
+      expect(find.byType(FilledButton), findsOneWidget);
+      // Should NOT be an OutlinedButton
+      expect(find.byType(OutlinedButton), findsNothing);
+    });
+
+    testWidgets('outlined variant renders OutlinedButton with border',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        const Button(label: 'Outlined', variant: ButtonVariant.outlined),
+      ));
+
+      expect(find.byType(OutlinedButton), findsOneWidget);
+      expect(find.byType(FilledButton), findsNothing);
+    });
+
+    testWidgets(
+        'surface variant renders FilledButton with surfaceContainerLowest fill',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        const Button(label: 'Surface', variant: ButtonVariant.surface),
+      ));
+
+      expect(find.byType(FilledButton), findsOneWidget);
+      expect(find.byType(OutlinedButton), findsNothing);
+
+      // Verify the fill color via the resolved Material
+      final theme = themeWithExtensions();
+      final material = tester.widget<Material>(
+        find.descendant(
+          of: find.byType(FilledButton),
+          matching: find.byType(Material),
+        ),
+      );
+      expect(material.color, equals(theme.colorScheme.surfaceContainerLowest));
+    });
+
+    testWidgets('surface variant uses onSurface foreground color',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        const Button(label: 'Surface Text', variant: ButtonVariant.surface),
+      ));
+
+      final theme = themeWithExtensions();
+      final text = tester.widget<DefaultTextStyle>(
+        find
+            .ancestor(
+              of: find.text('Surface Text'),
+              matching: find.byType(DefaultTextStyle),
+            )
+            .first,
+      );
+      expect(text.style.color, equals(theme.colorScheme.onSurface));
+    });
+
+    testWidgets('disabled button does not fire onTap', (tester) async {
+      var tapped = false;
+      await tester.pumpWidget(wrap(
+        Button(label: 'Disabled'),
+      ));
+
+      await tester.tap(find.text('Disabled'));
+      expect(tapped, isFalse);
+    });
   });
 }

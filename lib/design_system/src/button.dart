@@ -20,13 +20,17 @@ enum ButtonVariant {
 
   /// White fill with `outlineVariant` border, pill shape.
   outlined,
+
+  /// White fill (`surfaceContainerLowest`), no border — for use on dark/colored
+  /// backgrounds.
+  surface,
 }
 
-/// A design system button built from Flutter primitives.
+/// A design system button backed by M3 Material components.
 ///
-/// Supports two sizes ([ButtonSize]) and two variants ([ButtonVariant]).
-///
-/// Built bottom-up: [GestureDetector] + [Container] + [Text].
+/// Supports two sizes ([ButtonSize]) and three variants ([ButtonVariant]).
+/// Provides ink splash, focus/hover states, and accessibility semantics via
+/// [FilledButton] / [OutlinedButton].
 class Button extends StatelessWidget {
   const Button({
     super.key,
@@ -55,7 +59,6 @@ class Button extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
     final radii = Theme.of(context).extension<AppRadii>()!;
     final sizing = Theme.of(context).extension<AppSizing>()!;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
@@ -64,40 +67,77 @@ class Button extends StatelessWidget {
         ? sizing.buttonHeightSmall
         : sizing.buttonHeightRegular;
 
-    final isOutlined = variant == ButtonVariant.outlined;
+    final shape = RoundedRectangleBorder(borderRadius: radii.borderRadiusFull);
+    final padding = EdgeInsets.symmetric(horizontal: spacing.space16);
 
-    final fillColor =
-        isOutlined ? colors.surfaceContainerLowest : colors.secondaryContainer;
-    final contentColor =
-        isOutlined ? colors.onSurface : colors.onSecondaryContainer;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: height,
-        padding: EdgeInsets.symmetric(horizontal: spacing.space16),
-        decoration: BoxDecoration(
-          color: fillColor,
-          border: isOutlined ? Border.all(color: colors.outlineVariant) : null,
-          borderRadius: radii.borderRadiusFull,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (leadingIcon != null) ...[
-              leadingIcon!,
-              SizedBox(width: spacing.space8),
-            ],
-            Text(
-              label,
-              style: textTheme.labelLarge?.copyWith(
-                color: contentColor,
-              ),
-            ),
-          ],
-        ),
-      ),
+    final baseStyle = ButtonStyle(
+      shape: WidgetStatePropertyAll(shape),
+      fixedSize: WidgetStatePropertyAll(Size.fromHeight(height)),
+      padding: WidgetStatePropertyAll(padding),
+      elevation: const WidgetStatePropertyAll(0),
+      minimumSize: WidgetStatePropertyAll(Size(0, height)),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
     );
+
+    switch (variant) {
+      case ButtonVariant.tonal:
+        // FilledButton.tonal defaults match our tonal spec — no overrides.
+        final style = baseStyle;
+        if (leadingIcon != null) {
+          return FilledButton.tonalIcon(
+            onPressed: onTap,
+            style: style,
+            icon: leadingIcon!,
+            label: Text(label),
+          );
+        }
+        return FilledButton.tonal(
+          onPressed: onTap,
+          style: style,
+          child: Text(label),
+        );
+
+      case ButtonVariant.outlined:
+        final style = baseStyle.copyWith(
+          backgroundColor:
+              WidgetStatePropertyAll(colors.surfaceContainerLowest),
+          side: WidgetStatePropertyAll(
+            BorderSide(color: colors.outlineVariant),
+          ),
+        );
+        if (leadingIcon != null) {
+          return OutlinedButton.icon(
+            onPressed: onTap,
+            style: style,
+            icon: leadingIcon!,
+            label: Text(label),
+          );
+        }
+        return OutlinedButton(
+          onPressed: onTap,
+          style: style,
+          child: Text(label),
+        );
+
+      case ButtonVariant.surface:
+        final style = baseStyle.copyWith(
+          backgroundColor:
+              WidgetStatePropertyAll(colors.surfaceContainerLowest),
+          foregroundColor: WidgetStatePropertyAll(colors.onSurface),
+        );
+        if (leadingIcon != null) {
+          return FilledButton.icon(
+            onPressed: onTap,
+            style: style,
+            icon: leadingIcon!,
+            label: Text(label),
+          );
+        }
+        return FilledButton(
+          onPressed: onTap,
+          style: style,
+          child: Text(label),
+        );
+    }
   }
 }

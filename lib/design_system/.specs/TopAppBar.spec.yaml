@@ -1,0 +1,167 @@
+meta:
+  figma_url_small: "https://www.figma.com/design/Eu4jn5o8finpZ28IAGPyru/Testnet-App?node-id=2994:2764"
+  figma_url_large: "https://www.figma.com/design/Eu4jn5o8finpZ28IAGPyru/Testnet-App?node-id=2943:28629"
+  widget_name: "TopAppBar"
+  description: >
+    A sliver-based top app bar with two size variants. Small is a standard 56px M3
+    top app bar (back arrow + title + trailing actions). Large is an expanded header
+    (back arrow + 64px image + display title + subtitle) that collapses to small on
+    scroll. Wraps SliverAppBar — must be placed inside CustomScrollView.
+  generated_by: claude
+  date: "2026-02-24"
+  reference_screenshot: "TopAppBar.reference.txt"
+
+# ── Enums ──
+enums:
+  TopAppBarSize:
+    - small  # standard 56px M3 top app bar
+    - large  # expanded header with image + subtitle, collapses to small on scroll
+
+# ── Layout ──
+layout:
+  small:
+    type: sliver_app_bar
+    pinned: true
+    height: 56
+    background_color: surface
+    scrolled_under_elevation: 0
+    padding: { top: space8, bottom: space8, left: space4, right: space16 }
+    children:
+      - type: row
+        main_axis_alignment: spaceBetween
+        cross_axis_alignment: center
+        children:
+          - type: icon_button
+            name: leading
+            icon: arrow_back
+            touch_target: iconContainerRegular  # 48px
+            visible_size: iconContainerSmall  # 40px
+            icon_size: iconRegular  # 24px
+            shape: circle
+          - type: text
+            content: "{{title}}"
+            style: titleLarge
+            color: onSurface
+            overflow: ellipsis
+            expanded: true  # fills available space between leading and actions
+          - type: slot
+            name: actions
+            description: "List<Widget> — trailing action widgets (chips, icon buttons, etc.)"
+
+  large:
+    type: sliver_app_bar
+    pinned: true
+    expanded_height: ~232  # approximate, content-dependent
+    background_color: surface
+    scrolled_under_elevation: 0
+    collapsed_state: "Identical to small variant (56px, titleLarge title)"
+    children:
+      # ── Top row (always visible, becomes the pinned bar on collapse) ──
+      - type: row
+        name: top_row
+        height: 56
+        padding: { top: space8, left: space4, right: space4 }
+        children:
+          - type: icon_button
+            name: leading
+            icon: arrow_back
+            touch_target: iconContainerRegular  # 48px
+            visible_size: iconContainerSmall  # 40px
+            icon_size: iconRegular  # 24px
+            shape: circle
+          - type: spacer
+          - type: slot
+            name: actions
+            description: "List<Widget> — trailing action widgets (icon buttons, etc.)"
+
+      # ── Expanded content (fades out on collapse) ──
+      - type: column
+        name: expanded_content
+        spacing: space16
+        padding: { bottom: space12 }
+        animation: "Fades out as user scrolls; title transitions from displaySmall to titleLarge"
+        children:
+          - type: container
+            name: image_container
+            condition: "image != null"
+            size: iconContainerXLarge  # 64px
+            padding: { left: space16, right: space16 }
+            decoration:
+              border_radius: small  # 8px (snapped from Figma 10.67px)
+              clip: true
+            children:
+              - type: slot
+                name: image
+                description: "Widget — 64px content area (challenge icon, avatar, etc.)"
+
+          - type: column
+            spacing: space8
+            padding: { left: space16, right: space16 }
+            children:
+              - type: text
+                content: "{{title}}"
+                style: displaySmall
+                color: onSurface
+              - type: text
+                content: "{{subtitle}}"
+                condition: "subtitle != null"
+                style: titleMedium
+                color: onSurfaceVariant
+
+# ── Collapse behavior ──
+collapse_behavior:
+  description: >
+    Large variant collapses to small on scroll via SliverAppBar's built-in
+    flexibleSpace mechanics. The expanded content (image, displaySmall title,
+    subtitle) fades out. The pinned bar shows the title in titleLarge, matching
+    the small variant exactly.
+  technique: "SliverAppBar with pinned: true and custom flexibleSpace"
+  expanded_title_style: displaySmall
+  collapsed_title_style: titleLarge
+  image_behavior: "Fades out during collapse"
+  subtitle_behavior: "Fades out during collapse"
+
+# ── Constructor params ──
+params:
+  - { name: title, type: String, required: true, description: "Primary title text" }
+  - { name: size, type: TopAppBarSize, required: false, default: "TopAppBarSize.small", description: "Bar size variant" }
+  - { name: leading, type: "Widget?", required: false, default: "back arrow IconButton", description: "Leading widget" }
+  - { name: onLeadingTap, type: "VoidCallback?", required: false, description: "Back navigation callback" }
+  - { name: actions, type: "List<Widget>?", required: false, description: "Trailing action widgets (icon buttons, chips, etc.)" }
+  - { name: image, type: "Widget?", required: false, description: "Large variant only — 64px content area" }
+  - { name: subtitle, type: "String?", required: false, description: "Large variant only — secondary text line" }
+
+# ── Token mappings ──
+token_mappings:
+  # Spacing
+  - { element: "Leading padding (horizontal)", value: "4px", token: "AppSpacing.space4", confidence: exact }
+  - { element: "Top/bottom row padding", value: "8px", token: "AppSpacing.space8", confidence: exact }
+  - { element: "Expanded bottom padding", value: "12px", token: "AppSpacing.space12", confidence: exact }
+  - { element: "Content horizontal padding", value: "16px", token: "AppSpacing.space16", confidence: exact }
+  - { element: "Content area gap", value: "16px", token: "AppSpacing.space16", confidence: exact }
+  - { element: "Text block gap", value: "8px", token: "AppSpacing.space8", confidence: exact }
+  - { element: "Trailing padding (small)", value: "16px", token: "AppSpacing.space16", confidence: exact }
+
+  # Typography
+  - { element: "Small title / collapsed title", value: "22px/400", token: "textTheme.titleLarge", confidence: exact }
+  - { element: "Large expanded title", value: "36px/400", token: "textTheme.displaySmall", confidence: exact }
+  - { element: "Subtitle", value: "16px/500", token: "textTheme.titleMedium", confidence: exact }
+
+  # Colors
+  - { element: "Title text", value: "#1D1B20", token: "colorScheme.onSurface", confidence: nearest, note: "Figma M3 reference color; project uses #17262A. Mapped to semantic role." }
+  - { element: "Subtitle text", value: "#49454F", token: "colorScheme.onSurfaceVariant", confidence: nearest, note: "Figma M3 reference color; project uses #4A6572. Mapped to semantic role." }
+  - { element: "Background", value: "surface", token: "colorScheme.surface", confidence: exact }
+
+  # Sizing
+  - { element: "Icon button touch target", value: "48px", token: "AppSizing.iconContainerRegular", confidence: exact }
+  - { element: "Icon button visible", value: "40px", token: "AppSizing.iconContainerSmall", confidence: exact }
+  - { element: "Icon size", value: "24px", token: "AppSizing.iconRegular", confidence: exact }
+  - { element: "Image container", value: "64px", token: "AppSizing.iconContainerXLarge", confidence: exact }
+  - { element: "Small bar height", value: "56px", token: "AppSizing.iconContainerLarge", confidence: exact, note: "Standard M3 top app bar height" }
+
+  # Radii
+  - { element: "Icon button shape", value: "100px", token: "AppRadii.full", confidence: exact }
+  - { element: "Image container", value: "10.67px", token: "AppRadii.small (8px)", confidence: nearest, note: "Snapped from Figma 10.67px — non-standard value, likely auto-layout artifact" }
+
+  # Surface
+  - { element: "Scrolled-under elevation", value: "0", token: "Hardcoded 0", confidence: deliberate, note: "Flat surface, no elevation change on scroll" }

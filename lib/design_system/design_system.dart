@@ -23,6 +23,7 @@ export 'src/dropdown_chip.dart';
 export 'src/dropdown_sheet.dart';
 export 'src/score_header.dart';
 export 'src/tabs.dart';
+export 'src/top_app_bar.dart';
 
 // Theme
 export 'theme/color_is_expensive_theme.dart';

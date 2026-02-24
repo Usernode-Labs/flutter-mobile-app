@@ -1,0 +1,11 @@
+TopAppBar — Figma Reference Screenshots
+
+Small variant (standard M3 top app bar):
+  Node: 2994:2764
+  URL: https://www.figma.com/design/Eu4jn5o8finpZ28IAGPyru/Testnet-App?node-id=2994:2764
+  Content: Back arrow + "Leaderboard" title + trailing filter chip
+
+Large variant (expanded header):
+  Node: 2943:28629
+  URL: https://www.figma.com/design/Eu4jn5o8finpZ28IAGPyru/Testnet-App?node-id=2943:28629
+  Content: Back arrow + 64px hexagonal icon + "Produce Every Block" title + "Technical · Jan 12 - Jan 30" subtitle

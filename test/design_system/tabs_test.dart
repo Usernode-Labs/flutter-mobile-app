@@ -143,41 +143,35 @@ void main() {
       expect(callCount, equals(0));
     });
 
-    testWidgets('has correct tab bar height of 48', (tester) async {
+    testWidgets('renders M3 TabBar and TabBarView', (tester) async {
       await tester.pumpWidget(wrap(
         Tabs(tabs: testTabs, children: testChildren()),
       ));
 
-      // The SizedBox wrapping the tab bar should be 48dp
-      final sizedBoxes = tester.widgetList<SizedBox>(
-        find.descendant(
-          of: find.byType(Tabs),
-          matching: find.byType(SizedBox),
-        ),
-      );
-      final tabBarBox = sizedBoxes.firstWhere(
-        (sb) => sb.height == 48,
-        orElse: () => throw TestFailure('No SizedBox with height 48 found'),
-      );
-      expect(tabBarBox.height, equals(48));
+      expect(find.byType(TabBar), findsOneWidget);
+      expect(find.byType(TabBarView), findsOneWidget);
     });
 
-    testWidgets('has divider below tab bar', (tester) async {
+    testWidgets('has divider via TabBar by default', (tester) async {
       await tester.pumpWidget(wrap(
         Tabs(tabs: testTabs, children: testChildren()),
       ));
 
-      // Find the 1px divider container
-      final containers = tester.widgetList<Container>(
-        find.descendant(
-          of: find.byType(Tabs),
-          matching: find.byType(Container),
+      final tabBar = tester.widget<TabBar>(find.byType(TabBar));
+      expect(tabBar.dividerHeight, equals(1));
+    });
+
+    testWidgets('hides divider when showDivider is false', (tester) async {
+      await tester.pumpWidget(wrap(
+        Tabs(
+          tabs: testTabs,
+          showDivider: false,
+          children: testChildren(),
         ),
-      );
-      final divider = containers.where(
-        (c) => c.constraints?.maxHeight == 1 && c.constraints?.minHeight == 1,
-      );
-      expect(divider, isNotEmpty);
+      ));
+
+      final tabBar = tester.widget<TabBar>(find.byType(TabBar));
+      expect(tabBar.dividerHeight, equals(0));
     });
 
     testWidgets('renders in scrollable mode', (tester) async {
@@ -190,18 +184,17 @@ void main() {
       ));
 
       expect(find.text('Active'), findsOneWidget);
-      expect(find.byType(SingleChildScrollView), findsOneWidget);
+      final tabBar = tester.widget<TabBar>(find.byType(TabBar));
+      expect(tabBar.isScrollable, isTrue);
     });
 
-    testWidgets('fixed mode uses equal-width Expanded tabs', (tester) async {
+    testWidgets('fixed mode fills available width', (tester) async {
       await tester.pumpWidget(wrap(
         Tabs(tabs: testTabs, children: testChildren()),
       ));
 
-      // In fixed mode, we should not have SingleChildScrollView
-      expect(find.byType(SingleChildScrollView), findsNothing);
-      // But should have Expanded widgets for each tab
-      expect(find.byType(Expanded), findsWidgets);
+      final tabBar = tester.widget<TabBar>(find.byType(TabBar));
+      expect(tabBar.isScrollable, isFalse);
     });
 
     testWidgets('swipe changes tab', (tester) async {
@@ -216,7 +209,7 @@ void main() {
 
       // Swipe left to go to next tab
       await tester.fling(
-        find.byType(PageView),
+        find.byType(TabBarView),
         const Offset(-300, 0),
         1000,
       );

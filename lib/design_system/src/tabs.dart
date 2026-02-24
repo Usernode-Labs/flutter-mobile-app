@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../tokens/app_animation.dart';
-import '../tokens/app_radii.dart';
 import '../tokens/app_spacing.dart';
 
 /// Data class for a single tab definition.
@@ -20,21 +18,17 @@ class TabItem {
   final int? badgeCount;
 }
 
-/// A complete tab view built from primitives.
+/// A tab view backed by M3 [TabBar] (primary style) + [TabBarView].
 ///
-/// Combines a tab bar (labels, optional inline badges, a sliding active
-/// indicator, and a divider) with a swipeable [PageView] content area.
+/// Combines a primary tab bar (labels, optional inline badges, underline
+/// indicator, and divider) with a swipeable content area.
 ///
 /// Two layout modes controlled by [isScrollable]:
 /// - **Fixed** (default): equal-width tabs fill the bar.
 /// - **Scrollable**: natural-width tabs in a horizontal scroll view.
 ///
 /// Manages selection state internally and notifies the parent via
-/// [onTabChanged]. The indicator slides smoothly between tabs on both
-/// tap and swipe — driven by the [PageView] scroll position.
-///
-/// Built bottom-up from [GestureDetector], [Container], [Row], [Text],
-/// and [PageView].
+/// [onTabChanged].
 class Tabs extends StatefulWidget {
   /// Creates a tab view with the given [tabs] and [children].
   ///
@@ -46,6 +40,7 @@ class Tabs extends StatefulWidget {
     this.initialIndex = 0,
     this.onTabChanged,
     this.isScrollable = false,
+    this.showDivider = true,
   }) : assert(
           tabs.length == children.length,
           'tabs and children must have the same length',
@@ -67,86 +62,68 @@ class Tabs extends StatefulWidget {
   /// When false (default), tabs have equal width filling the bar.
   final bool isScrollable;
 
+  /// Whether to show the divider line below the tab bar.
+  /// Defaults to true.
+  final bool showDivider;
+
   @override
   State<Tabs> createState() => _TabsState();
 }
 
-class _TabsState extends State<Tabs> {
-  late int _selectedIndex;
-  late PageController _pageController;
-  double _pagePosition = 0;
-  bool _indexIsChanging = false;
+class _TabsState extends State<Tabs> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
-    _selectedIndex = widget.initialIndex;
-    _pageController = PageController(initialPage: _selectedIndex);
-    _pagePosition = _selectedIndex.toDouble();
-    _pageController.addListener(_onPageScroll);
+    _tabController = TabController(
+      length: widget.tabs.length,
+      vsync: this,
+      initialIndex: widget.initialIndex,
+    );
+    _tabController.addListener(_onTabChanged);
   }
 
   @override
   void dispose() {
-    _pageController.removeListener(_onPageScroll);
-    _pageController.dispose();
+    _tabController.removeListener(_onTabChanged);
+    _tabController.dispose();
     super.dispose();
   }
 
-  void _onPageScroll() {
-    if (_pageController.hasClients && _pageController.page != null) {
-      setState(() {
-        _pagePosition = _pageController.page!;
-        // M3 pattern: don't override _selectedIndex during tap animation.
-        if (!_indexIsChanging) {
-          _selectedIndex = _pagePosition.round();
-        }
-      });
-    }
-  }
-
-  void _onTabTapped(int index) {
-    if (index == _selectedIndex) return;
-    setState(() {
-      _selectedIndex = index;
-      _indexIsChanging = true;
-    });
-    final animation = Theme.of(context).extension<AppAnimation>()!;
-    _pageController
-        .animateToPage(
-          index,
-          duration: animation.complex,
-          curve: Curves.easeInOut,
-        )
-        .then((_) => _indexIsChanging = false);
-  }
-
-  void _onPageChanged(int index) {
-    _indexIsChanging = false;
-    setState(() {
-      _selectedIndex = index;
-    });
-    widget.onTabChanged?.call(index);
+  void _onTabChanged() {
+    if (_tabController.indexIsChanging) return;
+    widget.onTabChanged?.call(_tabController.index);
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SizedBox(
-          height: 48, // M3 kTextTabBarHeight
-          child: widget.isScrollable
-              ? _buildScrollableTabBar()
-              : _buildFixedTabBar(),
+        TabBar(
+          controller: _tabController,
+          isScrollable: widget.isScrollable,
+          tabAlignment: widget.isScrollable ? TabAlignment.start : null,
+          labelColor: colors.onSurface,
+          unselectedLabelColor: colors.outline,
+          labelStyle: textTheme.titleSmall,
+          unselectedLabelStyle: textTheme.titleSmall,
+          indicatorColor: colors.primary,
+          indicatorWeight: 3,
+          dividerColor:
+              widget.showDivider ? colors.outlineVariant : Colors.transparent,
+          dividerHeight: widget.showDivider ? 1 : 0,
+          tabs: [
+            for (int i = 0; i < widget.tabs.length; i++) _buildTab(i),
+          ],
         ),
-        Container(height: 1, color: colors.outlineVariant),
         Expanded(
-          child: PageView(
-            controller: _pageController,
-            onPageChanged: _onPageChanged,
+          child: TabBarView(
+            controller: _tabController,
             children: widget.children,
           ),
         ),
@@ -154,150 +131,53 @@ class _TabsState extends State<Tabs> {
     );
   }
 
-  // ── Fixed tab bar ──
+  Widget _buildTab(int index) {
+    final tab = widget.tabs[index];
+    final hasBadge = tab.badgeCount != null && tab.badgeCount! > 0;
 
-  Widget _buildFixedTabBar() {
-    final colors = Theme.of(context).colorScheme;
-    final radii = Theme.of(context).extension<AppRadii>()!;
+    if (!hasBadge) return Tab(text: tab.label);
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final tabWidth = constraints.maxWidth / widget.tabs.length;
+    return Tab(
+      child: ListenableBuilder(
+        listenable: _tabController,
+        builder: (context, _) {
+          final colors = Theme.of(context).colorScheme;
+          final textTheme = Theme.of(context).textTheme;
+          final spacing = Theme.of(context).extension<AppSpacing>()!;
+          final isActive = _tabController.index == index;
 
-        return Stack(
-          children: [
-            Row(
-              children: [
-                for (int i = 0; i < widget.tabs.length; i++)
-                  Expanded(child: _buildTabLabel(i)),
-              ],
-            ),
-            Positioned(
-              bottom: 0,
-              left: _pagePosition * tabWidth + 2, // 2px Figma inset
-              width: tabWidth - 4,
-              height: 3, // M3 indicator weight
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: colors.primary,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(radii.full),
-                    topRight: Radius.circular(radii.full),
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text(
+                  tab.label,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ),
+              SizedBox(width: spacing.space4),
+              Container(
+                height: 16,
+                constraints: const BoxConstraints(minWidth: 16),
+                padding: EdgeInsets.symmetric(horizontal: spacing.space4),
+                decoration: ShapeDecoration(
+                  color: isActive ? colors.onSurface : colors.outline,
+                  shape: const StadiumBorder(),
+                ),
+                child: Center(
+                  child: Text(
+                    '${tab.badgeCount}',
+                    style: textTheme.labelSmall?.copyWith(
+                      color: colors.surface,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  // ── Scrollable tab bar ──
-
-  Widget _buildScrollableTabBar() {
-    final colors = Theme.of(context).colorScheme;
-    final radii = Theme.of(context).extension<AppRadii>()!;
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          for (int i = 0; i < widget.tabs.length; i++)
-            GestureDetector(
-              onTap: () => _onTabTapped(i),
-              behavior: HitTestBehavior.opaque,
-              child: SizedBox(
-                height: 48,
-                child: Stack(
-                  alignment: Alignment.bottomCenter,
-                  children: [
-                    Center(
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: spacing.space16,
-                        ),
-                        child: _buildLabelRow(i),
-                      ),
-                    ),
-                    if (_selectedIndex == i)
-                      Positioned(
-                        bottom: 0,
-                        left: 2,
-                        right: 2,
-                        height: 3,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: colors.primary,
-                            borderRadius: BorderRadius.only(
-                              topLeft: Radius.circular(radii.full),
-                              topRight: Radius.circular(radii.full),
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-        ],
+            ],
+          );
+        },
       ),
-    );
-  }
-
-  // ── Shared builders ──
-
-  Widget _buildTabLabel(int index) {
-    return GestureDetector(
-      onTap: () => _onTabTapped(index),
-      behavior: HitTestBehavior.opaque,
-      child: Center(child: _buildLabelRow(index)),
-    );
-  }
-
-  Widget _buildLabelRow(int index) {
-    final tab = widget.tabs[index];
-    final colors = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
-    final isActive = _selectedIndex == index;
-    final hasBadge = tab.badgeCount != null && tab.badgeCount! > 0;
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Flexible(
-          child: Text(
-            tab.label,
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1,
-            style: textTheme.titleSmall?.copyWith(
-              color: isActive ? colors.onSurface : colors.outline,
-            ),
-          ),
-        ),
-        if (hasBadge) ...[
-          SizedBox(width: spacing.space4),
-          Container(
-            height: 16, // M3 badge largeSize
-            constraints: const BoxConstraints(minWidth: 16),
-            padding: EdgeInsets.symmetric(horizontal: spacing.space4),
-            decoration: ShapeDecoration(
-              color: isActive ? colors.onSurface : colors.outline,
-              shape: const StadiumBorder(),
-            ),
-            child: Center(
-              child: Text(
-                '${tab.badgeCount}',
-                style: textTheme.labelSmall?.copyWith(
-                  color: colors.surface,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ],
     );
   }
 }

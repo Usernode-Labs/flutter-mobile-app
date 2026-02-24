@@ -22,6 +22,11 @@ WidgetbookComponent tabsComponent() {
             max: 6,
           );
 
+          final showDivider = context.knobs.boolean(
+            label: 'Show divider',
+            initialValue: true,
+          );
+
           final showBadges = context.knobs.boolean(
             label: 'Show badges',
             initialValue: true,
@@ -60,6 +65,7 @@ WidgetbookComponent tabsComponent() {
             child: Tabs(
               tabs: tabs,
               isScrollable: isScrollable,
+              showDivider: showDivider,
               children: children,
             ),
           );

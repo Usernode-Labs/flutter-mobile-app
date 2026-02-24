@@ -4,20 +4,37 @@ import '../tokens/app_radii.dart';
 import '../tokens/app_sizing.dart';
 import '../tokens/app_spacing.dart';
 
+/// Button size — controls height.
+enum ButtonSize {
+  /// 40px height.
+  small,
+
+  /// 48px height (default).
+  regular,
+}
+
+/// Button visual variant.
+enum ButtonVariant {
+  /// Soft tonal fill (`secondaryContainer`) with no border (default).
+  tonal,
+
+  /// White fill with `outlineVariant` border, pill shape.
+  outlined,
+}
+
 /// A design system button built from Flutter primitives.
 ///
-/// Currently supports a secondary (tonal) style — soft background with
-/// contrasting text in a pill shape. Additional variants will be added
-/// as Figma designs demand them.
+/// Supports two sizes ([ButtonSize]) and two variants ([ButtonVariant]).
 ///
 /// Built bottom-up: [GestureDetector] + [Container] + [Text].
-/// No Material Button classes.
 class Button extends StatelessWidget {
   const Button({
     super.key,
     required this.label,
     this.onTap,
     this.leadingIcon,
+    this.size = ButtonSize.regular,
+    this.variant = ButtonVariant.tonal,
   });
 
   /// The button label text.
@@ -29,6 +46,12 @@ class Button extends StatelessWidget {
   /// Optional widget displayed before the label.
   final Widget? leadingIcon;
 
+  /// Button height. Defaults to [ButtonSize.regular] (48px).
+  final ButtonSize size;
+
+  /// Visual variant. Defaults to [ButtonVariant.tonal].
+  final ButtonVariant variant;
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
@@ -37,13 +60,25 @@ class Button extends StatelessWidget {
     final sizing = Theme.of(context).extension<AppSizing>()!;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
 
+    final height = size == ButtonSize.small
+        ? sizing.buttonHeightSmall
+        : sizing.buttonHeightRegular;
+
+    final isOutlined = variant == ButtonVariant.outlined;
+
+    final fillColor =
+        isOutlined ? colors.surfaceContainerLowest : colors.secondaryContainer;
+    final contentColor =
+        isOutlined ? colors.onSurface : colors.onSecondaryContainer;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: sizing.buttonHeightRegular,
+        height: height,
         padding: EdgeInsets.symmetric(horizontal: spacing.space16),
         decoration: BoxDecoration(
-          color: colors.secondaryContainer,
+          color: fillColor,
+          border: isOutlined ? Border.all(color: colors.outlineVariant) : null,
           borderRadius: radii.borderRadiusFull,
         ),
         child: Row(
@@ -57,7 +92,7 @@ class Button extends StatelessWidget {
             Text(
               label,
               style: textTheme.labelLarge?.copyWith(
-                color: colors.onSecondaryContainer,
+                color: contentColor,
               ),
             ),
           ],

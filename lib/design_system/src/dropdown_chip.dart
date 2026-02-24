@@ -11,7 +11,6 @@ import '../tokens/app_spacing.dart';
 /// state and passes the current label.
 ///
 /// Built bottom-up: [GestureDetector] + [Container] + [Row] + [Text] + [Icon].
-/// No Material Chip classes.
 class DropdownChip extends StatelessWidget {
   const DropdownChip({
     super.key,
@@ -32,8 +31,8 @@ class DropdownChip extends StatelessWidget {
   /// When false, the chip shrink-wraps to its content.
   final bool expanded;
 
-  /// When true, the chip uses `secondaryContainer` fill and
-  /// `onSecondaryContainer` text/icon color to indicate active selection.
+  /// When true, the chip uses `surfaceContainerLowest` (white) fill with no
+  /// border. When false, the chip is outlined with no fill.
   final bool selected;
 
   /// When false, the chip is visually dimmed via [AppOpacity.disabled] and
@@ -47,8 +46,7 @@ class DropdownChip extends StatelessWidget {
     final radii = Theme.of(context).extension<AppRadii>()!;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
 
-    final contentColor =
-        selected ? colors.onSecondaryContainer : colors.onSurfaceVariant;
+    final contentColor = selected ? colors.onSurface : colors.onSurfaceVariant;
 
     Widget chip = GestureDetector(
       onTap: enabled ? onTap : null,
@@ -59,8 +57,8 @@ class DropdownChip extends StatelessWidget {
           right: spacing.space8,
         ),
         decoration: BoxDecoration(
-          color: selected ? colors.secondaryContainer : null,
-          border: Border.all(color: colors.outlineVariant),
+          color: selected ? colors.surfaceContainerLowest : null,
+          border: selected ? null : Border.all(color: colors.outlineVariant),
           borderRadius: radii.borderRadiusSmall,
         ),
         child: Row(

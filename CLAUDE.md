@@ -22,9 +22,8 @@ flutter test
 
 All new design system work lives in `lib/design_system/`. Existing code is untouched.
 
-- **New widgets**: Use Flutter core primitives (Container, Padding, Row, Column, GestureDetector, AnimatedContainer, CustomPaint, etc.)
-- **Not allowed in new widgets**: Material widgets (ElevatedButton, Card, ListTile, etc.) or Cupertino widgets
-- **Exceptions**: `Text`, `Icon`, `InkWell`, `DefaultTextStyle` are allowed. Composing existing `lib/core/widgets/` (AppButton, AppCard, etc.) is allowed.
+- **New widgets**: Prefer M3 Material components for native style, accessibility, and consistency. When M3 doesn't cover the need, build from core primitives with M3 alignment in mind.
+- **Composing existing `lib/core/widgets/`** (AppButton, AppCard, etc.) is allowed.
 - **Tokens**: Access via `Theme.of(context).extension<T>()!` (e.g., `AppSpacing`, `AppRadii`, `AppElevation`)
 - **Colors**: `Theme.of(context).colorScheme`
 - **Typography**: `Theme.of(context).textTheme`

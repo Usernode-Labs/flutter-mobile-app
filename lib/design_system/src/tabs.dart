@@ -34,7 +34,7 @@ class TabItem {
 /// tap and swipe — driven by the [PageView] scroll position.
 ///
 /// Built bottom-up from [GestureDetector], [Container], [Row], [Text],
-/// and [PageView]. No Material Tab classes.
+/// and [PageView].
 class Tabs extends StatefulWidget {
   /// Creates a tab view with the given [tabs] and [children].
   ///

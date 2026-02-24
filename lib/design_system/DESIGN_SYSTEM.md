@@ -11,16 +11,16 @@ This document grows from real widget creation sessions. Rules are added when age
 - **Figma = inspiration.** A useful reference, not a spec to match. Figma screenshots are kept for context, not compliance.
 - **Every deviation is a decision.** When the implementation differs from the inspiration, that's not drift — it's a choice. The genesis file documents the reasoning.
 
-## Bottom-Up from Primitives
+## M3 Components First
 
-The design system names widgets in its own vocabulary, not Material Design's. We build bottom-up from Flutter core primitives (`GestureDetector`, `Container`, `Text`, etc.) and start with the simplest variant needed. Additional styles and variants are added as Figma designs demand them — not speculatively.
-
-Example: `Button` (not `FilledButton`, `ElevatedButton`, `OutlinedButton`) starts with one secondary/tonal style because that's what ScoreHeader needs. More styles arrive when real designs require them.
+Prefer Material 3 components for native behaviour, accessibility, and platform consistency.
+When M3 does not cover the need, build from Flutter core primitives with M3 alignment in mind.
+The design system names widgets in its own vocabulary and starts with the simplest variant needed.
+Additional styles and variants are added as Figma designs demand them — not speculatively.
 
 ## Core Constraints
 
-- New widgets use Flutter core primitives (no Material/Cupertino widgets)
-- Exceptions: `Text`, `Icon`, `InkWell`, `DefaultTextStyle`, composing existing `lib/core/widgets/`
+- Prefer M3 Material components; build from core primitives only when M3 doesn't cover the need
 - Tokens via `Theme.of(context).extension<T>()!`
 - Colors via `Theme.of(context).colorScheme`
 - Typography via `Theme.of(context).textTheme`
@@ -147,6 +147,45 @@ The light theme uses a grey-scaffold / white-content layering model derived from
 | Card on sheet | `surfaceContainerLowest` + `outlineVariant` border | `#FFFFFF` + `#C4C6CC` | Distinct card via border, not elevation |
 | Nav bar | `surfaceContainerLowest` | `#FFFFFF` | White bottom bar |
 
+### M3 Deviation: Two-Tier vs Tonal Gradient
+
+M3's standard model spreads components across a gradient of surface container levels (`surfaceContainerLowest` → `surfaceContainerHighest`) to create tonal hierarchy through subtle lightness differences. Our model **collapses this to two tiers**: grey scaffold and white content. This is a deliberate simplification — the grey/white contrast is stronger and clearer than M3's subtle tonal shifts.
+
+**What we change from M3 defaults:**
+
+| Component | M3 Default | Our Override | Why |
+|-----------|-----------|--------------|-----|
+| `surface` itself | near-white (~T99) | grey T96 (`#F5F5F5`) | Foundation: visible grey scaffold enables white-on-grey layering |
+| NavigationBar | `surfaceContainer` | `surfaceContainerLowest` + elevation 0 | White nav bar on grey page (2 levels lower than M3) |
+| BottomSheet | `surfaceContainerLow` | `surfaceContainerLowest` | White sheet on grey page (1 level lower) |
+| Card | `surfaceContainerLow` + elevation 1 | `surfaceContainerLowest` + `outlineVariant` border, elevation 0 | Border replaces tonal elevation |
+| Dialog | `surface` + elevation 3 | `surfaceContainerLowest` + elevation 0 | Explicit white, flat (scrim provides separation) |
+| Drawer | `surfaceContainerLow` | `surfaceContainerLowest` | White panel (1 level lower) |
+| AppBar | `surface` + `scrolledUnderElevation: 3` | `surface` + `scrolledUnderElevation: 0` | Kill scroll-tint that would shift grey on scroll |
+
+**What stays M3 default (no override needed):**
+
+| Component | M3 Default | Why it's already correct |
+|-----------|-----------|------------------------|
+| Scaffold | `surface` | Grey T96 — exactly what we want |
+| Divider | `outlineVariant` | Correct structural separator |
+| SnackBar | `inverseSurface` | Dark-on-light for max contrast — correct |
+| TabBar | transparent (inherits) | Takes parent surface — correct |
+| ListTile / ExpansionTile | transparent | Inherits container — correct |
+| FilledTonalButton | `secondaryContainer` | Achromatic tonal — correct |
+| Switch / Checkbox / Radio | `primary`-based | Achromatic primary — correct |
+| ProgressIndicator | `primary` | Correct |
+
+### Decision Principle for New Components
+
+When adding a new M3 component theme, classify it:
+
+1. **Scaffold-level** → `surface` (grey): The component IS the page background (Scaffold, canvas, AppBar)
+2. **Content-level** → `surfaceContainerLowest` (white): The component sits ON the scaffold as a distinct surface (NavigationBar, BottomSheet, Card, Dialog, Drawer)
+3. **Inherit parent** → no background override: The component lives INSIDE a surface (ListTile, ExpansionTile, menus)
+4. **Inverse** → M3 default: Transient overlays needing max contrast (SnackBar, Tooltip)
+5. **Separation** → `outlineVariant` border, not elevation: Cards on white sheets are distinguished by border. Elevation is zero for content surfaces.
+
 Dark mode keeps `surface` at `#1B1B1B` — no Figma dark reference justifies a shift. The grey-scaffold pattern is light-mode only.
 <!-- SURFACE_ARCHITECTURE_END -->
 
@@ -189,8 +228,7 @@ Quality gate. Uses Dart MCP tools (`dart_format`, `analyze_files`, `run_tests`) 
 2. `flutter analyze` passes (via `analyze_files` MCP)
 3. Tests pass (via `run_tests` MCP)
 4. No hardcoded values (all from tokens)
-5. No banned Material/Cupertino widgets
-6. Exported from barrel file
+5. Exported from barrel file
 7. Genesis document exists with Inspiration and Design Decisions sections
 8. Widget Catalog entry exists in this file
 9. Widgetbook visual review — launches Widgetbook for human sign-off as the final gate
@@ -223,7 +261,7 @@ When the entire app needs a different typographic feel, refactor the `TextTheme`
 - **ChallengeCard animation loop seam**: Removed `CurvedAnimation(Curves.easeInOut)` from the ongoing border animation. `easeInOut` has zero velocity at both endpoints, causing a visible stall when the repeating controller wraps. Linear rotation is seamless; asymmetric gradient shape provides organic character. For looping animations, prefer linear or a custom curve with matching endpoint derivatives (C1 continuity). (2026-02-23)
 - **ScoreHeader score monospace**: `displaySmall.copyWith(fontFamily: 'monospace')` — Figma uses IBM Plex Mono which isn't in the project. This is a functional `copyWith` for tabular number alignment, not a decorative override. System monospace is acceptable. (2026-02-23)
 - **ScoreHeader countdown bold**: `labelSmall.copyWith(fontWeight: FontWeight.w700)` for the countdown time value. Deliberate deviation from "no copyWith" principle — the time is actionable data needing visual separation from the "ENDS IN" label. Weight contrast serves information hierarchy. (2026-02-23)
-- **Bottom-up widget naming**: Design system names widgets in its own vocabulary (e.g., `Button`, not `FilledButton`). Start with the simplest needed variant; add more as Figma designs demand them. (2026-02-23)
+- **M3 components preferred**: Shifted from primitives-only to M3-first approach. Use native Material 3 components for accessibility and consistency; build from primitives only when M3 doesn't cover the need. (2026-02-24)
 - **Achromatic secondary & tertiary**: Moved secondary to neutral-variant palette and tertiary to pure neutral palette. All chromatic color now lives exclusively in `AppSemanticColors`. M3 structural roles render grey — a developer must consciously reach for a semantic extension to introduce hue. (2026-02-23)
 - **Ghost tertiary**: Pushed tertiary further into near-invisibility. Standard contrast: main color barely clears APCA Lc 60, container ~ΔY 6 from surface. Medium contrast partially compensates; high contrast fully restores normal M3 levels. This makes `colorScheme.tertiary*` a trap role that forces use of `AppSemanticColors` for visible emphasis. (2026-02-23)
 - **Surface shifted to T96 for grey scaffold**: Moved light `surface` from `#FCFCFC` (T99, near-white) to `#F5F5F5` (T96, visible grey) so M3's default `scaffoldBackgroundColor = surface` produces the grey page background shown in Figma. Cards and content sheets use `surfaceContainerLowest` (`#FFFFFF`) for white fills. Dark mode unchanged. (2026-02-23)
@@ -235,9 +273,9 @@ When the entire app needs a different typographic feel, refactor the `TextTheme`
 |--------|--------|---------|
 | `ChallengeCard` | [Figma (list)](https://figma.com/design/rsh9wLMKsMnFPOEBkHJUvg/?node-id=2943:19310), [Figma (ongoing)](https://figma.com/design/rsh9wLMKsMnFPOEBkHJUvg/?node-id=3012:2402) | [genesis](.specs/ChallengeCard.genesis.md) |
 | `ChallengeCategoryIcon` | [Figma](https://figma.com/design/rsh9wLMKsMnFPOEBkHJUvg/?node-id=3012:2775) | [genesis](.specs/ChallengeCategoryIcon.genesis.md) |
-| `Button` | — (built bottom-up from primitives) | [genesis](.specs/ScoreHeader.genesis.md) |
+| `Button` | — | [genesis](.specs/ScoreHeader.genesis.md) |
 | `DropdownChain` | [Figma](https://figma.com/design/Eu4jn5o8finpZ28IAGPyru/?node-id=2994:2860) | [genesis](.specs/DropdownChain.genesis.md) |
 | `DropdownChip` | [Figma](https://figma.com/design/Eu4jn5o8finpZ28IAGPyru/?node-id=2994:2860) | [genesis](.specs/DropdownChip.genesis.md) |
-| `DropdownSheet` | — (built bottom-up from primitives) | [genesis](.specs/DropdownSheet.genesis.md) |
+| `DropdownSheet` | — | [genesis](.specs/DropdownSheet.genesis.md) |
 | `ScoreHeader` | [Figma (default)](https://figma.com/design/Eu4jn5o8finpZ28IAGPyru/?node-id=2994:2193), [Figma (glow)](https://figma.com/design/Eu4jn5o8finpZ28IAGPyru/?node-id=2994:3259) | [genesis](.specs/ScoreHeader.genesis.md) |
 | `Tabs` | [Figma](https://figma.com/design/Eu4jn5o8finpZ28IAGPyru/?node-id=3012:2400) | [genesis](.specs/Tabs.genesis.md) |

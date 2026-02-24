@@ -6,22 +6,13 @@ Read a `.spec.yaml` file from this directory and produce a complete design syste
 
 ## Design System Constraints
 
-### Allowed primitives
-Use only Flutter core primitives for layout and styling:
-- Layout: `Container`, `Padding`, `Row`, `Column`, `Stack`, `Wrap`, `SizedBox`, `Expanded`, `Flexible`, `Spacer`, `Align`, `Center`, `AspectRatio`, `FractionallySizedBox`, `ConstrainedBox`, `IntrinsicHeight`, `IntrinsicWidth`
-- Interaction: `GestureDetector`, `InkWell`
-- Animation: `AnimatedContainer`, `AnimatedOpacity`, `AnimatedSwitcher`, `AnimatedCrossFade`
-- Painting: `CustomPaint`, `DecoratedBox`, `ClipRRect`, `ClipOval`, `Opacity`
-- Scrolling: `SingleChildScrollView`, `ListView.builder`
-
-### Banned widgets
-Never use Material or Cupertino widgets in new design system code:
-- Banned: `ElevatedButton`, `TextButton`, `OutlinedButton`, `IconButton`, `FloatingActionButton`, `Card`, `ListTile`, `Scaffold`, `AppBar`, `BottomNavigationBar`, `Drawer`, `Dialog`, `SnackBar`, `Chip`, `Switch`, `Checkbox`, `Radio`, `Slider`, `TabBar`, `NavigationBar`, `NavigationRail`, `DropdownButton`, `PopupMenuButton`, `ExpansionTile`, `DataTable`, `CupertinoButton`, `CupertinoNavigationBar`, `CupertinoSwitch`
-
-### Exceptions
-These are allowed in new widgets:
-- `Text`, `Icon`, `InkWell`, `DefaultTextStyle`
-- Composing existing widgets from `lib/core/widgets/` (e.g., `AppButton`, `AppCard`)
+### Widget approach
+Prefer M3 Material components for native behaviour, accessibility, and platform consistency.
+When M3 does not cover the need, build from Flutter core primitives:
+- Layout: Container, Padding, Row, Column, Stack, ...
+- Interaction: GestureDetector, InkWell
+- Animation: AnimatedContainer, AnimatedOpacity, ...
+- Painting: CustomPaint, DecoratedBox, ClipRRect, ...
 
 ### Presentation-only rule
 Widgets are data-in, pixels-out:
@@ -208,8 +199,7 @@ Before finishing:
 2. Run `flutter analyze` — no issues in new files
 3. Run `flutter test test/design_system/foo_bar_test.dart` — passes
 4. No hardcoded color, spacing, radius, elevation, opacity, or sizing values
-5. No banned Material/Cupertino widgets
-6. Widget is exported from barrel file
+5. Widget is exported from barrel file
 
 ## Mapping Notes
 

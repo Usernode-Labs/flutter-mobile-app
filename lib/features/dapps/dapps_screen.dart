@@ -358,6 +358,9 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
     final confirmed = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.75,
+      ),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -400,6 +403,42 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
           }
         }
 
+        final memoBox = formattedMemo.isEmpty
+            ? const SizedBox.shrink()
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Divider(height: 1),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text('Memo',
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: muted)),
+                  ),
+                  const SizedBox(height: 4),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 150),
+                    child: Scrollbar(
+                      thumbVisibility: true,
+                      child: SingleChildScrollView(
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: Text(
+                            formattedMemo,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontFamily: 'monospace',
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
@@ -425,28 +464,30 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
                 Text('A dapp is requesting to send a transaction.',
                     style: TextStyle(color: muted, fontSize: 13)),
                 const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest
-                        .withAlpha(100),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                        color: theme.colorScheme.outlineVariant.withAlpha(80)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      detailRow('From', from, mono: true),
-                      const Divider(height: 1),
-                      detailRow('To', to, mono: true),
-                      const Divider(height: 1),
-                      detailRow('Amount', amount.toString()),
-                      if (formattedMemo.isNotEmpty) ...[
-                        const Divider(height: 1),
-                        detailRow('Memo', formattedMemo, mono: true),
-                      ],
-                    ],
+                Flexible(
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceContainerHighest
+                          .withAlpha(100),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                          color:
+                              theme.colorScheme.outlineVariant.withAlpha(80)),
+                    ),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          detailRow('From', from, mono: true),
+                          const Divider(height: 1),
+                          detailRow('To', to, mono: true),
+                          const Divider(height: 1),
+                          detailRow('Amount', amount.toString()),
+                          memoBox,
+                        ],
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 20),

@@ -139,6 +139,22 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
                 return;
               }
 
+              final userConfirmed = await _showTransactionConfirmation(
+                from: fromAddress,
+                to: destinationPubkey,
+                amount: amount,
+                memo: memoString,
+              );
+
+              if (!userConfirmed) {
+                await _resolveJsPromise(
+                  id: id,
+                  value: null,
+                  error: 'User denied the transaction',
+                );
+                return;
+              }
+
               final fromPkHash =
                   frb_types.publicKeyHashFromString(s: fromAddress);
               final toPkHash =
@@ -327,6 +343,144 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
     if (memoRaw is String) return memoRaw.trim();
     if (memoRaw == null) return '';
     return null;
+  }
+
+  /// Shows a modal bottom sheet with transaction details and returns true if
+  /// the user taps Confirm, false if they tap Deny or dismiss the sheet.
+  Future<bool> _showTransactionConfirmation({
+    required String from,
+    required String to,
+    required BigInt amount,
+    required String memo,
+  }) async {
+    if (!mounted) return false;
+
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        final theme = Theme.of(ctx);
+        final muted = theme.colorScheme.onSurfaceVariant;
+
+        Widget detailRow(String label, String value, {bool mono = false}) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: muted)),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontFamily: mono ? 'monospace' : null,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        String formattedMemo = memo;
+        if (memo.isNotEmpty) {
+          try {
+            final parsed = jsonDecode(memo);
+            const encoder = JsonEncoder.withIndent('  ');
+            formattedMemo = encoder.convert(parsed);
+          } catch (_) {
+            // Not valid JSON — show raw string.
+          }
+        }
+
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.outlineVariant,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text('Confirm Transaction',
+                    style: theme.textTheme.titleLarge
+                        ?.copyWith(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text('A dapp is requesting to send a transaction.',
+                    style: TextStyle(color: muted, fontSize: 13)),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest
+                        .withAlpha(100),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                        color: theme.colorScheme.outlineVariant.withAlpha(80)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      detailRow('From', from, mono: true),
+                      const Divider(height: 1),
+                      detailRow('To', to, mono: true),
+                      const Divider(height: 1),
+                      detailRow('Amount', amount.toString()),
+                      if (formattedMemo.isNotEmpty) ...[
+                        const Divider(height: 1),
+                        detailRow('Memo', formattedMemo, mono: true),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        child: const Text('Deny'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        child: const Text('Confirm'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    return confirmed ?? false;
   }
 
   Future<void> _syncNavState() async {

@@ -39,6 +39,9 @@ class ScoreHeader extends StatelessWidget {
     this.onCtaTap,
     this.variant = ScoreHeaderVariant.standard,
     this.glowIntensity = 1.0,
+    this.technicalGlowIntensity,
+    this.flashGlowIntensity,
+    this.communityGlowIntensity,
   });
 
   /// The score value displayed prominently, e.g. "8,000".
@@ -75,6 +78,13 @@ class ScoreHeader extends StatelessWidget {
   /// [ScoreHeaderVariant.glow]. Defaults to 1.0.
   final double glowIntensity;
 
+  /// Per-lobe intensity overrides (0.0–1.0). When non-null and > 0,
+  /// the glow painter renders even in [ScoreHeaderVariant.standard],
+  /// enabling transient glow effects like pull-to-refresh heartbeats.
+  final double? technicalGlowIntensity;
+  final double? flashGlowIntensity;
+  final double? communityGlowIntensity;
+
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
@@ -91,6 +101,9 @@ class ScoreHeader extends StatelessWidget {
           progressColor: progressColor,
           variant: variant,
           glowIntensity: glowIntensity,
+          technicalGlowIntensity: technicalGlowIntensity,
+          flashGlowIntensity: flashGlowIntensity,
+          communityGlowIntensity: communityGlowIntensity,
         ),
         if (countdownTime != null || ctaLabel != null)
           SizedBox(height: spacing.space16),
@@ -127,6 +140,9 @@ class _ScoreCircle extends StatelessWidget {
     this.progressColor,
     required this.variant,
     required this.glowIntensity,
+    this.technicalGlowIntensity,
+    this.flashGlowIntensity,
+    this.communityGlowIntensity,
   });
 
   final String score;
@@ -136,6 +152,9 @@ class _ScoreCircle extends StatelessWidget {
   final Color? progressColor;
   final ScoreHeaderVariant variant;
   final double glowIntensity;
+  final double? technicalGlowIntensity;
+  final double? flashGlowIntensity;
+  final double? communityGlowIntensity;
 
   @override
   Widget build(BuildContext context) {
@@ -198,14 +217,23 @@ class _ScoreCircle extends StatelessWidget {
       ),
     );
 
-    if (isGlow) {
+    // Render glow when variant is glow OR when any per-lobe override is active.
+    final hasPerLobe =
+        (technicalGlowIntensity != null && technicalGlowIntensity! > 0) ||
+            (flashGlowIntensity != null && flashGlowIntensity! > 0) ||
+            (communityGlowIntensity != null && communityGlowIntensity! > 0);
+
+    if (isGlow || hasPerLobe) {
       final semantic = Theme.of(context).extension<AppSemanticColors>()!;
       return CustomPaint(
         painter: _GlowPainter(
           communityColor: _neonify(semantic.community.color),
           flashColor: _neonify(semantic.flash.color),
           technicalColor: _neonify(semantic.technical.color),
-          intensity: glowIntensity.clamp(0.0, 1.0),
+          intensity: isGlow ? glowIntensity.clamp(0.0, 1.0) : 0.0,
+          technicalIntensity: technicalGlowIntensity,
+          flashIntensity: flashGlowIntensity,
+          communityIntensity: communityGlowIntensity,
         ),
         isComplex: true,
         child: circle,
@@ -290,6 +318,9 @@ class _GlowPainter extends CustomPainter {
     required this.flashColor,
     required this.technicalColor,
     required this.intensity,
+    this.technicalIntensity,
+    this.flashIntensity,
+    this.communityIntensity,
   });
 
   final Color communityColor;
@@ -299,57 +330,61 @@ class _GlowPainter extends CustomPainter {
   /// 0.0 = no glow, 1.0 = full glow. Scales both alpha and radius.
   final double intensity;
 
+  /// Per-lobe intensity overrides. Null = use [intensity].
+  final double? technicalIntensity;
+  final double? flashIntensity;
+  final double? communityIntensity;
+
   @override
   void paint(Canvas canvas, Size size) {
-    if (intensity <= 0) return;
+    final techI = (technicalIntensity ?? intensity).clamp(0.0, 1.0);
+    final flashI = (flashIntensity ?? intensity).clamp(0.0, 1.0);
+    final commI = (communityIntensity ?? intensity).clamp(0.0, 1.0);
+    final maxI = math.max(techI, math.max(flashI, commI));
+
+    if (maxI <= 0) return;
 
     final center = Offset(size.width / 2, size.height / 2);
 
     // Oversized bounds so radial gradients can extend beyond the child widget.
     final layerBounds = Rect.fromCenter(
       center: center,
-      width: size.width + 600 * intensity,
-      height: size.height + 600 * intensity,
+      width: size.width + 600 * maxI,
+      height: size.height + 600 * maxI,
     );
 
     canvas.saveLayer(layerBounds, Paint());
 
     // -- Layer 0: Sweep gradient base (angular continuity) --
     // Cycles green→amber→blue→green with dwell zones for organic mesh feel.
-    final sweepAlpha = 0.45 * intensity;
-    final sweepRadius = 300 * intensity;
+    // Each color zone uses its own per-lobe alpha.
+    final flashSweepAlpha = 0.45 * flashI;
+    final commSweepAlpha = 0.45 * commI;
+    final techSweepAlpha = 0.45 * techI;
+    final sweepRadius = 300 * maxI;
     final sweepPaint = Paint()
       ..blendMode = BlendMode.srcOver
       ..shader = ui.Gradient.sweep(
         center,
         [
-          // stop 0.000 — amber dwell start (6 o'clock after rotation)
-          flashColor.withValues(alpha: sweepAlpha),
-          // stop 0.083 — amber dwell end (~30°)
-          flashColor.withValues(alpha: sweepAlpha),
-          // stop 0.333 — green dwell start (~90° transition)
-          communityColor.withValues(alpha: sweepAlpha),
-          // stop 0.417 — green dwell end (~30°)
-          communityColor.withValues(alpha: sweepAlpha),
-          // stop 0.667 — blue dwell start (~90° transition)
-          technicalColor.withValues(alpha: sweepAlpha),
-          // stop 0.750 — blue dwell end (~30°)
-          technicalColor.withValues(alpha: sweepAlpha),
-          // stop 1.000 — wrap back to amber (~90° transition)
-          flashColor.withValues(alpha: sweepAlpha),
+          flashColor.withValues(alpha: flashSweepAlpha),
+          flashColor.withValues(alpha: flashSweepAlpha),
+          communityColor.withValues(alpha: commSweepAlpha),
+          communityColor.withValues(alpha: commSweepAlpha),
+          technicalColor.withValues(alpha: techSweepAlpha),
+          technicalColor.withValues(alpha: techSweepAlpha),
+          flashColor.withValues(alpha: flashSweepAlpha),
         ],
         [0.0, 0.083, 0.333, 0.417, 0.667, 0.750, 1.0],
         TileMode.clamp,
-        0.0, // startAngle
-        math.pi * 2, // endAngle
-        // Rotate so amber sits at 6 o'clock (π/2 from default)
+        0.0,
+        math.pi * 2,
         _rotationMatrix(center, math.pi / 2),
       );
     canvas.drawCircle(center, sweepRadius, sweepPaint);
 
     // -- Layer 1: Radial fade mask (dstIn) --
-    // Pseudo-Gaussian falloff so the sweep disc fades center→edge.
-    final maskRadius = 330 * intensity;
+    final maskRadius = 330 * maxI;
     final maskPaint = Paint()
       ..blendMode = BlendMode.dstIn
       ..shader = ui.Gradient.radial(
@@ -367,32 +402,34 @@ class _GlowPainter extends CustomPainter {
     canvas.drawCircle(center, maskRadius, maskPaint);
 
     // -- Layer 2: Three offset radial lobes (organic asymmetry) --
-    // One lobe per color adds localized intensity and depth.
     _drawLobe(
       canvas,
-      center + Offset(-130 * intensity, -75 * intensity),
+      center + Offset(-130 * commI, -75 * commI),
       communityColor,
       220,
       0.35,
+      commI,
     );
     _drawLobe(
       canvas,
-      center + Offset(0, 150 * intensity),
+      center + Offset(0, 150 * flashI),
       flashColor,
       220,
       0.35,
+      flashI,
     );
     _drawLobe(
       canvas,
-      center + Offset(130 * intensity, -75 * intensity),
+      center + Offset(130 * techI, -75 * techI),
       technicalColor,
       220,
       0.35,
+      techI,
     );
 
     // -- Layer 3: Center white lift (subtle luminance boost) --
-    final liftRadius = 100 * intensity;
-    final liftAlpha = 0.12 * intensity;
+    final liftRadius = 100 * maxI;
+    final liftAlpha = 0.12 * maxI;
     final liftPaint = Paint()
       ..blendMode = BlendMode.plus
       ..shader = ui.Gradient.radial(
@@ -430,9 +467,11 @@ class _GlowPainter extends CustomPainter {
     Color color,
     double baseRadius,
     double peakAlpha,
+    double lobeIntensity,
   ) {
-    final radius = baseRadius * intensity;
-    final alpha = peakAlpha * intensity;
+    if (lobeIntensity <= 0) return;
+    final radius = baseRadius * lobeIntensity;
+    final alpha = peakAlpha * lobeIntensity;
     final paint = Paint()
       ..blendMode = BlendMode.plus
       ..shader = ui.Gradient.radial(center, radius, [
@@ -458,7 +497,10 @@ class _GlowPainter extends CustomPainter {
     return oldDelegate.communityColor != communityColor ||
         oldDelegate.flashColor != flashColor ||
         oldDelegate.technicalColor != technicalColor ||
-        oldDelegate.intensity != intensity;
+        oldDelegate.intensity != intensity ||
+        oldDelegate.technicalIntensity != technicalIntensity ||
+        oldDelegate.flashIntensity != flashIntensity ||
+        oldDelegate.communityIntensity != communityIntensity;
   }
 }
 

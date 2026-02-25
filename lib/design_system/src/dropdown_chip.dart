@@ -19,6 +19,7 @@ class DropdownChip extends StatelessWidget {
     this.expanded = false,
     this.selected = false,
     this.enabled = true,
+    this.borderColor,
   });
 
   /// The chip label text, e.g. "Season 2" or "DApps Integration".
@@ -39,6 +40,10 @@ class DropdownChip extends StatelessWidget {
   /// ignores taps.
   final bool enabled;
 
+  /// Optional explicit border color. When null, defaults to transparent when
+  /// [selected] or `outlineVariant` when unselected.
+  final Color? borderColor;
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
@@ -58,7 +63,10 @@ class DropdownChip extends StatelessWidget {
         ),
         decoration: BoxDecoration(
           color: selected ? colors.surfaceContainerLowest : null,
-          border: selected ? null : Border.all(color: colors.outlineVariant),
+          border: Border.all(
+            color: borderColor ??
+                (selected ? Colors.transparent : colors.outlineVariant),
+          ),
           borderRadius: radii.borderRadiusSmall,
         ),
         child: Row(

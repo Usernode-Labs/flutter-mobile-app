@@ -8,6 +8,8 @@ class DropdownChainItem {
   const DropdownChainItem({
     required this.label,
     this.onTap,
+    this.selected = true,
+    this.borderColor,
   });
 
   /// The chip label text, e.g. "Season 2" or "DApps Integration".
@@ -15,6 +17,13 @@ class DropdownChainItem {
 
   /// Called when the chip is tapped.
   final VoidCallback? onTap;
+
+  /// Whether the chip is in selected state. Defaults to `true` because
+  /// chips in a filter chain typically represent active filter choices.
+  final bool selected;
+
+  /// Optional border color passed through to [DropdownChip].
+  final Color? borderColor;
 }
 
 /// A horizontal row of [DropdownChip]s separated by chevron icons.
@@ -51,6 +60,8 @@ class DropdownChain extends StatelessWidget {
               label: item.label,
               onTap: item.onTap,
               expanded: true,
+              selected: item.selected,
+              borderColor: item.borderColor,
             ),
           ),
         );
@@ -59,6 +70,8 @@ class DropdownChain extends StatelessWidget {
           DropdownChip(
             label: item.label,
             onTap: item.onTap,
+            selected: item.selected,
+            borderColor: item.borderColor,
           ),
         );
         children.add(SizedBox(width: spacing.space8));

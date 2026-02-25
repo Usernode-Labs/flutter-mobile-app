@@ -106,7 +106,8 @@ void main() {
       expect(container.constraints?.maxHeight, equals(32));
     });
 
-    testWidgets('selected: true applies secondaryContainer fill',
+    testWidgets(
+        'selected: true applies surfaceContainerLowest fill and transparent border',
         (tester) async {
       await tester.pumpWidget(wrap(
         const DropdownChip(label: 'Season 2', selected: true),
@@ -120,7 +121,27 @@ void main() {
       );
       final decoration = container.decoration! as BoxDecoration;
       final theme = themeWithExtensions();
-      expect(decoration.color, equals(theme.colorScheme.secondaryContainer));
+      expect(
+          decoration.color, equals(theme.colorScheme.surfaceContainerLowest));
+      final border = decoration.border! as Border;
+      expect(border.top.color, equals(Colors.transparent));
+    });
+
+    testWidgets('selected: false has outline border and no fill',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        const DropdownChip(label: 'Season 2'),
+      ));
+
+      final container = tester.widget<Container>(
+        find.descendant(
+          of: find.byType(DropdownChip),
+          matching: find.byType(Container),
+        ),
+      );
+      final decoration = container.decoration! as BoxDecoration;
+      expect(decoration.color, isNull);
+      expect(decoration.border, isNotNull);
     });
 
     testWidgets('enabled: false wraps in Opacity with disabled value',

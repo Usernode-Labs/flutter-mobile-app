@@ -162,14 +162,16 @@ class _TabsState extends State<Tabs> with SingleTickerProviderStateMixin {
                 constraints: const BoxConstraints(minWidth: 16),
                 padding: EdgeInsets.symmetric(horizontal: spacing.space4),
                 decoration: ShapeDecoration(
-                  color: isActive ? colors.onSurface : colors.outline,
+                  color: isActive
+                      ? colors.onSurface
+                      : colors.surfaceContainerHighest,
                   shape: const StadiumBorder(),
                 ),
                 child: Center(
                   child: Text(
                     '${tab.badgeCount}',
                     style: textTheme.labelSmall?.copyWith(
-                      color: colors.surface,
+                      color: isActive ? colors.surface : colors.outline,
                     ),
                   ),
                 ),

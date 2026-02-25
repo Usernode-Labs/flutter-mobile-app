@@ -108,6 +108,36 @@ class LeaderboardApiService {
     return BreakdownResult.fromJson(data as Map<String, dynamic>);
   }
 
+  Future<List<SeasonDto>> getSeasons({
+    int? seasonId,
+    bool? seasonActive,
+    bool? seasonCurrent,
+    bool? eventActive,
+    bool? eventCurrent,
+  }) async {
+    final params = <String, String>{
+      'include_challenges': '0', // workaround: backend toISOString bug
+    };
+    if (seasonId != null) params['season_id'] = seasonId.toString();
+    if (seasonActive != null) {
+      params['season_active'] = seasonActive.toString();
+    }
+    if (seasonCurrent != null) {
+      params['season_current'] = seasonCurrent.toString();
+    }
+    if (eventActive != null) {
+      params['event_active'] = eventActive.toString();
+    }
+    if (eventCurrent != null) {
+      params['event_current'] = eventCurrent.toString();
+    }
+
+    final data = await _get('/seasons', queryParams: params);
+    return (data as List)
+        .map((e) => SeasonDto.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   void dispose() => _http.close();
 
   // ---------------------------------------------------------------------------

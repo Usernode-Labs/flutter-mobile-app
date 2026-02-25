@@ -179,6 +179,12 @@ class AppConfig {
       Duration(seconds: versionCheckIntervalSeconds);
   static bool get versionCheckEnabled => versionCheckApiUrl.isNotEmpty;
 
+  // Leaderboard API v2
+  static const String leaderboardApiBaseUrl = String.fromEnvironment(
+    'LEADERBOARD_API_BASE_URL',
+    defaultValue: 'https://leaderboard.usernodelabs.org/api/v2/mobile',
+  );
+
   // Explorer API configuration
   static const String primaryExplorerUrl = String.fromEnvironment(
     'EXPLORER_PRIMARY_URL',

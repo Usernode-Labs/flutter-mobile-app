@@ -5,6 +5,7 @@ import 'package:crypto_mobile_app/features/node/screens/produced_blocks_screen.d
 import 'package:crypto_mobile_app/features/node/screens/node_status_screen.dart';
 import 'package:crypto_mobile_app/features/settings/screens/background_production_settings_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/dapps_screen.dart';
+import 'package:crypto_mobile_app/features/challenges/screens/challenges_screen.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
@@ -52,6 +53,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       body: IndexedStack(
         index: _index,
         children: const [
+          ChallengesScreen(),
           ProducedBlocksScreen(),
           WalletScreen(),
           DappsScreen(),
@@ -89,6 +91,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ref.read(currentHomeTabProvider.notifier).state = i;
             },
             destinations: [
+              const NavigationDestination(
+                icon: Icon(Icons.star_outline),
+                selectedIcon: Icon(Icons.star),
+                label: 'Challenges',
+              ),
               NavigationDestination(
                 icon: const Icon(Icons.layers_outlined),
                 selectedIcon: const Icon(Icons.layers),

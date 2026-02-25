@@ -72,7 +72,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
       totalRewardBody: dto.rewardLogic ?? '',
       onBackTap: () => context.pop(),
       titleHeroTag: 'challenge_title_${dto.id}',
-      iconHeroTag: 'challenge_icon_${dto.id}',
+      entranceAnimation: ModalRoute.of(context)?.animation,
     );
   }
 

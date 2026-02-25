@@ -15,8 +15,10 @@ import 'color_catalog.dart';
 import 'dropdown_chain_use_case.dart';
 import 'dropdown_chip_use_case.dart';
 import 'dropdown_sheet_use_case.dart';
+import 'leaderboard_page_use_case.dart';
 import 'leaderboard_stats_card_use_case.dart';
 import 'list_tile_use_case.dart';
+import 'rank_badge_use_case.dart';
 import 'score_header_use_case.dart';
 import 'tabs_use_case.dart';
 import 'top_app_bar_use_case.dart';
@@ -134,6 +136,7 @@ class WidgetbookApp extends StatelessWidget {
             dropdownSheetComponent(),
             leaderboardStatsCardComponent(),
             listTileComponent(),
+            rankBadgeComponent(),
             scoreHeaderComponent(),
             tabsComponent(),
             topAppBarComponent(),
@@ -144,6 +147,7 @@ class WidgetbookApp extends StatelessWidget {
           children: [
             challengeDetailPageComponent(),
             challengesPageComponent(),
+            leaderboardPageComponent(),
           ],
         ),
       ],

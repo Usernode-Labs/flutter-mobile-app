@@ -26,6 +26,7 @@ export 'src/dropdown_chain.dart';
 export 'src/dropdown_chip.dart';
 export 'src/dropdown_sheet.dart';
 export 'src/leaderboard_stats_card.dart';
+export 'src/rank_badge.dart';
 export 'src/score_header.dart';
 export 'src/tabs.dart';
 export 'src/top_app_bar.dart';

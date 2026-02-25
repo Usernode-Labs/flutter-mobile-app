@@ -12,13 +12,24 @@ String seasonLabel(WidgetRef ref) {
   return ctx.seasonName ?? 'Season';
 }
 
-/// Returns the display label for the current event.
+/// Returns the display label for the current event/phase.
 String eventLabel(WidgetRef ref) {
   final ctx = ref.watch(seasonEventContextProvider);
-  return ctx.eventName ?? 'All Events';
+  return ctx.eventName ?? 'Phase';
+}
+
+/// Picks the latest event within [season]: the active one, or the last in the list.
+SeasonEventDto? _latestEvent(SeasonDto season) {
+  if (season.events.isEmpty) return null;
+  return season.events
+          .cast<SeasonEventDto?>()
+          .firstWhere((e) => e!.isActive, orElse: () => null) ??
+      season.events.last;
 }
 
 /// Shows a bottom sheet picker for season selection and updates the context.
+///
+/// When the season changes, the event is auto-selected to the latest phase.
 Future<void> showSeasonPicker(BuildContext context, WidgetRef ref) async {
   final seasons = ref.read(seasonsProvider).value?.data;
   if (seasons == null || seasons.isEmpty) return;
@@ -42,21 +53,22 @@ Future<void> showSeasonPicker(BuildContext context, WidgetRef ref) async {
 
   final season = seasons[result];
   if (ctx.seasonId != season.id) {
+    final event = _latestEvent(season);
     ref.read(seasonEventContextProvider.notifier).state = SeasonEventContext(
       seasonId: season.id,
       seasonName: season.name,
+      eventId: event?.id,
+      eventName: event?.name,
     );
   }
 }
 
-/// Shows a bottom sheet picker for event selection and updates the context.
+/// Shows a bottom sheet picker for event/phase selection and updates the context.
 Future<void> showEventPicker(BuildContext context, WidgetRef ref) async {
   final seasons = ref.read(seasonsProvider).value?.data;
   if (seasons == null || seasons.isEmpty) return;
   final ctx = ref.read(seasonEventContextProvider);
 
-  // Find the current season's events; fall back to first season if
-  // the context hasn't been populated yet (cold start).
   final currentSeason = ctx.seasonId != null
       ? seasons.cast<SeasonDto?>().firstWhere(
             (s) => s!.id == ctx.seasonId,
@@ -66,37 +78,30 @@ Future<void> showEventPicker(BuildContext context, WidgetRef ref) async {
   final events = currentSeason?.events;
   if (events == null || events.isEmpty) return;
 
-  final labels = ['All Events', ...events.map((e) => e.name)];
+  final labels = events.map((e) => e.name).toList();
   final selectedIndex = ctx.eventId == null
-      ? 0
-      : events.indexWhere((e) => e.id == ctx.eventId) + 1;
+      ? labels.length - 1
+      : events
+          .indexWhere((e) => e.id == ctx.eventId)
+          .clamp(0, labels.length - 1);
 
   final result = await showDropdownSheet(
     context: context,
     labels: labels,
-    title: 'Select Event',
-    selectedIndex: selectedIndex.clamp(0, labels.length - 1),
+    title: 'Select Phase',
+    selectedIndex: selectedIndex,
   );
 
   if (result == null) return;
 
-  // Use the resolved season so the context is always populated.
   final seasonId = ctx.seasonId ?? currentSeason!.id;
   final seasonName = ctx.seasonName ?? currentSeason!.name;
+  final event = events[result];
 
-  if (result == 0) {
-    // "All Events" — clear eventId by constructing a new instance
-    ref.read(seasonEventContextProvider.notifier).state = SeasonEventContext(
-      seasonId: seasonId,
-      seasonName: seasonName,
-    );
-  } else {
-    final event = events[result - 1];
-    ref.read(seasonEventContextProvider.notifier).state = SeasonEventContext(
-      seasonId: seasonId,
-      seasonName: seasonName,
-      eventId: event.id,
-      eventName: event.name,
-    );
-  }
+  ref.read(seasonEventContextProvider.notifier).state = SeasonEventContext(
+    seasonId: seasonId,
+    seasonName: seasonName,
+    eventId: event.id,
+    eventName: event.name,
+  );
 }

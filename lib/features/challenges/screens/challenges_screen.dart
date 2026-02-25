@@ -288,24 +288,13 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
         .firstWhere((s) => s!.id == ctx.seasonId, orElse: () => null);
   }
 
-  /// Resolves the event whose end date should drive the countdown.
-  ///
-  /// If a specific event is selected, returns that event. Otherwise returns
-  /// the currently active event (first with `isActive == true`).
-  SeasonEventDto? _resolveCountdownEvent(SeasonDto season) {
+  /// Resolves the selected event within the season.
+  SeasonEventDto? _resolveSelectedEvent(SeasonDto season) {
     final ctx = ref.read(seasonEventContextProvider);
-    if (ctx.eventId != null && season.events.isNotEmpty) {
-      return season.events
-          .cast<SeasonEventDto?>()
-          .firstWhere((e) => e!.id == ctx.eventId, orElse: () => null);
-    }
-    // "All Events" — pick the active event.
-    if (season.events.isNotEmpty) {
-      return season.events
-          .cast<SeasonEventDto?>()
-          .firstWhere((e) => e!.isActive, orElse: () => null);
-    }
-    return null;
+    if (ctx.eventId == null || season.events.isEmpty) return null;
+    return season.events
+        .cast<SeasonEventDto?>()
+        .firstWhere((e) => e!.id == ctx.eventId, orElse: () => null);
   }
 
   /// Compute countdown label + time from the resolved event's end date.
@@ -313,7 +302,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
     final season = _resolveSelectedSeason();
     if (season == null) return (label: 'ENDS IN', time: null);
 
-    final event = _resolveCountdownEvent(season);
+    final event = _resolveSelectedEvent(season);
     final endsAtRaw = event?.endsAt;
     if (endsAtRaw == null) return (label: 'ENDS IN', time: null);
 

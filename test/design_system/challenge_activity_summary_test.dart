@@ -144,5 +144,51 @@ void main() {
       expect(find.text('99999 Missed'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('renders CustomPaint for shape cluster illustration',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        const ChallengeActivitySummary(
+          completedCount: 5,
+          missedCount: 2,
+          totalCount: 10,
+        ),
+      ));
+
+      // Find the CustomPaint that lives inside our 160px SizedBox.
+      final illustrationBox = find.descendant(
+        of: find.byType(ChallengeActivitySummary),
+        matching: find.byWidgetPredicate(
+          (w) => w is SizedBox && w.height == 160,
+        ),
+      );
+      expect(illustrationBox, findsOneWidget);
+      expect(
+        find.descendant(
+          of: illustrationBox,
+          matching: find.byType(CustomPaint),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('pills use IntrinsicWidth, not Expanded', (tester) async {
+      await tester.pumpWidget(wrap(
+        const ChallengeActivitySummary(
+          completedCount: 5,
+          missedCount: 2,
+          totalCount: 10,
+        ),
+      ));
+
+      expect(find.byType(IntrinsicWidth), findsNWidgets(2));
+      expect(
+        find.descendant(
+          of: find.byType(ChallengeActivitySummary),
+          matching: find.byType(Expanded),
+        ),
+        findsNothing,
+      );
+    });
   });
 }

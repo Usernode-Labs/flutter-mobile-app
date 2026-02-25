@@ -71,6 +71,8 @@ class ChallengeDetailScreen extends ConsumerWidget {
       totalRewardHeading: 'Total Reward ${formatRewardText(dto.reward)}',
       totalRewardBody: dto.rewardLogic ?? '',
       onBackTap: () => context.pop(),
+      titleHeroTag: 'challenge_title_${dto.id}',
+      iconHeroTag: 'challenge_icon_${dto.id}',
     );
   }
 

@@ -225,9 +225,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.challengeDetail,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final enriched = state.extra as EnrichedChallenge;
-          return ChallengeDetailScreen(challenge: enriched);
+          return NoTransitionPage<void>(
+            key: state.pageKey,
+            child: ChallengeDetailScreen(challenge: enriched),
+          );
         },
       ),
     ],

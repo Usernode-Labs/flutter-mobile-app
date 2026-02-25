@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../tokens/app_radii.dart';
 import '../tokens/app_sizing.dart';
 import '../tokens/app_spacing.dart';
+import 'hero_shuttle_builders.dart';
 
 /// The size variant of a [TopAppBar].
 enum TopAppBarSize {
@@ -36,6 +37,8 @@ class TopAppBar extends StatelessWidget {
     this.actions,
     this.image,
     this.subtitle,
+    this.titleHeroTag,
+    this.imageHeroTag,
   });
 
   /// Primary title text.
@@ -58,6 +61,12 @@ class TopAppBar extends StatelessWidget {
 
   /// Large variant only — secondary text line below the title.
   final String? subtitle;
+
+  /// When non-null, wraps the expanded title [Text] in a [Hero] with this tag.
+  final String? titleHeroTag;
+
+  /// When non-null, wraps the image in a [Hero] with this tag.
+  final String? imageHeroTag;
 
   @override
   Widget build(BuildContext context) {
@@ -110,6 +119,8 @@ class TopAppBar extends StatelessWidget {
         image: image,
         leading: _buildLeading(context),
         actions: actions,
+        titleHeroTag: titleHeroTag,
+        imageHeroTag: imageHeroTag,
       ),
     );
   }
@@ -141,6 +152,8 @@ class _LargeFlexibleContent extends StatelessWidget {
     this.image,
     this.leading,
     this.actions,
+    this.titleHeroTag,
+    this.imageHeroTag,
   });
 
   final String title;
@@ -148,6 +161,21 @@ class _LargeFlexibleContent extends StatelessWidget {
   final Widget? image;
   final Widget? leading;
   final List<Widget>? actions;
+  final String? titleHeroTag;
+  final String? imageHeroTag;
+
+  Widget _maybeHero({
+    required String? tag,
+    required Widget child,
+    HeroFlightShuttleBuilder? flightShuttleBuilder,
+  }) {
+    if (tag == null) return child;
+    return Hero(
+      tag: tag,
+      flightShuttleBuilder: flightShuttleBuilder,
+      child: child,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -224,20 +252,27 @@ class _LargeFlexibleContent extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           if (image != null) ...[
-                            ClipRRect(
-                              borderRadius: radii.borderRadiusSmall,
-                              child: SizedBox(
-                                width: sizing.iconContainerXLarge,
-                                height: sizing.iconContainerXLarge,
-                                child: image!,
+                            _maybeHero(
+                              tag: imageHeroTag,
+                              child: ClipRRect(
+                                borderRadius: radii.borderRadiusSmall,
+                                child: SizedBox(
+                                  width: sizing.iconContainerXLarge,
+                                  height: sizing.iconContainerXLarge,
+                                  child: image!,
+                                ),
                               ),
                             ),
                             SizedBox(height: spacing.space16),
                           ],
-                          Text(
-                            title,
-                            style: textTheme.displaySmall
-                                ?.copyWith(color: colors.onSurface),
+                          _maybeHero(
+                            tag: titleHeroTag,
+                            flightShuttleBuilder: titleFlightShuttleBuilder,
+                            child: Text(
+                              title,
+                              style: textTheme.displaySmall
+                                  ?.copyWith(color: colors.onSurface),
+                            ),
                           ),
                           if (subtitle != null) ...[
                             SizedBox(height: spacing.space8),

@@ -166,6 +166,54 @@ void main() {
     });
   });
 
+  group('TopAppBar - Hero', () {
+    testWidgets('wraps expanded title in Hero when titleHeroTag is provided',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        const TopAppBar(
+          title: 'Hero Title',
+          size: TopAppBarSize.large,
+          titleHeroTag: 'test_title_hero',
+        ),
+      ));
+
+      final heroes = tester.widgetList<Hero>(find.byType(Hero));
+      expect(heroes.any((h) => h.tag == 'test_title_hero'), isTrue);
+    });
+
+    testWidgets('wraps image in Hero when imageHeroTag is provided',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        TopAppBar(
+          title: 'Hero Image',
+          size: TopAppBarSize.large,
+          image: Container(color: Colors.blue),
+          imageHeroTag: 'test_image_hero',
+        ),
+      ));
+
+      final heroes = tester.widgetList<Hero>(find.byType(Hero));
+      expect(heroes.any((h) => h.tag == 'test_image_hero'), isTrue);
+    });
+
+    testWidgets('no Hero widgets when hero tags are null', (tester) async {
+      await tester.pumpWidget(wrap(
+        TopAppBar(
+          title: 'No Hero',
+          size: TopAppBarSize.large,
+          image: Container(color: Colors.blue),
+        ),
+      ));
+
+      final heroes = tester.widgetList<Hero>(find.byType(Hero));
+      expect(
+        heroes.where(
+            (h) => h.tag == 'test_title_hero' || h.tag == 'test_image_hero'),
+        isEmpty,
+      );
+    });
+  });
+
   group('TopAppBar - golden', () {
     testWidgets('small variant', (tester) async {
       await tester.pumpWidget(

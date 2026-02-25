@@ -8,6 +8,7 @@ import '../tokens/app_radii.dart';
 import '../tokens/app_semantic_colors.dart';
 import '../tokens/app_sizing.dart';
 import '../tokens/app_spacing.dart';
+import 'hero_shuttle_builders.dart';
 
 // ── Enums ──
 
@@ -41,6 +42,8 @@ class ChallengeCard extends StatefulWidget {
     this.epochPoints,
     this.completedPoints,
     this.onTap,
+    this.titleHeroTag,
+    this.iconHeroTag,
   });
 
   final String title;
@@ -55,6 +58,12 @@ class ChallengeCard extends StatefulWidget {
   final String? epochPoints;
   final String? completedPoints;
   final VoidCallback? onTap;
+
+  /// When non-null, wraps the title [Text] in a [Hero] with this tag.
+  final String? titleHeroTag;
+
+  /// When non-null, wraps the category icon in a [Hero] with this tag.
+  final String? iconHeroTag;
 
   @override
   State<ChallengeCard> createState() => _ChallengeCardState();
@@ -204,10 +213,13 @@ class _ChallengeCardState extends State<ChallengeCard>
                             ),
                           ),
                           SizedBox(width: spacing.space8),
-                          SizedBox(
-                            width: sizing.iconContainerRegular,
-                            height: sizing.iconContainerRegular,
-                            child: widget.categoryIcon,
+                          _maybeHero(
+                            tag: widget.iconHeroTag,
+                            child: SizedBox(
+                              width: sizing.iconContainerRegular,
+                              height: sizing.iconContainerRegular,
+                              child: widget.categoryIcon,
+                            ),
                           ),
                         ],
                       ),
@@ -216,10 +228,14 @@ class _ChallengeCardState extends State<ChallengeCard>
                 ),
                 SizedBox(height: spacing.space8),
                 // Title
-                Text(
-                  widget.title,
-                  style: textTheme.titleMedium?.copyWith(
-                    color: _contentColor(colors),
+                _maybeHero(
+                  tag: widget.titleHeroTag,
+                  flightShuttleBuilder: titleFlightShuttleBuilder,
+                  child: Text(
+                    widget.title,
+                    style: textTheme.titleMedium?.copyWith(
+                      color: _contentColor(colors),
+                    ),
                   ),
                 ),
                 SizedBox(height: spacing.space8),
@@ -263,6 +279,19 @@ class _ChallengeCardState extends State<ChallengeCard>
     }
 
     return card;
+  }
+
+  Widget _maybeHero({
+    required String? tag,
+    required Widget child,
+    HeroFlightShuttleBuilder? flightShuttleBuilder,
+  }) {
+    if (tag == null) return child;
+    return Hero(
+      tag: tag,
+      flightShuttleBuilder: flightShuttleBuilder,
+      child: child,
+    );
   }
 
   Widget _buildRewardBar({

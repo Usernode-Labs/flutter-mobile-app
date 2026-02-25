@@ -110,26 +110,26 @@ class LeaderboardApiService {
 
   Future<List<SeasonDto>> getSeasons({
     int? seasonId,
-    bool? seasonActive,
-    bool? seasonCurrent,
-    bool? eventActive,
-    bool? eventCurrent,
+    bool? onlyActiveSeasons,
+    bool? onlyCurrentSeason,
+    bool? onlyActiveEvents,
+    bool? onlyCurrentEvents,
   }) async {
     final params = <String, String>{
       'include_challenges': '0', // workaround: backend toISOString bug
     };
     if (seasonId != null) params['season_id'] = seasonId.toString();
-    if (seasonActive != null) {
-      params['season_active'] = seasonActive.toString();
+    if (onlyActiveSeasons != null) {
+      params['only_active_seasons'] = onlyActiveSeasons.toString();
     }
-    if (seasonCurrent != null) {
-      params['season_current'] = seasonCurrent.toString();
+    if (onlyCurrentSeason != null) {
+      params['only_current_season'] = onlyCurrentSeason.toString();
     }
-    if (eventActive != null) {
-      params['event_active'] = eventActive.toString();
+    if (onlyActiveEvents != null) {
+      params['only_active_events'] = onlyActiveEvents.toString();
     }
-    if (eventCurrent != null) {
-      params['event_current'] = eventCurrent.toString();
+    if (onlyCurrentEvents != null) {
+      params['only_current_events'] = onlyCurrentEvents.toString();
     }
 
     final data = await _get('/seasons', queryParams: params);

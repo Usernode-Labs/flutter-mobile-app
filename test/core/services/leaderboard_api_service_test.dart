@@ -50,7 +50,11 @@ void main() {
             'tier': 'gold',
             'season_id': 1,
             'season_name': 'Season 1',
-            'phase': {'id': 2, 'name': 'Phase 2', 'ends_at': '2025-06-01'},
+            'event': {
+              'event_id': 2,
+              'name': 'Event 2',
+              'ends_at': '2025-06-01',
+            },
           }));
       final service =
           LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
@@ -63,7 +67,7 @@ void main() {
       expect(result.participantId, 42);
       expect(result.identityUid, 'uid-abc');
       expect(result.tier, 'gold');
-      expect(result.phase?.id, 2);
+      expect(result.event?.id, 2);
     });
 
     test('sends POST with correct body', () async {
@@ -77,8 +81,6 @@ void main() {
           'secret_key': 's',
           'address': 'a',
           'tier': 't',
-          'season_id': 1,
-          'season_name': 'S',
         }),
         onRequest: (r) => captured = r,
       );
@@ -297,7 +299,7 @@ void main() {
                 'is_active': true,
               },
             ],
-            'entries': [
+            'leaderboard': [
               {
                 'rank': 1,
                 'participant_id': 42,
@@ -307,7 +309,7 @@ void main() {
                 'total_produced_blocks': 100,
                 'vrf_total_won_slots': 50,
                 'success_rate': 0.95,
-                'phases_participated': 3,
+                'events_participated': 3,
               },
             ],
             'pagination': {
@@ -336,7 +338,7 @@ void main() {
         _envelope({
           'season': {'id': 1, 'name': 'S1'},
           'events': <dynamic>[],
-          'entries': <dynamic>[],
+          'leaderboard': <dynamic>[],
           'pagination': {
             'page': 3,
             'per_page': 25,
@@ -377,18 +379,17 @@ void main() {
             'display_name': 'Alice',
             'total_points': 1000,
             'offchain_points': 200,
-            'event_id': 5,
-            'event_name': 'Event 5',
+            'event': {'id': 5, 'name': 'Event 5'},
             'rank': 2,
             'first_block_points': 100,
-            'top3_points': 50,
+            'top_3_points': 50,
             'success_50_percent_points': 75,
             'produced_blocks': 20,
             'vrf_won_slots': 15,
             'success_rate': 0.9,
             'activities': [
               {
-                'id': 1,
+                'activity_id': 1,
                 'activity_type': 'block_produced',
                 'points': 50,
                 'description': 'Block #123',

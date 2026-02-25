@@ -17,23 +17,32 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // PhaseInfo
+  // RegistrationEventInfo
   // -------------------------------------------------------------------------
 
-  group('PhaseInfo', () {
-    test('fromJson parses all fields', () {
-      final info = PhaseInfo.fromJson({
-        'id': 3,
-        'name': 'Phase 3',
+  group('RegistrationEventInfo', () {
+    test('fromJson parses all fields with event_id key', () {
+      final info = RegistrationEventInfo.fromJson({
+        'event_id': 3,
+        'name': 'Event 3',
         'ends_at': '2025-03-01T00:00:00Z',
       });
       expect(info.id, 3);
-      expect(info.name, 'Phase 3');
+      expect(info.name, 'Event 3');
       expect(info.endsAt, '2025-03-01T00:00:00Z');
     });
 
+    test('fromJson falls back to id key (cache compat)', () {
+      final info = RegistrationEventInfo.fromJson({
+        'id': 3,
+        'name': 'Event 3',
+      });
+      expect(info.id, 3);
+    });
+
     test('fromJson handles null endsAt', () {
-      final info = PhaseInfo.fromJson({'id': 1, 'name': 'P1'});
+      final info =
+          RegistrationEventInfo.fromJson({'event_id': 1, 'name': 'E1'});
       expect(info.endsAt, isNull);
     });
   });
@@ -43,7 +52,7 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('RegistrationV2Result', () {
-    test('fromJson parses full response', () {
+    test('fromJson parses re-registration response (with season)', () {
       final result = RegistrationV2Result.fromJson({
         'participant_id': 42,
         'identity_uid': 'uid-abc',
@@ -53,7 +62,11 @@ void main() {
         'tier': 'gold',
         'season_id': 1,
         'season_name': 'Season 1',
-        'phase': {'id': 2, 'name': 'Phase 2', 'ends_at': '2025-06-01'},
+        'event': {
+          'event_id': 2,
+          'name': 'Event 2',
+          'ends_at': '2025-06-01',
+        },
       });
       expect(result.participantId, 42);
       expect(result.identityUid, 'uid-abc');
@@ -63,11 +76,25 @@ void main() {
       expect(result.tier, 'gold');
       expect(result.seasonId, 1);
       expect(result.seasonName, 'Season 1');
-      expect(result.phase, isNotNull);
-      expect(result.phase!.id, 2);
+      expect(result.event, isNotNull);
+      expect(result.event!.id, 2);
     });
 
-    test('fromJson handles missing phase', () {
+    test('fromJson parses first registration (no season/event)', () {
+      final result = RegistrationV2Result.fromJson({
+        'participant_id': 1,
+        'identity_uid': 'uid',
+        'public_key': 'pk',
+        'secret_key': 'sk',
+        'address': 'addr',
+        'tier': 'silver',
+      });
+      expect(result.seasonId, isNull);
+      expect(result.seasonName, isNull);
+      expect(result.event, isNull);
+    });
+
+    test('fromJson falls back to phase key (cache compat)', () {
       final result = RegistrationV2Result.fromJson({
         'participant_id': 1,
         'identity_uid': 'uid',
@@ -77,8 +104,10 @@ void main() {
         'tier': 'silver',
         'season_id': 1,
         'season_name': 'S1',
+        'phase': {'id': 2, 'name': 'Phase 2'},
       });
-      expect(result.phase, isNull);
+      expect(result.event, isNotNull);
+      expect(result.event!.id, 2);
     });
   });
 
@@ -107,7 +136,7 @@ void main() {
       expect(r.seasonId, isNull);
     });
 
-    test('fromJson parses season scope', () {
+    test('fromJson parses season scope with events_participated', () {
       final r = RankingResult.fromJson({
         'scope': 'season',
         'rank': 3,
@@ -116,15 +145,27 @@ void main() {
         'total_participants': 2000,
         'season_id': 1,
         'season_name': 'Season 1',
-        'phases_participated': 4,
+        'events_participated': 4,
         'total_produced_blocks': 25,
       });
       expect(r.scope, 'season');
       expect(r.seasonId, 1);
       expect(r.seasonName, 'Season 1');
-      expect(r.phasesParticipated, 4);
+      expect(r.eventsParticipated, 4);
       expect(r.totalProducedBlocks, 25);
       expect(r.eventId, isNull);
+    });
+
+    test('fromJson falls back to phases_participated (cache compat)', () {
+      final r = RankingResult.fromJson({
+        'scope': 'season',
+        'rank': 3,
+        'total_points': 5000,
+        'offchain_points': 1000,
+        'total_participants': 2000,
+        'phases_participated': 4,
+      });
+      expect(r.eventsParticipated, 4);
     });
 
     test('fromJson parses global scope with minimal fields', () {
@@ -138,7 +179,7 @@ void main() {
       expect(r.scope, 'global');
       expect(r.eventId, isNull);
       expect(r.seasonId, isNull);
-      expect(r.phasesParticipated, isNull);
+      expect(r.eventsParticipated, isNull);
     });
   });
 
@@ -246,9 +287,9 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('SeasonEventDto', () {
-    test('fromJson parses all fields', () {
+    test('fromJson parses event_id key', () {
       final e = SeasonEventDto.fromJson({
-        'id': 5,
+        'event_id': 5,
         'name': 'Event 5',
         'description': 'The fifth event',
         'starts_at': '2025-01-01',
@@ -263,9 +304,18 @@ void main() {
       expect(e.isActive, true);
     });
 
+    test('fromJson falls back to id key (cache compat)', () {
+      final e = SeasonEventDto.fromJson({
+        'id': 5,
+        'name': 'Event 5',
+        'is_active': true,
+      });
+      expect(e.id, 5);
+    });
+
     test('fromJson handles nullable fields', () {
       final e = SeasonEventDto.fromJson({
-        'id': 1,
+        'event_id': 1,
         'name': 'E1',
         'is_active': false,
       });
@@ -276,7 +326,7 @@ void main() {
 
     test('toJson round-trip', () {
       final json = {
-        'id': 5,
+        'event_id': 5,
         'name': 'Event 5',
         'description': 'Desc',
         'starts_at': '2025-01-01',
@@ -299,9 +349,9 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('SeasonDto', () {
-    test('fromJson parses with nested events', () {
+    test('fromJson parses season_id key with nested events', () {
       final s = SeasonDto.fromJson({
-        'id': 1,
+        'season_id': 1,
         'name': 'Season 1',
         'description': 'First season',
         'starts_at': '2025-01-01',
@@ -309,12 +359,12 @@ void main() {
         'is_active': true,
         'events': [
           {
-            'id': 10,
+            'event_id': 10,
             'name': 'Event 10',
             'is_active': true,
           },
           {
-            'id': 11,
+            'event_id': 11,
             'name': 'Event 11',
             'is_active': false,
           },
@@ -331,9 +381,18 @@ void main() {
       expect(s.events.last.isActive, false);
     });
 
-    test('fromJson handles missing events', () {
+    test('fromJson falls back to id key (cache compat)', () {
       final s = SeasonDto.fromJson({
         'id': 2,
+        'name': 'Season 2',
+        'is_active': true,
+      });
+      expect(s.id, 2);
+    });
+
+    test('fromJson handles missing events', () {
+      final s = SeasonDto.fromJson({
+        'season_id': 2,
         'name': 'Season 2',
         'is_active': false,
       });
@@ -344,7 +403,7 @@ void main() {
 
     test('toJson round-trip', () {
       final json = {
-        'id': 1,
+        'season_id': 1,
         'name': 'Season 1',
         'description': 'Desc',
         'starts_at': '2025-01-01',
@@ -352,7 +411,7 @@ void main() {
         'is_active': true,
         'events': [
           {
-            'id': 10,
+            'event_id': 10,
             'name': 'Event 10',
             'is_active': true,
           },
@@ -372,7 +431,7 @@ void main() {
   });
 
   group('LeaderboardEntry', () {
-    test('fromJson parses all fields', () {
+    test('fromJson parses all fields with events_participated', () {
       final e = LeaderboardEntry.fromJson({
         'rank': 1,
         'participant_id': 42,
@@ -382,13 +441,28 @@ void main() {
         'total_produced_blocks': 100,
         'vrf_total_won_slots': 50,
         'success_rate': 0.95,
-        'phases_participated': 3,
+        'events_participated': 3,
       });
       expect(e.rank, 1);
       expect(e.participantId, 42);
       expect(e.displayName, 'Alice');
       expect(e.totalPoints, 9999);
       expect(e.successRate, 0.95);
+      expect(e.eventsParticipated, 3);
+    });
+
+    test('fromJson falls back to phases_participated (cache compat)', () {
+      final e = LeaderboardEntry.fromJson({
+        'rank': 1,
+        'participant_id': 42,
+        'total_points': 100,
+        'offchain_points': 0,
+        'total_produced_blocks': 0,
+        'vrf_total_won_slots': 0,
+        'success_rate': 0.0,
+        'phases_participated': 3,
+      });
+      expect(e.eventsParticipated, 3);
     });
 
     test('fromJson handles null displayName', () {
@@ -400,7 +474,7 @@ void main() {
         'total_produced_blocks': 0,
         'vrf_total_won_slots': 0,
         'success_rate': 0.0,
-        'phases_participated': 1,
+        'events_participated': 1,
       });
       expect(e.displayName, isNull);
     });
@@ -422,7 +496,7 @@ void main() {
   });
 
   group('LeaderboardResult', () {
-    test('fromJson parses complete response', () {
+    test('fromJson parses leaderboard key', () {
       final r = LeaderboardResult.fromJson({
         'season': {'id': 1, 'name': 'Season 1'},
         'events': [
@@ -434,7 +508,7 @@ void main() {
             'is_active': true,
           },
         ],
-        'entries': [
+        'leaderboard': [
           {
             'rank': 1,
             'participant_id': 42,
@@ -444,7 +518,7 @@ void main() {
             'total_produced_blocks': 50,
             'vrf_total_won_slots': 30,
             'success_rate': 0.9,
-            'phases_participated': 2,
+            'events_participated': 2,
           },
         ],
         'pagination': {
@@ -461,11 +535,37 @@ void main() {
       expect(r.pagination.page, 1);
     });
 
-    test('fromJson handles empty events and entries', () {
+    test('fromJson falls back to entries key (cache compat)', () {
       final r = LeaderboardResult.fromJson({
         'season': {'id': 1, 'name': 'S1'},
         'events': <dynamic>[],
-        'entries': <dynamic>[],
+        'entries': [
+          {
+            'rank': 1,
+            'participant_id': 1,
+            'total_points': 100,
+            'offchain_points': 0,
+            'total_produced_blocks': 0,
+            'vrf_total_won_slots': 0,
+            'success_rate': 0.0,
+            'events_participated': 1,
+          },
+        ],
+        'pagination': {
+          'page': 1,
+          'per_page': 50,
+          'total': 1,
+          'total_pages': 1,
+        },
+      });
+      expect(r.entries, hasLength(1));
+    });
+
+    test('fromJson handles empty events and leaderboard', () {
+      final r = LeaderboardResult.fromJson({
+        'season': {'id': 1, 'name': 'S1'},
+        'events': <dynamic>[],
+        'leaderboard': <dynamic>[],
         'pagination': {
           'page': 1,
           'per_page': 50,
@@ -483,67 +583,92 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('BreakdownActivity', () {
-    test('fromJson parses all fields', () {
+    test('fromJson parses activity_id key', () {
       final a = BreakdownActivity.fromJson({
-        'id': 1,
+        'activity_id': 1,
         'activity_type': 'block_produced',
         'points': 50,
         'description': 'Produced block #123',
         'activity_at': '2025-01-15T10:00:00Z',
+        'challenge_id': 7,
       });
       expect(a.id, 1);
       expect(a.activityType, 'block_produced');
       expect(a.points, 50);
       expect(a.description, 'Produced block #123');
       expect(a.activityAt, '2025-01-15T10:00:00Z');
+      expect(a.challengeId, 7);
     });
 
-    test('fromJson handles nullable fields', () {
+    test('fromJson falls back to id key (cache compat)', () {
       final a = BreakdownActivity.fromJson({
         'id': 2,
         'activity_type': 'bonus',
         'points': 10,
       });
+      expect(a.id, 2);
+    });
+
+    test('fromJson handles nullable fields', () {
+      final a = BreakdownActivity.fromJson({
+        'activity_id': 2,
+        'activity_type': 'bonus',
+        'points': 10,
+      });
       expect(a.description, isNull);
       expect(a.activityAt, isNull);
+      expect(a.challengeId, isNull);
     });
   });
 
   group('EventBreakdown', () {
-    test('fromJson parses full event breakdown', () {
+    test('fromJson parses nested event object', () {
       final eb = EventBreakdown.fromJson({
-        'event_id': 5,
-        'event_name': 'Event 5',
+        'event': {'id': 5, 'name': 'Event 5'},
         'total_points': 800,
         'offchain_points': 200,
         'rank': 3,
         'first_block_points': 100,
-        'top3_points': 50,
+        'top_3_points': 50,
         'success_50_percent_points': 75,
         'produced_blocks': 20,
         'vrf_won_slots': 15,
         'success_rate': 0.85,
         'activities': [
           {
-            'id': 1,
+            'activity_id': 1,
             'activity_type': 'block_produced',
             'points': 50,
           },
         ],
       });
       expect(eb.eventId, 5);
+      expect(eb.eventName, 'Event 5');
       expect(eb.totalPoints, 800);
       expect(eb.rank, 3);
       expect(eb.firstBlockPoints, 100);
+      expect(eb.top3Points, 50);
       expect(eb.success50PercentPoints, 75);
       expect(eb.successRate, 0.85);
       expect(eb.activities, hasLength(1));
     });
 
+    test('fromJson falls back to flat event_id/event_name (cache compat)', () {
+      final eb = EventBreakdown.fromJson({
+        'event_id': 5,
+        'event_name': 'Event 5',
+        'total_points': 800,
+        'offchain_points': 200,
+        'top3_points': 50,
+      });
+      expect(eb.eventId, 5);
+      expect(eb.eventName, 'Event 5');
+      expect(eb.top3Points, 50);
+    });
+
     test('fromJson handles missing optional fields', () {
       final eb = EventBreakdown.fromJson({
-        'event_id': 1,
-        'event_name': 'E1',
+        'event': {'id': 1, 'name': 'E1'},
         'total_points': 0,
         'offchain_points': 0,
       });
@@ -554,36 +679,45 @@ void main() {
   });
 
   group('SeasonBreakdown', () {
-    test('fromJson parses season with nested events', () {
+    test('fromJson parses nested season object', () {
       final sb = SeasonBreakdown.fromJson({
-        'season_id': 1,
-        'season_name': 'Season 1',
+        'season': {'id': 1, 'name': 'Season 1'},
         'total_points': 3000,
         'offchain_points': 500,
         'events': [
           {
-            'event_id': 1,
-            'event_name': 'E1',
+            'event': {'id': 1, 'name': 'E1'},
             'total_points': 1500,
             'offchain_points': 250,
           },
           {
-            'event_id': 2,
-            'event_name': 'E2',
+            'event': {'id': 2, 'name': 'E2'},
             'total_points': 1500,
             'offchain_points': 250,
           },
         ],
       });
       expect(sb.seasonId, 1);
+      expect(sb.seasonName, 'Season 1');
       expect(sb.totalPoints, 3000);
       expect(sb.events, hasLength(2));
     });
 
-    test('fromJson handles missing events', () {
+    test('fromJson falls back to flat season_id/season_name (cache compat)',
+        () {
       final sb = SeasonBreakdown.fromJson({
         'season_id': 1,
-        'season_name': 'S1',
+        'season_name': 'Season 1',
+        'total_points': 3000,
+        'offchain_points': 500,
+      });
+      expect(sb.seasonId, 1);
+      expect(sb.seasonName, 'Season 1');
+    });
+
+    test('fromJson handles missing events', () {
+      final sb = SeasonBreakdown.fromJson({
+        'season': {'id': 1, 'name': 'S1'},
         'total_points': 0,
         'offchain_points': 0,
       });
@@ -592,17 +726,16 @@ void main() {
   });
 
   group('BreakdownResult', () {
-    test('fromJson parses event scope with EventBreakdown', () {
+    test('fromJson parses event scope with nested event object', () {
       final br = BreakdownResult.fromJson({
         'scope': 'event',
         'display_name': 'Alice',
         'total_points': 1000,
         'offchain_points': 200,
-        'event_id': 5,
-        'event_name': 'Event 5',
+        'event': {'id': 5, 'name': 'Event 5'},
         'rank': 2,
         'first_block_points': 100,
-        'top3_points': 50,
+        'top_3_points': 50,
         'success_50_percent_points': 75,
         'produced_blocks': 20,
         'vrf_won_slots': 15,
@@ -614,22 +747,22 @@ void main() {
       expect(br.totalPoints, 1000);
       expect(br.eventBreakdown, isNotNull);
       expect(br.eventBreakdown!.eventId, 5);
+      expect(br.eventBreakdown!.eventName, 'Event 5');
       expect(br.eventBreakdown!.rank, 2);
+      expect(br.eventBreakdown!.top3Points, 50);
       expect(br.seasonBreakdown, isNull);
     });
 
-    test('fromJson parses season scope with SeasonBreakdown', () {
+    test('fromJson parses season scope with nested season object', () {
       final br = BreakdownResult.fromJson({
         'scope': 'season',
         'display_name': 'Bob',
         'total_points': 5000,
         'offchain_points': 1000,
-        'season_id': 1,
-        'season_name': 'Season 1',
+        'season': {'id': 1, 'name': 'Season 1'},
         'events': [
           {
-            'event_id': 1,
-            'event_name': 'E1',
+            'event': {'id': 1, 'name': 'E1'},
             'total_points': 2500,
             'offchain_points': 500,
           },
@@ -639,6 +772,7 @@ void main() {
       expect(br.displayName, 'Bob');
       expect(br.seasonBreakdown, isNotNull);
       expect(br.seasonBreakdown!.seasonId, 1);
+      expect(br.seasonBreakdown!.seasonName, 'Season 1');
       expect(br.seasonBreakdown!.events, hasLength(1));
       expect(br.eventBreakdown, isNull);
     });
@@ -692,14 +826,14 @@ void main() {
         'total_participants': 2000,
         'season_id': 1,
         'season_name': 'Season 1',
-        'phases_participated': 4,
+        'events_participated': 4,
         'total_produced_blocks': 25,
       };
       final r = RankingResult.fromJson(json);
       final r2 = RankingResult.fromJson(r.toJson());
       expect(r2.seasonId, r.seasonId);
       expect(r2.seasonName, r.seasonName);
-      expect(r2.phasesParticipated, r.phasesParticipated);
+      expect(r2.eventsParticipated, r.eventsParticipated);
       expect(r2.totalProducedBlocks, r.totalProducedBlocks);
     });
 
@@ -793,7 +927,7 @@ void main() {
         'total_produced_blocks': 100,
         'vrf_total_won_slots': 50,
         'success_rate': 0.95,
-        'phases_participated': 3,
+        'events_participated': 3,
       };
       final e = LeaderboardEntry.fromJson(json);
       final e2 = LeaderboardEntry.fromJson(e.toJson());
@@ -802,6 +936,7 @@ void main() {
       expect(e2.displayName, e.displayName);
       expect(e2.totalPoints, e.totalPoints);
       expect(e2.successRate, e.successRate);
+      expect(e2.eventsParticipated, e.eventsParticipated);
     });
 
     test('PaginationInfo', () {
@@ -831,7 +966,7 @@ void main() {
             'is_active': true,
           },
         ],
-        'entries': [
+        'leaderboard': [
           {
             'rank': 1,
             'participant_id': 42,
@@ -841,7 +976,7 @@ void main() {
             'total_produced_blocks': 50,
             'vrf_total_won_slots': 30,
             'success_rate': 0.9,
-            'phases_participated': 2,
+            'events_participated': 2,
           },
         ],
         'pagination': {
@@ -864,11 +999,12 @@ void main() {
 
     test('BreakdownActivity', () {
       final json = {
-        'id': 1,
+        'activity_id': 1,
         'activity_type': 'block_produced',
         'points': 50,
         'description': 'Produced block #123',
         'activity_at': '2025-01-15T10:00:00Z',
+        'challenge_id': 7,
       };
       final a = BreakdownActivity.fromJson(json);
       final a2 = BreakdownActivity.fromJson(a.toJson());
@@ -877,24 +1013,24 @@ void main() {
       expect(a2.points, a.points);
       expect(a2.description, a.description);
       expect(a2.activityAt, a.activityAt);
+      expect(a2.challengeId, a.challengeId);
     });
 
     test('EventBreakdown', () {
       final json = {
-        'event_id': 5,
-        'event_name': 'Event 5',
+        'event': {'id': 5, 'name': 'Event 5'},
         'total_points': 800,
         'offchain_points': 200,
         'rank': 3,
         'first_block_points': 100,
-        'top3_points': 50,
+        'top_3_points': 50,
         'success_50_percent_points': 75,
         'produced_blocks': 20,
         'vrf_won_slots': 15,
         'success_rate': 0.85,
         'activities': [
           {
-            'id': 1,
+            'activity_id': 1,
             'activity_type': 'block_produced',
             'points': 50,
           },
@@ -903,9 +1039,11 @@ void main() {
       final eb = EventBreakdown.fromJson(json);
       final eb2 = EventBreakdown.fromJson(eb.toJson());
       expect(eb2.eventId, eb.eventId);
+      expect(eb2.eventName, eb.eventName);
       expect(eb2.totalPoints, eb.totalPoints);
       expect(eb2.rank, eb.rank);
       expect(eb2.firstBlockPoints, eb.firstBlockPoints);
+      expect(eb2.top3Points, eb.top3Points);
       expect(eb2.success50PercentPoints, eb.success50PercentPoints);
       expect(eb2.successRate, eb.successRate);
       expect(eb2.activities.length, eb.activities.length);
@@ -914,14 +1052,12 @@ void main() {
 
     test('SeasonBreakdown', () {
       final json = {
-        'season_id': 1,
-        'season_name': 'Season 1',
+        'season': {'id': 1, 'name': 'Season 1'},
         'total_points': 3000,
         'offchain_points': 500,
         'events': [
           {
-            'event_id': 1,
-            'event_name': 'E1',
+            'event': {'id': 1, 'name': 'E1'},
             'total_points': 1500,
             'offchain_points': 250,
           },
@@ -942,11 +1078,10 @@ void main() {
         'display_name': 'Alice',
         'total_points': 1000,
         'offchain_points': 200,
-        'event_id': 5,
-        'event_name': 'Event 5',
+        'event': {'id': 5, 'name': 'Event 5'},
         'rank': 2,
         'first_block_points': 100,
-        'top3_points': 50,
+        'top_3_points': 50,
         'success_50_percent_points': 75,
         'produced_blocks': 20,
         'vrf_won_slots': 15,
@@ -970,12 +1105,10 @@ void main() {
         'display_name': 'Bob',
         'total_points': 5000,
         'offchain_points': 1000,
-        'season_id': 1,
-        'season_name': 'Season 1',
+        'season': {'id': 1, 'name': 'Season 1'},
         'events': [
           {
-            'event_id': 1,
-            'event_name': 'E1',
+            'event': {'id': 1, 'name': 'E1'},
             'total_points': 2500,
             'offchain_points': 500,
           },

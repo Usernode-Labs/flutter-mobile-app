@@ -105,8 +105,11 @@ class EnrichedChallenge {
   int? get earnedPoints => activity?.points;
 }
 
-/// Cross-references challenges with breakdown activities by matching
-/// [BreakdownActivity.description] to [ChallengeDto.goal].
+/// Cross-references challenges with breakdown activities.
+///
+/// Prefers matching by [BreakdownActivity.challengeId] → [ChallengeDto.id].
+/// Falls back to [BreakdownActivity.description] → [ChallengeDto.goal] when
+/// `challengeId` is null (older cached data).
 ///
 /// When [activities] is null (breakdown unavailable), wraps all challenges
 /// with `activity: null` for graceful v1-style fallback.
@@ -118,17 +121,17 @@ List<EnrichedChallenge> enrichChallenges(
     return challenges.map((dto) => EnrichedChallenge(dto: dto)).toList();
   }
 
-  final activityMap = <String, BreakdownActivity>{};
+  final byId = <int, BreakdownActivity>{};
+  final byDesc = <String, BreakdownActivity>{};
   for (final a in activities) {
-    if (a.description != null) {
-      activityMap[a.description!] = a;
-    }
+    if (a.challengeId != null) byId[a.challengeId!] = a;
+    if (a.description != null) byDesc[a.description!] = a;
   }
 
   return challenges
       .map((dto) => EnrichedChallenge(
             dto: dto,
-            activity: activityMap[dto.goal],
+            activity: byId[dto.id] ?? byDesc[dto.goal],
           ))
       .toList();
 }

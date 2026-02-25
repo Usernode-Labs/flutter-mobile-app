@@ -31,12 +31,14 @@ BreakdownActivity _makeActivity({
   int id = 1,
   int points = 100,
   String? description,
+  int? challengeId,
 }) {
   return BreakdownActivity(
     id: id,
     activityType: 'challenge_completed',
     points: points,
     description: description,
+    challengeId: challengeId,
   );
 }
 
@@ -154,15 +156,23 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('enrichChallenges', () {
-    test('matches challenges to activities by description ↔ goal', () {
+    test('matches by challengeId when available', () {
       final challenges = [
         _makeDto(id: 1, goal: 'Produce Every Block'),
         _makeDto(id: 2, goal: 'Report a Bug'),
         _makeDto(id: 3, goal: 'Feedback Survey'),
       ];
       final activities = [
-        _makeActivity(id: 10, description: 'Produce Every Block', points: 6491),
-        _makeActivity(id: 11, description: 'Feedback Survey', points: 500),
+        _makeActivity(
+            id: 10,
+            challengeId: 1,
+            description: 'Produce Every Block',
+            points: 6491),
+        _makeActivity(
+            id: 11,
+            challengeId: 3,
+            description: 'Feedback Survey',
+            points: 500),
       ];
 
       final enriched = enrichChallenges(challenges, activities);
@@ -175,6 +185,36 @@ void main() {
       expect(enriched[2].earnedPoints, 500);
     });
 
+    test('falls back to description matching when challengeId is null', () {
+      final challenges = [
+        _makeDto(id: 1, goal: 'Produce Every Block'),
+        _makeDto(id: 2, goal: 'Report a Bug'),
+      ];
+      final activities = [
+        _makeActivity(id: 10, description: 'Produce Every Block', points: 6491),
+      ];
+
+      final enriched = enrichChallenges(challenges, activities);
+      expect(enriched[0].participantCompleted, isTrue);
+      expect(enriched[0].earnedPoints, 6491);
+      expect(enriched[1].participantCompleted, isFalse);
+    });
+
+    test('challengeId match takes precedence over description match', () {
+      final challenges = [
+        _makeDto(id: 1, goal: 'Goal A'),
+      ];
+      // Activity has challengeId=1 but description doesn't match goal
+      final activities = [
+        _makeActivity(
+            id: 10, challengeId: 1, description: 'Different Desc', points: 999),
+      ];
+
+      final enriched = enrichChallenges(challenges, activities);
+      expect(enriched[0].participantCompleted, isTrue);
+      expect(enriched[0].earnedPoints, 999);
+    });
+
     test('null activities wraps all with activity: null', () {
       final challenges = [
         _makeDto(id: 1, goal: 'A'),
@@ -185,7 +225,7 @@ void main() {
       expect(enriched.every((e) => !e.participantCompleted), isTrue);
     });
 
-    test('activities without description are skipped', () {
+    test('activities without description or challengeId are skipped', () {
       final challenges = [_makeDto(id: 1, goal: 'Goal')];
       final activities = [_makeActivity(id: 10, description: null)];
 

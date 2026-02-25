@@ -16,6 +16,8 @@ final _log = LoggingService.instance.withTag('usernode/LeaderboardBootstrap');
 
 const _seasonIdKey = 'leaderboard:season_id';
 const _seasonNameKey = 'leaderboard:season_name';
+const _eventIdKey = 'leaderboard:event_id';
+const _eventNameKey = 'leaderboard:event_name';
 
 /// Bootstraps leaderboard state from persisted data and registration results.
 ///
@@ -38,17 +40,18 @@ class LeaderboardBootstrap {
     RegistrationV2Result result,
   ) async {
     await saveParticipantId(result.participantId);
+    final ctx = SeasonEventContext(
+      seasonId: result.seasonId,
+      seasonName: result.seasonName,
+    );
     if (result.seasonId != null) {
-      await _persistSeason(result.seasonId!, result.seasonName);
+      await _persistContext(ctx);
     }
     _log.info(
       'Persisted participant=${result.participantId}, '
       'season=${result.seasonId} (${result.seasonName})',
     );
-    return SeasonEventContext(
-      seasonId: result.seasonId,
-      seasonName: result.seasonName,
-    );
+    return ctx;
   }
 
   /// Load persisted season context for cold-start hydration.
@@ -58,28 +61,43 @@ class LeaderboardBootstrap {
     final seasonId = prefs.getInt(NetworkPrefs.prefixKey(_seasonIdKey));
     if (seasonId == null) return null;
     final seasonName = prefs.getString(NetworkPrefs.prefixKey(_seasonNameKey));
-    return SeasonEventContext(seasonId: seasonId, seasonName: seasonName);
+    final eventId = prefs.getInt(NetworkPrefs.prefixKey(_eventIdKey));
+    final eventName = prefs.getString(NetworkPrefs.prefixKey(_eventNameKey));
+    return SeasonEventContext(
+      seasonId: seasonId,
+      seasonName: seasonName,
+      eventId: eventId,
+      eventName: eventName,
+    );
   }
 
   /// Persist a season/event selection (e.g. when the user switches season
   /// via a [DropdownChip] in the leaderboard UI).
   static Future<void> persistSeasonEvent(SeasonEventContext ctx) async {
     if (ctx.seasonId == null) return;
-    await _persistSeason(ctx.seasonId!, ctx.seasonName);
+    await _persistContext(ctx);
   }
 
   // -- private ---------------------------------------------------------------
 
-  static Future<void> _persistSeason(
-    int seasonId,
-    String? seasonName,
-  ) async {
+  static Future<void> _persistContext(SeasonEventContext ctx) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(NetworkPrefs.prefixKey(_seasonIdKey), seasonId);
-    if (seasonName != null) {
+    if (ctx.seasonId != null) {
+      await prefs.setInt(NetworkPrefs.prefixKey(_seasonIdKey), ctx.seasonId!);
+    }
+    if (ctx.seasonName != null) {
       await prefs.setString(
         NetworkPrefs.prefixKey(_seasonNameKey),
-        seasonName,
+        ctx.seasonName!,
+      );
+    }
+    if (ctx.eventId != null) {
+      await prefs.setInt(NetworkPrefs.prefixKey(_eventIdKey), ctx.eventId!);
+    }
+    if (ctx.eventName != null) {
+      await prefs.setString(
+        NetworkPrefs.prefixKey(_eventNameKey),
+        ctx.eventName!,
       );
     }
   }
@@ -109,34 +127,59 @@ Future<void> refreshAllLeaderboardData(Ref ref) async {
 /// populated.
 final leaderboardBootstrapProvider = FutureProvider<void>((ref) async {
   final persisted = await LeaderboardBootstrap.loadPersistedContext();
-  if (persisted != null) {
-    _log.info('Restored season context: seasonId=${persisted.seasonId}');
+  if (persisted != null && persisted.eventId != null) {
+    _log.info(
+      'Restored full context: seasonId=${persisted.seasonId}, '
+      'eventId=${persisted.eventId}',
+    );
     ref.read(seasonEventContextProvider.notifier).state = persisted;
     return;
   }
 
-  // No persisted data — call the API directly (avoid provider-chain timing
-  // issues with ref.read(seasonsProvider.future) inside a FutureProvider).
-  _log.info('No persisted context, auto-selecting from seasons API…');
+  // Missing or incomplete persisted data — call the API to resolve the
+  // full season+event context.
+  _log.info(
+    persisted != null
+        ? 'Persisted seasonId=${persisted.seasonId} but no eventId, '
+            'resolving from seasons API…'
+        : 'No persisted context, auto-selecting from seasons API…',
+  );
   List<SeasonDto> seasons;
   try {
     final service = ref.read(leaderboardApiServiceProvider);
     seasons = await service.getSeasons();
   } catch (e) {
     _log.warn('Failed to fetch seasons for auto-select: $e');
+    // If we have partial persisted data, use it rather than nothing.
+    if (persisted != null) {
+      ref.read(seasonEventContextProvider.notifier).state = persisted;
+    }
     return;
   }
 
   if (seasons.isEmpty) {
     _log.info('No seasons available — skipping auto-select');
+    if (persisted != null) {
+      ref.read(seasonEventContextProvider.notifier).state = persisted;
+    }
     return;
   }
 
-  final season = seasons
-          .cast<SeasonDto?>()
-          .firstWhere((s) => s!.isActive, orElse: () => null) ??
-      seasons.last;
+  // Resolve season: prefer persisted seasonId, then active, then last.
+  final season = persisted?.seasonId != null
+      ? (seasons.cast<SeasonDto?>().firstWhere(
+              (s) => s!.id == persisted!.seasonId,
+              orElse: () => null) ??
+          seasons
+              .cast<SeasonDto?>()
+              .firstWhere((s) => s!.isActive, orElse: () => null) ??
+          seasons.last)
+      : (seasons
+              .cast<SeasonDto?>()
+              .firstWhere((s) => s!.isActive, orElse: () => null) ??
+          seasons.last);
 
+  // Resolve event: active one, or last in the list.
   SeasonEventDto? event;
   if (season.events.isNotEmpty) {
     event = season.events

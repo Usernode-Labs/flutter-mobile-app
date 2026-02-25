@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
+import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
 import 'package:crypto_mobile_app/design_system/src/dropdown_sheet.dart';
@@ -54,12 +55,14 @@ Future<void> showSeasonPicker(BuildContext context, WidgetRef ref) async {
   final season = seasons[result];
   if (ctx.seasonId != season.id) {
     final event = _latestEvent(season);
-    ref.read(seasonEventContextProvider.notifier).state = SeasonEventContext(
+    final newCtx = SeasonEventContext(
       seasonId: season.id,
       seasonName: season.name,
       eventId: event?.id,
       eventName: event?.name,
     );
+    ref.read(seasonEventContextProvider.notifier).state = newCtx;
+    LeaderboardBootstrap.persistSeasonEvent(newCtx);
   }
 }
 
@@ -98,10 +101,12 @@ Future<void> showEventPicker(BuildContext context, WidgetRef ref) async {
   final seasonName = ctx.seasonName ?? currentSeason!.name;
   final event = events[result];
 
-  ref.read(seasonEventContextProvider.notifier).state = SeasonEventContext(
+  final newCtx = SeasonEventContext(
     seasonId: seasonId,
     seasonName: seasonName,
     eventId: event.id,
     eventName: event.name,
   );
+  ref.read(seasonEventContextProvider.notifier).state = newCtx;
+  LeaderboardBootstrap.persistSeasonEvent(newCtx);
 }

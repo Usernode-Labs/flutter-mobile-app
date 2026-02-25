@@ -289,6 +289,62 @@ void main() {
       expect(result.completed, hasLength(1));
       expect(result.missed, isEmpty);
     });
+
+    test('enabled but scheduleEnd in the past → missed tab', () {
+      final pastEnd = DateTime.now()
+          .toUtc()
+          .subtract(const Duration(days: 1))
+          .toIso8601String();
+      final enriched = [
+        EnrichedChallenge(
+          dto: _makeDto(id: 1, enabled: true, scheduleEnd: pastEnd),
+        ),
+      ];
+      final result = categorizeEnrichedChallenges(enriched);
+      expect(result.missed, hasLength(1));
+      expect(result.active, isEmpty);
+    });
+
+    test('enabled with future scheduleEnd → active tab', () {
+      final futureEnd =
+          DateTime.now().toUtc().add(const Duration(days: 7)).toIso8601String();
+      final enriched = [
+        EnrichedChallenge(
+          dto: _makeDto(id: 1, enabled: true, scheduleEnd: futureEnd),
+        ),
+      ];
+      final result = categorizeEnrichedChallenges(enriched);
+      expect(result.active, hasLength(1));
+      expect(result.missed, isEmpty);
+    });
+
+    test('enabled with null scheduleEnd → active tab', () {
+      final enriched = [
+        EnrichedChallenge(
+          dto: _makeDto(id: 1, enabled: true, scheduleEnd: null),
+        ),
+      ];
+      final result = categorizeEnrichedChallenges(enriched);
+      expect(result.active, hasLength(1));
+      expect(result.missed, isEmpty);
+    });
+
+    test('completed overrides expired scheduleEnd', () {
+      final pastEnd = DateTime.now()
+          .toUtc()
+          .subtract(const Duration(days: 1))
+          .toIso8601String();
+      final enriched = [
+        EnrichedChallenge(
+          dto: _makeDto(
+              id: 1, enabled: true, scheduleEnd: pastEnd, goal: 'Goal'),
+          activity: _makeActivity(description: 'Goal'),
+        ),
+      ];
+      final result = categorizeEnrichedChallenges(enriched);
+      expect(result.completed, hasLength(1));
+      expect(result.missed, isEmpty);
+    });
   });
 
   group('mapEnrichedVariant', () {
@@ -327,6 +383,30 @@ void main() {
           activity: _makeActivity(description: 'Goal'),
         )),
         ChallengeCardVariant.completed,
+      );
+    });
+
+    test('enabled but scheduleEnd in the past → missed', () {
+      final pastEnd = DateTime.now()
+          .toUtc()
+          .subtract(const Duration(days: 1))
+          .toIso8601String();
+      expect(
+        mapEnrichedVariant(EnrichedChallenge(
+          dto: _makeDto(enabled: true, scheduleEnd: pastEnd),
+        )),
+        ChallengeCardVariant.missed,
+      );
+    });
+
+    test('enabled with future scheduleEnd → active', () {
+      final futureEnd =
+          DateTime.now().toUtc().add(const Duration(days: 7)).toIso8601String();
+      expect(
+        mapEnrichedVariant(EnrichedChallenge(
+          dto: _makeDto(enabled: true, scheduleEnd: futureEnd),
+        )),
+        ChallengeCardVariant.active,
       );
     });
   });

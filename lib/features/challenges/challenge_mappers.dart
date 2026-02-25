@@ -149,11 +149,19 @@ class CategorizedEnrichedChallenges {
   });
 }
 
+/// Whether [dto.scheduleEnd] is in the past.
+bool _isScheduleExpired(ChallengeDto dto) {
+  if (dto.scheduleEnd == null) return false;
+  final end = DateTime.tryParse(dto.scheduleEnd!);
+  if (end == null) return false;
+  return DateTime.now().toUtc().isAfter(end.toUtc());
+}
+
 /// Categorizes enriched challenges using participant-specific completion.
 ///
 /// - **Completed**: participant has a matching breakdown activity
-/// - **Missed**: challenge not enabled for this phase AND participant didn't complete it
-/// - **Active**: everything else (enabled for this phase, not yet completed)
+/// - **Missed**: challenge not enabled OR schedule has ended (and not completed)
+/// - **Active**: everything else (enabled, schedule not expired, not yet completed)
 CategorizedEnrichedChallenges categorizeEnrichedChallenges(
   List<EnrichedChallenge> challenges,
 ) {
@@ -164,7 +172,7 @@ CategorizedEnrichedChallenges categorizeEnrichedChallenges(
   for (final c in challenges) {
     if (c.participantCompleted) {
       completed.add(c);
-    } else if (!c.dto.enabled) {
+    } else if (!c.dto.enabled || _isScheduleExpired(c.dto)) {
       missed.add(c);
     } else {
       active.add(c);
@@ -182,7 +190,9 @@ CategorizedEnrichedChallenges categorizeEnrichedChallenges(
 /// participant-specific completion data.
 ChallengeCardVariant mapEnrichedVariant(EnrichedChallenge c) {
   if (c.participantCompleted) return ChallengeCardVariant.completed;
-  if (!c.dto.enabled) return ChallengeCardVariant.missed;
+  if (!c.dto.enabled || _isScheduleExpired(c.dto)) {
+    return ChallengeCardVariant.missed;
+  }
   return ChallengeCardVariant.active;
 }
 

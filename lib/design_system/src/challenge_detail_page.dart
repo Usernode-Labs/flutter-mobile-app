@@ -14,9 +14,13 @@ typedef ChallengeDetailSection = ({String title, String body});
 /// Renders a [TopAppBar] (large) with category icon, title, and subtitle,
 /// followed by a reward card, description sections, and a total reward card.
 ///
+/// When [entranceAnimation] is provided, body content staggers in after the
+/// animation completes — letting the Hero title land first before revealing
+/// the rest of the page.
+///
 /// This is a presentation-only widget: all data comes through constructor
 /// parameters. The feature screen in `lib/features/` wires state to this widget.
-class ChallengeDetailPage extends StatelessWidget {
+class ChallengeDetailPage extends StatefulWidget {
   const ChallengeDetailPage({
     super.key,
     required this.title,
@@ -29,6 +33,7 @@ class ChallengeDetailPage extends StatelessWidget {
     this.onBackTap,
     this.titleHeroTag,
     this.iconHeroTag,
+    this.entranceAnimation,
   });
 
   /// Challenge title, e.g. "Produce Every Block".
@@ -61,6 +66,96 @@ class ChallengeDetailPage extends StatelessWidget {
   /// When non-null, enables a shared element transition for the category icon.
   final String? iconHeroTag;
 
+  /// Route animation that drives staggered entrance of body content.
+  /// When provided, body content waits for this animation to complete
+  /// before staggering in. Pass `ModalRoute.of(context)?.animation`.
+  final Animation<double>? entranceAnimation;
+
+  @override
+  State<ChallengeDetailPage> createState() => _ChallengeDetailPageState();
+}
+
+class _ChallengeDetailPageState extends State<ChallengeDetailPage>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _stagger;
+  late final List<Animation<double>> _fadeAnimations;
+  late final List<Animation<Offset>> _slideAnimations;
+
+  static const _itemCount = 3;
+  static const _staggerDuration = Duration(milliseconds: 500);
+
+  @override
+  void initState() {
+    super.initState();
+    _stagger = AnimationController(vsync: this, duration: _staggerDuration);
+
+    _fadeAnimations = List.generate(_itemCount, (i) {
+      final start = i * 0.2;
+      final end = (start + 0.5).clamp(0.0, 1.0);
+      return CurvedAnimation(
+        parent: _stagger,
+        curve: Interval(start, end, curve: Curves.easeOut),
+      );
+    });
+
+    _slideAnimations = List.generate(_itemCount, (i) {
+      final start = i * 0.2;
+      final end = (start + 0.5).clamp(0.0, 1.0);
+      return Tween<Offset>(
+        begin: const Offset(0, 0.12),
+        end: Offset.zero,
+      ).animate(CurvedAnimation(
+        parent: _stagger,
+        curve: Interval(start, end, curve: Curves.easeOut),
+      ));
+    });
+
+    _bindEntranceAnimation();
+  }
+
+  void _bindEntranceAnimation() {
+    final entrance = widget.entranceAnimation;
+    if (entrance == null || entrance.isCompleted) {
+      _stagger.value = 1.0;
+      return;
+    }
+    entrance.addStatusListener(_onEntranceStatus);
+  }
+
+  void _onEntranceStatus(AnimationStatus status) {
+    if (status == AnimationStatus.completed) {
+      _stagger.forward();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    if (reduceMotion && _stagger.value < 1.0) {
+      _stagger.value = 1.0;
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.entranceAnimation?.removeStatusListener(_onEntranceStatus);
+    _stagger.dispose();
+    super.dispose();
+  }
+
+  Widget _staggerItem(int index, Widget child) {
+    if (widget.entranceAnimation == null) return child;
+    return SlideTransition(
+      position: _slideAnimations[index],
+      child: FadeTransition(
+        opacity: _fadeAnimations[index],
+        child: child,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
@@ -68,13 +163,13 @@ class ChallengeDetailPage extends StatelessWidget {
     return CustomScrollView(
       slivers: [
         TopAppBar(
-          title: title,
+          title: widget.title,
           size: TopAppBarSize.large,
-          subtitle: dateRange,
-          image: ChallengeCategoryIcon(category: category),
-          onLeadingTap: onBackTap,
-          titleHeroTag: titleHeroTag,
-          imageHeroTag: iconHeroTag,
+          subtitle: widget.dateRange,
+          image: ChallengeCategoryIcon(category: widget.category),
+          onLeadingTap: widget.onBackTap,
+          titleHeroTag: widget.titleHeroTag,
+          imageHeroTag: widget.iconHeroTag,
         ),
         SliverToBoxAdapter(
           child: Padding(
@@ -85,13 +180,16 @@ class ChallengeDetailPage extends StatelessWidget {
             ),
             child: Column(
               children: [
-                rewardCard,
+                _staggerItem(0, widget.rewardCard),
                 SizedBox(height: spacing.space16),
-                _SectionsCard(sections: sections),
+                _staggerItem(1, _SectionsCard(sections: widget.sections)),
                 SizedBox(height: spacing.space16),
-                _TotalRewardCard(
-                  heading: totalRewardHeading,
-                  body: totalRewardBody,
+                _staggerItem(
+                  2,
+                  _TotalRewardCard(
+                    heading: widget.totalRewardHeading,
+                    body: widget.totalRewardBody,
+                  ),
                 ),
               ],
             ),

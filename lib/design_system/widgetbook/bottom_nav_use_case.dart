@@ -128,22 +128,18 @@ class _InteractiveBottomNavState extends State<_InteractiveBottomNav> {
     final items = allItems.take(widget.itemCount).toList();
     final label = items[_selectedIndex].label;
 
-    return Column(
-      children: [
-        Expanded(
-          child: Center(
-            child: Text(
-              'Page: $label',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-          ),
+    return Scaffold(
+      body: Center(
+        child: Text(
+          'Page: $label',
+          style: Theme.of(context).textTheme.headlineSmall,
         ),
-        BottomNav(
-          items: items,
-          selectedIndex: _selectedIndex,
-          onItemSelected: (index) => setState(() => _selectedIndex = index),
-        ),
-      ],
+      ),
+      bottomNavigationBar: BottomNav(
+        items: items,
+        selectedIndex: _selectedIndex,
+        onItemSelected: (index) => setState(() => _selectedIndex = index),
+      ),
     );
   }
 }

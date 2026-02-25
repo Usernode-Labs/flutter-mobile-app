@@ -30,8 +30,8 @@ WidgetbookComponent challengesPageComponent() {
 }
 
 /// Spacer height matching ScoreHeader's natural size.
-/// 16 top + 160 circle + 32 gap + 16 countdown + 24 gap + 40 button + 8 bottom.
-const _kSpacerHeight = 296.0;
+/// 32 top + 160 circle + 16 gap + 16 countdown + 48 gap + 40 button + 32 bottom.
+const _kSpacerHeight = 344.0;
 
 /// M3 TabBar height.
 const _kTabBarHeight = 48.0;
@@ -53,21 +53,136 @@ class _ChallengesPage extends StatefulWidget {
 }
 
 class _ChallengesPageState extends State<_ChallengesPage>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   int _navIndex = 0;
   double _scrollFraction = 0.0;
   late TabController _tabController;
+
+  // Heartbeat glow controllers — one per pillar lobe.
+  late final AnimationController _technicalGlow;
+  late final AnimationController _flashGlow;
+  late final AnimationController _communityGlow;
+  late final AnimationController _fadeOut;
+
+  double _technicalValue = 0.0;
+  double _flashValue = 0.0;
+  double _communityValue = 0.0;
+  bool _isRefreshAnimating = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: _kTabLabels.length, vsync: this);
+    _technicalGlow = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    _flashGlow = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    _communityGlow = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    _fadeOut = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+      value: 1.0,
+    );
   }
 
   @override
   void dispose() {
+    _technicalGlow.dispose();
+    _flashGlow.dispose();
+    _communityGlow.dispose();
+    _fadeOut.dispose();
     _tabController.dispose();
     super.dispose();
+  }
+
+  /// Heartbeat TweenSequence: lub-dub pattern.
+  static TweenSequence<double> _heartbeatSequence(double peak, double hold) =>
+      TweenSequence([
+        TweenSequenceItem(tween: Tween(begin: 0.0, end: peak), weight: 16),
+        TweenSequenceItem(
+            tween: Tween(begin: peak, end: peak * 0.6), weight: 16),
+        TweenSequenceItem(
+            tween: Tween(begin: peak * 0.6, end: peak * 0.6), weight: 12),
+        TweenSequenceItem(
+            tween: Tween(begin: peak * 0.6, end: peak * 0.85), weight: 16),
+        TweenSequenceItem(
+            tween: Tween(begin: peak * 0.85, end: hold), weight: 40),
+      ]);
+
+  Future<void> _runHeartbeat(
+    AnimationController controller,
+    TweenSequence<double> sequence,
+    void Function(double) setter,
+  ) {
+    controller.reset();
+    final animation = sequence.animate(
+      CurvedAnimation(parent: controller, curve: Curves.easeOut),
+    );
+    void listener() => setState(() => setter(animation.value));
+    animation.addListener(listener);
+    return controller.forward().then((_) => animation.removeListener(listener));
+  }
+
+  Future<void> _simulateRefresh() async {
+    if (_isRefreshAnimating) return;
+
+    setState(() => _isRefreshAnimating = true);
+    _fadeOut.value = 1.0;
+
+    final isGlow = widget.showGlow;
+    final peak = isGlow ? 1.0 : 0.45;
+    final hold = isGlow ? 0.7 : 0.30;
+    final completionPeak = isGlow ? 1.0 : 0.55;
+
+    final staggerSeq = _heartbeatSequence(peak, hold);
+
+    _runHeartbeat(_technicalGlow, staggerSeq, (v) => _technicalValue = v);
+    await Future.delayed(const Duration(milliseconds: 350));
+    _runHeartbeat(_flashGlow, staggerSeq, (v) => _flashValue = v);
+    await Future.delayed(const Duration(milliseconds: 350));
+    _runHeartbeat(_communityGlow, staggerSeq, (v) => _communityValue = v);
+
+    // Simulate data load delay.
+    await Future.delayed(const Duration(milliseconds: 800));
+
+    // Completion heartbeat — all three in unison.
+    final completionSeq = _heartbeatSequence(completionPeak, hold);
+    await Future.wait([
+      _runHeartbeat(_technicalGlow, completionSeq, (v) => _technicalValue = v),
+      _runHeartbeat(_flashGlow, completionSeq, (v) => _flashValue = v),
+      _runHeartbeat(_communityGlow, completionSeq, (v) => _communityValue = v),
+    ]);
+
+    if (isGlow) {
+      setState(() => _isRefreshAnimating = false);
+    } else {
+      _fadeOut.value = 1.0;
+      void fadeListener() {
+        setState(() {
+          final f = _fadeOut.value;
+          _technicalValue = hold * f;
+          _flashValue = hold * f;
+          _communityValue = hold * f;
+        });
+      }
+
+      _fadeOut.addListener(fadeListener);
+      await _fadeOut.reverse(from: 1.0);
+      _fadeOut.removeListener(fadeListener);
+      setState(() {
+        _technicalValue = 0.0;
+        _flashValue = 0.0;
+        _communityValue = 0.0;
+        _isRefreshAnimating = false;
+      });
+    }
   }
 
   bool _onScroll(ScrollNotification notification) {
@@ -112,6 +227,11 @@ class _ChallengesPageState extends State<_ChallengesPage>
                   variant: widget.showGlow
                       ? ScoreHeaderVariant.glow
                       : ScoreHeaderVariant.standard,
+                  technicalGlowIntensity:
+                      _isRefreshAnimating ? _technicalValue : null,
+                  flashGlowIntensity: _isRefreshAnimating ? _flashValue : null,
+                  communityGlowIntensity:
+                      _isRefreshAnimating ? _communityValue : null,
                 ),
               ),
             ),
@@ -201,6 +321,17 @@ class _ChallengesPageState extends State<_ChallengesPage>
         ],
         selectedIndex: _navIndex,
         onItemSelected: (index) => setState(() => _navIndex = index),
+      ),
+      floatingActionButton: FloatingActionButton.small(
+        onPressed: _isRefreshAnimating ? null : _simulateRefresh,
+        tooltip: 'Simulate refresh',
+        child: _isRefreshAnimating
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.refresh),
       ),
     );
   }
@@ -367,11 +498,13 @@ class _SurfaceTabBarDelegate extends SliverPersistentHeaderDelegate {
   final TabController tabController;
   final double scrollFraction;
 
-  @override
-  double get maxExtent => _kTabBarHeight;
+  static const _kTopInset = 8.0;
 
   @override
-  double get minExtent => _kTabBarHeight;
+  double get maxExtent => _kTopInset + _kTabBarHeight;
+
+  @override
+  double get minExtent => _kTopInset + _kTabBarHeight;
 
   @override
   Widget build(
@@ -388,19 +521,22 @@ class _SurfaceTabBarDelegate extends SliverPersistentHeaderDelegate {
         ),
       ),
       clipBehavior: Clip.antiAlias,
-      child: TabBar(
-        controller: tabController,
-        labelColor: colors.onSurface,
-        unselectedLabelColor: colors.outline,
-        labelStyle: textTheme.titleSmall,
-        unselectedLabelStyle: textTheme.titleSmall,
-        indicatorColor: colors.primary,
-        indicatorWeight: 3,
-        dividerColor: colors.outlineVariant,
-        dividerHeight: 1,
-        tabs: [
-          for (int i = 0; i < _kTabLabels.length; i++) _buildTab(context, i),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.only(top: _kTopInset),
+        child: TabBar(
+          controller: tabController,
+          labelColor: colors.onSurface,
+          unselectedLabelColor: colors.outline,
+          labelStyle: textTheme.titleSmall,
+          unselectedLabelStyle: textTheme.titleSmall,
+          indicatorColor: colors.primary,
+          indicatorWeight: 3,
+          dividerColor: colors.outlineVariant,
+          dividerHeight: 1,
+          tabs: [
+            for (int i = 0; i < _kTabLabels.length; i++) _buildTab(context, i),
+          ],
+        ),
       ),
     );
   }

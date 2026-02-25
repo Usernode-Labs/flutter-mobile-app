@@ -56,6 +56,27 @@ WidgetbookComponent scoreHeaderComponent() {
             max: 1,
           );
 
+          final technicalGlow = context.knobs.double.slider(
+            label: 'Technical Lobe',
+            initialValue: 0,
+            min: 0,
+            max: 1,
+          );
+
+          final flashGlow = context.knobs.double.slider(
+            label: 'Flash Lobe',
+            initialValue: 0,
+            min: 0,
+            max: 1,
+          );
+
+          final communityGlow = context.knobs.double.slider(
+            label: 'Community Lobe',
+            initialValue: 0,
+            min: 0,
+            max: 1,
+          );
+
           return Padding(
             padding: const EdgeInsets.all(16),
             child: ScoreHeader(
@@ -67,6 +88,9 @@ WidgetbookComponent scoreHeaderComponent() {
               ctaLabel: ctaLabel,
               variant: variant,
               glowIntensity: glowIntensity,
+              technicalGlowIntensity: technicalGlow > 0 ? technicalGlow : null,
+              flashGlowIntensity: flashGlow > 0 ? flashGlow : null,
+              communityGlowIntensity: communityGlow > 0 ? communityGlow : null,
               onCtaTap: () {},
             ),
           );

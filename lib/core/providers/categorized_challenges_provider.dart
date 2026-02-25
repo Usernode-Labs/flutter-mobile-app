@@ -10,9 +10,9 @@ import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 /// new values — not on every build frame.
 final categorizedChallengesProvider =
     Provider<CategorizedEnrichedChallenges?>((ref) {
-  final challenges = ref.watch(challengesProvider).value?.data;
+  final challenges = ref.watch(challengesProvider.select((s) => s.value?.data));
   if (challenges == null) return null;
-  final breakdown = ref.watch(breakdownProvider).value?.data;
+  final breakdown = ref.watch(breakdownProvider.select((s) => s.value?.data));
   final activities = extractActivities(breakdown);
   final enriched = enrichChallenges(challenges, activities);
   return categorizeEnrichedChallenges(enriched);

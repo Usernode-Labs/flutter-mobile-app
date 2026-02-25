@@ -49,45 +49,43 @@ class ChallengesScreen extends ConsumerStatefulWidget {
 
 class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
     with TickerProviderStateMixin {
-  double _scrollFraction = 0.0;
+  final _scrollFraction = ValueNotifier<double>(0.0);
   late TabController _tabController;
   late final HeartbeatAnimation _heartbeat;
 
-  PullFeedback _pullFeedback = const PullFeedback();
+  final _pullFeedback = ValueNotifier<PullFeedback>(const PullFeedback());
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: kTabLabels.length, vsync: this);
     _heartbeat = HeartbeatAnimation(vsync: this);
-    _heartbeat.glowValues.addListener(_onGlowChanged);
   }
 
   @override
   void dispose() {
-    _heartbeat.glowValues.removeListener(_onGlowChanged);
     _heartbeat.dispose();
     _tabController.dispose();
+    _scrollFraction.dispose();
+    _pullFeedback.dispose();
     super.dispose();
   }
-
-  void _onGlowChanged() => setState(() {});
 
   bool _onScroll(ScrollNotification notification) {
     if (notification.depth != 0) return false;
     final fraction =
         (notification.metrics.pixels / kChallengesSpacerHeight).clamp(0.0, 1.0);
-    if (fraction != _scrollFraction) {
-      setState(() => _scrollFraction = fraction);
+    if (fraction != _scrollFraction.value) {
+      _scrollFraction.value = fraction;
     }
     return false;
   }
 
   void _onRefreshStatusChange(RefreshIndicatorStatus? status) {
     final feedback = PullFeedback.fromStatus(status);
-    if (feedback.scale != _pullFeedback.scale ||
-        feedback.offset != _pullFeedback.offset) {
-      setState(() => _pullFeedback = feedback);
+    if (feedback.scale != _pullFeedback.value.scale ||
+        feedback.offset != _pullFeedback.value.offset) {
+      _pullFeedback.value = feedback;
     }
   }
 
@@ -123,18 +121,14 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
   }
 
   Widget _buildBody(BuildContext context) {
-    final challengesAsync = ref.watch(challengesProvider);
-    final rankingAsync = ref.watch(rankingProvider);
-    final breakdownAsync = ref.watch(breakdownProvider);
+    final ranking = ref.watch(rankingProvider.select((s) => s.value?.data));
+    final breakdown = ref.watch(breakdownProvider.select((s) => s.value?.data));
+    final isLoading = ref.watch(
+        challengesProvider.select((s) => s.isLoading && s.value?.data == null));
+    final hasError = ref.watch(
+        challengesProvider.select((s) => s.hasError && s.value?.data == null));
     // Trigger lazy init so seasons data is available for the pickers.
     ref.watch(seasonsProvider);
-
-    final challenges = challengesAsync.value?.data;
-    final ranking = rankingAsync.value?.data;
-    final breakdown = breakdownAsync.value?.data;
-
-    final isLoading = challengesAsync.isLoading && challenges == null;
-    final hasError = challengesAsync.hasError && challenges == null;
 
     if (isLoading) {
       return const Scaffold(
@@ -185,24 +179,43 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
           alignment: Alignment.topCenter,
           children: [
             // Layer 1 — parallax ScoreHeader behind scroll surface
-            Transform.translate(
-              offset: Offset(
-                0,
-                -_scrollFraction * kChallengesSpacerHeight * 0.4 +
-                    _pullFeedback.offset,
-              ),
-              child: Padding(
-                padding: EdgeInsets.only(
-                  top: safeTop + spacing.space8 + kChipHeight + spacing.space8,
-                  left: spacing.space16,
-                  right: spacing.space16,
-                ),
-                child: AnimatedScale(
-                  scale: _pullFeedback.scale,
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeInOut,
-                  child: _buildScoreHeader(breakdown, ranking),
-                ),
+            ValueListenableBuilder<double>(
+              valueListenable: _scrollFraction,
+              builder: (context, sf, pullAndGlow) {
+                return ValueListenableBuilder<PullFeedback>(
+                  valueListenable: _pullFeedback,
+                  builder: (context, pf, scoreHeader) {
+                    return Transform.translate(
+                      offset: Offset(
+                        0,
+                        -sf * kChallengesSpacerHeight * 0.4 + pf.offset,
+                      ),
+                      child: Padding(
+                        padding: EdgeInsets.only(
+                          top: safeTop +
+                              spacing.space8 +
+                              kChipHeight +
+                              spacing.space8,
+                          left: spacing.space16,
+                          right: spacing.space16,
+                        ),
+                        child: AnimatedScale(
+                          scale: pf.scale,
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeInOut,
+                          child: scoreHeader,
+                        ),
+                      ),
+                    );
+                  },
+                  child: pullAndGlow,
+                );
+              },
+              child: ValueListenableBuilder<GlowValues>(
+                valueListenable: _heartbeat.glowValues,
+                builder: (context, glow, _) {
+                  return _buildScoreHeader(breakdown, ranking, glow);
+                },
               ),
             ),
 
@@ -225,38 +238,44 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
                 },
                 onRefresh: _onRefresh,
                 onStatusChange: _onRefreshStatusChange,
-                child: NestedScrollView(
-                  headerSliverBuilder: (context, innerBoxIsScrolled) {
-                    return [
-                      // Pinned chip bar
-                      SliverPersistentHeader(
-                        pinned: true,
-                        delegate: ChipBarDelegate(
-                          topPadding: safeTop,
-                          spacing: spacing,
-                          scrollFraction: _scrollFraction,
-                          onSeasonTap: () => showSeasonPicker(context, ref),
-                          onEventTap: () => showEventPicker(context, ref),
-                          seasonLabel: seasonLabel(ref),
-                          eventLabel: eventLabel(ref),
-                        ),
-                      ),
-                      // Transparent spacer revealing ScoreHeader
-                      const SliverToBoxAdapter(
-                        child: SizedBox(height: kChallengesSpacerHeight),
-                      ),
-                      // Pinned surface tab bar
-                      SliverPersistentHeader(
-                        pinned: true,
-                        delegate: SurfaceTabBarDelegate(
-                          tabController: _tabController,
-                          scrollFraction: _scrollFraction,
-                          badgeCounts: badgeCounts,
-                        ),
-                      ),
-                    ];
+                child: ValueListenableBuilder<double>(
+                  valueListenable: _scrollFraction,
+                  builder: (context, sf, body) {
+                    return NestedScrollView(
+                      headerSliverBuilder: (context, innerBoxIsScrolled) {
+                        return [
+                          // Pinned chip bar
+                          SliverPersistentHeader(
+                            pinned: true,
+                            delegate: ChipBarDelegate(
+                              topPadding: safeTop,
+                              spacing: spacing,
+                              scrollFraction: sf,
+                              onSeasonTap: () => showSeasonPicker(context, ref),
+                              onEventTap: () => showEventPicker(context, ref),
+                              seasonLabel: seasonLabel(ref),
+                              eventLabel: eventLabel(ref),
+                            ),
+                          ),
+                          // Transparent spacer revealing ScoreHeader
+                          const SliverToBoxAdapter(
+                            child: SizedBox(height: kChallengesSpacerHeight),
+                          ),
+                          // Pinned surface tab bar
+                          SliverPersistentHeader(
+                            pinned: true,
+                            delegate: SurfaceTabBarDelegate(
+                              tabController: _tabController,
+                              scrollFraction: sf,
+                              badgeCounts: badgeCounts,
+                            ),
+                          ),
+                        ];
+                      },
+                      body: body!,
+                    );
                   },
-                  body: ColoredBox(
+                  child: ColoredBox(
                     color: colors.surfaceContainerLowest,
                     child: TabBarView(
                       controller: _tabController,
@@ -354,7 +373,8 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
     return (elapsed / total).clamp(0.0, 1.0);
   }
 
-  Widget _buildScoreHeader(BreakdownResult? breakdown, RankingResult? ranking) {
+  Widget _buildScoreHeader(
+      BreakdownResult? breakdown, RankingResult? ranking, GlowValues glow) {
     final totalPoints = breakdown?.totalPoints ?? ranking?.totalPoints;
     final rank = breakdown?.eventBreakdown?.rank ?? ranking?.rank;
 
@@ -363,7 +383,6 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
     final progress = _computePhaseProgress();
 
     final countdown = _computeCountdown();
-    final glow = _heartbeat.glowValues.value;
     return ScoreHeader(
       score: score,
       scoreLabel: 'points',
@@ -446,8 +465,10 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
       padding: EdgeInsets.all(spacing.space16),
       itemCount: challenges.length,
       separatorBuilder: (_, __) => SizedBox(height: spacing.space12),
-      itemBuilder: (context, index) =>
-          _buildEnrichedChallengeCard(challenges[index]),
+      itemBuilder: (context, index) => RepaintBoundary(
+        key: ValueKey(challenges[index].dto.id),
+        child: _buildEnrichedChallengeCard(challenges[index]),
+      ),
     );
   }
 

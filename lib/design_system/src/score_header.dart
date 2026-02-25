@@ -105,15 +105,12 @@ class ScoreHeader extends StatelessWidget {
           flashGlowIntensity: flashGlowIntensity,
           communityGlowIntensity: communityGlowIntensity,
         ),
-        if (countdownTime != null || ctaLabel != null)
-          SizedBox(height: spacing.space16),
-        if (countdownTime != null)
-          _CountdownRow(
-            label: countdownLabel ?? 'ENDS IN',
-            time: countdownTime!,
-          ),
-        if (countdownTime != null && ctaLabel != null)
-          SizedBox(height: spacing.space48),
+        SizedBox(height: spacing.space16),
+        _CountdownRow(
+          label: countdownLabel ?? 'ENDS IN',
+          time: countdownTime ?? '--',
+        ),
+        if (ctaLabel != null) SizedBox(height: spacing.space48),
         if (ctaLabel != null)
           Button(
             label: ctaLabel!,

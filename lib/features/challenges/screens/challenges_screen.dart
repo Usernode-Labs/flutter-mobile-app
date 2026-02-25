@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/breakdown_provider.dart';
+import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/providers/categorized_challenges_provider.dart';
 import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
@@ -271,6 +272,46 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
   /// Current variant for the score header. Will be dynamic when glow is earned.
   ScoreHeaderVariant get _scoreVariant => ScoreHeaderVariant.standard;
 
+  /// Compute countdown label + time from the selected event/season end date.
+  ({String label, String? time}) _computeCountdown() {
+    final seasonsAsync = ref.read(seasonsProvider);
+    final ctx = ref.read(seasonEventContextProvider);
+    final seasons = seasonsAsync.value?.data;
+    if (seasons == null || seasons.isEmpty || ctx.seasonId == null) {
+      return (label: 'ENDS IN', time: null);
+    }
+
+    final season = seasons
+        .cast<SeasonDto?>()
+        .firstWhere((s) => s!.id == ctx.seasonId, orElse: () => null);
+    if (season == null) return (label: 'ENDS IN', time: null);
+
+    // Prefer the selected event's endsAt, fall back to the season's endsAt.
+    String? endsAtRaw;
+    if (ctx.eventId != null && season.events.isNotEmpty) {
+      final event = season.events
+          .cast<SeasonEventDto?>()
+          .firstWhere((e) => e!.id == ctx.eventId, orElse: () => null);
+      endsAtRaw = event?.endsAt;
+    }
+    endsAtRaw ??= season.endsAt;
+
+    if (endsAtRaw == null) return (label: 'ENDS IN', time: null);
+
+    final endsAt = DateTime.tryParse(endsAtRaw);
+    if (endsAt == null) return (label: 'ENDS IN', time: null);
+
+    final now = DateTime.now().toUtc();
+    final diff = endsAt.toUtc().difference(now);
+
+    if (diff.isNegative) return (label: 'ENDED', time: null);
+
+    final days = diff.inDays;
+    final hours = diff.inHours % 24;
+    final minutes = diff.inMinutes % 60;
+    return (label: 'ENDS IN', time: '${days}D ${hours}H ${minutes}M');
+  }
+
   Widget _buildScoreHeader(BreakdownResult? breakdown, RankingResult? ranking) {
     final totalPoints = breakdown?.totalPoints ?? ranking?.totalPoints;
     final rank = breakdown?.eventBreakdown?.rank ?? ranking?.rank;
@@ -283,12 +324,15 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
             ? (totalParticipants - rank + 1) / totalParticipants
             : 0.0;
 
+    final countdown = _computeCountdown();
     final glow = _heartbeat.glowValues.value;
     return ScoreHeader(
       score: score,
       scoreLabel: 'points',
       rankLabel: rankLabel,
       progress: progress,
+      countdownLabel: countdown.label,
+      countdownTime: countdown.time,
       ctaLabel: 'View in Leaderboard',
       variant: _scoreVariant,
       technicalGlowIntensity: glow.isAnimating ? glow.technical : null,

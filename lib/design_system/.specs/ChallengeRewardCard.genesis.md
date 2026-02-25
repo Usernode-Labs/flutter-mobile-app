@@ -1,0 +1,28 @@
+# ChallengeRewardCard — Genesis
+
+## Inspiration
+
+Figma node `2943:28627` ("Home>ChallengeDetail") — the blue reward card in the challenge detail view showing total earned points, progress bar, calculation breakdown (success rate × max pts = total), rank reward, and optional epoch section.
+
+## Design Decisions
+
+### Category-colored background
+Uses `semantic.<category>.color` for the card background. Text uses `semantic.<category>.onColor` — NOT hardcoded `Colors.white`. This ensures correct contrast in dark mode where `onColor` maps to dark blue on light blue card.
+
+### Optional epoch section
+`epochEarned` is nullable. When null, the entire bottom half (divider + epoch earned + button) is hidden. Some challenges may not have epoch data.
+
+### Progress bar
+6px height with `borderRadiusFull` for pill shape. Track is `onColor.withValues(alpha: 0.2)`, fill is `onColor`. Component-specific height — not a spacing token.
+
+### Calculation row
+Flexible 3-column layout with `×` and `=` operators. Each column has a label (labelSmall) and monospace value (bodyMedium + monospace copyWith). Same monospace precedent as ScoreHeader.
+
+### Button variant
+`Button(variant: .surface)` for epoch button — white fill on colored background. `tonal` would use achromatic grey which looks muddy on blue.
+
+### Pre-formatted strings
+All point values accepted as `String`, formatted by the feature screen. Presentation-only principle.
+
+### M3 Divider
+Standard `Divider` widget with `color: onColor.withValues(alpha: 0.1)` for the separator between top and epoch sections.

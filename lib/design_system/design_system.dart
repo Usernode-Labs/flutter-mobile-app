@@ -18,6 +18,8 @@ export 'src/bottom_nav.dart';
 export 'src/button.dart';
 export 'src/challenge_card.dart';
 export 'src/challenge_category_icon.dart';
+export 'src/challenge_detail_page.dart';
+export 'src/challenge_reward_card.dart';
 export 'src/dropdown_chain.dart';
 export 'src/dropdown_chip.dart';
 export 'src/dropdown_sheet.dart';

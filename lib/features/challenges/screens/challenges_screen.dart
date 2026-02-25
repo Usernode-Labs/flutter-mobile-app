@@ -323,13 +323,16 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
     return (label: 'ENDS IN', time: '${days}D ${hours}H ${minutes}M');
   }
 
-  /// Compute season time progress as a fraction (0.0 = season start, 1.0 = season end).
-  double _computeSeasonProgress() {
+  /// Compute phase (event) time progress as a fraction (0.0 = start, 1.0 = end).
+  double _computePhaseProgress() {
     final season = _resolveSelectedSeason();
     if (season == null) return 0.0;
 
-    final startsAtRaw = season.startsAt;
-    final endsAtRaw = season.endsAt;
+    final event = _resolveSelectedEvent(season);
+    if (event == null) return 0.0;
+
+    final startsAtRaw = event.startsAt;
+    final endsAtRaw = event.endsAt;
     if (startsAtRaw == null || endsAtRaw == null) return 0.0;
 
     final start = DateTime.tryParse(startsAtRaw);
@@ -350,7 +353,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
 
     final score = totalPoints != null ? formatPoints(totalPoints) : '--';
     final rankLabel = rank != null ? 'Rank $rank' : null;
-    final progress = _computeSeasonProgress();
+    final progress = _computePhaseProgress();
 
     final countdown = _computeCountdown();
     final glow = _heartbeat.glowValues.value;

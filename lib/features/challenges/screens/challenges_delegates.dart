@@ -152,49 +152,13 @@ class SurfaceTabBarDelegate extends SliverPersistentHeaderDelegate {
   }
 
   Widget _buildTab(BuildContext context, int index) {
-    final badge = badgeCounts[index];
-    if (badge <= 0) return Tab(text: kTabLabels[index]);
-
+    final count = badgeCounts[index];
     return Tab(
-      child: ListenableBuilder(
-        listenable: tabController,
-        builder: (context, _) {
-          final colors = Theme.of(context).colorScheme;
-          final textTheme = Theme.of(context).textTheme;
-          final spacing = Theme.of(context).extension<AppSpacing>()!;
-          final isActive = tabController.index == index;
-
-          return Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
-                child: Text(
-                  kTabLabels[index],
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                ),
-              ),
-              SizedBox(width: spacing.space4),
-              Container(
-                height: 16,
-                constraints: const BoxConstraints(minWidth: 16),
-                padding: EdgeInsets.symmetric(horizontal: spacing.space4),
-                decoration: ShapeDecoration(
-                  color: isActive ? colors.onSurface : colors.outline,
-                  shape: const StadiumBorder(),
-                ),
-                child: Center(
-                  child: Text(
-                    '$badge',
-                    style: textTheme.labelSmall?.copyWith(
-                      color: colors.surface,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
+      child: Badge(
+        label: Text('$count'),
+        backgroundColor: Theme.of(context).colorScheme.outline,
+        isLabelVisible: count > 0,
+        child: Text(kTabLabels[index]),
       ),
     );
   }

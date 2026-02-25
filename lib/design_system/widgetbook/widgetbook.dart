@@ -7,6 +7,7 @@ import 'package:crypto_mobile_app/design_system/tokens/app_semantic_colors.dart'
 
 import 'bottom_nav_use_case.dart';
 import 'button_use_case.dart';
+import 'challenge_activity_summary_use_case.dart';
 import 'challenge_card_use_case.dart';
 import 'challenge_detail_page_use_case.dart';
 import 'challenges_page_use_case.dart';
@@ -125,6 +126,7 @@ class WidgetbookApp extends StatelessWidget {
           children: [
             bottomNavComponent(),
             buttonComponent(),
+            challengeActivitySummaryComponent(),
             challengeCardComponent(),
             dropdownChainComponent(),
             dropdownChipComponent(),

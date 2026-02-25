@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/breakdown_provider.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
@@ -204,8 +205,12 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
             NotificationListener<ScrollNotification>(
               onNotification: _onScroll,
               child: RefreshIndicator.noSpinner(
-                notificationPredicate: (notification) =>
-                    notification.depth <= 2,
+                notificationPredicate: (notification) {
+                  // Only trigger from outer NestedScrollView (depth 0),
+                  // and only when at the top (pixels == 0).
+                  if (notification.depth > 0) return false;
+                  return notification.metrics.pixels <= 0.0;
+                },
                 onRefresh: _onRefresh,
                 onStatusChange: _onRefreshStatusChange,
                 child: AnimatedPadding(
@@ -304,7 +309,10 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
     final now = DateTime.now().toUtc();
     final diff = endsAt.toUtc().difference(now);
 
-    if (diff.isNegative) return (label: 'ENDED', time: null);
+    if (diff.isNegative) {
+      final fmt = DateFormat('MMM d').format(endsAt);
+      return (label: 'ENDED', time: fmt.toUpperCase());
+    }
 
     final days = diff.inDays;
     final hours = diff.inHours % 24;

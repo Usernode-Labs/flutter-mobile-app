@@ -103,7 +103,7 @@ const _testChallenges = [
     enabled: true,
     completed: false,
     scheduleStart: '2025-01-15T00:00:00Z',
-    scheduleEnd: '2025-02-15T00:00:00Z',
+    scheduleEnd: '2099-12-31T00:00:00Z',
   ),
   ChallengeDto(
     id: 2,
@@ -114,7 +114,9 @@ const _testChallenges = [
     enabled: true,
     completed: true,
     scheduleStart: '2025-01-15T00:00:00Z',
-    scheduleEnd: '2025-02-15T00:00:00Z',
+    // Future date — without breakdown this stays active; with breakdown
+    // the matching activity makes it completed.
+    scheduleEnd: '2099-12-31T00:00:00Z',
   ),
   ChallengeDto(
     id: 3,
@@ -154,6 +156,8 @@ const _testSeasons = [
 const _testContext = SeasonEventContext(
   seasonId: 1,
   seasonName: 'Season 2',
+  eventId: 10,
+  eventName: 'Event 10',
 );
 
 // ---------------------------------------------------------------------------

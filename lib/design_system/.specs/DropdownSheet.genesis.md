@@ -32,3 +32,23 @@ Slide-up from bottom using `SlideTransition` with `Curves.easeOutCubic` for a na
 
 ### Title row
 Optional. When provided, renders `bodyLarge` bold text with a close icon (X) on the right. The close icon is wrapped in a `GestureDetector` with padding for a comfortable tap target. When no title is provided, the drag handle alone serves as the visual anchor.
+
+## Phase 2: M3 Migration (2026-02-24)
+
+### Decision
+Adopted selective M3 policy. Hand-rolled drag physics on `PopupRoute` were fragile and lacked accessibility. Migrated to `showModalBottomSheet`.
+
+### Migration
+Replaced custom `PopupRoute` subclass with `showModalBottomSheet`. Drag-to-dismiss, barrier tap, and slide-up animation now handled by M3. Body simplified to a stateless `Column` with optional title and `ListView.builder`. Option rows use `InkWell` for ripple. Visual appearance controlled by `bottomSheetTheme` in `ColorIsExpensiveTheme` (drag handle, shape, background).
+
+### What changed
+- Gained: proper drag physics, barrier accessibility, screen reader semantics, drag handle from theme
+- LOC: 279 → 131 (53% reduction — highest value migration)
+- Removed: `_DropdownSheetRoute`, `_DropdownSheetBodyState` drag tracking, `Transform.translate` offset management
+- API preserved: `showDropdownSheet(context:, labels:, title:, selectedIndex:)` unchanged
+
+### What stayed
+- Function signature: identical return type `Future<int?>`
+- Option rows: same visual (48dp height, label + check icon)
+- Title row: same layout (bold text + close button)
+- Presentation-only: no providers

@@ -108,3 +108,24 @@ Now both label and badge use the `outline` color family on inactive tabs, so the
 ### Golden Reference
 - **Golden files**: `test/design_system/goldens/tabs_fixed_badges.png`, `tabs_fixed_no_badges.png`, `tabs_second_selected.png`, `tabs_scrollable.png`
 - Rendered with light theme, 360x400 viewport
+
+## Phase 3: M3 Migration (2026-02-24)
+
+### Decision
+Adopted selective M3 policy. Hand-managed `PageController` + indicator sync via `_pagePosition` tracking was complex (303 LOC) and lacked keyboard navigation and screen reader semantics.
+
+### Migration
+Replaced manual tab bar + `PageView` with M3 `TabBar` + `TabBarView` driven by `TabController`. Badge color animation preserved via `AnimatedBuilder` listening to `TabController`. Visual appearance controlled by `tabBarTheme` in `ColorIsExpensiveTheme`.
+
+### What changed
+- Gained: ripple feedback, focus management, keyboard navigation (arrow keys), screen reader semantics, proper indicator animation (elastic spring)
+- LOC: 303 → 150 (50% reduction)
+- Removed: `_buildFixedTabBar`, `_buildScrollableTabBar`, manual `LayoutBuilder` indicator positioning, `_pagePosition` tracking, `_indexIsChanging` guard
+- `SingleTickerProviderStateMixin` added for `TabController` vsync
+
+### What stayed
+- Widget name: still `Tabs`, not `TabBar`
+- API preserved: `Tabs(tabs:, children:, initialIndex:, onTabChanged:, isScrollable:)` unchanged
+- Badge treatment: inline badge with active/inactive color (onSurface/outline), not M3 error badge
+- Divider: `outlineVariant` 1dp (from `tabBarTheme.dividerColor`)
+- Indicator: `primary` color (from `tabBarTheme.indicatorColor`)

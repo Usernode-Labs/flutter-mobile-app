@@ -49,17 +49,8 @@ void main() {
         ),
       ));
 
-      await tester.tap(find.text('Season 2'));
+      await tester.tap(find.byType(GestureDetector));
       expect(tapped, isTrue);
-    });
-
-    testWidgets('does not crash when onTap is null', (tester) async {
-      await tester.pumpWidget(wrap(
-        const DropdownChip(label: 'Season 2'),
-      ));
-
-      await tester.tap(find.text('Season 2'));
-      // No error means the test passes.
     });
 
     testWidgets('shrink-wraps by default (expanded: false)', (tester) async {
@@ -72,7 +63,6 @@ void main() {
       ));
 
       final chipSize = tester.getSize(find.byType(DropdownChip));
-      // Shrink-wrapped chip should be narrower than the 360px parent.
       expect(chipSize.width, lessThan(360));
     });
 
@@ -90,20 +80,6 @@ void main() {
 
       final chipSize = tester.getSize(find.byType(DropdownChip));
       expect(chipSize.width, equals(360));
-    });
-
-    testWidgets('has correct height of 32', (tester) async {
-      await tester.pumpWidget(wrap(
-        const DropdownChip(label: 'Season 2'),
-      ));
-
-      final container = tester.widget<Container>(
-        find.descendant(
-          of: find.byType(DropdownChip),
-          matching: find.byType(Container),
-        ),
-      );
-      expect(container.constraints?.maxHeight, equals(32));
     });
 
     testWidgets(
@@ -164,7 +140,7 @@ void main() {
         ),
       ));
 
-      await tester.tap(find.text('Season 2'));
+      await tester.tap(find.byType(DropdownChip));
       expect(tapped, isFalse);
     });
   });

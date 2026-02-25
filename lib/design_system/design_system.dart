@@ -15,6 +15,7 @@ export 'tokens/app_spacing.dart';
 
 // Widgets
 export 'src/bottom_nav.dart';
+export 'src/nav_indicator_shapes.dart';
 export 'src/button.dart';
 export 'src/challenge_card.dart';
 export 'src/challenge_category_icon.dart';

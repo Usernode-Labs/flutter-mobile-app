@@ -55,14 +55,23 @@ void main() {
       expect(find.text('With Icon'), findsOneWidget);
     });
 
-    testWidgets('does not render icon space when no leadingIcon',
-        (tester) async {
+    testWidgets('uses M3 FilledButton', (tester) async {
       await tester.pumpWidget(wrap(
-        const Button(label: 'No Icon'),
+        const Button(label: 'M3 Button'),
       ));
 
-      // Should only find the button text, no icon widgets
-      expect(find.byType(Icon), findsNothing);
+      expect(find.byType(FilledButton), findsOneWidget);
+    });
+
+    testWidgets('disabled when onTap is null', (tester) async {
+      await tester.pumpWidget(wrap(
+        const Button(label: 'Disabled'),
+      ));
+
+      final button = tester.widget<FilledButton>(
+        find.byType(FilledButton),
+      );
+      expect(button.onPressed, isNull);
     });
 
     testWidgets('small size uses buttonHeightSmall', (tester) async {

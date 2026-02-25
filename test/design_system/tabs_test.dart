@@ -71,8 +71,8 @@ void main() {
         ),
       ));
 
-      // No badge containers should exist (no digit text)
-      expect(find.byType(ShapeDecoration).evaluate(), isEmpty);
+      // No badge text should exist
+      expect(find.text('0'), findsNothing);
     });
 
     testWidgets('hides badge when count is zero', (tester) async {
@@ -80,9 +80,11 @@ void main() {
         Tabs(
           tabs: const [
             TabItem(label: 'Tab', badgeCount: 0),
+            TabItem(label: 'Other'),
           ],
           children: const [
             Center(child: Text('Content')),
+            Center(child: Text('Other content')),
           ],
         ),
       ));
@@ -207,7 +209,7 @@ void main() {
         ),
       ));
 
-      // Swipe left to go to next tab
+      // Swipe left to go to next tab via TabBarView
       await tester.fling(
         find.byType(TabBarView),
         const Offset(-300, 0),

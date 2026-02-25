@@ -4,7 +4,7 @@ import '../tokens/app_opacity.dart';
 import '../tokens/app_radii.dart';
 import '../tokens/app_spacing.dart';
 
-/// A lean filter chip with a dropdown chevron, built from Flutter primitives.
+/// A lean filter chip with a dropdown chevron, wrapping M3 [FilterChip].
 ///
 /// Used for filter rows where the user taps to select from options via a
 /// bottom sheet or menu. Presentation-only — the screen manages selection
@@ -28,7 +28,7 @@ class DropdownChip extends StatelessWidget {
   /// Called when the chip is tapped.
   final VoidCallback? onTap;
 
-  /// When true, the chip fills available width (wraps in [Expanded]).
+  /// When true, the chip fills available width.
   /// When false, the chip shrink-wraps to its content.
   final bool expanded;
 
@@ -48,8 +48,8 @@ class DropdownChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final radii = Theme.of(context).extension<AppRadii>()!;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
 
     final contentColor = selected ? colors.onSurface : colors.onSurfaceVariant;
 
@@ -101,7 +101,9 @@ class DropdownChip extends StatelessWidget {
 
     if (!enabled) {
       final opacity = Theme.of(context).extension<AppOpacity>()!;
-      chip = Opacity(opacity: opacity.disabled, child: chip);
+      chip = IgnorePointer(
+        child: Opacity(opacity: opacity.disabled, child: chip),
+      );
     }
 
     return chip;

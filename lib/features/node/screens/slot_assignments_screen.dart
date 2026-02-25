@@ -78,7 +78,7 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
               .toList();
       if (epoch == null || slotsInEpoch == null || results == null) return null;
       return List<_AssignmentItem>.generate(slotsInEpoch, (i) {
-        var r;
+        RpcSlotResult r;
         if (i < results.length) {
           r = RpcSlotResult.values[results[i]];
         } else {
@@ -375,7 +375,7 @@ class _ProgressBar extends StatelessWidget {
     // - Light: grey track + black active
     // - Dark: surfaceVariant track + primary active
     final trackColor =
-        isDark ? colorScheme.surfaceVariant : Colors.grey.shade300;
+        isDark ? colorScheme.surfaceContainerHighest : Colors.grey.shade300;
     final activeColor = isDark ? colorScheme.primary : Colors.black87;
 
     final p = progress.clamp(0.0, 1.0);
@@ -471,7 +471,7 @@ class _SlotRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '$subtitle',
+                    subtitle,
                     style:
                         theme.textTheme.bodyMedium?.copyWith(color: secondary),
                   ),

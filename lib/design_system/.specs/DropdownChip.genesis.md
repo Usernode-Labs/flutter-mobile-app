@@ -42,3 +42,22 @@ Added `enabled: bool` (default `true`). When false, the entire chip is wrapped i
 
 ### Backward compatibility
 Both props are optional with defaults matching the previous behavior (`selected: false`, `enabled: true`). Existing call sites require no changes.
+
+## Phase 3: M3 Migration (2026-02-24)
+
+### Decision
+Adopted selective M3 policy. `DropdownChip` reimplemented standard chip interaction patterns — migrated to M3 `FilterChip`.
+
+### Migration
+Wrapped `FilterChip` with `showCheckmark: false`. Dropdown arrow placed inside label `Row` rather than using `deleteIcon` (which would create a separate tap target). Disabled state uses `IgnorePointer` + `Opacity` wrapping the entire `FilterChip`.
+
+### What changed
+- Gained: ripple feedback, focus management, keyboard navigation, hover states, screen reader semantics
+- LOC: 103 → 78 (24% reduction)
+- API preserved: `DropdownChip(label:, onTap:, selected:, enabled:, expanded:)` unchanged
+
+### What stayed
+- Widget name: still `DropdownChip`, not `FilterChip`
+- Selected state: `secondaryContainer` fill via `selectedColor`
+- Disabled opacity: still uses `AppOpacity.disabled` (0.30)
+- Presentation-only: no providers

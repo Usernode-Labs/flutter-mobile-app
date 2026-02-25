@@ -22,7 +22,7 @@ class AppProgressBar extends StatelessWidget {
 
     // Use canonical colors if not provided
     final trackColor = backgroundColor ??
-        (isDark ? colorScheme.surfaceVariant : Colors.grey.shade300);
+        (isDark ? colorScheme.surfaceContainerHighest : Colors.grey.shade300);
     final activeColor =
         valueColor ?? (isDark ? colorScheme.primary : Colors.black87);
 

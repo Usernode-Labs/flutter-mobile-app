@@ -1,5 +1,4 @@
 import 'package:crypto_mobile_app/design_system/design_system.dart';
-import 'package:crypto_mobile_app/design_system/src/nav_indicator_shapes.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

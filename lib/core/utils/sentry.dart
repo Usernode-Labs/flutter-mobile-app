@@ -100,8 +100,9 @@ class SentryUtil {
   }
 
   static List<NavigatorObserver> navigatorObservers() {
-    if (!_enabled || !_performanceTrackingEnabled)
+    if (!_enabled || !_performanceTrackingEnabled) {
       return const <NavigatorObserver>[];
+    }
     return [SentryNavigatorObserver()];
   }
 

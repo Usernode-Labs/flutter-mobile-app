@@ -80,3 +80,21 @@ The Phase 1 glow looked muted and flat. Two root causes:
 
 ### Performance
 Single `saveLayer` call, not animated, raster-cached via `isComplex: true`. No measurable performance impact.
+
+## Phase 4: M3 Migration — Button (2026-02-24)
+
+### Decision
+After 9 widgets in the design system, 5 reimplemented standard M3 interaction patterns — incompletely lacking ripple, focus, keyboard, hover, and semantics. Adopted selective M3 policy: use M3 components where interaction maps to standard patterns.
+
+### Migration
+`Button` migrated from `GestureDetector` + `Container` + `Text` to `FilledButton.tonal` / `FilledButton.tonalIcon`. Visual appearance controlled by `filledButtonTheme` in `ColorIsExpensiveTheme`.
+
+### What changed
+- Gained: ripple feedback, focus management, keyboard navigation, hover states, screen reader semantics
+- LOC: 68 → 42 (38% reduction)
+- API preserved: `Button(label:, onTap:, leadingIcon:)` unchanged
+
+### What stayed
+- Widget name: still `Button`, not `FilledButton`
+- Tonal style: `secondaryContainer` / `onSecondaryContainer` — renders identical grey pill
+- Presentation-only: no providers, all state via constructor params

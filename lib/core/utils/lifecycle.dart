@@ -5,7 +5,6 @@ import 'package:crypto_mobile_app/core/utils/logger.dart';
 import '../../features/node/node_service.dart';
 import '../../features/metrics/metrics_collector_service.dart';
 import '../services/android_foreground_task_controller.dart';
-import '../services/platform_alarm_service.dart';
 
 final _log = LoggingService.instance.withTag('usernode/Lifecycle');
 

@@ -10,6 +10,7 @@ import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/providers/ranking_provider.dart';
 import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
 import 'package:crypto_mobile_app/core/utils/url_launcher.dart';
+import 'package:crypto_mobile_app/design_system/src/challenge_activity_summary.dart';
 import 'package:crypto_mobile_app/design_system/src/challenge_card.dart';
 import 'package:crypto_mobile_app/design_system/src/challenge_category_icon.dart';
 import 'package:crypto_mobile_app/design_system/src/score_header.dart';
@@ -253,8 +254,8 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
                       child: TabBarView(
                         controller: _tabController,
                         children: [
-                          _buildEnrichedChallengeList(categorized.active,
-                              spacing, 'No active challenges'),
+                          _buildActiveTabContent(
+                              categorized.active, categorized, spacing),
                           _buildEnrichedChallengeList(categorized.completed,
                               spacing, 'No completed challenges'),
                           _buildEnrichedChallengeList(categorized.missed,
@@ -373,6 +374,43 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
   }
 
   // -- Challenge lists -------------------------------------------------------
+
+  Widget _buildActiveTabContent(
+    List<EnrichedChallenge> active,
+    CategorizedEnrichedChallenges categorized,
+    AppSpacing spacing,
+  ) {
+    if (active.isNotEmpty) {
+      return _buildEnrichedChallengeList(active, spacing, '');
+    }
+
+    final completedCount = categorized.completed.length;
+    final missedCount = categorized.missed.length;
+    final totalCount = completedCount + missedCount + active.length;
+
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverFillRemaining(
+          child: Center(
+            child: Padding(
+              padding: EdgeInsets.all(spacing.space16),
+              child: ChallengeActivitySummary(
+                completedCount: completedCount,
+                missedCount: missedCount,
+                totalCount: totalCount,
+                onViewCompleted: completedCount > 0
+                    ? () => _tabController.animateTo(1)
+                    : null,
+                onViewMissed:
+                    missedCount > 0 ? () => _tabController.animateTo(2) : null,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
   Widget _buildEnrichedChallengeList(
     List<EnrichedChallenge> challenges,

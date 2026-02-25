@@ -18,6 +18,8 @@ import 'package:crypto_mobile_app/features/node/screens/node_won_slots_screen.da
 import 'package:crypto_mobile_app/features/node/screens/node_status_produced_blocks_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/block_details_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/mempool_details_screen.dart';
+import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
+import 'package:crypto_mobile_app/features/challenges/screens/challenge_detail_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/screens/send_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/screens/transaction_success_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/screens/transaction_failed_screen.dart';
@@ -54,6 +56,9 @@ class AppRoutes {
   static const walletSend = '/wallet/send';
   static const walletSendSuccess = '/wallet/send/success';
   static const walletSendFailed = '/wallet/send/failed';
+
+  // Challenge routes
+  static const challengeDetail = '/challenges/detail';
 
   // Main shell routes
   static const mainNode = '/main/node';
@@ -216,6 +221,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return TransactionFailedScreen(
             errorMessage: extra['errorMessage'] as String,
           );
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.challengeDetail,
+        builder: (context, state) {
+          final enriched = state.extra as EnrichedChallenge;
+          return ChallengeDetailScreen(challenge: enriched);
         },
       ),
     ],

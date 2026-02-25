@@ -7,6 +7,7 @@ import 'package:crypto_mobile_app/core/providers/breakdown_provider.dart';
 import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_provider.dart';
 import 'package:crypto_mobile_app/core/providers/ranking_provider.dart';
+import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 
@@ -89,6 +90,7 @@ Future<void> refreshAllLeaderboardData(Ref ref) async {
     ref.read(challengesProvider.notifier).silentRefresh(),
     ref.read(leaderboardProvider.notifier).silentRefresh(),
     ref.read(breakdownProvider.notifier).silentRefresh(),
+    ref.read(seasonsProvider.notifier).silentRefresh(),
   ]);
 }
 

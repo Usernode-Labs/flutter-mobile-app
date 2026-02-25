@@ -342,6 +342,67 @@ class ColorIsExpensiveTheme {
         ),
         scaffoldBackgroundColor: colorScheme.surface,
         canvasColor: colorScheme.surface,
+
+        // --- Surface architecture: two-tier grey scaffold / white content ---
+
+        appBarTheme: AppBarTheme(
+          backgroundColor: colorScheme.surface,
+          foregroundColor: colorScheme.onSurface,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          surfaceTintColor: Colors.transparent,
+        ),
+
+        navigationBarTheme: NavigationBarThemeData(
+          height: 80, // Explicit M3 default — documents intent, prevents drift
+          backgroundColor: colorScheme.surfaceContainerLowest,
+          elevation: 0,
+          surfaceTintColor: Colors.transparent,
+        ),
+
+        bottomSheetTheme: BottomSheetThemeData(
+          backgroundColor: colorScheme.surfaceContainerLowest,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+        ),
+
+        cardTheme: CardThemeData(
+          color: colorScheme.surfaceContainerLowest,
+          elevation: 0,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: colorScheme.outlineVariant),
+          ),
+        ),
+
+        dialogTheme: DialogThemeData(
+          backgroundColor: colorScheme.surfaceContainerLowest,
+          elevation: 0,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+        ),
+
+        dividerTheme: DividerThemeData(
+          color: colorScheme.outlineVariant,
+          thickness: 1,
+          space: 1,
+        ),
+
+        drawerTheme: DrawerThemeData(
+          backgroundColor: colorScheme.surfaceContainerLowest,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+        ),
+
+        snackBarTheme: const SnackBarThemeData(
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(12)),
+          ),
+        ),
       );
 
   ThemeData light() => theme(lightScheme());

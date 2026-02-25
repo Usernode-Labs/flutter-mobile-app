@@ -150,8 +150,8 @@ void main() {
     test('fromJson parses all fields', () {
       final c = ChallengeDto.fromJson({
         'id': 7,
-        'phase_id': 2,
-        'phase_name': 'Phase 2',
+        'event_id': 2,
+        'event_name': 'Event 2',
         'category': 'block_production',
         'goal': 'Produce 10 blocks',
         'task': 'Block Production',
@@ -167,12 +167,12 @@ void main() {
         'completed': false,
       });
       expect(c.id, 7);
-      expect(c.phaseId, 2);
-      expect(c.phaseName, 'Phase 2');
+      expect(c.eventId, 2);
+      expect(c.eventName, 'Event 2');
       expect(c.category, 'block_production');
       expect(c.goal, 'Produce 10 blocks');
       expect(c.task, 'Block Production');
-      expect(c.reward, 500);
+      expect(c.reward, '500');
       expect(c.description, 'Produce blocks to earn points');
       expect(c.ctaLabel, 'Start');
       expect(c.enabled, true);
@@ -189,8 +189,8 @@ void main() {
         'enabled': true,
         'completed': true,
       });
-      expect(c.phaseId, isNull);
-      expect(c.phaseName, isNull);
+      expect(c.eventId, isNull);
+      expect(c.eventName, isNull);
       expect(c.description, isNull);
       expect(c.requirements, isNull);
       expect(c.rewardLogic, isNull);
@@ -238,6 +238,136 @@ void main() {
       });
       expect(e.startsAt, isNull);
       expect(e.endsAt, isNull);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // SeasonEventDto
+  // -------------------------------------------------------------------------
+
+  group('SeasonEventDto', () {
+    test('fromJson parses all fields', () {
+      final e = SeasonEventDto.fromJson({
+        'id': 5,
+        'name': 'Event 5',
+        'description': 'The fifth event',
+        'starts_at': '2025-01-01',
+        'ends_at': '2025-01-07',
+        'is_active': true,
+      });
+      expect(e.id, 5);
+      expect(e.name, 'Event 5');
+      expect(e.description, 'The fifth event');
+      expect(e.startsAt, '2025-01-01');
+      expect(e.endsAt, '2025-01-07');
+      expect(e.isActive, true);
+    });
+
+    test('fromJson handles nullable fields', () {
+      final e = SeasonEventDto.fromJson({
+        'id': 1,
+        'name': 'E1',
+        'is_active': false,
+      });
+      expect(e.description, isNull);
+      expect(e.startsAt, isNull);
+      expect(e.endsAt, isNull);
+    });
+
+    test('toJson round-trip', () {
+      final json = {
+        'id': 5,
+        'name': 'Event 5',
+        'description': 'Desc',
+        'starts_at': '2025-01-01',
+        'ends_at': '2025-01-07',
+        'is_active': true,
+      };
+      final e = SeasonEventDto.fromJson(json);
+      final e2 = SeasonEventDto.fromJson(e.toJson());
+      expect(e2.id, e.id);
+      expect(e2.name, e.name);
+      expect(e2.description, e.description);
+      expect(e2.startsAt, e.startsAt);
+      expect(e2.endsAt, e.endsAt);
+      expect(e2.isActive, e.isActive);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // SeasonDto
+  // -------------------------------------------------------------------------
+
+  group('SeasonDto', () {
+    test('fromJson parses with nested events', () {
+      final s = SeasonDto.fromJson({
+        'id': 1,
+        'name': 'Season 1',
+        'description': 'First season',
+        'starts_at': '2025-01-01',
+        'ends_at': '2025-06-01',
+        'is_active': true,
+        'events': [
+          {
+            'id': 10,
+            'name': 'Event 10',
+            'is_active': true,
+          },
+          {
+            'id': 11,
+            'name': 'Event 11',
+            'is_active': false,
+          },
+        ],
+      });
+      expect(s.id, 1);
+      expect(s.name, 'Season 1');
+      expect(s.description, 'First season');
+      expect(s.startsAt, '2025-01-01');
+      expect(s.endsAt, '2025-06-01');
+      expect(s.isActive, true);
+      expect(s.events, hasLength(2));
+      expect(s.events.first.id, 10);
+      expect(s.events.last.isActive, false);
+    });
+
+    test('fromJson handles missing events', () {
+      final s = SeasonDto.fromJson({
+        'id': 2,
+        'name': 'Season 2',
+        'is_active': false,
+      });
+      expect(s.events, isEmpty);
+      expect(s.description, isNull);
+      expect(s.startsAt, isNull);
+    });
+
+    test('toJson round-trip', () {
+      final json = {
+        'id': 1,
+        'name': 'Season 1',
+        'description': 'Desc',
+        'starts_at': '2025-01-01',
+        'ends_at': '2025-06-01',
+        'is_active': true,
+        'events': [
+          {
+            'id': 10,
+            'name': 'Event 10',
+            'is_active': true,
+          },
+        ],
+      };
+      final s = SeasonDto.fromJson(json);
+      final s2 = SeasonDto.fromJson(s.toJson());
+      expect(s2.id, s.id);
+      expect(s2.name, s.name);
+      expect(s2.description, s.description);
+      expect(s2.startsAt, s.startsAt);
+      expect(s2.endsAt, s.endsAt);
+      expect(s2.isActive, s.isActive);
+      expect(s2.events.length, s.events.length);
+      expect(s2.events.first.id, s.events.first.id);
     });
   });
 
@@ -576,8 +706,8 @@ void main() {
     test('ChallengeDto (all fields)', () {
       final json = {
         'id': 7,
-        'phase_id': 2,
-        'phase_name': 'Phase 2',
+        'event_id': 2,
+        'event_name': 'Event 2',
         'category': 'block_production',
         'goal': 'Produce 10 blocks',
         'task': 'Block Production',
@@ -595,7 +725,8 @@ void main() {
       final c = ChallengeDto.fromJson(json);
       final c2 = ChallengeDto.fromJson(c.toJson());
       expect(c2.id, c.id);
-      expect(c2.phaseId, c.phaseId);
+      expect(c2.eventId, c.eventId);
+      expect(c2.eventName, c.eventName);
       expect(c2.category, c.category);
       expect(c2.goal, c.goal);
       expect(c2.task, c.task);
@@ -623,7 +754,7 @@ void main() {
       };
       final c = ChallengeDto.fromJson(json);
       final c2 = ChallengeDto.fromJson(c.toJson());
-      expect(c2.phaseId, isNull);
+      expect(c2.eventId, isNull);
       expect(c2.description, isNull);
       expect(c2.ctaLabel, isNull);
     });

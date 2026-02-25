@@ -192,7 +192,7 @@ class _ScoreCircle extends StatelessWidget {
                 Text(
                   score,
                   style: textTheme.displaySmall?.copyWith(
-                    fontFamily: 'monospace',
+                    fontFamily: 'IBMPlexMono',
                     color: colors.onSurface,
                   ),
                 ),

@@ -71,7 +71,7 @@ class ChallengeDetailPage extends StatelessWidget {
             padding: EdgeInsets.only(
               left: spacing.space16,
               right: spacing.space16,
-              top: spacing.space16,
+              top: spacing.space4,
               bottom: spacing.space32,
             ),
             child: Column(

@@ -60,6 +60,14 @@ flutter:
   - assets/feature_flags.json
   - assets/images/
   - lib/design_system/DESIGN_SYSTEM.md
+  fonts:
+  - family: IBMPlexMono
+    fonts:
+    - asset: assets/fonts/IBMPlexMono-Regular.ttf
+    - asset: assets/fonts/IBMPlexMono-Medium.ttf
+      weight: 500
+    - asset: assets/fonts/IBMPlexMono-SemiBold.ttf
+      weight: 600
 flutter_launcher_icons:
   android: true
   ios: true

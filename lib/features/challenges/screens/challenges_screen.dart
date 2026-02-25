@@ -9,7 +9,8 @@ import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/providers/ranking_provider.dart';
 import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
-import 'package:crypto_mobile_app/core/utils/url_launcher.dart';
+import 'package:go_router/go_router.dart';
+import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/design_system/src/challenge_card.dart';
 import 'package:crypto_mobile_app/design_system/src/challenge_category_icon.dart';
 import 'package:crypto_mobile_app/design_system/src/score_header.dart';
@@ -432,7 +433,10 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
           ? formatRewardText(dto.reward)
           : null,
       completedPoints: completedPoints,
-      onTap: dto.ctaLink != null ? () => launchExternalUrl(dto.ctaLink!) : null,
+      onTap: () => context.push(
+        AppRoutes.challengeDetail,
+        extra: enriched,
+      ),
     );
   }
 }

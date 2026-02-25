@@ -113,6 +113,25 @@ void main() {
       expect(find.text('View Epoch 176'), findsOneWidget);
     });
 
+    testWidgets('uses custom epochSectionLabel when provided', (tester) async {
+      await tester.pumpWidget(wrap(
+        const ChallengeRewardCard(
+          category: ChallengeCategory.technical,
+          totalEarned: '10,550.1',
+          progressFraction: 0.98,
+          successRate: '98%',
+          maxPoints: '5,000',
+          totalPoints: '4,900',
+          rankReward: '+0',
+          epochSectionLabel: 'Last 24h',
+          epochEarned: '+50',
+        ),
+      ));
+
+      expect(find.text('Last 24h'), findsOneWidget);
+      expect(find.text('This Epoch Earned'), findsNothing);
+    });
+
     testWidgets('epoch button fires onEpochTap callback', (tester) async {
       var tapped = false;
       await tester.pumpWidget(wrap(

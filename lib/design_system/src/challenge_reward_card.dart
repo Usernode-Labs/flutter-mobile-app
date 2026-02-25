@@ -26,6 +26,7 @@ class ChallengeRewardCard extends StatelessWidget {
     required this.maxPoints,
     required this.totalPoints,
     required this.rankReward,
+    this.epochSectionLabel,
     this.epochEarned,
     this.epochLabel,
     this.onEpochTap,
@@ -51,6 +52,10 @@ class ChallengeRewardCard extends StatelessWidget {
 
   /// Formatted rank reward, e.g. "+0".
   final String rankReward;
+
+  /// Label for the epoch section heading, e.g. "Last 24h" or "This Epoch Earned".
+  /// Defaults to "This Epoch Earned" when null.
+  final String? epochSectionLabel;
 
   /// Formatted epoch earned points, e.g. "+50". When null the epoch section
   /// (divider + bottom half) is hidden.
@@ -187,7 +192,7 @@ class ChallengeRewardCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'This Epoch Earned',
+                    epochSectionLabel ?? 'This Epoch Earned',
                     style: textTheme.labelLarge?.copyWith(color: onColor),
                   ),
                   SizedBox(height: spacing.space8),

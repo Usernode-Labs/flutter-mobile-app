@@ -66,6 +66,11 @@ WidgetbookComponent challengeDetailPageComponent() {
             initialValue: true,
           );
 
+          final epochSectionLabel = context.knobs.string(
+            label: 'Epoch Section Label',
+            initialValue: 'Last 24h',
+          );
+
           final epochEarned = context.knobs.string(
             label: 'Epoch Earned',
             initialValue: '+50',
@@ -100,6 +105,7 @@ WidgetbookComponent challengeDetailPageComponent() {
                 maxPoints: maxPoints,
                 totalPoints: totalPoints,
                 rankReward: rankReward,
+                epochSectionLabel: showEpoch ? epochSectionLabel : null,
                 epochEarned: showEpoch ? epochEarned : null,
                 epochLabel: showEpoch ? epochLabel : null,
               ),

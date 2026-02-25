@@ -73,7 +73,7 @@ void main() {
       expect(find.text('12 DAYS 5H 3M'), findsOneWidget);
     });
 
-    testWidgets('hides countdown row when countdownTime is null',
+    testWidgets('shows countdown row with fallback when countdownTime is null',
         (tester) async {
       await tester.pumpWidget(wrap(
         const ScoreHeader(
@@ -82,7 +82,9 @@ void main() {
         ),
       ));
 
-      expect(find.text('ENDS IN'), findsNothing);
+      // Countdown row is always visible; null time renders as "--"
+      expect(find.text('ENDS IN'), findsOneWidget);
+      expect(find.text('--'), findsOneWidget);
     });
 
     testWidgets('renders CTA button when ctaLabel provided', (tester) async {

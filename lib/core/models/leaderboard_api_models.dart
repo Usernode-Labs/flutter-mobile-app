@@ -37,17 +37,18 @@ class LeaderboardApiException implements Exception {
 // Registration v2
 // ---------------------------------------------------------------------------
 
-class PhaseInfo {
+class RegistrationEventInfo {
   final int id;
   final String name;
   final String? endsAt;
 
-  const PhaseInfo({required this.id, required this.name, this.endsAt});
+  const RegistrationEventInfo(
+      {required this.id, required this.name, this.endsAt});
 
-  factory PhaseInfo.fromJson(Map<String, dynamic> json) {
-    return PhaseInfo(
-      id: _jsonInt(json['id']),
-      name: json['name'] as String,
+  factory RegistrationEventInfo.fromJson(Map<String, dynamic> json) {
+    return RegistrationEventInfo(
+      id: _jsonInt(json['event_id'] ?? json['id']),
+      name: json['name'] as String? ?? '',
       endsAt: json['ends_at'] as String?,
     );
   }
@@ -60,9 +61,9 @@ class RegistrationV2Result {
   final String secretKey;
   final String address;
   final String tier;
-  final int seasonId;
-  final String seasonName;
-  final PhaseInfo? phase;
+  final int? seasonId;
+  final String? seasonName;
+  final RegistrationEventInfo? event;
 
   const RegistrationV2Result({
     required this.participantId,
@@ -71,23 +72,25 @@ class RegistrationV2Result {
     required this.secretKey,
     required this.address,
     required this.tier,
-    required this.seasonId,
-    required this.seasonName,
-    this.phase,
+    this.seasonId,
+    this.seasonName,
+    this.event,
   });
 
   factory RegistrationV2Result.fromJson(Map<String, dynamic> json) {
-    final phase = json['phase'];
+    final event = json['event'] ?? json['phase'];
     return RegistrationV2Result(
       participantId: _jsonInt(json['participant_id']),
-      identityUid: json['identity_uid'] as String,
-      publicKey: json['public_key'] as String,
-      secretKey: json['secret_key'] as String,
-      address: json['address'] as String,
-      tier: json['tier'] as String,
-      seasonId: _jsonInt(json['season_id']),
-      seasonName: json['season_name'] as String,
-      phase: phase is Map<String, dynamic> ? PhaseInfo.fromJson(phase) : null,
+      identityUid: json['identity_uid'] as String? ?? '',
+      publicKey: json['public_key'] as String? ?? '',
+      secretKey: json['secret_key'] as String? ?? '',
+      address: json['address'] as String? ?? '',
+      tier: json['tier'] as String? ?? '',
+      seasonId: _jsonIntN(json['season_id']),
+      seasonName: json['season_name'] as String?,
+      event: event is Map<String, dynamic>
+          ? RegistrationEventInfo.fromJson(event)
+          : null,
     );
   }
 }
@@ -108,7 +111,7 @@ class RankingResult {
   // Scope-specific (season / global)
   final int? seasonId;
   final String? seasonName;
-  final int? phasesParticipated;
+  final int? eventsParticipated;
   final int? totalProducedBlocks;
 
   const RankingResult({
@@ -121,13 +124,13 @@ class RankingResult {
     this.eventName,
     this.seasonId,
     this.seasonName,
-    this.phasesParticipated,
+    this.eventsParticipated,
     this.totalProducedBlocks,
   });
 
   factory RankingResult.fromJson(Map<String, dynamic> json) {
     return RankingResult(
-      scope: json['scope'] as String,
+      scope: json['scope'] as String? ?? 'event',
       rank: _jsonInt(json['rank']),
       totalPoints: _jsonInt(json['total_points']),
       offchainPoints: _jsonInt(json['offchain_points']),
@@ -136,7 +139,8 @@ class RankingResult {
       eventName: json['event_name'] as String?,
       seasonId: _jsonIntN(json['season_id']),
       seasonName: json['season_name'] as String?,
-      phasesParticipated: _jsonIntN(json['phases_participated']),
+      eventsParticipated:
+          _jsonIntN(json['events_participated'] ?? json['phases_participated']),
       totalProducedBlocks: _jsonIntN(json['total_produced_blocks']),
     );
   }
@@ -151,8 +155,8 @@ class RankingResult {
         if (eventName != null) 'event_name': eventName,
         if (seasonId != null) 'season_id': seasonId,
         if (seasonName != null) 'season_name': seasonName,
-        if (phasesParticipated != null)
-          'phases_participated': phasesParticipated,
+        if (eventsParticipated != null)
+          'events_participated': eventsParticipated,
         if (totalProducedBlocks != null)
           'total_produced_blocks': totalProducedBlocks,
       };
@@ -204,9 +208,9 @@ class ChallengeDto {
       id: _jsonInt(json['id']),
       eventId: _jsonIntN(json['event_id']),
       eventName: json['event_name'] as String?,
-      category: json['category'] as String,
-      goal: json['goal'] as String,
-      task: json['task'] as String,
+      category: json['category'] as String? ?? 'technical',
+      goal: json['goal'] as String? ?? '',
+      task: json['task'] as String? ?? '',
       reward: json['reward'].toString(),
       description: json['description'] as String?,
       requirements: json['requirements'] as String?,
@@ -215,8 +219,8 @@ class ChallengeDto {
       ctaLink: json['cta_link'] as String?,
       scheduleStart: json['schedule_start'] as String?,
       scheduleEnd: json['schedule_end'] as String?,
-      enabled: json['enabled'] as bool,
-      completed: json['completed'] as bool,
+      enabled: json['enabled'] as bool? ?? false,
+      completed: json['completed'] as bool? ?? false,
     );
   }
 
@@ -253,7 +257,7 @@ class LeaderboardSeason {
   factory LeaderboardSeason.fromJson(Map<String, dynamic> json) {
     return LeaderboardSeason(
       id: _jsonInt(json['id']),
-      name: json['name'] as String,
+      name: json['name'] as String? ?? '',
     );
   }
 
@@ -281,10 +285,10 @@ class LeaderboardEvent {
   factory LeaderboardEvent.fromJson(Map<String, dynamic> json) {
     return LeaderboardEvent(
       id: _jsonInt(json['id']),
-      name: json['name'] as String,
+      name: json['name'] as String? ?? '',
       startsAt: json['starts_at'] as String?,
       endsAt: json['ends_at'] as String?,
-      isActive: json['is_active'] as bool,
+      isActive: json['is_active'] as bool? ?? false,
     );
   }
 
@@ -319,18 +323,20 @@ class SeasonEventDto {
   });
 
   factory SeasonEventDto.fromJson(Map<String, dynamic> json) {
+    final id = _jsonInt(json['event_id'] ?? json['id']);
     return SeasonEventDto(
-      id: _jsonInt(json['id']),
-      name: json['name'] as String,
+      id: id,
+      name: json['name'] as String? ?? 'Event $id',
       description: json['description'] as String?,
       startsAt: json['starts_at'] as String?,
       endsAt: json['ends_at'] as String?,
-      isActive: json['is_active'] as bool,
+      isActive: json['is_active'] as bool? ?? false,
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
+        'event_id': id,
+        'id': id, // cache compat alias
         'name': name,
         if (description != null) 'description': description,
         if (startsAt != null) 'starts_at': startsAt,
@@ -359,13 +365,14 @@ class SeasonDto {
   });
 
   factory SeasonDto.fromJson(Map<String, dynamic> json) {
+    final id = _jsonInt(json['season_id'] ?? json['id']);
     return SeasonDto(
-      id: _jsonInt(json['id']),
-      name: json['name'] as String,
+      id: id,
+      name: json['name'] as String? ?? 'Season $id',
       description: json['description'] as String?,
       startsAt: json['starts_at'] as String?,
       endsAt: json['ends_at'] as String?,
-      isActive: json['is_active'] as bool,
+      isActive: json['is_active'] as bool? ?? false,
       events: (json['events'] as List?)
               ?.map((e) => SeasonEventDto.fromJson(e as Map<String, dynamic>))
               .toList() ??
@@ -374,7 +381,8 @@ class SeasonDto {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
+        'season_id': id,
+        'id': id, // cache compat alias
         'name': name,
         if (description != null) 'description': description,
         if (startsAt != null) 'starts_at': startsAt,
@@ -393,7 +401,7 @@ class LeaderboardEntry {
   final int totalProducedBlocks;
   final int vrfTotalWonSlots;
   final double successRate;
-  final int phasesParticipated;
+  final int eventsParticipated;
 
   const LeaderboardEntry({
     required this.rank,
@@ -404,7 +412,7 @@ class LeaderboardEntry {
     required this.totalProducedBlocks,
     required this.vrfTotalWonSlots,
     required this.successRate,
-    required this.phasesParticipated,
+    required this.eventsParticipated,
   });
 
   factory LeaderboardEntry.fromJson(Map<String, dynamic> json) {
@@ -417,7 +425,8 @@ class LeaderboardEntry {
       totalProducedBlocks: _jsonInt(json['total_produced_blocks']),
       vrfTotalWonSlots: _jsonInt(json['vrf_total_won_slots']),
       successRate: _jsonDouble(json['success_rate']),
-      phasesParticipated: _jsonInt(json['phases_participated']),
+      eventsParticipated:
+          _jsonInt(json['events_participated'] ?? json['phases_participated']),
     );
   }
 
@@ -430,7 +439,7 @@ class LeaderboardEntry {
         'total_produced_blocks': totalProducedBlocks,
         'vrf_total_won_slots': vrfTotalWonSlots,
         'success_rate': successRate,
-        'phases_participated': phasesParticipated,
+        'events_participated': eventsParticipated,
       };
 }
 
@@ -478,13 +487,15 @@ class LeaderboardResult {
   });
 
   factory LeaderboardResult.fromJson(Map<String, dynamic> json) {
+    final entriesList =
+        json['leaderboard'] as List? ?? json['entries'] as List? ?? [];
     return LeaderboardResult(
       season:
           LeaderboardSeason.fromJson(json['season'] as Map<String, dynamic>),
       events: (json['events'] as List)
           .map((e) => LeaderboardEvent.fromJson(e as Map<String, dynamic>))
           .toList(),
-      entries: (json['entries'] as List)
+      entries: entriesList
           .map((e) => LeaderboardEntry.fromJson(e as Map<String, dynamic>))
           .toList(),
       pagination:
@@ -495,7 +506,7 @@ class LeaderboardResult {
   Map<String, dynamic> toJson() => {
         'season': season.toJson(),
         'events': events.map((e) => e.toJson()).toList(),
-        'entries': entries.map((e) => e.toJson()).toList(),
+        'leaderboard': entries.map((e) => e.toJson()).toList(),
         'pagination': pagination.toJson(),
       };
 }
@@ -510,6 +521,7 @@ class BreakdownActivity {
   final int points;
   final String? description;
   final String? activityAt;
+  final int? challengeId;
 
   const BreakdownActivity({
     required this.id,
@@ -517,24 +529,28 @@ class BreakdownActivity {
     required this.points,
     this.description,
     this.activityAt,
+    this.challengeId,
   });
 
   factory BreakdownActivity.fromJson(Map<String, dynamic> json) {
     return BreakdownActivity(
-      id: _jsonInt(json['id']),
-      activityType: json['activity_type'] as String,
+      id: _jsonInt(json['activity_id'] ?? json['id']),
+      activityType: json['activity_type'] as String? ?? '',
       points: _jsonInt(json['points']),
       description: json['description'] as String?,
       activityAt: json['activity_at'] as String?,
+      challengeId: _jsonIntN(json['challenge_id']),
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
+        'activity_id': id,
+        'id': id, // cache compat alias
         'activity_type': activityType,
         'points': points,
         if (description != null) 'description': description,
         if (activityAt != null) 'activity_at': activityAt,
+        if (challengeId != null) 'challenge_id': challengeId,
       };
 }
 
@@ -568,14 +584,15 @@ class EventBreakdown {
   });
 
   factory EventBreakdown.fromJson(Map<String, dynamic> json) {
+    final eventObj = json['event'] as Map<String, dynamic>?;
     return EventBreakdown(
-      eventId: _jsonInt(json['event_id']),
-      eventName: json['event_name'] as String,
+      eventId: _jsonInt(eventObj?['id'] ?? json['event_id']),
+      eventName: (eventObj?['name'] ?? json['event_name']) as String? ?? '',
       totalPoints: _jsonInt(json['total_points']),
       offchainPoints: _jsonInt(json['offchain_points']),
       rank: _jsonIntN(json['rank']),
       firstBlockPoints: _jsonIntN(json['first_block_points']),
-      top3Points: _jsonIntN(json['top3_points']),
+      top3Points: _jsonIntN(json['top_3_points'] ?? json['top3_points']),
       success50PercentPoints: _jsonIntN(json['success_50_percent_points']),
       producedBlocks: _jsonIntN(json['produced_blocks']),
       vrfWonSlots: _jsonIntN(json['vrf_won_slots']),
@@ -589,13 +606,14 @@ class EventBreakdown {
   }
 
   Map<String, dynamic> toJson() => {
-        'event_id': eventId,
-        'event_name': eventName,
+        'event': {'id': eventId, 'name': eventName},
+        'event_id': eventId, // cache compat alias
+        'event_name': eventName, // cache compat alias
         'total_points': totalPoints,
         'offchain_points': offchainPoints,
         if (rank != null) 'rank': rank,
         if (firstBlockPoints != null) 'first_block_points': firstBlockPoints,
-        if (top3Points != null) 'top3_points': top3Points,
+        if (top3Points != null) 'top_3_points': top3Points,
         if (success50PercentPoints != null)
           'success_50_percent_points': success50PercentPoints,
         if (producedBlocks != null) 'produced_blocks': producedBlocks,
@@ -621,9 +639,10 @@ class SeasonBreakdown {
   });
 
   factory SeasonBreakdown.fromJson(Map<String, dynamic> json) {
+    final seasonObj = json['season'] as Map<String, dynamic>?;
     return SeasonBreakdown(
-      seasonId: _jsonInt(json['season_id']),
-      seasonName: json['season_name'] as String,
+      seasonId: _jsonInt(seasonObj?['id'] ?? json['season_id']),
+      seasonName: (seasonObj?['name'] ?? json['season_name']) as String? ?? '',
       totalPoints: _jsonInt(json['total_points']),
       offchainPoints: _jsonInt(json['offchain_points']),
       events: (json['events'] as List?)
@@ -634,8 +653,9 @@ class SeasonBreakdown {
   }
 
   Map<String, dynamic> toJson() => {
-        'season_id': seasonId,
-        'season_name': seasonName,
+        'season': {'id': seasonId, 'name': seasonName},
+        'season_id': seasonId, // cache compat alias
+        'season_name': seasonName, // cache compat alias
         'total_points': totalPoints,
         'offchain_points': offchainPoints,
         'events': events.map((e) => e.toJson()).toList(),
@@ -660,10 +680,10 @@ class BreakdownResult {
   });
 
   factory BreakdownResult.fromJson(Map<String, dynamic> json) {
-    final scope = json['scope'] as String;
+    final scope = json['scope'] as String? ?? 'event';
     return BreakdownResult(
       scope: scope,
-      displayName: json['display_name'] as String,
+      displayName: json['display_name'] as String? ?? '',
       totalPoints: _jsonInt(json['total_points']),
       offchainPoints: _jsonInt(json['offchain_points']),
       eventBreakdown: scope == 'event' ? EventBreakdown.fromJson(json) : null,

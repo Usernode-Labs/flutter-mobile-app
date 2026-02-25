@@ -8,6 +8,7 @@ import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_provider.dart';
 import 'package:crypto_mobile_app/core/providers/ranking_provider.dart';
 import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
+import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 
@@ -37,7 +38,9 @@ class LeaderboardBootstrap {
     RegistrationV2Result result,
   ) async {
     await saveParticipantId(result.participantId);
-    await _persistSeason(result.seasonId, result.seasonName);
+    if (result.seasonId != null) {
+      await _persistSeason(result.seasonId!, result.seasonName);
+    }
     _log.info(
       'Persisted participant=${result.participantId}, '
       'season=${result.seasonId} (${result.seasonName})',
@@ -105,9 +108,53 @@ Future<void> refreshAllLeaderboardData(Ref ref) async {
 /// [seasonEventContextProvider] and rebuild automatically once the context is
 /// populated.
 final leaderboardBootstrapProvider = FutureProvider<void>((ref) async {
-  final ctx = await LeaderboardBootstrap.loadPersistedContext();
-  if (ctx != null) {
-    _log.info('Restored season context: seasonId=${ctx.seasonId}');
-    ref.read(seasonEventContextProvider.notifier).state = ctx;
+  final persisted = await LeaderboardBootstrap.loadPersistedContext();
+  if (persisted != null) {
+    _log.info('Restored season context: seasonId=${persisted.seasonId}');
+    ref.read(seasonEventContextProvider.notifier).state = persisted;
+    return;
   }
+
+  // No persisted data — call the API directly (avoid provider-chain timing
+  // issues with ref.read(seasonsProvider.future) inside a FutureProvider).
+  _log.info('No persisted context, auto-selecting from seasons API…');
+  List<SeasonDto> seasons;
+  try {
+    final service = ref.read(leaderboardApiServiceProvider);
+    seasons = await service.getSeasons();
+  } catch (e) {
+    _log.warn('Failed to fetch seasons for auto-select: $e');
+    return;
+  }
+
+  if (seasons.isEmpty) {
+    _log.info('No seasons available — skipping auto-select');
+    return;
+  }
+
+  final season = seasons
+          .cast<SeasonDto?>()
+          .firstWhere((s) => s!.isActive, orElse: () => null) ??
+      seasons.last;
+
+  SeasonEventDto? event;
+  if (season.events.isNotEmpty) {
+    event = season.events
+            .cast<SeasonEventDto?>()
+            .firstWhere((e) => e!.isActive, orElse: () => null) ??
+        season.events.last;
+  }
+
+  final ctx = SeasonEventContext(
+    seasonId: season.id,
+    seasonName: season.name,
+    eventId: event?.id,
+    eventName: event?.name,
+  );
+  ref.read(seasonEventContextProvider.notifier).state = ctx;
+  await LeaderboardBootstrap.persistSeasonEvent(ctx);
+  _log.info(
+    'Auto-selected season=${season.id} (${season.name}), '
+    'event=${event?.id} (${event?.name})',
+  );
 });

@@ -333,7 +333,8 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      expect(find.text('--'), findsOneWidget);
+      // Two "--" widgets: one for the score, one for the countdown time fallback
+      expect(find.text('--'), findsNWidgets(2));
     });
 
     testWidgets('ScoreHeader shows breakdown totalPoints when available',

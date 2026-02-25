@@ -186,8 +186,11 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
           children: [
             // Layer 1 — parallax ScoreHeader behind scroll surface
             Transform.translate(
-              offset:
-                  Offset(0, -_scrollFraction * kChallengesSpacerHeight * 0.4),
+              offset: Offset(
+                0,
+                -_scrollFraction * kChallengesSpacerHeight * 0.4 +
+                    _pullFeedback.offset,
+              ),
               child: Padding(
                 padding: EdgeInsets.only(
                   top: safeTop + spacing.space8 + kChipHeight + spacing.space8,
@@ -208,61 +211,63 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
               onNotification: _onScroll,
               child: RefreshIndicator.noSpinner(
                 notificationPredicate: (notification) {
-                  // Only trigger from outer NestedScrollView (depth 0),
-                  // and only when at the top (pixels == 0).
-                  if (notification.depth > 0) return false;
-                  return notification.metrics.pixels <= 0.0;
+                  // Accept outer scroll (depth 0) unconditionally.
+                  if (notification.depth == 0) return true;
+                  // On Android (ClampingScrollPhysics) NestedScrollView
+                  // dispatches overscroll from the inner body at depth > 0.
+                  // Accept it only when at the top edge so normal inner-
+                  // list scroll-up doesn't false-trigger.
+                  if (notification is OverscrollNotification &&
+                      notification.metrics.pixels <= 0.0) {
+                    return true;
+                  }
+                  return false;
                 },
                 onRefresh: _onRefresh,
                 onStatusChange: _onRefreshStatusChange,
-                child: AnimatedPadding(
-                  padding: EdgeInsets.only(top: _pullFeedback.offset),
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeInOut,
-                  child: NestedScrollView(
-                    headerSliverBuilder: (context, innerBoxIsScrolled) {
-                      return [
-                        // Pinned chip bar
-                        SliverPersistentHeader(
-                          pinned: true,
-                          delegate: ChipBarDelegate(
-                            topPadding: safeTop,
-                            spacing: spacing,
-                            scrollFraction: _scrollFraction,
-                            onSeasonTap: () => showSeasonPicker(context, ref),
-                            onEventTap: () => showEventPicker(context, ref),
-                            seasonLabel: seasonLabel(ref),
-                            eventLabel: eventLabel(ref),
-                          ),
+                child: NestedScrollView(
+                  headerSliverBuilder: (context, innerBoxIsScrolled) {
+                    return [
+                      // Pinned chip bar
+                      SliverPersistentHeader(
+                        pinned: true,
+                        delegate: ChipBarDelegate(
+                          topPadding: safeTop,
+                          spacing: spacing,
+                          scrollFraction: _scrollFraction,
+                          onSeasonTap: () => showSeasonPicker(context, ref),
+                          onEventTap: () => showEventPicker(context, ref),
+                          seasonLabel: seasonLabel(ref),
+                          eventLabel: eventLabel(ref),
                         ),
-                        // Transparent spacer revealing ScoreHeader
-                        const SliverToBoxAdapter(
-                          child: SizedBox(height: kChallengesSpacerHeight),
-                        ),
-                        // Pinned surface tab bar
-                        SliverPersistentHeader(
-                          pinned: true,
-                          delegate: SurfaceTabBarDelegate(
-                            tabController: _tabController,
-                            scrollFraction: _scrollFraction,
-                            badgeCounts: badgeCounts,
-                          ),
-                        ),
-                      ];
-                    },
-                    body: ColoredBox(
-                      color: colors.surfaceContainerLowest,
-                      child: TabBarView(
-                        controller: _tabController,
-                        children: [
-                          _buildActiveTabContent(
-                              categorized.active, categorized, spacing),
-                          _buildEnrichedChallengeList(categorized.completed,
-                              spacing, 'No completed challenges'),
-                          _buildEnrichedChallengeList(categorized.missed,
-                              spacing, 'No missed challenges'),
-                        ],
                       ),
+                      // Transparent spacer revealing ScoreHeader
+                      const SliverToBoxAdapter(
+                        child: SizedBox(height: kChallengesSpacerHeight),
+                      ),
+                      // Pinned surface tab bar
+                      SliverPersistentHeader(
+                        pinned: true,
+                        delegate: SurfaceTabBarDelegate(
+                          tabController: _tabController,
+                          scrollFraction: _scrollFraction,
+                          badgeCounts: badgeCounts,
+                        ),
+                      ),
+                    ];
+                  },
+                  body: ColoredBox(
+                    color: colors.surfaceContainerLowest,
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildActiveTabContent(
+                            categorized.active, categorized, spacing),
+                        _buildEnrichedChallengeList(categorized.completed,
+                            spacing, 'No completed challenges'),
+                        _buildEnrichedChallengeList(categorized.missed, spacing,
+                            'No missed challenges'),
+                      ],
                     ),
                   ),
                 ),

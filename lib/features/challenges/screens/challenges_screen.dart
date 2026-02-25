@@ -277,30 +277,44 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
   /// Current variant for the score header. Will be dynamic when glow is earned.
   ScoreHeaderVariant get _scoreVariant => ScoreHeaderVariant.standard;
 
-  /// Compute countdown label + time from the selected event/season end date.
-  ({String label, String? time}) _computeCountdown() {
-    final seasonsAsync = ref.read(seasonsProvider);
+  /// Resolves the selected season from provider state. Returns null when
+  /// seasons data isn't loaded or the selected season can't be found.
+  SeasonDto? _resolveSelectedSeason() {
+    final seasons = ref.read(seasonsProvider).value?.data;
     final ctx = ref.read(seasonEventContextProvider);
-    final seasons = seasonsAsync.value?.data;
-    if (seasons == null || seasons.isEmpty || ctx.seasonId == null) {
-      return (label: 'ENDS IN', time: null);
-    }
-
-    final season = seasons
+    if (seasons == null || seasons.isEmpty || ctx.seasonId == null) return null;
+    return seasons
         .cast<SeasonDto?>()
         .firstWhere((s) => s!.id == ctx.seasonId, orElse: () => null);
-    if (season == null) return (label: 'ENDS IN', time: null);
+  }
 
-    // Prefer the selected event's endsAt, fall back to the season's endsAt.
-    String? endsAtRaw;
+  /// Resolves the event whose end date should drive the countdown.
+  ///
+  /// If a specific event is selected, returns that event. Otherwise returns
+  /// the currently active event (first with `isActive == true`).
+  SeasonEventDto? _resolveCountdownEvent(SeasonDto season) {
+    final ctx = ref.read(seasonEventContextProvider);
     if (ctx.eventId != null && season.events.isNotEmpty) {
-      final event = season.events
+      return season.events
           .cast<SeasonEventDto?>()
           .firstWhere((e) => e!.id == ctx.eventId, orElse: () => null);
-      endsAtRaw = event?.endsAt;
     }
-    endsAtRaw ??= season.endsAt;
+    // "All Events" — pick the active event.
+    if (season.events.isNotEmpty) {
+      return season.events
+          .cast<SeasonEventDto?>()
+          .firstWhere((e) => e!.isActive, orElse: () => null);
+    }
+    return null;
+  }
 
+  /// Compute countdown label + time from the resolved event's end date.
+  ({String label, String? time}) _computeCountdown() {
+    final season = _resolveSelectedSeason();
+    if (season == null) return (label: 'ENDS IN', time: null);
+
+    final event = _resolveCountdownEvent(season);
+    final endsAtRaw = event?.endsAt;
     if (endsAtRaw == null) return (label: 'ENDS IN', time: null);
 
     final endsAt = DateTime.tryParse(endsAtRaw);
@@ -320,17 +334,34 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
     return (label: 'ENDS IN', time: '${days}D ${hours}H ${minutes}M');
   }
 
+  /// Compute season time progress as a fraction (0.0 = season start, 1.0 = season end).
+  double _computeSeasonProgress() {
+    final season = _resolveSelectedSeason();
+    if (season == null) return 0.0;
+
+    final startsAtRaw = season.startsAt;
+    final endsAtRaw = season.endsAt;
+    if (startsAtRaw == null || endsAtRaw == null) return 0.0;
+
+    final start = DateTime.tryParse(startsAtRaw);
+    final end = DateTime.tryParse(endsAtRaw);
+    if (start == null || end == null) return 0.0;
+
+    final now = DateTime.now().toUtc();
+    final total = end.toUtc().difference(start.toUtc()).inSeconds;
+    if (total <= 0) return 1.0;
+
+    final elapsed = now.difference(start.toUtc()).inSeconds;
+    return (elapsed / total).clamp(0.0, 1.0);
+  }
+
   Widget _buildScoreHeader(BreakdownResult? breakdown, RankingResult? ranking) {
     final totalPoints = breakdown?.totalPoints ?? ranking?.totalPoints;
     final rank = breakdown?.eventBreakdown?.rank ?? ranking?.rank;
-    final totalParticipants = ranking?.totalParticipants;
 
     final score = totalPoints != null ? formatPoints(totalPoints) : '--';
     final rankLabel = rank != null ? 'Rank $rank' : null;
-    final progress =
-        rank != null && totalParticipants != null && totalParticipants > 0
-            ? (totalParticipants - rank + 1) / totalParticipants
-            : 0.0;
+    final progress = _computeSeasonProgress();
 
     final countdown = _computeCountdown();
     final glow = _heartbeat.glowValues.value;

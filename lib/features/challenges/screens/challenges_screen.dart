@@ -358,6 +358,8 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
           ? formatRewardText(dto.reward)
           : null,
       completedPoints: completedPoints,
+      titleHeroTag: 'challenge_title_${dto.id}',
+      iconHeroTag: 'challenge_icon_${dto.id}',
       onTap: () => context.push(
         AppRoutes.challengeDetail,
         extra: enriched,

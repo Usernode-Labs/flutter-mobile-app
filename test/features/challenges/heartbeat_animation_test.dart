@@ -173,8 +173,7 @@ void main() {
       await _pumpForDuration(tester, const Duration(seconds: 6));
     });
 
-    testWidgets('completion loop repeats while API is pending',
-        (tester) async {
+    testWidgets('completion loop repeats while API is pending', (tester) async {
       final vsync = _TestTickerProvider();
       final heartbeat = HeartbeatAnimation(vsync: vsync);
 

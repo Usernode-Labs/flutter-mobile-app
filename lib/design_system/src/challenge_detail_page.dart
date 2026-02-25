@@ -27,6 +27,8 @@ class ChallengeDetailPage extends StatelessWidget {
     required this.totalRewardHeading,
     required this.totalRewardBody,
     this.onBackTap,
+    this.titleHeroTag,
+    this.iconHeroTag,
   });
 
   /// Challenge title, e.g. "Produce Every Block".
@@ -53,6 +55,12 @@ class ChallengeDetailPage extends StatelessWidget {
   /// Called when the back button is tapped.
   final VoidCallback? onBackTap;
 
+  /// When non-null, enables a shared element transition for the title text.
+  final String? titleHeroTag;
+
+  /// When non-null, enables a shared element transition for the category icon.
+  final String? iconHeroTag;
+
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
@@ -65,6 +73,8 @@ class ChallengeDetailPage extends StatelessWidget {
           subtitle: dateRange,
           image: ChallengeCategoryIcon(category: category),
           onLeadingTap: onBackTap,
+          titleHeroTag: titleHeroTag,
+          imageHeroTag: iconHeroTag,
         ),
         SliverToBoxAdapter(
           child: Padding(

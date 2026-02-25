@@ -103,6 +103,63 @@ void main() {
       expect(find.byIcon(Symbols.event_busy_sharp), findsOneWidget);
     });
 
+    testWidgets('wraps title in Hero when titleHeroTag is provided',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        ChallengeCard(
+          title: 'Hero Title',
+          description: 'desc',
+          dateRange: 'Jan 1 - Jan 31',
+          category: ChallengeCategory.technical,
+          categoryIcon: const ChallengeCategoryIcon(
+              category: ChallengeCategory.technical),
+          titleHeroTag: 'test_title_hero',
+        ),
+      ));
+
+      final heroes = tester.widgetList<Hero>(find.byType(Hero));
+      expect(heroes.any((h) => h.tag == 'test_title_hero'), isTrue);
+    });
+
+    testWidgets('wraps icon in Hero when iconHeroTag is provided',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        ChallengeCard(
+          title: 'Hero Icon',
+          description: 'desc',
+          dateRange: 'Jan 1 - Jan 31',
+          category: ChallengeCategory.technical,
+          categoryIcon: const ChallengeCategoryIcon(
+              category: ChallengeCategory.technical),
+          iconHeroTag: 'test_icon_hero',
+        ),
+      ));
+
+      final heroes = tester.widgetList<Hero>(find.byType(Hero));
+      expect(heroes.any((h) => h.tag == 'test_icon_hero'), isTrue);
+    });
+
+    testWidgets('no Hero widgets when hero tags are null', (tester) async {
+      await tester.pumpWidget(wrap(
+        ChallengeCard(
+          title: 'No Hero',
+          description: 'desc',
+          dateRange: 'Jan 1 - Jan 31',
+          category: ChallengeCategory.technical,
+          categoryIcon: const ChallengeCategoryIcon(
+              category: ChallengeCategory.technical),
+        ),
+      ));
+
+      // There should be no Hero widgets with our custom tags.
+      final heroes = tester.widgetList<Hero>(find.byType(Hero));
+      expect(
+        heroes.where(
+            (h) => h.tag == 'test_title_hero' || h.tag == 'test_icon_hero'),
+        isEmpty,
+      );
+    });
+
     testWidgets('onTap fires callback', (tester) async {
       var tapped = false;
       await tester.pumpWidget(wrap(

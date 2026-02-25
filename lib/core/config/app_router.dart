@@ -225,9 +225,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.challengeDetail,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final enriched = state.extra as EnrichedChallenge;
-          return ChallengeDetailScreen(challenge: enriched);
+          return CustomTransitionPage<void>(
+            key: state.pageKey,
+            child: ChallengeDetailScreen(challenge: enriched),
+            transitionDuration: const Duration(milliseconds: 300),
+            reverseTransitionDuration: const Duration(milliseconds: 300),
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) {
+              return FadeTransition(opacity: animation, child: child);
+            },
+          );
         },
       ),
     ],

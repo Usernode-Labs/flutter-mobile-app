@@ -105,8 +105,7 @@ void main() {
         overrides: [
           challengesProvider
               .overrideWith(() => _MockChallengesController(null)),
-          breakdownProvider
-              .overrideWith(() => _MockBreakdownController(null)),
+          breakdownProvider.overrideWith(() => _MockBreakdownController(null)),
         ],
       );
       addTearDown(container.dispose);
@@ -124,8 +123,7 @@ void main() {
           challengesProvider.overrideWith(() => _MockChallengesController(
                 const CachedData(data: _challenges, isCached: false),
               )),
-          breakdownProvider
-              .overrideWith(() => _MockBreakdownController(null)),
+          breakdownProvider.overrideWith(() => _MockBreakdownController(null)),
         ],
       );
       addTearDown(container.dispose);

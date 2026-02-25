@@ -13,6 +13,7 @@ import 'color_catalog.dart';
 import 'dropdown_chain_use_case.dart';
 import 'dropdown_chip_use_case.dart';
 import 'dropdown_sheet_use_case.dart';
+import 'list_tile_use_case.dart';
 import 'score_header_use_case.dart';
 import 'tabs_use_case.dart';
 import 'top_app_bar_use_case.dart';
@@ -127,6 +128,7 @@ class WidgetbookApp extends StatelessWidget {
             dropdownChainComponent(),
             dropdownChipComponent(),
             dropdownSheetComponent(),
+            listTileComponent(),
             scoreHeaderComponent(),
             tabsComponent(),
             topAppBarComponent(),

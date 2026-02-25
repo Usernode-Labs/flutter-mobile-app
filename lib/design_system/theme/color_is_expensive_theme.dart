@@ -403,6 +403,26 @@ class ColorIsExpensiveTheme {
             borderRadius: BorderRadius.all(Radius.circular(12)),
           ),
         ),
+
+        listTileTheme: ListTileThemeData(
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          dense: true,
+          visualDensity: VisualDensity.compact,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          titleTextStyle: textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurface,
+          ),
+          subtitleTextStyle: textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+          leadingAndTrailingTextStyle: textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurface,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
       );
 
   ThemeData light() => theme(lightScheme());

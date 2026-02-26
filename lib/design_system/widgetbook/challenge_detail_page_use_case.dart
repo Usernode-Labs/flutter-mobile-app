@@ -112,6 +112,11 @@ WidgetbookComponent challengeDetailPageComponent() {
             initialValue: 'View Epoch 176',
           );
 
+          final showRewardCard = context.knobs.boolean(
+            label: 'Show Reward Card',
+            initialValue: true,
+          );
+
           final totalRewardHeading = context.knobs.string(
             label: 'Total Reward Heading',
             initialValue: 'Total Reward Up to 6,500 pts',
@@ -128,14 +133,16 @@ WidgetbookComponent challengeDetailPageComponent() {
               title: title,
               category: category,
               dateRange: dateRange,
-              rewardCard: ChallengeRewardCard(
-                category: category,
-                totalEarned: totalEarned,
-                data: rewardData,
-                epochSectionLabel: showEpoch ? epochSectionLabel : null,
-                epochEarned: showEpoch ? epochEarned : null,
-                epochLabel: showEpoch ? epochLabel : null,
-              ),
+              rewardCard: showRewardCard
+                  ? ChallengeRewardCard(
+                      category: category,
+                      totalEarned: totalEarned,
+                      data: rewardData,
+                      epochSectionLabel: showEpoch ? epochSectionLabel : null,
+                      epochEarned: showEpoch ? epochEarned : null,
+                      epochLabel: showEpoch ? epochLabel : null,
+                    )
+                  : null,
               sections: const [
                 (
                   title: 'The Why',

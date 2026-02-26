@@ -22,7 +22,7 @@ class ChallengeDetailPage extends StatelessWidget {
     required this.title,
     required this.category,
     required this.dateRange,
-    required this.rewardCard,
+    this.rewardCard,
     required this.sections,
     required this.totalRewardHeading,
     required this.totalRewardBody,
@@ -39,7 +39,8 @@ class ChallengeDetailPage extends StatelessWidget {
   final String dateRange;
 
   /// The reward card widget (typically a [ChallengeRewardCard]).
-  final Widget rewardCard;
+  /// When null the reward section is hidden (e.g. missed / active challenges).
+  final Widget? rewardCard;
 
   /// Flexible list of description sections (e.g. Why, Task, Requirements).
   final List<ChallengeDetailSection> sections;
@@ -75,8 +76,10 @@ class ChallengeDetailPage extends StatelessWidget {
             ),
             child: Column(
               children: [
-                rewardCard,
-                SizedBox(height: spacing.space16),
+                if (rewardCard != null) ...[
+                  rewardCard!,
+                  SizedBox(height: spacing.space16),
+                ],
                 _SectionsCard(sections: sections),
                 SizedBox(height: spacing.space16),
                 _TotalRewardCard(

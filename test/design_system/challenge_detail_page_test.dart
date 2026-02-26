@@ -156,6 +156,27 @@ void main() {
       expect(find.byType(ChallengeRewardCard), findsOneWidget);
     });
 
+    testWidgets('hides reward card when rewardCard is null', (tester) async {
+      await tester.pumpWidget(wrap(
+        const ChallengeDetailPage(
+          title: 'Community Post',
+          category: ChallengeCategory.community,
+          dateRange: 'Community · Feb 1 - Feb 28',
+          rewardCard: null,
+          sections: [
+            (title: 'The Why', body: 'Some explanation.'),
+          ],
+          totalRewardHeading: 'Total Reward Up to 2,000 pts',
+          totalRewardBody: 'Community reward details.',
+        ),
+      ));
+
+      expect(find.byType(ChallengeRewardCard), findsNothing);
+      // Sections and total reward card still render
+      expect(find.text('The Why'), findsOneWidget);
+      expect(find.text('Total Reward Up to 2,000 pts'), findsOneWidget);
+    });
+
     testWidgets('renders ChallengeCategoryIcon in app bar', (tester) async {
       await tester.pumpWidget(wrap(
         ChallengeDetailPage(

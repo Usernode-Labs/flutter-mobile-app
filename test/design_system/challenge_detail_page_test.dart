@@ -23,11 +23,13 @@ void main() {
     return const ChallengeRewardCard(
       category: ChallengeCategory.technical,
       totalEarned: '10,550.1',
-      progressFraction: 0.98,
-      successRate: '98%',
-      maxPoints: '5,000',
-      totalPoints: '4,900',
-      rankReward: '+0',
+      data: ProduceBlocksRewardData(
+        progressFraction: 0.98,
+        successRate: '98%',
+        maxPoints: '5,000',
+        totalPoints: '4,900',
+        rankReward: '+0',
+      ),
       epochEarned: '+50',
       epochLabel: 'View Epoch 176',
     );

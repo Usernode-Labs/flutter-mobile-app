@@ -34,32 +34,63 @@ WidgetbookComponent challengeDetailPageComponent() {
             initialValue: '10,550.1',
           );
 
-          final progressFraction = context.knobs.double.slider(
-            label: 'Progress',
-            initialValue: 0.98,
-            min: 0,
-            max: 1,
+          final isProduceBlocks = context.knobs.boolean(
+            label: 'Produce Blocks Variant',
+            initialValue: true,
           );
 
-          final successRate = context.knobs.string(
-            label: 'Success Rate',
-            initialValue: '98%',
-          );
+          final ChallengeRewardData rewardData;
+          if (isProduceBlocks) {
+            final progressFraction = context.knobs.double.slider(
+              label: 'Progress',
+              initialValue: 0.98,
+              min: 0,
+              max: 1,
+            );
 
-          final maxPoints = context.knobs.string(
-            label: 'Max Points',
-            initialValue: '5,000',
-          );
+            final successRate = context.knobs.string(
+              label: 'Success Rate',
+              initialValue: '98%',
+            );
 
-          final totalPoints = context.knobs.string(
-            label: 'Total Points',
-            initialValue: '4,900',
-          );
+            final maxPoints = context.knobs.string(
+              label: 'Max Points',
+              initialValue: '5,000',
+            );
 
-          final rankReward = context.knobs.string(
-            label: 'Rank Reward',
-            initialValue: '+0',
-          );
+            final totalPoints = context.knobs.string(
+              label: 'Total Points',
+              initialValue: '4,900',
+            );
+
+            final rankReward = context.knobs.string(
+              label: 'Rank Reward',
+              initialValue: '+0',
+            );
+
+            final showRankLabel = context.knobs.boolean(
+              label: 'Show Rank Label',
+              initialValue: false,
+            );
+
+            final rankLabel = showRankLabel
+                ? context.knobs.string(
+                    label: 'Rank Label',
+                    initialValue: '1st',
+                  )
+                : null;
+
+            rewardData = ProduceBlocksRewardData(
+              progressFraction: progressFraction,
+              successRate: successRate,
+              maxPoints: maxPoints,
+              totalPoints: totalPoints,
+              rankLabel: rankLabel,
+              rankReward: rankReward,
+            );
+          } else {
+            rewardData = const SimpleRewardData();
+          }
 
           final showEpoch = context.knobs.boolean(
             label: 'Show Epoch Section',
@@ -100,11 +131,7 @@ WidgetbookComponent challengeDetailPageComponent() {
               rewardCard: ChallengeRewardCard(
                 category: category,
                 totalEarned: totalEarned,
-                progressFraction: progressFraction,
-                successRate: successRate,
-                maxPoints: maxPoints,
-                totalPoints: totalPoints,
-                rankReward: rankReward,
+                data: rewardData,
                 epochSectionLabel: showEpoch ? epochSectionLabel : null,
                 epochEarned: showEpoch ? epochEarned : null,
                 epochLabel: showEpoch ? epochLabel : null,

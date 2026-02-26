@@ -238,67 +238,60 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
                 },
                 onRefresh: _onRefresh,
                 onStatusChange: _onRefreshStatusChange,
-                child: ValueListenableBuilder<double>(
-                  valueListenable: _scrollFraction,
-                  builder: (context, sf, body) {
-                    return NestedScrollView(
-                      headerSliverBuilder: (context, innerBoxIsScrolled) {
-                        return [
-                          // Pinned chip bar
-                          SliverPersistentHeader(
-                            pinned: true,
-                            delegate: ChipBarDelegate(
-                              topPadding: safeTop,
-                              spacing: spacing,
-                              scrollFraction: sf,
-                              onSeasonTap: () => showSeasonPicker(context, ref),
-                              onEventTap: () => showEventPicker(context, ref),
-                              seasonLabel: seasonLabel(ref),
-                              eventLabel: eventLabel(ref),
-                            ),
-                          ),
-                          // Transparent spacer revealing ScoreHeader.
-                          // The CTA button is rendered visually by ScoreHeader
-                          // in Layer 1, but that layer sits behind the scroll
-                          // surface and can't receive taps. This invisible tap
-                          // target overlays the button's position so taps land
-                          // in Layer 2 directly.
-                          SliverToBoxAdapter(
-                            child: SizedBox(
-                              height: kChallengesSpacerHeight,
-                              child: Align(
-                                alignment: Alignment.bottomCenter,
-                                child: Padding(
-                                  padding:
-                                      EdgeInsets.only(bottom: spacing.space24),
-                                  child: GestureDetector(
-                                    behavior: HitTestBehavior.translucent,
-                                    onTap: () =>
-                                        context.push(AppRoutes.leaderboard),
-                                    child:
-                                        const SizedBox(width: 200, height: 48),
-                                  ),
-                                ),
+                child: NestedScrollView(
+                  headerSliverBuilder: (context, innerBoxIsScrolled) {
+                    return [
+                      // Pinned chip bar
+                      SliverPersistentHeader(
+                        pinned: true,
+                        delegate: ChipBarDelegate(
+                          topPadding: safeTop,
+                          spacing: spacing,
+                          scrollFractionNotifier: _scrollFraction,
+                          onSeasonTap: () => showSeasonPicker(context, ref),
+                          onEventTap: () => showEventPicker(context, ref),
+                          seasonLabel: seasonLabel(ref),
+                          eventLabel: eventLabel(ref),
+                        ),
+                      ),
+                      // Transparent spacer revealing ScoreHeader.
+                      // The CTA button is rendered visually by ScoreHeader
+                      // in Layer 1, but that layer sits behind the scroll
+                      // surface and can't receive taps. This invisible tap
+                      // target overlays the button's position so taps land
+                      // in Layer 2 directly.
+                      SliverToBoxAdapter(
+                        child: SizedBox(
+                          height: kChallengesSpacerHeight,
+                          child: Align(
+                            alignment: Alignment.bottomCenter,
+                            child: Padding(
+                              padding: EdgeInsets.only(bottom: spacing.space24),
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.translucent,
+                                onTap: () =>
+                                    context.push(AppRoutes.leaderboard),
+                                child: const SizedBox(width: 200, height: 48),
                               ),
                             ),
                           ),
-                          // Pinned surface tab bar
-                          SliverPersistentHeader(
-                            pinned: true,
-                            delegate: SurfaceTabBarDelegate(
-                              tabController: _tabController,
-                              scrollFraction: sf,
-                              badgeCounts: badgeCounts,
-                            ),
-                          ),
-                        ];
-                      },
-                      body: body!,
-                    );
+                        ),
+                      ),
+                      // Pinned surface tab bar
+                      SliverPersistentHeader(
+                        pinned: true,
+                        delegate: SurfaceTabBarDelegate(
+                          tabController: _tabController,
+                          scrollFractionNotifier: _scrollFraction,
+                          badgeCounts: badgeCounts,
+                        ),
+                      ),
+                    ];
                   },
-                  child: ColoredBox(
+                  body: ColoredBox(
                     color: colors.surfaceContainerLowest,
                     child: TabBarView(
+                      physics: const NeverScrollableScrollPhysics(),
                       controller: _tabController,
                       children: [
                         _buildActiveTabContent(
@@ -484,6 +477,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
 
     return ListView.separated(
       physics: const AlwaysScrollableScrollPhysics(),
+      addRepaintBoundaries: false,
       padding: EdgeInsets.all(spacing.space16),
       itemCount: challenges.length,
       separatorBuilder: (_, __) => SizedBox(height: spacing.space12),

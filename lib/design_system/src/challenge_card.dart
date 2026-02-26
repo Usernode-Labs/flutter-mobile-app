@@ -161,7 +161,7 @@ class _ChallengeCardState extends State<ChallengeCard>
               ]
             : null,
       ),
-      clipBehavior: Clip.antiAlias,
+      clipBehavior: Clip.hardEdge,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,

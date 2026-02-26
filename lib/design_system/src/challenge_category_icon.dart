@@ -10,38 +10,53 @@ import 'challenge_card.dart';
 /// with three layers: outer fill at 30% opacity, solid inner fill,
 /// and a stroke outline. Colors are resolved from [AppSemanticColors] at build
 /// time so the icon adapts to light/dark themes automatically.
+///
+/// When [muted] is `true` the category colour is replaced with neutral surface
+/// tones (`surfaceDim` for fills, `outline` for strokes) — useful for missed
+/// or inactive states.
 class ChallengeCategoryIcon extends StatelessWidget {
   const ChallengeCategoryIcon({
     super.key,
     required this.category,
     this.size,
+    this.muted = false,
   });
 
   final ChallengeCategory category;
   final double? size;
+  final bool muted;
 
   static final _cache = <String, SvgPicture>{};
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     final semantic = Theme.of(context).extension<AppSemanticColors>()!;
 
-    final catColor = switch (category) {
-      ChallengeCategory.technical => semantic.technical.colorContainer,
-      ChallengeCategory.community => semantic.community.colorContainer,
-      ChallengeCategory.flash => semantic.flash.colorContainer,
-    };
+    final Color catColor;
+    final Color strokeColor;
 
-    final strokeColor = switch (category) {
-      ChallengeCategory.technical => semantic.technical.onColorContainer,
-      ChallengeCategory.community => semantic.community.onColorContainer,
-      ChallengeCategory.flash => semantic.flash.onColorContainer,
-    };
+    if (muted) {
+      catColor = colors.surfaceDim;
+      strokeColor = colors.outline;
+    } else {
+      catColor = switch (category) {
+        ChallengeCategory.technical => semantic.technical.colorContainer,
+        ChallengeCategory.community => semantic.community.colorContainer,
+        ChallengeCategory.flash => semantic.flash.colorContainer,
+      };
+      strokeColor = switch (category) {
+        ChallengeCategory.technical => semantic.technical.onColorContainer,
+        ChallengeCategory.community => semantic.community.onColorContainer,
+        ChallengeCategory.flash => semantic.flash.onColorContainer,
+      };
+    }
 
     final fillHex = _toHex(catColor);
     final strokeHex = _toHex(strokeColor);
 
-    final cacheKey = '${category.index}|$fillHex|$strokeHex';
+    final cacheKey =
+        '${category.index}|${muted ? 'm' : ''}|$fillHex|$strokeHex';
     final cached = _cache[cacheKey];
     if (cached != null) {
       return SizedBox(width: size, height: size, child: cached);

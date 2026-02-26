@@ -68,7 +68,10 @@ WidgetbookComponent challengeCardComponent() {
               description: description,
               dateRange: dateRange,
               category: category,
-              categoryIcon: ChallengeCategoryIcon(category: category),
+              categoryIcon: ChallengeCategoryIcon(
+                category: category,
+                muted: variant == ChallengeCardVariant.missed,
+              ),
               variant: variant,
               rewardText: rewardText,
               earnedPoints: earnedPoints,

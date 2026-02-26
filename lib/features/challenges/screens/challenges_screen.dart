@@ -509,7 +509,10 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
       description: dto.task,
       dateRange: formatDateRange(dto.scheduleStart, dto.scheduleEnd),
       category: category,
-      categoryIcon: ChallengeCategoryIcon(category: category),
+      categoryIcon: ChallengeCategoryIcon(
+        category: category,
+        muted: variant == ChallengeCardVariant.missed,
+      ),
       variant: variant,
       rewardText: variant == ChallengeCardVariant.active
           ? formatRewardText(dto.reward)

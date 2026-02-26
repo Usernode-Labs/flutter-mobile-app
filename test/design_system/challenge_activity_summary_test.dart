@@ -1,5 +1,6 @@
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -84,8 +85,8 @@ void main() {
 
       expect(find.text('5 Done'), findsOneWidget);
       expect(find.text('2 Missed'), findsOneWidget);
-      expect(find.byIcon(Symbols.check_circle_sharp), findsOneWidget);
-      expect(find.byIcon(Symbols.event_busy_sharp), findsOneWidget);
+      expect(find.byIcon(Symbols.check_circle), findsOneWidget);
+      expect(find.byIcon(Symbols.disabled_by_default), findsOneWidget);
     });
 
     testWidgets('Done pill tap fires onViewCompleted', (tester) async {
@@ -145,7 +146,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('renders CustomPaint for shape cluster illustration',
+    testWidgets('renders SvgPicture for shape cluster illustration',
         (tester) async {
       await tester.pumpWidget(wrap(
         const ChallengeActivitySummary(
@@ -155,7 +156,7 @@ void main() {
         ),
       ));
 
-      // Find the CustomPaint that lives inside our 160px SizedBox.
+      // Find the SvgPicture that lives inside our 160px SizedBox.
       final illustrationBox = find.descendant(
         of: find.byType(ChallengeActivitySummary),
         matching: find.byWidgetPredicate(
@@ -166,7 +167,7 @@ void main() {
       expect(
         find.descendant(
           of: illustrationBox,
-          matching: find.byType(CustomPaint),
+          matching: find.byType(SvgPicture),
         ),
         findsOneWidget,
       );

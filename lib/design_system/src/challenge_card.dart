@@ -148,9 +148,7 @@ class _ChallengeCardState extends State<ChallengeCard>
       decoration: BoxDecoration(
         color: _cardBackground(colors),
         borderRadius: borderRadius,
-        border: widget.variant == ChallengeCardVariant.active
-            ? Border.all(color: colors.outlineVariant, width: 1)
-            : null,
+        border: Border.all(color: colors.outlineVariant, width: 1),
         boxShadow: elevation.low > 0
             ? [
                 BoxShadow(

@@ -156,11 +156,11 @@ void main() {
         ),
       ));
 
-      // Find the SvgPicture that lives inside our 160px SizedBox.
+      // Find the SvgPicture that lives inside our 126px SizedBox.
       final illustrationBox = find.descendant(
         of: find.byType(ChallengeActivitySummary),
         matching: find.byWidgetPredicate(
-          (w) => w is SizedBox && w.height == 160,
+          (w) => w is SizedBox && w.height == 126,
         ),
       );
       expect(illustrationBox, findsOneWidget);

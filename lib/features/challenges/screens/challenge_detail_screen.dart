@@ -34,8 +34,8 @@ class ChallengeDetailScreen extends ConsumerWidget {
     final eb = breakdown?.eventBreakdown;
 
     // Record point snapshot on each successful data load
-    if (eb != null) {
-      ChallengePointTracker.record(_trackerKey, eb.totalPoints);
+    if (challenge.earnedPoints != null) {
+      ChallengePointTracker.record(_trackerKey, challenge.earnedPoints!);
     }
 
     return Theme(
@@ -46,8 +46,8 @@ class ChallengeDetailScreen extends ConsumerWidget {
           ),
       child: Builder(
         builder: (context) => Scaffold(
-          body: FutureBuilder<int?>(
-            future: ChallengePointTracker.getDiff24h(_trackerKey),
+          body: FutureBuilder<PointDiff?>(
+            future: ChallengePointTracker.getDiffBestEffort(_trackerKey),
             builder: (context, diffSnapshot) {
               return _buildPage(context, eb, diffSnapshot.data);
             },
@@ -57,7 +57,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildPage(BuildContext context, EventBreakdown? eb, int? diff24h) {
+  Widget _buildPage(BuildContext context, EventBreakdown? eb, PointDiff? diff) {
     final dto = challenge.dto;
     final category = mapCategory(dto.category);
 
@@ -66,7 +66,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
       category: category,
       dateRange:
           '${_categoryDisplayName(category)} · ${formatDateRange(dto.scheduleStart, dto.scheduleEnd)}',
-      rewardCard: _buildRewardCard(category, eb, diff24h),
+      rewardCard: _buildRewardCard(category, eb, diff),
       sections: _buildSections(dto),
       totalRewardHeading: 'Total Reward ${formatRewardText(dto.reward)}',
       totalRewardBody: dto.rewardLogic ?? '',
@@ -77,33 +77,53 @@ class ChallengeDetailScreen extends ConsumerWidget {
   Widget _buildRewardCard(
     ChallengeCategory category,
     EventBreakdown? eb,
-    int? diff24h,
+    PointDiff? diff,
   ) {
     final dto = challenge.dto;
-    final maxPtsRaw = int.tryParse(dto.reward);
 
-    final totalEarned = eb != null ? formatPoints(eb.totalPoints) : '--';
-    final successRate = eb?.successRate ?? 0;
-    final progressFraction = successRate / 100.0;
-    final successRateLabel = '${successRate.round()}%';
-    final maxPointsLabel =
-        maxPtsRaw != null ? formatPoints(maxPtsRaw) : dto.reward;
-    final totalPointsLabel = maxPtsRaw != null
-        ? formatPoints((successRate * maxPtsRaw / 100).round())
+    // Use per-challenge earned points from breakdown activity, not event total.
+    final totalEarned = challenge.earnedPoints != null
+        ? formatPoints(challenge.earnedPoints!)
         : '--';
-    final rankReward = '+${formatPoints(eb?.top3Points ?? 0)}';
 
-    final epochEarned = diff24h != null ? '+${formatPoints(diff24h)}' : null;
+    // Epoch section: show best-effort diff with dynamic label, fall back to
+    // "+0 / Last 24h" on first visit, or hide when no earned points exist.
+    final String? epochEarned;
+    final String epochSectionLabel;
+    if (diff != null) {
+      epochEarned = '+${formatPoints(diff.points)}';
+      epochSectionLabel = formatDiffLabel(diff.since);
+    } else if (challenge.earnedPoints != null) {
+      epochEarned = '+0';
+      epochSectionLabel = 'Last 24h';
+    } else {
+      epochEarned = null;
+      epochSectionLabel = 'Last 24h';
+    }
+
+    final ChallengeRewardData data;
+    if (isProduceBlocksReward(formatRewardText(dto.reward))) {
+      final ceiling = parseRewardCeiling(formatRewardText(dto.reward));
+      final maxPts = ceiling != null ? ceiling - 1500 : 0;
+      final successRate = eb?.successRate ?? 0;
+
+      data = ProduceBlocksRewardData(
+        progressFraction: successRate / 100.0,
+        successRate: '${successRate.round()}%',
+        maxPoints: formatPoints(maxPts),
+        totalPoints: formatPoints((successRate * maxPts / 100).round()),
+        rankLabel: formatRankOrdinal(eb?.rank),
+        rankReward: '+${formatPoints(eb?.top3Points ?? 0)}',
+      );
+    } else {
+      data = const SimpleRewardData();
+    }
 
     return ChallengeRewardCard(
       category: category,
       totalEarned: totalEarned,
-      progressFraction: progressFraction,
-      successRate: successRateLabel,
-      maxPoints: maxPointsLabel,
-      totalPoints: totalPointsLabel,
-      rankReward: rankReward,
-      epochSectionLabel: 'Last 24h',
+      data: data,
+      epochSectionLabel: epochSectionLabel,
       epochEarned: epochEarned,
       epochLabel: eb != null ? 'View Epoch ${eb.eventName}' : null,
     );

@@ -245,3 +245,48 @@ String formatCompletedPoints(String reward) {
   if (asInt != null) return '${formatPoints(asInt)} pts';
   return reward;
 }
+
+/// Formats a human-readable label for a point-tracking duration.
+///
+/// - >= 24h: "Last 24h"
+/// - >= 1h: "Last Xh" (e.g. "Last 3h")
+/// - >= 5m: "Last Xm" (e.g. "Last 15m")
+/// - < 5m: "Last 24h" (too short to be meaningful; show default)
+String formatDiffLabel(Duration since) {
+  if (since >= const Duration(hours: 24)) return 'Last 24h';
+  if (since >= const Duration(hours: 1)) return 'Last ${since.inHours}h';
+  if (since >= const Duration(minutes: 5)) return 'Last ${since.inMinutes}m';
+  return 'Last 24h';
+}
+
+// ---------------------------------------------------------------------------
+// Reward-type detection & parsing
+// ---------------------------------------------------------------------------
+
+/// Parses the ceiling value from reward strings like "Up to 6,500 pts" → 6500.
+///
+/// Returns null when the string does not match the "Up to" pattern (e.g. plain
+/// number strings like "1000").
+int? parseRewardCeiling(String reward) {
+  final match = RegExp(r'[Uu]p\s+to\s+([\d,]+)').firstMatch(reward);
+  if (match == null) return null;
+  return int.tryParse(match.group(1)!.replaceAll(',', ''));
+}
+
+/// Returns true when the reward string indicates a variable-reward
+/// (produce-blocks-style) challenge — i.e. it starts with "Up to".
+bool isProduceBlocksReward(String reward) {
+  return RegExp(r'^[Uu]p\s+to\s+').hasMatch(reward);
+}
+
+/// Formats rank as an ordinal: 1 → "1st", 2 → "2nd", 3 → "3rd".
+///
+/// Returns null for null input or ranks outside 1–3.
+String? formatRankOrdinal(int? rank) {
+  return switch (rank) {
+    1 => '1st',
+    2 => '2nd',
+    3 => '3rd',
+    _ => null,
+  };
+}

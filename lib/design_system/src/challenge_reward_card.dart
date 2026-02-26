@@ -6,37 +6,32 @@ import '../tokens/app_spacing.dart';
 import 'button.dart';
 import 'challenge_card.dart';
 
-/// A category-colored reward card displaying points earned, progress, and
-/// calculation breakdown for a challenge.
-///
-/// The card has two sections:
-/// - **Top**: total earned, progress bar, calculation row, rank reward.
-/// - **Bottom** (optional): epoch earned + action button. Only rendered when
-///   [epochEarned] is non-null.
-///
-/// All text colors use `semantic.<category>.onColor` for correct contrast in
-/// both light and dark mode.
-class ChallengeRewardCard extends StatelessWidget {
-  const ChallengeRewardCard({
-    super.key,
-    required this.category,
-    required this.totalEarned,
+// ---------------------------------------------------------------------------
+// Sealed reward data variants
+// ---------------------------------------------------------------------------
+
+/// Determines which middle section the [ChallengeRewardCard] renders.
+sealed class ChallengeRewardData {
+  const ChallengeRewardData();
+}
+
+/// Simple reward: shows only "Earned" + total points. No progress bar,
+/// no calculation row, no top-3 rank.
+class SimpleRewardData extends ChallengeRewardData {
+  const SimpleRewardData();
+}
+
+/// Produce-blocks reward: shows progress bar, success-rate × max-pts
+/// calculation row, and optional top-3 rank row.
+class ProduceBlocksRewardData extends ChallengeRewardData {
+  const ProduceBlocksRewardData({
     required this.progressFraction,
     required this.successRate,
     required this.maxPoints,
     required this.totalPoints,
+    this.rankLabel,
     required this.rankReward,
-    this.epochSectionLabel,
-    this.epochEarned,
-    this.epochLabel,
-    this.onEpochTap,
   });
-
-  /// Challenge category — drives background color via [AppSemanticColors].
-  final ChallengeCategory category;
-
-  /// Formatted total points earned, e.g. "10,550.1".
-  final String totalEarned;
 
   /// Progress bar fill fraction, 0.0–1.0.
   final double progressFraction;
@@ -50,8 +45,46 @@ class ChallengeRewardCard extends StatelessWidget {
   /// Formatted total points from calculation, e.g. "4,900".
   final String totalPoints;
 
+  /// Optional ordinal rank label, e.g. "1st", "2nd", "3rd".
+  final String? rankLabel;
+
   /// Formatted rank reward, e.g. "+0".
   final String rankReward;
+}
+
+// ---------------------------------------------------------------------------
+// ChallengeRewardCard
+// ---------------------------------------------------------------------------
+
+/// A category-colored reward card displaying points earned for a challenge.
+///
+/// The card layout depends on [data]:
+/// - [SimpleRewardData]: "Earned" label + total points only.
+/// - [ProduceBlocksRewardData]: "Total Earned" label, progress bar, calculation
+///   row, and rank reward row.
+///
+/// Both variants share the optional epoch section at the bottom (controlled by
+/// [epochEarned] null-check).
+class ChallengeRewardCard extends StatelessWidget {
+  const ChallengeRewardCard({
+    super.key,
+    required this.category,
+    required this.totalEarned,
+    required this.data,
+    this.epochSectionLabel,
+    this.epochEarned,
+    this.epochLabel,
+    this.onEpochTap,
+  });
+
+  /// Challenge category — drives background color via [AppSemanticColors].
+  final ChallengeCategory category;
+
+  /// Formatted total points earned, e.g. "10,550.1".
+  final String totalEarned;
+
+  /// Variant-specific data that controls the middle section.
+  final ChallengeRewardData data;
 
   /// Label for the epoch section heading, e.g. "Last 24h" or "This Epoch Earned".
   /// Defaults to "This Epoch Earned" when null.
@@ -84,6 +117,12 @@ class ChallengeRewardCard extends StatelessWidget {
     final catColors = _categoryColors(semantic);
 
     final onColor = catColors.onColor;
+    final dimOnColor = onColor.withValues(alpha: 0.8);
+
+    final headerLabel = switch (data) {
+      SimpleRewardData() => 'Earned',
+      ProduceBlocksRewardData() => 'Total Earned',
+    };
 
     return Container(
       decoration: BoxDecoration(
@@ -101,10 +140,10 @@ class ChallengeRewardCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Total Earned',
+                  headerLabel,
                   style: textTheme.labelLarge?.copyWith(color: onColor),
                 ),
-                SizedBox(height: spacing.space4),
+                SizedBox(height: spacing.space8),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.baseline,
                   textBaseline: TextBaseline.alphabetic,
@@ -119,62 +158,97 @@ class ChallengeRewardCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    SizedBox(width: spacing.space8),
+                    SizedBox(width: spacing.space4),
                     Text(
                       'pts',
                       style: textTheme.titleLarge?.copyWith(color: onColor),
                     ),
                   ],
                 ),
-                SizedBox(height: spacing.space16),
-                // Progress bar
-                ClipRRect(
-                  borderRadius: radii.borderRadiusFull,
-                  child: SizedBox(
-                    height: 6.0,
-                    child: Stack(
-                      children: [
-                        // Track
-                        Container(
-                          color: onColor.withValues(alpha: 0.2),
-                        ),
-                        // Fill
-                        FractionallySizedBox(
-                          widthFactor: progressFraction.clamp(0.0, 1.0),
-                          child: Container(color: onColor),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                SizedBox(height: spacing.space16),
-                // Calculation row
-                _CalculationRow(
-                  successRate: successRate,
-                  maxPoints: maxPoints,
-                  totalPoints: totalPoints,
-                  onColor: onColor,
-                  textTheme: textTheme,
-                  spacing: spacing,
-                ),
-                SizedBox(height: spacing.space8),
-                // Rank reward row
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'TOP 3 RANK REWARD',
-                      style: textTheme.labelSmall?.copyWith(color: onColor),
-                    ),
-                    Text(
-                      rankReward,
-                      style: textTheme.bodyMedium?.copyWith(
-                        fontFamily: 'IBMPlexMono',
-                        color: onColor,
+
+                // Variant-specific middle section
+                if (data
+                    case ProduceBlocksRewardData(
+                      :final progressFraction,
+                      :final successRate,
+                      :final maxPoints,
+                      :final totalPoints,
+                      :final rankLabel,
+                      :final rankReward
+                    )) ...[
+                  SizedBox(height: spacing.space24),
+                  // Progress bar
+                  ClipRRect(
+                    borderRadius: radii.borderRadiusFull,
+                    child: SizedBox(
+                      height: 6.0,
+                      child: Stack(
+                        children: [
+                          Container(
+                            color: onColor.withValues(alpha: 0.5),
+                          ),
+                          FractionallySizedBox(
+                            widthFactor: progressFraction.clamp(0.0, 1.0),
+                            child: Container(color: onColor),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                  SizedBox(height: spacing.space16),
+                  // Calculation row
+                  _CalculationRow(
+                    successRate: successRate,
+                    maxPoints: maxPoints,
+                    totalPoints: totalPoints,
+                    onColor: onColor,
+                    dimOnColor: dimOnColor,
+                    textTheme: textTheme,
+                    spacing: spacing,
+                  ),
+                  SizedBox(height: spacing.space12),
+                  // Rank reward row
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'TOP 3 RANK REWARD',
+                            style: textTheme.labelSmall
+                                ?.copyWith(color: dimOnColor),
+                          ),
+                          if (rankLabel != null) ...[
+                            SizedBox(width: spacing.space8),
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: spacing.space8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: onColor.withValues(alpha: 0.15),
+                                borderRadius: radii.borderRadiusFull,
+                              ),
+                              child: Text(
+                                rankLabel,
+                                style: textTheme.labelSmall
+                                    ?.copyWith(color: onColor),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      Text(
+                        rankReward,
+                        style: textTheme.bodyMedium?.copyWith(
+                          fontFamily: 'IBMPlexMono',
+                          color: onColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -250,6 +324,7 @@ class _CalculationRow extends StatelessWidget {
     required this.maxPoints,
     required this.totalPoints,
     required this.onColor,
+    required this.dimOnColor,
     required this.textTheme,
     required this.spacing,
   });
@@ -258,49 +333,68 @@ class _CalculationRow extends StatelessWidget {
   final String maxPoints;
   final String totalPoints;
   final Color onColor;
+  final Color dimOnColor;
   final TextTheme textTheme;
   final AppSpacing spacing;
 
   @override
   Widget build(BuildContext context) {
-    final labelStyle = textTheme.labelSmall?.copyWith(color: onColor);
+    final labelStyle = textTheme.labelSmall?.copyWith(color: dimOnColor);
     final valueStyle = textTheme.bodyMedium?.copyWith(
       fontFamily: 'IBMPlexMono',
       color: onColor,
     );
+    final operatorStyle = textTheme.bodyMedium?.copyWith(color: onColor);
 
     return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        // Left group: successRate × maxPts
+        Flexible(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Text('SUCCESS RATE', style: labelStyle),
-              Text(successRate, style: valueStyle),
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'SUCCESS RATE',
+                      style: labelStyle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(successRate, style: valueStyle),
+                  ],
+                ),
+              ),
+              SizedBox(width: spacing.space12),
+              Text('×', style: operatorStyle),
+              SizedBox(width: spacing.space12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('MAX PTS', style: labelStyle),
+                  Text(maxPoints, style: valueStyle),
+                ],
+              ),
             ],
           ),
         ),
-        Text('×', style: textTheme.bodyMedium?.copyWith(color: onColor)),
-        SizedBox(width: spacing.space8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('MAX PTS', style: labelStyle),
-              Text(maxPoints, style: valueStyle),
-            ],
-          ),
-        ),
-        Text('=', style: textTheme.bodyMedium?.copyWith(color: onColor)),
-        SizedBox(width: spacing.space8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('TOTAL', style: labelStyle),
-              Text(totalPoints, style: valueStyle),
-            ],
-          ),
+        // Right group: = total
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('=', style: operatorStyle),
+            SizedBox(width: spacing.space12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text('TOTAL', style: labelStyle),
+                Text(totalPoints, style: valueStyle),
+              ],
+            ),
+          ],
         ),
       ],
     );

@@ -420,6 +420,64 @@ void main() {
     });
   });
 
+  group('parseRewardCeiling', () {
+    test('parses "Up to 6,500 pts"', () {
+      expect(parseRewardCeiling('Up to 6,500 pts'), 6500);
+    });
+
+    test('parses "Up to 10,000 pts"', () {
+      expect(parseRewardCeiling('Up to 10,000 pts'), 10000);
+    });
+
+    test('parses "up to 500 pts" (lowercase)', () {
+      expect(parseRewardCeiling('up to 500 pts'), 500);
+    });
+
+    test('returns null for plain number strings', () {
+      expect(parseRewardCeiling('1000'), isNull);
+      expect(parseRewardCeiling('6500'), isNull);
+    });
+
+    test('returns null for empty string', () {
+      expect(parseRewardCeiling(''), isNull);
+    });
+  });
+
+  group('isProduceBlocksReward', () {
+    test('returns true for "Up to" prefixed strings', () {
+      expect(isProduceBlocksReward('Up to 6,500 pts'), isTrue);
+      expect(isProduceBlocksReward('up to 500 pts'), isTrue);
+    });
+
+    test('returns false for plain number strings', () {
+      expect(isProduceBlocksReward('1000'), isFalse);
+      expect(isProduceBlocksReward('6500'), isFalse);
+    });
+
+    test('returns false for non-"Up to" text', () {
+      expect(isProduceBlocksReward('Fixed 500 pts'), isFalse);
+      expect(isProduceBlocksReward(''), isFalse);
+    });
+  });
+
+  group('formatRankOrdinal', () {
+    test('formats 1–3 as ordinals', () {
+      expect(formatRankOrdinal(1), '1st');
+      expect(formatRankOrdinal(2), '2nd');
+      expect(formatRankOrdinal(3), '3rd');
+    });
+
+    test('returns null for null', () {
+      expect(formatRankOrdinal(null), isNull);
+    });
+
+    test('returns null for ranks outside 1–3', () {
+      expect(formatRankOrdinal(0), isNull);
+      expect(formatRankOrdinal(4), isNull);
+      expect(formatRankOrdinal(-1), isNull);
+    });
+  });
+
   group('ChallengeDto.fromJson', () {
     Map<String, dynamic> baseJson({
       Object id = 42,
@@ -466,6 +524,33 @@ void main() {
       expect(roundTripped.id, original.id);
       expect(roundTripped.reward, original.reward);
       expect(roundTripped.category, original.category);
+    });
+  });
+
+  group('formatDiffLabel', () {
+    test('>= 24h returns "Last 24h"', () {
+      expect(formatDiffLabel(const Duration(hours: 24)), 'Last 24h');
+      expect(formatDiffLabel(const Duration(hours: 36)), 'Last 24h');
+    });
+
+    test('>= 1h returns "Last Xh"', () {
+      expect(formatDiffLabel(const Duration(hours: 3)), 'Last 3h');
+      expect(formatDiffLabel(const Duration(hours: 1)), 'Last 1h');
+      expect(
+        formatDiffLabel(const Duration(hours: 23, minutes: 59)),
+        'Last 23h',
+      );
+    });
+
+    test('>= 5m returns "Last Xm"', () {
+      expect(formatDiffLabel(const Duration(minutes: 30)), 'Last 30m');
+      expect(formatDiffLabel(const Duration(minutes: 5)), 'Last 5m');
+    });
+
+    test('< 5m returns "Last 24h" fallback', () {
+      expect(formatDiffLabel(const Duration(minutes: 4)), 'Last 24h');
+      expect(formatDiffLabel(const Duration(seconds: 30)), 'Last 24h');
+      expect(formatDiffLabel(Duration.zero), 'Last 24h');
     });
   });
 }

@@ -131,4 +131,100 @@ void main() {
       expect(diffB, 25); // 75 - 50
     });
   });
+
+  group('getDiffBestEffort', () {
+    test('returns null when no entries exist', () async {
+      final diff = await ChallengePointTracker.getDiffBestEffort('empty_key');
+      expect(diff, isNull);
+    });
+
+    test('returns null when only 1 entry exists', () async {
+      await ChallengePointTracker.record('single_key', 100);
+      final diff = await ChallengePointTracker.getDiffBestEffort('single_key');
+      expect(diff, isNull);
+    });
+
+    test('returns diff from earliest when < 24h data with 2+ entries',
+        () async {
+      final prefs = await SharedPreferences.getInstance();
+      final now = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
+      final threeHoursAgo = now - const Duration(hours: 3).inSeconds;
+      final key = 'testnet:challenge_pts:best_effort_short';
+
+      await prefs.setString(
+        key,
+        jsonEncode([
+          {'p': 100, 't': threeHoursAgo},
+          {'p': 150, 't': now},
+        ]),
+      );
+
+      final diff = await ChallengePointTracker.getDiffBestEffort(
+        'best_effort_short',
+      );
+      expect(diff, isNotNull);
+      expect(diff!.points, 50); // 150 - 100
+      expect(diff.since.inHours, greaterThanOrEqualTo(2));
+      expect(diff.since.inHours, lessThanOrEqualTo(4));
+    });
+
+    test('uses 24h baseline when >= 24h snapshot exists', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final now = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
+      final twentyFiveHoursAgo = now - const Duration(hours: 25).inSeconds;
+      final twelveHoursAgo = now - const Duration(hours: 12).inSeconds;
+      final key = 'testnet:challenge_pts:best_effort_24h';
+
+      await prefs.setString(
+        key,
+        jsonEncode([
+          {'p': 50, 't': twentyFiveHoursAgo},
+          {'p': 100, 't': twelveHoursAgo},
+          {'p': 200, 't': now},
+        ]),
+      );
+
+      final diff = await ChallengePointTracker.getDiffBestEffort(
+        'best_effort_24h',
+      );
+      expect(diff, isNotNull);
+      // Should use the 25h-old entry as baseline, not the earliest
+      expect(diff!.points, 150); // 200 - 50
+      expect(diff.since.inHours, greaterThanOrEqualTo(24));
+    });
+
+    test('clamps negative diffs to zero', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final now = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
+      final twoHoursAgo = now - const Duration(hours: 2).inSeconds;
+      final key = 'testnet:challenge_pts:best_effort_negative';
+
+      // Points decreased (e.g. backend correction)
+      await prefs.setString(
+        key,
+        jsonEncode([
+          {'p': 200, 't': twoHoursAgo},
+          {'p': 150, 't': now},
+        ]),
+      );
+
+      final diff = await ChallengePointTracker.getDiffBestEffort(
+        'best_effort_negative',
+      );
+      expect(diff, isNotNull);
+      expect(diff!.points, 0); // clamped from -50
+    });
+
+    test('handles corrupt data gracefully', () async {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        'testnet:challenge_pts:best_effort_corrupt',
+        'not valid json',
+      );
+      final diff = await ChallengePointTracker.getDiffBestEffort(
+        'best_effort_corrupt',
+      );
+      expect(diff, isNull);
+    });
+  });
 }

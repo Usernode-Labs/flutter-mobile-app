@@ -4,6 +4,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'network_prefs.dart';
 
+/// Result of a best-effort point diff computation.
+///
+/// Returned by [ChallengePointTracker.getDiffBestEffort]. Contains the
+/// computed point difference and the duration since the baseline snapshot.
+class PointDiff {
+  final int points;
+  final Duration since;
+  const PointDiff({required this.points, required this.since});
+}
+
 /// Stores timestamped point snapshots in SharedPreferences and computes
 /// 24-hour deltas for challenge points.
 ///
@@ -89,6 +99,44 @@ class ChallengePointTracker {
     return DateTime.fromMillisecondsSinceEpoch(
       baseline.t * 1000,
       isUtc: true,
+    );
+  }
+
+  /// Returns the best available point diff for [key].
+  ///
+  /// - 0–1 entries: returns `null` (no meaningful diff).
+  /// - 2+ entries with a snapshot >= 24h old: uses the 24h baseline.
+  /// - 2+ entries, all < 24h old: uses the earliest entry as baseline.
+  ///
+  /// The returned [PointDiff.since] reflects the actual duration from baseline
+  /// to now, enabling dynamic labels like "Last 3h" for young tracking data.
+  static Future<PointDiff?> getDiffBestEffort(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    final storageKey = _storageKey(key);
+    final now = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
+    final threshold = now - _diffWindow.inSeconds;
+
+    final entries = _read(prefs, storageKey);
+    if (entries.length < 2) return null;
+
+    final current = entries.last;
+
+    // Prefer the 24h baseline (latest entry at or before threshold)
+    _Snapshot? baseline;
+    for (final e in entries) {
+      if (e.t <= threshold) {
+        baseline = e;
+      } else {
+        break;
+      }
+    }
+
+    // Fall back to earliest entry when no 24h baseline exists
+    baseline ??= entries.first;
+
+    return PointDiff(
+      points: (current.p - baseline.p).clamp(0, current.p),
+      since: Duration(seconds: now - baseline.t),
     );
   }
 

@@ -19,17 +19,21 @@ void main() {
     );
   }
 
-  group('ChallengeRewardCard', () {
+  const produceBlocksData = ProduceBlocksRewardData(
+    progressFraction: 0.98,
+    successRate: '98%',
+    maxPoints: '5,000',
+    totalPoints: '4,900',
+    rankReward: '+0',
+  );
+
+  group('ChallengeRewardCard – ProduceBlocksRewardData', () {
     testWidgets('renders total earned and points label', (tester) async {
       await tester.pumpWidget(wrap(
         const ChallengeRewardCard(
           category: ChallengeCategory.technical,
           totalEarned: '10,550.1',
-          progressFraction: 0.98,
-          successRate: '98%',
-          maxPoints: '5,000',
-          totalPoints: '4,900',
-          rankReward: '+0',
+          data: produceBlocksData,
         ),
       ));
 
@@ -43,11 +47,7 @@ void main() {
         const ChallengeRewardCard(
           category: ChallengeCategory.technical,
           totalEarned: '10,550.1',
-          progressFraction: 0.98,
-          successRate: '98%',
-          maxPoints: '5,000',
-          totalPoints: '4,900',
-          rankReward: '+0',
+          data: produceBlocksData,
         ),
       ));
 
@@ -64,11 +64,13 @@ void main() {
         const ChallengeRewardCard(
           category: ChallengeCategory.community,
           totalEarned: '500',
-          progressFraction: 0.5,
-          successRate: '50%',
-          maxPoints: '1,000',
-          totalPoints: '500',
-          rankReward: '+100',
+          data: ProduceBlocksRewardData(
+            progressFraction: 0.5,
+            successRate: '50%',
+            maxPoints: '1,000',
+            totalPoints: '500',
+            rankReward: '+100',
+          ),
         ),
       ));
 
@@ -81,11 +83,7 @@ void main() {
         const ChallengeRewardCard(
           category: ChallengeCategory.technical,
           totalEarned: '10,550.1',
-          progressFraction: 0.98,
-          successRate: '98%',
-          maxPoints: '5,000',
-          totalPoints: '4,900',
-          rankReward: '+0',
+          data: produceBlocksData,
         ),
       ));
 
@@ -98,11 +96,7 @@ void main() {
         const ChallengeRewardCard(
           category: ChallengeCategory.technical,
           totalEarned: '10,550.1',
-          progressFraction: 0.98,
-          successRate: '98%',
-          maxPoints: '5,000',
-          totalPoints: '4,900',
-          rankReward: '+0',
+          data: produceBlocksData,
           epochEarned: '+50',
           epochLabel: 'View Epoch 176',
         ),
@@ -118,11 +112,7 @@ void main() {
         const ChallengeRewardCard(
           category: ChallengeCategory.technical,
           totalEarned: '10,550.1',
-          progressFraction: 0.98,
-          successRate: '98%',
-          maxPoints: '5,000',
-          totalPoints: '4,900',
-          rankReward: '+0',
+          data: produceBlocksData,
           epochSectionLabel: 'Last 24h',
           epochEarned: '+50',
         ),
@@ -138,11 +128,7 @@ void main() {
         ChallengeRewardCard(
           category: ChallengeCategory.technical,
           totalEarned: '10,550.1',
-          progressFraction: 0.98,
-          successRate: '98%',
-          maxPoints: '5,000',
-          totalPoints: '4,900',
-          rankReward: '+0',
+          data: produceBlocksData,
           epochEarned: '+50',
           epochLabel: 'View Epoch 176',
           onEpochTap: () => tapped = true,
@@ -158,11 +144,13 @@ void main() {
         const ChallengeRewardCard(
           category: ChallengeCategory.technical,
           totalEarned: '100',
-          progressFraction: 1.0,
-          successRate: '100%',
-          maxPoints: '100',
-          totalPoints: '100',
-          rankReward: '+0',
+          data: ProduceBlocksRewardData(
+            progressFraction: 1.0,
+            successRate: '100%',
+            maxPoints: '100',
+            totalPoints: '100',
+            rankReward: '+0',
+          ),
         ),
       ));
 
@@ -173,6 +161,95 @@ void main() {
       );
       final decoration = container.decoration! as BoxDecoration;
       expect(decoration.color, equals(semantic.technical.color));
+    });
+
+    testWidgets('renders rank label pill when provided', (tester) async {
+      await tester.pumpWidget(wrap(
+        const ChallengeRewardCard(
+          category: ChallengeCategory.technical,
+          totalEarned: '6,491',
+          data: ProduceBlocksRewardData(
+            progressFraction: 0.98,
+            successRate: '98%',
+            maxPoints: '5,000',
+            totalPoints: '4,900',
+            rankLabel: '1st',
+            rankReward: '+500',
+          ),
+        ),
+      ));
+
+      expect(find.text('1st'), findsOneWidget);
+      expect(find.text('TOP 3 RANK REWARD'), findsOneWidget);
+      expect(find.text('+500'), findsOneWidget);
+    });
+
+    testWidgets('hides rank label pill when rankLabel is null', (tester) async {
+      await tester.pumpWidget(wrap(
+        const ChallengeRewardCard(
+          category: ChallengeCategory.technical,
+          totalEarned: '6,491',
+          data: produceBlocksData,
+        ),
+      ));
+
+      expect(find.text('1st'), findsNothing);
+      expect(find.text('2nd'), findsNothing);
+      expect(find.text('3rd'), findsNothing);
+    });
+  });
+
+  group('ChallengeRewardCard – SimpleRewardData', () {
+    testWidgets('renders "Earned" label and points, no calculation row',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        const ChallengeRewardCard(
+          category: ChallengeCategory.community,
+          totalEarned: '500',
+          data: SimpleRewardData(),
+        ),
+      ));
+
+      expect(find.text('Earned'), findsOneWidget);
+      expect(find.text('500'), findsOneWidget);
+      expect(find.text('pts'), findsOneWidget);
+
+      // No produce-blocks elements
+      expect(find.text('Total Earned'), findsNothing);
+      expect(find.text('SUCCESS RATE'), findsNothing);
+      expect(find.text('MAX PTS'), findsNothing);
+      expect(find.text('TOTAL'), findsNothing);
+      expect(find.text('TOP 3 RANK REWARD'), findsNothing);
+    });
+
+    testWidgets('shows epoch section when epochEarned is provided',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        const ChallengeRewardCard(
+          category: ChallengeCategory.flash,
+          totalEarned: '200',
+          data: SimpleRewardData(),
+          epochSectionLabel: 'Last 24h',
+          epochEarned: '+25',
+        ),
+      ));
+
+      expect(find.text('Earned'), findsOneWidget);
+      expect(find.text('Last 24h'), findsOneWidget);
+      expect(find.text('+25'), findsOneWidget);
+    });
+
+    testWidgets('hides epoch section when epochEarned is null', (tester) async {
+      await tester.pumpWidget(wrap(
+        const ChallengeRewardCard(
+          category: ChallengeCategory.community,
+          totalEarned: '500',
+          data: SimpleRewardData(),
+        ),
+      ));
+
+      expect(find.text('This Epoch Earned'), findsNothing);
+      expect(find.text('Last 24h'), findsNothing);
     });
   });
 }

@@ -200,7 +200,7 @@ void main() {
   });
 
   group('ChallengeRewardCard – SimpleRewardData', () {
-    testWidgets('renders "Earned" label and points, no calculation row',
+    testWidgets('renders "Total Earned" label and points, no calculation row',
         (tester) async {
       await tester.pumpWidget(wrap(
         const ChallengeRewardCard(
@@ -210,12 +210,11 @@ void main() {
         ),
       ));
 
-      expect(find.text('Earned'), findsOneWidget);
+      expect(find.text('Total Earned'), findsOneWidget);
       expect(find.text('500'), findsOneWidget);
       expect(find.text('pts'), findsOneWidget);
 
       // No produce-blocks elements
-      expect(find.text('Total Earned'), findsNothing);
       expect(find.text('SUCCESS RATE'), findsNothing);
       expect(find.text('MAX PTS'), findsNothing);
       expect(find.text('TOTAL'), findsNothing);
@@ -234,7 +233,7 @@ void main() {
         ),
       ));
 
-      expect(find.text('Earned'), findsOneWidget);
+      expect(find.text('Total Earned'), findsOneWidget);
       expect(find.text('Last 24h'), findsOneWidget);
       expect(find.text('+25'), findsOneWidget);
     });

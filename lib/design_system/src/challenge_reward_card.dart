@@ -119,10 +119,7 @@ class ChallengeRewardCard extends StatelessWidget {
     final onColor = catColors.onColor;
     final dimOnColor = onColor.withValues(alpha: 0.8);
 
-    final headerLabel = switch (data) {
-      SimpleRewardData() => 'Earned',
-      ProduceBlocksRewardData() => 'Total Earned',
-    };
+    const headerLabel = 'Total Earned';
 
     return Container(
       decoration: BoxDecoration(

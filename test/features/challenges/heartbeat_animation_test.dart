@@ -60,9 +60,10 @@ void main() {
       );
 
       // Pump enough frames for the full animation to complete.
-      // Stagger: 550 + 550 + 750 = 1850ms, plus heartbeat cycles ~900ms,
-      // plus fade-out ~600ms. 6 seconds covers everything.
-      await _pumpForDuration(tester, const Duration(seconds: 6));
+      // Stagger: 550 + 550 + 750 = 1850ms, plus completion heartbeat ~900ms,
+      // plus text fade-out/in + hold + fade-out/in + glow fade = ~3400ms.
+      // 10 seconds covers everything.
+      await _pumpForDuration(tester, const Duration(seconds: 10));
       await runFuture;
 
       // Should have emitted values during the animation.
@@ -108,9 +109,10 @@ void main() {
       expect(midValues!.community, 0.30);
       expect(midValues!.isAnimating, isTrue);
 
-      // Complete the API call.
+      // Complete the API call. The accessibility path still has a 1200ms
+      // hold after completion before resetting.
       completer.complete();
-      await tester.pump();
+      await _pumpForDuration(tester, const Duration(seconds: 2));
       await runFuture;
 
       // Should be reset.
@@ -196,9 +198,10 @@ void main() {
       await _pumpForDuration(tester, const Duration(seconds: 4));
       expect(sawAnimating, isTrue);
 
-      // Now complete the API.
+      // Now complete the API. After the completion loop ends, the full
+      // text transition sequence + glow fade-out takes ~3400ms.
       completer.complete();
-      await _pumpForDuration(tester, const Duration(seconds: 4));
+      await _pumpForDuration(tester, const Duration(seconds: 6));
 
       // Should reach reset state.
       final last = heartbeat.glowValues.value;

@@ -19,8 +19,9 @@ Future<int?> showDropdownSheet({
   return showModalBottomSheet<int>(
     context: context,
     isScrollControlled: true,
+    showDragHandle: true,
     constraints: BoxConstraints(
-      maxHeight: MediaQuery.of(context).size.height * 0.6,
+      maxHeight: MediaQuery.of(context).size.height * 0.65,
     ),
     builder: (context) => _DropdownSheetBody(
       labels: labels,
@@ -57,7 +58,7 @@ class _DropdownSheetBody extends StatelessWidget {
             padding: EdgeInsets.only(
               left: spacing.space16,
               right: spacing.space8,
-              bottom: spacing.space8,
+              bottom: spacing.space16,
             ),
             child: Row(
               children: [
@@ -86,7 +87,7 @@ class _DropdownSheetBody extends StatelessWidget {
         Flexible(
           child: ListView.builder(
             shrinkWrap: true,
-            padding: EdgeInsets.only(bottom: bottomPadding),
+            padding: EdgeInsets.only(bottom: bottomPadding + spacing.space8),
             itemCount: labels.length,
             itemBuilder: (context, index) {
               final isSelected = index == selectedIndex;
@@ -118,30 +119,16 @@ class _OptionRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
 
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        height: 48,
-        padding: EdgeInsets.symmetric(horizontal: spacing.space16),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: textTheme.bodyLarge?.copyWith(
-                  color: colors.onSurface,
-                ),
-              ),
-            ),
-            if (selected)
-              Icon(Icons.check, size: 24, color: colors.primary)
-            else
-              const SizedBox(width: 24),
-          ],
-        ),
+    return ListTile(
+      title: Text(
+        label,
+        style: textTheme.bodyLarge?.copyWith(color: colors.onSurface),
       ),
+      trailing: selected
+          ? Icon(Icons.check, size: 24, color: colors.primary)
+          : const SizedBox(width: 24),
+      onTap: onTap,
     );
   }
 }

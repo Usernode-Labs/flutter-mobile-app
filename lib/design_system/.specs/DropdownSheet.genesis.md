@@ -52,3 +52,21 @@ Replaced custom `PopupRoute` subclass with `showModalBottomSheet`. Drag-to-dismi
 - Option rows: same visual (48dp height, label + check icon)
 - Title row: same layout (bold text + close button)
 - Presentation-only: no providers
+
+## Phase 3: M3 Whitespace/Density Update (2026-02-26)
+
+### Decision
+Gap analysis against M3 specs revealed the sheet was too dense: option rows 8dp too short, missing drag handle, tight title-to-list gap, and insufficient trailing padding. Rather than hand-tuning the custom `_OptionRow`, replaced it with `ListTile` which implements M3 one-line list item spec natively (56dp height, 16dp/24dp start/end padding, built-in ink splash).
+
+### What changed
+- Added `showDragHandle: true` — visual affordance + top breathing room (established pattern from `send_screen.dart`)
+- Max height: 60% → 65% to compensate for taller drag handle + rows
+- Title bottom padding: `space8` → `space16` for better visual separation
+- `_OptionRow`: replaced hand-rolled `Container` + `Row` + `InkWell` with `ListTile` — gains correct 56dp height, 16dp/24dp asymmetric padding, and ink splash for free
+- ListView bottom padding: added `space8` to prevent last item clipping
+
+### What stayed
+- API preserved: `showDropdownSheet(context:, labels:, title:, selectedIndex:)` unchanged
+- Typography: `bodyLarge` for labels, `bodyLarge` bold for title
+- Selected indicator: `Icons.check` (24dp, `primary` color) with `SizedBox(width: 24)` spacer
+- Presentation-only: no providers

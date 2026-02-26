@@ -35,11 +35,17 @@ WidgetbookComponent bottomNavComponent() {
             initialValue: true,
           );
 
+          final topBorder = context.knobs.boolean(
+            label: 'Top border',
+            initialValue: true,
+          );
+
           return _InteractiveBottomNav(
             itemCount: itemCount,
             showBadge: showBadge,
             hasDisabled: hasDisabled,
             showShapes: showShapes,
+            topBorder: topBorder,
           );
         },
       ),
@@ -54,12 +60,14 @@ class _InteractiveBottomNav extends StatefulWidget {
     required this.showBadge,
     required this.hasDisabled,
     required this.showShapes,
+    required this.topBorder,
   });
 
   final int itemCount;
   final bool showBadge;
   final bool hasDisabled;
   final bool showShapes;
+  final bool topBorder;
 
   @override
   State<_InteractiveBottomNav> createState() => _InteractiveBottomNavState();
@@ -139,6 +147,7 @@ class _InteractiveBottomNavState extends State<_InteractiveBottomNav> {
         items: items,
         selectedIndex: _selectedIndex,
         onItemSelected: (index) => setState(() => _selectedIndex = index),
+        topBorder: widget.topBorder,
       ),
     );
   }

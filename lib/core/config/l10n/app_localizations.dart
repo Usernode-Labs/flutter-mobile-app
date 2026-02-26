@@ -1078,6 +1078,12 @@ abstract class AppLocalizations {
   /// **'Node Status'**
   String get navNodeStatus;
 
+  /// Navigation bar label for challenges tab
+  ///
+  /// In en, this message translates to:
+  /// **'Challenges'**
+  String get navChallenges;
+
   /// Navigation bar label for settings tab
   ///
   /// In en, this message translates to:

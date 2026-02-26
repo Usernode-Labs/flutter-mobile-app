@@ -556,6 +556,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navNodeStatus => 'Node Status';
 
   @override
+  String get navChallenges => 'Challenges';
+
+  @override
   String get navSettings => 'Settings';
 
   @override

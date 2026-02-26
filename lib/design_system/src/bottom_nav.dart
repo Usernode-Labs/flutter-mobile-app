@@ -65,6 +65,7 @@ class BottomNav extends StatelessWidget {
     required this.items,
     required this.selectedIndex,
     this.onItemSelected,
+    this.topBorder = true,
   }) : assert(
           items.length >= 2 && items.length <= 5,
           'items must have between 2 and 5 entries',
@@ -79,6 +80,10 @@ class BottomNav extends StatelessWidget {
   /// Called when an enabled item is tapped.
   final ValueChanged<int>? onItemSelected;
 
+  /// Whether to show an `outlineVariant` top border. Defaults to true.
+  /// Set to false when the parent provides its own border (e.g. network indicator).
+  final bool topBorder;
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
@@ -92,26 +97,33 @@ class BottomNav extends StatelessWidget {
         selected.indicatorColor?.withValues(alpha: 0.2) ??
         Colors.transparent;
 
+    final navBar = NavigationBar(
+      selectedIndex: selectedIndex,
+      indicatorShape: indicatorShape,
+      indicatorColor: indicatorColor,
+      onDestinationSelected: (index) {
+        if (items[index].enabled) {
+          onItemSelected?.call(index);
+        }
+      },
+      destinations: [
+        for (int i = 0; i < items.length; i++)
+          _buildDestination(context, items[i], selected: i == selectedIndex),
+      ],
+    );
+
+    if (!topBorder) return navBar;
+
     return DecoratedBox(
+      // Foreground so the border paints on top of NavigationBar's opaque
+      // background (surfaceContainerLowest from ColorIsExpensiveTheme).
+      position: DecorationPosition.foreground,
       decoration: BoxDecoration(
         border: Border(
           top: BorderSide(color: colors.outlineVariant),
         ),
       ),
-      child: NavigationBar(
-        selectedIndex: selectedIndex,
-        indicatorShape: indicatorShape,
-        indicatorColor: indicatorColor,
-        onDestinationSelected: (index) {
-          if (items[index].enabled) {
-            onItemSelected?.call(index);
-          }
-        },
-        destinations: [
-          for (int i = 0; i < items.length; i++)
-            _buildDestination(context, items[i], selected: i == selectedIndex),
-        ],
-      ),
+      child: navBar,
     );
   }
 

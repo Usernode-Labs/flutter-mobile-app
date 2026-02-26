@@ -726,6 +726,10 @@
   "@navNodeStatus": {
     "description": "Navigation bar label for node status tab"
   },
+  "navChallenges": "Challenges",
+  "@navChallenges": {
+    "description": "Navigation bar label for challenges tab"
+  },
   "navSettings": "Settings",
   "@navSettings": {
     "description": "Navigation bar label for settings tab"

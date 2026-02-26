@@ -257,9 +257,30 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
                               eventLabel: eventLabel(ref),
                             ),
                           ),
-                          // Transparent spacer revealing ScoreHeader
-                          const SliverToBoxAdapter(
-                            child: SizedBox(height: kChallengesSpacerHeight),
+                          // Transparent spacer revealing ScoreHeader.
+                          // The CTA button is rendered visually by ScoreHeader
+                          // in Layer 1, but that layer sits behind the scroll
+                          // surface and can't receive taps. This invisible tap
+                          // target overlays the button's position so taps land
+                          // in Layer 2 directly.
+                          SliverToBoxAdapter(
+                            child: SizedBox(
+                              height: kChallengesSpacerHeight,
+                              child: Align(
+                                alignment: Alignment.bottomCenter,
+                                child: Padding(
+                                  padding:
+                                      EdgeInsets.only(bottom: spacing.space24),
+                                  child: GestureDetector(
+                                    behavior: HitTestBehavior.translucent,
+                                    onTap: () =>
+                                        context.push(AppRoutes.leaderboard),
+                                    child:
+                                        const SizedBox(width: 200, height: 48),
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
                           // Pinned surface tab bar
                           SliverPersistentHeader(
@@ -391,6 +412,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
       countdownLabel: countdown.label,
       countdownTime: countdown.time,
       ctaLabel: 'View in Leaderboard',
+      onCtaTap: () => context.push(AppRoutes.leaderboard),
       variant: _scoreVariant,
       technicalGlowIntensity: glow.isAnimating ? glow.technical : null,
       flashGlowIntensity: glow.isAnimating ? glow.flash : null,

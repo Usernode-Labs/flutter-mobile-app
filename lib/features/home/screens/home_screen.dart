@@ -19,19 +19,6 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  int _index = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    // Initialize current tab
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        ref.read(currentHomeTabProvider.notifier).state = _index;
-      }
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -39,6 +26,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final screenWidth = MediaQuery.of(context).size.width;
+    final index = ref.watch(currentHomeTabProvider);
 
     // Conditional colors based on network
     final backgroundColor = currentNetwork == 'internal'
@@ -51,7 +39,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Scaffold(
       body: IndexedStack(
-        index: _index,
+        index: index,
         children: const [
           ChallengesScreen(),
           ProducedBlocksScreen(),
@@ -82,12 +70,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           child: NavigationBar(
             backgroundColor: Colors.transparent,
-            selectedIndex: _index,
+            selectedIndex: index,
             labelBehavior: screenWidth < 400
                 ? NavigationDestinationLabelBehavior.alwaysHide
                 : NavigationDestinationLabelBehavior.alwaysShow,
             onDestinationSelected: (i) {
-              setState(() => _index = i);
               ref.read(currentHomeTabProvider.notifier).state = i;
             },
             destinations: [

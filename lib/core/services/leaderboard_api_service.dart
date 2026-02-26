@@ -108,6 +108,19 @@ class LeaderboardApiService {
     return BreakdownResult.fromJson(data as Map<String, dynamic>);
   }
 
+  Future<EventPointsResult> getEventPoints({
+    required int eventId,
+    required int participantId,
+  }) async {
+    final params = <String, String>{
+      'event_id': eventId.toString(),
+      'participant_id': participantId.toString(),
+    };
+
+    final data = await _get('/event/points', queryParams: params);
+    return EventPointsResult.fromJson(data as Map<String, dynamic>);
+  }
+
   Future<List<SeasonDto>> getSeasons({
     int? seasonId,
     bool? onlyActiveSeasons,

@@ -5,6 +5,7 @@ import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/providers/breakdown_provider.dart';
 import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
+import 'package:crypto_mobile_app/core/providers/event_points_provider.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_provider.dart';
 import 'package:crypto_mobile_app/core/providers/ranking_provider.dart';
 import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
@@ -112,6 +113,7 @@ Future<void> refreshAllLeaderboardData(Ref ref) async {
     ref.read(leaderboardProvider.notifier).silentRefresh(),
     ref.read(breakdownProvider.notifier).silentRefresh(),
     ref.read(seasonsProvider.notifier).silentRefresh(),
+    ref.read(eventPointsProvider.notifier).silentRefresh(),
   ]);
 }
 

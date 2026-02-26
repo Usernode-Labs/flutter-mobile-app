@@ -20,6 +20,7 @@ import 'package:crypto_mobile_app/features/node/screens/block_details_screen.dar
 import 'package:crypto_mobile_app/features/node/screens/mempool_details_screen.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 import 'package:crypto_mobile_app/features/challenges/screens/challenge_detail_screen.dart';
+import 'package:crypto_mobile_app/features/leaderboard/screens/leaderboard_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/screens/send_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/screens/transaction_success_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/screens/transaction_failed_screen.dart';
@@ -59,6 +60,7 @@ class AppRoutes {
 
   // Challenge routes
   static const challengeDetail = '/challenges/detail';
+  static const leaderboard = '/challenges/leaderboard';
 
   // Main shell routes
   static const mainNode = '/main/node';
@@ -229,6 +231,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final enriched = state.extra as EnrichedChallenge;
           return ChallengeDetailScreen(challenge: enriched);
         },
+      ),
+      GoRoute(
+        path: AppRoutes.leaderboard,
+        builder: (context, state) => const LeaderboardScreen(),
       ),
     ],
     redirect: (context, state) {

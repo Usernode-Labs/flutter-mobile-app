@@ -422,11 +422,12 @@ class LeaderboardEntry {
       displayName: json['display_name'] as String?,
       totalPoints: _jsonInt(json['total_points']),
       offchainPoints: _jsonInt(json['offchain_points']),
-      totalProducedBlocks: _jsonInt(json['total_produced_blocks']),
-      vrfTotalWonSlots: _jsonInt(json['vrf_total_won_slots']),
-      successRate: _jsonDouble(json['success_rate']),
-      eventsParticipated:
-          _jsonInt(json['events_participated'] ?? json['phases_participated']),
+      totalProducedBlocks: _jsonIntN(json['total_produced_blocks']) ?? 0,
+      vrfTotalWonSlots: _jsonIntN(json['vrf_total_won_slots']) ?? 0,
+      successRate: _jsonDoubleN(json['success_rate']) ?? 0.0,
+      eventsParticipated: _jsonIntN(
+              json['events_participated'] ?? json['phases_participated']) ??
+          0,
     );
   }
 
@@ -705,6 +706,75 @@ class BreakdownResult {
     if (seasonBreakdown != null) json.addAll(seasonBreakdown!.toJson());
     return json;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Event Points (distribution / histogram)
+// ---------------------------------------------------------------------------
+
+class ParticipantPoints {
+  final int participantId;
+  final int totalPoints;
+
+  const ParticipantPoints({
+    required this.participantId,
+    required this.totalPoints,
+  });
+
+  factory ParticipantPoints.fromJson(Map<String, dynamic> json) {
+    return ParticipantPoints(
+      participantId: _jsonInt(json['participant_id']),
+      totalPoints: _jsonInt(json['total_points']),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'participant_id': participantId,
+        'total_points': totalPoints,
+      };
+}
+
+class EventPointsResult {
+  final int eventId;
+  final String eventName;
+  final int eventTotalPoints;
+  final int participantTotalPoints;
+  final List<ParticipantPoints> totalPointsPerUser;
+  final int totalParticipants;
+
+  const EventPointsResult({
+    required this.eventId,
+    required this.eventName,
+    required this.eventTotalPoints,
+    required this.participantTotalPoints,
+    required this.totalPointsPerUser,
+    required this.totalParticipants,
+  });
+
+  factory EventPointsResult.fromJson(Map<String, dynamic> json) {
+    return EventPointsResult(
+      eventId: _jsonInt(json['event_id']),
+      eventName: json['event_name'] as String? ?? '',
+      eventTotalPoints: _jsonInt(json['event_total_points']),
+      participantTotalPoints: _jsonInt(json['participant_total_points']),
+      totalPointsPerUser: (json['total_points_per_user'] as List?)
+              ?.map(
+                  (e) => ParticipantPoints.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const [],
+      totalParticipants: _jsonInt(json['total_participants']),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'event_id': eventId,
+        'event_name': eventName,
+        'event_total_points': eventTotalPoints,
+        'participant_total_points': participantTotalPoints,
+        'total_points_per_user':
+            totalPointsPerUser.map((e) => e.toJson()).toList(),
+        'total_participants': totalParticipants,
+      };
 }
 
 // ---------------------------------------------------------------------------

@@ -1,10 +1,14 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import '../src/bottom_nav.dart';
+import '../src/challenge_card.dart';
+import '../src/challenge_category_icon.dart';
+import '../src/challenge_category_tile.dart';
 import '../src/dropdown_chain.dart';
 import '../src/leaderboard_stats_card.dart';
 import '../src/nav_indicator_shapes.dart';
@@ -64,12 +68,24 @@ const _mockParticipants = [
   ('new_member', '300'),
 ];
 
-List<double> _bellCurve(int count) {
+List<int> _bellCurveCounts(int count) {
   final center = count / 2;
   final sigma = count / 4;
   return List.generate(count, (i) {
     final x = (i - center) / sigma;
-    return math.exp(-0.5 * x * x);
+    return (math.exp(-0.5 * x * x) * 45).round().clamp(1, 50);
+  });
+}
+
+List<String> _mockScoreLabels(int bucketCount, int minPts, int maxPts) {
+  final fmt = NumberFormat('#,##0');
+  final bucketWidth = (maxPts - minPts) / bucketCount;
+  return List.generate(bucketCount, (i) {
+    final lo = (minPts + i * bucketWidth).round();
+    final hi = i == bucketCount - 1
+        ? maxPts
+        : (minPts + (i + 1) * bucketWidth).round();
+    return '${fmt.format(lo)}–${fmt.format(hi)} pts';
   });
 }
 
@@ -132,9 +148,119 @@ class _LeaderboardPageState extends State<_LeaderboardPage> {
                 totalPointsLabel: 'TOTAL POINTS',
                 rank: '34',
                 rankLabel: 'RANK',
-                distribution: _bellCurve(16),
-                userBarIndex: 6,
-                tooltipText: 'Better than 45% of participants.',
+                distributionCounts: _bellCurveCounts(16),
+                userBucketIndex: 6,
+                minScoreLabel: '0',
+                userScoreLabel: '8,000',
+                maxScoreLabel: '15,000',
+                calloutTitle: 'Better than 45% of participants',
+                calloutBody:
+                    "You're in the top 55%! Keep completing challenges to secure your position.",
+                bucketScoreLabels: _mockScoreLabels(16, 0, 15000),
+              ),
+            ),
+          ),
+
+          SliverToBoxAdapter(
+            child: SizedBox(height: spacing.space16),
+          ),
+
+          // Challenge category tiles
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: spacing.space16),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: colors.surfaceContainerLowest,
+                  borderRadius: radii.borderRadiusLargeIncreased,
+                ),
+                padding: EdgeInsets.symmetric(vertical: spacing.space8),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: spacing.space16),
+                      child: ChallengeCategoryTile(
+                        categoryIcon: const ChallengeCategoryIcon(
+                          category: ChallengeCategory.technical,
+                          size: 40,
+                        ),
+                        categoryName: 'Technical',
+                        remainingCount: 3,
+                        completedCount: 2,
+                        pointsLabel: '4,525 pts',
+                        challenges: const [
+                          ChallengeCategoryItem(
+                            title: 'Run a validator node',
+                            isCompleted: true,
+                          ),
+                          ChallengeCategoryItem(
+                            title: 'Submit 10 transactions',
+                            isCompleted: true,
+                          ),
+                          ChallengeCategoryItem(
+                            title: 'Deploy a smart contract',
+                            isCompleted: false,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Divider(height: 1, color: colors.surfaceContainerHighest),
+                    Padding(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: spacing.space16),
+                      child: ChallengeCategoryTile(
+                        categoryIcon: const ChallengeCategoryIcon(
+                          category: ChallengeCategory.community,
+                          size: 40,
+                        ),
+                        categoryName: 'Community',
+                        remainingCount: 1,
+                        completedCount: 3,
+                        pointsLabel: '6,200 pts',
+                        challenges: const [
+                          ChallengeCategoryItem(
+                            title: 'Invite 5 friends',
+                            isCompleted: true,
+                          ),
+                          ChallengeCategoryItem(
+                            title: 'Post in Discord',
+                            isCompleted: true,
+                          ),
+                          ChallengeCategoryItem(
+                            title: 'Host a workshop',
+                            isCompleted: false,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Divider(height: 1, color: colors.surfaceContainerHighest),
+                    Padding(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: spacing.space16),
+                      child: ChallengeCategoryTile(
+                        categoryIcon: const ChallengeCategoryIcon(
+                          category: ChallengeCategory.flash,
+                          size: 40,
+                        ),
+                        categoryName: 'Flash',
+                        remainingCount: 2,
+                        completedCount: 1,
+                        pointsLabel: '1,800 pts',
+                        challenges: const [
+                          ChallengeCategoryItem(
+                            title: 'Daily check-in streak',
+                            isCompleted: true,
+                          ),
+                          ChallengeCategoryItem(
+                            title: 'Weekend sprint',
+                            isCompleted: false,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -170,7 +296,7 @@ class _LeaderboardPageState extends State<_LeaderboardPage> {
                       final (index, participant) = entry;
                       final (name, points) = participant;
                       return ListTile(
-                        leading: RankBadge(rank: '#${index + 1}'),
+                        leading: RankBadge(rank: '${index + 1}'),
                         title: Text(name),
                         trailing: Text('$points pts'),
                         onTap: () {},

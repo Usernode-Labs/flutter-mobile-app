@@ -9,6 +9,7 @@ import 'bottom_nav_use_case.dart';
 import 'button_use_case.dart';
 import 'challenge_activity_summary_use_case.dart';
 import 'challenge_card_use_case.dart';
+import 'challenge_category_tile_use_case.dart';
 import 'challenge_detail_page_use_case.dart';
 import 'challenges_page_use_case.dart';
 import 'color_catalog.dart';
@@ -131,6 +132,7 @@ class WidgetbookApp extends StatelessWidget {
             buttonComponent(),
             challengeActivitySummaryComponent(),
             challengeCardComponent(),
+            challengeCategoryTileComponent(),
             dropdownChainComponent(),
             dropdownChipComponent(),
             dropdownSheetComponent(),

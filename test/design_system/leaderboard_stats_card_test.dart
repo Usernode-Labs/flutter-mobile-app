@@ -17,15 +17,15 @@ void main() {
       theme: themeWithExtensions(),
       home: Scaffold(
         body: Center(
-          child: SizedBox(width: 360, child: child),
+          child: SizedBox(width: 500, child: child),
         ),
       ),
     );
   }
 
   final sampleDistribution = [
-    0.1, 0.2, 0.35, 0.5, 0.7, 0.85, 1.0, 0.9, 0.75, 0.6, //
-    0.45, 0.3, 0.2, 0.15, 0.1, 0.05,
+    1, 2, 4, 5, 7, 9, 10, 9, 8, 6, //
+    5, 3, 2, 2, 1, 1,
   ];
 
   group('LeaderboardStatsCard', () {
@@ -36,8 +36,8 @@ void main() {
           totalPointsLabel: 'TOTAL POINTS',
           rank: '34',
           rankLabel: 'RANK',
-          distribution: sampleDistribution,
-          userBarIndex: 6,
+          distributionCounts: sampleDistribution,
+          userBucketIndex: 6,
         ),
       ));
 
@@ -52,8 +52,8 @@ void main() {
           totalPointsLabel: 'TOTAL POINTS',
           rank: '34',
           rankLabel: 'RANK',
-          distribution: sampleDistribution,
-          userBarIndex: 6,
+          distributionCounts: sampleDistribution,
+          userBucketIndex: 6,
         ),
       ));
 
@@ -68,9 +68,9 @@ void main() {
           totalPointsLabel: 'TOTAL POINTS',
           rank: '34',
           rankLabel: 'RANK',
-          distribution: sampleDistribution,
-          userBarIndex: 6,
-          tooltipText: 'Better than 45% of participants.',
+          distributionCounts: sampleDistribution,
+          userBucketIndex: 6,
+          calloutTitle: 'Better than 45% of participants.',
         ),
       ));
 
@@ -84,8 +84,8 @@ void main() {
           totalPointsLabel: 'TOTAL POINTS',
           rank: '34',
           rankLabel: 'RANK',
-          distribution: sampleDistribution,
-          userBarIndex: 6,
+          distributionCounts: sampleDistribution,
+          userBucketIndex: 6,
         ),
       ));
 
@@ -100,8 +100,8 @@ void main() {
           totalPointsLabel: 'TOTAL POINTS',
           rank: '-',
           rankLabel: 'RANK',
-          distribution: [],
-          userBarIndex: 0,
+          distributionCounts: [],
+          userBucketIndex: 0,
         ),
       ));
 
@@ -115,9 +115,9 @@ void main() {
           totalPointsLabel: 'TOTAL POINTS',
           rank: '34',
           rankLabel: 'RANK',
-          distribution: sampleDistribution,
-          userBarIndex: 6,
-          tooltipText: 'Better than 45% of participants.',
+          distributionCounts: sampleDistribution,
+          userBucketIndex: 6,
+          calloutTitle: 'Better than 45% of participants.',
         ),
       ));
 
@@ -131,8 +131,8 @@ void main() {
           totalPointsLabel: 'total points',
           rank: '34',
           rankLabel: 'rank',
-          distribution: sampleDistribution,
-          userBarIndex: 6,
+          distributionCounts: sampleDistribution,
+          userBucketIndex: 6,
         ),
       ));
 
@@ -140,69 +140,290 @@ void main() {
       expect(find.text('RANK'), findsOneWidget);
     });
 
-    testWidgets('tooltip uses community color', (tester) async {
+    testWidgets('callout has surfaceContainerLow background', (tester) async {
       await tester.pumpWidget(wrap(
         LeaderboardStatsCard(
           totalPoints: '18,000',
           totalPointsLabel: 'TOTAL POINTS',
           rank: '34',
           rankLabel: 'RANK',
-          distribution: sampleDistribution,
-          userBarIndex: 6,
-          tooltipText: 'Better than 45% of participants.',
+          distributionCounts: sampleDistribution,
+          userBucketIndex: 6,
+          calloutTitle: 'Better than 45% of participants.',
         ),
       ));
       await tester.pumpAndSettle();
 
       final theme = themeWithExtensions();
-      final semantic = theme.extension<AppSemanticColors>()!;
+      final expectedColor = theme.colorScheme.surfaceContainerLow;
 
-      final tooltipText = find.text('Better than 45% of participants.');
+      final calloutText = find.text('Better than 45% of participants.');
       final container = find.ancestor(
-        of: tooltipText,
+        of: calloutText,
         matching: find.byType(Container),
       );
 
-      // The closest Container ancestor with a decoration is the tooltip bg.
       final containerWidget =
           tester.widgetList<Container>(container).firstWhere(
                 (c) => c.decoration is BoxDecoration,
               );
       final decoration = containerWidget.decoration! as BoxDecoration;
-      expect(decoration.color, semantic.community.color);
+      expect(decoration.color, expectedColor);
     });
 
-    testWidgets('user bar has BoxShadow', (tester) async {
+    testWidgets('user column has highlighted pill background', (tester) async {
       await tester.pumpWidget(wrap(
         LeaderboardStatsCard(
           totalPoints: '18,000',
           totalPointsLabel: 'TOTAL POINTS',
           rank: '34',
           rankLabel: 'RANK',
-          distribution: sampleDistribution,
-          userBarIndex: 6,
+          distributionCounts: sampleDistribution,
+          userBucketIndex: 6,
         ),
       ));
       await tester.pumpAndSettle();
 
       final theme = themeWithExtensions();
-      final semantic = theme.extension<AppSemanticColors>()!;
+      final expectedColor = theme.colorScheme.surfaceContainerHigh;
 
-      // Find all bar Containers inside the chart.
+      // Find the highlighted pill Container wrapping the user's dot column.
       final allContainers = find.byType(Container);
-      var foundShadow = false;
+      var foundPill = false;
       for (final element in tester.widgetList<Container>(allContainers)) {
         final decoration = element.decoration;
         if (decoration is BoxDecoration &&
-            decoration.color == semantic.community.color &&
-            decoration.boxShadow != null &&
-            decoration.boxShadow!.isNotEmpty) {
-          foundShadow = true;
-          expect(decoration.boxShadow!.first.blurRadius, 6.0);
+            decoration.color == expectedColor &&
+            decoration.borderRadius != null) {
+          foundPill = true;
           break;
         }
       }
-      expect(foundShadow, isTrue, reason: 'User bar should have a BoxShadow');
+      expect(foundPill, isTrue,
+          reason: 'User column should have a highlighted pill background');
+    });
+
+    testWidgets('tapping a chart column shows bucket count in callout',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        LeaderboardStatsCard(
+          totalPoints: '18,000',
+          totalPointsLabel: 'TOTAL POINTS',
+          rank: '34',
+          rankLabel: 'RANK',
+          distributionCounts: sampleDistribution,
+          userBucketIndex: 6,
+          calloutTitle: 'Better than 45%',
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      // Find the chart area (SizedBox with chart height 144)
+      final chartArea = find.byWidgetPredicate(
+        (w) => w is SizedBox && w.height == 144.0,
+      );
+      final chartTopLeft = tester.getTopLeft(chartArea);
+      final chartSize = tester.getSize(chartArea);
+      final columnWidth = chartSize.width / sampleDistribution.length;
+
+      // Tap column 2 (count = 4)
+      await tester.tapAt(Offset(
+        chartTopLeft.dx + columnWidth * 2 + columnWidth / 2,
+        chartTopLeft.dy + chartSize.height / 2,
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('4 participants'), findsOneWidget);
+      expect(find.text('Better than 45%'), findsNothing);
+    });
+
+    testWidgets('tapping selected bucket again restores default callout',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        LeaderboardStatsCard(
+          totalPoints: '18,000',
+          totalPointsLabel: 'TOTAL POINTS',
+          rank: '34',
+          rankLabel: 'RANK',
+          distributionCounts: sampleDistribution,
+          userBucketIndex: 6,
+          calloutTitle: 'Better than 45%',
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      final chartArea = find.byWidgetPredicate(
+        (w) => w is SizedBox && w.height == 144.0,
+      );
+      final chartTopLeft = tester.getTopLeft(chartArea);
+      final chartSize = tester.getSize(chartArea);
+      final columnWidth = chartSize.width / sampleDistribution.length;
+
+      final tapOffset = Offset(
+        chartTopLeft.dx + columnWidth * 2 + columnWidth / 2,
+        chartTopLeft.dy + chartSize.height / 2,
+      );
+
+      // Tap to select
+      await tester.tapAt(tapOffset);
+      await tester.pumpAndSettle();
+      expect(find.text('4 participants'), findsOneWidget);
+
+      // Tap again to deselect
+      await tester.tapAt(tapOffset);
+      await tester.pumpAndSettle();
+      expect(find.text('Better than 45%'), findsOneWidget);
+      expect(find.text('4 participants'), findsNothing);
+    });
+
+    testWidgets('onBucketTapped callback fires with correct index',
+        (tester) async {
+      int? tappedIndex;
+      await tester.pumpWidget(wrap(
+        LeaderboardStatsCard(
+          totalPoints: '18,000',
+          totalPointsLabel: 'TOTAL POINTS',
+          rank: '34',
+          rankLabel: 'RANK',
+          distributionCounts: sampleDistribution,
+          userBucketIndex: 6,
+          onBucketTapped: (index) => tappedIndex = index,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      final chartArea = find.byWidgetPredicate(
+        (w) => w is SizedBox && w.height == 144.0,
+      );
+      final chartTopLeft = tester.getTopLeft(chartArea);
+      final chartSize = tester.getSize(chartArea);
+      final columnWidth = chartSize.width / sampleDistribution.length;
+
+      // Tap column 2
+      await tester.tapAt(Offset(
+        chartTopLeft.dx + columnWidth * 2 + columnWidth / 2,
+        chartTopLeft.dy + chartSize.height / 2,
+      ));
+      await tester.pumpAndSettle();
+
+      expect(tappedIndex, 2);
+    });
+
+    testWidgets('tapping bucket without default callout shows callout',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        LeaderboardStatsCard(
+          totalPoints: '18,000',
+          totalPointsLabel: 'TOTAL POINTS',
+          rank: '34',
+          rankLabel: 'RANK',
+          distributionCounts: sampleDistribution,
+          userBucketIndex: 6,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      // No callout initially
+      expect(find.text('4 participants'), findsNothing);
+
+      final chartArea = find.byWidgetPredicate(
+        (w) => w is SizedBox && w.height == 144.0,
+      );
+      final chartTopLeft = tester.getTopLeft(chartArea);
+      final chartSize = tester.getSize(chartArea);
+      final columnWidth = chartSize.width / sampleDistribution.length;
+
+      // Tap column 2 (count = 4)
+      await tester.tapAt(Offset(
+        chartTopLeft.dx + columnWidth * 2 + columnWidth / 2,
+        chartTopLeft.dy + chartSize.height / 2,
+      ));
+      await tester.pumpAndSettle();
+
+      // Callout should now appear
+      expect(find.text('4 participants'), findsOneWidget);
+    });
+
+    testWidgets(
+        'tapping non-user bucket with score labels shows count and score span',
+        (tester) async {
+      final scoreLabels = List.generate(
+        sampleDistribution.length,
+        (i) => '${i * 100}–${(i + 1) * 100} pts',
+      );
+
+      await tester.pumpWidget(wrap(
+        LeaderboardStatsCard(
+          totalPoints: '18,000',
+          totalPointsLabel: 'TOTAL POINTS',
+          rank: '34',
+          rankLabel: 'RANK',
+          distributionCounts: sampleDistribution,
+          userBucketIndex: 6,
+          calloutTitle: 'Better than 45%',
+          bucketScoreLabels: scoreLabels,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      final chartArea = find.byWidgetPredicate(
+        (w) => w is SizedBox && w.height == 144.0,
+      );
+      final chartTopLeft = tester.getTopLeft(chartArea);
+      final chartSize = tester.getSize(chartArea);
+      final columnWidth = chartSize.width / sampleDistribution.length;
+
+      // Tap column 2 (count = 4, non-user bucket)
+      await tester.tapAt(Offset(
+        chartTopLeft.dx + columnWidth * 2 + columnWidth / 2,
+        chartTopLeft.dy + chartSize.height / 2,
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('4 participants'), findsOneWidget);
+      expect(find.text('200–300 pts'), findsOneWidget);
+    });
+
+    testWidgets(
+        'tapping user bucket shows original callout title with count and score span',
+        (tester) async {
+      final scoreLabels = List.generate(
+        sampleDistribution.length,
+        (i) => '${i * 100}–${(i + 1) * 100} pts',
+      );
+
+      await tester.pumpWidget(wrap(
+        LeaderboardStatsCard(
+          totalPoints: '18,000',
+          totalPointsLabel: 'TOTAL POINTS',
+          rank: '34',
+          rankLabel: 'RANK',
+          distributionCounts: sampleDistribution,
+          userBucketIndex: 6,
+          calloutTitle: 'Better than 45%',
+          bucketScoreLabels: scoreLabels,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      final chartArea = find.byWidgetPredicate(
+        (w) => w is SizedBox && w.height == 144.0,
+      );
+      final chartTopLeft = tester.getTopLeft(chartArea);
+      final chartSize = tester.getSize(chartArea);
+      final columnWidth = chartSize.width / sampleDistribution.length;
+
+      // Tap the user's bucket (index 6, count = 10)
+      await tester.tapAt(Offset(
+        chartTopLeft.dx + columnWidth * 6 + columnWidth / 2,
+        chartTopLeft.dy + chartSize.height / 2,
+      ));
+      await tester.pumpAndSettle();
+
+      // Original callout title preserved
+      expect(find.text('Better than 45%'), findsOneWidget);
+      // Body shows count + score span
+      expect(find.text('10 participants · 600–700 pts'), findsOneWidget);
     });
   });
 }

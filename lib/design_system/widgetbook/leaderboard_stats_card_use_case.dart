@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import '../src/leaderboard_stats_card.dart';
@@ -27,6 +28,15 @@ WidgetbookUseCase _playground() {
     builder: (context) {
       final spacing = Theme.of(context).extension<AppSpacing>()!;
 
+      final bucketCount = context.knobs.double
+          .slider(
+            label: 'Bucket Count',
+            initialValue: 16,
+            min: 6,
+            max: 20,
+          )
+          .round();
+
       final totalPoints = context.knobs.string(
         label: 'Total Points',
         initialValue: '18,000',
@@ -37,26 +47,49 @@ WidgetbookUseCase _playground() {
         initialValue: '34',
       );
 
-      final userBarIndex = context.knobs.double
+      final userBucketIndex = context.knobs.double
           .slider(
-            label: 'User Bar Index',
+            label: 'User Bucket Index',
             initialValue: 6,
             min: 0,
-            max: 15,
+            max: 19,
           )
-          .round();
+          .round()
+          .clamp(0, bucketCount - 1);
 
-      final showTooltip = context.knobs.boolean(
-        label: 'Show Tooltip',
+      final showCallout = context.knobs.boolean(
+        label: 'Show Callout',
         initialValue: true,
       );
 
-      final tooltipText = context.knobs.string(
-        label: 'Tooltip Text',
-        initialValue: 'Better than 45% of participants.',
+      final calloutTitle = context.knobs.string(
+        label: 'Callout Title',
+        initialValue: 'Better than 45% of participants',
       );
 
-      final distribution = _bellCurve(16);
+      final calloutBody = context.knobs.string(
+        label: 'Callout Body',
+        initialValue:
+            "You're in the top 55%! Keep completing challenges to secure your position.",
+      );
+
+      final minScore = context.knobs.string(
+        label: 'Min Score Label',
+        initialValue: '0',
+      );
+
+      final userScore = context.knobs.string(
+        label: 'User Score Label',
+        initialValue: '8,000',
+      );
+
+      final maxScore = context.knobs.string(
+        label: 'Max Score Label',
+        initialValue: '15,000',
+      );
+
+      final distribution = _bellCurveCounts(bucketCount);
+      final scoreLabels = _mockScoreLabels(bucketCount, 0, 15000);
 
       return Padding(
         padding: EdgeInsets.all(spacing.space16),
@@ -65,9 +98,14 @@ WidgetbookUseCase _playground() {
           totalPointsLabel: 'TOTAL POINTS',
           rank: rank,
           rankLabel: 'RANK',
-          distribution: distribution,
-          userBarIndex: userBarIndex,
-          tooltipText: showTooltip ? tooltipText : null,
+          distributionCounts: distribution,
+          userBucketIndex: userBucketIndex,
+          minScoreLabel: minScore,
+          userScoreLabel: userScore,
+          maxScoreLabel: maxScore,
+          calloutTitle: showCallout ? calloutTitle : null,
+          calloutBody: showCallout ? calloutBody : null,
+          bucketScoreLabels: scoreLabels,
         ),
       );
     },
@@ -90,7 +128,7 @@ WidgetbookUseCase _variants() {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'BELL CURVE',
+              'BELL CURVE (16 BUCKETS)',
               style: Theme.of(context).textTheme.labelLarge,
             ),
             SizedBox(height: spacing.space8),
@@ -99,13 +137,19 @@ WidgetbookUseCase _variants() {
               totalPointsLabel: 'TOTAL POINTS',
               rank: '34',
               rankLabel: 'RANK',
-              distribution: _bellCurve(16),
-              userBarIndex: 6,
-              tooltipText: 'Better than 45% of participants.',
+              distributionCounts: _bellCurveCounts(16),
+              userBucketIndex: 6,
+              minScoreLabel: '0',
+              userScoreLabel: '8,000',
+              maxScoreLabel: '15,000',
+              calloutTitle: 'Better than 45% of participants',
+              calloutBody:
+                  "You're in the top 55%! Keep completing challenges to secure your position.",
+              bucketScoreLabels: _mockScoreLabels(16, 0, 15000),
             ),
             SizedBox(height: spacing.space24),
             Text(
-              'LEFT SKEWED',
+              'LEFT SKEWED (10 BUCKETS)',
               style: Theme.of(context).textTheme.labelLarge,
             ),
             SizedBox(height: spacing.space8),
@@ -114,13 +158,19 @@ WidgetbookUseCase _variants() {
               totalPointsLabel: 'TOTAL POINTS',
               rank: '128',
               rankLabel: 'RANK',
-              distribution: _leftSkewed(16),
-              userBarIndex: 3,
-              tooltipText: 'Better than 20% of participants.',
+              distributionCounts: _leftSkewedCounts(10),
+              userBucketIndex: 3,
+              minScoreLabel: '0',
+              userScoreLabel: '2,500',
+              maxScoreLabel: '12,000',
+              calloutTitle: 'Better than 20% of participants',
+              calloutBody:
+                  'Keep completing tasks to climb higher on the leaderboard.',
+              bucketScoreLabels: _mockScoreLabels(10, 0, 12000),
             ),
             SizedBox(height: spacing.space24),
             Text(
-              'FLAT',
+              'FLAT (8 BUCKETS)',
               style: Theme.of(context).textTheme.labelLarge,
             ),
             SizedBox(height: spacing.space8),
@@ -129,12 +179,16 @@ WidgetbookUseCase _variants() {
               totalPointsLabel: 'TOTAL POINTS',
               rank: '50',
               rankLabel: 'RANK',
-              distribution: _flat(16),
-              userBarIndex: 8,
+              distributionCounts: _flatCounts(8),
+              userBucketIndex: 4,
+              minScoreLabel: '0',
+              userScoreLabel: '10,000',
+              maxScoreLabel: '20,000',
+              bucketScoreLabels: _mockScoreLabels(8, 0, 20000),
             ),
             SizedBox(height: spacing.space24),
             Text(
-              'WITHOUT TOOLTIP',
+              'WITHOUT CALLOUT',
               style: Theme.of(context).textTheme.labelLarge,
             ),
             SizedBox(height: spacing.space8),
@@ -143,8 +197,10 @@ WidgetbookUseCase _variants() {
               totalPointsLabel: 'TOTAL POINTS',
               rank: '7',
               rankLabel: 'RANK',
-              distribution: _bellCurve(16),
-              userBarIndex: 12,
+              distributionCounts: _bellCurveCounts(16),
+              userBucketIndex: 12,
+              minScoreLabel: '0',
+              maxScoreLabel: '25,000',
             ),
           ],
         ),
@@ -169,7 +225,7 @@ WidgetbookUseCase _edgeCases() {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'USER AT FIRST (ALL GREY — NO EARNED TERRITORY)',
+              'USER AT FIRST (BOTTOM HALF — ENCOURAGING)',
               style: Theme.of(context).textTheme.labelLarge,
             ),
             SizedBox(height: spacing.space8),
@@ -178,13 +234,19 @@ WidgetbookUseCase _edgeCases() {
               totalPointsLabel: 'TOTAL POINTS',
               rank: '200',
               rankLabel: 'RANK',
-              distribution: _bellCurve(16),
-              userBarIndex: 0,
-              tooltipText: 'Better than 0% of participants.',
+              distributionCounts: _bellCurveCounts(16),
+              userBucketIndex: 0,
+              minScoreLabel: '0',
+              userScoreLabel: '500',
+              maxScoreLabel: '15,000',
+              calloutTitle: 'Better than 0% of participants',
+              calloutBody:
+                  'Keep completing tasks to climb higher on the leaderboard.',
+              bucketScoreLabels: _mockScoreLabels(16, 0, 15000),
             ),
             SizedBox(height: spacing.space24),
             Text(
-              'USER AT LAST (ALL GREEN — FULLY CONQUERED)',
+              'USER AT LAST (TOP — ACCOMPLISHED)',
               style: Theme.of(context).textTheme.labelLarge,
             ),
             SizedBox(height: spacing.space8),
@@ -193,13 +255,19 @@ WidgetbookUseCase _edgeCases() {
               totalPointsLabel: 'TOTAL POINTS',
               rank: '1',
               rankLabel: 'RANK',
-              distribution: _bellCurve(16),
-              userBarIndex: 15,
-              tooltipText: 'Better than 99% of participants.',
+              distributionCounts: _bellCurveCounts(16),
+              userBucketIndex: 15,
+              minScoreLabel: '0',
+              userScoreLabel: '99,000',
+              maxScoreLabel: '100,000',
+              calloutTitle: 'Better than 99% of participants',
+              calloutBody:
+                  "You're in the top 1%! Keep completing challenges to secure your position.",
+              bucketScoreLabels: _mockScoreLabels(16, 0, 100000),
             ),
             SizedBox(height: spacing.space24),
             Text(
-              'WIDE BARS (4 BARS)',
+              'WIDE COLUMNS (4 BUCKETS)',
               style: Theme.of(context).textTheme.labelLarge,
             ),
             SizedBox(height: spacing.space8),
@@ -208,9 +276,13 @@ WidgetbookUseCase _edgeCases() {
               totalPointsLabel: 'TOTAL POINTS',
               rank: '15',
               rankLabel: 'RANK',
-              distribution: _bellCurve(4),
-              userBarIndex: 2,
-              tooltipText: 'Better than 60% of participants.',
+              distributionCounts: _bellCurveCounts(4),
+              userBucketIndex: 2,
+              minScoreLabel: '0',
+              userScoreLabel: '12,000',
+              maxScoreLabel: '20,000',
+              calloutTitle: 'Better than 60% of participants',
+              bucketScoreLabels: _mockScoreLabels(4, 0, 20000),
             ),
           ],
         ),
@@ -220,25 +292,38 @@ WidgetbookUseCase _edgeCases() {
 }
 
 // ---------------------------------------------------------------------------
-// Distribution generators
+// Distribution generators — return raw counts
 // ---------------------------------------------------------------------------
 
-List<double> _bellCurve(int count) {
+List<int> _bellCurveCounts(int count) {
   final center = count / 2;
   final sigma = count / 4;
   return List.generate(count, (i) {
     final x = (i - center) / sigma;
-    return math.exp(-0.5 * x * x);
+    return (math.exp(-0.5 * x * x) * 45).round().clamp(1, 50);
   });
 }
 
-List<double> _leftSkewed(int count) {
+List<int> _leftSkewedCounts(int count) {
   return List.generate(count, (i) {
     final t = i / (count - 1);
-    return math.pow(1 - t, 2.5).toDouble();
+    return (math.pow(1 - t, 2.5) * 40).round().clamp(0, 50);
   });
 }
 
-List<double> _flat(int count) {
-  return List.generate(count, (_) => 0.4 + 0.2 * math.Random(42).nextDouble());
+List<int> _flatCounts(int count) {
+  final rng = math.Random(42);
+  return List.generate(count, (_) => 8 + (rng.nextDouble() * 10).round());
+}
+
+List<String> _mockScoreLabels(int bucketCount, int minPts, int maxPts) {
+  final fmt = NumberFormat('#,##0');
+  final bucketWidth = (maxPts - minPts) / bucketCount;
+  return List.generate(bucketCount, (i) {
+    final lo = (minPts + i * bucketWidth).round();
+    final hi = i == bucketCount - 1
+        ? maxPts
+        : (minPts + (i + 1) * bucketWidth).round();
+    return '${fmt.format(lo)}–${fmt.format(hi)} pts';
+  });
 }

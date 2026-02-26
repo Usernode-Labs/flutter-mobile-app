@@ -309,8 +309,6 @@ class _Pill extends StatelessWidget {
             icon,
             size: sizing.iconSmall,
             color: iconColor,
-            weight: 300,
-            opticalSize: 20,
           ),
           SizedBox(width: spacing.space4),
           Flexible(

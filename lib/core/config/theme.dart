@@ -376,6 +376,10 @@ class MaterialTheme {
         ),
         scaffoldBackgroundColor: colorScheme.surface,
         canvasColor: colorScheme.surface,
+        iconTheme: const IconThemeData(
+          weight: 300,
+          opticalSize: 20,
+        ),
         cardTheme: CardThemeData(
           color: colorScheme.surfaceBright,
           elevation: 0,

@@ -284,8 +284,6 @@ class _ChallengeCardState extends State<ChallengeCard>
                 widget.rewardIcon ?? Symbols.rocket_launch_sharp,
                 size: sizing.iconSmall,
                 color: colors.onSurface,
-                weight: 300,
-                opticalSize: 20,
               ),
               if (widget.rewardText != null) ...[
                 SizedBox(width: spacing.space4),
@@ -313,8 +311,6 @@ class _ChallengeCardState extends State<ChallengeCard>
                       Symbols.check_circle_sharp,
                       size: sizing.iconSmall,
                       color: catColors.onColor,
-                      weight: 300,
-                      opticalSize: 20,
                     ),
                     SizedBox(width: spacing.space4),
                     Flexible(
@@ -349,8 +345,6 @@ class _ChallengeCardState extends State<ChallengeCard>
                 Symbols.check_circle_sharp,
                 size: sizing.iconSmall,
                 color: colors.onSurface,
-                weight: 300,
-                opticalSize: 20,
               ),
               SizedBox(width: spacing.space4),
               Text(
@@ -378,8 +372,6 @@ class _ChallengeCardState extends State<ChallengeCard>
                 Symbols.event_busy_sharp,
                 size: sizing.iconSmall,
                 color: colors.onSurfaceVariant,
-                weight: 300,
-                opticalSize: 20,
               ),
               SizedBox(width: spacing.space4),
               Text(

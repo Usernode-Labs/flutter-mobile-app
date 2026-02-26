@@ -410,6 +410,8 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
       technicalGlowIntensity: glow.isAnimating ? glow.technical : null,
       flashGlowIntensity: glow.isAnimating ? glow.flash : null,
       communityGlowIntensity: glow.isAnimating ? glow.community : null,
+      countdownOpacity: glow.countdownOpacity,
+      countdownTextMode: glow.countdownTextMode,
     );
   }
 

@@ -77,6 +77,21 @@ WidgetbookComponent scoreHeaderComponent() {
             max: 1,
           );
 
+          final countdownOpacity = context.knobs.double.slider(
+            label: 'Countdown Opacity',
+            initialValue: 1.0,
+            min: 0,
+            max: 1,
+          );
+
+          final countdownTextMode =
+              context.knobs.object.dropdown<CountdownTextMode>(
+            label: 'Countdown Text Mode',
+            options: CountdownTextMode.values,
+            initialOption: CountdownTextMode.normal,
+            labelBuilder: (v) => v.name,
+          );
+
           return Padding(
             padding: const EdgeInsets.all(16),
             child: ScoreHeader(
@@ -91,6 +106,8 @@ WidgetbookComponent scoreHeaderComponent() {
               technicalGlowIntensity: technicalGlow > 0 ? technicalGlow : null,
               flashGlowIntensity: flashGlow > 0 ? flashGlow : null,
               communityGlowIntensity: communityGlow > 0 ? communityGlow : null,
+              countdownOpacity: countdownOpacity,
+              countdownTextMode: countdownTextMode,
               onCtaTap: () {},
             ),
           );

@@ -169,5 +169,65 @@ void main() {
       expect(find.text('STARTS IN'), findsOneWidget);
       expect(find.text('2 DAYS'), findsOneWidget);
     });
+
+    testWidgets('countdownTextMode.caughtUp displays ALL CAUGHT UP! text',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        const ScoreHeader(
+          score: '8,000',
+          scoreLabel: 'points',
+          countdownTime: '12 DAYS 5H 3M',
+          countdownTextMode: CountdownTextMode.caughtUp,
+        ),
+      ));
+
+      expect(find.text('ALL CAUGHT UP!'), findsOneWidget);
+      expect(find.text('ENDS IN'), findsNothing);
+      expect(find.text('12 DAYS 5H 3M'), findsNothing);
+    });
+
+    testWidgets('countdownTextMode.catchingUp displays CATCHING UP... text',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        const ScoreHeader(
+          score: '8,000',
+          scoreLabel: 'points',
+          countdownTime: '12 DAYS 5H 3M',
+          countdownTextMode: CountdownTextMode.catchingUp,
+        ),
+      ));
+
+      expect(find.text('CATCHING UP...'), findsOneWidget);
+      expect(find.text('ENDS IN'), findsNothing);
+      expect(find.text('12 DAYS 5H 3M'), findsNothing);
+    });
+
+    testWidgets('countdownOpacity 0 hides countdown text', (tester) async {
+      await tester.pumpWidget(wrap(
+        const ScoreHeader(
+          score: '8,000',
+          scoreLabel: 'points',
+          countdownTime: '12 DAYS 5H 3M',
+          countdownOpacity: 0.0,
+        ),
+      ));
+
+      // The text widgets exist but are fully transparent.
+      final opacity = tester.widget<Opacity>(find.byType(Opacity));
+      expect(opacity.opacity, 0.0);
+    });
+
+    testWidgets('default countdown shows normally', (tester) async {
+      await tester.pumpWidget(wrap(
+        const ScoreHeader(
+          score: '8,000',
+          scoreLabel: 'points',
+          countdownTime: '12 DAYS 5H 3M',
+        ),
+      ));
+
+      expect(find.text('ENDS IN'), findsOneWidget);
+      expect(find.text('12 DAYS 5H 3M'), findsOneWidget);
+    });
   });
 }

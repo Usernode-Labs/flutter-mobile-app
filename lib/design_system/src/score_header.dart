@@ -9,6 +9,18 @@ import '../tokens/app_semantic_colors.dart';
 import '../tokens/app_spacing.dart';
 import 'button.dart';
 
+/// Which text the countdown row displays.
+enum CountdownTextMode {
+  /// Normal countdown (label + time).
+  normal,
+
+  /// Intermediate "CATCHING UP..." during pull-to-refresh.
+  catchingUp,
+
+  /// Celebratory "ALL CAUGHT UP!" after refresh completes.
+  caughtUp,
+}
+
 /// Visual variant for [ScoreHeader].
 enum ScoreHeaderVariant {
   /// Plain white circle, no glow.
@@ -42,6 +54,8 @@ class ScoreHeader extends StatelessWidget {
     this.technicalGlowIntensity,
     this.flashGlowIntensity,
     this.communityGlowIntensity,
+    this.countdownOpacity = 1.0,
+    this.countdownTextMode = CountdownTextMode.normal,
   });
 
   /// The score value displayed prominently, e.g. "8,000".
@@ -85,6 +99,13 @@ class ScoreHeader extends StatelessWidget {
   final double? flashGlowIntensity;
   final double? communityGlowIntensity;
 
+  /// Opacity for the countdown text row (0.0–1.0). Driven externally by
+  /// heartbeat animation during pull-to-refresh.
+  final double countdownOpacity;
+
+  /// Which text the countdown row displays (normal / catchingUp / caughtUp).
+  final CountdownTextMode countdownTextMode;
+
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
@@ -105,10 +126,12 @@ class ScoreHeader extends StatelessWidget {
           flashGlowIntensity: flashGlowIntensity,
           communityGlowIntensity: communityGlowIntensity,
         ),
-        SizedBox(height: spacing.space16),
+        SizedBox(height: spacing.space24),
         _CountdownRow(
           label: countdownLabel ?? 'ENDS IN',
           time: countdownTime ?? '--',
+          opacity: countdownOpacity,
+          textMode: countdownTextMode,
         ),
         if (ctaLabel != null) SizedBox(height: spacing.space48),
         if (ctaLabel != null)
@@ -183,7 +206,7 @@ class _ScoreCircle extends StatelessWidget {
                   Text(
                     rankLabel!,
                     style: textTheme.labelSmall?.copyWith(
-                      color: colors.onSurfaceVariant,
+                      color: colors.outline,
                     ),
                   ),
                 Text(
@@ -196,7 +219,7 @@ class _ScoreCircle extends StatelessWidget {
                 Text(
                   scoreLabel,
                   style: textTheme.labelSmall?.copyWith(
-                    color: colors.onSurfaceVariant,
+                    color: colors.outline,
                   ),
                 ),
               ],
@@ -509,10 +532,14 @@ class _CountdownRow extends StatelessWidget {
   const _CountdownRow({
     required this.label,
     required this.time,
+    required this.opacity,
+    required this.textMode,
   });
 
   final String label;
   final String time;
+  final double opacity;
+  final CountdownTextMode textMode;
 
   @override
   Widget build(BuildContext context) {
@@ -520,24 +547,48 @@ class _CountdownRow extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          label.toUpperCase(),
+    final Widget content;
+    switch (textMode) {
+      case CountdownTextMode.catchingUp:
+        content = Text(
+          'CATCHING UP...',
           style: textTheme.labelSmall?.copyWith(
             color: colors.onSurfaceVariant,
           ),
-        ),
-        SizedBox(width: spacing.space4),
-        Text(
-          time.toUpperCase(),
+        );
+      case CountdownTextMode.caughtUp:
+        content = Text(
+          'ALL CAUGHT UP!',
           style: textTheme.labelSmall?.copyWith(
             color: colors.onSurface,
             fontWeight: FontWeight.w700,
           ),
-        ),
-      ],
+        );
+      case CountdownTextMode.normal:
+        content = Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label.toUpperCase(),
+              style: textTheme.labelSmall?.copyWith(
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+            SizedBox(width: spacing.space8),
+            Text(
+              time.toUpperCase(),
+              style: textTheme.labelSmall?.copyWith(
+                color: colors.onSurface,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        );
+    }
+
+    return Opacity(
+      opacity: opacity.clamp(0.0, 1.0),
+      child: content,
     );
   }
 }

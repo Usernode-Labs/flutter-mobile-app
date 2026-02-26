@@ -13,6 +13,7 @@ import 'package:crypto_mobile_app/core/widgets/app_progress_bar.dart';
 
 // TODO use translation file to replace hard coded strings
 
+@Deprecated('Replaced by EpochPerformanceScreen. Remove in follow-up.')
 class ProducedBlocksScreen extends ConsumerStatefulWidget {
   const ProducedBlocksScreen({super.key});
 

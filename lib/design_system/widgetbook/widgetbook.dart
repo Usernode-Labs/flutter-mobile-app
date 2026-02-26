@@ -16,6 +16,7 @@ import 'color_catalog.dart';
 import 'dropdown_chain_use_case.dart';
 import 'dropdown_chip_use_case.dart';
 import 'dropdown_sheet_use_case.dart';
+import 'epoch_performance_page_use_case.dart';
 import 'leaderboard_page_use_case.dart';
 import 'leaderboard_stats_card_use_case.dart';
 import 'list_tile_use_case.dart';
@@ -149,6 +150,7 @@ class WidgetbookApp extends StatelessWidget {
           children: [
             challengeDetailPageComponent(),
             challengesPageComponent(),
+            epochPerformancePageComponent(),
             leaderboardPageComponent(),
           ],
         ),

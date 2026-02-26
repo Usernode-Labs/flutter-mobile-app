@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/breakdown_provider.dart';
+import 'package:crypto_mobile_app/core/providers/produced_blocks_provider.dart';
 import 'package:crypto_mobile_app/core/utils/challenge_point_tracker.dart';
 import 'package:crypto_mobile_app/design_system/src/challenge_card.dart';
 import 'package:crypto_mobile_app/design_system/src/challenge_detail_page.dart';
@@ -32,6 +34,8 @@ class ChallengeDetailScreen extends ConsumerWidget {
     final breakdownAsync = ref.watch(breakdownProvider);
     final breakdown = breakdownAsync.value?.data;
     final eb = breakdown?.eventBreakdown;
+    final blocksSummary = ref.watch(producedBlocksSummaryProvider);
+    final latestEpoch = blocksSummary.asData?.value.maxEpochWithData;
 
     // Record point snapshot on each successful data load
     if (challenge.earnedPoints != null) {
@@ -49,7 +53,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
           body: FutureBuilder<PointDiff?>(
             future: ChallengePointTracker.getDiffBestEffort(_trackerKey),
             builder: (context, diffSnapshot) {
-              return _buildPage(context, eb, diffSnapshot.data);
+              return _buildPage(context, eb, diffSnapshot.data, latestEpoch);
             },
           ),
         ),
@@ -57,7 +61,12 @@ class ChallengeDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildPage(BuildContext context, EventBreakdown? eb, PointDiff? diff) {
+  Widget _buildPage(
+    BuildContext context,
+    EventBreakdown? eb,
+    PointDiff? diff,
+    int? latestEpoch,
+  ) {
     final dto = challenge.dto;
     final category = mapCategory(dto.category);
 
@@ -66,7 +75,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
       category: category,
       dateRange:
           '${_categoryDisplayName(category)} · ${formatDateRange(dto.scheduleStart, dto.scheduleEnd)}',
-      rewardCard: _buildRewardCard(category, eb, diff),
+      rewardCard: _buildRewardCard(context, category, eb, diff, latestEpoch),
       sections: _buildSections(dto),
       totalRewardHeading: 'Total Reward ${formatRewardText(dto.reward)}',
       totalRewardBody: dto.rewardLogic ?? '',
@@ -75,9 +84,11 @@ class ChallengeDetailScreen extends ConsumerWidget {
   }
 
   Widget _buildRewardCard(
+    BuildContext context,
     ChallengeCategory category,
     EventBreakdown? eb,
     PointDiff? diff,
+    int? latestEpoch,
   ) {
     final dto = challenge.dto;
 
@@ -125,7 +136,13 @@ class ChallengeDetailScreen extends ConsumerWidget {
       data: data,
       epochSectionLabel: epochSectionLabel,
       epochEarned: epochEarned,
-      epochLabel: eb != null ? 'View Epoch ${eb.eventName}' : null,
+      epochLabel: latestEpoch != null ? 'View Epoch $latestEpoch' : null,
+      onEpochTap: latestEpoch != null
+          ? () => context.push(
+                AppRoutes.epochPerformance,
+                extra: {'initialEpoch': latestEpoch},
+              )
+          : null,
     );
   }
 

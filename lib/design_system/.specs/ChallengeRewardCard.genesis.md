@@ -26,3 +26,32 @@ All point values accepted as `String`, formatted by the feature screen. Presenta
 
 ### M3 Divider
 Standard `Divider` widget with `color: onColor.withValues(alpha: 0.1)` for the separator between top and epoch sections.
+
+---
+
+## Phase 2 — Figma Audit & CTA Fix
+
+### Spacing audit (Figma node `2943:28646`)
+All 6 spacing gaps match Figma exactly:
+- Label → points: 8px → `space8` ✓
+- Points → progress bar: 24px → `space24` ✓
+- Progress bar → calc row: 16px → `space16` ✓
+- Calc row → rank row: 12px → `space12` ✓
+- Card padding: 16px → `space16` ✓
+- Operator gaps (×, =): 12px → `space12` ✓
+
+### Typography audit
+All 7 text styles match theme mappings:
+- "Total Earned": `labelLarge` (14px, w500) ✓
+- Points number: `displaySmall` + monospace ✓
+- "pts": `titleLarge` ✓
+- Labels (SUCCESS RATE, etc.): `labelSmall` + `dimOnColor` ✓
+- Values (98%, 5000, etc.): `bodyMedium` + monospace ✓
+- Epoch "+50": `headlineSmall` + monospace ✓
+- Epoch label: `labelSmall` + `dimOnColor` ✓
+
+### Calculation row layout
+`_CalculationRow` uses `MainAxisAlignment.spaceBetween` which correctly spreads SUCCESS RATE × MAX PTS on the left and = TOTAL on the right, matching Figma's `justify-between` layout on node `2943:28657`.
+
+### CTA epoch source fix
+Changed from `eb.eventName` (leaderboard event identifier) to `producedBlocksSummaryProvider.maxEpochWithData` (actual latest on-chain epoch). CTA now appears as soon as block data loads, independent of breakdown availability.

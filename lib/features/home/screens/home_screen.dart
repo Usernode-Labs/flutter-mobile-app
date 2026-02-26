@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/features/wallet/screens/wallet_screen.dart';
-import 'package:crypto_mobile_app/features/node/screens/produced_blocks_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/node_status_screen.dart';
 import 'package:crypto_mobile_app/features/settings/screens/background_production_settings_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/dapps_screen.dart';
@@ -42,7 +41,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         index: index,
         children: const [
           ChallengesScreen(),
-          ProducedBlocksScreen(),
           WalletScreen(),
           DappsScreen(),
           NodeStatusScreen(),
@@ -82,11 +80,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 icon: Icon(Icons.star_outline),
                 selectedIcon: Icon(Icons.star),
                 label: 'Challenges',
-              ),
-              NavigationDestination(
-                icon: const Icon(Icons.layers_outlined),
-                selectedIcon: const Icon(Icons.layers),
-                label: l10n.navProducedBlocks,
               ),
               NavigationDestination(
                 icon: const Icon(Icons.account_balance_wallet_outlined),

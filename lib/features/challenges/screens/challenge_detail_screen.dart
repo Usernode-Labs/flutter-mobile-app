@@ -69,13 +69,29 @@ class ChallengeDetailScreen extends ConsumerWidget {
   ) {
     final dto = challenge.dto;
     final category = mapCategory(dto.category);
+    final variant = mapEnrichedVariant(challenge);
+    final isProduceBlocks = isProduceBlocksChallenge(dto.id);
+
+    // Reward card visibility rules:
+    // - Missed: never shown
+    // - Completed: always shown (full breakdown for produce-blocks, simple otherwise)
+    // - Active: only shown for produce-blocks (full breakdown)
+    final bool showRewardCard = switch (variant) {
+      ChallengeCardVariant.missed => false,
+      ChallengeCardVariant.completed => true,
+      ChallengeCardVariant.active ||
+      ChallengeCardVariant.ongoing =>
+        isProduceBlocks,
+    };
 
     return ChallengeDetailPage(
       title: dto.goal,
       category: category,
       dateRange:
           '${_categoryDisplayName(category)} · ${formatDateRange(dto.scheduleStart, dto.scheduleEnd)}',
-      rewardCard: _buildRewardCard(context, category, eb, diff, latestEpoch),
+      rewardCard: showRewardCard
+          ? _buildRewardCard(context, category, eb, diff, latestEpoch)
+          : null,
       sections: _buildSections(dto),
       totalRewardHeading: 'Total Reward ${formatRewardText(dto.reward)}',
       totalRewardBody: dto.rewardLogic ?? '',
@@ -91,29 +107,34 @@ class ChallengeDetailScreen extends ConsumerWidget {
     int? latestEpoch,
   ) {
     final dto = challenge.dto;
+    final isProduceBlocks = isProduceBlocksChallenge(dto.id);
 
     // Use per-challenge earned points from breakdown activity, not event total.
     final totalEarned = challenge.earnedPoints != null
         ? formatPoints(challenge.earnedPoints!)
         : '--';
 
-    // Epoch section: show best-effort diff with dynamic label, fall back to
-    // "+0 / Last 24h" on first visit, or hide when no earned points exist.
+    // Epoch section: only for produce-blocks challenges.
     final String? epochEarned;
-    final String epochSectionLabel;
-    if (diff != null) {
-      epochEarned = '+${formatPoints(diff.points)}';
-      epochSectionLabel = formatDiffLabel(diff.since);
-    } else if (challenge.earnedPoints != null) {
-      epochEarned = '+0';
-      epochSectionLabel = 'Last 24h';
+    final String? epochSectionLabel;
+    if (isProduceBlocks) {
+      if (diff != null) {
+        epochEarned = '+${formatPoints(diff.points)}';
+        epochSectionLabel = formatDiffLabel(diff.since);
+      } else if (challenge.earnedPoints != null) {
+        epochEarned = '+0';
+        epochSectionLabel = 'Last 24h';
+      } else {
+        epochEarned = null;
+        epochSectionLabel = null;
+      }
     } else {
       epochEarned = null;
-      epochSectionLabel = 'Last 24h';
+      epochSectionLabel = null;
     }
 
     final ChallengeRewardData data;
-    if (isProduceBlocksReward(formatRewardText(dto.reward))) {
+    if (isProduceBlocks) {
       final ceiling = parseRewardCeiling(formatRewardText(dto.reward));
       final maxPts = ceiling != null ? ceiling - 1500 : 0;
       final successRate = eb?.successRate ?? 0;
@@ -136,8 +157,10 @@ class ChallengeDetailScreen extends ConsumerWidget {
       data: data,
       epochSectionLabel: epochSectionLabel,
       epochEarned: epochEarned,
-      epochLabel: latestEpoch != null ? 'View Epoch $latestEpoch' : null,
-      onEpochTap: latestEpoch != null
+      epochLabel: isProduceBlocks && latestEpoch != null
+          ? 'View Epoch $latestEpoch'
+          : null,
+      onEpochTap: isProduceBlocks && latestEpoch != null
           ? () => context.push(
                 AppRoutes.epochPerformance,
                 extra: {'initialEpoch': latestEpoch},

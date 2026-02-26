@@ -443,20 +443,17 @@ void main() {
     });
   });
 
-  group('isProduceBlocksReward', () {
-    test('returns true for "Up to" prefixed strings', () {
-      expect(isProduceBlocksReward('Up to 6,500 pts'), isTrue);
-      expect(isProduceBlocksReward('up to 500 pts'), isTrue);
+  group('isProduceBlocksChallenge', () {
+    test('returns true for produce-blocks challenge ID', () {
+      expect(isProduceBlocksChallenge(produceBlocksChallengeId), isTrue);
+      expect(isProduceBlocksChallenge(17), isTrue);
     });
 
-    test('returns false for plain number strings', () {
-      expect(isProduceBlocksReward('1000'), isFalse);
-      expect(isProduceBlocksReward('6500'), isFalse);
-    });
-
-    test('returns false for non-"Up to" text', () {
-      expect(isProduceBlocksReward('Fixed 500 pts'), isFalse);
-      expect(isProduceBlocksReward(''), isFalse);
+    test('returns false for other challenge IDs', () {
+      expect(isProduceBlocksChallenge(1), isFalse);
+      expect(isProduceBlocksChallenge(0), isFalse);
+      expect(isProduceBlocksChallenge(16), isFalse);
+      expect(isProduceBlocksChallenge(18), isFalse);
     });
   });
 

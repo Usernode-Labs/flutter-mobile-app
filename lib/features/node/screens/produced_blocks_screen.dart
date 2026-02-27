@@ -13,6 +13,7 @@ import 'package:crypto_mobile_app/core/widgets/app_progress_bar.dart';
 
 // TODO use translation file to replace hard coded strings
 
+@Deprecated('Replaced by EpochPerformanceScreen. Remove in follow-up.')
 class ProducedBlocksScreen extends ConsumerStatefulWidget {
   const ProducedBlocksScreen({super.key});
 
@@ -1093,7 +1094,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                             produced.toString(),
                                             won.toString(),
                                           ),
-                                          trailingPrimary: '${produced}',
+                                          trailingPrimary: '$produced',
                                           onTap: produced > 0
                                               ? () {
                                                   final epoch = viewedEpoch;
@@ -1383,7 +1384,7 @@ class _EpochPanel extends StatelessWidget {
 
     // Keep light-mode behavior; improve dark-mode colors
     final trackColor =
-        isDark ? colorScheme.surfaceVariant : Colors.grey.shade300;
+        isDark ? colorScheme.surfaceContainerHighest : Colors.grey.shade300;
     final activeColor = isDark ? colorScheme.primary : Colors.black87;
 
     final l10n = AppLocalizations.of(context);

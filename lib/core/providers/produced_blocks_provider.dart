@@ -82,13 +82,13 @@ String networkPrefix = '';
 
 // Network-prefixed keys
 String get _kEpochsWithDataKey =>
-    NetworkPrefs.prefixKey(_kEpochsWithDataKeyBase + ':' + networkPrefix);
+    NetworkPrefs.prefixKey('$_kEpochsWithDataKeyBase:$networkPrefix');
 String get _kProducedBlockMetadataKeyPrefix => NetworkPrefs.prefixKey(
-    _kProducedBlockMetadataKeyPrefixBase + ':' + networkPrefix);
-String get _kEpochSlotResultsKeyPrefix => NetworkPrefs.prefixKey(
-    _kEpochSlotResultsKeyPrefixBase + ':' + networkPrefix);
-String get _kSlotTimeKeyPrefix => NetworkPrefs.prefixKey(
-    _kSlotTimeKeyPrefixBase + ':' + networkPrefix);
+    '$_kProducedBlockMetadataKeyPrefixBase:$networkPrefix');
+String get _kEpochSlotResultsKeyPrefix =>
+    NetworkPrefs.prefixKey('$_kEpochSlotResultsKeyPrefixBase:$networkPrefix');
+String get _kSlotTimeKeyPrefix =>
+    NetworkPrefs.prefixKey('$_kSlotTimeKeyPrefixBase:$networkPrefix');
 
 Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
   final stopwatch = Stopwatch()..start();
@@ -124,14 +124,14 @@ Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
       return EpochData(
           slotData: await Future.wait(
         List<Future<SlotData>>.generate(slotStatuses.length, (slot) async {
-          var slotTimeMs;
+          BigInt? slotTimeMs;
           if (slotStatuses[slot] == RpcSlotResult.scheduled ||
               slotStatuses[slot] == RpcSlotResult.missed ||
               slotStatuses[slot] == RpcSlotResult.produced ||
               slotStatuses[slot] == RpcSlotResult.orphaned) {
             slotTimeMs = await persistedGetSlotTime(index, slot);
           }
-          var producedBlockMetadata;
+          RpcProducedBlockMetadata? producedBlockMetadata;
           if (slotStatuses[slot] == RpcSlotResult.produced ||
               slotStatuses[slot] == RpcSlotResult.orphaned) {
             producedBlockMetadata =

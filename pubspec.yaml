@@ -40,6 +40,10 @@ dependencies:
   crypto: "^3.0.3"
   url_launcher: "^6.2.0"
   webview_flutter: "^4.10.0"
+  widgetbook: "^3.10.0"
+  flutter_markdown: "^0.7.6"
+  material_symbols_icons: ^4.2906.0
+  flutter_svg: ^2.2.3
 dev_dependencies:
   flutter_lints: "^5.0.0"
   flutter_test:
@@ -49,12 +53,22 @@ dev_dependencies:
   freezed: "^2.5.2"
   build_runner: "^2.4.11"
   flutter_launcher_icons: "^0.14.4"
+  material_color_utilities: any
 flutter:
   uses-material-design: true
   generate: true
   assets:
   - assets/feature_flags.json
   - assets/images/
+  - lib/design_system/DESIGN_SYSTEM.md
+  fonts:
+  - family: IBMPlexMono
+    fonts:
+    - asset: assets/fonts/IBMPlexMono-Regular.ttf
+    - asset: assets/fonts/IBMPlexMono-Medium.ttf
+      weight: 500
+    - asset: assets/fonts/IBMPlexMono-SemiBold.ttf
+      weight: 600
 flutter_launcher_icons:
   android: true
   ios: true

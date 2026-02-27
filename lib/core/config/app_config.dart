@@ -179,6 +179,33 @@ class AppConfig {
       Duration(seconds: versionCheckIntervalSeconds);
   static bool get versionCheckEnabled => versionCheckApiUrl.isNotEmpty;
 
+  // Leaderboard API v2
+  static const int leaderboardApiTimeoutSeconds = int.fromEnvironment(
+    'LEADERBOARD_API_TIMEOUT_SECONDS',
+    defaultValue: 15,
+  );
+  static Duration get leaderboardApiTimeout =>
+      Duration(seconds: leaderboardApiTimeoutSeconds);
+
+  static const String leaderboardApiBaseUrl = String.fromEnvironment(
+    'LEADERBOARD_API_BASE_URL',
+    defaultValue: 'https://leaderboard.usernodelabs.org/api/v2/mobile',
+  );
+
+  // Challenge point tracker configuration
+  static const int challengePointMaxAgeHours = int.fromEnvironment(
+    'CHALLENGE_POINT_MAX_AGE_HOURS',
+    defaultValue: 48,
+  );
+  static const int challengePointDiffWindowHours = int.fromEnvironment(
+    'CHALLENGE_POINT_DIFF_WINDOW_HOURS',
+    defaultValue: 24,
+  );
+  static Duration get challengePointMaxAge =>
+      Duration(hours: challengePointMaxAgeHours);
+  static Duration get challengePointDiffWindow =>
+      Duration(hours: challengePointDiffWindowHours);
+
   // Explorer API configuration
   static const String primaryExplorerUrl = String.fromEnvironment(
     'EXPLORER_PRIMARY_URL',

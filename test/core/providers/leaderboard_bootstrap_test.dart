@@ -1,0 +1,159 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
+import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
+import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
+
+void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
+  // ---------------------------------------------------------------------------
+  // handleRegistration
+  // ---------------------------------------------------------------------------
+
+  group('handleRegistration', () {
+    test('persists participant ID and season, returns context', () async {
+      final result = RegistrationV2Result(
+        participantId: 42,
+        identityUid: 'uid-abc',
+        publicKey: 'pk-123',
+        secretKey: 'sk-456',
+        address: 'addr-789',
+        tier: 'gold',
+        seasonId: 1,
+        seasonName: 'Season 1',
+      );
+
+      final ctx = await LeaderboardBootstrap.handleRegistration(result);
+
+      expect(ctx.seasonId, 1);
+      expect(ctx.seasonName, 'Season 1');
+      expect(ctx.eventId, isNull);
+
+      // Verify participant ID persisted
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getInt(NetworkPrefs.prefixKey('leaderboard:participant_id')),
+        42,
+      );
+
+      // Verify season persisted
+      expect(
+        prefs.getInt(NetworkPrefs.prefixKey('leaderboard:season_id')),
+        1,
+      );
+      expect(
+        prefs.getString(NetworkPrefs.prefixKey('leaderboard:season_name')),
+        'Season 1',
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // loadPersistedContext
+  // ---------------------------------------------------------------------------
+
+  group('loadPersistedContext', () {
+    test('returns null when nothing persisted', () async {
+      final ctx = await LeaderboardBootstrap.loadPersistedContext();
+      expect(ctx, isNull);
+    });
+
+    test('returns context when season data exists', () async {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(
+        NetworkPrefs.prefixKey('leaderboard:season_id'),
+        2,
+      );
+      await prefs.setString(
+        NetworkPrefs.prefixKey('leaderboard:season_name'),
+        'Season 2',
+      );
+
+      final ctx = await LeaderboardBootstrap.loadPersistedContext();
+
+      expect(ctx, isNotNull);
+      expect(ctx!.seasonId, 2);
+      expect(ctx.seasonName, 'Season 2');
+      expect(ctx.eventId, isNull);
+    });
+
+    test('returns context with null name if only ID persisted', () async {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(
+        NetworkPrefs.prefixKey('leaderboard:season_id'),
+        3,
+      );
+
+      final ctx = await LeaderboardBootstrap.loadPersistedContext();
+
+      expect(ctx, isNotNull);
+      expect(ctx!.seasonId, 3);
+      expect(ctx.seasonName, isNull);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // persistSeasonEvent
+  // ---------------------------------------------------------------------------
+
+  group('persistSeasonEvent', () {
+    test('persists season data from context', () async {
+      const ctx = SeasonEventContext(
+        seasonId: 5,
+        seasonName: 'Season 5',
+        eventId: 10,
+        eventName: 'Event 10',
+      );
+
+      await LeaderboardBootstrap.persistSeasonEvent(ctx);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getInt(NetworkPrefs.prefixKey('leaderboard:season_id')),
+        5,
+      );
+      expect(
+        prefs.getString(NetworkPrefs.prefixKey('leaderboard:season_name')),
+        'Season 5',
+      );
+    });
+
+    test('no-op when seasonId is null', () async {
+      const ctx = SeasonEventContext();
+
+      await LeaderboardBootstrap.persistSeasonEvent(ctx);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getInt(NetworkPrefs.prefixKey('leaderboard:season_id')),
+        isNull,
+      );
+    });
+
+    test('overwrites previously persisted season', () async {
+      // Persist initial data
+      await LeaderboardBootstrap.persistSeasonEvent(
+        const SeasonEventContext(seasonId: 1, seasonName: 'S1'),
+      );
+
+      // Overwrite
+      await LeaderboardBootstrap.persistSeasonEvent(
+        const SeasonEventContext(seasonId: 2, seasonName: 'S2'),
+      );
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getInt(NetworkPrefs.prefixKey('leaderboard:season_id')),
+        2,
+      );
+      expect(
+        prefs.getString(NetworkPrefs.prefixKey('leaderboard:season_name')),
+        'S2',
+      );
+    });
+  });
+}

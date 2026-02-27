@@ -126,8 +126,7 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
                 );
                 return;
               }
-              final memo =
-                  frb_types.Memo.fromUtf8Str(s: memoString);
+              final memo = frb_types.Memo.fromUtf8Str(s: memoString);
 
               final fromAddress = await _getActiveNodeAddress();
               if (fromAddress == null || fromAddress.isEmpty) {
@@ -155,11 +154,11 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
               }
 
               final resp = await rpc.wallet().txSend(
-                fromPkHash: fromPkHash,
-                amount: amount,
-                toPkHash: toPkHash,
-                memo: memo,
-              );
+                    fromPkHash: fromPkHash,
+                    amount: amount,
+                    toPkHash: toPkHash,
+                    memo: memo,
+                  );
 
               await _resolveJsPromise(
                 id: id,

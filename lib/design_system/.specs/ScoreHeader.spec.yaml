@@ -1,0 +1,155 @@
+meta:
+  figma_url_default: "https://www.figma.com/design/Eu4jn5o8finpZ28IAGPyru/Testnet-App?node-id=2994:2193"
+  figma_url_glow: "https://www.figma.com/design/Eu4jn5o8finpZ28IAGPyru/Testnet-App?node-id=2994:3259"
+  widget_name: "ScoreHeader"
+  description: >
+    A centered score display with circular progress arc, rank label, countdown timer,
+    and CTA button. Two variants: standard (clean white circle) and glow (multi-color
+    box shadows representing verified ecosystem membership across technical/flash/community pillars).
+  generated_by: claude
+  date: "2026-02-23"
+  reference_screenshot: "ScoreHeader.reference.png"
+
+# ── Enums ──
+enums:
+  ScoreHeaderVariant:
+    - standard  # plain white circle, no glow
+    - glow      # multi-color glow shadows around circle (verified member)
+
+# ── Sub-widgets ──
+sub_widgets:
+  - name: "_ScoreCircle"
+    visibility: private
+    description: "160px circle with rank/score/label text + progress arc overlay"
+  - name: "_ScoreArcPainter"
+    visibility: private
+    description: "CustomPainter drawing circular progress arc from 12 o'clock"
+  - name: "_CountdownRow"
+    visibility: private
+    description: "Dot + 'ENDS IN' label + time text"
+
+# Companion widget (separate file)
+companion_widgets:
+  - name: "Button"
+    file: "lib/design_system/src/button.dart"
+    description: "Reusable button built from primitives. Composed by ScoreHeader for CTA."
+
+# ── Layout ──
+layout:
+  type: column
+  cross_axis_alignment: center
+  children:
+    - type: custom
+      name: "_ScoreCircle"
+      description: "160px circle, optionally wrapped in glow decoration"
+      children:
+        - type: stack
+          alignment: center
+          children:
+            - type: container
+              size: 160
+              shape: circle
+              decoration:
+                color: surfaceContainerLowest
+                border:
+                  color: outlineVariant
+                  width: 1
+                glow: "variant-dependent — see variants section"
+              children:
+                - type: column
+                  main_axis_alignment: center
+                  children:
+                    - { type: text, content: "{{rankLabel}}", style: labelSmall, color: onSurfaceVariant }
+                    - { type: text, content: "{{score}}", style: "displaySmall.copyWith(fontFamily: 'monospace')", color: onSurface }
+                    - { type: text, content: "{{scoreLabel}}", style: labelSmall, color: onSurfaceVariant }
+            - type: custom_paint
+              painter: "_ScoreArcPainter"
+              description: "Progress arc overlay, 3px stroke, round cap, from -90deg"
+
+    - { type: sized_box, height: space24 }
+
+    - type: custom
+      name: "_CountdownRow"
+      condition: "countdownTime != null"
+      children:
+        - type: row
+          main_axis_size: min
+          children:
+            - { type: container, size: 6, shape: circle, color: tertiary }
+            - { type: sized_box, width: space8 }
+            - { type: text, content: "{{countdownLabel}}", style: labelSmall, color: onSurfaceVariant }
+            - { type: sized_box, width: space4 }
+            - { type: text, content: "{{countdownTime}}", style: "labelSmall.copyWith(fontWeight: w700)", color: onSurface }
+
+    - { type: sized_box, height: space24 }
+
+    - type: custom
+      name: "Button"
+      condition: "ctaLabel != null"
+      description: "Separate design system widget, secondary style, pill shape"
+
+# ── Variants ──
+variants:
+  standard:
+    description: "Clean white circle, subtle border, no glow"
+    glow: none
+
+  glow:
+    description: "Multi-color box shadows representing verified ecosystem membership"
+    glow:
+      shadows:
+        - { color: "semantic.community.color", offset: [0, 0], blur: 220, note: "Green center glow" }
+        - { color: "semantic.community.color", offset: [0, 0], blur: 400, note: "Green far glow" }
+        - { color: "semantic.flash.color", offset: [80, 60], blur: 180, note: "Amber near glow" }
+        - { color: "semantic.flash.color", offset: [150, 100], blur: 300, note: "Amber far glow" }
+        - { color: "semantic.technical.color", offset: [-80, -60], blur: 180, note: "Blue near glow" }
+        - { color: "semantic.technical.color", offset: [-150, -100], blur: 300, note: "Blue far glow" }
+      semantic_meaning: >
+        The three glow colors represent the ecosystem's challenge pillars:
+        technical (blue), flash (amber), community (green). The glow signals
+        "verified member, belonging to all three pillars."
+
+# ── Progress arc ──
+progress_arc:
+  technique: "CustomPainter"
+  start_angle: "-pi/2 (12 o'clock)"
+  sweep_direction: clockwise
+  track:
+    color: "progressColor.withOpacity(AppOpacity.subtle)"
+    stroke_width: 3
+  progress:
+    color: "progressColor (defaults to colorScheme.primary)"
+    stroke_width: 3
+    stroke_cap: round
+  repaint_condition: "progress or color changed"
+
+# ── Constructor params ──
+params:
+  - { name: score, type: String, required: true }
+  - { name: scoreLabel, type: String, required: true }
+  - { name: rankLabel, type: "String?", required: false }
+  - { name: progress, type: double, required: false, default: "0.0" }
+  - { name: progressColor, type: "Color?", required: false }
+  - { name: countdownLabel, type: "String?", required: false, default: "'ENDS IN'" }
+  - { name: countdownTime, type: "String?", required: false }
+  - { name: ctaLabel, type: "String?", required: false }
+  - { name: onCtaTap, type: "VoidCallback?", required: false }
+  - { name: variant, type: ScoreHeaderVariant, required: false, default: "ScoreHeaderVariant.standard" }
+
+# ── Token mappings ──
+token_mappings:
+  - { element: "Circle size", value: "160px", token: "Hardcoded 160.0", confidence: deliberate, note: "No AppSizing match for this decorative size" }
+  - { element: "Circle background", value: "white", token: "colorScheme.surfaceContainerLowest", confidence: exact }
+  - { element: "Circle border", value: "1px rgba(0,0,0,0.1)", token: "colorScheme.outlineVariant, 1px", confidence: nearest }
+  - { element: "Circle shape", value: "96px radius", token: "AppRadii.full (circular)", confidence: exact }
+  - { element: "Rank/points label", value: "12px rgba(0,0,0,0.4)", token: "textTheme.labelSmall + colorScheme.onSurfaceVariant", confidence: exact }
+  - { element: "Score text", value: "36px IBM Plex Mono", token: "textTheme.displaySmall.copyWith(fontFamily: 'monospace')", confidence: nearest, note: "IBM Plex Mono not in project; system monospace acceptable" }
+  - { element: "Section gaps", value: "24px", token: "AppSpacing.space24", confidence: exact }
+  - { element: "Countdown dot", value: "6px", token: "Hardcoded 6.0", confidence: deliberate, note: "Decorative element, no token match" }
+  - { element: "CTA height", value: "48px", token: "AppSizing.buttonHeightRegular", confidence: exact }
+  - { element: "CTA horizontal padding", value: "16px", token: "AppSpacing.space16", confidence: exact }
+  - { element: "CTA background", value: "#e8def8", token: "colorScheme.secondaryContainer", confidence: exact }
+  - { element: "CTA radius", value: "100px pill", token: "AppRadii.full", confidence: exact }
+  - { element: "Glow green", value: "Figma #00dd57", token: "semantic.community.color", confidence: nearest, note: "Figma = inspiration; semantic token ensures theme consistency" }
+  - { element: "Glow gold", value: "Figma #facc36", token: "semantic.flash.color", confidence: nearest, note: "Figma = inspiration; semantic token ensures theme consistency" }
+  - { element: "Glow blue", value: "Figma #0065f4", token: "semantic.technical.color", confidence: nearest, note: "Figma = inspiration; semantic token ensures theme consistency" }

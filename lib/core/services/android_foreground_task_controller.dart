@@ -104,7 +104,8 @@ class AndroidForegroundTaskController {
     _pollTimer?.cancel();
     _pollTimer = null;
     final lifecycleState = WidgetsBinding.instance.lifecycleState;
-    final isAppMinimized = lifecycleState == AppLifecycleState.paused || lifecycleState == AppLifecycleState.detached;
+    final isAppMinimized = lifecycleState == AppLifecycleState.paused ||
+        lifecycleState == AppLifecycleState.detached;
     if (isAppMinimized) {
       await RustBackendService.instance.pauseNode();
     } else {
@@ -195,7 +196,8 @@ class AndroidForegroundTaskController {
     }
   }
 
-  Future<bool> _shouldHoldForOtherProducerBlock({bool doubleCheck = true}) async {
+  Future<bool> _shouldHoldForOtherProducerBlock(
+      {bool doubleCheck = true}) async {
     try {
       if (_cachedOurPubKey == null) {
         final bpStatus =
@@ -213,8 +215,9 @@ class AndroidForegroundTaskController {
           fromTip: true,
           blockProducer: _cachedOurPubKey,
         );
-        final ownBlock =
-            (ownBlocks?.items.isNotEmpty ?? false) ? ownBlocks!.items.first : null;
+        final ownBlock = (ownBlocks?.items.isNotEmpty ?? false)
+            ? ownBlocks!.items.first
+            : null;
         if (ownBlock == null) {
           _awaitingOtherProducerState = null;
           return false;
@@ -222,7 +225,6 @@ class AndroidForegroundTaskController {
         _awaitingOtherProducerState =
             (height: ownBlock.height, since: DateTime.now());
       }
-
 
       if (_awaitingOtherProducerState == null) {
         return false;
@@ -291,7 +293,8 @@ class AndroidForegroundTaskController {
 
   RpcEpochWonSlot? _nextWonSlot(List<RpcEpochWonSlot> slots, DateTime now) {
     final futureSlots = slots
-        .where((s) => s.expectedTimeMs.toInt() + 5000 > now.millisecondsSinceEpoch)
+        .where(
+            (s) => s.expectedTimeMs.toInt() + 5000 > now.millisecondsSinceEpoch)
         .toList()
       ..sort((a, b) => a.expectedTimeMs.compareTo(b.expectedTimeMs));
     if (futureSlots.isEmpty) return null;

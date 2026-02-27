@@ -1078,6 +1078,12 @@ abstract class AppLocalizations {
   /// **'Node Status'**
   String get navNodeStatus;
 
+  /// Navigation bar label for challenges tab
+  ///
+  /// In en, this message translates to:
+  /// **'Challenges'**
+  String get navChallenges;
+
   /// Navigation bar label for settings tab
   ///
   /// In en, this message translates to:
@@ -1815,6 +1821,120 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{years} year{suffix} ago'**
   String timeYearsAgo(int years, String suffix);
+
+  /// Error message when leaderboard data fails to load
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load leaderboard'**
+  String get leaderboardFailedToLoad;
+
+  /// Retry button label
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get retry;
+
+  /// Leaderboard screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Leaderboard'**
+  String get leaderboardTitle;
+
+  /// Header for the participants list
+  ///
+  /// In en, this message translates to:
+  /// **'All Participants'**
+  String get allParticipants;
+
+  /// Fallback name when participant has no display name
+  ///
+  /// In en, this message translates to:
+  /// **'Participant {id}'**
+  String participantFallbackName(String id);
+
+  /// Points with abbreviated unit
+  ///
+  /// In en, this message translates to:
+  /// **'{points} pts'**
+  String pointsAbbreviated(String points);
+
+  /// Callout title showing user ranking percentile
+  ///
+  /// In en, this message translates to:
+  /// **'Better than {percent}% of participants'**
+  String betterThanPercent(int percent);
+
+  /// Encouragement for users below 50th percentile
+  ///
+  /// In en, this message translates to:
+  /// **'Keep completing tasks to climb higher on the leaderboard.'**
+  String get leaderboardClimbEncouragement;
+
+  /// Encouragement for users above 50th percentile
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re in the top {percent}%! Keep completing challenges to secure your position.'**
+  String leaderboardTopPercent(int percent);
+
+  /// Label above total points stat
+  ///
+  /// In en, this message translates to:
+  /// **'TOTAL POINTS'**
+  String get totalPointsLabel;
+
+  /// Label above rank stat
+  ///
+  /// In en, this message translates to:
+  /// **'RANK'**
+  String get rankLabel;
+
+  /// Distribution bucket score range label
+  ///
+  /// In en, this message translates to:
+  /// **'{lo}–{hi} pts'**
+  String pointsRangeBucket(String lo, String hi);
+
+  /// Technical challenge category name
+  ///
+  /// In en, this message translates to:
+  /// **'Technical'**
+  String get categoryTechnical;
+
+  /// Community challenge category name
+  ///
+  /// In en, this message translates to:
+  /// **'Community'**
+  String get categoryCommunity;
+
+  /// Flash challenge category name
+  ///
+  /// In en, this message translates to:
+  /// **'Flash'**
+  String get categoryFlash;
+
+  /// Fallback label when no season name is available
+  ///
+  /// In en, this message translates to:
+  /// **'Season'**
+  String get seasonFallback;
+
+  /// Fallback label when no phase/event name is available
+  ///
+  /// In en, this message translates to:
+  /// **'Phase'**
+  String get phaseFallback;
+
+  /// Title for season picker bottom sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Select Season'**
+  String get selectSeason;
+
+  /// Title for phase picker bottom sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Select Phase'**
+  String get selectPhase;
 }
 
 class _AppLocalizationsDelegate

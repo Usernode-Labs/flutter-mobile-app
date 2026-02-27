@@ -628,6 +628,14 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             title: _buildEpochTitle(),
             subtitle: _buildEpochSubtitle(),
             trailing: _buildEpochTrailing(),
+            onTap: () {
+              final epoch =
+                  ref.read(nodeStatusProvider).value?.currentEpoch ?? 0;
+              context.push(
+                AppRoutes.epochPerformance,
+                extra: {'initialEpoch': epoch},
+              );
+            },
           ),
           const SizedBox(height: 12),
           _buildSyncDetailsCard(

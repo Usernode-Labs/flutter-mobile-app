@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
@@ -8,15 +9,15 @@ import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
 import 'package:crypto_mobile_app/design_system/src/dropdown_sheet.dart';
 
 /// Returns the display label for the current season.
-String seasonLabel(WidgetRef ref) {
+String seasonLabel(BuildContext context, WidgetRef ref) {
   final ctx = ref.watch(seasonEventContextProvider);
-  return ctx.seasonName ?? 'Season';
+  return ctx.seasonName ?? AppLocalizations.of(context).seasonFallback;
 }
 
 /// Returns the display label for the current event/phase.
-String eventLabel(WidgetRef ref) {
+String eventLabel(BuildContext context, WidgetRef ref) {
   final ctx = ref.watch(seasonEventContextProvider);
-  return ctx.eventName ?? 'Phase';
+  return ctx.eventName ?? AppLocalizations.of(context).phaseFallback;
 }
 
 /// Picks the latest event within [season]: the active one, or the last in the list.
@@ -46,7 +47,7 @@ Future<void> showSeasonPicker(BuildContext context, WidgetRef ref) async {
   final result = await showDropdownSheet(
     context: context,
     labels: labels,
-    title: 'Select Season',
+    title: AppLocalizations.of(context).selectSeason,
     selectedIndex: selectedIndex,
   );
 
@@ -91,7 +92,7 @@ Future<void> showEventPicker(BuildContext context, WidgetRef ref) async {
   final result = await showDropdownSheet(
     context: context,
     labels: labels,
-    title: 'Select Phase',
+    title: AppLocalizations.of(context).selectPhase,
     selectedIndex: selectedIndex,
   );
 

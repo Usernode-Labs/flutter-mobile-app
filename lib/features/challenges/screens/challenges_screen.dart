@@ -250,8 +250,8 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
                           scrollFractionNotifier: _scrollFraction,
                           onSeasonTap: () => showSeasonPicker(context, ref),
                           onEventTap: () => showEventPicker(context, ref),
-                          seasonLabel: seasonLabel(ref),
-                          eventLabel: eventLabel(ref),
+                          seasonLabel: seasonLabel(context, ref),
+                          eventLabel: eventLabel(context, ref),
                         ),
                       ),
                       // Transparent spacer revealing ScoreHeader.

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/categorized_challenges_provider.dart';
@@ -106,7 +107,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Failed to load leaderboard',
+                AppLocalizations.of(context).leaderboardFailedToLoad,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
@@ -114,7 +115,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
               const SizedBox(height: 16),
               FilledButton(
                 onPressed: () => ref.invalidate(leaderboardProvider),
-                child: const Text('Retry'),
+                child: Text(AppLocalizations.of(context).retry),
               ),
             ],
           ),
@@ -137,7 +138,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             TopAppBar(
-              title: 'Leaderboard',
+              title: AppLocalizations.of(context).leaderboardTitle,
               onLeadingTap: () => Navigator.of(context).pop(),
             ),
 
@@ -151,11 +152,11 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                 child: DropdownChain(
                   items: [
                     DropdownChainItem(
-                      label: seasonLabel(ref),
+                      label: seasonLabel(context, ref),
                       onTap: () => showSeasonPicker(context, ref),
                     ),
                     DropdownChainItem(
-                      label: eventLabel(ref),
+                      label: eventLabel(context, ref),
                       onTap: () => showEventPicker(context, ref),
                     ),
                   ],
@@ -167,7 +168,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
             SliverToBoxAdapter(
               child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: spacing.space16),
-                child: _buildStatsCard(ranking, eventPoints),
+                child: _buildStatsCard(context, ranking, eventPoints),
               ),
             ),
 
@@ -214,21 +215,24 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                           bottom: spacing.space8,
                         ),
                         child: Text(
-                          'All Participants',
+                          AppLocalizations.of(context).allParticipants,
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                       ),
                       ...entries.map((entry) {
                         final isCurrentUser = participantId != null &&
                             entry.participantId == participantId;
+                        final l10n = AppLocalizations.of(context);
                         return ListTile(
                           leading: RankBadge(rank: '${entry.rank}'),
                           title: Text(
                             entry.displayName ??
-                                'Participant ${entry.participantId}',
+                                l10n.participantFallbackName(
+                                    entry.participantId.toString()),
                           ),
                           trailing: Text(
-                            '${formatPoints(entry.totalPoints)} pts',
+                            l10n.pointsAbbreviated(
+                                formatPoints(entry.totalPoints)),
                           ),
                           tileColor: isCurrentUser
                               ? colors.primaryContainer.withValues(alpha: 0.3)
@@ -265,9 +269,11 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
   }
 
   Widget _buildStatsCard(
+    BuildContext context,
     RankingResult? ranking,
     EventPointsResult? eventPoints,
   ) {
+    final l10n = AppLocalizations.of(context);
     final totalPoints = ranking?.totalPoints;
     final rank = ranking?.rank;
     final totalParticipants = ranking?.totalParticipants ?? 0;
@@ -292,14 +298,12 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     String? calloutTitle;
     String? calloutBody;
     if (betterThanPercent != null) {
-      calloutTitle = 'Better than $betterThanPercent% of participants';
+      calloutTitle = l10n.betterThanPercent(betterThanPercent);
       if (betterThanPercent < 50) {
-        calloutBody =
-            'Keep completing tasks to climb higher on the leaderboard.';
+        calloutBody = l10n.leaderboardClimbEncouragement;
       } else {
         final topPercent = 100 - betterThanPercent;
-        calloutBody =
-            "You're in the top $topPercent%! Keep completing challenges to secure your position.";
+        calloutBody = l10n.leaderboardTopPercent(topPercent);
       }
     }
 
@@ -311,7 +315,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
         final hi = i == bucketCount - 1
             ? maxPts
             : (minPts + (i + 1) * bucketWidth).round();
-        return '${formatPoints(lo)}–${formatPoints(hi)} pts';
+        return l10n.pointsRangeBucket(formatPoints(lo), formatPoints(hi));
       });
     }
 
@@ -319,9 +323,9 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
 
     return LeaderboardStatsCard(
       totalPoints: totalPoints != null ? formatPoints(totalPoints) : '--',
-      totalPointsLabel: 'TOTAL POINTS',
+      totalPointsLabel: l10n.totalPointsLabel,
       rank: rank?.toString() ?? '--',
-      rankLabel: 'RANK',
+      rankLabel: l10n.rankLabel,
       distributionCounts: distributionCounts,
       userBucketIndex: userBucketIndex,
       minScoreLabel: allPoints.isNotEmpty ? formatPoints(minPts) : null,
@@ -374,6 +378,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
             Padding(
               padding: EdgeInsets.symmetric(horizontal: spacing.space16),
               child: _buildCategoryTile(
+                context,
                 sortedCategories[i],
                 grouped[sortedCategories[i]]!,
               ),
@@ -385,9 +390,11 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
   }
 
   Widget _buildCategoryTile(
+    BuildContext context,
     ChallengeCategory category,
     List<EnrichedChallenge> challenges,
   ) {
+    final l10n = AppLocalizations.of(context);
     final remaining = challenges.where((c) => !c.participantCompleted).toList();
     final completed = challenges.where((c) => c.participantCompleted).toList();
 
@@ -400,9 +407,9 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     }
 
     final categoryName = switch (category) {
-      ChallengeCategory.technical => 'Technical',
-      ChallengeCategory.community => 'Community',
-      ChallengeCategory.flash => 'Flash',
+      ChallengeCategory.technical => l10n.categoryTechnical,
+      ChallengeCategory.community => l10n.categoryCommunity,
+      ChallengeCategory.flash => l10n.categoryFlash,
     };
 
     return ChallengeCategoryTile(
@@ -410,7 +417,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
       categoryName: categoryName,
       remainingCount: remaining.length,
       completedCount: completed.length,
-      pointsLabel: '${formatPoints(totalPoints)} pts',
+      pointsLabel: l10n.pointsAbbreviated(formatPoints(totalPoints)),
       challenges: [
         for (final c in completed)
           ChallengeCategoryItem(

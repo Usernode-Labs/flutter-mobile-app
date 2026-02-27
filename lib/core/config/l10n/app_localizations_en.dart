@@ -993,4 +993,72 @@ class AppLocalizationsEn extends AppLocalizations {
   String timeYearsAgo(int years, String suffix) {
     return '$years year$suffix ago';
   }
+
+  @override
+  String get leaderboardFailedToLoad => 'Failed to load leaderboard';
+
+  @override
+  String get retry => 'Retry';
+
+  @override
+  String get leaderboardTitle => 'Leaderboard';
+
+  @override
+  String get allParticipants => 'All Participants';
+
+  @override
+  String participantFallbackName(String id) {
+    return 'Participant $id';
+  }
+
+  @override
+  String pointsAbbreviated(String points) {
+    return '$points pts';
+  }
+
+  @override
+  String betterThanPercent(int percent) {
+    return 'Better than $percent% of participants';
+  }
+
+  @override
+  String get leaderboardClimbEncouragement =>
+      'Keep completing tasks to climb higher on the leaderboard.';
+
+  @override
+  String leaderboardTopPercent(int percent) {
+    return 'You\'re in the top $percent%! Keep completing challenges to secure your position.';
+  }
+
+  @override
+  String get totalPointsLabel => 'TOTAL POINTS';
+
+  @override
+  String get rankLabel => 'RANK';
+
+  @override
+  String pointsRangeBucket(String lo, String hi) {
+    return '$lo–$hi pts';
+  }
+
+  @override
+  String get categoryTechnical => 'Technical';
+
+  @override
+  String get categoryCommunity => 'Community';
+
+  @override
+  String get categoryFlash => 'Flash';
+
+  @override
+  String get seasonFallback => 'Season';
+
+  @override
+  String get phaseFallback => 'Phase';
+
+  @override
+  String get selectSeason => 'Select Season';
+
+  @override
+  String get selectPhase => 'Select Phase';
 }

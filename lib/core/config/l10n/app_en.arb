@@ -1315,5 +1315,98 @@
       "years": {"type": "int"},
       "suffix": {"type": "String"}
     }
+  },
+
+  "leaderboardFailedToLoad": "Failed to load leaderboard",
+  "@leaderboardFailedToLoad": {
+    "description": "Error message when leaderboard data fails to load"
+  },
+  "retry": "Retry",
+  "@retry": {
+    "description": "Retry button label"
+  },
+  "leaderboardTitle": "Leaderboard",
+  "@leaderboardTitle": {
+    "description": "Leaderboard screen title"
+  },
+  "allParticipants": "All Participants",
+  "@allParticipants": {
+    "description": "Header for the participants list"
+  },
+  "participantFallbackName": "Participant {id}",
+  "@participantFallbackName": {
+    "description": "Fallback name when participant has no display name",
+    "placeholders": {
+      "id": {"type": "String"}
+    }
+  },
+  "pointsAbbreviated": "{points} pts",
+  "@pointsAbbreviated": {
+    "description": "Points with abbreviated unit",
+    "placeholders": {
+      "points": {"type": "String"}
+    }
+  },
+  "betterThanPercent": "Better than {percent}% of participants",
+  "@betterThanPercent": {
+    "description": "Callout title showing user ranking percentile",
+    "placeholders": {
+      "percent": {"type": "int"}
+    }
+  },
+  "leaderboardClimbEncouragement": "Keep completing tasks to climb higher on the leaderboard.",
+  "@leaderboardClimbEncouragement": {
+    "description": "Encouragement for users below 50th percentile"
+  },
+  "leaderboardTopPercent": "You're in the top {percent}%! Keep completing challenges to secure your position.",
+  "@leaderboardTopPercent": {
+    "description": "Encouragement for users above 50th percentile",
+    "placeholders": {
+      "percent": {"type": "int"}
+    }
+  },
+  "totalPointsLabel": "TOTAL POINTS",
+  "@totalPointsLabel": {
+    "description": "Label above total points stat"
+  },
+  "rankLabel": "RANK",
+  "@rankLabel": {
+    "description": "Label above rank stat"
+  },
+  "pointsRangeBucket": "{lo}–{hi} pts",
+  "@pointsRangeBucket": {
+    "description": "Distribution bucket score range label",
+    "placeholders": {
+      "lo": {"type": "String"},
+      "hi": {"type": "String"}
+    }
+  },
+  "categoryTechnical": "Technical",
+  "@categoryTechnical": {
+    "description": "Technical challenge category name"
+  },
+  "categoryCommunity": "Community",
+  "@categoryCommunity": {
+    "description": "Community challenge category name"
+  },
+  "categoryFlash": "Flash",
+  "@categoryFlash": {
+    "description": "Flash challenge category name"
+  },
+  "seasonFallback": "Season",
+  "@seasonFallback": {
+    "description": "Fallback label when no season name is available"
+  },
+  "phaseFallback": "Phase",
+  "@phaseFallback": {
+    "description": "Fallback label when no phase/event name is available"
+  },
+  "selectSeason": "Select Season",
+  "@selectSeason": {
+    "description": "Title for season picker bottom sheet"
+  },
+  "selectPhase": "Select Phase",
+  "@selectPhase": {
+    "description": "Title for phase picker bottom sheet"
   }
 }

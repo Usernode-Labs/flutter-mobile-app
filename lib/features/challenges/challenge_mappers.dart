@@ -131,6 +131,9 @@ List<EnrichedChallenge> enrichChallenges(
   return challenges
       .map((dto) => EnrichedChallenge(
             dto: dto,
+            // TODO(challenges): Remove description fallback once all breakdown
+            // activities include challengeId. The assumption that
+            // description == goal is a reliable match is fragile.
             activity: byId[dto.id] ?? byDesc[dto.goal],
           ))
       .toList();
@@ -275,6 +278,8 @@ int? parseRewardCeiling(String reward) {
 
 /// The server challenge ID for the "Produce Every Block" challenge.
 // TODO(challenges): Replace hardcoded ID with value from API response.
+// Ideally the API returns a per-challenge reward breakdown so we don't need
+// challenge-type-specific branching at all.
 const int produceBlocksChallengeId = 17;
 
 /// Returns true when the challenge is the produce-blocks challenge.

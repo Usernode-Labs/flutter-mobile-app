@@ -136,13 +136,21 @@ class ChallengeDetailScreen extends ConsumerWidget {
     final ChallengeRewardData data;
     if (isProduceBlocks) {
       final ceiling = parseRewardCeiling(formatRewardText(dto.reward));
+      // TODO(challenges): The 1500 assumes the top-3 rank bonus is always
+      // 1500 pts. The API should return maxSuccessRatePoints and top3Bonus
+      // separately so the client doesn't embed reward-formula constants.
       final maxPts = ceiling != null ? ceiling - 1500 : 0;
+      // TODO(challenges): successRate, rank, and top3Points are event-level
+      // fields being used as challenge-scoped values. A per-challenge
+      // breakdown API would make this explicit.
       final successRate = eb?.successRate ?? 0;
 
       data = ProduceBlocksRewardData(
         progressFraction: successRate / 100.0,
         successRate: '${successRate.round()}%',
         maxPoints: formatPoints(maxPts),
+        // TODO(challenges): The server should return pre-computed
+        // successRatePoints so the client doesn't duplicate business logic.
         totalPoints: formatPoints((successRate * maxPts / 100).round()),
         rankLabel: formatRankOrdinal(eb?.rank),
         rankReward: '+${formatPoints(eb?.top3Points ?? 0)}',

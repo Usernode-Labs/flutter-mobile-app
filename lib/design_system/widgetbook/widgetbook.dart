@@ -13,6 +13,7 @@ import 'challenge_category_tile_use_case.dart';
 import 'challenge_detail_page_use_case.dart';
 import 'challenges_page_use_case.dart';
 import 'color_catalog.dart';
+import 'platonic_ideal_catalog.dart';
 import 'dropdown_chain_use_case.dart';
 import 'dropdown_chip_use_case.dart';
 import 'dropdown_sheet_use_case.dart';
@@ -51,32 +52,44 @@ class WidgetbookApp extends StatelessWidget {
             WidgetbookTheme(
               name: 'Light',
               data: withSemanticColors(
-                  cieTheme.light(), AppSemanticColors.light()),
+                cieTheme.light(),
+                AppSemanticColors.light(),
+              ),
             ),
             WidgetbookTheme(
               name: 'Light Medium Contrast',
-              data: withSemanticColors(cieTheme.lightMediumContrast(),
-                  AppSemanticColors.lightMediumContrast()),
+              data: withSemanticColors(
+                cieTheme.lightMediumContrast(),
+                AppSemanticColors.lightMediumContrast(),
+              ),
             ),
             WidgetbookTheme(
               name: 'Light High Contrast',
-              data: withSemanticColors(cieTheme.lightHighContrast(),
-                  AppSemanticColors.lightHighContrast()),
+              data: withSemanticColors(
+                cieTheme.lightHighContrast(),
+                AppSemanticColors.lightHighContrast(),
+              ),
             ),
             WidgetbookTheme(
               name: 'Dark',
-              data:
-                  withSemanticColors(cieTheme.dark(), AppSemanticColors.dark()),
+              data: withSemanticColors(
+                cieTheme.dark(),
+                AppSemanticColors.dark(),
+              ),
             ),
             WidgetbookTheme(
               name: 'Dark Medium Contrast',
-              data: withSemanticColors(cieTheme.darkMediumContrast(),
-                  AppSemanticColors.darkMediumContrast()),
+              data: withSemanticColors(
+                cieTheme.darkMediumContrast(),
+                AppSemanticColors.darkMediumContrast(),
+              ),
             ),
             WidgetbookTheme(
               name: 'Dark High Contrast',
-              data: withSemanticColors(cieTheme.darkHighContrast(),
-                  AppSemanticColors.darkHighContrast()),
+              data: withSemanticColors(
+                cieTheme.darkHighContrast(),
+                AppSemanticColors.darkHighContrast(),
+              ),
             ),
           ],
           themeBuilder: (context, theme, child) {
@@ -103,6 +116,15 @@ class WidgetbookApp extends StatelessWidget {
         WidgetbookCategory(
           name: 'Foundations',
           children: [
+            WidgetbookComponent(
+              name: 'Platonic Ideal',
+              useCases: [
+                WidgetbookUseCase(
+                  name: 'Full Demo',
+                  builder: (context) => const PlatonicIdealCatalog(),
+                ),
+              ],
+            ),
             WidgetbookComponent(
               name: 'Color System',
               useCases: [

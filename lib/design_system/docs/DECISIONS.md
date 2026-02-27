@@ -1,7 +1,6 @@
 # Design System Decisions
 
 Decisions captured during widget creation sessions, organized by topic.
-Each entry preserves the original date and full rationale.
 
 Source: [`DESIGN_SYSTEM.md`](../DESIGN_SYSTEM.md) Decisions Log
 
@@ -17,13 +16,23 @@ M3 doesn't cover the need.
 
 ### Selective M3 Adoption (2026-02-24)
 
-After 9 widgets, 5 reimplemented standard M3 interaction patterns (button,
-chip, tabs, bottom nav, bottom sheet) — incompletely, lacking ripple, focus,
-keyboard, hover, and semantics. Switched to hybrid policy: use M3 components
-where interaction maps to standard patterns; keep primitives where visuals are
-custom (ChallengeCard, ScoreHeader, ChallengeCategoryIcon, DropdownChain).
-Token system, color philosophy, and presentation-only architecture are
-orthogonal to widget-layer choice.
+5 of 9 widgets reimplemented standard M3 patterns incompletely (missing ripple,
+focus, keyboard, semantics). Switched to hybrid: M3 for standard interactions,
+primitives for custom visuals (ChallengeCard, ScoreHeader, etc.).
+
+### Dark Mode Gap (2026-02-27)
+
+Complete dark schemes exist (`darkScheme()`, `darkMediumContrastScheme()`,
+`darkHighContrastScheme()`) but feature screens hardcode `.light()`, ignoring
+system brightness. Fix: move `ColorIsExpensiveTheme` to `MaterialApp` root with
+`themeMode: ThemeMode.system` and remove per-feature wrappers.
+
+### Dual Theme Coexistence (2026-02-27)
+
+Legacy `MaterialTheme` (chromatic blue `#2633C5`) lives at app root; design
+system `ColorIsExpensiveTheme` (achromatic) is injected at feature boundaries
+via `Theme()`. Widgets calling `Theme.of(context).extension<T>()!` outside a
+wrapper crash. A 5-step migration path exists to consolidate to a single root.
 
 ---
 
@@ -31,25 +40,21 @@ orthogonal to widget-layer choice.
 
 ### Achromatic Secondary & Tertiary (2026-02-23)
 
-Moved secondary to neutral-variant palette and tertiary to pure neutral
-palette. All chromatic color now lives exclusively in `AppSemanticColors`. M3
-structural roles render grey — a developer must consciously reach for a
-semantic extension to introduce hue.
+Secondary uses neutral-variant palette, tertiary uses pure neutral. All
+chromatic color lives exclusively in `AppSemanticColors` — M3 structural roles
+render grey.
 
 ### Ghost Tertiary (2026-02-23)
 
-Pushed tertiary further into near-invisibility. Standard contrast: main color
-barely clears APCA Lc 60, container ~ΔY 6 from surface. Medium contrast
-partially compensates; high contrast fully restores normal M3 levels. This
-makes `colorScheme.tertiary*` a trap role that forces use of
-`AppSemanticColors` for visible emphasis.
+Tertiary pushed to near-invisibility (barely clears APCA Lc 60). Medium
+contrast partially compensates; high contrast fully restores. Makes
+`colorScheme.tertiary*` a trap role forcing use of `AppSemanticColors`.
 
 ### Surface Shifted to T96 for Grey Scaffold (2026-02-23)
 
-Moved light `surface` from `#FCFCFC` (T99, near-white) to `#F5F5F5` (T96,
-visible grey) so M3's default `scaffoldBackgroundColor = surface` produces the
-grey page background shown in Figma. Cards and content sheets use
-`surfaceContainerLowest` (`#FFFFFF`) for white fills. Dark mode unchanged.
+Light `surface` moved from T99 near-white to `#F5F5F5` (T96) so
+`scaffoldBackgroundColor` produces the grey background from Figma. Cards use
+`surfaceContainerLowest` for white fills. Dark mode unchanged.
 
 ---
 
@@ -57,40 +62,33 @@ grey page background shown in Figma. Cards and content sheets use
 
 ### ChallengeCard Title Weight (2026-02-23)
 
-Figma shows 16px/medium title. Closest Material style is `titleMedium`
-(16px/w500). No heavier 16px variant exists without
-`copyWith(fontWeight: w600)`. Decided to keep `titleMedium` as-is — no hard
-overrides. If we need a different weight scale, we refactor the entire
-`TextTheme`.
+Closest Material style to Figma's 16px/medium is `titleMedium` (16px/w500).
+Kept as-is — no hard overrides. A different weight scale means refactoring the
+entire `TextTheme`.
 
 ### ChallengeCard State Demotion (2026-02-23)
 
-Replaced blanket `Opacity` with color-based demotion for completed/missed
-variants. `Opacity` on entire card reduces text contrast below accessible
-thresholds. Use `onSurfaceVariant` for muted text and `surfaceContainerLow`
-for tinted background instead. Never use `Opacity` to communicate semantic
-state on readable content.
+Replaced blanket `Opacity` with color-based demotion. `Opacity` reduces text
+contrast below accessible thresholds. Use `onSurfaceVariant` for muted text and
+`surfaceContainerLow` for tinted background instead.
 
 ### ChallengeCard Animation Loop Seam (2026-02-23)
 
-Removed `CurvedAnimation(Curves.easeInOut)` from the ongoing border animation.
-`easeInOut` has zero velocity at both endpoints, causing a visible stall when
-the repeating controller wraps. Linear rotation is seamless; asymmetric
-gradient shape provides organic character. For looping animations, prefer
-linear or a custom curve with matching endpoint derivatives (C1 continuity).
+Removed `CurvedAnimation(Curves.easeInOut)` from the looping border animation.
+`easeInOut` stalls at both endpoints when repeating. Linear rotation is
+seamless; for looping animations, use linear or C1-continuous curves.
 
 ### ScoreHeader Score Monospace (2026-02-23)
 
-`displaySmall.copyWith(fontFamily: 'monospace')` — Figma uses IBM Plex Mono
-which isn't in the project. This is a functional `copyWith` for tabular number
-alignment, not a decorative override. System monospace is acceptable.
+`displaySmall.copyWith(fontFamily: 'monospace')` — functional override for
+tabular number alignment. IBM Plex Mono (Figma) isn't bundled; system monospace
+is acceptable.
 
 ### ScoreHeader Countdown Bold (2026-02-23)
 
-`labelSmall.copyWith(fontWeight: FontWeight.w700)` for the countdown time
-value. Deliberate deviation from "no copyWith" principle — the time is
-actionable data needing visual separation from the "ENDS IN" label. Weight
-contrast serves information hierarchy.
+`labelSmall.copyWith(fontWeight: FontWeight.w700)` for countdown time value.
+Deliberate deviation — weight contrast separates actionable data from the
+"ENDS IN" label.
 
 ---
 
@@ -98,7 +96,6 @@ contrast serves information hierarchy.
 
 ### Widgetbook FFI Compilation Failure (2026-02-20)
 
-Widgetbook failed to compile on web because `AppAppBar` -> `NodeStatusIcon` ->
+Widgetbook failed on web: `AppAppBar` -> `NodeStatusIcon` ->
 `nodeStatusProvider` -> Rust FFI. Adopted presentation-only rule: design system
-widgets take data as props, never fetch state. Containers live in
-`lib/features/`.
+widgets take data as props, never fetch state.

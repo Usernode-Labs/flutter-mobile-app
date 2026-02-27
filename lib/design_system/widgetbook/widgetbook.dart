@@ -14,16 +14,21 @@ import 'challenge_detail_page_use_case.dart';
 import 'challenges_page_use_case.dart';
 import 'color_catalog.dart';
 import 'unified_theme_catalog.dart';
+import 'empty_state_use_case.dart';
 import 'dropdown_chain_use_case.dart';
 import 'dropdown_chip_use_case.dart';
 import 'dropdown_sheet_use_case.dart';
 import 'epoch_performance_page_use_case.dart';
+import 'icon_badge_use_case.dart';
+import 'info_row_use_case.dart';
 import 'leaderboard_page_use_case.dart';
 import 'leaderboard_stats_card_use_case.dart';
 import 'list_tile_use_case.dart';
 import 'rank_badge_use_case.dart';
 import 'score_header_use_case.dart';
+import 'status_badge_use_case.dart';
 import 'tabs_use_case.dart';
+import 'text_field_use_case.dart';
 import 'top_app_bar_use_case.dart';
 
 void main() {
@@ -156,14 +161,19 @@ class WidgetbookApp extends StatelessWidget {
             challengeActivitySummaryComponent(),
             challengeCardComponent(),
             challengeCategoryTileComponent(),
+            emptyStateComponent(),
             dropdownChainComponent(),
             dropdownChipComponent(),
             dropdownSheetComponent(),
+            iconBadgeComponent(),
+            infoRowComponent(),
             leaderboardStatsCardComponent(),
             listTileComponent(),
             rankBadgeComponent(),
             scoreHeaderComponent(),
+            statusBadgeComponent(),
             tabsComponent(),
+            textFieldComponent(),
             topAppBarComponent(),
           ],
         ),

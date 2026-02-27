@@ -593,6 +593,8 @@ class _TypographyScaleSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final semantic = Theme.of(context).extension<AppSemanticColors>()!;
 
     final styles = <(String, TextStyle?)>[
       ('displayLarge', textTheme.displayLarge),
@@ -618,8 +620,20 @@ class _TypographyScaleSection extends StatelessWidget {
         _sectionHeader(
           context,
           '4. Typography Scale',
-          subtitle: 'Full M3 textTheme — rendered on actual surface colors',
+          subtitle:
+              'Typography does the heavy lifting — color only enters when meaning demands it',
         ),
+
+        // 4A: The scale reference
+        _subsectionTitle(context, '4A. The Full Type Scale'),
+        _annotationBox(
+          context,
+          'In a "color is expensive" system, typography hierarchy IS the '
+          'primary visual hierarchy. Size, weight, and color-role (onSurface '
+          'vs onSurfaceVariant) create all the differentiation structure '
+          'needs — without spending a single chromatic pixel.',
+        ),
+        const SizedBox(height: 12),
         ...styles.map((entry) {
           final (name, style) = entry;
           final size = style?.fontSize?.toStringAsFixed(0) ?? '?';
@@ -662,6 +676,817 @@ class _TypographyScaleSection extends StatelessWidget {
             ),
           );
         }),
+
+        SizedBox(height: spacing.space32),
+
+        // 4B: The achromatic hierarchy — typography + the two text colors
+        _subsectionTitle(
+          context,
+          '4B. The Two-Color Text System',
+        ),
+        _annotationBox(
+          context,
+          'The entire structural text hierarchy runs on exactly two achromatic '
+          'colors: onSurface (primary text) and onSurfaceVariant (secondary '
+          'text). Size and weight create the reading order. Color demotion '
+          '(onSurface → onSurfaceVariant) signals "supporting" vs '
+          '"primary" — no hue required.',
+        ),
+        const SizedBox(height: 12),
+        _TypographyHierarchyDemo(),
+
+        SizedBox(height: spacing.space32),
+
+        // 4C: When color enters — the chromatic punctuation
+        _subsectionTitle(
+          context,
+          '4C. Chromatic Punctuation — When Color Enters Typography',
+        ),
+        _annotationBox(
+          context,
+          'In a restrained system, the moment chromatic color appears in text '
+          'it acts like punctuation — it interrupts the achromatic flow to '
+          'signal meaning. Below: the same content layout with and without '
+          'semantic color. Notice how the colored element instantly draws '
+          'the eye because there\'s no chromatic competition.',
+        ),
+        const SizedBox(height: 12),
+        _ChromaticPunctuationDemo(),
+
+        SizedBox(height: spacing.space32),
+
+        // 4D: Practical composition — how a real screen combines all layers
+        _subsectionTitle(
+          context,
+          '4D. Composition — Typography Hierarchy Meets Semantic Color',
+        ),
+        _annotationBox(
+          context,
+          'A realistic card composition demonstrating how typography scale, '
+          'achromatic text colors, and semantic color work as three '
+          'complementary layers. Typography establishes reading order. '
+          'Achromatic color (onSurface/onSurfaceVariant) separates primary '
+          'from supporting content. Semantic color carries domain meaning — '
+          'here, challenge categories.',
+        ),
+        const SizedBox(height: 12),
+        _TypographyCompositionDemo(semantic: semantic),
+
+        SizedBox(height: spacing.space32),
+
+        // 4E: The anti-pattern
+        _subsectionTitle(
+          context,
+          '4E. The Signal-to-Noise Ratio',
+        ),
+        _annotationBox(
+          context,
+          'Why restraint matters: when every text element carries its own '
+          'chromatic accent, the eye has no entry point. When color is '
+          'scarce, it acts as a spotlight. Below: the same information '
+          'with color used as decoration vs color used as signal.',
+        ),
+        const SizedBox(height: 12),
+        _SignalToNoiseDemo(semantic: semantic),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 4B: Typography Hierarchy Demo
+// ---------------------------------------------------------------------------
+
+class _TypographyHierarchyDemo extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final radii = Theme.of(context).extension<AppRadii>()!;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(radii.large),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Simulate a screen's text hierarchy
+          Text(
+            'Challenge Overview',
+            style: textTheme.headlineSmall?.copyWith(color: cs.onSurface),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Your active challenges this epoch',
+            style: textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+          ),
+          const SizedBox(height: 20),
+          // A "card" within the demo
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerLowest,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: cs.outlineVariant),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Validate 50 Transactions',
+                  style: textTheme.titleMedium?.copyWith(color: cs.onSurface),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Complete transaction validations to strengthen network security and earn rewards.',
+                  style: textTheme.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Text(
+                      'Mar 1 – Mar 15',
+                      style: textTheme.labelSmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '250 pts',
+                      style: textTheme.labelLarge?.copyWith(
+                        color: cs.onSurface,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Annotation showing the mapping
+          Row(
+            children: [
+              _TextRoleChip(
+                label: 'onSurface',
+                color: cs.onSurface,
+                background: cs.surfaceContainerHighest,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Primary text — titles, values, actions',
+                style: textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _TextRoleChip(
+                label: 'onSurfaceVariant',
+                color: cs.onSurfaceVariant,
+                background: cs.surfaceContainerHighest,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Supporting text — descriptions, dates, metadata',
+                  style: textTheme.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TextRoleChip extends StatelessWidget {
+  const _TextRoleChip({
+    required this.label,
+    required this.color,
+    required this.background,
+  });
+
+  final String label;
+  final Color color;
+  final Color background;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          fontFamily: 'monospace',
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 4C: Chromatic Punctuation Demo
+// ---------------------------------------------------------------------------
+
+class _ChromaticPunctuationDemo extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final semantic = Theme.of(context).extension<AppSemanticColors>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Without semantic color
+        Text(
+          'Without semantic color:',
+          style: textTheme.labelMedium?.copyWith(color: cs.onSurfaceVariant),
+        ),
+        const SizedBox(height: 8),
+        _PunctuationCard(
+          radii: radii,
+          cs: cs,
+          textTheme: textTheme,
+          badgeColor: cs.surfaceContainerHighest,
+          badgeTextColor: cs.onSurface,
+          badgeLabel: 'Technical',
+          statusColor: cs.onSurfaceVariant,
+          statusLabel: '32 / 50 completed',
+        ),
+        const SizedBox(height: 16),
+
+        // With semantic color — only the badge changes
+        Text(
+          'With semantic color — only the category badge:',
+          style: textTheme.labelMedium?.copyWith(color: cs.onSurfaceVariant),
+        ),
+        const SizedBox(height: 8),
+        _PunctuationCard(
+          radii: radii,
+          cs: cs,
+          textTheme: textTheme,
+          badgeColor: semantic.technical.colorContainer,
+          badgeTextColor: semantic.technical.onColorContainer,
+          badgeLabel: 'Technical',
+          statusColor: cs.onSurfaceVariant,
+          statusLabel: '32 / 50 completed',
+        ),
+        const SizedBox(height: 12),
+        _annotationBox(
+          context,
+          'Same layout, same typography, same hierarchy. The single chromatic '
+          'badge instantly signals domain meaning (blue = technical) '
+          'because it\'s the ONLY color on the card. The achromatic '
+          'typography provides the calm structure that makes the color '
+          'punctuation work.',
+        ),
+      ],
+    );
+  }
+}
+
+class _PunctuationCard extends StatelessWidget {
+  const _PunctuationCard({
+    required this.radii,
+    required this.cs,
+    required this.textTheme,
+    required this.badgeColor,
+    required this.badgeTextColor,
+    required this.badgeLabel,
+    required this.statusColor,
+    required this.statusLabel,
+  });
+
+  final AppRadii radii;
+  final ColorScheme cs;
+  final TextTheme textTheme;
+  final Color badgeColor;
+  final Color badgeTextColor;
+  final String badgeLabel;
+  final Color statusColor;
+  final String statusLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(radii.large),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: badgeColor,
+                  borderRadius: BorderRadius.circular(radii.small),
+                ),
+                child: Text(
+                  badgeLabel,
+                  style: textTheme.labelSmall?.copyWith(
+                    color: badgeTextColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              Text(
+                statusLabel,
+                style: textTheme.labelSmall?.copyWith(color: statusColor),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Validate 50 Transactions',
+            style: textTheme.titleMedium?.copyWith(color: cs.onSurface),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Complete transaction validations to strengthen network security.',
+            style: textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Text(
+                'Mar 1 – Mar 15',
+                style: textTheme.labelSmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '250 pts',
+                style: textTheme.labelLarge?.copyWith(
+                  color: cs.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 4D: Typography Composition Demo
+// ---------------------------------------------------------------------------
+
+class _TypographyCompositionDemo extends StatelessWidget {
+  const _TypographyCompositionDemo({required this.semantic});
+
+  final AppSemanticColors semantic;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final radii = Theme.of(context).extension<AppRadii>()!;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(radii.large),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Screen header area
+          Text(
+            'Active Challenges',
+            style: textTheme.headlineSmall?.copyWith(color: cs.onSurface),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '3 challenges · Epoch 42',
+            style: textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+          ),
+          const SizedBox(height: 16),
+          // Three mini-cards with different categories
+          _CompositionMiniCard(
+            cs: cs,
+            textTheme: textTheme,
+            radii: radii,
+            categoryLabel: 'Technical',
+            categoryColor: semantic.technical.colorContainer,
+            categoryTextColor: semantic.technical.onColorContainer,
+            title: 'Validate 50 Transactions',
+            subtitle: '32 / 50 completed',
+            points: '250 pts',
+          ),
+          const SizedBox(height: 8),
+          _CompositionMiniCard(
+            cs: cs,
+            textTheme: textTheme,
+            radii: radii,
+            categoryLabel: 'Flash',
+            categoryColor: semantic.flash.colorContainer,
+            categoryTextColor: semantic.flash.onColorContainer,
+            title: 'Speed Run: 10 Blocks in 1hr',
+            subtitle: 'Ends in 45 min',
+            points: '500 pts',
+          ),
+          const SizedBox(height: 8),
+          _CompositionMiniCard(
+            cs: cs,
+            textTheme: textTheme,
+            radii: radii,
+            categoryLabel: 'Community',
+            categoryColor: semantic.community.colorContainer,
+            categoryTextColor: semantic.community.onColorContainer,
+            title: 'Invite 5 Validators',
+            subtitle: '2 / 5 invited',
+            points: '150 pts',
+          ),
+          const SizedBox(height: 16),
+          // Layer annotations
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Three layers working together:',
+                  style: textTheme.labelMedium?.copyWith(
+                    color: cs.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _LayerAnnotation(
+                  cs: cs,
+                  textTheme: textTheme,
+                  number: '1',
+                  label: 'Typography scale',
+                  description:
+                      'headline → title → body → label creates reading order',
+                ),
+                const SizedBox(height: 4),
+                _LayerAnnotation(
+                  cs: cs,
+                  textTheme: textTheme,
+                  number: '2',
+                  label: 'Achromatic color',
+                  description:
+                      'onSurface vs onSurfaceVariant separates primary from supporting',
+                ),
+                const SizedBox(height: 4),
+                _LayerAnnotation(
+                  cs: cs,
+                  textTheme: textTheme,
+                  number: '3',
+                  label: 'Semantic color',
+                  description:
+                      'Category badges are the ONLY chromatic elements — each one signals domain meaning',
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompositionMiniCard extends StatelessWidget {
+  const _CompositionMiniCard({
+    required this.cs,
+    required this.textTheme,
+    required this.radii,
+    required this.categoryLabel,
+    required this.categoryColor,
+    required this.categoryTextColor,
+    required this.title,
+    required this.subtitle,
+    required this.points,
+  });
+
+  final ColorScheme cs;
+  final TextTheme textTheme;
+  final AppRadii radii;
+  final String categoryLabel;
+  final Color categoryColor;
+  final Color categoryTextColor;
+  final String title;
+  final String subtitle;
+  final String points;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(radii.medium),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: categoryColor,
+              borderRadius: BorderRadius.circular(radii.small),
+            ),
+            child: Text(
+              categoryLabel,
+              style: textTheme.labelSmall?.copyWith(
+                color: categoryTextColor,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: textTheme.titleSmall?.copyWith(color: cs.onSurface),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  subtitle,
+                  style: textTheme.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            points,
+            style: textTheme.labelLarge?.copyWith(
+              color: cs.onSurface,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LayerAnnotation extends StatelessWidget {
+  const _LayerAnnotation({
+    required this.cs,
+    required this.textTheme,
+    required this.number,
+    required this.label,
+    required this.description,
+  });
+
+  final ColorScheme cs;
+  final TextTheme textTheme;
+  final String number;
+  final String label;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 18,
+          height: 18,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: cs.primary,
+            shape: BoxShape.circle,
+          ),
+          child: Text(
+            number,
+            style: TextStyle(
+              color: cs.onPrimary,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: RichText(
+            text: TextSpan(
+              children: [
+                TextSpan(
+                  text: '$label: ',
+                  style: textTheme.bodySmall?.copyWith(
+                    color: cs.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                TextSpan(
+                  text: description,
+                  style: textTheme.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 4E: Signal-to-Noise Demo
+// ---------------------------------------------------------------------------
+
+class _SignalToNoiseDemo extends StatelessWidget {
+  const _SignalToNoiseDemo({required this.semantic});
+
+  final AppSemanticColors semantic;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final radii = Theme.of(context).extension<AppRadii>()!;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // "Noisy" version — color as decoration
+        Text(
+          'Color as decoration (high noise):',
+          style: textTheme.labelMedium?.copyWith(color: cs.onSurfaceVariant),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(radii.large),
+            border: Border.all(color: cs.outlineVariant),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Every text element gets its own chromatic color
+              Text(
+                'Active Challenges',
+                style: textTheme.titleMedium?.copyWith(
+                  color: semantic.technical.color,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Complete these to earn rewards',
+                style: textTheme.bodySmall?.copyWith(
+                  color: semantic.community.color,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: semantic.flash.colorContainer,
+                  borderRadius: BorderRadius.circular(radii.small),
+                ),
+                child: Text(
+                  'Technical',
+                  style: textTheme.labelSmall?.copyWith(
+                    color: semantic.flash.onColorContainer,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Validate 50 Transactions',
+                style: textTheme.titleSmall?.copyWith(
+                  color: semantic.flash.color,
+                ),
+              ),
+              Text(
+                '250 pts · 32 / 50 completed',
+                style: textTheme.bodySmall?.copyWith(
+                  color: semantic.success.color,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // "Clean" version — color as signal
+        Text(
+          'Color as signal (high clarity):',
+          style: textTheme.labelMedium?.copyWith(color: cs.onSurfaceVariant),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(radii.large),
+            border: Border.all(color: cs.outlineVariant),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Only structural achromatic text
+              Text(
+                'Active Challenges',
+                style: textTheme.titleMedium?.copyWith(color: cs.onSurface),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Complete these to earn rewards',
+                style: textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 12),
+              // ONE semantic badge — the only chromatic element
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: semantic.technical.colorContainer,
+                  borderRadius: BorderRadius.circular(radii.small),
+                ),
+                child: Text(
+                  'Technical',
+                  style: textTheme.labelSmall?.copyWith(
+                    color: semantic.technical.onColorContainer,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Validate 50 Transactions',
+                style: textTheme.titleSmall?.copyWith(color: cs.onSurface),
+              ),
+              Text(
+                '250 pts · 32 / 50 completed',
+                style: textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        _annotationBox(
+          context,
+          'Top: 5 different chromatic colors compete for attention — the '
+          'eye bounces between them with no clear entry point. '
+          'The category badge (amber "Technical") is WRONG — it uses '
+          'flash colors for a technical challenge.\n\n'
+          'Bottom: Typography and achromatic demotion handle the hierarchy. '
+          'The single blue badge is instantly readable because scarcity '
+          'creates signal. This is "color is expensive" in practice: '
+          'every chromatic pixel earns its place.',
+        ),
       ],
     );
   }

@@ -7,15 +7,15 @@ import '../tokens/app_semantic_colors.dart';
 import '../tokens/app_spacing.dart';
 
 // =============================================================================
-// Platonic Ideal Catalog — "Color is Expensive" Design System Encyclopedia
+// Unified Theme Catalog — "Color is Expensive" Design System Encyclopedia
 //
 // A single scrollable page demonstrating the complete design system across
 // 9 sections. Each section is a private widget for maintainability.
 // =============================================================================
 
 /// The top-level catalog widget. Renders all 9 sections in a scrollable column.
-class PlatonicIdealCatalog extends StatelessWidget {
-  const PlatonicIdealCatalog({super.key});
+class UnifiedThemeCatalog extends StatelessWidget {
+  const UnifiedThemeCatalog({super.key});
 
   @override
   Widget build(BuildContext context) {

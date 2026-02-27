@@ -13,7 +13,7 @@ import 'challenge_category_tile_use_case.dart';
 import 'challenge_detail_page_use_case.dart';
 import 'challenges_page_use_case.dart';
 import 'color_catalog.dart';
-import 'platonic_ideal_catalog.dart';
+import 'unified_theme_catalog.dart';
 import 'dropdown_chain_use_case.dart';
 import 'dropdown_chip_use_case.dart';
 import 'dropdown_sheet_use_case.dart';
@@ -117,11 +117,11 @@ class WidgetbookApp extends StatelessWidget {
           name: 'Foundations',
           children: [
             WidgetbookComponent(
-              name: 'Platonic Ideal',
+              name: 'Unified Theme',
               useCases: [
                 WidgetbookUseCase(
                   name: 'Full Demo',
-                  builder: (context) => const PlatonicIdealCatalog(),
+                  builder: (context) => const UnifiedThemeCatalog(),
                 ),
               ],
             ),

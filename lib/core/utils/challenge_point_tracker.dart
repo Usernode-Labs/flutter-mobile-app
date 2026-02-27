@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:crypto_mobile_app/core/config/app_config.dart';
+
 import 'network_prefs.dart';
 
 /// Result of a best-effort point diff computation.
@@ -25,9 +27,6 @@ class PointDiff {
 class ChallengePointTracker {
   ChallengePointTracker._();
 
-  static const _maxAge = Duration(hours: 48);
-  static const _diffWindow = Duration(hours: 24);
-
   /// Record the current cumulative [points] for [key].
   ///
   /// Call this on each successful data fetch so that snapshots accumulate.
@@ -35,7 +34,9 @@ class ChallengePointTracker {
     final prefs = await SharedPreferences.getInstance();
     final storageKey = _storageKey(key);
     final now = DateTime.now().toUtc();
-    final cutoff = now.subtract(_maxAge).millisecondsSinceEpoch ~/ 1000;
+    final cutoff =
+        now.subtract(AppConfig.challengePointMaxAge).millisecondsSinceEpoch ~/
+            1000;
 
     final entries = _read(prefs, storageKey);
 
@@ -55,7 +56,7 @@ class ChallengePointTracker {
     final prefs = await SharedPreferences.getInstance();
     final storageKey = _storageKey(key);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
-    final threshold = now - _diffWindow.inSeconds;
+    final threshold = now - AppConfig.challengePointDiffWindow.inSeconds;
 
     final entries = _read(prefs, storageKey);
     if (entries.isEmpty) return null;
@@ -82,7 +83,7 @@ class ChallengePointTracker {
     final prefs = await SharedPreferences.getInstance();
     final storageKey = _storageKey(key);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
-    final threshold = now - _diffWindow.inSeconds;
+    final threshold = now - AppConfig.challengePointDiffWindow.inSeconds;
 
     final entries = _read(prefs, storageKey);
 
@@ -114,7 +115,7 @@ class ChallengePointTracker {
     final prefs = await SharedPreferences.getInstance();
     final storageKey = _storageKey(key);
     final now = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
-    final threshold = now - _diffWindow.inSeconds;
+    final threshold = now - AppConfig.challengePointDiffWindow.inSeconds;
 
     final entries = _read(prefs, storageKey);
     if (entries.length < 2) return null;

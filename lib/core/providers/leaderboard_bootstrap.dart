@@ -3,7 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
-import 'package:crypto_mobile_app/core/providers/breakdown_provider.dart';
+import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
 import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
 import 'package:crypto_mobile_app/core/providers/event_points_provider.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_provider.dart';

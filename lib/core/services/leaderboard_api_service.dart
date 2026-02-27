@@ -19,8 +19,6 @@ class LeaderboardApiService {
   final String _baseUrl;
   final http.Client _http;
 
-  static const _timeout = Duration(seconds: 15);
-
   static const _jsonHeaders = {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
@@ -188,7 +186,7 @@ class LeaderboardApiService {
     Future<http.Response> Function() fn,
   ) async {
     try {
-      return await fn().timeout(_timeout);
+      return await fn().timeout(AppConfig.leaderboardApiTimeout);
     } catch (e, stackTrace) {
       _log.warn('Request failed: $e');
       await SentryUtil.captureError(

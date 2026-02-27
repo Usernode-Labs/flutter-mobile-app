@@ -76,3 +76,7 @@ rust_builder/cargokit/build_tool/pubspec.lock
 
 # Internal notes
 gmp.md
+
+# AI tool config (local-only)
+.gemini/
+.claude/

@@ -185,7 +185,7 @@ For detailed documentation on specific features and workflows, refer to the foll
 
 ### Development & Architecture
 
-- **[Development Agents](docs/AGENTS.md)** - Information about AI development agents and automation tools used in the project
+- **[Development Agents](AGENTS.md)** - Information about AI development agents and automation tools used in the project
 
 These documents provide in-depth technical details, architecture decisions, and implementation guides that complement this README.
 

@@ -1,8 +1,6 @@
 # ListSystem — Genesis Document
 
 **Figma source**: [Testnet App — List variants](https://figma.com/design/Eu4jn5o8finpZ28IAGPyru/?node-id=3448-15182)
-**Reference screenshot**: [ListSystem.reference.png](ListSystem.reference.png)
-
 ---
 
 ## Inspiration

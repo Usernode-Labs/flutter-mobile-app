@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
-import 'package:crypto_mobile_app/core/providers/breakdown_provider.dart';
+import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
 import 'package:crypto_mobile_app/core/providers/produced_blocks_provider.dart';
 import 'package:crypto_mobile_app/core/utils/challenge_point_tracker.dart';
 import 'package:crypto_mobile_app/design_system/src/challenge_card.dart';

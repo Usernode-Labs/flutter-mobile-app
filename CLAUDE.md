@@ -4,7 +4,7 @@ Flutter mobile app for a Layer 1 blockchain operated from phones.
 
 ## Quick Reference
 
-- **Project guidelines**: `docs/AGENTS.md`
+- **Project guidelines**: `AGENTS.md`
 - **Design system (POC)**: `lib/design_system/` — living design system with `DESIGN_SYSTEM.md`
 - **Existing widgets**: `lib/core/widgets/` — composable in new design system widgets
 

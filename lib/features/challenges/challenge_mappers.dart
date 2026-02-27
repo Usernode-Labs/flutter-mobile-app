@@ -274,6 +274,7 @@ int? parseRewardCeiling(String reward) {
 }
 
 /// The server challenge ID for the "Produce Every Block" challenge.
+// TODO(challenges): Replace hardcoded ID with value from API response.
 const int produceBlocksChallengeId = 17;
 
 /// Returns true when the challenge is the produce-blocks challenge.

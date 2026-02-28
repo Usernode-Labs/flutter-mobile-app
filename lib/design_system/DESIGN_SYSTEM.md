@@ -10,6 +10,7 @@ Sandboxed POC in `lib/design_system/` for agentic widget building with a living 
 
 ## Key Boundaries
 
+- **No custom wrappers around M3 widgets.** If M3 provides a component (ListTile, Card, Switch, Checkbox, etc.), use it directly. Build DS *slot widgets* (IconBadge, StatusBadge, RankBadge, etc.) that compose into M3 containers — never duplicate the container itself. Only create a custom widget when M3 genuinely doesn't cover the pattern. When in doubt, prove the gap first.
 - **No chromatic structure.** Primary/secondary/tertiary are achromatic. Only semantic colors carry hue.
 - **No hardcoded values.** All visual properties flow from `ThemeExtension` tokens — no hex literals, no magic numbers.
 - **No state in design system widgets.** Data in, pixels out. No providers, no services, no async. Screens in `lib/features/` wire state.

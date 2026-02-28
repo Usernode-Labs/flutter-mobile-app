@@ -15,6 +15,7 @@ export 'tokens/app_spacing.dart';
 
 // Widgets
 export 'src/bottom_nav.dart';
+export 'src/empty_state.dart';
 export 'src/nav_indicator_shapes.dart';
 export 'src/button.dart';
 export 'src/challenge_activity_summary.dart';
@@ -27,10 +28,15 @@ export 'src/epoch_performance_page.dart';
 export 'src/dropdown_chain.dart';
 export 'src/dropdown_chip.dart';
 export 'src/dropdown_sheet.dart';
+export 'src/icon_badge.dart';
+export 'src/info_row.dart';
 export 'src/leaderboard_stats_card.dart';
 export 'src/rank_badge.dart';
+export 'src/result_page.dart';
 export 'src/score_header.dart';
+export 'src/status_badge.dart';
 export 'src/tabs.dart';
+export 'src/text_field.dart';
 export 'src/top_app_bar.dart';
 
 // Theme

@@ -6,6 +6,7 @@ import '../src/bottom_nav.dart';
 import '../src/challenge_card.dart';
 import '../src/challenge_category_icon.dart';
 import '../src/dropdown_chain.dart';
+import '../src/dropdown_chip.dart';
 import '../src/nav_indicator_shapes.dart';
 import '../src/score_header.dart';
 import '../tokens/app_semantic_colors.dart';
@@ -468,10 +469,12 @@ class _ChipBarDelegate extends SliverPersistentHeaderDelegate {
         child: DropdownChain(
           items: [
             DropdownChainItem(
-                label: 'Season 2', selected: true, borderColor: chipBorder),
+                label: 'Season 2',
+                variant: ChipVariant.surface,
+                borderColor: chipBorder),
             DropdownChainItem(
                 label: 'DApps Integration',
-                selected: true,
+                variant: ChipVariant.surface,
                 borderColor: chipBorder),
           ],
         ),

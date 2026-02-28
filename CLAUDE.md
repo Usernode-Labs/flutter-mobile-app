@@ -22,7 +22,8 @@ flutter test
 
 All new design system work lives in `lib/design_system/`. Existing code is untouched.
 
-- **New widgets**: Prefer M3 Material components for native style, accessibility, and consistency. When M3 doesn't cover the need, build from core primitives with M3 alignment in mind.
+- **M3-first rule (TOP PRIORITY)**: Never create a custom widget that duplicates an M3 component (ListTile, Card, Switch, Checkbox, etc.). Use M3 directly and compose DS *slot widgets* (IconBadge, StatusBadge, etc.) into M3 containers. Only create a custom widget when M3 genuinely doesn't cover the pattern — prove the gap first.
+- **New widgets**: When M3 doesn't cover the need, build from core primitives with M3 alignment in mind.
 - **Composing existing `lib/core/widgets/`** (AppButton, AppCard, etc.) is allowed.
 - **Tokens**: Access via `Theme.of(context).extension<T>()!` (e.g., `AppSpacing`, `AppRadii`, `AppElevation`)
 - **Colors**: `Theme.of(context).colorScheme`

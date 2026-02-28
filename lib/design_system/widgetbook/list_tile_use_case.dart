@@ -1,62 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:widgetbook/widgetbook.dart';
 
+import '../src/icon_badge.dart';
+import '../src/rank_badge.dart';
+import '../src/status_badge.dart';
+
 // ---------------------------------------------------------------------------
 // Leading slot options
 // ---------------------------------------------------------------------------
 
-enum _LeadingOption { none, iconContainer, rankBadge }
+enum _LeadingOption { none, iconBadge, rankBadge }
 
-enum _TrailingOption { none, textOnly, textAndChevron }
-
-// ---------------------------------------------------------------------------
-// File-private helpers — inlined slot constructions until real slot widgets
-// (IconTileLeading, RankBadge, TextChevronTrailing) are built just-in-time.
-// ---------------------------------------------------------------------------
-
-Widget _buildIconContainer(ColorScheme cs, IconData icon) {
-  return Container(
-    width: 48,
-    height: 48,
-    decoration: BoxDecoration(
-      color: cs.secondaryContainer,
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: Icon(icon, size: 24, color: cs.onSecondaryContainer),
-  );
-}
-
-Widget _buildRankBadge(ColorScheme cs, int rank) {
-  return Container(
-    width: 40,
-    height: 40,
-    decoration: BoxDecoration(
-      shape: BoxShape.circle,
-      border: Border.all(color: cs.outlineVariant),
-    ),
-    child: Center(
-      child: Text(
-        '#$rank',
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: cs.onSurface,
-        ),
-      ),
-    ),
-  );
-}
-
-Widget _buildTextAndChevron(ColorScheme cs, String text) {
-  return Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Text(text),
-      const SizedBox(width: 4),
-      Icon(Icons.chevron_right, size: 20, color: cs.onSurfaceVariant),
-    ],
-  );
-}
+enum _TrailingOption { none, textOnly, textAndChevron, statusBadge }
 
 // ---------------------------------------------------------------------------
 // Component
@@ -80,8 +35,6 @@ WidgetbookUseCase _playground() {
   return WidgetbookUseCase(
     name: 'Playground',
     builder: (context) {
-      final cs = Theme.of(context).colorScheme;
-
       final title = context.knobs.string(
         label: 'Title',
         initialValue: 'Checked Slots',
@@ -95,7 +48,7 @@ WidgetbookUseCase _playground() {
       final leading = context.knobs.object.dropdown<_LeadingOption>(
         label: 'Leading',
         options: _LeadingOption.values,
-        initialOption: _LeadingOption.iconContainer,
+        initialOption: _LeadingOption.iconBadge,
         labelBuilder: (o) => o.name,
       );
 
@@ -118,10 +71,10 @@ WidgetbookUseCase _playground() {
 
       Widget? leadingWidget;
       switch (leading) {
-        case _LeadingOption.iconContainer:
-          leadingWidget = _buildIconContainer(cs, Icons.check_circle_outline);
+        case _LeadingOption.iconBadge:
+          leadingWidget = const IconBadge(icon: Icons.check_circle_outline);
         case _LeadingOption.rankBadge:
-          leadingWidget = _buildRankBadge(cs, 1);
+          leadingWidget = const RankBadge(rank: '#1');
         case _LeadingOption.none:
           leadingWidget = null;
       }
@@ -131,7 +84,12 @@ WidgetbookUseCase _playground() {
         case _TrailingOption.textOnly:
           trailingWidget = Text(trailingText);
         case _TrailingOption.textAndChevron:
-          trailingWidget = _buildTextAndChevron(cs, trailingText);
+          trailingWidget = _TextChevron(text: trailingText);
+        case _TrailingOption.statusBadge:
+          trailingWidget = const StatusBadge(
+            label: 'Active',
+            variant: StatusBadgeVariant.success,
+          );
         case _TrailingOption.none:
           trailingWidget = null;
       }
@@ -158,7 +116,6 @@ WidgetbookUseCase _patterns() {
   return WidgetbookUseCase(
     name: 'Patterns',
     builder: (context) {
-      final cs = Theme.of(context).colorScheme;
       final textTheme = Theme.of(context).textTheme;
 
       return SingleChildScrollView(
@@ -166,39 +123,32 @@ WidgetbookUseCase _patterns() {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ---- Pattern A: Stats Summary ----
-            Text('STATS SUMMARY', style: textTheme.labelLarge),
+            // ---- Pattern A: Stats / Metrics ----
+            Text('STATS / METRICS', style: textTheme.labelLarge),
             const SizedBox(height: 8),
             Card(
               child: Column(
                 children: [
-                  _statsTile(
-                    cs: cs,
-                    icon: Icons.check_circle_outline,
-                    title: 'Checked Slots',
-                    subtitle: 'Evaluated 240 of 240',
-                    trailing: '100%',
+                  ListTile(
+                    leading: const IconBadge(icon: Icons.check_circle_outline),
+                    title: const Text('Checked Slots'),
+                    subtitle: const Text('Evaluated 240 of 240'),
+                    trailing: const _TextChevron(text: '100%'),
+                    onTap: () {},
                   ),
-                  _statsTile(
-                    cs: cs,
-                    icon: Icons.view_in_ar,
-                    title: 'Produced Blocks',
-                    subtitle: '16 of 21 won slots',
-                    trailing: '1',
+                  ListTile(
+                    leading: const IconBadge(icon: Icons.view_in_ar),
+                    title: const Text('Produced Blocks'),
+                    subtitle: const Text('16 of 21 won slots'),
+                    trailing: const _TextChevron(text: '1'),
+                    onTap: () {},
                   ),
-                  _statsTile(
-                    cs: cs,
-                    icon: Icons.block,
-                    title: 'Missed Blocks',
-                    subtitle: '0 of 21 won slots missed',
-                    trailing: '5',
-                  ),
-                  _statsTile(
-                    cs: cs,
-                    icon: Icons.schedule,
-                    title: 'Upcoming Blocks',
-                    subtitle: '3 upcoming this epoch',
-                    trailing: '5',
+                  ListTile(
+                    leading: const IconBadge(icon: Icons.bolt),
+                    title: const Text('Uptime'),
+                    subtitle: const Text('Current epoch'),
+                    trailing: const Text('99.7%'),
+                    onTap: () {},
                   ),
                 ],
               ),
@@ -212,14 +162,24 @@ WidgetbookUseCase _patterns() {
             Card(
               child: Column(
                 children: [
-                  _rankTile(cs: cs, rank: 1, name: 'namaah', points: '10,000'),
-                  _rankTile(cs: cs, rank: 2, name: 'madmax', points: '8,500'),
-                  _rankTile(
-                      cs: cs, rank: 3, name: 'boscrypto', points: '7,200'),
-                  _rankTile(
-                      cs: cs, rank: 4, name: 'discordhandle', points: '6,100'),
-                  _rankTile(
-                      cs: cs, rank: 5, name: 'validator99', points: '5,000'),
+                  ListTile(
+                    leading: const RankBadge(rank: '#1'),
+                    title: const Text('namaah'),
+                    trailing: const Text('10,000 pts'),
+                    onTap: () {},
+                  ),
+                  ListTile(
+                    leading: const RankBadge(rank: '#2'),
+                    title: const Text('madmax'),
+                    trailing: const Text('8,500 pts'),
+                    onTap: () {},
+                  ),
+                  ListTile(
+                    leading: const RankBadge(rank: '#3'),
+                    title: const Text('boscrypto'),
+                    trailing: const Text('7,200 pts'),
+                    onTap: () {},
+                  ),
                 ],
               ),
             ),
@@ -232,23 +192,66 @@ WidgetbookUseCase _patterns() {
             Card(
               child: Column(
                 children: [
-                  _simpleTile(
-                    cs: cs,
-                    title: '2132132',
-                    subtitle: '22 Oct 04:30:12',
-                    trailing: 'Produced',
+                  ListTile(
+                    title: const Text('2132132'),
+                    subtitle: const Text('22 Oct 04:30:12'),
+                    trailing: const StatusBadge(
+                      label: 'Produced',
+                      variant: StatusBadgeVariant.success,
+                    ),
+                    onTap: () {},
                   ),
-                  _simpleTile(
-                    cs: cs,
-                    title: '2132131',
-                    subtitle: '22 Oct 04:29:58',
-                    trailing: 'Produced',
+                  ListTile(
+                    title: const Text('2132131'),
+                    subtitle: const Text('22 Oct 04:29:58'),
+                    trailing: const StatusBadge(
+                      label: 'Produced',
+                      variant: StatusBadgeVariant.success,
+                    ),
+                    onTap: () {},
                   ),
-                  _simpleTile(
-                    cs: cs,
-                    title: '2132130',
-                    subtitle: '22 Oct 04:29:44',
-                    trailing: 'Missed',
+                  ListTile(
+                    title: const Text('2132130'),
+                    subtitle: const Text('22 Oct 04:29:44'),
+                    trailing: const StatusBadge(
+                      label: 'Missed',
+                      variant: StatusBadgeVariant.error,
+                    ),
+                    onTap: () {},
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // ---- Pattern D: With Status Badges ----
+            Text('WITH STATUS BADGES', style: textTheme.labelLarge),
+            const SizedBox(height: 8),
+            Card(
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const IconBadge(icon: Icons.cloud_done_outlined),
+                    title: const Text('Node Status'),
+                    subtitle: const Text('Running since 3 days ago'),
+                    trailing: const StatusBadge(
+                      label: 'Online',
+                      variant: StatusBadgeVariant.success,
+                      icon: Icons.check_circle,
+                    ),
+                    onTap: () {},
+                  ),
+                  ListTile(
+                    leading: const IconBadge(icon: Icons.sync),
+                    title: const Text('Sync Status'),
+                    subtitle: const Text('Block 1,234,567'),
+                    trailing: const StatusBadge(
+                      label: 'Syncing',
+                      variant: StatusBadgeVariant.warning,
+                      icon: Icons.sync,
+                    ),
+                    onTap: () {},
                   ),
                 ],
               ),
@@ -261,49 +264,24 @@ WidgetbookUseCase _patterns() {
 }
 
 // ---------------------------------------------------------------------------
-// Pattern tile builders
+// Shared helper
 // ---------------------------------------------------------------------------
 
-Widget _statsTile({
-  required ColorScheme cs,
-  required IconData icon,
-  required String title,
-  required String subtitle,
-  required String trailing,
-}) {
-  return ListTile(
-    leading: _buildIconContainer(cs, icon),
-    title: Text(title),
-    subtitle: Text(subtitle),
-    trailing: _buildTextAndChevron(cs, trailing),
-    onTap: () {},
-  );
-}
+class _TextChevron extends StatelessWidget {
+  const _TextChevron({required this.text});
 
-Widget _rankTile({
-  required ColorScheme cs,
-  required int rank,
-  required String name,
-  required String points,
-}) {
-  return ListTile(
-    leading: _buildRankBadge(cs, rank),
-    title: Text(name),
-    trailing: Text('$points pts'),
-    onTap: () {},
-  );
-}
+  final String text;
 
-Widget _simpleTile({
-  required ColorScheme cs,
-  required String title,
-  required String subtitle,
-  required String trailing,
-}) {
-  return ListTile(
-    title: Text(title),
-    subtitle: Text(subtitle),
-    trailing: _buildTextAndChevron(cs, trailing),
-    onTap: () {},
-  );
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(text),
+        const SizedBox(width: 4),
+        Icon(Icons.chevron_right, size: 20, color: cs.onSurfaceVariant),
+      ],
+    );
+  }
 }

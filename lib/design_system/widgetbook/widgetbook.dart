@@ -13,11 +13,10 @@ import 'challenge_category_tile_use_case.dart';
 import 'challenge_detail_page_use_case.dart';
 import 'challenges_page_use_case.dart';
 import 'color_catalog.dart';
-import 'unified_theme_catalog.dart';
-import 'empty_state_use_case.dart';
 import 'dropdown_chain_use_case.dart';
 import 'dropdown_chip_use_case.dart';
 import 'dropdown_sheet_use_case.dart';
+import 'empty_state_use_case.dart';
 import 'epoch_performance_page_use_case.dart';
 import 'icon_badge_use_case.dart';
 import 'info_row_use_case.dart';
@@ -25,11 +24,13 @@ import 'leaderboard_page_use_case.dart';
 import 'leaderboard_stats_card_use_case.dart';
 import 'list_tile_use_case.dart';
 import 'rank_badge_use_case.dart';
+import 'result_page_use_case.dart';
 import 'score_header_use_case.dart';
 import 'status_badge_use_case.dart';
 import 'tabs_use_case.dart';
 import 'text_field_use_case.dart';
 import 'top_app_bar_use_case.dart';
+import 'unified_theme_catalog.dart';
 
 void main() {
   runApp(const WidgetbookApp());
@@ -156,34 +157,85 @@ class WidgetbookApp extends StatelessWidget {
         WidgetbookCategory(
           name: 'Widgets',
           children: [
-            bottomNavComponent(),
-            buttonComponent(),
-            challengeActivitySummaryComponent(),
-            challengeCardComponent(),
-            challengeCategoryTileComponent(),
-            emptyStateComponent(),
-            dropdownChainComponent(),
-            dropdownChipComponent(),
-            dropdownSheetComponent(),
-            iconBadgeComponent(),
-            infoRowComponent(),
-            leaderboardStatsCardComponent(),
-            listTileComponent(),
-            rankBadgeComponent(),
-            scoreHeaderComponent(),
-            statusBadgeComponent(),
-            tabsComponent(),
-            textFieldComponent(),
-            topAppBarComponent(),
+            WidgetbookFolder(
+              name: 'Navigation',
+              children: [
+                bottomNavComponent(),
+                tabsComponent(),
+                topAppBarComponent(),
+              ],
+            ),
+            WidgetbookFolder(
+              name: 'Buttons',
+              children: [
+                buttonComponent(),
+              ],
+            ),
+            WidgetbookFolder(
+              name: 'Chips',
+              children: [
+                dropdownChainComponent(),
+                dropdownChipComponent(),
+                dropdownSheetComponent(),
+              ],
+            ),
+            WidgetbookFolder(
+              name: 'Inputs',
+              children: [
+                textFieldComponent(),
+              ],
+            ),
+            WidgetbookFolder(
+              name: 'Data Display',
+              children: [
+                infoRowComponent(),
+                leaderboardStatsCardComponent(),
+                listTileComponent(),
+                scoreHeaderComponent(),
+              ],
+            ),
+            WidgetbookFolder(
+              name: 'Indicators',
+              children: [
+                emptyStateComponent(),
+                iconBadgeComponent(),
+                rankBadgeComponent(),
+                statusBadgeComponent(),
+              ],
+            ),
+            WidgetbookFolder(
+              name: 'Challenges',
+              children: [
+                challengeActivitySummaryComponent(),
+                challengeCardComponent(),
+                challengeCategoryTileComponent(),
+              ],
+            ),
           ],
         ),
         WidgetbookCategory(
           name: 'Pages',
           children: [
-            challengeDetailPageComponent(),
-            challengesPageComponent(),
-            epochPerformancePageComponent(),
-            leaderboardPageComponent(),
+            WidgetbookFolder(
+              name: 'Challenges',
+              children: [
+                challengeDetailPageComponent(),
+                challengesPageComponent(),
+              ],
+            ),
+            WidgetbookFolder(
+              name: 'Performance',
+              children: [
+                epochPerformancePageComponent(),
+                leaderboardPageComponent(),
+              ],
+            ),
+            WidgetbookFolder(
+              name: 'Outcomes',
+              children: [
+                resultPageComponent(),
+              ],
+            ),
           ],
         ),
       ],

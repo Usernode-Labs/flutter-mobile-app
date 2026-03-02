@@ -92,6 +92,37 @@ Deliberate deviation — weight contrast separates actionable data from the
 
 ---
 
+## Layout Decisions
+
+### Screen Margin = space16 (2026-03-02)
+
+16dp horizontal margin matches the M3 compact layout standard. Already in use
+across DS screens. Codified as the canonical value.
+
+### Section Gap = space24 (2026-03-02)
+
+24dp between major content sections follows M3 macro spacing guidance for
+compact devices. Distinguishes section breaks from card-to-card gaps (space16).
+
+### Card Gap = space16 (2026-03-02)
+
+16dp between same-type cards within a group. Tighter than section gaps to
+maintain visual grouping.
+
+### SliverPadding Preferred (2026-03-02)
+
+Flutter docs recommend `SliverPadding` over wrapping `SliverToBoxAdapter`
+children in `Padding`. `SliverPadding` participates in the sliver protocol
+directly, avoiding unnecessary layout passes.
+
+### Column/Row spacing Parameter Preferred (2026-03-02)
+
+`Column(spacing: spacing.space16, ...)` replaces interleaved `SizedBox` widgets.
+Available since Flutter 3.27; the project targets 3.35+. Reduces widget tree
+depth and keeps spacing declarative.
+
+---
+
 ## Compilation & Platform Decisions
 
 ### Widgetbook FFI Compilation Failure (2026-02-20)

@@ -37,6 +37,7 @@ final textTheme = Theme.of(context).textTheme;                // typography
 | `docs/CONSTRAINTS.md` | Rules, quality gate, widget pipeline |
 | `docs/COLOR.md` | Color philosophy and semantic color groups |
 | `docs/SURFACES.md` | Two-tier surface model |
+| `docs/LAYOUT.md` | Screen anatomy, spacing roles, scroll patterns |
 | `docs/DECISIONS.md` | Design decisions organized by topic |
 
 ## Widget Catalog

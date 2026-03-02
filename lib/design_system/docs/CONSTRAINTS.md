@@ -42,6 +42,17 @@ Rules enforced by convention (and eventually by lint). Each constraint has: WHAT
 
 **Why:** M3's tonal elevation with achromatic primary produces imperceptible grey-on-grey shifts. Borders are clearer. **Where:** [SURFACES.md](SURFACES.md); `theme/color_is_expensive_theme.dart`.
 
+## Layout Token Rule
+
+**Constraint:** All layout spacing (margins, gaps, padding) from `AppSpacing` tokens. No hardcoded `EdgeInsets` values.
+- Screen margins: `space16` (16dp)
+- Section gaps: `space24` (24dp)
+- Card gaps: `space16` (16dp)
+- Use Column/Row `spacing:` parameter over `SizedBox` gaps
+- Use `SliverPadding` over `Padding` inside `SliverToBoxAdapter`
+
+**Why:** Hardcoded layout values drift off the 8pt grid and create visual inconsistency across screens. Tokens keep every screen aligned. **Where:** [LAYOUT.md](LAYOUT.md).
+
 ## Widgetbook Rule
 
 **Constraint:** Every widget gets a Widgetbook use case importing the **real widget** with mock data via knobs. Never hand-built replicas.

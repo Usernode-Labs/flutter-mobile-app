@@ -51,7 +51,7 @@ class AppConfig {
   // Registration API
   static const String registrationEndpoint = String.fromEnvironment(
     'REGISTRATION_ENDPOINT',
-    defaultValue: 'https://api.topo.usernodelabs.org/api/v1/register',
+    defaultValue: 'https://leaderboard.usernodelabs.org/api/v2/mobile/register',
   );
 
   // GitHub configuration

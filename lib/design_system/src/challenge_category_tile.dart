@@ -88,6 +88,7 @@ class _ChallengeCategoryTileState extends State<ChallengeCategoryTile> {
     final opacity = Theme.of(context).extension<AppOpacity>()!;
 
     return ExpansionTile(
+      expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
       leading: SizedBox(
         width: sizing.iconContainerSmall,
         height: sizing.iconContainerSmall,
@@ -163,9 +164,10 @@ class _ChallengeCategoryTileState extends State<ChallengeCategoryTile> {
     final sizing = Theme.of(context).extension<AppSizing>()!;
 
     return Padding(
-      // icon container + gap = indent to align with title text
+      // K₂ keyline: contentPadding.start (16) + leading (40) + horizontalTitleGap (16) = 72dp
       padding: EdgeInsets.only(
-        left: sizing.iconContainerSmall + spacing.space12,
+        left: spacing.space16 + sizing.iconContainerSmall + spacing.space16,
+        right: spacing.space16,
         bottom: spacing.space12,
       ),
       child: Wrap(
@@ -218,7 +220,7 @@ class _ChallengeChip extends StatelessWidget {
           ),
           decoration: BoxDecoration(
             color: colors.onSurface.withValues(alpha: opacity.subtle),
-            borderRadius: radii.borderRadiusSmall,
+            borderRadius: radii.borderRadiusFull,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -251,7 +253,7 @@ class _ChallengeChip extends StatelessWidget {
         ),
         decoration: BoxDecoration(
           color: colors.primary,
-          borderRadius: radii.borderRadiusSmall,
+          borderRadius: radii.borderRadiusFull,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

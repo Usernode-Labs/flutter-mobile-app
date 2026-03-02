@@ -3,11 +3,14 @@ import 'package:crypto_mobile_app/design_system/tokens/app_elevation.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 
+enum _PaddingVariant { compact, regular, spacious }
+
 /// Unified card component with consistent styling across the app
 /// Supports different padding variants, optional headers, and elevation levels
 class AppCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
+  final _PaddingVariant _paddingVariant;
   final Color? color;
   final double? elevation;
   final BorderRadius? borderRadius;
@@ -25,9 +28,9 @@ class AppCard extends StatelessWidget {
     this.onTap,
     this.header,
     this.headerAction,
-  });
+  }) : _paddingVariant = _PaddingVariant.regular;
 
-  /// Compact card — padding resolved from theme in [build].
+  /// Compact card — 12px padding resolved from theme in [build].
   const AppCard.compact({
     super.key,
     required this.child,
@@ -37,9 +40,10 @@ class AppCard extends StatelessWidget {
     this.onTap,
     this.header,
     this.headerAction,
-  }) : padding = null;
+  })  : padding = null,
+        _paddingVariant = _PaddingVariant.compact;
 
-  /// Regular card — padding resolved from theme in [build].
+  /// Regular card — 16px padding resolved from theme in [build].
   const AppCard.regular({
     super.key,
     required this.child,
@@ -49,9 +53,10 @@ class AppCard extends StatelessWidget {
     this.onTap,
     this.header,
     this.headerAction,
-  }) : padding = null;
+  })  : padding = null,
+        _paddingVariant = _PaddingVariant.regular;
 
-  /// Spacious card — padding resolved from theme in [build].
+  /// Spacious card — 24px padding resolved from theme in [build].
   const AppCard.spacious({
     super.key,
     required this.child,
@@ -61,7 +66,8 @@ class AppCard extends StatelessWidget {
     this.onTap,
     this.header,
     this.headerAction,
-  }) : padding = null;
+  })  : padding = null,
+        _paddingVariant = _PaddingVariant.spacious;
 
   @override
   Widget build(BuildContext context) {
@@ -72,7 +78,12 @@ class AppCard extends StatelessWidget {
 
     final effectiveRadius = borderRadius ?? radii.borderRadiusLarge;
     final effectiveElevation = elevation ?? elev.none;
-    final effectivePadding = padding ?? EdgeInsets.all(spacing.space16);
+    final effectivePadding = padding ??
+        EdgeInsets.all(switch (_paddingVariant) {
+          _PaddingVariant.compact => spacing.space12,
+          _PaddingVariant.regular => spacing.space16,
+          _PaddingVariant.spacious => spacing.space24,
+        });
 
     final cardContent = Column(
       crossAxisAlignment: CrossAxisAlignment.start,

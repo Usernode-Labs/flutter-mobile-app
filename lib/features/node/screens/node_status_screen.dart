@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/services.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/utils.dart';
@@ -328,6 +329,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       }
     }
 
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
@@ -339,17 +341,18 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
         child: RefreshIndicator(
           onRefresh: _refresh,
           child: ListView(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(spacing.space16),
             children: [
               if (_error != null) _buildErrorSection(theme, colorScheme, l10n),
               _buildCentralStatusIndicator(context),
-              const SizedBox(height: 40),
+              SizedBox(height: spacing.space48),
               _buildBlockSyncProgressSection(context),
-              const SizedBox(height: 2),
+              SizedBox(height: spacing.space4),
               _buildSyncDetailsSection(context),
-              const SizedBox(height: 8),
+              SizedBox(height: spacing.space8),
               _buildRecentBlocksSection(context),
-              const SizedBox(height: 8),
+              SizedBox(height: spacing.space8),
+              SizedBox(height: spacing.space32),
             ],
           ),
         ),
@@ -361,18 +364,20 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
   Widget _buildErrorSection(
       ThemeData theme, ColorScheme colorScheme, AppLocalizations l10n) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(l10n.commonError, style: TextStyle(color: colorScheme.error)),
-        const SizedBox(height: 6),
+        SizedBox(height: spacing.space8),
         Text(_error!, style: theme.textTheme.bodySmall),
-        const SizedBox(height: 16),
+        SizedBox(height: spacing.space16),
       ],
     );
   }
 
   Widget _buildCentralStatusIndicator(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final statusFromProvider = ref.read(nodeStatusProvider).value;
@@ -383,7 +388,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
     return Column(
       children: [
-        const SizedBox(height: 16),
+        SizedBox(height: spacing.space16),
         // Large circular indicator
         Container(
           width: 100,
@@ -395,7 +400,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
           child: Icon(statusIcon,
               size: 40, color: circleColor.withValues(alpha: 0.8)),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: spacing.space16),
         // Status text
         Text(
           statusLabel,
@@ -404,7 +409,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             color: colorScheme.onSurface,
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: spacing.space8),
         // Chain name with copy functionality
         if (_chainName != null &&
             _chainName!.isNotEmpty &&
@@ -417,7 +422,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                 style: theme.textTheme.bodyMedium
                     ?.copyWith(color: colorScheme.onSurfaceVariant),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: spacing.space8),
               GestureDetector(
                 onTap: () {
                   Clipboard.setData(ClipboardData(text: _chainId ?? ''));
@@ -467,6 +472,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   }
 
   Widget _buildBlockSyncProgressSection(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final statusFromProvider = ref.read(nodeStatusProvider).value;
@@ -523,7 +529,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
           topRight: Radius.circular(20),
         ),
       ),
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(spacing.space24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -546,7 +552,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: spacing.space12),
           AppProgressBar(
             value: mainProgress,
             backgroundColor: colorScheme.surfaceContainerHighest,
@@ -554,7 +560,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             height: 8,
           ),
           if (sync?.isSyncing == true) ...[
-            const SizedBox(height: 12),
+            SizedBox(height: spacing.space12),
             Row(
               children: [
                 Expanded(
@@ -567,7 +573,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                     idle: fetchProgress?.idle ?? BigInt.zero,
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: spacing.space8),
                 Expanded(
                   child: _buildPhaseCard(
                     context: context,
@@ -587,6 +593,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   }
 
   Widget _buildSyncDetailsSection(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -598,19 +605,20 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
           bottomRight: Radius.circular(20),
         ),
       ),
-      padding: const EdgeInsets.all(10),
+      padding: EdgeInsets.all(spacing.space12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(10, 10, 0, 0),
+            padding: EdgeInsets.fromLTRB(
+                spacing.space12, spacing.space12, 0, 0),
             child: Text(
               'Sync Details',
               style: theme.textTheme.titleMedium
                   ?.copyWith(fontWeight: FontWeight.w500),
             ),
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: spacing.space12),
           _buildSyncDetailsCard(
             context: context,
             icon: Icons.hub_outlined,
@@ -620,7 +628,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             trailing: _buildPeersTrailing(),
             onTap: _navigateToPeers,
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: spacing.space12),
           _buildSyncDetailsCard(
             context: context,
             icon: Icons.collections_bookmark_outlined,
@@ -637,7 +645,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
               );
             },
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: spacing.space12),
           _buildSyncDetailsCard(
             context: context,
             icon: Icons.calculate_outlined,
@@ -646,7 +654,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             subtitle: _buildVrfSubtitle(),
             trailing: _buildVrfTrailing(),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: spacing.space12),
           _buildSyncDetailsCard(
             context: context,
             icon: Icons.star_border_outlined,
@@ -655,7 +663,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             subtitle: _buildBestTipSubtitle(),
             trailing: Icon(Icons.copy, color: colorScheme.primary, size: 20),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: spacing.space12),
           _buildSyncDetailsCard(
             context: context,
             icon: Icons.account_tree,

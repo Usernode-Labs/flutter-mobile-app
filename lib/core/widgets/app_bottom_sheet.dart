@@ -124,13 +124,14 @@ class AppBottomSheet extends StatelessWidget {
     bool isDismissible = true,
     bool enableDrag = true,
   }) {
-    final radii = Theme.of(context).extension<AppRadii>()!;
+    final theme = Theme.of(context);
+    final radii = theme.extension<AppRadii>()!;
     return showModalBottomSheet<T>(
       context: context,
       isScrollControlled: isScrollControlled,
       isDismissible: isDismissible,
       enableDrag: enableDrag,
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: theme.colorScheme.surface,
       shape: RoundedRectangleBorder(
         borderRadius: radii.borderRadiusTopXLarge,
       ),

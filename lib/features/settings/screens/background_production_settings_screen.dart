@@ -16,6 +16,7 @@ import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/providers/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 
 final _log =
     LoggingService.instance.withTag('usernode/BackgroundProductionSettings');
@@ -266,6 +267,7 @@ class _BackgroundProductionSettingsScreenState
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     // React to tab changes and start/stop timers
     final currentTab = ref.watch(currentHomeTabProvider);
     final shouldBeActive = currentTab == 2;
@@ -285,40 +287,40 @@ class _BackgroundProductionSettingsScreenState
         child: RefreshIndicator(
           onRefresh: _checkStatus,
           child: ListView(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(spacing.space16),
             children: [
               // Keep About collapsed but place it first
               _buildAboutSection(theme, colorScheme),
-              const SizedBox(height: 8),
+              SizedBox(height: spacing.space8),
               // Top-priority sections
               _buildPermissionsSection(theme, colorScheme),
-              const SizedBox(height: 8),
+              SizedBox(height: spacing.space8),
               if (Platform.isIOS) ...[
                 _buildIOSKeepAliveSection(theme, colorScheme),
-                const SizedBox(height: 8),
+                SizedBox(height: spacing.space8),
               ],
               if (Platform.isAndroid) ...[
                 _buildAndroidBatterySection(theme, colorScheme),
-                const SizedBox(height: 8),
+                SizedBox(height: spacing.space8),
                 _buildThemeSection(theme, colorScheme),
-                const SizedBox(height: 8),
+                SizedBox(height: spacing.space8),
               ],
               if (!Platform.isAndroid) ...[
                 _buildThemeSection(theme, colorScheme),
-                const SizedBox(height: 8),
+                SizedBox(height: spacing.space8),
               ],
 
               // Collapsible sections (collapsed by default)
               _buildFeatureOverviewCard(theme, colorScheme),
-              const SizedBox(height: 8),
+              SizedBox(height: spacing.space8),
               _buildPlatformInfoCard(theme, colorScheme),
-              const SizedBox(height: 8),
+              SizedBox(height: spacing.space8),
               _buildVrfExplanationCard(theme, colorScheme),
-              const SizedBox(height: 8),
+              SizedBox(height: spacing.space8),
 
               // Build Info section (at the bottom)
               _buildBuildInfoCard(theme, colorScheme),
-              const SizedBox(height: 8),
+              SizedBox(height: spacing.space32),
             ],
           ),
         ),
@@ -327,6 +329,7 @@ class _BackgroundProductionSettingsScreenState
   }
 
   Widget _buildThemeSection(ThemeData theme, ColorScheme colorScheme) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final themeMode = ref.watch(themeModeProvider);
 
     void setTheme(ThemeMode mode) {
@@ -340,22 +343,21 @@ class _BackgroundProductionSettingsScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 4),
+          SizedBox(height: spacing.space4),
           RadioListTile<ThemeMode>(
             value: ThemeMode.system,
             groupValue: themeMode,
             title: Text(
-              'Use system setting',
+              ‘Use system setting’,
               style: theme.textTheme.bodyMedium,
             ),
             subtitle: Text(
-              'Automatically follow your device’s light or dark mode.',
+              ‘Automatically follow your device’s light or dark mode.’,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: colorScheme.onSurface.withValues(alpha: 0.7),
               ),
             ),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+            contentPadding: EdgeInsets.zero,
             visualDensity: VisualDensity.compact,
             onChanged: (mode) {
               if (mode != null) setTheme(mode);
@@ -365,11 +367,10 @@ class _BackgroundProductionSettingsScreenState
             value: ThemeMode.light,
             groupValue: themeMode,
             title: Text(
-              'Light mode',
+              ‘Light mode’,
               style: theme.textTheme.bodyMedium,
             ),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+            contentPadding: EdgeInsets.zero,
             visualDensity: VisualDensity.compact,
             onChanged: (mode) {
               if (mode != null) setTheme(mode);
@@ -379,11 +380,10 @@ class _BackgroundProductionSettingsScreenState
             value: ThemeMode.dark,
             groupValue: themeMode,
             title: Text(
-              'Dark mode',
+              ‘Dark mode’,
               style: theme.textTheme.bodyMedium,
             ),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+            contentPadding: EdgeInsets.zero,
             visualDensity: VisualDensity.compact,
             onChanged: (mode) {
               if (mode != null) setTheme(mode);
@@ -395,6 +395,7 @@ class _BackgroundProductionSettingsScreenState
   }
 
   Widget _buildAboutSection(ThemeData theme, ColorScheme colorScheme) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     const aboutText =
         'Your device is part of a new network. It verifies, executes, and contributes compute directly to the network, passively in the background - with no central servers, no hidden infra. As long as users keep the app running, the network will continue to operate, peer to peer, with no external dependencies.\n\n'
         'We\'re doing this to enable networks that can be hosted end-to-end by their own communities - both for decentralization, and to enable a natural coordination point around participation, where users who help operate and contribute to systems directly realize the benefits from it.\n\n'
@@ -416,7 +417,7 @@ class _BackgroundProductionSettingsScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 4),
+          SizedBox(height: spacing.space4),
           Text(
             aboutText,
             style: theme.textTheme.bodyMedium?.copyWith(
@@ -430,6 +431,7 @@ class _BackgroundProductionSettingsScreenState
   }
 
   Widget _buildBuildInfoCard(ThemeData theme, ColorScheme colorScheme) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final env = ref.read(buildEnvProvider);
     final l10n = AppLocalizations.of(context);
     final shortCommit = env.git.commitHash.length >= 7
@@ -469,7 +471,7 @@ class _BackgroundProductionSettingsScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 4),
+          SizedBox(height: spacing.space4),
           // App version and build number
           if (_packageInfo != null) ...[
             GestureDetector(
@@ -480,9 +482,9 @@ class _BackgroundProductionSettingsScreenState
             ),
             _buildInfoRow(
                 'Build Number', _packageInfo!.buildNumber, theme, colorScheme),
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Divider(height: 1),
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: spacing.space8),
+              child: const Divider(height: 1),
             ),
           ],
           // Node/Rust version
@@ -492,9 +494,9 @@ class _BackgroundProductionSettingsScreenState
               l10n.buildInfoBranch, env.git.branch, theme, colorScheme),
           _buildInfoRow(
               l10n.buildInfoCommitTime, env.git.commitTime, theme, colorScheme),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Divider(height: 1),
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: spacing.space8),
+            child: const Divider(height: 1),
           ),
           _buildInfoRow(
               l10n.buildInfoRustc,
@@ -503,9 +505,9 @@ class _BackgroundProductionSettingsScreenState
               colorScheme),
           _buildInfoRow(
               l10n.buildInfoLlvm, env.rustc.llvmVersion, theme, colorScheme),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Divider(height: 1),
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: spacing.space8),
+            child: const Divider(height: 1),
           ),
           _buildInfoRow(
               l10n.buildInfoCargoTarget, env.cargo.target, theme, colorScheme),
@@ -522,8 +524,9 @@ class _BackgroundProductionSettingsScreenState
 
   Widget _buildInfoRow(
       String label, String value, ThemeData theme, ColorScheme colorScheme) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
+      padding: EdgeInsets.only(bottom: spacing.space4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

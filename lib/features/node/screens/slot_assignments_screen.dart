@@ -135,6 +135,7 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
     final secondary = theme.colorScheme.secondary;
 
@@ -172,7 +173,7 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+          padding: EdgeInsets.all(spacing.space16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -182,7 +183,7 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
                   color: theme.colorScheme.surfaceBright,
                   borderRadius: BorderRadius.circular(20),
                 ),
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                padding: EdgeInsets.all(spacing.space16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -225,7 +226,7 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
                         }),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: spacing.space12),
                     Consumer(builder: (context, ref, _) {
                       final summary = ref.watch(producedBlocksSummaryProvider);
                       final data = summary.asData?.value;
@@ -254,11 +255,12 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: spacing.space12),
               // Filters row
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
+                  spacing: spacing.space8,
                   children: [
                     _FilterChip(
                       label: 'Won Slots',
@@ -266,21 +268,18 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
                       selected: _selected.contains(_Filter.all),
                       onTap: () => _toggleFilter(_Filter.all),
                     ),
-                    const SizedBox(width: 8),
                     _FilterChip(
                       label: 'Produced',
                       count: producedCount,
                       selected: _selected.contains(_Filter.produced),
                       onTap: () => _toggleFilter(_Filter.produced),
                     ),
-                    const SizedBox(width: 8),
                     _FilterChip(
                       label: 'Missed',
                       count: missedCount,
                       selected: _selected.contains(_Filter.missed),
                       onTap: () => _toggleFilter(_Filter.missed),
                     ),
-                    const SizedBox(width: 8),
                     _FilterChip(
                       label: 'Upcoming',
                       count: upcomingCount,
@@ -290,14 +289,14 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: spacing.space12),
               // List title
               Text(
                 'Assignments',
                 style: theme.textTheme.titleMedium
                     ?.copyWith(fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: spacing.space8),
               // Filtered list of slots (demo data)
               Expanded(
                 child: ListView.separated(
@@ -437,6 +436,7 @@ class _SlotRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final resultLabel = switch (result) {
@@ -468,7 +468,7 @@ class _SlotRow extends StatelessWidget {
                     color: resultColor,
                   ),
                 ),
-                const SizedBox(width: 4),
+                SizedBox(width: spacing.space4),
                 Icon(Icons.chevron_right,
                     size: 20, color: colorScheme.onSurfaceVariant),
               ],
@@ -499,6 +499,7 @@ class _FilterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
     final bg = selected ? Colors.black87 : Colors.transparent;
     final fg = selected ? Colors.white : theme.colorScheme.onSurface;
@@ -507,7 +508,8 @@ class _FilterChip extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        padding: EdgeInsets.symmetric(
+            horizontal: spacing.space8, vertical: spacing.space8),
         decoration: BoxDecoration(
           color: bg,
           borderRadius: BorderRadius.circular(18),
@@ -517,7 +519,8 @@ class _FilterChip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              padding: EdgeInsets.symmetric(
+                  horizontal: spacing.space8, vertical: spacing.space4),
               decoration: BoxDecoration(
                 color: Colors.grey.shade700,
                 borderRadius: BorderRadius.circular(999),

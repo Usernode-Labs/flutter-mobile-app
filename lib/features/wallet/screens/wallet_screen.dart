@@ -12,6 +12,7 @@ import 'package:crypto_mobile_app/core/services/explorer_service.dart';
 import 'package:crypto_mobile_app/features/wallet/models/transaction_model.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 
 class WalletScreen extends ConsumerStatefulWidget {
   const WalletScreen({super.key});
@@ -82,6 +83,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
     final walletState = _walletState;
@@ -110,7 +112,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               hasScrollBody: false,
               child: SafeArea(
                 child: Padding(
-                  padding: const EdgeInsets.all(16).copyWith(top: 24),
+                  padding: EdgeInsets.all(spacing.space16)
+                      .copyWith(top: spacing.space24),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -125,6 +128,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                         walletState: walletState,
                         l10n: l10n,
                       ),
+                      SizedBox(height: spacing.space32),
                     ],
                   ),
                 ),
@@ -159,6 +163,7 @@ class _BalanceSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
     final syncStatus = nodeStatus.valueOrNull?.syncStatus;
     final showSyncMessage = syncStatus == null || !syncStatus.isSynced;
@@ -175,7 +180,7 @@ class _BalanceSection extends StatelessWidget {
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: spacing.space24),
             walletState.when(
               data: (state) => Text(
                 state.balance.getFormattedBalance(compact: false, decimals: 0),
@@ -192,7 +197,7 @@ class _BalanceSection extends StatelessWidget {
             ),
             if (showSyncMessage && nodeStatus.hasValue)
               Padding(
-                padding: const EdgeInsets.only(top: 8),
+                padding: EdgeInsets.only(top: spacing.space8),
                 child: Text(
                   'Sync in progress...',
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -207,7 +212,7 @@ class _BalanceSection extends StatelessWidget {
                 final balance = state.balance;
                 if (balance.lastUpdated != null) {
                   return Padding(
-                    padding: const EdgeInsets.only(top: 4),
+                    padding: EdgeInsets.only(top: spacing.space4),
                     child: Text(
                       'Last checked at ${balance.lastUpdatedText}',
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -236,12 +241,13 @@ class _AddressCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     return Container(
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceBright,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(spacing.space24),
       child: ref.watch(accountsProvider).when(
             data: (repo) => FutureBuilder(
               future: repo.getActive(),
@@ -270,6 +276,7 @@ class _AddressRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     return Row(
       children: [
         Container(
@@ -281,7 +288,7 @@ class _AddressRow extends StatelessWidget {
           ),
           child: Icon(Icons.tag, color: theme.colorScheme.onSurface),
         ),
-        const SizedBox(width: 12),
+        SizedBox(width: spacing.space12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -291,7 +298,7 @@ class _AddressRow extends StatelessWidget {
                 style: theme.textTheme.titleMedium
                     ?.copyWith(fontWeight: FontWeight.w600),
               ),
-              const SizedBox(height: 4),
+              SizedBox(height: spacing.space4),
               Text(
                 _displayAddress,
                 style: theme.textTheme.bodyMedium
@@ -300,7 +307,7 @@ class _AddressRow extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(width: 12),
+        SizedBox(width: spacing.space12),
         FilledButton(
           onPressed: () {
             Clipboard.setData(ClipboardData(text: address));
@@ -309,7 +316,8 @@ class _AddressRow extends StatelessWidget {
             );
           },
           style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: EdgeInsets.symmetric(
+                horizontal: spacing.space16, vertical: spacing.space8),
           ),
           child: const Text('Copy'),
         ),
@@ -326,6 +334,7 @@ class _RecentActivityCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
 
     return Container(
@@ -333,7 +342,8 @@ class _RecentActivityCard extends StatelessWidget {
         color: theme.colorScheme.surfaceBright,
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
       ),
-      padding: const EdgeInsets.all(16).copyWith(top: 12, bottom: 12),
+      padding: EdgeInsets.all(spacing.space16)
+          .copyWith(top: spacing.space12, bottom: spacing.space12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -342,7 +352,7 @@ class _RecentActivityCard extends StatelessWidget {
             style: theme.textTheme.titleMedium
                 ?.copyWith(fontWeight: FontWeight.w500),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: spacing.space16),
           // API status banner for transaction data
           walletState.when(
             data: (state) {
@@ -357,9 +367,9 @@ class _RecentActivityCard extends StatelessWidget {
                   hasOnlyCachedData &&
                   state.recent.isNotEmpty) {
                 return Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  margin: EdgeInsets.only(bottom: spacing.space8),
+                  padding: EdgeInsets.symmetric(
+                      horizontal: spacing.space12, vertical: spacing.space8),
                   decoration: BoxDecoration(
                     color: Colors.orange.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
@@ -370,7 +380,7 @@ class _RecentActivityCard extends StatelessWidget {
                     children: [
                       Icon(Icons.warning_amber,
                           color: Colors.orange.shade700, size: 16),
-                      const SizedBox(width: 8),
+                      SizedBox(width: spacing.space8),
                       Expanded(
                         child: Text(
                           'Explorer API unavailable. Showing cached data.',
@@ -413,11 +423,13 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+      padding: EdgeInsets.symmetric(
+          vertical: spacing.space48, horizontal: spacing.space24),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -426,7 +438,7 @@ class _EmptyState extends StatelessWidget {
             size: 48,
             color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: spacing.space16),
           Text(
             l10n.walletNoRecentActivity,
             style: theme.textTheme.titleMedium?.copyWith(
@@ -435,7 +447,7 @@ class _EmptyState extends StatelessWidget {
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: spacing.space8),
           Text(
             l10n.walletNoRecentActivitySubtitle,
             style: theme.textTheme.bodyMedium?.copyWith(
@@ -483,6 +495,7 @@ class _TransactionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isPending = transaction.status == TransactionStatus.pending;
@@ -498,7 +511,8 @@ class _TransactionTile extends StatelessWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
+      padding: EdgeInsets.symmetric(
+          vertical: spacing.space8, horizontal: spacing.space8),
       child: Row(
         children: [
           Container(
@@ -540,7 +554,7 @@ class _TransactionTile extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: spacing.space12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

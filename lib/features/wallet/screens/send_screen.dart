@@ -8,6 +8,7 @@ import 'package:crypto_mobile_app/core/providers/recipient_history_provider.dart
 import 'package:crypto_mobile_app/features/wallet/transaction_limits_service.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 
 class SendScreen extends ConsumerStatefulWidget {
   const SendScreen({super.key});
@@ -135,6 +136,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
     final recipientHistory = ref.watch(recipientHistoryProvider);
 
@@ -152,7 +154,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             return SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(spacing.space16),
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: IntrinsicHeight(
@@ -178,7 +180,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                             minLength: 20,
                           ),
                         ),
-                        const SizedBox(height: 18),
+                        SizedBox(height: spacing.space16),
                         _buildField(
                           theme: theme,
                           controller: _amountController,
@@ -186,7 +188,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                           isNumeric: true,
                           validator: _validatePositiveNumber('amount'),
                         ),
-                        const SizedBox(height: 18),
+                        SizedBox(height: spacing.space16),
                         _buildField(
                           theme: theme,
                           controller: _feeController,
@@ -195,7 +197,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                           validator:
                               _validatePositiveNumber('fee', allowZero: true),
                         ),
-                        const SizedBox(height: 18),
+                        SizedBox(height: spacing.space16),
                         _buildField(
                           theme: theme,
                           controller: _memoController,
@@ -204,7 +206,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                         ),
                         const Spacer(),
                         _buildSendButton(theme),
-                        const SizedBox(height: 24),
+                        SizedBox(height: spacing.space24),
                       ],
                     ),
                   ),
@@ -226,6 +228,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
     Widget? suffixIcon,
     String? Function(String?)? validator,
   }) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     return ClipRRect(
       borderRadius: const BorderRadius.only(
         topLeft: Radius.circular(6),
@@ -255,7 +258,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
             errorBorder: InputBorder.none,
             focusedErrorBorder: InputBorder.none,
             filled: false,
-            contentPadding: const EdgeInsets.all(16),
+            contentPadding: EdgeInsets.all(spacing.space16),
             hintText: hint,
             hintStyle: TextStyle(
               color: theme.colorScheme.onSurfaceVariant,
@@ -273,6 +276,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
   }
 
   Widget _buildSendButton(ThemeData theme) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     return Container(
       width: double.infinity,
       height: 56,
@@ -303,8 +307,8 @@ class _SendScreenState extends ConsumerState<SendScreen> {
         child: _isSending
             ? Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  SizedBox(
+                children: [
+                  const SizedBox(
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(
@@ -312,8 +316,8 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                       valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
                   ),
-                  SizedBox(width: 12),
-                  Text(
+                  SizedBox(width: spacing.space12),
+                  const Text(
                     'Sending...',
                     style: TextStyle(
                       color: Colors.white,
@@ -372,21 +376,22 @@ class _SendScreenState extends ConsumerState<SendScreen> {
   }
 
   void _showRecipientHistory(BuildContext context, List<String> recipients) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     showModalBottomSheet<void>(
       context: context,
       useSafeArea: true,
       showDragHandle: true,
       builder: (sheetContext) {
         if (recipients.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.all(24),
-            child: Center(
+          return Padding(
+            padding: EdgeInsets.all(spacing.space24),
+            child: const Center(
               child: Text('No recent addresses'),
             ),
           );
         }
         return ListView.separated(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: EdgeInsets.symmetric(vertical: spacing.space8),
           itemCount: recipients.length,
           separatorBuilder: (_, __) => const Divider(height: 1),
           itemBuilder: (context, index) {

@@ -125,6 +125,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
     }
 
     if (hasError) {
+      final spacing = Theme.of(context).extension<AppSpacing>()!;
       return Scaffold(
         body: Center(
           child: Column(
@@ -136,7 +137,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: spacing.space16),
               FilledButton(
                 onPressed: () => ref.invalidate(challengesProvider),
                 child: Text(AppLocalizations.of(context).retry),

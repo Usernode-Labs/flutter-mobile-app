@@ -222,6 +222,20 @@ class CryptoMobileApp extends ConsumerWidget {
   const CryptoMobileApp({super.key, required this.hasAccount});
   final bool hasAccount;
 
+  static final _lightTheme =
+      ColorIsExpensiveTheme(ThemeData.light().textTheme).light().copyWith(
+            extensions: DesignSystemTheme.standardExtensions(
+              semanticColors: AppSemanticColors.light(),
+            ),
+          );
+
+  static final _darkTheme =
+      ColorIsExpensiveTheme(ThemeData.dark().textTheme).dark().copyWith(
+            extensions: DesignSystemTheme.standardExtensions(
+              semanticColors: AppSemanticColors.dark(),
+            ),
+          );
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
@@ -235,18 +249,8 @@ class CryptoMobileApp extends ConsumerWidget {
 
     return MaterialApp.router(
       onGenerateTitle: (ctx) => AppLocalizations.of(ctx).appName,
-      theme:
-          ColorIsExpensiveTheme(ThemeData.light().textTheme).light().copyWith(
-                extensions: DesignSystemTheme.standardExtensions(
-                  semanticColors: AppSemanticColors.light(),
-                ),
-              ),
-      darkTheme:
-          ColorIsExpensiveTheme(ThemeData.dark().textTheme).dark().copyWith(
-                extensions: DesignSystemTheme.standardExtensions(
-                  semanticColors: AppSemanticColors.dark(),
-                ),
-              ),
+      theme: _lightTheme,
+      darkTheme: _darkTheme,
       themeMode: themeMode,
       debugShowCheckedModeBanner: false,
       routerConfig: router,

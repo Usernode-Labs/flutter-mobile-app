@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 
@@ -75,6 +76,7 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
     final block = widget.block;
     final l10n = AppLocalizations.of(context);
@@ -86,7 +88,7 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
       ),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(spacing.space16),
           children: [
             // Header section with main info
             Row(
@@ -104,7 +106,7 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
                     size: 20,
                   ),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: spacing.space16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,7 +117,7 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: spacing.space4),
                       Text(
                         l10n.statsEpoch(block.epoch),
                         style: theme.textTheme.bodyMedium?.copyWith(
@@ -128,7 +130,7 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
               ],
             ),
 
-            const SizedBox(height: 32),
+            SizedBox(height: spacing.space32),
 
             // Timeline
             _TimelineItem(
@@ -192,11 +194,11 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
               isLast: true,
             ),
 
-            const SizedBox(height: 32),
+            SizedBox(height: spacing.space32),
 
             // Block Information Card
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(spacing.space16),
               decoration: BoxDecoration(
                 color: theme.colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(12),
@@ -211,29 +213,29 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
                       color: theme.colorScheme.onSurface,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: spacing.space16),
                   _InfoRow(
                     label: l10n.blockHash,
                     value: block.hash.toString().length > 24
                         ? '${block.hash.toString().substring(0, 24)}...'
                         : block.hash.toString(),
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: spacing.space12),
                   _InfoRow(
                     label: l10n.blockHeight,
                     value: '${block.height}',
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: spacing.space12),
                   _InfoRow(
                     label: l10n.blockGlobalSlot,
                     value: '${block.globalSlot}',
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: spacing.space12),
                   _InfoRow(
                     label: l10n.blockEpoch,
                     value: '${block.epoch}',
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: spacing.space12),
                   _InfoRow(
                     label: l10n.blockProducer,
                     value: (() {
@@ -248,12 +250,12 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
                           : producer;
                     })(),
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: spacing.space12),
                   _InfoRow(
                     label: l10n.blockTransactions,
                     value: '${block.transactions}',
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: spacing.space12),
                   _InfoRow(
                     label: l10n.blockBatches,
                     value: '${block.batches.length}',

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:crypto_mobile_app/core/widgets/app_card.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/categorized_challenges_provider.dart';
 import 'package:crypto_mobile_app/core/providers/event_points_provider.dart';
@@ -112,73 +113,69 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
 
             // Filter chip row
             SliverPadding(
-              padding: EdgeInsets.symmetric(horizontal: spacing.space16),
+              padding: EdgeInsets.symmetric(
+                horizontal: spacing.space16,
+                vertical: spacing.space8,
+              ),
               sliver: SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: spacing.space8),
-                  child: DropdownChain(
-                    items: [
-                      DropdownChainItem(
-                        label: seasonLabel(context, ref),
-                        onTap: () => showSeasonPicker(context, ref),
-                      ),
-                      DropdownChainItem(
-                        label: eventLabel(context, ref),
-                        onTap: () => showEventPicker(context, ref),
-                      ),
-                    ],
-                  ),
+                child: DropdownChain(
+                  items: [
+                    DropdownChainItem(
+                      label: seasonLabel(context, ref),
+                      onTap: () => showSeasonPicker(context, ref),
+                    ),
+                    DropdownChainItem(
+                      label: eventLabel(context, ref),
+                      onTap: () => showEventPicker(context, ref),
+                    ),
+                  ],
                 ),
               ),
             ),
 
             // Stats card
             SliverPadding(
-              padding: EdgeInsets.symmetric(horizontal: spacing.space16),
+              padding: EdgeInsets.only(
+                left: spacing.space16,
+                right: spacing.space16,
+                bottom: spacing.space16,
+              ),
               sliver: SliverToBoxAdapter(
                 child: _buildStatsCard(context, ranking, eventPoints),
               ),
             ),
 
-            SliverToBoxAdapter(
-              child: SizedBox(height: spacing.space16),
-            ),
-
             // Challenge category tiles
             if (categorized != null)
               SliverPadding(
-                padding: EdgeInsets.symmetric(horizontal: spacing.space16),
+                padding: EdgeInsets.only(
+                  left: spacing.space16,
+                  right: spacing.space16,
+                  bottom: spacing.space16,
+                ),
                 sliver: SliverToBoxAdapter(
                   child: _buildCategoryTiles(
                     context,
                     categorized,
-                    colors,
                     spacing,
-                    radii,
                   ),
                 ),
-              ),
-
-            if (categorized != null)
-              SliverToBoxAdapter(
-                child: SizedBox(height: spacing.space16),
               ),
 
             // Participants list card
             SliverPadding(
               padding: EdgeInsets.symmetric(horizontal: spacing.space16),
               sliver: SliverToBoxAdapter(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: colors.surfaceContainerLowest,
-                    borderRadius: radii.borderRadiusLargeIncreased,
-                  ),
+                child: AppCard(
+                  padding: EdgeInsets.zero,
+                  borderRadius: radii.borderRadiusLargeIncreased,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Padding(
                         padding: EdgeInsets.only(
                           left: spacing.space16,
+                          right: spacing.space16,
                           top: spacing.space16,
                           bottom: spacing.space8,
                         ),
@@ -205,7 +202,6 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                           tileColor: isCurrentUser
                               ? colors.primaryContainer.withValues(alpha: 0.3)
                               : null,
-                          onTap: () {},
                         );
                       }),
                       if (isLoadingMore)
@@ -308,10 +304,11 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
   Widget _buildCategoryTiles(
     BuildContext context,
     CategorizedEnrichedChallenges categorized,
-    ColorScheme colors,
     AppSpacing spacing,
-    AppRadii radii,
   ) {
+    final colors = Theme.of(context).colorScheme;
+    final radii = Theme.of(context).extension<AppRadii>()!;
+
     final allChallenges = [
       ...categorized.active,
       ...categorized.completed,
@@ -332,24 +329,18 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
       ChallengeCategory.flash,
     ].where(grouped.containsKey).toList();
 
-    return Container(
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerLowest,
-        borderRadius: radii.borderRadiusLargeIncreased,
-      ),
+    return AppCard(
       padding: EdgeInsets.symmetric(vertical: spacing.space8),
+      borderRadius: radii.borderRadiusLargeIncreased,
       child: Column(
         children: [
           for (var i = 0; i < sortedCategories.length; i++) ...[
             if (i > 0)
               Divider(height: 1, color: colors.surfaceContainerHighest),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: spacing.space16),
-              child: _buildCategoryTile(
-                context,
-                sortedCategories[i],
-                grouped[sortedCategories[i]]!,
-              ),
+            _buildCategoryTile(
+              context,
+              sortedCategories[i],
+              grouped[sortedCategories[i]]!,
             ),
           ],
         ],

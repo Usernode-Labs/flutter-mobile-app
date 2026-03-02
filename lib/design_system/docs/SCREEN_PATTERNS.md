@@ -188,6 +188,7 @@ M3 distinguishes two containment strategies. Both follow the same Matryoshka spa
 2. **Surfaces** (AppCard, explicit containers) own their internal inset padding — they sit flush within the screen's margins and never add their own horizontal margin.
 3. **Widgets** (ListTile, ExpansionTile, etc.) own their content padding via theme. Do not wrap them in extra `Padding`.
 4. **Inter-widget gaps** inside a surface are owned by that surface's layout — use `Column(spacing: ...)` or `Divider`.
+5. **Keyline consistency** — all text in ListTile/ExpansionTile rows must land on K₂ (see LAYOUT.md § Keylines). Never wrap these widgets in extra horizontal Padding.
 
 ### When Zones Collide: The ListTile-in-Card Case
 
@@ -500,6 +501,7 @@ AppCard.regular(child: ...)
 | `SafeArea` inside screen with `TopAppBar` | Remove — AppBar handles safe area |
 | `SizedBox(height: 16)` between items | `Column(spacing: spacing.space16, ...)` |
 | `Padding` inside `SliverToBoxAdapter` | `SliverPadding` wrapping the sliver |
+| `Padding(horizontal: 16)` around ExpansionTile | Remove — tilePadding from theme already provides K₂ alignment |
 | `const EdgeInsets.only(left: 28)` | `EdgeInsets.only(left: spacing.space24)` |
 | `EdgeInsets.fromLTRB(16, 24, 16, 24)` | `EdgeInsets.symmetric(horizontal: .space16, vertical: .space24)` |
 
@@ -659,6 +661,7 @@ Before submitting a new screen, verify:
 10. **SliverPadding** — used for margins in `CustomScrollView` (not `Padding` in `SliverToBoxAdapter`).
 11. **Semantic colors** — status/category colors use `semanticColors.*`, not raw hex.
 12. **Grid alignment** — all spacing values snap to the 8pt grid (4, 8, 12, 16, 24, 32, 48).
+13. **Keylines** — text offsets from screen edge are consistent across sections (K₀ / K₁ / K₂).
 
 ### Self-Service Audit Commands
 

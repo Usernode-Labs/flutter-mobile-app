@@ -5,6 +5,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../tokens/app_opacity.dart';
 import '../tokens/app_radii.dart';
+import '../tokens/app_sizing.dart';
 import '../tokens/app_spacing.dart';
 
 /// A stats summary card with dot-matrix distribution chart for the leaderboard.
@@ -542,6 +543,7 @@ class _ExplainerCallout extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
     final opacity = Theme.of(context).extension<AppOpacity>()!;
 
@@ -561,7 +563,7 @@ class _ExplainerCallout extends StatelessWidget {
         children: [
           Icon(
             Symbols.bar_chart_4_bars,
-            size: 20,
+            size: sizing.iconSmall,
             color: colors.onSurfaceVariant,
           ),
           Expanded(

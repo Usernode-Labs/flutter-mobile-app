@@ -48,6 +48,46 @@ Tab Screen (Challenges, Wallet, Node)    Detail Screen (Leaderboard, ChallengeDe
 | Internal element gap | `space8` | 8dp | Between label and value within a card |
 | Tight gap | `space4` | 4dp | Between heading and its body text |
 
+## Keylines — Consistent Vertical Alignment
+
+M2 defined explicit keylines (16dp margin, 72dp text keyline). M3 achieves the same alignment through component-level spacing defaults. We formalize three keylines:
+
+```
+Screen edge
+│
+├── K₀ (16dp) ── Card edges, chips, standalone widgets
+│
+│   Card edge
+│   │
+│   ├── K₁ (+16dp = 32dp from screen) ── Section titles, subheaders
+│   │
+│   └── K₂ (+72dp = 88dp from screen) ── Text after leading elements
+│       ╭────────────────────╮
+│       │ 16dp  40dp  16dp   │
+│       │ pad   lead  gap    │
+│       ╰────────────────────╯
+```
+
+| Keyline | From screen edge | From card edge | What aligns here |
+|---------|-----------------|----------------|------------------|
+| **K₀** | 16dp | — | Card edges, chips, top-level widgets |
+| **K₁** | 32dp | 16dp | Section titles, subheaders inside cards |
+| **K₂** | 88dp | 72dp | Text in ListTile / ExpansionTile with leading element |
+
+**K₂ math**: `contentPadding.start` (16dp) + `minLeadingWidth` (40dp) + `horizontalTitleGap` (16dp) = 72dp from card edge. With 16dp screen margin → 88dp from screen.
+
+**Rules:**
+1. Screen margin (`SliverPadding horizontal: space16`) → K₀ at 16dp
+2. Card padding (`AppCard.regular` / `contentPadding`) → K₁ at 32dp
+3. ListTile/ExpansionTile with leading → K₂ at 88dp
+4. **Never add manual Padding around ListTile/ExpansionTile** — it shifts K₂
+5. Section titles inside list-bearing cards: explicit `Padding(horizontal: space16)` → K₁
+
+**Keyline audit**: trace the padding chain from screen edge to text:
+```
+screen margin + card padding + widget padding + leading width + gap = offset
+```
+
 ## Scroll Pattern Decision Tree
 
 ```

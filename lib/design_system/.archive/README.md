@@ -13,6 +13,7 @@ Local-only archive of research, audits, and gap analysis performed during the
 | `04_current_implementation_portrait.md` | Synthesized snapshot mapping current code to ideal sections | 300 |
 | `05_gap_analysis_and_recommendations.md` | Ideal vs reality alignment matrix + prioritized action plan | 590 |
 | `06_harness_engineering_research.md` | Summary of agent/harness research that informed docs restructure | ~100 |
+| `07_list_system_guidance.md` | Complete list system reference: Figma design language, M3 translation rules, built inventory, decision framework | ~230 |
 
 ## Origin
 

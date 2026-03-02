@@ -3,6 +3,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../tokens/app_opacity.dart';
 import '../tokens/app_radii.dart';
+import '../tokens/app_sizing.dart';
 import '../tokens/app_spacing.dart';
 
 /// A single sub-challenge item within a [ChallengeCategoryTile].
@@ -83,12 +84,13 @@ class _ChallengeCategoryTileState extends State<ChallengeCategoryTile> {
     final colors = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final opacity = Theme.of(context).extension<AppOpacity>()!;
 
     return ExpansionTile(
       leading: SizedBox(
-        width: 40,
-        height: 40,
+        width: sizing.iconContainerSmall,
+        height: sizing.iconContainerSmall,
         child: widget.categoryIcon,
       ),
       title: Text(
@@ -139,7 +141,7 @@ class _ChallengeCategoryTileState extends State<ChallengeCategoryTile> {
             duration: const Duration(milliseconds: 150),
             child: Icon(
               Symbols.expand_more,
-              size: 20,
+              size: sizing.iconSmall,
               color: colors.onSurfaceVariant,
             ),
           ),
@@ -158,11 +160,12 @@ class _ChallengeCategoryTileState extends State<ChallengeCategoryTile> {
 
   Widget _buildBody(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
 
     return Padding(
-      // 40 (icon) + 12 (gap) = 52px indent to align with title text
+      // icon container + gap = indent to align with title text
       padding: EdgeInsets.only(
-        left: 52,
+        left: sizing.iconContainerSmall + spacing.space12,
         bottom: spacing.space12,
       ),
       child: Wrap(

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../tokens/app_radii.dart';
+import '../tokens/app_spacing.dart';
+
 /// "Color is Expensive" Material 3 theme — APCA-driven ink & paper philosophy.
 ///
 /// Near-black primary (#18191B) as the attention locker. Achromatic secondary
@@ -13,6 +16,10 @@ class ColorIsExpensiveTheme {
   final TextTheme textTheme;
 
   const ColorIsExpensiveTheme(this.textTheme);
+
+  // Standard token instances used by the theme builder.
+  static final _spacing = AppSpacing.standard();
+  static final _radii = AppRadii.standard();
 
   // ---------------------------------------------------------------------------
   // Light schemes
@@ -380,7 +387,7 @@ class ColorIsExpensiveTheme {
           elevation: 0,
           surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: _radii.borderRadiusLarge,
             side: BorderSide(color: colorScheme.outlineVariant),
           ),
         ),
@@ -390,7 +397,7 @@ class ColorIsExpensiveTheme {
           elevation: 0,
           surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: _radii.borderRadiusXLarge,
           ),
         ),
 
@@ -406,19 +413,36 @@ class ColorIsExpensiveTheme {
           elevation: 0,
         ),
 
-        snackBarTheme: const SnackBarThemeData(
+        snackBarTheme: SnackBarThemeData(
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12)),
+            borderRadius: _radii.borderRadiusMedium,
           ),
         ),
 
+        expansionTileTheme: ExpansionTileThemeData(
+          tilePadding: EdgeInsets.symmetric(
+            horizontal: _spacing.space16,
+            vertical: _spacing.space12,
+          ),
+          childrenPadding: EdgeInsets.zero,
+          shape: const RoundedRectangleBorder(),
+          collapsedShape: const RoundedRectangleBorder(),
+          backgroundColor: Colors.transparent,
+          collapsedBackgroundColor: Colors.transparent,
+          iconColor: colorScheme.onSurfaceVariant,
+          collapsedIconColor: colorScheme.onSurfaceVariant,
+          clipBehavior: Clip.none,
+        ),
+
         listTileTheme: ListTileThemeData(
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: _spacing.space16,
+            vertical: _spacing.space4,
+          ),
           visualDensity: VisualDensity.compact,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: _radii.borderRadiusMedium,
           ),
           titleTextStyle: textTheme.bodyMedium?.copyWith(
             color: colorScheme.onSurface,

@@ -141,7 +141,7 @@ class BottomNav extends StatelessWidget {
           filled ? (item.indicatorColor ?? colors.primary) : colors.outline;
       Widget iconWidget = Opacity(
         opacity: disabledOpacity,
-        child: Icon(item.icon, fill: filled ? 1 : 0, size: 24, color: color),
+        child: Icon(item.icon, fill: filled ? 1 : 0, color: color),
       );
       if (hasBadge) {
         iconWidget = Badge(

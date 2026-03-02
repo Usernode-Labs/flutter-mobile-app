@@ -17,6 +17,7 @@ Sandboxed POC in `lib/design_system/` for agentic widget building with a living 
 - **No `copyWith` on textTheme.** Use M3 styles as-is. Permitted exceptions documented in [CONSTRAINTS.md](docs/CONSTRAINTS.md).
 - **No elevation for separation.** Borders replace shadows. Two-tier surface model: grey scaffold + white content. See [SURFACES.md](docs/SURFACES.md).
 - **No FRB-generated types in widget constructors.** They transitively import native FFI.
+- **Use Material Symbols Sharp for all icons.** Use `Symbols.*_sharp` from `material_symbols_icons`. The theme enforces weight 300, outline (fill 0), and 24px via `iconTheme` — sharp variant is a per-icon naming choice that can't be set globally.
 
 ## Quick Start
 

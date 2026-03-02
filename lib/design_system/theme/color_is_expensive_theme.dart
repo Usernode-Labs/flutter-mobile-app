@@ -343,6 +343,15 @@ class ColorIsExpensiveTheme {
         scaffoldBackgroundColor: colorScheme.surface,
         canvasColor: colorScheme.surface,
 
+        // --- Icon defaults: weight 300, outline (fill 0), 24px ---
+        iconTheme: IconThemeData(
+          size: 24,
+          weight: 300,
+          fill: 0,
+          opticalSize: 24,
+          color: colorScheme.onSurface,
+        ),
+
         // --- Surface architecture: two-tier grey scaffold / white content ---
 
         appBarTheme: AppBarTheme(

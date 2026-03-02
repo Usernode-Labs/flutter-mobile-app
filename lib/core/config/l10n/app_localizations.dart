@@ -1935,6 +1935,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Select Phase'**
   String get selectPhase;
+
+  /// Error message when challenges fail to load
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load challenges'**
+  String get challengeFailedToLoad;
+
+  /// Empty state for completed challenges tab
+  ///
+  /// In en, this message translates to:
+  /// **'No completed challenges'**
+  String get challengeNoCompleted;
+
+  /// Empty state for missed challenges tab
+  ///
+  /// In en, this message translates to:
+  /// **'No missed challenges'**
+  String get challengeNoMissed;
+
+  /// Score header label for points
+  ///
+  /// In en, this message translates to:
+  /// **'points'**
+  String get challengePoints;
+
+  /// CTA button to navigate to leaderboard
+  ///
+  /// In en, this message translates to:
+  /// **'View in Leaderboard'**
+  String get challengeViewInLeaderboard;
+
+  /// Score header rank display
+  ///
+  /// In en, this message translates to:
+  /// **'Rank {rank}'**
+  String challengeRank(int rank);
+
+  /// Detail screen total reward heading
+  ///
+  /// In en, this message translates to:
+  /// **'Total Reward {reward}'**
+  String challengeTotalReward(String reward);
+
+  /// Section title for challenge description
+  ///
+  /// In en, this message translates to:
+  /// **'The Why'**
+  String get challengeSectionTheWhy;
+
+  /// Section title for challenge task
+  ///
+  /// In en, this message translates to:
+  /// **'Task'**
+  String get challengeSectionTask;
+
+  /// Section title for challenge requirements
+  ///
+  /// In en, this message translates to:
+  /// **'Requirements'**
+  String get challengeSectionRequirements;
+
+  /// Fallback epoch earned when no point diff exists
+  ///
+  /// In en, this message translates to:
+  /// **'+0'**
+  String get challengeEpochNoChange;
+
+  /// Fallback epoch section label
+  ///
+  /// In en, this message translates to:
+  /// **'Last 24h'**
+  String get challengeEpochLast24h;
 }
 
 class _AppLocalizationsDelegate

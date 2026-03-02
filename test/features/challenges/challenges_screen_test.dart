@@ -13,6 +13,7 @@ import 'package:crypto_mobile_app/core/providers/ranking_provider.dart';
 import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
 import 'package:crypto_mobile_app/core/utils/leaderboard_cache.dart';
 import 'package:crypto_mobile_app/design_system/src/score_header.dart';
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/features/challenges/screens/challenges_screen.dart';
 
 // ---------------------------------------------------------------------------
@@ -189,7 +190,11 @@ Widget _buildTestApp({
                 const CachedData(data: _testSeasons, isCached: false),
           )),
     ],
-    child: const MaterialApp(home: ChallengesScreen()),
+    child: const MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: ChallengesScreen(),
+    ),
   );
 }
 

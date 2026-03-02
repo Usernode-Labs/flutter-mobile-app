@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
@@ -143,7 +144,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Failed to load challenges',
+                AppLocalizations.of(context).challengeFailedToLoad,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
@@ -151,7 +152,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
               const SizedBox(height: 16),
               FilledButton(
                 onPressed: () => ref.invalidate(challengesProvider),
-                child: const Text('Retry'),
+                child: Text(AppLocalizations.of(context).retry),
               ),
             ],
           ),
@@ -296,10 +297,12 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
                       children: [
                         _buildActiveTabContent(
                             categorized.active, categorized, spacing),
-                        _buildEnrichedChallengeList(categorized.completed,
-                            spacing, 'No completed challenges'),
+                        _buildEnrichedChallengeList(
+                            categorized.completed,
+                            spacing,
+                            AppLocalizations.of(context).challengeNoCompleted),
                         _buildEnrichedChallengeList(categorized.missed, spacing,
-                            'No missed challenges'),
+                            AppLocalizations.of(context).challengeNoMissed),
                       ],
                     ),
                   ),
@@ -392,19 +395,20 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
     final totalPoints = breakdown?.totalPoints ?? ranking?.totalPoints;
     final rank = breakdown?.eventBreakdown?.rank ?? ranking?.rank;
 
+    final l10n = AppLocalizations.of(context);
     final score = totalPoints != null ? formatPoints(totalPoints) : '--';
-    final rankLabel = rank != null ? 'Rank $rank' : null;
+    final rankLabel = rank != null ? l10n.challengeRank(rank) : null;
     final progress = _computePhaseProgress();
 
     final countdown = _computeCountdown();
     return ScoreHeader(
       score: score,
-      scoreLabel: 'points',
+      scoreLabel: l10n.challengePoints,
       rankLabel: rankLabel,
       progress: progress,
       countdownLabel: countdown.label,
       countdownTime: countdown.time,
-      ctaLabel: 'View in Leaderboard',
+      ctaLabel: l10n.challengeViewInLeaderboard,
       onCtaTap: () => context.push(AppRoutes.leaderboard),
       variant: _scoreVariant,
       technicalGlowIntensity: glow.isAnimating ? glow.technical : null,

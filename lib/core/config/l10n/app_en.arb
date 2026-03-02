@@ -1408,5 +1408,60 @@
   "selectPhase": "Select Phase",
   "@selectPhase": {
     "description": "Title for phase picker bottom sheet"
+  },
+
+  "challengeFailedToLoad": "Failed to load challenges",
+  "@challengeFailedToLoad": {
+    "description": "Error message when challenges fail to load"
+  },
+  "challengeNoCompleted": "No completed challenges",
+  "@challengeNoCompleted": {
+    "description": "Empty state for completed challenges tab"
+  },
+  "challengeNoMissed": "No missed challenges",
+  "@challengeNoMissed": {
+    "description": "Empty state for missed challenges tab"
+  },
+  "challengePoints": "points",
+  "@challengePoints": {
+    "description": "Score header label for points"
+  },
+  "challengeViewInLeaderboard": "View in Leaderboard",
+  "@challengeViewInLeaderboard": {
+    "description": "CTA button to navigate to leaderboard"
+  },
+  "challengeRank": "Rank {rank}",
+  "@challengeRank": {
+    "description": "Score header rank display",
+    "placeholders": {
+      "rank": {"type": "int"}
+    }
+  },
+  "challengeTotalReward": "Total Reward {reward}",
+  "@challengeTotalReward": {
+    "description": "Detail screen total reward heading",
+    "placeholders": {
+      "reward": {"type": "String"}
+    }
+  },
+  "challengeSectionTheWhy": "The Why",
+  "@challengeSectionTheWhy": {
+    "description": "Section title for challenge description"
+  },
+  "challengeSectionTask": "Task",
+  "@challengeSectionTask": {
+    "description": "Section title for challenge task"
+  },
+  "challengeSectionRequirements": "Requirements",
+  "@challengeSectionRequirements": {
+    "description": "Section title for challenge requirements"
+  },
+  "challengeEpochNoChange": "+0",
+  "@challengeEpochNoChange": {
+    "description": "Fallback epoch earned when no point diff exists"
+  },
+  "challengeEpochLast24h": "Last 24h",
+  "@challengeEpochLast24h": {
+    "description": "Fallback epoch section label"
   }
 }

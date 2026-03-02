@@ -1061,4 +1061,44 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get selectPhase => 'Select Phase';
+
+  @override
+  String get challengeFailedToLoad => 'Failed to load challenges';
+
+  @override
+  String get challengeNoCompleted => 'No completed challenges';
+
+  @override
+  String get challengeNoMissed => 'No missed challenges';
+
+  @override
+  String get challengePoints => 'points';
+
+  @override
+  String get challengeViewInLeaderboard => 'View in Leaderboard';
+
+  @override
+  String challengeRank(int rank) {
+    return 'Rank $rank';
+  }
+
+  @override
+  String challengeTotalReward(String reward) {
+    return 'Total Reward $reward';
+  }
+
+  @override
+  String get challengeSectionTheWhy => 'The Why';
+
+  @override
+  String get challengeSectionTask => 'Task';
+
+  @override
+  String get challengeSectionRequirements => 'Requirements';
+
+  @override
+  String get challengeEpochNoChange => '+0';
+
+  @override
+  String get challengeEpochLast24h => 'Last 24h';
 }

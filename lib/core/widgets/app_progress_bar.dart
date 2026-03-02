@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
+
 class AppProgressBar extends StatelessWidget {
   final double value;
   final Color? backgroundColor;
@@ -18,6 +20,7 @@ class AppProgressBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     final isDark = colorScheme.brightness == Brightness.dark;
 
     // Use canonical colors if not provided
@@ -36,7 +39,7 @@ class AppProgressBar extends StatelessWidget {
             height: 4,
             decoration: BoxDecoration(
               color: trackColor,
-              borderRadius: BorderRadius.circular(2),
+              borderRadius: radii.borderRadiusXSmall,
             ),
           ),
           // Filled part
@@ -46,7 +49,7 @@ class AppProgressBar extends StatelessWidget {
               height: 4,
               decoration: BoxDecoration(
                 color: activeColor,
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: radii.borderRadiusXSmall,
               ),
             ),
           ),
@@ -58,7 +61,7 @@ class AppProgressBar extends StatelessWidget {
               height: 8,
               decoration: BoxDecoration(
                 color: activeColor,
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: radii.borderRadiusXSmall,
               ),
             ),
           ),

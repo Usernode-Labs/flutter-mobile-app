@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../tokens/app_opacity.dart';
 import '../tokens/app_radii.dart';
 import '../tokens/app_semantic_colors.dart';
+import '../tokens/app_sizing.dart';
 import '../tokens/app_spacing.dart';
 
 /// Visual variant for [StatusBadge].
@@ -51,6 +52,7 @@ class StatusBadge extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final semantic = Theme.of(context).extension<AppSemanticColors>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
     final opacity = Theme.of(context).extension<AppOpacity>()!;
     final textTheme = Theme.of(context).textTheme;
@@ -94,7 +96,7 @@ class StatusBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 14, color: foreground),
+            Icon(icon, size: sizing.iconXSmall, color: foreground),
             SizedBox(width: spacing.space4),
           ],
           Text(

@@ -664,6 +664,7 @@ class _BackgroundProductionSettingsScreenState
   Widget _buildPlatformInfoCard(
       ThemeData theme, ColorScheme colorScheme, AppSemanticColors semantic) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
     final l10n = AppLocalizations.of(context);
     final isAndroid = Platform.isAndroid;
@@ -739,7 +740,7 @@ class _BackgroundProductionSettingsScreenState
               children: [
                 Icon(
                   Symbols.smartphone_sharp,
-                  size: 16,
+                  size: sizing.iconXSmall,
                   color: colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
                 SizedBox(width: spacing.space8),
@@ -764,6 +765,7 @@ class _BackgroundProductionSettingsScreenState
     Color color,
   ) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     final colorScheme = Theme.of(context).colorScheme;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -773,7 +775,7 @@ class _BackgroundProductionSettingsScreenState
               horizontal: spacing.space8, vertical: spacing.space4),
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: radii.borderRadiusXSmall,
           ),
           child: Text(
             percentage,
@@ -814,6 +816,7 @@ class _BackgroundProductionSettingsScreenState
   Widget _buildVrfExplanationCard(
       ThemeData theme, ColorScheme colorScheme, AppSemanticColors semantic) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
     return _buildCollapsibleCard(
       theme: theme,
@@ -899,7 +902,7 @@ class _BackgroundProductionSettingsScreenState
               children: [
                 Icon(
                   Symbols.timer_sharp,
-                  size: 20,
+                  size: sizing.iconSmall,
                   color: semantic.warning.color,
                 ),
                 SizedBox(width: spacing.space12),
@@ -996,6 +999,7 @@ class _BackgroundProductionSettingsScreenState
   Widget _buildPermissionsSection(
       ThemeData theme, ColorScheme colorScheme, AppSemanticColors semantic) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
     final isAndroid = Platform.isAndroid;
 
@@ -1057,7 +1061,7 @@ class _BackgroundProductionSettingsScreenState
                     _hasPermissions
                         ? Symbols.check_circle_sharp
                         : Symbols.warning_sharp,
-                    size: 20,
+                    size: sizing.iconSmall,
                     color: _hasPermissions
                         ? semantic.success.color
                         : semantic.warning.color,
@@ -1271,6 +1275,7 @@ class _BackgroundProductionSettingsScreenState
     Color color,
   ) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
     return Container(
       padding: EdgeInsets.all(spacing.space8),
@@ -1280,7 +1285,8 @@ class _BackgroundProductionSettingsScreenState
       ),
       child: Row(
         children: [
-          Icon(icon, size: 16, color: color.withValues(alpha: 0.8)),
+          Icon(icon,
+              size: sizing.iconXSmall, color: color.withValues(alpha: 0.8)),
           SizedBox(width: spacing.space8),
           Expanded(
             child: Column(
@@ -1337,6 +1343,7 @@ class _BackgroundProductionSettingsScreenState
   Widget _buildAndroidBatterySection(
       ThemeData theme, ColorScheme colorScheme, AppSemanticColors semantic) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
     return Container(
       decoration: BoxDecoration(
@@ -1396,7 +1403,7 @@ class _BackgroundProductionSettingsScreenState
                     children: [
                       Icon(
                         Symbols.warning_amber_sharp,
-                        size: 16,
+                        size: sizing.iconXSmall,
                         color: semantic.warning.color,
                       ),
                       SizedBox(width: spacing.space8),
@@ -1416,7 +1423,7 @@ class _BackgroundProductionSettingsScreenState
                     children: [
                       Icon(
                         Symbols.check_circle_sharp,
-                        size: 16,
+                        size: sizing.iconXSmall,
                         color: semantic.success.color,
                       ),
                       SizedBox(width: spacing.space8),
@@ -1454,7 +1461,7 @@ class _BackgroundProductionSettingsScreenState
                     _batteryOptDisabled
                         ? Symbols.check_circle_sharp
                         : Symbols.warning_sharp,
-                    size: 20,
+                    size: sizing.iconSmall,
                     color: _batteryOptDisabled
                         ? semantic.success.color
                         : semantic.warning.color,
@@ -1505,7 +1512,7 @@ class _BackgroundProductionSettingsScreenState
                       children: [
                         Icon(
                           Symbols.warning_amber_sharp,
-                          size: 18,
+                          size: sizing.iconXSmall,
                           color: semantic.warning.color,
                         ),
                         SizedBox(width: spacing.space8),
@@ -1738,6 +1745,7 @@ class _NetworkSwitcherDialogState extends State<_NetworkSwitcherDialog> {
     required AppSemanticColors semantic,
   }) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
     return GestureDetector(
       onTap: () {
@@ -1770,7 +1778,7 @@ class _NetworkSwitcherDialogState extends State<_NetworkSwitcherDialog> {
                   color: isSelected
                       ? colorScheme.primary
                       : colorScheme.onSurfaceVariant,
-                  size: 20,
+                  size: sizing.iconSmall,
                 ),
                 SizedBox(width: spacing.space8),
                 Text(
@@ -1784,11 +1792,11 @@ class _NetworkSwitcherDialogState extends State<_NetworkSwitcherDialog> {
                   Container(
                     padding: EdgeInsets.symmetric(
                       horizontal: spacing.space8,
-                      vertical: 2,
+                      vertical: spacing.space4,
                     ),
                     decoration: BoxDecoration(
                       color: semantic.success.colorContainer,
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: radii.borderRadiusXSmall,
                     ),
                     child: Text(
                       'Active',

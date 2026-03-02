@@ -12,6 +12,7 @@ class NodePeersScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
@@ -158,7 +159,7 @@ class NodePeersScreen extends StatelessWidget {
                                 padding: EdgeInsets.all(spacing.space4),
                                 decoration: BoxDecoration(
                                   color: directionColor.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(4),
+                                  borderRadius: radii.borderRadiusXSmall,
                                   border: Border.all(
                                     color:
                                         directionColor.withValues(alpha: 0.3),
@@ -167,7 +168,7 @@ class NodePeersScreen extends StatelessWidget {
                                 ),
                                 child: Icon(
                                   directionIcon,
-                                  size: 16,
+                                  size: sizing.iconXSmall,
                                   color: directionColor,
                                 ),
                               ),
@@ -193,7 +194,7 @@ class NodePeersScreen extends StatelessWidget {
                             children: [
                               Icon(
                                 Symbols.bar_chart_sharp,
-                                size: 10,
+                                size: sizing.iconXSmall,
                                 color: colorScheme.onSurfaceVariant
                                     .withValues(alpha: 0.7),
                               ),
@@ -216,7 +217,7 @@ class NodePeersScreen extends StatelessWidget {
                               SizedBox(width: spacing.space8),
                               Icon(
                                 Symbols.schedule_sharp,
-                                size: 10,
+                                size: sizing.iconXSmall,
                                 color: colorScheme.onSurfaceVariant
                                     .withValues(alpha: 0.7),
                               ),

@@ -217,7 +217,7 @@ class _EpochPanel extends StatelessWidget {
                           ?.copyWith(fontWeight: FontWeight.w600),
                     ),
                     SizedBox(width: spacing.space4),
-                    const Icon(Symbols.expand_more_sharp, size: 18),
+                    Icon(Symbols.expand_more_sharp, size: sizing.iconXSmall),
                   ],
                 ),
               ),

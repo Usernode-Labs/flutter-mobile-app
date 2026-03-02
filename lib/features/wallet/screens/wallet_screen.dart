@@ -339,6 +339,7 @@ class _RecentActivityCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
     final theme = Theme.of(context);
     final semantic = Theme.of(context).extension<AppSemanticColors>()!;
@@ -385,7 +386,8 @@ class _RecentActivityCard extends StatelessWidget {
                   child: Row(
                     children: [
                       Icon(Symbols.warning_amber_sharp,
-                          color: semantic.warning.color, size: 16),
+                          color: semantic.warning.color,
+                          size: sizing.iconXSmall),
                       SizedBox(width: spacing.space8),
                       Expanded(
                         child: Text(
@@ -436,13 +438,13 @@ class _EmptyState extends StatelessWidget {
 
     return Padding(
       padding: EdgeInsets.symmetric(
-          vertical: spacing.space48, horizontal: spacing.space24),
+          vertical: spacing.space48, horizontal: spacing.space16),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
             Symbols.receipt_long_sharp,
-            size: 48,
+            size: Theme.of(context).extension<AppSizing>()!.iconDisplay,
             color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
           ),
           SizedBox(height: spacing.space16),
@@ -503,6 +505,7 @@ class _TransactionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
@@ -536,9 +539,9 @@ class _TransactionTile extends StatelessWidget {
                 Center(
                   child: isPending && transaction.type == TransactionType.send
                       ? Icon(Symbols.hourglass_empty_sharp,
-                          color: colorScheme.onSurface, size: 20)
+                          color: colorScheme.onSurface, size: sizing.iconSmall)
                       : Icon(transaction.icon,
-                          color: colorScheme.onSurface, size: 20),
+                          color: colorScheme.onSurface, size: sizing.iconSmall),
                 ),
                 if (isPending)
                   Positioned(
@@ -552,11 +555,6 @@ class _TransactionTile extends StatelessWidget {
                         borderRadius: radii.borderRadiusSmall,
                         border:
                             Border.all(color: colorScheme.surface, width: 1),
-                      ),
-                      child: Icon(
-                        Symbols.schedule_sharp,
-                        color: colorScheme.surface,
-                        size: 6,
                       ),
                     ),
                   ),

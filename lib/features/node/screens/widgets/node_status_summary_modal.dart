@@ -58,6 +58,8 @@ class _NodeStatusSummaryModalState
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     final statusAsync = ref.watch(nodeStatusProvider);
     final nodeStatus = statusAsync.valueOrNull;
     final syncStatus = nodeStatus?.syncStatus;
@@ -84,7 +86,7 @@ class _NodeStatusSummaryModalState
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: spacing.space16),
 
           // Sync Status Card
           statusAsync.when(
@@ -160,9 +162,9 @@ class _NodeStatusSummaryModalState
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: spacing.space8),
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: radii.borderRadiusXSmall,
                       child: LinearProgressIndicator(
                         value: syncPercentage,
                         backgroundColor: colorScheme.surfaceContainerHighest,
@@ -170,7 +172,7 @@ class _NodeStatusSummaryModalState
                         minHeight: 6,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: spacing.space8),
                     // Show appropriate message based on state
                     if (syncStatus.isConnecting) ...[
                       Text(
@@ -204,22 +206,24 @@ class _NodeStatusSummaryModalState
                     if (syncStatus.isSyncing &&
                         _blocksPerSecond != null &&
                         _blocksPerSecond! > 0) ...[
-                      const SizedBox(height: 4),
+                      SizedBox(height: spacing.space4),
                       Row(
                         children: [
                           Icon(Symbols.speed_sharp,
-                              size: 14, color: colorScheme.onSurfaceVariant),
-                          const SizedBox(width: 4),
+                              size: sizing.iconXSmall,
+                              color: colorScheme.onSurfaceVariant),
+                          SizedBox(width: spacing.space4),
                           Text(
                             '${_blocksPerSecond!.toStringAsFixed(1)} blocks/sec',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: colorScheme.onSurfaceVariant,
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          SizedBox(width: spacing.space12),
                           Icon(Symbols.schedule_sharp,
-                              size: 14, color: colorScheme.onSurfaceVariant),
-                          const SizedBox(width: 4),
+                              size: sizing.iconXSmall,
+                              color: colorScheme.onSurfaceVariant),
+                          SizedBox(width: spacing.space4),
                           Text(
                             'ETA: ${_calculateETA(currentHeight, networkHeight, _blocksPerSecond!)}',
                             style: theme.textTheme.bodySmall?.copyWith(
@@ -273,9 +277,9 @@ class _NodeStatusSummaryModalState
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: spacing.space8),
                       ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: radii.borderRadiusXSmall,
                         child: LinearProgressIndicator(
                           value: syncPercentage,
                           backgroundColor: colorScheme.surfaceContainerHighest,
@@ -284,7 +288,7 @@ class _NodeStatusSummaryModalState
                           minHeight: 6,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: spacing.space8),
                       if (!syncStatus.isConnecting)
                         Text(
                           'Block $currentHeight / $networkHeight',
@@ -295,22 +299,24 @@ class _NodeStatusSummaryModalState
                       if (!syncStatus.isSynced &&
                           _blocksPerSecond != null &&
                           _blocksPerSecond! > 0) ...[
-                        const SizedBox(height: 4),
+                        SizedBox(height: spacing.space4),
                         Row(
                           children: [
                             Icon(Symbols.speed_sharp,
-                                size: 14, color: colorScheme.onSurfaceVariant),
-                            const SizedBox(width: 4),
+                                size: sizing.iconXSmall,
+                                color: colorScheme.onSurfaceVariant),
+                            SizedBox(width: spacing.space4),
                             Text(
                               '${_blocksPerSecond!.toStringAsFixed(1)} blocks/sec',
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: colorScheme.onSurfaceVariant,
                               ),
                             ),
-                            const SizedBox(width: 12),
+                            SizedBox(width: spacing.space12),
                             Icon(Symbols.schedule_sharp,
-                                size: 14, color: colorScheme.onSurfaceVariant),
-                            const SizedBox(width: 4),
+                                size: sizing.iconXSmall,
+                                color: colorScheme.onSurfaceVariant),
+                            SizedBox(width: spacing.space4),
                             Text(
                               'ETA: ${_calculateETA(currentHeight, networkHeight, _blocksPerSecond!)}',
                               style: theme.textTheme.bodySmall?.copyWith(
@@ -352,9 +358,9 @@ class _NodeStatusSummaryModalState
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: spacing.space8),
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: radii.borderRadiusXSmall,
                       child: LinearProgressIndicator(
                         value: 0.0,
                         backgroundColor: colorScheme.surfaceContainerHighest,
@@ -379,7 +385,7 @@ class _NodeStatusSummaryModalState
             ),
           ),
 
-          const SizedBox(height: 12),
+          SizedBox(height: spacing.space12),
 
           // Peers and Epoch Row
           Row(
@@ -487,7 +493,7 @@ class _NodeStatusSummaryModalState
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: spacing.space12),
               Expanded(
                 child: statusAsync.when(
                   data: (status) {
@@ -586,7 +592,7 @@ class _NodeStatusSummaryModalState
             ],
           ),
 
-          const SizedBox(height: 16),
+          SizedBox(height: spacing.space16),
 
           // View Details Button
           SizedBox(
@@ -600,7 +606,7 @@ class _NodeStatusSummaryModalState
               label: const Text('View Details'),
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: spacing.space8),
         ],
       ),
     );
@@ -665,6 +671,7 @@ class _StatusCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
 
     return Container(
@@ -681,7 +688,7 @@ class _StatusCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, size: 16, color: iconColor),
+              Icon(icon, size: sizing.iconXSmall, color: iconColor),
               const SizedBox(width: 6),
               Text(
                 title,
@@ -692,7 +699,7 @@ class _StatusCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: spacing.space8),
           child,
         ],
       ),

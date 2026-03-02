@@ -52,6 +52,7 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
@@ -79,7 +80,7 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
                   children: [
                     Icon(
                       Symbols.inbox_sharp,
-                      size: 64,
+                      size: sizing.iconDisplayLarge,
                       color:
                           colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                     ),
@@ -185,11 +186,12 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
     Color color,
   ) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final theme = Theme.of(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 20, color: color),
+        Icon(icon, size: sizing.iconSmall, color: color),
         SizedBox(height: spacing.space4),
         Text(
           value,
@@ -216,6 +218,7 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
     ThemeData theme,
   ) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final txHash = _formatTxHash(tx.id.toString());
     final fee = tx.fee.toString();
 
@@ -231,7 +234,7 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
         radius: 16,
         child: Icon(
           Symbols.receipt_long_sharp,
-          size: 14,
+          size: sizing.iconXSmall,
           color: colorScheme.primary,
         ),
       ),
@@ -272,7 +275,7 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
             SizedBox(width: spacing.space4),
             Icon(
               Symbols.arrow_forward_sharp,
-              size: 12,
+              size: sizing.iconXSmall,
               color: colorScheme.primary,
             ),
           ],
@@ -284,6 +287,7 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
   void _showComingSoonModal(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
 
     showDialog(
       context: context,
@@ -291,7 +295,7 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
         return AlertDialog(
           icon: Icon(
             Symbols.schedule_sharp,
-            size: 48,
+            size: sizing.iconDisplay,
             color: colorScheme.primary,
           ),
           title: Text(

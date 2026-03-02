@@ -380,6 +380,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
   Widget _buildCentralStatusIndicator(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final statusFromProvider = ref.read(nodeStatusProvider).value;
@@ -402,7 +403,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             shape: BoxShape.circle,
           ),
           child: Icon(statusIcon,
-              size: 40, color: circleColor.withValues(alpha: 0.8)),
+              size: sizing.iconDisplay,
+              color: circleColor.withValues(alpha: 0.8)),
         ),
         SizedBox(height: spacing.space16),
         // Status text
@@ -439,7 +441,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                 },
                 child: Icon(
                   Symbols.content_copy_sharp,
-                  size: 16,
+                  size: sizing.iconXSmall,
                   color: colorScheme.primary,
                 ),
               ),
@@ -670,7 +672,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             title: const Text('Best Tip'),
             subtitle: _buildBestTipSubtitle(),
             trailing: Icon(Symbols.content_copy_sharp,
-                color: colorScheme.primary, size: 20),
+                color: colorScheme.primary,
+                size: Theme.of(context).extension<AppSizing>()!.iconSmall),
           ),
           _buildSyncDetailsCard(
             context: context,
@@ -696,6 +699,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     VoidCallback? onTap,
   }) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
@@ -712,7 +716,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
               color: colorScheme.secondaryContainer,
               borderRadius: radii.borderRadiusMedium,
             ),
-            child: Icon(icon, color: colorScheme.onSurface, size: 24),
+            child: Icon(icon,
+                color: colorScheme.onSurface, size: sizing.iconRegular),
           ),
           SizedBox(width: spacing.space12),
           Expanded(
@@ -746,7 +751,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
           if (onTap != null) ...[
             SizedBox(width: spacing.space8),
             Icon(Symbols.chevron_right_sharp,
-                color: colorScheme.onSurfaceVariant, size: 20),
+                color: colorScheme.onSurfaceVariant, size: sizing.iconSmall),
           ],
         ],
       ),
@@ -781,6 +786,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
   Widget _buildRecentBlocksSection(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final blockchain = ref.read(nodeBlockchainProvider).value;
@@ -827,7 +833,10 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                       ),
                       SizedBox(width: spacing.space4),
                       Icon(Symbols.arrow_forward_sharp,
-                          size: 14, color: colorScheme.primary),
+                          size: Theme.of(context)
+                              .extension<AppSizing>()!
+                              .iconXSmall,
+                          color: colorScheme.primary),
                     ],
                   ),
                 ),
@@ -901,6 +910,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
   Widget _buildPeersSubtitle(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final statusFromProvider = ref.read(nodeStatusProvider).value;
     final connectedPeers = statusFromProvider?.connectedPeers ?? 0;
     final totalPeers = statusFromProvider?.totalPeers ?? 0;
@@ -933,7 +943,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                 },
                 child: Icon(
                   Symbols.content_copy_sharp,
-                  size: 16,
+                  size: sizing.iconXSmall,
                   color: colorScheme.primary,
                 ),
               ),

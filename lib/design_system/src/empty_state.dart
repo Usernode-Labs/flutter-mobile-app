@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../tokens/app_sizing.dart';
 import '../tokens/app_spacing.dart';
 
 /// A centered empty-state placeholder with icon, title, optional subtitle,
@@ -33,18 +34,19 @@ class EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
 
     return Center(
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: spacing.space24),
+        padding: EdgeInsets.symmetric(horizontal: spacing.space16),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               icon,
-              size: 48,
+              size: sizing.iconDisplay,
               color: colors.onSurfaceVariant,
             ),
             SizedBox(height: spacing.space16),

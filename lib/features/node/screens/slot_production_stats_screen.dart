@@ -215,9 +215,10 @@ class _SlotProductionStatsScreenState
     ThemeData theme,
     AppSpacing spacing,
   ) {
+    final sizing = theme.extension<AppSizing>()!;
     return Column(
       children: [
-        Icon(icon, color: color, size: 32),
+        Icon(icon, color: color, size: sizing.iconXLarge),
         SizedBox(height: spacing.space8),
         Text(
           value,
@@ -242,6 +243,8 @@ class _SlotProductionStatsScreenState
       return const SizedBox.shrink();
     }
 
+    final sizing = theme.extension<AppSizing>()!;
+    final radii = theme.extension<AppRadii>()!;
     final semantic = theme.extension<AppSemanticColors>()!;
     final successRate = _stats!.successRate;
     final color = successRate >= 90
@@ -272,7 +275,7 @@ class _SlotProductionStatsScreenState
                           ? Symbols.sentiment_satisfied_sharp
                           : Symbols.sentiment_dissatisfied_sharp,
                   color: color,
-                  size: 32,
+                  size: sizing.iconXLarge,
                 ),
               ],
             ),
@@ -295,7 +298,7 @@ class _SlotProductionStatsScreenState
               backgroundColor: colorScheme.surfaceContainerHighest,
               valueColor: AlwaysStoppedAnimation<Color>(color),
               minHeight: 8,
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: radii.borderRadiusXSmall,
             ),
             SizedBox(height: spacing.space12),
             Text(
@@ -317,13 +320,15 @@ class _SlotProductionStatsScreenState
     if (_recentRecords.isEmpty) {
       return Card(
         child: Padding(
-          padding: EdgeInsets.all(spacing.space32),
+          padding: EdgeInsets.all(spacing.space24),
           child: Center(
             child: Column(
               children: [
                 Icon(
                   Symbols.inbox_sharp,
-                  size: 64,
+                  size: Theme.of(context)
+                      .extension<AppSizing>()!
+                      .iconDisplayLarge,
                   color: colorScheme.onSurface.withValues(alpha: 0.3),
                 ),
                 SizedBox(height: spacing.space16),
@@ -396,6 +401,7 @@ class _SlotProductionStatsScreenState
     ColorScheme colorScheme,
     AppLocalizations l10n,
   ) {
+    final sizing = theme.extension<AppSizing>()!;
     final statusColor = _getStatusColor(record.status, colorScheme);
     final statusIcon = _getStatusIcon(record.status);
     final statusText = _getStatusText(record.status, l10n);
@@ -403,7 +409,7 @@ class _SlotProductionStatsScreenState
     return ListTile(
       leading: CircleAvatar(
         backgroundColor: statusColor.withValues(alpha: 0.2),
-        child: Icon(statusIcon, color: statusColor, size: 20),
+        child: Icon(statusIcon, color: statusColor, size: sizing.iconSmall),
       ),
       title: Text(l10n.statsSlot(record.slotNumber)),
       subtitle: Column(

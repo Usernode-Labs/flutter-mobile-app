@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../tokens/app_semantic_colors.dart';
+import '../tokens/app_sizing.dart';
 import '../tokens/app_spacing.dart';
 
 /// Visual variant for [ResultPage].
@@ -55,6 +56,7 @@ class ResultPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final semantic = Theme.of(context).extension<AppSemanticColors>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final textTheme = Theme.of(context).textTheme;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
 
@@ -81,7 +83,7 @@ class ResultPage extends StatelessWidget {
           children: [
             Icon(
               icon ?? defaultIcon,
-              size: 64,
+              size: sizing.iconDisplayLarge,
               color: iconColor,
             ),
             SizedBox(height: spacing.space24),

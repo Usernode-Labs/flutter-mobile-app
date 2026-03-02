@@ -501,6 +501,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
     final theme = Theme.of(context);
     final onSurfaceVariant = theme.colorScheme.onSurfaceVariant;
@@ -781,7 +782,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                             Icon(
                                               Symbols.battery_0_bar_sharp,
                                               color: theme.colorScheme.error,
-                                              size: 24,
+                                              size: sizing.iconRegular,
                                             ),
                                             Positioned(
                                               right: 0,
@@ -798,7 +799,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                                   Symbols.settings_sharp,
                                                   color:
                                                       theme.colorScheme.error,
-                                                  size: 12,
+                                                  size: sizing.iconXSmall,
                                                 ),
                                               ),
                                             ),
@@ -1509,7 +1510,10 @@ class _EpochPanel extends StatelessWidget {
                           ?.copyWith(fontWeight: FontWeight.w600),
                     ),
                     SizedBox(width: spacing.space4),
-                    const Icon(Symbols.expand_more_sharp, size: 18),
+                    Icon(Symbols.expand_more_sharp,
+                        size: Theme.of(context)
+                            .extension<AppSizing>()!
+                            .iconXSmall),
                   ],
                 ),
               ),
@@ -1587,6 +1591,7 @@ class _MetricTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
     final theme = Theme.of(context);
     return InkWell(
@@ -1623,7 +1628,7 @@ class _MetricTile extends StatelessWidget {
             ),
             if (showChevron) ...[
               SizedBox(width: spacing.space8),
-              const Icon(Symbols.chevron_right_sharp, size: 20),
+              Icon(Symbols.chevron_right_sharp, size: sizing.iconSmall),
             ],
           ],
         ),

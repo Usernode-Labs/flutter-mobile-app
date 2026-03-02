@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../tokens/app_sizing.dart';
 import '../tokens/app_spacing.dart';
 
 /// A centered error display for use as a full-page body.
@@ -35,18 +36,19 @@ class FullPageErrorState extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
 
     return Center(
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: spacing.space24),
+        padding: EdgeInsets.symmetric(horizontal: spacing.space16),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               Symbols.error_sharp,
-              size: 48,
+              size: sizing.iconDisplay,
               color: colors.onSurfaceVariant,
             ),
             SizedBox(height: spacing.space16),

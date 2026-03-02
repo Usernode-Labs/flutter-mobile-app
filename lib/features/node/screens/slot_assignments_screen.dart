@@ -390,7 +390,7 @@ class _ProgressBar extends StatelessWidget {
             height: 4,
             decoration: BoxDecoration(
               color: trackColor,
-              borderRadius: BorderRadius.circular(2),
+              borderRadius: radii.borderRadiusXSmall,
             ),
           ),
           FractionallySizedBox(
@@ -399,7 +399,7 @@ class _ProgressBar extends StatelessWidget {
               height: 4,
               decoration: BoxDecoration(
                 color: activeColor,
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: radii.borderRadiusXSmall,
               ),
             ),
           ),
@@ -439,6 +439,7 @@ class _SlotRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final resultLabel = switch (result) {
@@ -472,7 +473,8 @@ class _SlotRow extends StatelessWidget {
                 ),
                 SizedBox(width: spacing.space4),
                 Icon(Symbols.chevron_right_sharp,
-                    size: 20, color: colorScheme.onSurfaceVariant),
+                    size: sizing.iconSmall,
+                    color: colorScheme.onSurfaceVariant),
               ],
             )
           : Text(

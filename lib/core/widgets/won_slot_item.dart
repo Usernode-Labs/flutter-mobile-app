@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/config/legacy_colors.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_sizing.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 
 enum SlotStatus {
@@ -30,6 +32,8 @@ class WonSlotItem extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final radii = Theme.of(context).extension<AppRadii>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
 
     // Format expected time
     final expectedTime = _formatExpectedTime(slot.expectedTimeMs);
@@ -81,6 +85,8 @@ class WonSlotItem extends StatelessWidget {
         theme,
         colorScheme,
         radii,
+        sizing,
+        spacing,
         expectedTime,
         timeRemaining,
         statusColor,
@@ -94,6 +100,8 @@ class WonSlotItem extends StatelessWidget {
       theme,
       colorScheme,
       radii,
+      sizing,
+      spacing,
       expectedTime,
       timeRemaining,
       isPast,
@@ -108,6 +116,8 @@ class WonSlotItem extends StatelessWidget {
     ThemeData theme,
     ColorScheme colorScheme,
     AppRadii radii,
+    AppSizing sizing,
+    AppSpacing spacing,
     String expectedTime,
     Duration timeRemaining,
     Color statusColor,
@@ -125,8 +135,8 @@ class WonSlotItem extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(statusIcon, size: 16, color: statusColor),
-          const SizedBox(width: 8),
+          Icon(statusIcon, size: sizing.iconXSmall, color: statusColor),
+          SizedBox(width: spacing.space8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -151,7 +161,7 @@ class WonSlotItem extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: statusColor.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: radii.borderRadiusXSmall,
             ),
             child: Text(
               statusLabel,
@@ -170,6 +180,8 @@ class WonSlotItem extends StatelessWidget {
     ThemeData theme,
     ColorScheme colorScheme,
     AppRadii radii,
+    AppSizing sizing,
+    AppSpacing spacing,
     String expectedTime,
     Duration timeRemaining,
     bool isPast,
@@ -193,8 +205,8 @@ class WonSlotItem extends StatelessWidget {
           // Header row
           Row(
             children: [
-              Icon(statusIcon, color: statusColor, size: 24),
-              const SizedBox(width: 12),
+              Icon(statusIcon, color: statusColor, size: sizing.iconRegular),
+              SizedBox(width: spacing.space12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -236,13 +248,14 @@ class WonSlotItem extends StatelessWidget {
 
           // Time remaining (only for pending/upcoming slots)
           if (status == SlotStatus.pending && !isPast) ...[
-            const SizedBox(height: 12),
+            SizedBox(height: spacing.space12),
             const Divider(height: 1),
-            const SizedBox(height: 12),
+            SizedBox(height: spacing.space12),
             Row(
               children: [
-                Icon(Symbols.timer_sharp, size: 18, color: colorScheme.primary),
-                const SizedBox(width: 8),
+                Icon(Symbols.timer_sharp,
+                    size: sizing.iconXSmall, color: colorScheme.primary),
+                SizedBox(width: spacing.space8),
                 Text(
                   _formatTimeRemaining(timeRemaining),
                   style: theme.textTheme.bodyMedium?.copyWith(

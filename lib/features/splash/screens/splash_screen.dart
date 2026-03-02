@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
@@ -56,6 +57,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final spacing = theme.extension<AppSpacing>()!;
 
     final l10n = Localizations.of<AppLocalizations>(context, AppLocalizations);
 
@@ -80,12 +82,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                         height: 120,
                         child: Icon(
                           Symbols.hub_sharp,
-                          size: 60,
+                          size: theme.extension<AppSizing>()!.iconDisplayLarge,
                           color: theme.colorScheme.onPrimaryContainer,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 32),
+                    SizedBox(height: spacing.space32),
                     Text(
                       (l10n?.appName ?? 'Usernode'),
                       style: theme.textTheme.displayMedium?.copyWith(
@@ -93,7 +95,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: spacing.space8),
                     Text(
                       (l10n?.appTagline ?? 'A User Operated L1 Blockchain'),
                       style: theme.textTheme.bodyLarge?.copyWith(
@@ -108,7 +110,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                       height: 32,
                       child: const CircularProgressIndicator(strokeWidth: 2.5),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: spacing.space16),
                     Text(
                       (l10n?.initializingNode ?? 'Initializing node...'),
                       style: theme.textTheme.bodyMedium?.copyWith(

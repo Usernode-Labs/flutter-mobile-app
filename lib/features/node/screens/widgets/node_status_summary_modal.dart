@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
@@ -75,7 +76,7 @@ class _NodeStatusSummaryModalState
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.close),
+                icon: const Icon(Symbols.close_sharp),
                 onPressed: () => Navigator.of(context).pop(),
               ),
             ],
@@ -88,7 +89,7 @@ class _NodeStatusSummaryModalState
               if (syncStatus == null) {
                 // Loading state
                 return _StatusCard(
-                  icon: Icons.hourglass_empty,
+                  icon: Symbols.hourglass_empty_sharp,
                   iconColor: colorScheme.outline,
                   title: 'Sync Status',
                   child: Center(
@@ -113,19 +114,19 @@ class _NodeStatusSummaryModalState
               final String statusLabel;
 
               if (syncStatus.isConnecting) {
-                icon = Icons.hourglass_empty;
+                icon = Symbols.hourglass_empty_sharp;
                 accentColor = colorScheme.outline;
                 statusLabel = 'Connecting';
               } else if (syncStatus.isSynced) {
-                icon = Icons.check_circle;
+                icon = Symbols.check_circle_sharp;
                 accentColor = colorScheme.tertiary;
                 statusLabel = 'Synced';
               } else if (syncStatus.isSyncing) {
-                icon = Icons.sync;
+                icon = Symbols.sync_sharp;
                 accentColor = colorScheme.primary;
                 statusLabel = 'Syncing';
               } else {
-                icon = Icons.error;
+                icon = Symbols.error_sharp;
                 accentColor = colorScheme.error;
                 statusLabel = 'Error';
               }
@@ -203,7 +204,7 @@ class _NodeStatusSummaryModalState
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          Icon(Icons.speed,
+                          Icon(Symbols.speed_sharp,
                               size: 14, color: colorScheme.onSurfaceVariant),
                           const SizedBox(width: 4),
                           Text(
@@ -213,7 +214,7 @@ class _NodeStatusSummaryModalState
                             ),
                           ),
                           const SizedBox(width: 12),
-                          Icon(Icons.schedule,
+                          Icon(Symbols.schedule_sharp,
                               size: 14, color: colorScheme.onSurfaceVariant),
                           const SizedBox(width: 4),
                           Text(
@@ -242,7 +243,9 @@ class _NodeStatusSummaryModalState
                     : colorScheme.primary;
 
                 return _StatusCard(
-                  icon: syncStatus.isSynced ? Icons.check_circle : Icons.sync,
+                  icon: syncStatus.isSynced
+                      ? Symbols.check_circle_sharp
+                      : Symbols.sync_sharp,
                   iconColor: accentColor,
                   title: 'Sync Status',
                   child: Column(
@@ -292,7 +295,7 @@ class _NodeStatusSummaryModalState
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            Icon(Icons.speed,
+                            Icon(Symbols.speed_sharp,
                                 size: 14, color: colorScheme.onSurfaceVariant),
                             const SizedBox(width: 4),
                             Text(
@@ -302,7 +305,7 @@ class _NodeStatusSummaryModalState
                               ),
                             ),
                             const SizedBox(width: 12),
-                            Icon(Icons.schedule,
+                            Icon(Symbols.schedule_sharp,
                                 size: 14, color: colorScheme.onSurfaceVariant),
                             const SizedBox(width: 4),
                             Text(
@@ -321,7 +324,7 @@ class _NodeStatusSummaryModalState
               // Show default values when no previous data (instead of placeholder)
               final accentColor = colorScheme.outline;
               return _StatusCard(
-                icon: Icons.hourglass_empty,
+                icon: Symbols.hourglass_empty_sharp,
                 iconColor: accentColor,
                 title: 'Sync Status',
                 child: Column(
@@ -361,7 +364,7 @@ class _NodeStatusSummaryModalState
               );
             },
             error: (_, __) => _StatusCard(
-              icon: Icons.error,
+              icon: Symbols.error_sharp,
               iconColor: colorScheme.error,
               title: 'Sync Status',
               child: Text(
@@ -387,7 +390,7 @@ class _NodeStatusSummaryModalState
                         connectedPeers > 0 && connectedPeers == totalPeers;
 
                     return _StatusCard(
-                      icon: Icons.people,
+                      icon: Symbols.people_sharp,
                       iconColor: peerHealthy
                           ? colorScheme.tertiary
                           : colorScheme.error,
@@ -420,7 +423,7 @@ class _NodeStatusSummaryModalState
                           connectedPeers > 0 && connectedPeers == totalPeers;
 
                       return _StatusCard(
-                        icon: Icons.people,
+                        icon: Symbols.people_sharp,
                         iconColor: peerHealthy
                             ? colorScheme.tertiary
                             : colorScheme.error,
@@ -446,7 +449,7 @@ class _NodeStatusSummaryModalState
                     }
                     // Show default values when no previous data (instead of placeholder)
                     return _StatusCard(
-                      icon: Icons.people,
+                      icon: Symbols.people_sharp,
                       iconColor: colorScheme.error,
                       title: 'Peers',
                       child: Column(
@@ -469,7 +472,7 @@ class _NodeStatusSummaryModalState
                     );
                   },
                   error: (_, __) => _StatusCard(
-                    icon: Icons.people,
+                    icon: Symbols.people_sharp,
                     iconColor: colorScheme.error,
                     title: 'Peers',
                     child: Text(
@@ -489,7 +492,7 @@ class _NodeStatusSummaryModalState
                     final globalSlot = status?.globalSlot;
 
                     return _StatusCard(
-                      icon: Icons.access_time,
+                      icon: Symbols.access_time_sharp,
                       iconColor: colorScheme.primary,
                       title: 'Epoch',
                       child: Column(
@@ -518,7 +521,7 @@ class _NodeStatusSummaryModalState
                       final globalSlot = nodeStatus.globalSlot;
 
                       return _StatusCard(
-                        icon: Icons.access_time,
+                        icon: Symbols.access_time_sharp,
                         iconColor: colorScheme.primary,
                         title: 'Epoch',
                         child: Column(
@@ -542,7 +545,7 @@ class _NodeStatusSummaryModalState
                     }
                     // Show default values when no previous data (instead of placeholder)
                     return _StatusCard(
-                      icon: Icons.access_time,
+                      icon: Symbols.access_time_sharp,
                       iconColor: colorScheme.primary,
                       title: 'Epoch',
                       child: Column(
@@ -565,7 +568,7 @@ class _NodeStatusSummaryModalState
                     );
                   },
                   error: (_, __) => _StatusCard(
-                    icon: Icons.access_time,
+                    icon: Symbols.access_time_sharp,
                     iconColor: colorScheme.error,
                     title: 'Epoch',
                     child: Text(
@@ -590,7 +593,7 @@ class _NodeStatusSummaryModalState
                 Navigator.of(context).pop();
                 context.push(AppRoutes.mainNode);
               },
-              icon: const Icon(Icons.visibility),
+              icon: const Icon(Symbols.visibility_sharp),
               label: const Text('View Details'),
             ),
           ),

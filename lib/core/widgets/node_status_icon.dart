@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/features/node/screens/widgets/node_status_summary_modal.dart';
 
@@ -33,22 +34,22 @@ class NodeStatusIcon extends ConsumerWidget {
 
     if (providerHasError || syncStatus == null || syncStatus.hasError) {
       // Error state
-      icon = Icons.error;
+      icon = Symbols.error_sharp;
       color = colorScheme.error;
       shouldRotate = false;
     } else if (syncStatus.isConnecting) {
       // Connecting state (no peers)
-      icon = Icons.hourglass_empty;
+      icon = Symbols.hourglass_empty_sharp;
       color = colorScheme.outline;
       shouldRotate = false;
     } else if (syncStatus.isSynced) {
       // Synced state
-      icon = Icons.check_circle;
+      icon = Symbols.check_circle_sharp;
       color = colorScheme.tertiary;
       shouldRotate = false;
     } else {
       // Syncing state
-      icon = Icons.sync;
+      icon = Symbols.sync_sharp;
       color = colorScheme.primary;
       shouldRotate = true;
     }

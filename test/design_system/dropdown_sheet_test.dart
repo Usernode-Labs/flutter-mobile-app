@@ -1,6 +1,7 @@
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 void main() {
   ThemeData themeWithExtensions() {
@@ -133,7 +134,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Only one check icon for the selected item.
-      expect(find.byIcon(Icons.check), findsOneWidget);
+      expect(find.byIcon(Symbols.check_sharp), findsOneWidget);
     });
   });
 }

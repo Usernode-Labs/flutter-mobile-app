@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../src/button.dart';
 import '../src/challenge_card.dart';
@@ -2164,18 +2165,18 @@ class _ComponentShowcaseSection extends StatelessWidget {
             onDestinationSelected: (_) {},
             destinations: const [
               NavigationDestination(
-                icon: Icon(Icons.home_outlined),
-                selectedIcon: Icon(Icons.home),
+                icon: Icon(Symbols.home_sharp),
+                selectedIcon: Icon(Symbols.home_sharp, fill: 1),
                 label: 'Home',
               ),
               NavigationDestination(
-                icon: Icon(Icons.explore_outlined),
-                selectedIcon: Icon(Icons.explore),
+                icon: Icon(Symbols.explore_sharp),
+                selectedIcon: Icon(Symbols.explore_sharp, fill: 1),
                 label: 'Explore',
               ),
               NavigationDestination(
-                icon: Icon(Icons.person_outline),
-                selectedIcon: Icon(Icons.person),
+                icon: Icon(Symbols.person_sharp),
+                selectedIcon: Icon(Symbols.person_sharp, fill: 1),
                 label: 'Profile',
               ),
             ],
@@ -2196,7 +2197,8 @@ class _ComponentShowcaseSection extends StatelessWidget {
               'Deploy and test a simple smart contract on the testnet.',
           dateRange: 'Feb 24 – Mar 2',
           category: ChallengeCategory.technical,
-          categoryIcon: Icon(Icons.code, color: semantic.technical.color),
+          categoryIcon:
+              Icon(Symbols.code_sharp, color: semantic.technical.color),
           variant: ChallengeCardVariant.ongoing,
           earnedPoints: '120 pts',
           epochPoints: '500 pts',

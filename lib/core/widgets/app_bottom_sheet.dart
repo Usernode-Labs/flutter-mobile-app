@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_opacity.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
@@ -93,7 +94,7 @@ class AppBottomSheet extends StatelessWidget {
                         headerAction!
                       else if (showCloseButton)
                         IconButton(
-                          icon: const Icon(Icons.close),
+                          icon: const Icon(Symbols.close_sharp),
                           onPressed: () => Navigator.of(context).pop(),
                         ),
                     ],

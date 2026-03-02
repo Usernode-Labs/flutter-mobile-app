@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import '../src/info_row.dart';
@@ -60,7 +61,7 @@ WidgetbookUseCase _patterns() {
                     color: Theme.of(context).colorScheme.onSurface,
                   ),
               trailing: IconButton(
-                icon: const Icon(Icons.copy, size: 18),
+                icon: const Icon(Symbols.content_copy_sharp, size: 18),
                 onPressed: () {},
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),

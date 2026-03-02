@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
@@ -10,6 +11,7 @@ import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/providers/produced_blocks_provider.dart';
 import 'package:crypto_mobile_app/core/widgets/app_progress_bar.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 
 // TODO use translation file to replace hard coded strings
 
@@ -167,21 +169,23 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
       builder: (sheetContext) {
         final theme = Theme.of(sheetContext);
         final l10n = AppLocalizations.of(sheetContext);
+        final spacing = Theme.of(sheetContext).extension<AppSpacing>()!;
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+            padding: EdgeInsets.fromLTRB(spacing.space24, spacing.space24,
+                spacing.space24, spacing.space32),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 24),
+                SizedBox(height: spacing.space24),
                 Text(
                   l10n.permNotificationsBlockBackgroundTitle,
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.normal,
                   ),
                 ),
-                const SizedBox(height: 24),
+                SizedBox(height: spacing.space24),
                 Text(
                   l10n.permNotificationsBlockBackgroundBody,
                   style: theme.textTheme.bodyMedium,
@@ -227,9 +231,11 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
       builder: (sheetContext) {
         final theme = Theme.of(sheetContext);
         final l10n = AppLocalizations.of(sheetContext);
+        final spacing = Theme.of(sheetContext).extension<AppSpacing>()!;
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+            padding: EdgeInsets.fromLTRB(spacing.space24, spacing.space24,
+                spacing.space24, spacing.space32),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -240,12 +246,12 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                     fontWeight: FontWeight.normal,
                   ),
                 ),
-                const SizedBox(height: 24),
+                SizedBox(height: spacing.space24),
                 Text(
                   l10n.permBatteryAndroidExplanation,
                   style: theme.textTheme.bodyMedium,
                 ),
-                const SizedBox(height: 24),
+                SizedBox(height: spacing.space24),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -258,7 +264,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: spacing.space8),
                         Expanded(
                           child: Text(
                             l10n.onboardingBatteryStepAppUsage,
@@ -267,7 +273,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: spacing.space8),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -277,7 +283,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: spacing.space8),
                         Expanded(
                           child: Text(
                             l10n.onboardingBatteryStepAllowBackground,
@@ -286,7 +292,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: spacing.space8),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -296,7 +302,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: spacing.space8),
                         Expanded(
                           child: Text(
                             l10n.onboardingBatteryStepTapText,
@@ -305,7 +311,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: spacing.space8),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -315,7 +321,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: spacing.space8),
                         Expanded(
                           child: Text(
                             l10n.onboardingBatteryStepSelectUnrestricted,
@@ -324,7 +330,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: spacing.space8),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -334,7 +340,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: spacing.space8),
                         Expanded(
                           child: Text(
                             l10n.onboardingBatteryStepReturnToApp,
@@ -345,7 +351,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                     ),
                   ],
                 ),
-                const SizedBox(height: 32),
+                SizedBox(height: spacing.space32),
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton(
@@ -492,6 +498,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
     final onSurfaceVariant = theme.colorScheme.onSurfaceVariant;
     final l10n = AppLocalizations.of(context);
@@ -553,7 +560,8 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
             hasScrollBody: false,
             child: SafeArea(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+                padding: EdgeInsets.fromLTRB(spacing.space16, spacing.space24,
+                    spacing.space16, spacing.space24),
                 child: _showSyncingLabel
                     ? Center(
                         child: Column(
@@ -567,7 +575,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                               ),
                               textAlign: TextAlign.center,
                             ),
-                            const SizedBox(height: 16),
+                            SizedBox(height: spacing.space16),
                             SizedBox(
                               width: 260,
                               child: AppProgressBar(
@@ -596,7 +604,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                         ?.copyWith(color: onSurfaceVariant),
                                     textAlign: TextAlign.center,
                                   ),
-                                  const SizedBox(height: 20),
+                                  SizedBox(height: spacing.space24),
                                   summary.when(
                                     data: (value) => Text(
                                       '${(totalScoreLastN(value, 10) * 100).toStringAsFixed(1)}%',
@@ -615,7 +623,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                       textAlign: TextAlign.center,
                                     ),
                                   ),
-                                  const SizedBox(height: 16),
+                                  SizedBox(height: spacing.space16),
                                   Builder(
                                     builder: (_) {
                                       return Column(
@@ -630,10 +638,9 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                                       const BoxConstraints(
                                                     minHeight: 48,
                                                   ),
-                                                  padding: const EdgeInsets
-                                                      .symmetric(
-                                                    horizontal: 16,
-                                                    vertical: 12,
+                                                  padding: EdgeInsets.symmetric(
+                                                    horizontal: spacing.space16,
+                                                    vertical: spacing.space12,
                                                   ),
                                                   decoration: BoxDecoration(
                                                     color: theme.colorScheme
@@ -691,17 +698,20 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                     color: theme.colorScheme.surfaceBright,
                                     borderRadius: BorderRadius.circular(20),
                                   ),
-                                  padding:
-                                      const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                                  padding: EdgeInsets.fromLTRB(
+                                      spacing.space16,
+                                      spacing.space12,
+                                      spacing.space16,
+                                      spacing.space12),
                                   child: Row(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.center,
                                     children: [
                                       Icon(
-                                        Icons.notifications_off_outlined,
+                                        Symbols.notifications_off_sharp,
                                         color: theme.colorScheme.error,
                                       ),
-                                      const SizedBox(width: 12),
+                                      SizedBox(width: spacing.space12),
                                       Expanded(
                                         child: Column(
                                           crossAxisAlignment:
@@ -714,7 +724,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                                 fontWeight: FontWeight.w600,
                                               ),
                                             ),
-                                            const SizedBox(height: 4),
+                                            SizedBox(height: spacing.space4),
                                             Text(
                                               'Background block production impacted',
                                               style: theme.textTheme.bodySmall,
@@ -722,7 +732,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                           ],
                                         ),
                                       ),
-                                      const SizedBox(width: 12),
+                                      SizedBox(width: spacing.space12),
                                       FilledButton(
                                         onPressed:
                                             _showNotificationPermissionSheet,
@@ -731,9 +741,9 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                               theme.colorScheme.primary,
                                           foregroundColor:
                                               theme.colorScheme.onPrimary,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                            vertical: 8,
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: spacing.space16,
+                                            vertical: spacing.space8,
                                           ),
                                         ),
                                         child: const Text('Enable'),
@@ -741,7 +751,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                     ],
                                   ),
                                 ),
-                                const SizedBox(height: 16),
+                                SizedBox(height: spacing.space16),
                               ] else if (_batteryStatusChecked &&
                                   !_batteryOptimizationDisabled) ...[
                                 Container(
@@ -749,8 +759,11 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                     color: theme.colorScheme.surfaceBright,
                                     borderRadius: BorderRadius.circular(20),
                                   ),
-                                  padding:
-                                      const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                                  padding: EdgeInsets.fromLTRB(
+                                      spacing.space16,
+                                      spacing.space12,
+                                      spacing.space16,
+                                      spacing.space12),
                                   child: Row(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.center,
@@ -762,7 +775,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                           alignment: Alignment.center,
                                           children: [
                                             Icon(
-                                              Icons.battery_0_bar,
+                                              Symbols.battery_0_bar_sharp,
                                               color: theme.colorScheme.error,
                                               size: 24,
                                             ),
@@ -775,10 +788,10 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                                       theme.colorScheme.surface,
                                                   shape: BoxShape.circle,
                                                 ),
-                                                padding:
-                                                    const EdgeInsets.all(1.5),
+                                                padding: EdgeInsets.all(
+                                                    spacing.space4),
                                                 child: Icon(
-                                                  Icons.settings,
+                                                  Symbols.settings_sharp,
                                                   color:
                                                       theme.colorScheme.error,
                                                   size: 12,
@@ -788,7 +801,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                           ],
                                         ),
                                       ),
-                                      const SizedBox(width: 12),
+                                      SizedBox(width: spacing.space12),
                                       Expanded(
                                         child: Column(
                                           crossAxisAlignment:
@@ -801,7 +814,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                                 fontWeight: FontWeight.w600,
                                               ),
                                             ),
-                                            const SizedBox(height: 4),
+                                            SizedBox(height: spacing.space4),
                                             Text(
                                               'Background block production impacted',
                                               style: theme.textTheme.bodySmall,
@@ -809,7 +822,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                           ],
                                         ),
                                       ),
-                                      const SizedBox(width: 12),
+                                      SizedBox(width: spacing.space12),
                                       FilledButton(
                                         onPressed:
                                             _showBatteryOptimizationSheet,
@@ -818,9 +831,9 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                               theme.colorScheme.primary,
                                           foregroundColor:
                                               theme.colorScheme.onPrimary,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                            vertical: 8,
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: spacing.space16,
+                                            vertical: spacing.space8,
                                           ),
                                         ),
                                         child: const Text('Enable'),
@@ -828,7 +841,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                     ],
                                   ),
                                 ),
-                                const SizedBox(height: 16),
+                                SizedBox(height: spacing.space16),
                               ],
                               Builder(builder: (context) {
                                 final currEpochSlot =
@@ -898,8 +911,11 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                     color: theme.colorScheme.surfaceBright,
                                     borderRadius: BorderRadius.circular(20),
                                   ),
-                                  padding:
-                                      const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                                  padding: EdgeInsets.fromLTRB(
+                                      spacing.space16,
+                                      spacing.space12,
+                                      spacing.space16,
+                                      spacing.space12),
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.stretch,
@@ -973,7 +989,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                           ),
                                         ],
                                       ),
-                                      const SizedBox(height: 8),
+                                      SizedBox(height: spacing.space8),
                                       Builder(builder: (_) {
                                         final data = summary.asData?.value;
                                         final scores =
@@ -997,7 +1013,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
 
                                         return _MetricTile(
                                           leading: const _IconBadge(
-                                              icon: Icons.search_outlined),
+                                              icon: Symbols.search_sharp),
                                           title:
                                               l10n.producedBlocksCheckedSlots,
                                           subtitle: l10n
@@ -1087,7 +1103,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                         final won = score?.won ?? '?';
                                         return _MetricTile(
                                           leading: const _IconBadge(
-                                              icon: Icons.check_box_outlined),
+                                              icon: Symbols.check_box_sharp),
                                           title: l10n.producedBlocksTitle,
                                           subtitle:
                                               l10n.producedBlocksProducedOfWon(
@@ -1378,6 +1394,7 @@ class _EpochPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = colorScheme.brightness == Brightness.dark;
@@ -1410,7 +1427,11 @@ class _EpochPanel extends StatelessWidget {
                         child: Column(
                           children: [
                             Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                              padding: EdgeInsets.fromLTRB(
+                                  spacing.space16,
+                                  spacing.space16,
+                                  spacing.space16,
+                                  spacing.space8),
                               child: Row(
                                 children: [
                                   Expanded(
@@ -1422,7 +1443,7 @@ class _EpochPanel extends StatelessWidget {
                                     ),
                                   ),
                                   IconButton(
-                                    icon: const Icon(Icons.close),
+                                    icon: const Icon(Symbols.close_sharp),
                                     onPressed: () => Navigator.of(ctx).pop(),
                                   ),
                                 ],
@@ -1459,7 +1480,7 @@ class _EpochPanel extends StatelessWidget {
                                     title: Text(
                                         '${l10n.statsEpoch(epoch)} · $performanceStr'),
                                     trailing: selected
-                                        ? const Icon(Icons.check,
+                                        ? const Icon(Symbols.check_sharp,
                                             color: Colors.black87)
                                         : null,
                                     onTap: () {
@@ -1483,8 +1504,8 @@ class _EpochPanel extends StatelessWidget {
                       style: theme.textTheme.bodyLarge
                           ?.copyWith(fontWeight: FontWeight.w600),
                     ),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.expand_more, size: 18),
+                    SizedBox(width: spacing.space4),
+                    const Icon(Symbols.expand_more_sharp, size: 18),
                   ],
                 ),
               ),
@@ -1494,24 +1515,24 @@ class _EpochPanel extends StatelessWidget {
               onPressed: onPrev,
               style: IconButton.styleFrom(
                 shape: const CircleBorder(),
-                padding: const EdgeInsets.all(8),
+                padding: EdgeInsets.all(spacing.space8),
                 minimumSize: const Size(40, 40),
               ),
-              icon: const Icon(Icons.chevron_left),
+              icon: const Icon(Symbols.chevron_left_sharp),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: spacing.space8),
             IconButton.filledTonal(
               onPressed: onNext,
               style: IconButton.styleFrom(
                 shape: const CircleBorder(),
-                padding: const EdgeInsets.all(8),
+                padding: EdgeInsets.all(spacing.space8),
                 minimumSize: const Size(40, 40),
               ),
-              icon: const Icon(Icons.chevron_right),
+              icon: const Icon(Symbols.chevron_right_sharp),
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: spacing.space8),
         // Progress bar
         AppProgressBar(
           value: progress,
@@ -1561,16 +1582,17 @@ class _MetricTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
     return InkWell(
       borderRadius: BorderRadius.circular(12),
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: EdgeInsets.symmetric(vertical: spacing.space8),
         child: Row(
           children: [
             leading,
-            const SizedBox(width: 8),
+            SizedBox(width: spacing.space8),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1586,7 +1608,7 @@ class _MetricTile extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: spacing.space8),
             Text(
               trailingPrimary,
               style: theme.textTheme.bodyMedium?.copyWith(
@@ -1595,8 +1617,8 @@ class _MetricTile extends StatelessWidget {
               ),
             ),
             if (showChevron) ...[
-              const SizedBox(width: 8),
-              const Icon(Icons.chevron_right, size: 20),
+              SizedBox(width: spacing.space8),
+              const Icon(Symbols.chevron_right_sharp, size: 20),
             ],
           ],
         ),

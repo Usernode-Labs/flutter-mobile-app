@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -348,11 +349,11 @@ class _BackgroundProductionSettingsScreenState
             value: ThemeMode.system,
             groupValue: themeMode,
             title: Text(
-              ‘Use system setting’,
+              'Use system setting',
               style: theme.textTheme.bodyMedium,
             ),
             subtitle: Text(
-              ‘Automatically follow your device’s light or dark mode.’,
+              'Automatically follow your device\'s light or dark mode.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: colorScheme.onSurface.withValues(alpha: 0.7),
               ),
@@ -367,7 +368,7 @@ class _BackgroundProductionSettingsScreenState
             value: ThemeMode.light,
             groupValue: themeMode,
             title: Text(
-              ‘Light mode’,
+              'Light mode',
               style: theme.textTheme.bodyMedium,
             ),
             contentPadding: EdgeInsets.zero,
@@ -380,7 +381,7 @@ class _BackgroundProductionSettingsScreenState
             value: ThemeMode.dark,
             groupValue: themeMode,
             title: Text(
-              ‘Dark mode’,
+              'Dark mode',
               style: theme.textTheme.bodyMedium,
             ),
             contentPadding: EdgeInsets.zero,
@@ -552,6 +553,7 @@ class _BackgroundProductionSettingsScreenState
   }
 
   Widget _buildFeatureOverviewCard(ThemeData theme, ColorScheme colorScheme) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final l10n = AppLocalizations.of(context);
     return _buildCollapsibleCard(
       theme: theme,
@@ -560,7 +562,7 @@ class _BackgroundProductionSettingsScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 4),
+          SizedBox(height: spacing.space4),
           Text(
             l10n.bgProdDescription,
             style: theme.textTheme.bodyMedium?.copyWith(
@@ -568,28 +570,28 @@ class _BackgroundProductionSettingsScreenState
               height: 1.5,
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: spacing.space16),
           _buildNumberedStep(
             '1',
             l10n.bgProdVrfSelection,
             l10n.bgProdVrfSelectionDesc,
             colorScheme,
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: spacing.space12),
           _buildNumberedStep(
             '2',
             l10n.bgProdSlotScheduling,
             l10n.bgProdSlotSchedulingDesc,
             colorScheme,
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: spacing.space12),
           _buildNumberedStep(
             '3',
             l10n.bgProdBlockProduction,
             l10n.bgProdBlockProductionDesc,
             colorScheme,
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: spacing.space12),
           _buildNumberedStep(
             '4',
             l10n.bgProdSuccessTracking,
@@ -607,6 +609,7 @@ class _BackgroundProductionSettingsScreenState
     String description,
     ColorScheme colorScheme,
   ) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -628,7 +631,7 @@ class _BackgroundProductionSettingsScreenState
             ),
           ),
         ),
-        const SizedBox(width: 12),
+        SizedBox(width: spacing.space12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -657,6 +660,7 @@ class _BackgroundProductionSettingsScreenState
   }
 
   Widget _buildPlatformInfoCard(ThemeData theme, ColorScheme colorScheme) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final l10n = AppLocalizations.of(context);
     final isAndroid = Platform.isAndroid;
 
@@ -667,7 +671,7 @@ class _BackgroundProductionSettingsScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 4),
+          SizedBox(height: spacing.space4),
           Text(
             isAndroid ? l10n.bgProdAndroidDesc : l10n.bgProdIosDesc,
             style: theme.textTheme.bodyMedium?.copyWith(
@@ -675,10 +679,10 @@ class _BackgroundProductionSettingsScreenState
               height: 1.4,
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: spacing.space16),
           // Reliability breakdown
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(spacing.space12),
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(8),
@@ -692,7 +696,7 @@ class _BackgroundProductionSettingsScreenState
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: spacing.space12),
                 if (isAndroid) ...[
                   _buildReliabilityRow(
                     l10n.bgProdDefaultMode,
@@ -700,7 +704,7 @@ class _BackgroundProductionSettingsScreenState
                     l10n.bgProdDefaultDesc,
                     Colors.green,
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: spacing.space8),
                   _buildReliabilityRow(
                     l10n.bgProdKeepAliveMode,
                     l10n.bgProdKeepAliveReliability,
@@ -714,7 +718,7 @@ class _BackgroundProductionSettingsScreenState
                     l10n.bgProdIosKeepAliveDesc,
                     Colors.green,
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: spacing.space8),
                   _buildReliabilityRow(
                     l10n.bgProdBackgroundOnly,
                     l10n.bgProdBackgroundOnlyReliability,
@@ -726,15 +730,15 @@ class _BackgroundProductionSettingsScreenState
             ),
           ),
           if (isAndroid && _deviceManufacturer != null) ...[
-            const SizedBox(height: 12),
+            SizedBox(height: spacing.space12),
             Row(
               children: [
                 Icon(
-                  Icons.smartphone,
+                  Symbols.smartphone_sharp,
                   size: 16,
                   color: colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: spacing.space8),
                 Text(
                   'Device: $_deviceManufacturer',
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -755,12 +759,14 @@ class _BackgroundProductionSettingsScreenState
     String description,
     Color color,
   ) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final colorScheme = Theme.of(context).colorScheme;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: EdgeInsets.symmetric(
+              horizontal: spacing.space8, vertical: spacing.space4),
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(4),
@@ -774,7 +780,7 @@ class _BackgroundProductionSettingsScreenState
             ),
           ),
         ),
-        const SizedBox(width: 12),
+        SizedBox(width: spacing.space12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -802,6 +808,7 @@ class _BackgroundProductionSettingsScreenState
   }
 
   Widget _buildVrfExplanationCard(ThemeData theme, ColorScheme colorScheme) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     return _buildCollapsibleCard(
       theme: theme,
       colorScheme: colorScheme,
@@ -809,7 +816,7 @@ class _BackgroundProductionSettingsScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 4),
+          SizedBox(height: spacing.space4),
           // What is VRF
           Text(
             'What is VRF?',
@@ -817,7 +824,7 @@ class _BackgroundProductionSettingsScreenState
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: spacing.space8),
           Text(
             'VRF (Verifiable Random Function) is how the network fairly selects block producers. At the start of each epoch, the network runs VRF calculations to determine which validators will produce blocks in upcoming slots.',
             style: theme.textTheme.bodyMedium?.copyWith(
@@ -825,7 +832,7 @@ class _BackgroundProductionSettingsScreenState
               height: 1.5,
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: spacing.space16),
           // VRF Status meanings
           Text(
             'VRF Status Meanings',
@@ -833,28 +840,28 @@ class _BackgroundProductionSettingsScreenState
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: spacing.space8),
           _buildStatusExplanation(
             'Pending',
             'Waiting for epoch transition to start calculations',
             Colors.grey,
             colorScheme,
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: spacing.space8),
           _buildStatusExplanation(
             'Calculating',
             'VRF evaluation in progress (takes a few hours)',
             Colors.orange,
             colorScheme,
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: spacing.space8),
           _buildStatusExplanation(
             'Complete',
             'Slot assignments are finalized and scheduled',
             Colors.green,
             colorScheme,
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: spacing.space16),
           // What is a won slot
           Text(
             'What is a "Won Slot"?',
@@ -862,7 +869,7 @@ class _BackgroundProductionSettingsScreenState
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: spacing.space8),
           Text(
             'When VRF selects your node to produce a block at a specific time, you\'ve "won" that slot. Your responsibility is to have your device awake and connected so the block can be produced.',
             style: theme.textTheme.bodyMedium?.copyWith(
@@ -870,10 +877,10 @@ class _BackgroundProductionSettingsScreenState
               height: 1.5,
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: spacing.space16),
           // Why timing matters
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(spacing.space12),
             decoration: BoxDecoration(
               color: Colors.amber.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
@@ -885,11 +892,11 @@ class _BackgroundProductionSettingsScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(
-                  Icons.timer,
+                  Symbols.timer_sharp,
                   size: 20,
                   color: Colors.amber.shade700,
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: spacing.space12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -901,7 +908,7 @@ class _BackgroundProductionSettingsScreenState
                           color: Colors.amber.shade800,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: spacing.space4),
                       Text(
                         'Each slot has a ~5-seconds window. If your device doesn\'t wake up in time or loses network connectivity, the slot is missed and counted as "failed."',
                         style: theme.textTheme.bodySmall?.copyWith(
@@ -944,19 +951,20 @@ class _BackgroundProductionSettingsScreenState
     Color color,
     ColorScheme colorScheme,
   ) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
           width: 8,
           height: 8,
-          margin: const EdgeInsets.only(top: 6),
+          margin: EdgeInsets.only(top: spacing.space8),
           decoration: BoxDecoration(
             color: color,
             shape: BoxShape.circle,
           ),
         ),
-        const SizedBox(width: 12),
+        SizedBox(width: spacing.space12),
         Expanded(
           child: RichText(
             text: TextSpan(
@@ -980,6 +988,7 @@ class _BackgroundProductionSettingsScreenState
   }
 
   Widget _buildPermissionsSection(ThemeData theme, ColorScheme colorScheme) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final isAndroid = Platform.isAndroid;
 
     return Container(
@@ -988,7 +997,8 @@ class _BackgroundProductionSettingsScreenState
         borderRadius: BorderRadius.circular(20),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        padding: EdgeInsets.fromLTRB(
+            spacing.space16, spacing.space12, spacing.space16, spacing.space12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -998,7 +1008,7 @@ class _BackgroundProductionSettingsScreenState
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: spacing.space12),
             // Why needed explanation
             Text(
               isAndroid
@@ -1008,7 +1018,7 @@ class _BackgroundProductionSettingsScreenState
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 6),
+            SizedBox(height: spacing.space8),
             Text(
               isAndroid
                   ? 'Android restricts apps from waking the device at precise times unless explicitly allowed. Without this permission, alarms may be delayed by up to 10 minutes, causing missed slots.'
@@ -1018,10 +1028,10 @@ class _BackgroundProductionSettingsScreenState
                 height: 1.5,
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: spacing.space16),
             // Status indicator
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(spacing.space12),
               decoration: BoxDecoration(
                 color: _hasPermissions
                     ? Colors.green.withValues(alpha: 0.1)
@@ -1036,11 +1046,13 @@ class _BackgroundProductionSettingsScreenState
               child: Row(
                 children: [
                   Icon(
-                    _hasPermissions ? Icons.check_circle : Icons.warning,
+                    _hasPermissions
+                        ? Symbols.check_circle_sharp
+                        : Symbols.warning_sharp,
                     size: 20,
                     color: _hasPermissions ? Colors.green : Colors.orange,
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: spacing.space12),
                   Expanded(
                     child: Text(
                       isAndroid
@@ -1062,10 +1074,10 @@ class _BackgroundProductionSettingsScreenState
               ),
             ),
             if (!_hasPermissions) ...[
-              const SizedBox(height: 12),
+              SizedBox(height: spacing.space12),
               FilledButton.icon(
                 onPressed: _requestPermissions,
-                icon: const Icon(Icons.settings),
+                icon: const Icon(Symbols.settings_sharp),
                 label:
                     Text(AppLocalizations.of(context).bgProdGrantPermissions),
               ),
@@ -1077,13 +1089,15 @@ class _BackgroundProductionSettingsScreenState
   }
 
   Widget _buildIOSKeepAliveSection(ThemeData theme, ColorScheme colorScheme) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.primaryContainer,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        padding: EdgeInsets.fromLTRB(
+            spacing.space16, spacing.space12, spacing.space16, spacing.space12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1101,9 +1115,9 @@ class _BackgroundProductionSettingsScreenState
                 ),
                 // Reliability badge
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: spacing.space8,
+                    vertical: spacing.space4,
                   ),
                   decoration: BoxDecoration(
                     color: Colors.green.withValues(alpha: 0.2),
@@ -1120,7 +1134,7 @@ class _BackgroundProductionSettingsScreenState
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: spacing.space12),
             // How it works
             Text(
               'How it works:',
@@ -1129,7 +1143,7 @@ class _BackgroundProductionSettingsScreenState
                 color: colorScheme.onPrimaryContainer,
               ),
             ),
-            const SizedBox(height: 4),
+            SizedBox(height: spacing.space4),
             Text(
               'This mode prevents iOS from suspending the app by maintaining an active wake lock. The screen stays on (at minimum brightness) and the app continuously monitors for upcoming slots.',
               style: theme.textTheme.bodySmall?.copyWith(
@@ -1137,22 +1151,22 @@ class _BackgroundProductionSettingsScreenState
                 height: 1.4,
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: spacing.space12),
             // Battery and recommendation info
             Row(
               children: [
                 Expanded(
                   child: _buildInfoChip(
-                    Icons.battery_3_bar,
+                    Symbols.battery_3_bar_sharp,
                     '~3-5%/hr',
                     'Battery',
                     colorScheme.onPrimaryContainer,
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: spacing.space8),
                 Expanded(
                   child: _buildInfoChip(
-                    Icons.star,
+                    Symbols.star_sharp,
                     'Critical slots',
                     'Best for',
                     colorScheme.onPrimaryContainer,
@@ -1160,7 +1174,7 @@ class _BackgroundProductionSettingsScreenState
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: spacing.space16),
             // Toggle
             Container(
               decoration: BoxDecoration(
@@ -1189,9 +1203,9 @@ class _BackgroundProductionSettingsScreenState
               ),
             ),
             if (_iosKeepAliveActive) ...[
-              const SizedBox(height: 16),
+              SizedBox(height: spacing.space16),
               const Divider(height: 1),
-              const SizedBox(height: 12),
+              SizedBox(height: spacing.space12),
               Text(
                 'Tips for best results:',
                 style: theme.textTheme.labelLarge?.copyWith(
@@ -1199,7 +1213,7 @@ class _BackgroundProductionSettingsScreenState
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: spacing.space8),
               _buildTip('Keep app in foreground during slot times'),
               _buildTip('Connect device to charger'),
               _buildTip('Enable Guided Access (triple-click side button)'),
@@ -1207,9 +1221,9 @@ class _BackgroundProductionSettingsScreenState
             ],
             // When to use section
             if (!_iosKeepAliveActive) ...[
-              const SizedBox(height: 16),
+              SizedBox(height: spacing.space16),
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: EdgeInsets.all(spacing.space12),
                 decoration: BoxDecoration(
                   color: colorScheme.surface.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
@@ -1224,7 +1238,7 @@ class _BackgroundProductionSettingsScreenState
                         color: colorScheme.onPrimaryContainer,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    SizedBox(height: spacing.space8),
                     _buildTip('You have slots coming up in the next few hours'),
                     _buildTip('You can keep the device plugged in'),
                     _buildTip('Missing a slot would be costly'),
@@ -1244,8 +1258,9 @@ class _BackgroundProductionSettingsScreenState
     String label,
     Color color,
   ) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     return Container(
-      padding: const EdgeInsets.all(8),
+      padding: EdgeInsets.all(spacing.space8),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
@@ -1253,7 +1268,7 @@ class _BackgroundProductionSettingsScreenState
       child: Row(
         children: [
           Icon(icon, size: 16, color: color.withValues(alpha: 0.8)),
-          const SizedBox(width: 6),
+          SizedBox(width: spacing.space8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1282,8 +1297,9 @@ class _BackgroundProductionSettingsScreenState
   }
 
   Widget _buildTip(String text) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     return Padding(
-      padding: const EdgeInsets.only(left: 8, top: 4),
+      padding: EdgeInsets.only(left: spacing.space8, top: spacing.space4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1306,6 +1322,7 @@ class _BackgroundProductionSettingsScreenState
   }
 
   Widget _buildAndroidBatterySection(ThemeData theme, ColorScheme colorScheme) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.surfaceBright,
@@ -1313,7 +1330,8 @@ class _BackgroundProductionSettingsScreenState
         border: Border.all(color: colorScheme.outlineVariant, width: 1),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        padding: EdgeInsets.fromLTRB(
+            spacing.space16, spacing.space12, spacing.space16, spacing.space12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1323,7 +1341,7 @@ class _BackgroundProductionSettingsScreenState
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: spacing.space12),
             // Why this matters explanation
             Text(
               'Why this matters:',
@@ -1331,7 +1349,7 @@ class _BackgroundProductionSettingsScreenState
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 6),
+            SizedBox(height: spacing.space8),
             Text(
               'Android\'s battery saver can delay or skip alarms to save power. Disabling battery optimization for this app ensures your wake-up alarms fire on time.',
               style: theme.textTheme.bodyMedium?.copyWith(
@@ -1339,10 +1357,10 @@ class _BackgroundProductionSettingsScreenState
                 height: 1.5,
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: spacing.space16),
             // Impact comparison
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(spacing.space12),
               decoration: BoxDecoration(
                 color:
                     colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
@@ -1357,16 +1375,16 @@ class _BackgroundProductionSettingsScreenState
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: spacing.space8),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Icon(
-                        Icons.warning_amber,
+                        Symbols.warning_amber_sharp,
                         size: 16,
                         color: Colors.orange.shade700,
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: spacing.space8),
                       Expanded(
                         child: Text(
                           'Enabled: Alarms may be delayed 1-60 seconds, or skipped entirely',
@@ -1377,16 +1395,16 @@ class _BackgroundProductionSettingsScreenState
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
+                  SizedBox(height: spacing.space8),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Icon(
-                        Icons.check_circle,
+                        Symbols.check_circle_sharp,
                         size: 16,
                         color: Colors.green.shade700,
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: spacing.space8),
                       Expanded(
                         child: Text(
                           'Disabled: Alarms fire precisely when scheduled',
@@ -1400,10 +1418,10 @@ class _BackgroundProductionSettingsScreenState
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: spacing.space16),
             // Status indicator
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(spacing.space12),
               decoration: BoxDecoration(
                 color: _batteryOptDisabled
                     ? Colors.green.withValues(alpha: 0.1)
@@ -1418,11 +1436,13 @@ class _BackgroundProductionSettingsScreenState
               child: Row(
                 children: [
                   Icon(
-                    _batteryOptDisabled ? Icons.check_circle : Icons.warning,
+                    _batteryOptDisabled
+                        ? Symbols.check_circle_sharp
+                        : Symbols.warning_sharp,
                     size: 20,
                     color: _batteryOptDisabled ? Colors.green : Colors.orange,
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: spacing.space12),
                   Expanded(
                     child: Text(
                       _batteryOptDisabled
@@ -1440,10 +1460,10 @@ class _BackgroundProductionSettingsScreenState
               ),
             ),
             if (!_batteryOptDisabled) ...[
-              const SizedBox(height: 12),
+              SizedBox(height: spacing.space12),
               OutlinedButton.icon(
                 onPressed: _openBatterySettings,
-                icon: const Icon(Icons.settings),
+                icon: const Icon(Symbols.settings_sharp),
                 label: Text(
                     AppLocalizations.of(context).bgProdOpenBatterySettings),
               ),
@@ -1451,9 +1471,9 @@ class _BackgroundProductionSettingsScreenState
             if (_deviceManufacturer != null &&
                 ['xiaomi', 'samsung', 'oppo', 'oneplus']
                     .contains(_deviceManufacturer!.toLowerCase())) ...[
-              const SizedBox(height: 16),
+              SizedBox(height: spacing.space16),
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: EdgeInsets.all(spacing.space12),
                 decoration: BoxDecoration(
                   color: Colors.orange.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
@@ -1467,11 +1487,11 @@ class _BackgroundProductionSettingsScreenState
                     Row(
                       children: [
                         Icon(
-                          Icons.warning_amber,
+                          Symbols.warning_amber_sharp,
                           size: 18,
                           color: Colors.orange.shade700,
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: spacing.space8),
                         Expanded(
                           child: Text(
                             '$_deviceManufacturer Device Detected',
@@ -1483,7 +1503,7 @@ class _BackgroundProductionSettingsScreenState
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: spacing.space8),
                     Text(
                       '$_deviceManufacturer devices have aggressive battery management that may kill apps even with optimization disabled. You may need to configure additional settings in your device\'s battery manager.',
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -1564,6 +1584,7 @@ class _CollapsibleCardState extends State<_CollapsibleCard> {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     return Container(
       decoration: BoxDecoration(
         color: widget.colorScheme.surfaceBright,
@@ -1572,8 +1593,10 @@ class _CollapsibleCardState extends State<_CollapsibleCard> {
       child: Theme(
         data: widget.theme.copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          tilePadding: EdgeInsets.symmetric(
+              horizontal: spacing.space16, vertical: spacing.space8),
+          childrenPadding: EdgeInsets.fromLTRB(
+              spacing.space16, 0, spacing.space16, spacing.space16),
           title: Text(
             widget.title,
             style: widget.theme.textTheme.bodyLarge?.copyWith(
@@ -1619,8 +1642,9 @@ class _CollapsibleCardState extends State<_CollapsibleCard> {
     }
 
     if (widget.preview != null) {
+      final spacing = Theme.of(context).extension<AppSpacing>()!;
       return Padding(
-        padding: const EdgeInsets.only(top: 4.0),
+        padding: EdgeInsets.only(top: spacing.space4),
         child: widget.preview!,
       );
     }
@@ -1693,6 +1717,7 @@ class _NetworkSwitcherDialogState extends State<_NetworkSwitcherDialog> {
     required ThemeData theme,
     required ColorScheme colorScheme,
   }) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     return GestureDetector(
       onTap: () {
         setState(() {
@@ -1700,7 +1725,7 @@ class _NetworkSwitcherDialogState extends State<_NetworkSwitcherDialog> {
         });
       },
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.all(spacing.space12),
         decoration: BoxDecoration(
           color: isSelected
               ? colorScheme.primaryContainer.withValues(alpha: 0.3)
@@ -1719,14 +1744,14 @@ class _NetworkSwitcherDialogState extends State<_NetworkSwitcherDialog> {
               children: [
                 Icon(
                   isSelected
-                      ? Icons.radio_button_checked
-                      : Icons.radio_button_off,
+                      ? Symbols.radio_button_checked_sharp
+                      : Symbols.radio_button_unchecked_sharp,
                   color: isSelected
                       ? colorScheme.primary
                       : colorScheme.onSurfaceVariant,
                   size: 20,
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: spacing.space8),
                 Text(
                   displayName,
                   style: theme.textTheme.titleMedium?.copyWith(
@@ -1734,10 +1759,10 @@ class _NetworkSwitcherDialogState extends State<_NetworkSwitcherDialog> {
                   ),
                 ),
                 if (isCurrentlyActive) ...[
-                  const SizedBox(width: 8),
+                  SizedBox(width: spacing.space8),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: spacing.space8,
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
@@ -1755,7 +1780,7 @@ class _NetworkSwitcherDialogState extends State<_NetworkSwitcherDialog> {
                 ],
               ],
             ),
-            const SizedBox(height: 4),
+            SizedBox(height: spacing.space4),
             Padding(
               padding: const EdgeInsets.only(left: 28),
               child: Text(
@@ -1765,9 +1790,9 @@ class _NetworkSwitcherDialogState extends State<_NetworkSwitcherDialog> {
                 ),
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: spacing.space8),
             _buildUrlRow('Genesis', _formatUrl(genesisUrl), theme, colorScheme),
-            const SizedBox(height: 4),
+            SizedBox(height: spacing.space4),
             _buildUrlRow(
                 'Seedlist', _formatUrl(seedlistUrl), theme, colorScheme),
           ],
@@ -1778,6 +1803,7 @@ class _NetworkSwitcherDialogState extends State<_NetworkSwitcherDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -1787,7 +1813,7 @@ class _NetworkSwitcherDialogState extends State<_NetworkSwitcherDialog> {
         children: [
           const Text('Network Switcher'),
           IconButton(
-            icon: const Icon(Icons.close),
+            icon: const Icon(Symbols.close_sharp),
             onPressed: () => Navigator.of(context).pop(),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -1807,7 +1833,7 @@ class _NetworkSwitcherDialogState extends State<_NetworkSwitcherDialog> {
                 letterSpacing: 0.5,
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: spacing.space12),
 
             // Testnet Option
             _buildNetworkOption(
@@ -1822,7 +1848,7 @@ class _NetworkSwitcherDialogState extends State<_NetworkSwitcherDialog> {
               colorScheme: colorScheme,
             ),
 
-            const SizedBox(height: 12),
+            SizedBox(height: spacing.space12),
 
             // Internal Option
             _buildNetworkOption(
@@ -1837,7 +1863,7 @@ class _NetworkSwitcherDialogState extends State<_NetworkSwitcherDialog> {
               colorScheme: colorScheme,
             ),
 
-            const SizedBox(height: 12),
+            SizedBox(height: spacing.space12),
 
             // Custom Option
             _buildNetworkOption(

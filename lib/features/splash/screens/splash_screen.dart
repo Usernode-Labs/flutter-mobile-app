@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -78,7 +79,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                         width: 120,
                         height: 120,
                         child: Icon(
-                          Icons.hub_outlined,
+                          Symbols.hub_sharp,
                           size: 60,
                           color: theme.colorScheme.onPrimaryContainer,
                         ),

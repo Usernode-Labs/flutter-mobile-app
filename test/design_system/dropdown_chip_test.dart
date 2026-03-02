@@ -1,6 +1,7 @@
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 void main() {
   ThemeData themeWithExtensions() {
@@ -37,7 +38,7 @@ void main() {
         const DropdownChip(label: 'Season 2'),
       ));
 
-      expect(find.byIcon(Icons.arrow_drop_down), findsOneWidget);
+      expect(find.byIcon(Symbols.arrow_drop_down_sharp), findsOneWidget);
     });
 
     testWidgets('fires onTap callback', (tester) async {

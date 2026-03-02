@@ -332,7 +332,7 @@ class _ChallengesPageState extends State<_ChallengesPage>
                 height: 18,
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
-            : const Icon(Icons.refresh),
+            : const Icon(Symbols.refresh_sharp),
       ),
     );
   }

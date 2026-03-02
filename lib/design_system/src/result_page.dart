@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../tokens/app_semantic_colors.dart';
 import '../tokens/app_spacing.dart';
@@ -59,15 +60,15 @@ class ResultPage extends StatelessWidget {
 
     final (IconData defaultIcon, Color iconColor) = switch (variant) {
       ResultPageVariant.success => (
-          Icons.check_circle_outline,
+          Symbols.check_circle_sharp,
           semantic.success.color,
         ),
       ResultPageVariant.failure => (
-          Icons.error_outline,
+          Symbols.error_sharp,
           colors.error,
         ),
       ResultPageVariant.info => (
-          Icons.info_outline,
+          Symbols.info_sharp,
           semantic.technical.color,
         ),
     };

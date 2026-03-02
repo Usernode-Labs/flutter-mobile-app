@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
@@ -101,7 +102,7 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
                     borderRadius: BorderRadius.circular(30),
                   ),
                   child: Icon(
-                    Icons.check,
+                    Symbols.check_sharp,
                     color: theme.colorScheme.onPrimaryContainer,
                     size: 20,
                   ),
@@ -134,7 +135,7 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
 
             // Timeline
             _TimelineItem(
-              icon: Icons.check,
+              icon: Symbols.check_sharp,
               title: l10n.blockVrfSlotDiscovered,
               subtitle: l10n.blockSlotWon(block.globalSlot),
               timing: '${timings[0]}ms',
@@ -142,7 +143,7 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
             ),
 
             _TimelineItem(
-              icon: Icons.check,
+              icon: Symbols.check_sharp,
               title: l10n.blockProductionScheduled,
               subtitle: l10n.blockEpochSlot(block.epoch, block.globalSlot),
               timing: '${timings[1]}ms',
@@ -150,7 +151,7 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
             ),
 
             _TimelineItem(
-              icon: Icons.check,
+              icon: Symbols.check_sharp,
               title: l10n.blockTxBatchesIncluded,
               subtitle: block.batches.isNotEmpty
                   ? l10n.blockIncludedBatchesTx(
@@ -161,7 +162,7 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
             ),
 
             _TimelineItem(
-              icon: Icons.check,
+              icon: Symbols.check_sharp,
               title: l10n.blockStateTransition,
               subtitle: l10n.blockStatesUpdated,
               timing: '${timings[3]}ms',
@@ -169,7 +170,7 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
             ),
 
             _TimelineItem(
-              icon: Icons.check,
+              icon: Symbols.check_sharp,
               title: l10n.blockAppliedLocally,
               subtitle: l10n.blockUtxosUpdated,
               timing: '${timings[4]}ms',
@@ -177,7 +178,7 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
             ),
 
             _TimelineItem(
-              icon: Icons.check,
+              icon: Symbols.check_sharp,
               title: l10n.blockCommitted,
               subtitle: l10n.blockNumber(block.height),
               timing: '${timings[5]}ms',
@@ -185,7 +186,7 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
             ),
 
             _TimelineItem(
-              icon: Icons.verified,
+              icon: Symbols.verified_sharp,
               title: l10n.blockConfirmed,
               subtitle: l10n.blockHashPrefix(block.hash.toString().length > 16
                   ? block.hash.toString().substring(0, 16)
@@ -263,6 +264,7 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
                 ],
               ),
             ),
+            SizedBox(height: spacing.space32),
           ],
         ),
       ),
@@ -287,11 +289,12 @@ class _TimelineItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
 
     return IntrinsicHeight(
       child: Padding(
-        padding: const EdgeInsets.only(left: 10),
+        padding: EdgeInsets.only(left: spacing.space12),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -302,7 +305,7 @@ class _TimelineItem extends StatelessWidget {
                   width: 20,
                   height: 20,
                   decoration: BoxDecoration(
-                    color: icon == Icons.verified
+                    color: icon == Symbols.verified_sharp
                         ? Colors.amber.withValues(alpha: 0.2)
                         : theme.colorScheme.onSurface,
                     borderRadius: BorderRadius.circular(20),
@@ -323,7 +326,7 @@ class _TimelineItem extends StatelessWidget {
               ],
             ),
 
-            const SizedBox(width: 16),
+            SizedBox(width: spacing.space16),
 
             // Content
             Expanded(
@@ -349,14 +352,14 @@ class _TimelineItem extends StatelessWidget {
                         ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: spacing.space4),
                   Text(
                     subtitle,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: spacing.space16),
                 ],
               ),
             ),
@@ -378,6 +381,7 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
 
     return Row(
@@ -390,7 +394,7 @@ class _InfoRow extends StatelessWidget {
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
-        const SizedBox(width: 16),
+        SizedBox(width: spacing.space16),
         Expanded(
           child: Text(
             value,

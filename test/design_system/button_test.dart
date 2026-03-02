@@ -1,6 +1,7 @@
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 void main() {
   ThemeData themeWithExtensions() {
@@ -47,11 +48,11 @@ void main() {
       await tester.pumpWidget(wrap(
         const Button(
           label: 'With Icon',
-          leadingIcon: Icon(Icons.arrow_forward, size: 20),
+          leadingIcon: Icon(Symbols.arrow_forward_sharp, size: 20),
         ),
       ));
 
-      expect(find.byIcon(Icons.arrow_forward), findsOneWidget);
+      expect(find.byIcon(Symbols.arrow_forward_sharp), findsOneWidget);
       expect(find.text('With Icon'), findsOneWidget);
     });
 

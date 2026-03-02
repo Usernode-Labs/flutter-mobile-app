@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../core/widgets/app_progress_bar.dart';
 import '../tokens/app_spacing.dart';
@@ -98,7 +99,7 @@ class EpochPerformancePage extends StatelessWidget {
       appBar: AppBar(
         leading: onBackTap != null
             ? IconButton(
-                icon: const Icon(Icons.arrow_back),
+                icon: const Icon(Symbols.arrow_back_sharp),
                 onPressed: onBackTap,
               )
             : null,
@@ -212,7 +213,7 @@ class _EpochPanel extends StatelessWidget {
                           ?.copyWith(fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(width: 4),
-                    const Icon(Icons.expand_more, size: 18),
+                    const Icon(Symbols.expand_more_sharp, size: 18),
                   ],
                 ),
               ),
@@ -224,7 +225,7 @@ class _EpochPanel extends StatelessWidget {
                 padding: const EdgeInsets.all(8),
                 minimumSize: const Size(40, 40),
               ),
-              icon: const Icon(Icons.chevron_left),
+              icon: const Icon(Symbols.chevron_left_sharp),
             ),
             SizedBox(width: spacing.space8),
             IconButton.filledTonal(
@@ -234,7 +235,7 @@ class _EpochPanel extends StatelessWidget {
                 padding: const EdgeInsets.all(8),
                 minimumSize: const Size(40, 40),
               ),
-              icon: const Icon(Icons.chevron_right),
+              icon: const Icon(Symbols.chevron_right_sharp),
             ),
           ],
         ),
@@ -289,7 +290,7 @@ class _EpochPanel extends StatelessWidget {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close),
+                      icon: const Icon(Symbols.close_sharp),
                       onPressed: () => Navigator.of(ctx).pop(),
                     ),
                   ],
@@ -310,7 +311,7 @@ class _EpochPanel extends StatelessWidget {
                     return ListTile(
                       title: Text(label),
                       trailing: selected
-                          ? Icon(Icons.check,
+                          ? Icon(Symbols.check_sharp,
                               color: theme.colorScheme.onSurface)
                           : null,
                       onTap: () {

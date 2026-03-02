@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import '../src/status_badge.dart';
@@ -31,7 +32,7 @@ WidgetbookUseCase _playground() {
         child: StatusBadge(
           label: label,
           variant: StatusBadgeVariant.success,
-          icon: showIcon ? Icons.check_circle : null,
+          icon: showIcon ? Symbols.check_circle_sharp : null,
         ),
       );
     },
@@ -52,22 +53,22 @@ WidgetbookUseCase _allVariants() {
             StatusBadge(
               label: 'Success',
               variant: StatusBadgeVariant.success,
-              icon: Icons.check_circle,
+              icon: Symbols.check_circle_sharp,
             ),
             StatusBadge(
               label: 'Error',
               variant: StatusBadgeVariant.error,
-              icon: Icons.error,
+              icon: Symbols.error_sharp,
             ),
             StatusBadge(
               label: 'Warning',
               variant: StatusBadgeVariant.warning,
-              icon: Icons.warning,
+              icon: Symbols.warning_sharp,
             ),
             StatusBadge(
               label: 'Info',
               variant: StatusBadgeVariant.info,
-              icon: Icons.info,
+              icon: Symbols.info_sharp,
             ),
             StatusBadge(
               label: 'Neutral',

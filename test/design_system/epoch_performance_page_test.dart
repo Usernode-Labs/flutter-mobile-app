@@ -2,6 +2,7 @@ import 'package:crypto_mobile_app/core/widgets/app_progress_bar.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 void main() {
   ThemeData themeWithExtensions() {
@@ -28,7 +29,7 @@ void main() {
   }) {
     return [
       EpochMetricData(
-        icon: Icons.search_outlined,
+        icon: Symbols.search_sharp,
         title: 'Checked Slots',
         subtitle: 'Evaluated 240 of 240',
         trailingValue: '100%',
@@ -36,7 +37,7 @@ void main() {
         showChevron: true,
       ),
       EpochMetricData(
-        icon: Icons.check_box_outlined,
+        icon: Symbols.check_box_sharp,
         title: 'Produced Blocks',
         subtitle: '16 of 21 won slots',
         trailingValue: '16',
@@ -44,13 +45,13 @@ void main() {
         showChevron: true,
       ),
       EpochMetricData(
-        icon: Icons.disabled_by_default_outlined,
+        icon: Symbols.disabled_by_default_sharp,
         title: 'Missed Blocks',
         subtitle: '0 of 21 won slots missed',
         trailingValue: '0',
       ),
       EpochMetricData(
-        icon: Icons.schedule_outlined,
+        icon: Symbols.schedule_sharp,
         title: 'Upcoming Blocks',
         subtitle: '3 upcoming this epoch',
         trailingValue: '3',
@@ -140,7 +141,7 @@ void main() {
         onPrev: () => prevTapped = true,
       )));
 
-      await tester.tap(find.byIcon(Icons.chevron_left));
+      await tester.tap(find.byIcon(Symbols.chevron_left_sharp));
       expect(prevTapped, isTrue);
     });
 
@@ -152,7 +153,7 @@ void main() {
 
       // Find the IconButton.filledTonal with chevron_right (not the metric trailing)
       final nextButtons = find.ancestor(
-        of: find.byIcon(Icons.chevron_right),
+        of: find.byIcon(Symbols.chevron_right_sharp),
         matching: find.byType(IconButton),
       );
       await tester.tap(nextButtons.first);
@@ -167,10 +168,10 @@ void main() {
       )));
 
       final prevButton = tester.widget<IconButton>(
-        find.widgetWithIcon(IconButton, Icons.chevron_left),
+        find.widgetWithIcon(IconButton, Symbols.chevron_left_sharp),
       );
       final nextButton = tester.widget<IconButton>(
-        find.widgetWithIcon(IconButton, Icons.chevron_right),
+        find.widgetWithIcon(IconButton, Symbols.chevron_right_sharp),
       );
       expect(prevButton.onPressed, isNull);
       expect(nextButton.onPressed, isNull);
@@ -194,7 +195,7 @@ void main() {
         onBackTap: () => backTapped = true,
       )));
 
-      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.tap(find.byIcon(Symbols.arrow_back_sharp));
       expect(backTapped, isTrue);
     });
 
@@ -209,7 +210,7 @@ void main() {
       await tester.pumpWidget(wrap(buildPage(
         metrics: [
           EpochMetricData(
-            icon: Icons.search_outlined,
+            icon: Symbols.search_sharp,
             title: 'With Chevron',
             subtitle: 'Has chevron',
             trailingValue: '100%',
@@ -217,7 +218,7 @@ void main() {
             showChevron: true,
           ),
           const EpochMetricData(
-            icon: Icons.block,
+            icon: Symbols.block_sharp,
             title: 'Without Chevron',
             subtitle: 'No chevron',
             trailingValue: '0',
@@ -229,7 +230,7 @@ void main() {
       // Verify the metric-specific chevron by finding it within a ListTile
       final metricChevrons = find.descendant(
         of: find.byType(ListTile),
-        matching: find.byIcon(Icons.chevron_right),
+        matching: find.byIcon(Symbols.chevron_right_sharp),
       );
       expect(metricChevrons, findsOneWidget);
     });

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/config/legacy_colors.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 
@@ -43,31 +44,31 @@ class WonSlotItem extends StatelessWidget {
       case SlotStatus.produced:
         statusColor = colorScheme.tertiary;
         statusBgColor = colorScheme.tertiary.withValues(alpha: 0.1);
-        statusIcon = Icons.check_circle;
+        statusIcon = Symbols.check_circle_sharp;
         statusLabel = 'Produced';
         break;
       case SlotStatus.missed:
         statusColor = colorScheme.error;
         statusBgColor = colorScheme.error.withValues(alpha: 0.1);
-        statusIcon = Icons.cancel;
+        statusIcon = Symbols.cancel_sharp;
         statusLabel = 'Missed';
         break;
       case SlotStatus.orphaned:
         statusColor = LegacyColors.warningColor;
         statusBgColor = LegacyColors.warningColor.withValues(alpha: 0.1);
-        statusIcon = Icons.warning_amber;
+        statusIcon = Symbols.warning_amber_sharp;
         statusLabel = 'Orphaned';
         break;
       case SlotStatus.pending:
         if (isPast) {
           statusColor = LegacyColors.warningColor;
           statusBgColor = LegacyColors.warningColor.withValues(alpha: 0.1);
-          statusIcon = Icons.schedule;
+          statusIcon = Symbols.schedule_sharp;
           statusLabel = 'Pending';
         } else {
           statusColor = colorScheme.primary;
           statusBgColor = colorScheme.primaryContainer.withValues(alpha: 0.3);
-          statusIcon = Icons.schedule;
+          statusIcon = Symbols.schedule_sharp;
           statusLabel = 'Upcoming';
         }
         break;
@@ -234,8 +235,7 @@ class WonSlotItem extends StatelessWidget {
             const SizedBox(height: 12),
             Row(
               children: [
-                Icon(Icons.timer_outlined,
-                    size: 18, color: colorScheme.primary),
+                Icon(Symbols.timer_sharp, size: 18, color: colorScheme.primary),
                 const SizedBox(width: 8),
                 Text(
                   _formatTimeRemaining(timeRemaining),

@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/providers/node_data_providers.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 import 'package:crypto_mobile_app/core/providers/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
@@ -80,6 +82,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
@@ -95,7 +98,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
         leading: const BackButton(),
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(spacing.space16),
         child: () {
           if (rewards == null || blockchain == null) {
             return Center(
@@ -177,7 +180,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: spacing.space4),
                 Text(
                   useHourly
                       ? l10n.wonSlotsGroupedByHour
@@ -186,11 +189,11 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
                     color: colorScheme.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: spacing.space16),
 
                 // Summary card
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: EdgeInsets.all(spacing.space12),
                   decoration: BoxDecoration(
                     color: colorScheme.surfaceContainerLow,
                     borderRadius: BorderRadius.circular(8),
@@ -232,7 +235,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
                   ),
                 ),
 
-                const SizedBox(height: 16),
+                SizedBox(height: spacing.space16),
 
                 // Time buckets
                 ...buckets.map((bucket) => _buildTimeBucket(
@@ -304,6 +307,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
 
   Widget _buildSummaryItem(
       BuildContext context, String label, String value, Color color) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     return Column(
       children: [
         Text(
@@ -314,7 +318,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
             color: color,
           ),
         ),
-        const SizedBox(height: 2),
+        SizedBox(height: spacing.space4),
         Text(
           label,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -334,6 +338,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
     bool useHourly,
     AppLocalizations l10n,
   ) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final now = DateTime.now();
     final isToday = bucket.time.year == now.year &&
         bucket.time.month == now.month &&
@@ -356,8 +361,8 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
     }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
+      margin: EdgeInsets.only(bottom: spacing.space8),
+      padding: EdgeInsets.all(spacing.space12),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(8),
@@ -373,11 +378,13 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
           Row(
             children: [
               Icon(
-                useHourly ? Icons.access_time : Icons.calendar_today,
+                useHourly
+                    ? Symbols.access_time_sharp
+                    : Symbols.calendar_today_sharp,
                 size: 16,
                 color: colorScheme.primary,
               ),
-              const SizedBox(width: 6),
+              SizedBox(width: spacing.space8),
               Text(
                 timeLabel,
                 style: theme.textTheme.titleSmall?.copyWith(
@@ -387,7 +394,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: spacing.space8),
 
           // Stats row
           Row(
@@ -430,8 +437,10 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
 
   Widget _buildStatChip(BuildContext context, String label, int count,
       Color bgColor, Color textColor) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      padding: EdgeInsets.symmetric(
+          horizontal: spacing.space8, vertical: spacing.space8),
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(6),
@@ -446,7 +455,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
               color: textColor,
             ),
           ),
-          const SizedBox(height: 1),
+          SizedBox(height: spacing.space4),
           Text(
             label,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(

@@ -1,6 +1,7 @@
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 void main() {
   ThemeData themeWithExtensions() {
@@ -42,7 +43,7 @@ void main() {
         const TopAppBar(title: 'Leaderboard'),
       ));
 
-      expect(find.byIcon(Icons.arrow_back), findsOneWidget);
+      expect(find.byIcon(Symbols.arrow_back_sharp), findsOneWidget);
     });
 
     testWidgets('fires onLeadingTap when back arrow is tapped', (tester) async {
@@ -54,7 +55,7 @@ void main() {
         ),
       ));
 
-      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.tap(find.byIcon(Symbols.arrow_back_sharp));
       expect(tapped, isTrue);
     });
 
@@ -62,23 +63,23 @@ void main() {
       await tester.pumpWidget(wrap(
         const TopAppBar(
           title: 'Leaderboard',
-          leading: Icon(Icons.menu),
+          leading: Icon(Symbols.menu_sharp),
         ),
       ));
 
-      expect(find.byIcon(Icons.menu), findsOneWidget);
-      expect(find.byIcon(Icons.arrow_back), findsNothing);
+      expect(find.byIcon(Symbols.menu_sharp), findsOneWidget);
+      expect(find.byIcon(Symbols.arrow_back_sharp), findsNothing);
     });
 
     testWidgets('renders actions', (tester) async {
       await tester.pumpWidget(wrap(
         const TopAppBar(
           title: 'Leaderboard',
-          actions: [Icon(Icons.filter_list)],
+          actions: [Icon(Symbols.filter_list_sharp)],
         ),
       ));
 
-      expect(find.byIcon(Icons.filter_list), findsOneWidget);
+      expect(find.byIcon(Symbols.filter_list_sharp), findsOneWidget);
     });
 
     testWidgets('uses SliverAppBar', (tester) async {
@@ -136,7 +137,7 @@ void main() {
         ),
       ));
 
-      expect(find.byIcon(Icons.arrow_back), findsOneWidget);
+      expect(find.byIcon(Symbols.arrow_back_sharp), findsOneWidget);
     });
 
     testWidgets('fires onLeadingTap in large variant', (tester) async {
@@ -149,7 +150,7 @@ void main() {
         ),
       ));
 
-      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.tap(find.byIcon(Symbols.arrow_back_sharp));
       expect(tapped, isTrue);
     });
 
@@ -158,11 +159,11 @@ void main() {
         const TopAppBar(
           title: 'Produce Every Block',
           size: TopAppBarSize.large,
-          actions: [Icon(Icons.search)],
+          actions: [Icon(Symbols.search_sharp)],
         ),
       ));
 
-      expect(find.byIcon(Icons.search), findsOneWidget);
+      expect(find.byIcon(Symbols.search_sharp), findsOneWidget);
     });
   });
 
@@ -176,7 +177,7 @@ void main() {
               slivers: [
                 const TopAppBar(
                   title: 'Leaderboard',
-                  actions: [Icon(Icons.filter_list)],
+                  actions: [Icon(Symbols.filter_list_sharp)],
                 ),
                 const SliverFillRemaining(child: SizedBox()),
               ],
@@ -203,7 +204,7 @@ void main() {
                   subtitle: 'Technical · Jan 12 - Jan 30',
                   image: Container(
                     color: const Color(0xFFE3F2FD),
-                    child: const Icon(Icons.hexagon_outlined),
+                    child: const Icon(Symbols.hexagon_sharp),
                   ),
                 ),
                 const SliverFillRemaining(child: SizedBox()),

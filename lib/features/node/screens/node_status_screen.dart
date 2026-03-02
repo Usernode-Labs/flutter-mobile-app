@@ -20,6 +20,7 @@ import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -434,7 +435,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                   );
                 },
                 child: Icon(
-                  Icons.copy,
+                  Symbols.content_copy_sharp,
                   size: 16,
                   color: colorScheme.primary,
                 ),
@@ -460,15 +461,19 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
   (IconData, String, Color) _getStatusDisplay(dynamic sync) {
     if (_error != null) {
-      return (Icons.close, 'Offline', const Color(0xFFF56E98));
+      return (Symbols.close_sharp, 'Offline', const Color(0xFFF56E98));
     }
     if (sync == null || sync.isConnecting) {
-      return (Icons.hourglass_empty, 'Connecting', const Color(0xFFF1B440));
+      return (
+        Symbols.hourglass_empty_sharp,
+        'Connecting',
+        const Color(0xFFF1B440)
+      );
     }
     if (sync.isSynced) {
-      return (Icons.check, 'Synced', const Color(0xFF4CAF50));
+      return (Symbols.check_sharp, 'Synced', const Color(0xFF4CAF50));
     }
-    return (Icons.hourglass_empty, 'Syncing', const Color(0xFFF1B440));
+    return (Symbols.hourglass_empty_sharp, 'Syncing', const Color(0xFFF1B440));
   }
 
   Widget _buildBlockSyncProgressSection(BuildContext context) {
@@ -610,8 +615,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: EdgeInsets.fromLTRB(
-                spacing.space12, spacing.space12, 0, 0),
+            padding:
+                EdgeInsets.fromLTRB(spacing.space12, spacing.space12, 0, 0),
             child: Text(
               'Sync Details',
               style: theme.textTheme.titleMedium
@@ -621,7 +626,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
           SizedBox(height: spacing.space12),
           _buildSyncDetailsCard(
             context: context,
-            icon: Icons.hub_outlined,
+            icon: Symbols.hub_sharp,
             iconColor: colorScheme.secondary,
             title: const Text('Peers'),
             subtitle: _buildPeersSubtitle(context),
@@ -631,7 +636,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
           SizedBox(height: spacing.space12),
           _buildSyncDetailsCard(
             context: context,
-            icon: Icons.collections_bookmark_outlined,
+            icon: Symbols.collections_bookmark_sharp,
             iconColor: colorScheme.secondary,
             title: _buildEpochTitle(),
             subtitle: _buildEpochSubtitle(),
@@ -648,7 +653,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
           SizedBox(height: spacing.space12),
           _buildSyncDetailsCard(
             context: context,
-            icon: Icons.calculate_outlined,
+            icon: Symbols.calculate_sharp,
             iconColor: colorScheme.tertiary,
             title: const Text('VRF'),
             subtitle: _buildVrfSubtitle(),
@@ -657,16 +662,17 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
           SizedBox(height: spacing.space12),
           _buildSyncDetailsCard(
             context: context,
-            icon: Icons.star_border_outlined,
+            icon: Symbols.star_sharp,
             iconColor: colorScheme.primary,
             title: const Text('Best Tip'),
             subtitle: _buildBestTipSubtitle(),
-            trailing: Icon(Icons.copy, color: colorScheme.primary, size: 20),
+            trailing: Icon(Symbols.content_copy_sharp,
+                color: colorScheme.primary, size: 20),
           ),
           SizedBox(height: spacing.space12),
           _buildSyncDetailsCard(
             context: context,
-            icon: Icons.account_tree,
+            icon: Symbols.account_tree_sharp,
             iconColor: colorScheme.secondary,
             title: const Text('Mempool'),
             subtitle: _buildMempoolSubtitle(),
@@ -687,11 +693,13 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     Widget? trailing,
     VoidCallback? onTap,
   }) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
     final cardContent = Container(
-      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
+      padding: EdgeInsets.symmetric(
+          vertical: spacing.space8, horizontal: spacing.space8),
       child: Row(
         children: [
           Container(
@@ -703,7 +711,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             ),
             child: Icon(icon, color: colorScheme.onSurface, size: 24),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: spacing.space12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -716,7 +724,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                       const TextStyle(),
                   child: title,
                 ),
-                const SizedBox(height: 2),
+                SizedBox(height: spacing.space4),
                 DefaultTextStyle(
                   style: theme.textTheme.bodySmall?.copyWith(
                         color: colorScheme.onSurface,
@@ -729,12 +737,12 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             ),
           ),
           if (trailing != null) ...[
-            const SizedBox(width: 8),
+            SizedBox(width: spacing.space8),
             trailing,
           ],
           if (onTap != null) ...[
-            const SizedBox(width: 8),
-            Icon(Icons.chevron_right,
+            SizedBox(width: spacing.space8),
+            Icon(Symbols.chevron_right_sharp,
                 color: colorScheme.onSurfaceVariant, size: 20),
           ],
         ],
@@ -753,13 +761,15 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     required BuildContext context,
     required List<Widget> children,
   }) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.surfaceBright,
         borderRadius: BorderRadius.circular(20),
       ),
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      padding: EdgeInsets.symmetric(
+          horizontal: spacing.space16, vertical: spacing.space12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: children,
@@ -768,6 +778,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   }
 
   Widget _buildRecentBlocksSection(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final blockchain = ref.read(nodeBlockchainProvider).value;
@@ -796,8 +807,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                   onPressed: () =>
                       context.push(AppRoutes.nodeStatusProducedBlocks),
                   style: TextButton.styleFrom(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: EdgeInsets.symmetric(
+                        horizontal: spacing.space8, vertical: spacing.space4),
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
@@ -812,21 +823,23 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                           color: colorScheme.primary,
                         ),
                       ),
-                      const SizedBox(width: 4),
-                      Icon(Icons.arrow_forward,
+                      SizedBox(width: spacing.space4),
+                      Icon(Symbols.arrow_forward_sharp,
                           size: 14, color: colorScheme.primary),
                     ],
                   ),
                 ),
               Icon(
-                _isRecentBlocksExpanded ? Icons.expand_less : Icons.expand_more,
+                _isRecentBlocksExpanded
+                    ? Symbols.expand_less_sharp
+                    : Symbols.expand_more_sharp,
                 color: colorScheme.onSurfaceVariant,
               ),
             ],
           ),
         ),
         if (_isRecentBlocksExpanded) ...[
-          const SizedBox(height: 12),
+          SizedBox(height: spacing.space12),
           _buildProducedBlocksTab(context),
         ],
       ],
@@ -834,6 +847,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   }
 
   Widget _buildProducedBlocksTab(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final blockchain = ref.read(nodeBlockchainProvider).value;
@@ -842,7 +856,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     if (blockchain == null || blockchain.items.isEmpty) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(spacing.space24),
           child: Text(
             'No produced blocks available',
             style: theme.textTheme.bodyMedium
@@ -884,6 +898,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   }
 
   Widget _buildPeersSubtitle(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final statusFromProvider = ref.read(nodeStatusProvider).value;
     final connectedPeers = statusFromProvider?.connectedPeers ?? 0;
     final totalPeers = statusFromProvider?.totalPeers ?? 0;
@@ -901,7 +916,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('$connectedPeers/$totalPeers $healthStatus'),
-          const SizedBox(height: 4),
+          SizedBox(height: spacing.space4),
           Row(
             children: [
               GestureDetector(
@@ -915,12 +930,12 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                   );
                 },
                 child: Icon(
-                  Icons.copy,
+                  Symbols.content_copy_sharp,
                   size: 16,
                   color: colorScheme.primary,
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: spacing.space8),
               const Text('Peer ID: '),
               Expanded(
                 child: Text(
@@ -956,6 +971,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
   }
 
   Widget _buildEpochSubtitle() {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final statusFromProvider = ref.read(nodeStatusProvider).value;
     final currentSlot = statusFromProvider?.currentGlobalSlot ?? 0;
     final slotsPerEpoch = statusFromProvider?.slotsInEpoch ?? 0;
@@ -965,7 +981,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('Epoch Slot:$slotInEpoch/$slotsPerEpoch'),
-        const SizedBox(height: 2),
+        SizedBox(height: spacing.space4),
         Text('Global slot:$currentSlot'),
       ],
     );
@@ -1098,11 +1114,12 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     required BigInt pending,
     required BigInt idle,
   }) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(spacing.space12),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(8),
@@ -1121,7 +1138,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
               color: colorScheme.onSurface,
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: spacing.space8),
           Text(
             'Done: $done',
             style: theme.textTheme.bodySmall?.copyWith(

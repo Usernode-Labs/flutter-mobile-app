@@ -1,6 +1,7 @@
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 void main() {
   ThemeData themeWithExtensions() {
@@ -44,7 +45,7 @@ void main() {
         ]),
       ));
 
-      expect(find.byIcon(Icons.chevron_right), findsOneWidget);
+      expect(find.byIcon(Symbols.chevron_right_sharp), findsOneWidget);
     });
 
     testWidgets('renders N-1 chevrons for N items', (tester) async {
@@ -56,7 +57,7 @@ void main() {
         ]),
       ));
 
-      expect(find.byIcon(Icons.chevron_right), findsNWidgets(2));
+      expect(find.byIcon(Symbols.chevron_right_sharp), findsNWidgets(2));
     });
 
     testWidgets('no chevron for single item', (tester) async {
@@ -66,7 +67,7 @@ void main() {
         ]),
       ));
 
-      expect(find.byIcon(Icons.chevron_right), findsNothing);
+      expect(find.byIcon(Symbols.chevron_right_sharp), findsNothing);
       expect(find.text('Season 2'), findsOneWidget);
     });
 

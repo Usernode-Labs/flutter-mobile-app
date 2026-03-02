@@ -8,6 +8,7 @@ import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 class DappsScreen extends ConsumerStatefulWidget {
@@ -382,7 +383,7 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
               IconButton(
                 tooltip: 'Refresh',
                 onPressed: () => _controller.reload(),
-                icon: const Icon(Icons.refresh),
+                icon: const Icon(Symbols.refresh_sharp),
               ),
             ],
           ),
@@ -394,7 +395,7 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
         leading: IconButton(
           tooltip: 'Back',
           onPressed: _canGoBack ? () => _controller.goBack() : null,
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Symbols.arrow_back_sharp),
         ),
         titleSpacing: 0,
         actions: [
@@ -404,7 +405,7 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
             child: IconButton(
               tooltip: 'Hidden',
               onPressed: _onSecretTap,
-              icon: const Icon(Icons.more_horiz),
+              icon: const Icon(Symbols.more_horiz_sharp),
             ),
           ),
         ],

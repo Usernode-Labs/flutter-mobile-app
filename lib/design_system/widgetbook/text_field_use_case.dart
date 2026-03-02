@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import '../src/text_field.dart';
@@ -37,7 +38,7 @@ WidgetbookUseCase _playground() {
           label: label,
           hint: hint,
           errorText: showError ? 'Invalid amount' : null,
-          prefixIcon: const Icon(Icons.attach_money),
+          prefixIcon: const Icon(Symbols.attach_money_sharp),
         ),
       );
     },
@@ -64,13 +65,13 @@ WidgetbookUseCase _states() {
               label: 'With Helper',
               hint: 'Enter address',
               helperText: 'Paste your wallet address',
-              prefixIcon: Icon(Icons.account_balance_wallet),
+              prefixIcon: Icon(Symbols.account_balance_wallet_sharp),
             ),
             SizedBox(height: spacing.space16),
             const DSTextField(
               label: 'Error State',
               errorText: 'Address is invalid',
-              prefixIcon: Icon(Icons.error_outline),
+              prefixIcon: Icon(Symbols.error_sharp),
             ),
             SizedBox(height: spacing.space16),
             const DSTextField(
@@ -83,8 +84,8 @@ WidgetbookUseCase _states() {
               label: 'Password',
               hint: 'Enter password',
               obscureText: true,
-              prefixIcon: Icon(Icons.lock),
-              suffixIcon: Icon(Icons.visibility_off),
+              prefixIcon: Icon(Symbols.lock_sharp),
+              suffixIcon: Icon(Symbols.visibility_off_sharp),
             ),
           ],
         ),

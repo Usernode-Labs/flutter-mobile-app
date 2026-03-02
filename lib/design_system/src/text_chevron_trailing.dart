@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../tokens/app_spacing.dart';
 
@@ -20,10 +21,10 @@ class TextChevronTrailing extends StatelessWidget {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
     return Row(
       mainAxisSize: MainAxisSize.min,
+      spacing: spacing.space4,
       children: [
         Text(text),
-        SizedBox(width: spacing.space4),
-        Icon(Icons.chevron_right, size: 20, color: cs.onSurfaceVariant),
+        Icon(Symbols.chevron_right_sharp, size: 20, color: cs.onSurfaceVariant),
       ],
     );
   }

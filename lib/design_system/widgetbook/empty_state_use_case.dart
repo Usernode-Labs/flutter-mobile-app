@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import '../src/empty_state.dart';
@@ -31,7 +32,7 @@ WidgetbookUseCase _playground() {
       );
 
       return EmptyState(
-        icon: Icons.inbox_outlined,
+        icon: Symbols.inbox_sharp,
         title: title,
         subtitle: subtitle,
         action: showAction
@@ -56,7 +57,7 @@ WidgetbookUseCase _variants() {
             SizedBox(
               height: 200,
               child: EmptyState(
-                icon: Icons.inbox_outlined,
+                icon: Symbols.inbox_sharp,
                 title: 'No transactions',
                 subtitle: 'Send or receive to get started',
               ),
@@ -64,7 +65,7 @@ WidgetbookUseCase _variants() {
             SizedBox(
               height: 200,
               child: EmptyState(
-                icon: Icons.search_off,
+                icon: Symbols.search_off_sharp,
                 title: 'No results found',
                 subtitle: 'Try adjusting your search',
               ),
@@ -72,7 +73,7 @@ WidgetbookUseCase _variants() {
             SizedBox(
               height: 200,
               child: EmptyState(
-                icon: Icons.wifi_off,
+                icon: Symbols.wifi_off_sharp,
                 title: 'No connection',
                 subtitle: 'Check your internet connection',
               ),

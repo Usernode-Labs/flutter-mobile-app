@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import '../src/icon_badge.dart';
@@ -19,7 +20,7 @@ WidgetbookUseCase _playground() {
     name: 'Playground',
     builder: (context) {
       return const Center(
-        child: IconBadge(icon: Icons.bolt),
+        child: IconBadge(icon: Symbols.bolt_sharp),
       );
     },
   );
@@ -36,12 +37,12 @@ WidgetbookUseCase _variants() {
           spacing: spacing.space16,
           runSpacing: spacing.space16,
           children: const [
-            IconBadge(icon: Icons.bolt),
-            IconBadge(icon: Icons.account_balance_wallet),
-            IconBadge(icon: Icons.bar_chart),
-            IconBadge(icon: Icons.settings),
-            IconBadge(icon: Icons.person),
-            IconBadge(icon: Icons.star),
+            IconBadge(icon: Symbols.bolt_sharp),
+            IconBadge(icon: Symbols.account_balance_wallet_sharp),
+            IconBadge(icon: Symbols.bar_chart_sharp),
+            IconBadge(icon: Symbols.settings_sharp),
+            IconBadge(icon: Symbols.person_sharp),
+            IconBadge(icon: Symbols.star_sharp),
           ],
         ),
       );

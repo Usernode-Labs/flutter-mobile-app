@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import 'package:crypto_mobile_app/features/wallet/models/transaction_model.dart';
 import 'package:crypto_mobile_app/features/wallet/models/transaction_item.dart'
@@ -192,7 +193,7 @@ class WalletController extends AsyncNotifier<WalletState> {
           type: TransactionType.receive,
           status: TransactionStatus.completed,
           timestamp: _parseTimestampFromUtxo(utxoData),
-          icon: Icons.south_west,
+          icon: Symbols.south_west_sharp,
           color: Colors.green,
           dataSource: DataSource.local, // UTXO transactions are local
         );
@@ -399,7 +400,7 @@ class WalletController extends AsyncNotifier<WalletState> {
 
     switch (txItem.type) {
       case transaction_item.TransactionType.sent:
-        icon = Icons.north_east;
+        icon = Symbols.north_east_sharp;
         color = Colors.red;
         title = 'Sending';
         subtitle = txItem.recipientAddress != null
@@ -408,21 +409,21 @@ class WalletController extends AsyncNotifier<WalletState> {
         modelType = TransactionType.send;
         break;
       case transaction_item.TransactionType.received:
-        icon = Icons.south_west;
+        icon = Symbols.south_west_sharp;
         color = Colors.green;
         title = 'Receiving';
         subtitle = 'Transaction pending';
         modelType = TransactionType.receive;
         break;
       case transaction_item.TransactionType.coinbaseReward:
-        icon = Icons.star;
+        icon = Symbols.star_sharp;
         color = Colors.orange;
         title = 'Mining Reward';
         subtitle = 'Pending confirmation';
         modelType = TransactionType.reward;
         break;
       case transaction_item.TransactionType.genesis:
-        icon = Icons.diamond;
+        icon = Symbols.diamond_sharp;
         color = Colors.purple;
         title = 'Genesis';
         subtitle = 'Pending confirmation';

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:crypto_mobile_app/features/node/node_service.dart';
@@ -145,7 +146,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Symbols.arrow_back_sharp),
           onPressed: () => context.pop(),
         ),
         title: const Text('Send'),
@@ -168,7 +169,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                           controller: _addressController,
                           hint: 'Recipient address',
                           suffixIcon: IconButton(
-                            icon: const Icon(Icons.history),
+                            icon: const Icon(Symbols.history_sharp),
                             tooltip: 'Recent recipients',
                             onPressed: () => _showRecipientHistory(
                               context,
@@ -397,7 +398,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
           itemBuilder: (context, index) {
             final address = recipients[index];
             return ListTile(
-              leading: const Icon(Icons.history),
+              leading: const Icon(Symbols.history_sharp),
               title: Text(
                 address,
                 maxLines: 1,

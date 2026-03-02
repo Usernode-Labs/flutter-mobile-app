@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import '../src/top_app_bar.dart';
@@ -44,7 +45,7 @@ WidgetbookComponent topAppBarComponent() {
                     ? Container(
                         color: colors.primaryContainer,
                         child: Icon(
-                          Icons.hexagon_outlined,
+                          Symbols.hexagon_sharp,
                           color: colors.primary,
                         ),
                       )

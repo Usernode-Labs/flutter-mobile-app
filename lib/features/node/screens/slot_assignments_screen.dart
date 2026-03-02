@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/providers/produced_blocks_provider.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
@@ -341,7 +342,7 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
                     // Calculate global slot: globalSlot = epoch * slotsInEpoch + slot
                     final globalSlot = epoch * slotsInEpoch + item.slot;
                     return _SlotRow(
-                      icon: Icons.layers,
+                      icon: Symbols.layers_sharp,
                       title: 'Epoch Slot ${item.slot}',
                       subtitle: subtitleText,
                       result: item.result,
@@ -469,7 +470,7 @@ class _SlotRow extends StatelessWidget {
                   ),
                 ),
                 SizedBox(width: spacing.space4),
-                Icon(Icons.chevron_right,
+                Icon(Symbols.chevron_right_sharp,
                     size: 20, color: colorScheme.onSurfaceVariant),
               ],
             )
@@ -533,7 +534,7 @@ class _FilterChip extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: spacing.space8),
             Text(
               label,
               style: theme.textTheme.bodySmall?.copyWith(

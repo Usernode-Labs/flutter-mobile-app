@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import '../src/button.dart';
@@ -41,8 +42,9 @@ WidgetbookComponent buttonComponent() {
 
           final button = Button(
             label: label,
-            leadingIcon:
-                showIcon ? const Icon(Icons.leaderboard, size: 20) : null,
+            leadingIcon: showIcon
+                ? const Icon(Symbols.leaderboard_sharp, size: 20)
+                : null,
             size: size,
             variant: variant,
             onTap: () {},

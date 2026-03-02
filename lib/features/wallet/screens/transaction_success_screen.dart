@@ -1,5 +1,7 @@
+import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 class TransactionSuccessScreen extends StatelessWidget {
   final String amount;
@@ -15,6 +17,7 @@ class TransactionSuccessScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
 
     // Format the recipient address to show first 8 and last 8 characters
@@ -26,7 +29,7 @@ class TransactionSuccessScreen extends StatelessWidget {
       backgroundColor: theme.colorScheme.surface,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(spacing.space24),
           child: Column(
             children: [
               const Spacer(flex: 2),
@@ -40,7 +43,7 @@ class TransactionSuccessScreen extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
 
-              const SizedBox(height: 24),
+              SizedBox(height: spacing.space24),
 
               // Transaction details
               Text(
@@ -51,7 +54,7 @@ class TransactionSuccessScreen extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
 
-              const SizedBox(height: 8),
+              SizedBox(height: spacing.space8),
 
               Text(
                 displayAddress,
@@ -73,7 +76,7 @@ class TransactionSuccessScreen extends StatelessWidget {
                 ),
                 child: Center(
                   child: Icon(
-                    Icons.check,
+                    Symbols.check_sharp,
                     size: 60,
                     color: Colors.green.shade700,
                   ),
@@ -120,7 +123,7 @@ class TransactionSuccessScreen extends StatelessWidget {
                 ),
               ),
 
-              const SizedBox(height: 24),
+              SizedBox(height: spacing.space24),
             ],
           ),
         ),

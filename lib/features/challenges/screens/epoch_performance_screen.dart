@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:crypto_mobile_app/core/config/app_router.dart';
@@ -48,7 +49,7 @@ class _EpochPerformanceScreenState
       loading: () => Scaffold(
         appBar: AppBar(
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
+            icon: const Icon(Symbols.arrow_back_sharp),
             onPressed: () => context.pop(),
           ),
           title: Text(l10n.statsEpoch(_viewedEpoch)),
@@ -60,7 +61,7 @@ class _EpochPerformanceScreenState
       error: (e, _) => Scaffold(
         appBar: AppBar(
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
+            icon: const Icon(Symbols.arrow_back_sharp),
             onPressed: () => context.pop(),
           ),
           title: Text(l10n.statsEpoch(_viewedEpoch)),
@@ -211,7 +212,7 @@ class _EpochPerformanceScreenState
 
     final metrics = <EpochMetricData>[
       EpochMetricData(
-        icon: Icons.search_outlined,
+        icon: Symbols.search_sharp,
         title: l10n.producedBlocksCheckedSlots,
         subtitle: l10n.producedBlocksEvaluatedOfSlots(evaluated, slotsInEpoch),
         trailingValue: '${evaluatedPct.toStringAsFixed(0)}%',
@@ -225,7 +226,7 @@ class _EpochPerformanceScreenState
         showChevron: true,
       ),
       EpochMetricData(
-        icon: Icons.check_box_outlined,
+        icon: Symbols.check_box_sharp,
         title: l10n.producedBlocksTitle,
         subtitle: l10n.producedBlocksProducedOfWon(
           produced.toString(),
@@ -244,7 +245,7 @@ class _EpochPerformanceScreenState
         showChevron: produced > 0,
       ),
       EpochMetricData(
-        icon: Icons.disabled_by_default_outlined,
+        icon: Symbols.disabled_by_default_sharp,
         title: l10n.producedBlocksMissedBlocksTitle,
         subtitle: l10n.producedBlocksMissedOfWon(
           missed.toString(),
@@ -267,7 +268,7 @@ class _EpochPerformanceScreenState
     if (showUpcoming) {
       metrics.add(
         EpochMetricData(
-          icon: Icons.schedule_outlined,
+          icon: Symbols.schedule_sharp,
           title: l10n.producedBlocksUpcomingBlocksTitle,
           subtitle: l10n.producedBlocksUpcomingThisEpoch(upcoming.toString()),
           trailingValue: '$upcoming',

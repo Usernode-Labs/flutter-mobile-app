@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../tokens/app_opacity.dart';
 import '../tokens/app_radii.dart';
@@ -141,6 +142,7 @@ class DropdownChip extends StatelessWidget {
         ),
         child: Row(
           mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
+          spacing: spacing.space8,
           children: [
             expanded
                 ? Expanded(
@@ -154,9 +156,8 @@ class DropdownChip extends StatelessWidget {
                     label,
                     style: textStyle?.copyWith(color: contentColor),
                   ),
-            SizedBox(width: spacing.space8),
             Icon(
-              Icons.arrow_drop_down,
+              Symbols.arrow_drop_down_sharp,
               size: iconSize,
               color: contentColor,
             ),

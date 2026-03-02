@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import '../src/icon_badge.dart';
@@ -84,11 +85,11 @@ WidgetbookUseCase _playground() {
       Widget? leadingWidget;
       switch (leading) {
         case _LeadingOption.iconBadge:
-          leadingWidget = const IconBadge(icon: Icons.check_circle_outline);
+          leadingWidget = const IconBadge(icon: Symbols.check_circle_sharp);
         case _LeadingOption.rankBadge:
           leadingWidget = const RankBadge(rank: '#1');
         case _LeadingOption.inlineIcon:
-          leadingWidget = const Icon(Icons.history);
+          leadingWidget = const Icon(Symbols.history_sharp);
         case _LeadingOption.none:
           leadingWidget = null;
       }
@@ -98,12 +99,12 @@ WidgetbookUseCase _playground() {
         case _TrailingOption.value:
           trailingWidget = Text(trailingText);
         case _TrailingOption.chevron:
-          trailingWidget = const Icon(Icons.chevron_right, size: 20);
+          trailingWidget = const Icon(Symbols.chevron_right_sharp, size: 20);
         case _TrailingOption.icon:
-          trailingWidget = const Icon(Icons.open_in_new, size: 20);
+          trailingWidget = const Icon(Symbols.open_in_new_sharp, size: 20);
         case _TrailingOption.action:
           trailingWidget = IconButton(
-            icon: const Icon(Icons.more_vert),
+            icon: const Icon(Symbols.more_vert_sharp),
             onPressed: () {},
           );
         case _TrailingOption.statusBadge:
@@ -153,14 +154,14 @@ WidgetbookUseCase _leadingSlots() {
               child: Column(
                 children: [
                   ListTile(
-                    leading: const IconBadge(icon: Icons.check_circle_outline),
+                    leading: const IconBadge(icon: Symbols.check_circle_sharp),
                     title: const Text('Checked Slots'),
                     subtitle: const Text('Evaluated 240 of 240'),
                     trailing: const TextChevronTrailing(text: '100%'),
                     onTap: () {},
                   ),
                   ListTile(
-                    leading: const IconBadge(icon: Icons.hub_outlined),
+                    leading: const IconBadge(icon: Symbols.hub_sharp),
                     title: const Text('Network Peers'),
                     subtitle: const Text('12 connected'),
                     trailing: const Text('Online'),
@@ -201,13 +202,13 @@ WidgetbookUseCase _leadingSlots() {
               child: Column(
                 children: [
                   ListTile(
-                    leading: const Icon(Icons.history),
+                    leading: const Icon(Symbols.history_sharp),
                     title: const Text('B62qk...x9fR'),
                     subtitle: const Text('Last used 2 days ago'),
                     onTap: () {},
                   ),
                   ListTile(
-                    leading: const Icon(Icons.qr_code),
+                    leading: const Icon(Symbols.qr_code_sharp),
                     title: const Text('Scan QR Code'),
                     onTap: () {},
                   ),
@@ -275,7 +276,7 @@ WidgetbookUseCase _trailingSlots() {
                     trailing: Text('10,000 pts'),
                   ),
                   ListTile(
-                    leading: const IconBadge(icon: Icons.bolt),
+                    leading: const IconBadge(icon: Symbols.bolt_sharp),
                     title: const Text('Uptime'),
                     subtitle: const Text('Current epoch'),
                     trailing: const Text('99.7%'),
@@ -291,10 +292,10 @@ WidgetbookUseCase _trailingSlots() {
               child: Column(
                 children: [
                   ListTile(
-                    leading: const IconBadge(icon: Icons.settings),
+                    leading: const IconBadge(icon: Symbols.settings_sharp),
                     title: const Text('Advanced Settings'),
                     trailing: Icon(
-                      Icons.chevron_right,
+                      Symbols.chevron_right_sharp,
                       size: 20,
                       color: cs.onSurfaceVariant,
                     ),
@@ -311,14 +312,14 @@ WidgetbookUseCase _trailingSlots() {
               child: Column(
                 children: [
                   ListTile(
-                    leading: const IconBadge(icon: Icons.check_circle_outline),
+                    leading: const IconBadge(icon: Symbols.check_circle_sharp),
                     title: const Text('Checked Slots'),
                     subtitle: const Text('Evaluated 240 of 240'),
                     trailing: const TextChevronTrailing(text: '100%'),
                     onTap: () {},
                   ),
                   ListTile(
-                    leading: const IconBadge(icon: Icons.view_in_ar),
+                    leading: const IconBadge(icon: Symbols.view_in_ar_sharp),
                     title: const Text('Produced Blocks'),
                     subtitle: const Text('16 of 21 won slots'),
                     trailing: const TextChevronTrailing(text: '1'),
@@ -334,24 +335,24 @@ WidgetbookUseCase _trailingSlots() {
               child: Column(
                 children: [
                   ListTile(
-                    leading: const IconBadge(icon: Icons.cloud_done_outlined),
+                    leading: const IconBadge(icon: Symbols.cloud_done_sharp),
                     title: const Text('Node Status'),
                     subtitle: const Text('Running since 3 days ago'),
                     trailing: const StatusBadge(
                       label: 'Online',
                       variant: StatusBadgeVariant.success,
-                      icon: Icons.check_circle,
+                      icon: Symbols.check_circle_sharp,
                     ),
                     onTap: () {},
                   ),
                   ListTile(
-                    leading: const IconBadge(icon: Icons.sync),
+                    leading: const IconBadge(icon: Symbols.sync_sharp),
                     title: const Text('Sync Status'),
                     subtitle: const Text('Block 1,234,567'),
                     trailing: const StatusBadge(
                       label: 'Syncing',
                       variant: StatusBadgeVariant.warning,
-                      icon: Icons.sync,
+                      icon: Symbols.sync_sharp,
                     ),
                     onTap: () {},
                   ),
@@ -365,11 +366,11 @@ WidgetbookUseCase _trailingSlots() {
               child: Column(
                 children: [
                   ListTile(
-                    leading: const IconBadge(icon: Icons.person),
+                    leading: const IconBadge(icon: Symbols.person_sharp),
                     title: const Text('Peer 192.168.1.1'),
                     subtitle: const Text('Connected 5 min ago'),
                     trailing: IconButton(
-                      icon: const Icon(Icons.more_vert),
+                      icon: const Icon(Symbols.more_vert_sharp),
                       onPressed: () {},
                     ),
                   ),
@@ -383,7 +384,7 @@ WidgetbookUseCase _trailingSlots() {
               child: Column(
                 children: [
                   ListTile(
-                    leading: const Icon(Icons.qr_code),
+                    leading: const Icon(Symbols.qr_code_sharp),
                     title: const Text('Scan QR Code'),
                     onTap: () {},
                   ),
@@ -419,21 +420,21 @@ WidgetbookUseCase _sectionGrouping() {
               child: Column(
                 children: [
                   ListTile(
-                    leading: const IconBadge(icon: Icons.check_circle_outline),
+                    leading: const IconBadge(icon: Symbols.check_circle_sharp),
                     title: const Text('Checked Slots'),
                     subtitle: const Text('Evaluated 240 of 240'),
                     trailing: const TextChevronTrailing(text: '100%'),
                     onTap: () {},
                   ),
                   ListTile(
-                    leading: const IconBadge(icon: Icons.view_in_ar),
+                    leading: const IconBadge(icon: Symbols.view_in_ar_sharp),
                     title: const Text('Produced Blocks'),
                     subtitle: const Text('16 of 21 won slots'),
                     trailing: const TextChevronTrailing(text: '1'),
                     onTap: () {},
                   ),
                   ListTile(
-                    leading: const IconBadge(icon: Icons.bolt),
+                    leading: const IconBadge(icon: Symbols.bolt_sharp),
                     title: const Text('Uptime'),
                     subtitle: const Text('Current epoch'),
                     trailing: const Text('99.7%'),
@@ -549,7 +550,7 @@ WidgetbookUseCase _specializedVariants() {
               child: Column(
                 children: [
                   ExpansionTile(
-                    leading: const Icon(Icons.calendar_today),
+                    leading: const Icon(Symbols.calendar_today_sharp),
                     title: const Text('Epoch 42'),
                     subtitle: const Text('3 slots'),
                     children: [
@@ -589,7 +590,7 @@ WidgetbookUseCase _specializedVariants() {
               child: Column(
                 children: [
                   const ListTile(
-                    leading: IconBadge(icon: Icons.lock_outline),
+                    leading: IconBadge(icon: Symbols.lock_sharp),
                     title: Text('Locked Feature'),
                     subtitle: Text('Requires active node'),
                     enabled: false,

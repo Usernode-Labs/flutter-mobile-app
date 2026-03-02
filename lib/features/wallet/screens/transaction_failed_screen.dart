@@ -1,5 +1,7 @@
+import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 class TransactionFailedScreen extends StatelessWidget {
   final String errorMessage;
@@ -11,13 +13,14 @@ class TransactionFailedScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(spacing.space24),
           child: Column(
             children: [
               const Spacer(flex: 2),
@@ -31,7 +34,7 @@ class TransactionFailedScreen extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
 
-              const SizedBox(height: 24),
+              SizedBox(height: spacing.space24),
 
               // Error message
               Text(
@@ -56,7 +59,7 @@ class TransactionFailedScreen extends StatelessWidget {
                 ),
                 child: Center(
                   child: Icon(
-                    Icons.close,
+                    Symbols.close_sharp,
                     size: 60,
                     color: Colors.red.shade700,
                   ),
@@ -103,7 +106,7 @@ class TransactionFailedScreen extends StatelessWidget {
                 ),
               ),
 
-              const SizedBox(height: 24),
+              SizedBox(height: spacing.space24),
             ],
           ),
         ),

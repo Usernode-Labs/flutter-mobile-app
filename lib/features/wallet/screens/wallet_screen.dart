@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/providers/wallet_provider.dart';
@@ -141,7 +142,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
         onPressed: () => context.push(AppRoutes.walletSend),
         backgroundColor: theme.colorScheme.primary,
         foregroundColor: theme.colorScheme.onPrimary,
-        icon: const Icon(Icons.north_east),
+        icon: const Icon(Symbols.north_east_sharp),
         label: const Text('Send'),
       ),
     );
@@ -286,7 +287,7 @@ class _AddressRow extends StatelessWidget {
             color: theme.colorScheme.secondaryContainer,
             borderRadius: BorderRadius.circular(20),
           ),
-          child: Icon(Icons.tag, color: theme.colorScheme.onSurface),
+          child: Icon(Symbols.tag_sharp, color: theme.colorScheme.onSurface),
         ),
         SizedBox(width: spacing.space12),
         Expanded(
@@ -378,7 +379,7 @@ class _RecentActivityCard extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.warning_amber,
+                      Icon(Symbols.warning_amber_sharp,
                           color: Colors.orange.shade700, size: 16),
                       SizedBox(width: spacing.space8),
                       Expanded(
@@ -434,7 +435,7 @@ class _EmptyState extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.receipt_long,
+            Symbols.receipt_long_sharp,
             size: 48,
             color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
           ),
@@ -526,7 +527,7 @@ class _TransactionTile extends StatelessWidget {
               children: [
                 Center(
                   child: isPending && transaction.type == TransactionType.send
-                      ? Icon(Icons.hourglass_empty,
+                      ? Icon(Symbols.hourglass_empty_sharp,
                           color: colorScheme.onSurface, size: 20)
                       : Icon(transaction.icon,
                           color: colorScheme.onSurface, size: 20),
@@ -545,7 +546,7 @@ class _TransactionTile extends StatelessWidget {
                             Border.all(color: colorScheme.surface, width: 1),
                       ),
                       child: const Icon(
-                        Icons.schedule,
+                        Symbols.schedule_sharp,
                         color: Colors.white,
                         size: 6,
                       ),
@@ -592,7 +593,7 @@ class _TransactionTile extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: spacing.space8),
           Text(
             '${transaction.formattedAmount} ${transaction.tokenSymbol}',
             style: theme.textTheme.bodyMedium?.copyWith(

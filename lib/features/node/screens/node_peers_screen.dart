@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
@@ -11,6 +12,7 @@ class NodePeersScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
@@ -73,7 +75,7 @@ class NodePeersScreen extends StatelessWidget {
             // Summary header
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(spacing.space16),
               decoration: BoxDecoration(
                 color: colorScheme.primaryContainer.withValues(alpha: 0.3),
                 border: Border(
@@ -127,11 +129,12 @@ class NodePeersScreen extends StatelessWidget {
                   // Direction badge colors
                   final directionColor =
                       p.incoming ? colorScheme.tertiary : colorScheme.secondary;
-                  final directionIcon =
-                      p.incoming ? Icons.arrow_downward : Icons.arrow_upward;
+                  final directionIcon = p.incoming
+                      ? Symbols.arrow_downward_sharp
+                      : Symbols.arrow_upward_sharp;
 
                   return ListTile(
-                    leading: IconBadge(icon: Icons.hub_outlined),
+                    leading: IconBadge(icon: Symbols.hub_sharp),
                     title: Text(
                       titleText,
                       maxLines: 1,
@@ -141,7 +144,7 @@ class NodePeersScreen extends StatelessWidget {
                       ),
                     ),
                     subtitle: Padding(
-                      padding: const EdgeInsets.only(top: 2),
+                      padding: EdgeInsets.only(top: spacing.space4),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -165,7 +168,7 @@ class NodePeersScreen extends StatelessWidget {
                                   color: directionColor,
                                 ),
                               ),
-                              const SizedBox(width: 6),
+                              SizedBox(width: spacing.space8),
                               // Peer ID or details
                               Expanded(
                                 child: Text(
@@ -181,17 +184,17 @@ class NodePeersScreen extends StatelessWidget {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 4),
+                          SizedBox(height: spacing.space4),
                           // Best tip info
                           Row(
                             children: [
                               Icon(
-                                Icons.bar_chart,
+                                Symbols.bar_chart_sharp,
                                 size: 10,
                                 color: colorScheme.onSurfaceVariant
                                     .withValues(alpha: 0.7),
                               ),
-                              const SizedBox(width: 4),
+                              SizedBox(width: spacing.space4),
                               Text(
                                 'Height: ${p.bestTipHeight?.toString() ?? 'N/A'}',
                                 style: theme.textTheme.labelSmall?.copyWith(
@@ -199,7 +202,7 @@ class NodePeersScreen extends StatelessWidget {
                                       .withValues(alpha: 0.7),
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              SizedBox(width: spacing.space8),
                               Text(
                                 '•',
                                 style: theme.textTheme.labelSmall?.copyWith(
@@ -207,14 +210,14 @@ class NodePeersScreen extends StatelessWidget {
                                       .withValues(alpha: 0.5),
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              SizedBox(width: spacing.space8),
                               Icon(
-                                Icons.schedule,
+                                Symbols.schedule_sharp,
                                 size: 10,
                                 color: colorScheme.onSurfaceVariant
                                     .withValues(alpha: 0.7),
                               ),
-                              const SizedBox(width: 4),
+                              SizedBox(width: spacing.space4),
                               Text(
                                 'Slot: ${p.bestTipGlobalSlot?.toString() ?? 'N/A'}',
                                 style: theme.textTheme.labelSmall?.copyWith(
@@ -224,7 +227,7 @@ class NodePeersScreen extends StatelessWidget {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 2),
+                          SizedBox(height: spacing.space4),
                           Text(
                             timeStr,
                             style: theme.textTheme.labelSmall?.copyWith(
@@ -236,8 +239,8 @@ class NodePeersScreen extends StatelessWidget {
                       ),
                     ),
                     trailing: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
+                      padding: EdgeInsets.symmetric(
+                          horizontal: spacing.space8, vertical: spacing.space4),
                       decoration: BoxDecoration(
                         color: statusColor.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(6),

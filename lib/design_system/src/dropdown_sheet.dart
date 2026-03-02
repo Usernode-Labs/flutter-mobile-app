@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../tokens/app_spacing.dart';
 
@@ -74,7 +75,7 @@ class _DropdownSheetBody extends StatelessWidget {
                 IconButton(
                   onPressed: () => Navigator.of(context).pop(),
                   icon: Icon(
-                    Icons.close,
+                    Symbols.close_sharp,
                     size: 24,
                     color: colors.onSurfaceVariant,
                   ),
@@ -126,7 +127,7 @@ class _OptionRow extends StatelessWidget {
         style: textTheme.bodyLarge?.copyWith(color: colors.onSurface),
       ),
       trailing: selected
-          ? Icon(Icons.check, size: 24, color: colors.primary)
+          ? Icon(Symbols.check_sharp, size: 24, color: colors.primary)
           : const SizedBox(width: 24),
       onTap: onTap,
     );

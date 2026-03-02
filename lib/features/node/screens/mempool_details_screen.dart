@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 import 'package:crypto_mobile_app/core/providers/node_data_providers.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_mempool.dart';
@@ -49,6 +51,7 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
@@ -66,23 +69,23 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
           ),
           error: (error, stack) => Center(
             child: Padding(
-              padding: const EdgeInsets.all(24),
+              padding: EdgeInsets.all(spacing.space24),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    Icons.error_outline,
+                    Symbols.error_sharp,
                     size: 64,
                     color: colorScheme.error,
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: spacing.space16),
                   Text(
                     l10n.mempoolLoadFailed,
                     style: theme.textTheme.titleMedium?.copyWith(
                       color: colorScheme.error,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: spacing.space8),
                   Text(
                     error.toString(),
                     style: theme.textTheme.bodySmall?.copyWith(
@@ -90,10 +93,10 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: spacing.space16),
                   FilledButton.icon(
                     onPressed: _refresh,
-                    icon: const Icon(Icons.refresh),
+                    icon: const Icon(Symbols.refresh_sharp),
                     label: Text(l10n.mempoolRetry),
                   ),
                 ],
@@ -107,19 +110,19 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      Icons.inbox_outlined,
+                      Symbols.inbox_sharp,
                       size: 64,
                       color:
                           colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: spacing.space16),
                     Text(
                       l10n.mempoolNoTransactions,
                       style: theme.textTheme.titleMedium?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: spacing.space8),
                     Text(
                       l10n.mempoolEmpty,
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -136,7 +139,7 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
                 // Summary header
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(spacing.space16),
                   decoration: BoxDecoration(
                     color: colorScheme.primaryContainer.withValues(alpha: 0.3),
                     border: Border(
@@ -153,21 +156,21 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
                         context,
                         'Total',
                         mempool.count.toString(),
-                        Icons.receipt_long,
+                        Symbols.receipt_long_sharp,
                         colorScheme.primary,
                       ),
                       _buildStatColumn(
                         context,
                         'Orphans',
                         mempool.orphans.toString(),
-                        Icons.warning_amber_outlined,
+                        Symbols.warning_amber_sharp,
                         Colors.orange,
                       ),
                       _buildStatColumn(
                         context,
                         'Size',
                         _formatBytes(mempool.totalSize),
-                        Icons.data_usage,
+                        Symbols.data_usage_sharp,
                         colorScheme.secondary,
                       ),
                     ],
@@ -209,12 +212,13 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
     IconData icon,
     Color color,
   ) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, size: 20, color: color),
-        const SizedBox(height: 4),
+        SizedBox(height: spacing.space4),
         Text(
           value,
           style: theme.textTheme.titleLarge?.copyWith(
@@ -239,6 +243,7 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
     ColorScheme colorScheme,
     ThemeData theme,
   ) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final txHash = _formatTxHash(tx.id.toString());
     final fee = tx.fee.toString();
 
@@ -253,7 +258,7 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
         backgroundColor: colorScheme.primaryContainer.withValues(alpha: 0.5),
         radius: 16,
         child: Icon(
-          Icons.receipt_long,
+          Symbols.receipt_long_sharp,
           size: 14,
           color: colorScheme.primary,
         ),
@@ -266,7 +271,7 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
         ),
       ),
       subtitle: Padding(
-        padding: const EdgeInsets.only(top: 2),
+        padding: EdgeInsets.only(top: spacing.space4),
         child: Text(
           'Fee: $feeDisplay  •  In: ${tx.inputs.length}  Out: ${tx.outputs.length}  •  ${tx.sizeBytes}B',
           style: theme.textTheme.labelSmall?.copyWith(
@@ -277,7 +282,8 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
       trailing: TextButton(
         onPressed: () => _showComingSoonModal(context),
         style: TextButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: EdgeInsets.symmetric(
+              horizontal: spacing.space8, vertical: spacing.space4),
           minimumSize: Size.zero,
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
@@ -291,9 +297,9 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
                 fontWeight: FontWeight.w500,
               ),
             ),
-            const SizedBox(width: 2),
+            SizedBox(width: spacing.space4),
             Icon(
-              Icons.arrow_forward,
+              Symbols.arrow_forward_sharp,
               size: 12,
               color: colorScheme.primary,
             ),
@@ -312,7 +318,7 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           icon: Icon(
-            Icons.schedule,
+            Symbols.schedule_sharp,
             size: 48,
             color: colorScheme.primary,
           ),

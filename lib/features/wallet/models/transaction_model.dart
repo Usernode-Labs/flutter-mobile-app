@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/services/explorer_service.dart';
 
 enum TransactionType {
@@ -134,27 +135,27 @@ class TransactionModel {
     switch (txType) {
       case TransactionType.reward:
         title = 'Block Reward';
-        icon = Icons.layers_outlined;
+        icon = Symbols.layers_sharp;
         color = Colors.orange;
         break;
       case TransactionType.genesis:
         title = 'Genesis Allocation';
-        icon = Icons.diamond;
+        icon = Symbols.diamond_sharp;
         color = Colors.orange;
         break;
       case TransactionType.send:
         title = 'Sent';
-        icon = Icons.north_east;
+        icon = Symbols.north_east_sharp;
         color = Colors.grey;
         break;
       case TransactionType.receive:
         title = 'Received';
-        icon = Icons.south_west;
+        icon = Symbols.south_west_sharp;
         color = Colors.grey;
         break;
       case TransactionType.fee:
         title = 'Fee';
-        icon = Icons.payment;
+        icon = Symbols.payment_sharp;
         color = Colors.grey;
         break;
     }

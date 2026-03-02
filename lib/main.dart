@@ -253,6 +253,7 @@ class CryptoMobileApp extends ConsumerWidget {
       darkTheme: _darkTheme,
       themeMode: themeMode,
       debugShowCheckedModeBanner: false,
+      debugShowMaterialGrid: false, // Flip to true to verify 8pt grid alignment
       routerConfig: router,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,

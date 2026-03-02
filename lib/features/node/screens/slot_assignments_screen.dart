@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/providers/produced_blocks_provider.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_slots.dart';
 
@@ -437,76 +438,49 @@ class _SlotRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final secondary = theme.colorScheme.secondary;
-    return InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.secondaryContainer,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child:
-                  Center(child: Icon(icon, color: theme.colorScheme.onSurface)),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: theme.textTheme.bodyMedium),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Global Slot $globalSlot',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: secondary,
-                      fontWeight: FontWeight.w500,
-                    ),
+    final colorScheme = theme.colorScheme;
+    final resultLabel = switch (result) {
+      RpcSlotResult.produced => 'Produced',
+      RpcSlotResult.orphaned => 'Orphaned',
+      RpcSlotResult.missed => 'Missed',
+      RpcSlotResult.scheduled => 'Upcoming',
+      RpcSlotResult.notCalculated => 'Not Calculated',
+      RpcSlotResult.notWon => 'Not Won',
+    };
+    final showChevron =
+        result == RpcSlotResult.produced || result == RpcSlotResult.orphaned;
+    final resultColor = result == RpcSlotResult.orphaned
+        ? colorScheme.error
+        : colorScheme.onSurface;
+
+    return ListTile(
+      leading: IconBadge(icon: icon),
+      title: Text(title),
+      subtitle: Text('Global Slot $globalSlot · $subtitle'),
+      trailing: showChevron
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  resultLabel,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: resultColor,
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style:
-                        theme.textTheme.bodyMedium?.copyWith(color: secondary),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              result == RpcSlotResult.produced
-                  ? 'Produced'
-                  : result == RpcSlotResult.orphaned
-                      ? 'Orphaned'
-                      : result == RpcSlotResult.missed
-                          ? 'Missed'
-                          : result == RpcSlotResult.scheduled
-                              ? 'Upcoming'
-                              : result == RpcSlotResult.notCalculated
-                                  ? 'Not Calculated'
-                                  : result == RpcSlotResult.notWon
-                                      ? 'Not Won'
-                                      : 'Unknown',
+                ),
+                const SizedBox(width: 4),
+                Icon(Icons.chevron_right,
+                    size: 20, color: colorScheme.onSurfaceVariant),
+              ],
+            )
+          : Text(
+              resultLabel,
               style: theme.textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.w600,
-                color: result == RpcSlotResult.orphaned
-                    ? Colors.orange
-                    : theme.colorScheme.onSurface,
+                color: resultColor,
               ),
             ),
-            const SizedBox(width: 4),
-            if (result == RpcSlotResult.produced ||
-                result == RpcSlotResult.orphaned)
-              const Icon(Icons.chevron_right, size: 20),
-          ],
-        ),
-      ),
+      onTap: onTap,
     );
   }
 }

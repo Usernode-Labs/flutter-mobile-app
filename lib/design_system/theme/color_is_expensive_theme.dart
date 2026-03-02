@@ -407,7 +407,6 @@ class ColorIsExpensiveTheme {
         listTileTheme: ListTileThemeData(
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          dense: true,
           visualDensity: VisualDensity.compact,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),

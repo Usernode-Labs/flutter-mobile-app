@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../core/widgets/app_progress_bar.dart';
 import '../tokens/app_spacing.dart';
+import 'icon_badge.dart';
+import 'text_chevron_trailing.dart';
 
 /// Data for a single metric row in [EpochPerformancePage].
 class EpochMetricData {
@@ -148,13 +150,12 @@ class EpochPerformancePage extends StatelessWidget {
   }
 
   Widget _buildMetricTile(BuildContext context, EpochMetricData metric) {
-    final cs = Theme.of(context).colorScheme;
     return ListTile(
-      leading: _buildIconContainer(cs, metric.icon),
+      leading: IconBadge(icon: metric.icon),
       title: Text(metric.title),
       subtitle: Text(metric.subtitle),
       trailing: metric.showChevron
-          ? _buildTextAndChevron(cs, metric.trailingValue)
+          ? TextChevronTrailing(text: metric.trailingValue)
           : Text(metric.trailingValue),
       onTap: metric.onTap,
     );
@@ -357,31 +358,4 @@ class _PerformanceHeading extends StatelessWidget {
       ],
     );
   }
-}
-
-// ---------------------------------------------------------------------------
-// Slot helpers (same pattern as list_tile_use_case.dart)
-// ---------------------------------------------------------------------------
-
-Widget _buildIconContainer(ColorScheme cs, IconData icon) {
-  return Container(
-    width: 48,
-    height: 48,
-    decoration: BoxDecoration(
-      color: cs.secondaryContainer,
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: Icon(icon, size: 24, color: cs.onSecondaryContainer),
-  );
-}
-
-Widget _buildTextAndChevron(ColorScheme cs, String text) {
-  return Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Text(text),
-      const SizedBox(width: 4),
-      Icon(Icons.chevron_right, size: 20, color: cs.onSurfaceVariant),
-    ],
-  );
 }

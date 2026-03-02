@@ -260,20 +260,17 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
       ),
       title: Text(
         txHash,
-        style: theme.textTheme.bodyMedium?.copyWith(
-          color: colorScheme.onSurface,
+        style: theme.textTheme.bodySmall?.copyWith(
           fontWeight: FontWeight.w600,
           fontFamily: 'monospace',
-          fontSize: 12,
         ),
       ),
       subtitle: Padding(
         padding: const EdgeInsets.only(top: 2),
         child: Text(
           'Fee: $feeDisplay  •  In: ${tx.inputs.length}  Out: ${tx.outputs.length}  •  ${tx.sizeBytes}B',
-          style: theme.textTheme.bodySmall?.copyWith(
+          style: theme.textTheme.labelSmall?.copyWith(
             color: colorScheme.onSurfaceVariant,
-            fontSize: 11,
           ),
         ),
       ),
@@ -289,10 +286,9 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
           children: [
             Text(
               'View',
-              style: theme.textTheme.bodySmall?.copyWith(
+              style: theme.textTheme.labelSmall?.copyWith(
                 color: colorScheme.primary,
                 fontWeight: FontWeight.w500,
-                fontSize: 11,
               ),
             ),
             const SizedBox(width: 2),
@@ -304,9 +300,6 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
           ],
         ),
       ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      dense: true,
-      visualDensity: VisualDensity.compact,
     );
   }
 

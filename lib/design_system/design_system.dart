@@ -36,6 +36,7 @@ export 'src/result_page.dart';
 export 'src/score_header.dart';
 export 'src/status_badge.dart';
 export 'src/tabs.dart';
+export 'src/text_chevron_trailing.dart';
 export 'src/text_field.dart';
 export 'src/top_app_bar.dart';
 

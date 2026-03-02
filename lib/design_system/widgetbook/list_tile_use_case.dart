@@ -4,6 +4,7 @@ import 'package:widgetbook/widgetbook.dart';
 import '../src/icon_badge.dart';
 import '../src/rank_badge.dart';
 import '../src/status_badge.dart';
+import '../src/text_chevron_trailing.dart';
 
 // ---------------------------------------------------------------------------
 // Leading slot options
@@ -84,7 +85,7 @@ WidgetbookUseCase _playground() {
         case _TrailingOption.textOnly:
           trailingWidget = Text(trailingText);
         case _TrailingOption.textAndChevron:
-          trailingWidget = _TextChevron(text: trailingText);
+          trailingWidget = TextChevronTrailing(text: trailingText);
         case _TrailingOption.statusBadge:
           trailingWidget = const StatusBadge(
             label: 'Active',
@@ -133,14 +134,14 @@ WidgetbookUseCase _patterns() {
                     leading: const IconBadge(icon: Icons.check_circle_outline),
                     title: const Text('Checked Slots'),
                     subtitle: const Text('Evaluated 240 of 240'),
-                    trailing: const _TextChevron(text: '100%'),
+                    trailing: const TextChevronTrailing(text: '100%'),
                     onTap: () {},
                   ),
                   ListTile(
                     leading: const IconBadge(icon: Icons.view_in_ar),
                     title: const Text('Produced Blocks'),
                     subtitle: const Text('16 of 21 won slots'),
-                    trailing: const _TextChevron(text: '1'),
+                    trailing: const TextChevronTrailing(text: '1'),
                     onTap: () {},
                   ),
                   ListTile(
@@ -261,27 +262,4 @@ WidgetbookUseCase _patterns() {
       );
     },
   );
-}
-
-// ---------------------------------------------------------------------------
-// Shared helper
-// ---------------------------------------------------------------------------
-
-class _TextChevron extends StatelessWidget {
-  const _TextChevron({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(text),
-        const SizedBox(width: 4),
-        Icon(Icons.chevron_right, size: 20, color: cs.onSurfaceVariant),
-      ],
-    );
-  }
 }

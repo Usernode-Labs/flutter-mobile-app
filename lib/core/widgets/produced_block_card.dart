@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 
 enum BlockCardVariant {
@@ -50,11 +51,12 @@ class ProducedBlockCard extends StatelessWidget {
       producerPubkey = '';
     }
 
+    final radii = Theme.of(context).extension<AppRadii>()!;
     return InkWell(
       onTap: () {
         context.push(AppRoutes.mainNodeBlockDetails, extra: block);
       },
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: radii.borderRadiusLargeIncreased,
       child: Container(
         margin: variant == BlockCardVariant.detailed
             ? const EdgeInsets.only(bottom: 4)
@@ -72,7 +74,7 @@ class ProducedBlockCard extends StatelessWidget {
                   color: colorScheme.outlineVariant.withValues(alpha: 0.5),
                   width: 1,
                 ),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: radii.borderRadiusLargeIncreased,
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -190,7 +192,6 @@ class ProducedBlockCard extends StatelessWidget {
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: colorScheme.onTertiaryContainer,
                     fontWeight: FontWeight.bold,
-                    fontSize: 9,
                   ),
                 ),
               ),
@@ -204,8 +205,6 @@ class ProducedBlockCard extends StatelessWidget {
           'Epoch ${block.epoch} • Slot ${block.globalSlot}',
           style: theme.textTheme.bodySmall?.copyWith(
             color: colorScheme.onSurfaceVariant,
-            fontWeight: FontWeight.w400,
-            fontSize: 12,
           ),
         ),
         const SizedBox(height: 2),
@@ -215,8 +214,6 @@ class ProducedBlockCard extends StatelessWidget {
           _formatTimestampDetailed(block.timestamp),
           style: theme.textTheme.bodySmall?.copyWith(
             color: colorScheme.onSurfaceVariant,
-            fontWeight: FontWeight.w400,
-            fontSize: 12,
           ),
         ),
         const SizedBox(height: 2),
@@ -226,8 +223,6 @@ class ProducedBlockCard extends StatelessWidget {
           'Hash: ${_shortenHash(blockHash)}',
           style: theme.textTheme.bodySmall?.copyWith(
             color: colorScheme.onSurfaceVariant,
-            fontWeight: FontWeight.w400,
-            fontSize: 12,
           ),
         ),
       ],
@@ -265,7 +260,6 @@ class ProducedBlockCard extends StatelessWidget {
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: colorScheme.onPrimary,
                     fontWeight: FontWeight.bold,
-                    fontSize: 9,
                   ),
                 ),
               ),
@@ -286,10 +280,9 @@ class ProducedBlockCard extends StatelessWidget {
         // Hash
         Text(
           'Hash: ${_shortenHash(blockHash)}',
-          style: theme.textTheme.bodySmall?.copyWith(
+          style: theme.textTheme.labelSmall?.copyWith(
             color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
             fontFamily: 'monospace',
-            fontSize: 11,
           ),
         ),
 
@@ -298,10 +291,9 @@ class ProducedBlockCard extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             'Producer: ${_shortenHash(producerPubkey, head: 8, tail: 8)}',
-            style: theme.textTheme.bodySmall?.copyWith(
+            style: theme.textTheme.labelSmall?.copyWith(
               color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
               fontFamily: 'monospace',
-              fontSize: 11,
             ),
           ),
         ],

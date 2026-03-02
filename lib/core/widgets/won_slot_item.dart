@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:crypto_mobile_app/core/config/theme.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 
 enum SlotStatus {
@@ -40,27 +41,27 @@ class WonSlotItem extends StatelessWidget {
 
     switch (status) {
       case SlotStatus.produced:
-        statusColor = Colors.green;
-        statusBgColor = Colors.green.withValues(alpha: 0.1);
+        statusColor = colorScheme.tertiary;
+        statusBgColor = colorScheme.tertiary.withValues(alpha: 0.1);
         statusIcon = Icons.check_circle;
         statusLabel = 'Produced';
         break;
       case SlotStatus.missed:
-        statusColor = Colors.red;
-        statusBgColor = Colors.red.withValues(alpha: 0.1);
+        statusColor = colorScheme.error;
+        statusBgColor = colorScheme.error.withValues(alpha: 0.1);
         statusIcon = Icons.cancel;
         statusLabel = 'Missed';
         break;
       case SlotStatus.orphaned:
-        statusColor = Colors.orange;
-        statusBgColor = Colors.orange.withValues(alpha: 0.1);
+        statusColor = MaterialTheme.warningColor;
+        statusBgColor = MaterialTheme.warningColor.withValues(alpha: 0.1);
         statusIcon = Icons.warning_amber;
         statusLabel = 'Orphaned';
         break;
       case SlotStatus.pending:
         if (isPast) {
-          statusColor = Colors.orange;
-          statusBgColor = Colors.orange.withValues(alpha: 0.1);
+          statusColor = MaterialTheme.warningColor;
+          statusBgColor = MaterialTheme.warningColor.withValues(alpha: 0.1);
           statusIcon = Icons.schedule;
           statusLabel = 'Pending';
         } else {
@@ -135,7 +136,6 @@ class WonSlotItem extends StatelessWidget {
                   expectedTime,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurfaceVariant,
-                    fontSize: 11,
                   ),
                 ),
               ],
@@ -152,7 +152,6 @@ class WonSlotItem extends StatelessWidget {
               style: theme.textTheme.labelSmall?.copyWith(
                 color: statusColor,
                 fontWeight: FontWeight.w600,
-                fontSize: 10,
               ),
             ),
           ),
@@ -220,9 +219,8 @@ class WonSlotItem extends StatelessWidget {
                 child: Text(
                   statusLabel.toUpperCase(),
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: Colors.white,
+                    color: colorScheme.onPrimary,
                     fontWeight: FontWeight.bold,
-                    fontSize: 10,
                   ),
                 ),
               ),

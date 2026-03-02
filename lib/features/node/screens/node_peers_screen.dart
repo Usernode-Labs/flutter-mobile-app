@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'package:crypto_mobile_app/core/config/theme.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
@@ -130,26 +131,13 @@ class NodePeersScreen extends StatelessWidget {
                       p.incoming ? Icons.arrow_downward : Icons.arrow_upward;
 
                   return ListTile(
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    leading: Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: colorScheme.secondaryContainer,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(Icons.hub_outlined,
-                          color: colorScheme.onSurface, size: 24),
-                    ),
+                    leading: IconBadge(icon: Icons.hub_outlined),
                     title: Text(
                       titleText,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurface,
                         fontWeight: FontWeight.w600,
-                        fontSize: 13,
                       ),
                     ),
                     subtitle: Padding(
@@ -186,7 +174,6 @@ class NodePeersScreen extends StatelessWidget {
                                       : 'id: $idShort',
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: colorScheme.onSurfaceVariant,
-                                    fontSize: 11,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -207,19 +194,17 @@ class NodePeersScreen extends StatelessWidget {
                               const SizedBox(width: 4),
                               Text(
                                 'Height: ${p.bestTipHeight?.toString() ?? 'N/A'}',
-                                style: theme.textTheme.bodySmall?.copyWith(
+                                style: theme.textTheme.labelSmall?.copyWith(
                                   color: colorScheme.onSurfaceVariant
                                       .withValues(alpha: 0.7),
-                                  fontSize: 10,
                                 ),
                               ),
                               const SizedBox(width: 8),
                               Text(
                                 '•',
-                                style: theme.textTheme.bodySmall?.copyWith(
+                                style: theme.textTheme.labelSmall?.copyWith(
                                   color: colorScheme.onSurfaceVariant
                                       .withValues(alpha: 0.5),
-                                  fontSize: 10,
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -232,10 +217,9 @@ class NodePeersScreen extends StatelessWidget {
                               const SizedBox(width: 4),
                               Text(
                                 'Slot: ${p.bestTipGlobalSlot?.toString() ?? 'N/A'}',
-                                style: theme.textTheme.bodySmall?.copyWith(
+                                style: theme.textTheme.labelSmall?.copyWith(
                                   color: colorScheme.onSurfaceVariant
                                       .withValues(alpha: 0.7),
-                                  fontSize: 10,
                                 ),
                               ),
                             ],
@@ -243,10 +227,9 @@ class NodePeersScreen extends StatelessWidget {
                           const SizedBox(height: 2),
                           Text(
                             timeStr,
-                            style: theme.textTheme.bodySmall?.copyWith(
+                            style: theme.textTheme.labelSmall?.copyWith(
                               color: colorScheme.onSurfaceVariant
                                   .withValues(alpha: 0.7),
-                              fontSize: 10,
                             ),
                           ),
                         ],
@@ -262,16 +245,12 @@ class NodePeersScreen extends StatelessWidget {
                       ),
                       child: Text(
                         status.toUpperCase(),
-                        style: TextStyle(
+                        style: theme.textTheme.labelSmall?.copyWith(
                           color: statusColor,
-                          fontWeight: FontWeight.w400,
-                          fontSize: 10,
                           letterSpacing: 0.5,
                         ),
                       ),
                     ),
-                    dense: true,
-                    visualDensity: VisualDensity.compact,
                   );
                 },
               ),

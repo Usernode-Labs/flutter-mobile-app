@@ -382,7 +382,7 @@ class _SlotProductionStatsScreenState
     ColorScheme colorScheme,
     AppLocalizations l10n,
   ) {
-    final statusColor = _getStatusColor(record.status);
+    final statusColor = _getStatusColor(record.status, colorScheme);
     final statusIcon = _getStatusIcon(record.status);
     final statusText = _getStatusText(record.status, l10n);
 
@@ -405,7 +405,7 @@ class _SlotProductionStatsScreenState
             Text(
               'Reason: ${record.failureReason}',
               style: theme.textTheme.bodySmall?.copyWith(
-                color: Colors.red,
+                color: colorScheme.error,
               ),
             ),
         ],
@@ -413,9 +413,8 @@ class _SlotProductionStatsScreenState
       trailing: record.blockHeight != null
           ? Chip(
               label: Text(l10n.statsBlock(record.blockHeight!)),
-              backgroundColor: Colors.green.withValues(alpha: 0.2),
-              labelStyle: const TextStyle(
-                fontSize: 11,
+              backgroundColor: colorScheme.tertiary.withValues(alpha: 0.2),
+              labelStyle: theme.textTheme.labelSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             )
@@ -423,16 +422,16 @@ class _SlotProductionStatsScreenState
     );
   }
 
-  Color _getStatusColor(SlotProductionStatus status) {
+  Color _getStatusColor(SlotProductionStatus status, ColorScheme colorScheme) {
     switch (status) {
       case SlotProductionStatus.won:
-        return Colors.amber;
+        return colorScheme.secondary;
       case SlotProductionStatus.attempting:
-        return Colors.blue;
+        return colorScheme.primary;
       case SlotProductionStatus.produced:
-        return Colors.green;
+        return colorScheme.tertiary;
       case SlotProductionStatus.failed:
-        return Colors.red;
+        return colorScheme.error;
     }
   }
 

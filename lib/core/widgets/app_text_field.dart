@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:crypto_mobile_app/core/config/design_tokens.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_opacity.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 
 /// Unified text field component with consistent styling
 /// Supports validation, prefixes, suffixes, and helper text
@@ -49,6 +51,9 @@ class AppTextField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final radii = theme.extension<AppRadii>()!;
+    final spacing = theme.extension<AppSpacing>()!;
+    final opacity = theme.extension<AppOpacity>()!;
 
     return TextFormField(
       controller: controller,
@@ -61,46 +66,47 @@ class AppTextField extends StatelessWidget {
         suffixIcon: suffixIcon,
         enabled: enabled,
         border: OutlineInputBorder(
-          borderRadius: kBorderRadiusMedium,
+          borderRadius: radii.borderRadiusMedium,
           borderSide: BorderSide(
             color: theme.colorScheme.outline,
           ),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: kBorderRadiusMedium,
+          borderRadius: radii.borderRadiusMedium,
           borderSide: BorderSide(
             color: theme.colorScheme.outline,
           ),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: kBorderRadiusMedium,
+          borderRadius: radii.borderRadiusMedium,
           borderSide: BorderSide(
             color: theme.colorScheme.primary,
             width: 2,
           ),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: kBorderRadiusMedium,
+          borderRadius: radii.borderRadiusMedium,
           borderSide: BorderSide(
             color: theme.colorScheme.error,
           ),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: kBorderRadiusMedium,
+          borderRadius: radii.borderRadiusMedium,
           borderSide: BorderSide(
             color: theme.colorScheme.error,
             width: 2,
           ),
         ),
         disabledBorder: OutlineInputBorder(
-          borderRadius: kBorderRadiusMedium,
+          borderRadius: radii.borderRadiusMedium,
           borderSide: BorderSide(
-            color: theme.colorScheme.outline.withValues(alpha: kAlphaDisabled),
+            color:
+                theme.colorScheme.outline.withValues(alpha: opacity.disabled),
           ),
         ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: kSpace16,
-          vertical: kSpace16,
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: spacing.space16,
+          vertical: spacing.space16,
         ),
         helperStyle: theme.textTheme.bodySmall?.copyWith(
           color: theme.colorScheme.onSurfaceVariant,

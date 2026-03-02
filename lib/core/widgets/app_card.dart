@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:crypto_mobile_app/core/config/design_tokens.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_elevation.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 
 /// Unified card component with consistent styling across the app
 /// Supports different padding variants, optional headers, and elevation levels
@@ -25,7 +27,7 @@ class AppCard extends StatelessWidget {
     this.headerAction,
   });
 
-  /// Compact card with 12px padding
+  /// Compact card — padding resolved from theme in [build].
   const AppCard.compact({
     super.key,
     required this.child,
@@ -35,9 +37,9 @@ class AppCard extends StatelessWidget {
     this.onTap,
     this.header,
     this.headerAction,
-  }) : padding = const EdgeInsets.all(kSpace12);
+  }) : padding = null;
 
-  /// Regular card with 16px padding
+  /// Regular card — padding resolved from theme in [build].
   const AppCard.regular({
     super.key,
     required this.child,
@@ -47,9 +49,9 @@ class AppCard extends StatelessWidget {
     this.onTap,
     this.header,
     this.headerAction,
-  }) : padding = const EdgeInsets.all(kSpace16);
+  }) : padding = null;
 
-  /// Spacious card with 24px padding
+  /// Spacious card — padding resolved from theme in [build].
   const AppCard.spacious({
     super.key,
     required this.child,
@@ -59,11 +61,18 @@ class AppCard extends StatelessWidget {
     this.onTap,
     this.header,
     this.headerAction,
-  }) : padding = const EdgeInsets.all(kSpace24);
+  }) : padding = null;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final spacing = theme.extension<AppSpacing>()!;
+    final elev = theme.extension<AppElevation>()!;
+    final radii = theme.extension<AppRadii>()!;
+
+    final effectiveRadius = borderRadius ?? radii.borderRadiusLarge;
+    final effectiveElevation = elevation ?? elev.none;
+    final effectivePadding = padding ?? EdgeInsets.all(spacing.space16);
 
     final cardContent = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -82,7 +91,7 @@ class AppCard extends StatelessWidget {
               if (headerAction != null) headerAction!,
             ],
           ),
-          const SizedBox(height: kSpace12),
+          SizedBox(height: spacing.space12),
         ],
         child,
       ],
@@ -90,16 +99,14 @@ class AppCard extends StatelessWidget {
 
     if (onTap != null) {
       return Card(
-        elevation: elevation ?? kElevationNone,
+        elevation: effectiveElevation,
         color: color,
-        shape: RoundedRectangleBorder(
-          borderRadius: borderRadius ?? kBorderRadiusLarge,
-        ),
+        shape: RoundedRectangleBorder(borderRadius: effectiveRadius),
         child: InkWell(
           onTap: onTap,
-          borderRadius: borderRadius ?? kBorderRadiusLarge,
+          borderRadius: effectiveRadius,
           child: Padding(
-            padding: padding ?? const EdgeInsets.all(kSpace16),
+            padding: effectivePadding,
             child: cardContent,
           ),
         ),
@@ -107,13 +114,11 @@ class AppCard extends StatelessWidget {
     }
 
     return Card(
-      elevation: elevation ?? kElevationNone,
+      elevation: effectiveElevation,
       color: color,
-      shape: RoundedRectangleBorder(
-        borderRadius: borderRadius ?? kBorderRadiusLarge,
-      ),
+      shape: RoundedRectangleBorder(borderRadius: effectiveRadius),
       child: Padding(
-        padding: padding ?? const EdgeInsets.all(kSpace16),
+        padding: effectivePadding,
         child: cardContent,
       ),
     );

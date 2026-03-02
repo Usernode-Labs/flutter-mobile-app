@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:crypto_mobile_app/core/config/theme.dart';
+import 'package:crypto_mobile_app/core/config/legacy_colors.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 
 enum SlotStatus {
@@ -53,15 +53,15 @@ class WonSlotItem extends StatelessWidget {
         statusLabel = 'Missed';
         break;
       case SlotStatus.orphaned:
-        statusColor = MaterialTheme.warningColor;
-        statusBgColor = MaterialTheme.warningColor.withValues(alpha: 0.1);
+        statusColor = LegacyColors.warningColor;
+        statusBgColor = LegacyColors.warningColor.withValues(alpha: 0.1);
         statusIcon = Icons.warning_amber;
         statusLabel = 'Orphaned';
         break;
       case SlotStatus.pending:
         if (isPast) {
-          statusColor = MaterialTheme.warningColor;
-          statusBgColor = MaterialTheme.warningColor.withValues(alpha: 0.1);
+          statusColor = LegacyColors.warningColor;
+          statusBgColor = LegacyColors.warningColor.withValues(alpha: 0.1);
           statusIcon = Icons.schedule;
           statusLabel = 'Pending';
         } else {

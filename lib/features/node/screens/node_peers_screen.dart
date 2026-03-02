@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
-import 'package:crypto_mobile_app/core/config/theme.dart';
+import 'package:crypto_mobile_app/core/config/legacy_colors.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 
 class NodePeersScreen extends StatelessWidget {
@@ -267,11 +267,11 @@ class NodePeersScreen extends StatelessWidget {
       case PeerConnectionStatus.connected:
         return colorScheme.tertiary; // Green
       case PeerConnectionStatus.connecting:
-        return MaterialTheme.warningColor; // Orange
+        return LegacyColors.warningColor; // Orange
       case PeerConnectionStatus.disconnected:
         return colorScheme.error; // Red
       case PeerConnectionStatus.disconnecting:
-        return MaterialTheme.accentYellow; // Amber
+        return LegacyColors.accentYellow; // Amber
     }
   }
 

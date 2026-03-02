@@ -10,15 +10,10 @@ import '../tokens/app_spacing.dart';
 
 /// Wraps a child widget tree with all design system ThemeExtensions.
 ///
-/// Usage:
-/// ```dart
-/// DesignSystemTheme(
-///   child: MaterialApp(...),
-/// )
-/// ```
-///
-/// Migration: Once proven, move extensions into `lib/core/config/theme.dart`
-/// and delete this wrapper.
+/// **Deprecated at runtime** — all token extensions are now injected at the
+/// app root in `main.dart` via [standardExtensions]. The [build] method and
+/// per-screen wrapping are no longer needed. Keep [standardExtensions] as
+/// the single factory for the canonical extension list.
 class DesignSystemTheme extends StatelessWidget {
   const DesignSystemTheme({
     super.key,

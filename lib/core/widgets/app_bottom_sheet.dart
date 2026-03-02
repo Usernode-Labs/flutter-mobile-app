@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:crypto_mobile_app/core/config/design_tokens.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_opacity.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 
 /// Unified bottom sheet component with consistent styling
 class AppBottomSheet extends StatelessWidget {
@@ -23,6 +25,9 @@ class AppBottomSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final spacing = theme.extension<AppSpacing>()!;
+    final opacity = theme.extension<AppOpacity>()!;
+    final radii = theme.extension<AppRadii>()!;
     final maxHeight = maxHeightFraction != null
         ? MediaQuery.of(context).size.height * maxHeightFraction!
         : MediaQuery.of(context).size.height * 0.67;
@@ -31,7 +36,7 @@ class AppBottomSheet extends StatelessWidget {
       child: ConstrainedBox(
         constraints: BoxConstraints(maxHeight: maxHeight),
         child: Padding(
-          padding: const EdgeInsets.only(bottom: kSpace16),
+          padding: EdgeInsets.only(bottom: spacing.space16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -39,11 +44,14 @@ class AppBottomSheet extends StatelessWidget {
               Container(
                 width: 32,
                 height: 4,
-                margin: const EdgeInsets.only(top: kSpace12, bottom: kSpace16),
+                margin: EdgeInsets.only(
+                  top: spacing.space12,
+                  bottom: spacing.space16,
+                ),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.onSurfaceVariant
-                      .withValues(alpha: kAlphaSecondary),
-                  borderRadius: kBorderRadiusFull,
+                      .withValues(alpha: opacity.secondary),
+                  borderRadius: radii.borderRadiusFull,
                 ),
               ),
 
@@ -51,11 +59,11 @@ class AppBottomSheet extends StatelessWidget {
               if (title != null)
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.fromLTRB(
-                    kSpace24,
-                    kSpace8,
-                    kSpace12,
-                    kSpace16,
+                  padding: EdgeInsets.fromLTRB(
+                    spacing.space24,
+                    spacing.space8,
+                    spacing.space12,
+                    spacing.space16,
                   ),
                   child: Row(
                     children: [
@@ -70,7 +78,7 @@ class AppBottomSheet extends StatelessWidget {
                               ),
                             ),
                             if (subtitle != null) ...[
-                              const SizedBox(height: kSpace4),
+                              SizedBox(height: spacing.space4),
                               Text(
                                 subtitle!,
                                 style: theme.textTheme.bodyMedium?.copyWith(
@@ -116,14 +124,15 @@ class AppBottomSheet extends StatelessWidget {
     bool isDismissible = true,
     bool enableDrag = true,
   }) {
+    final radii = Theme.of(context).extension<AppRadii>()!;
     return showModalBottomSheet<T>(
       context: context,
       isScrollControlled: isScrollControlled,
       isDismissible: isDismissible,
       enableDrag: enableDrag,
       backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: kBorderRadiusTopXLarge,
+      shape: RoundedRectangleBorder(
+        borderRadius: radii.borderRadiusTopXLarge,
       ),
       builder: (ctx) => AppBottomSheet(
         title: title,

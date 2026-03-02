@@ -16,9 +16,6 @@ import 'package:crypto_mobile_app/design_system/src/challenge_activity_summary.d
 import 'package:crypto_mobile_app/design_system/src/challenge_card.dart';
 import 'package:crypto_mobile_app/design_system/src/challenge_category_icon.dart';
 import 'package:crypto_mobile_app/design_system/src/score_header.dart';
-import 'package:crypto_mobile_app/design_system/theme/color_is_expensive_theme.dart';
-import 'package:crypto_mobile_app/design_system/theme/design_system_theme.dart';
-import 'package:crypto_mobile_app/design_system/tokens/app_semantic_colors.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 import 'package:crypto_mobile_app/features/challenges/heartbeat_animation.dart';
@@ -108,17 +105,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
     // Ensure cold-start context is restored
     ref.watch(leaderboardBootstrapProvider);
 
-    final textTheme = Theme.of(context).textTheme;
-
-    // Wrap the subtree with the design system theme
-    return Theme(
-      data: ColorIsExpensiveTheme(textTheme).light().copyWith(
-            extensions: DesignSystemTheme.standardExtensions(
-              semanticColors: AppSemanticColors.light(),
-            ),
-          ),
-      child: Builder(builder: (context) => _buildBody(context)),
-    );
+    return _buildBody(context);
   }
 
   Widget _buildBody(BuildContext context) {

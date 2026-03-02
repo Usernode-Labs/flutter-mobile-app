@@ -11,7 +11,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:crypto_mobile_app/core/bootstrap/app_bootstrap.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
-import 'package:crypto_mobile_app/core/config/theme.dart';
+import 'package:crypto_mobile_app/design_system/theme/color_is_expensive_theme.dart';
+import 'package:crypto_mobile_app/design_system/theme/design_system_theme.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_semantic_colors.dart';
 import 'core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
@@ -233,8 +235,18 @@ class CryptoMobileApp extends ConsumerWidget {
 
     return MaterialApp.router(
       onGenerateTitle: (ctx) => AppLocalizations.of(ctx).appName,
-      theme: MaterialTheme(ThemeData.light().textTheme).light(),
-      darkTheme: MaterialTheme(ThemeData.dark().textTheme).dark(),
+      theme:
+          ColorIsExpensiveTheme(ThemeData.light().textTheme).light().copyWith(
+                extensions: DesignSystemTheme.standardExtensions(
+                  semanticColors: AppSemanticColors.light(),
+                ),
+              ),
+      darkTheme:
+          ColorIsExpensiveTheme(ThemeData.dark().textTheme).dark().copyWith(
+                extensions: DesignSystemTheme.standardExtensions(
+                  semanticColors: AppSemanticColors.dark(),
+                ),
+              ),
       themeMode: themeMode,
       debugShowCheckedModeBanner: false,
       routerConfig: router,

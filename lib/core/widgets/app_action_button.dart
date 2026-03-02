@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:crypto_mobile_app/core/config/design_tokens.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_opacity.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_sizing.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 
 /// Unified action button component for consistent quick actions across the app
 /// Supports icon + label layout with optional badge and multiple size variants
@@ -25,17 +28,21 @@ class AppActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final actionColor = color ?? theme.colorScheme.primary;
+    final sizing = theme.extension<AppSizing>()!;
+    final opacity = theme.extension<AppOpacity>()!;
+    final radii = theme.extension<AppRadii>()!;
+    final spacing = theme.extension<AppSpacing>()!;
 
     final iconSize = switch (size) {
-      AppActionButtonSize.compact => kIconSizeSmall,
-      AppActionButtonSize.regular => kIconSizeRegular,
-      AppActionButtonSize.large => kIconSizeLarge,
+      AppActionButtonSize.compact => sizing.iconContainerSmall,
+      AppActionButtonSize.regular => sizing.iconContainerRegular,
+      AppActionButtonSize.large => sizing.iconContainerLarge,
     };
 
     final iconInnerSize = switch (size) {
-      AppActionButtonSize.compact => kIconSmall,
-      AppActionButtonSize.regular => kIconRegular,
-      AppActionButtonSize.large => kIconLarge,
+      AppActionButtonSize.compact => sizing.iconSmall,
+      AppActionButtonSize.regular => sizing.iconRegular,
+      AppActionButtonSize.large => sizing.iconLarge,
     };
 
     return Column(
@@ -45,11 +52,11 @@ class AppActionButton extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             Material(
-              color: actionColor.withValues(alpha: kAlphaMedium),
-              borderRadius: kBorderRadiusLarge,
+              color: actionColor.withValues(alpha: opacity.medium),
+              borderRadius: radii.borderRadiusLarge,
               child: InkWell(
                 onTap: onTap,
-                borderRadius: kBorderRadiusLarge,
+                borderRadius: radii.borderRadiusLarge,
                 child: Container(
                   width: iconSize,
                   height: iconSize,
@@ -67,13 +74,13 @@ class AppActionButton extends StatelessWidget {
                 top: -4,
                 right: -4,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: kSpace8,
-                    vertical: kSpace4,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: spacing.space8,
+                    vertical: spacing.space4,
                   ),
                   decoration: BoxDecoration(
                     color: theme.colorScheme.error,
-                    borderRadius: kBorderRadiusFull,
+                    borderRadius: radii.borderRadiusFull,
                     border: Border.all(
                       color: theme.colorScheme.surface,
                       width: 2,
@@ -91,7 +98,7 @@ class AppActionButton extends StatelessWidget {
               ),
           ],
         ),
-        const SizedBox(height: kSpace8),
+        SizedBox(height: spacing.space8),
         Text(
           label,
           style: theme.textTheme.labelMedium?.copyWith(

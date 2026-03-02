@@ -1,0 +1,11 @@
+name: ds_lints
+description: Design system lint rules for spacing, radii, and icon tokens.
+publish_to: none
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  analyzer: '>=7.0.0 <8.0.0'
+  path: ^1.8.0
+  glob: ^2.1.0

@@ -98,19 +98,27 @@ Three slash commands drive design-to-code:
 
 **Where:** [DECISIONS.md](DECISIONS.md) "Architecture Decisions"; `theme/color_is_expensive_theme.dart`.
 
-## Manual Review Rules
+## Automated Lint Rules (`ds_lints`)
 
-Constraints that cannot be enforced by static analysis and require periodic manual audits. Run these commands as part of screen review or before merging screen migration PRs.
-
-### Hardcoded Spacing Audit
-
-Detect hardcoded EdgeInsets that should use spacing tokens:
+The following audits are automated via `packages/ds_lints/`. Run from the project root:
 
 ```bash
-grep -rn 'EdgeInsets\.\(all\|symmetric\|only\|fromLTRB\)' lib/design_system/src/ lib/features/
+cd packages/ds_lints && dart run bin/lint.dart /path/to/project/root
 ```
 
-Look for: numeric literals instead of `spacing.space*` tokens.
+| Rule | Severity | What it flags |
+|------|----------|---------------|
+| `avoid_hardcoded_edge_insets` | WARNING | `EdgeInsets.all(16)`, `.only(left: 8)` etc. with numeric literals. `EdgeInsets.zero` and value==0 pass. |
+| `avoid_hardcoded_border_radius` | WARNING | `BorderRadius.circular(12)`, `Radius.circular(8)` with literals. Zero values pass. |
+| `avoid_hardcoded_sized_box_spacing` | INFO | Childless `SizedBox(height: 16)` matching grid values {4,8,12,16,24,32,48}. SizedBox with `child:` not flagged. |
+| `avoid_hardcoded_icon_size` | INFO | `Icon(..., size: 20)` with literal size. Icons without `size:` use theme default. |
+| `matryoshka_zone_violation` | WARNING | Macro tokens (space32/space48) as padding; space24 in horizontal EdgeInsets. Exception: `EdgeInsets.only(bottom: spacing.space32)` allowed per LAYOUT.md. |
+
+Excluded paths: `/widgetbook/`, `/test/`.
+
+## Manual Review Rules
+
+Constraints that cannot be fully automated and require periodic manual audits.
 
 ### Hardcoded Color Audit
 
@@ -132,16 +140,6 @@ grep -rn 'padding:' lib/features/ | grep -v 'test'
 ```
 
 Manually verify no screen applies horizontal margin AND its cards also apply horizontal margin.
-
-### SizedBox-for-Spacing Audit
-
-Detect `SizedBox` used for gaps where Column/Row `spacing:` parameter should be used:
-
-```bash
-grep -rn 'SizedBox(height:' lib/design_system/src/ lib/features/
-```
-
-Prefer Column/Row `spacing:` parameter when all gaps are the same size.
 
 ### Screen Review Checklist
 

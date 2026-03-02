@@ -276,15 +276,9 @@ int? parseRewardCeiling(String reward) {
   return int.tryParse(match.group(1)!.replaceAll(',', ''));
 }
 
-/// The server challenge ID for the "Produce Every Block" challenge.
-// TODO(challenges): Replace hardcoded ID with value from API response.
-// Ideally the API returns a per-challenge reward breakdown so we don't need
-// challenge-type-specific branching at all.
-const int produceBlocksChallengeId = 17;
-
 /// Returns true when the challenge is the produce-blocks challenge.
-bool isProduceBlocksChallenge(int challengeId) {
-  return challengeId == produceBlocksChallengeId;
+bool isProduceBlocksChallenge(ChallengeDto dto) {
+  return dto.subCategory == 'PRODUCE_BLOCKS_CHALLENGE';
 }
 
 /// Formats rank as an ordinal: 1 → "1st", 2 → "2nd", 3 → "3rd".

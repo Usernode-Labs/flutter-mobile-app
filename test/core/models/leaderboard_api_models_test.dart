@@ -194,6 +194,7 @@ void main() {
         'event_id': 2,
         'event_name': 'Event 2',
         'category': 'block_production',
+        'sub_category': 'PRODUCE_BLOCKS_CHALLENGE',
         'goal': 'Produce 10 blocks',
         'task': 'Block Production',
         'reward': 500,
@@ -211,6 +212,7 @@ void main() {
       expect(c.eventId, 2);
       expect(c.eventName, 'Event 2');
       expect(c.category, 'block_production');
+      expect(c.subCategory, 'PRODUCE_BLOCKS_CHALLENGE');
       expect(c.goal, 'Produce 10 blocks');
       expect(c.task, 'Block Production');
       expect(c.reward, '500');
@@ -232,6 +234,7 @@ void main() {
       });
       expect(c.eventId, isNull);
       expect(c.eventName, isNull);
+      expect(c.subCategory, isNull);
       expect(c.description, isNull);
       expect(c.requirements, isNull);
       expect(c.rewardLogic, isNull);
@@ -843,6 +846,7 @@ void main() {
         'event_id': 2,
         'event_name': 'Event 2',
         'category': 'block_production',
+        'sub_category': 'PRODUCE_BLOCKS_CHALLENGE',
         'goal': 'Produce 10 blocks',
         'task': 'Block Production',
         'reward': 500,
@@ -862,6 +866,7 @@ void main() {
       expect(c2.eventId, c.eventId);
       expect(c2.eventName, c.eventName);
       expect(c2.category, c.category);
+      expect(c2.subCategory, c.subCategory);
       expect(c2.goal, c.goal);
       expect(c2.task, c.task);
       expect(c2.reward, c.reward);
@@ -889,6 +894,7 @@ void main() {
       final c = ChallengeDto.fromJson(json);
       final c2 = ChallengeDto.fromJson(c.toJson());
       expect(c2.eventId, isNull);
+      expect(c2.subCategory, isNull);
       expect(c2.description, isNull);
       expect(c2.ctaLabel, isNull);
     });

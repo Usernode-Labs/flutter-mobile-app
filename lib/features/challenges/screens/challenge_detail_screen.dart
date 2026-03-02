@@ -71,7 +71,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
     final dto = challenge.dto;
     final category = mapCategory(dto.category);
     final variant = mapEnrichedVariant(challenge);
-    final isProduceBlocks = isProduceBlocksChallenge(dto.id);
+    final isProduceBlocks = isProduceBlocksChallenge(dto);
 
     // Reward card visibility rules:
     // - Missed: never shown
@@ -109,7 +109,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
     int? latestEpoch,
   ) {
     final dto = challenge.dto;
-    final isProduceBlocks = isProduceBlocksChallenge(dto.id);
+    final isProduceBlocks = isProduceBlocksChallenge(dto);
 
     // Use per-challenge earned points from breakdown activity, not event total.
     final totalEarned = challenge.earnedPoints != null

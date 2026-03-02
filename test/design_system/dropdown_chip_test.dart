@@ -83,10 +83,10 @@ void main() {
     });
 
     testWidgets(
-        'selected: true applies surfaceContainerLowest fill and transparent border',
+        'ChipVariant.surface applies surfaceContainerLowest fill and transparent border',
         (tester) async {
       await tester.pumpWidget(wrap(
-        const DropdownChip(label: 'Season 2', selected: true),
+        const DropdownChip(label: 'Season 2', variant: ChipVariant.surface),
       ));
 
       final container = tester.widget<Container>(
@@ -103,7 +103,7 @@ void main() {
       expect(border.top.color, equals(Colors.transparent));
     });
 
-    testWidgets('selected: false has outline border and no fill',
+    testWidgets('default (outlined) has outline border and no fill',
         (tester) async {
       await tester.pumpWidget(wrap(
         const DropdownChip(label: 'Season 2'),

@@ -14,6 +14,7 @@ Local-only archive of research, audits, and gap analysis performed during the
 | `05_gap_analysis_and_recommendations.md` | Ideal vs reality alignment matrix + prioritized action plan | 590 |
 | `06_harness_engineering_research.md` | Summary of agent/harness research that informed docs restructure | ~100 |
 | `07_list_system_guidance.md` | Complete list system reference: Figma design language, M3 translation rules, built inventory, decision framework | ~230 |
+| `08_layout_gap_analysis.md` | Layout audit against LAYOUT.md rules: per-screen compliance matrix, off-grid values, SliverPadding/spacing gaps, prioritized fix order | ~230 |
 
 ## Origin
 

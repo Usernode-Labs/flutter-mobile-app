@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../tokens/app_sizing.dart';
 import '../tokens/app_spacing.dart';
 import 'dropdown_chip.dart';
 
@@ -60,6 +61,7 @@ class DropdownChain extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
 
     final children = <Widget>[];
@@ -104,7 +106,7 @@ class DropdownChain extends StatelessWidget {
         children.add(
           Icon(
             Symbols.chevron_right_sharp,
-            size: 24,
+            size: sizing.iconRegular,
             color: colors.onSurfaceVariant,
           ),
         );

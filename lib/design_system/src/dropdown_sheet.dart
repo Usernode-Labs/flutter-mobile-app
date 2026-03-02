@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../tokens/app_sizing.dart';
 import '../tokens/app_spacing.dart';
 
 /// Shows a modal bottom sheet with selectable options.
@@ -47,6 +48,7 @@ class _DropdownSheetBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
@@ -76,7 +78,7 @@ class _DropdownSheetBody extends StatelessWidget {
                   onPressed: () => Navigator.of(context).pop(),
                   icon: Icon(
                     Symbols.close_sharp,
-                    size: 24,
+                    size: sizing.iconRegular,
                     color: colors.onSurfaceVariant,
                   ),
                 ),
@@ -120,6 +122,7 @@ class _OptionRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
 
     return ListTile(
       title: Text(
@@ -127,8 +130,9 @@ class _OptionRow extends StatelessWidget {
         style: textTheme.bodyLarge?.copyWith(color: colors.onSurface),
       ),
       trailing: selected
-          ? Icon(Symbols.check_sharp, size: 24, color: colors.primary)
-          : const SizedBox(width: 24),
+          ? Icon(Symbols.check_sharp,
+              size: sizing.iconRegular, color: colors.primary)
+          : SizedBox(width: sizing.iconRegular),
       onTap: onTap,
     );
   }

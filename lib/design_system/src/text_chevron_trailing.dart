@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../tokens/app_sizing.dart';
 import '../tokens/app_spacing.dart';
 
 /// A trailing widget that shows text followed by a chevron-right icon.
@@ -18,13 +19,15 @@ class TextChevronTrailing extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
     return Row(
       mainAxisSize: MainAxisSize.min,
       spacing: spacing.space4,
       children: [
         Text(text),
-        Icon(Symbols.chevron_right_sharp, size: 20, color: cs.onSurfaceVariant),
+        Icon(Symbols.chevron_right_sharp,
+            size: sizing.iconSmall, color: cs.onSurfaceVariant),
       ],
     );
   }

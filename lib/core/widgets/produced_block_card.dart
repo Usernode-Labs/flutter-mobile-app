@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 
 enum BlockCardVariant {
@@ -52,6 +53,7 @@ class ProducedBlockCard extends StatelessWidget {
     }
 
     final radii = Theme.of(context).extension<AppRadii>()!;
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     return InkWell(
       onTap: () {
         context.push(AppRoutes.mainNodeBlockDetails, extra: block);
@@ -81,7 +83,7 @@ class ProducedBlockCard extends StatelessWidget {
           children: [
             // Content
             Expanded(
-              child: _buildContent(context, theme, colorScheme, radii,
+              child: _buildContent(context, theme, colorScheme, radii, spacing,
                   blockHash, producerPubkey),
             ),
 
@@ -104,21 +106,27 @@ class ProducedBlockCard extends StatelessWidget {
     ThemeData theme,
     ColorScheme colorScheme,
     AppRadii radii,
+    AppSpacing spacing,
     String blockHash,
     String producerPubkey,
   ) {
     switch (variant) {
       case BlockCardVariant.compact:
-        return _buildCompactContent(theme, colorScheme);
+        return _buildCompactContent(theme, colorScheme, spacing);
       case BlockCardVariant.standard:
-        return _buildStandardContent(theme, colorScheme, radii, blockHash);
+        return _buildStandardContent(
+            theme, colorScheme, radii, spacing, blockHash);
       case BlockCardVariant.detailed:
         return _buildDetailedContent(
-            theme, colorScheme, radii, blockHash, producerPubkey);
+            theme, colorScheme, radii, spacing, blockHash, producerPubkey);
     }
   }
 
-  Widget _buildCompactContent(ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildCompactContent(
+    ThemeData theme,
+    ColorScheme colorScheme,
+    AppSpacing spacing,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -131,7 +139,7 @@ class ProducedBlockCard extends StatelessWidget {
             color: colorScheme.onSurface,
           ),
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: spacing.space4),
 
         // Time ago and timestamp
         Row(
@@ -142,14 +150,14 @@ class ProducedBlockCard extends StatelessWidget {
                 color: colorScheme.onSurfaceVariant,
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: spacing.space8),
             Text(
               '• ',
               style: TextStyle(
                 color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: spacing.space8),
             Text(
               _formatTimestamp(block.timestamp),
               style: theme.textTheme.bodySmall?.copyWith(
@@ -166,6 +174,7 @@ class ProducedBlockCard extends StatelessWidget {
     ThemeData theme,
     ColorScheme colorScheme,
     AppRadii radii,
+    AppSpacing spacing,
     String blockHash,
   ) {
     return Column(
@@ -182,7 +191,7 @@ class ProducedBlockCard extends StatelessWidget {
               ),
             ),
             if (isBestTip) ...[
-              const SizedBox(width: 8),
+              SizedBox(width: spacing.space8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
@@ -200,7 +209,7 @@ class ProducedBlockCard extends StatelessWidget {
             ]
           ],
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: spacing.space4),
 
         // Epoch and Slot
         Text(
@@ -235,6 +244,7 @@ class ProducedBlockCard extends StatelessWidget {
     ThemeData theme,
     ColorScheme colorScheme,
     AppRadii radii,
+    AppSpacing spacing,
     String blockHash,
     String producerPubkey,
   ) {
@@ -251,12 +261,12 @@ class ProducedBlockCard extends StatelessWidget {
               ),
             ),
             if (isBestTip) ...[
-              const SizedBox(width: 8),
+              SizedBox(width: spacing.space8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: colorScheme.primary,
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: radii.borderRadiusXSmall,
                 ),
                 child: Text(
                   'BEST TIP',
@@ -269,7 +279,7 @@ class ProducedBlockCard extends StatelessWidget {
             ],
           ],
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: spacing.space4),
 
         // Slot and batches
         Text(

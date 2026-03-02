@@ -79,6 +79,7 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
     final theme = Theme.of(context);
     final block = widget.block;
@@ -106,7 +107,7 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
                   child: Icon(
                     Symbols.check_sharp,
                     color: theme.colorScheme.onPrimaryContainer,
-                    size: 20,
+                    size: sizing.iconSmall,
                   ),
                 ),
                 SizedBox(width: spacing.space16),

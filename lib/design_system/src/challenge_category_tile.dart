@@ -208,6 +208,7 @@ class _ChallengeChip extends StatelessWidget {
     final opacity = Theme.of(context).extension<AppOpacity>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
 
     if (isCompleted) {
       // Completed: disabled style
@@ -228,7 +229,7 @@ class _ChallengeChip extends StatelessWidget {
             children: [
               Icon(
                 Symbols.check_box,
-                size: 16,
+                size: sizing.iconXSmall,
                 color: colors.onSurface.withValues(alpha: opacity.disabled),
               ),
               Text(
@@ -261,7 +262,7 @@ class _ChallengeChip extends StatelessWidget {
           children: [
             Icon(
               Symbols.check_box_outline_blank,
-              size: 16,
+              size: sizing.iconXSmall,
               color: colors.onPrimary,
             ),
             Text(

@@ -241,7 +241,8 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
                                 behavior: HitTestBehavior.translucent,
                                 onTap: () =>
                                     context.push(AppRoutes.leaderboard),
-                                child: const SizedBox(width: 200, height: 48),
+                                child: SizedBox(
+                                    width: 200, height: spacing.space48),
                               ),
                             ),
                           ),

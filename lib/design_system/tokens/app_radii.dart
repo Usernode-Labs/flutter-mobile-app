@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 @immutable
 class AppRadii extends ThemeExtension<AppRadii> {
   const AppRadii({
+    required this.xSmall,
     required this.small,
     required this.medium,
     required this.large,
@@ -14,6 +15,7 @@ class AppRadii extends ThemeExtension<AppRadii> {
   });
 
   factory AppRadii.standard() => const AppRadii(
+        xSmall: 4.0,
         small: 8.0,
         medium: 12.0,
         large: 16.0,
@@ -22,6 +24,7 @@ class AppRadii extends ThemeExtension<AppRadii> {
         full: 999.0,
       );
 
+  final double xSmall;
   final double small;
   final double medium;
   final double large;
@@ -30,6 +33,8 @@ class AppRadii extends ThemeExtension<AppRadii> {
   final double full;
 
   // Convenience getters for BorderRadius
+  BorderRadius get borderRadiusXSmall =>
+      BorderRadius.all(Radius.circular(xSmall));
   BorderRadius get borderRadiusSmall =>
       BorderRadius.all(Radius.circular(small));
   BorderRadius get borderRadiusMedium =>
@@ -58,6 +63,7 @@ class AppRadii extends ThemeExtension<AppRadii> {
 
   @override
   AppRadii copyWith({
+    double? xSmall,
     double? small,
     double? medium,
     double? large,
@@ -66,6 +72,7 @@ class AppRadii extends ThemeExtension<AppRadii> {
     double? full,
   }) {
     return AppRadii(
+      xSmall: xSmall ?? this.xSmall,
       small: small ?? this.small,
       medium: medium ?? this.medium,
       large: large ?? this.large,
@@ -79,6 +86,7 @@ class AppRadii extends ThemeExtension<AppRadii> {
   AppRadii lerp(AppRadii? other, double t) {
     if (other is! AppRadii) return this;
     return AppRadii(
+      xSmall: lerpDouble(xSmall, other.xSmall, t)!,
       small: lerpDouble(small, other.small, t)!,
       medium: lerpDouble(medium, other.medium, t)!,
       large: lerpDouble(large, other.large, t)!,

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/providers/produced_blocks_provider.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:crypto_mobile_app/core/widgets/app_card.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_slots.dart';
@@ -180,11 +181,9 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Header KPI card
-              Container(
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceBright,
-                  borderRadius: radii.borderRadiusLargeIncreased,
-                ),
+              AppCard(
+                color: theme.colorScheme.surfaceBright,
+                borderRadius: radii.borderRadiusLargeIncreased,
                 padding: EdgeInsets.all(spacing.space16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -302,6 +301,7 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
               // Filtered list of slots (demo data)
               Expanded(
                 child: ListView.separated(
+                  padding: EdgeInsets.only(bottom: spacing.space32),
                   itemBuilder: (context, index) {
                     final item = filtered[index];
                     final isScheduled = item.result == RpcSlotResult.scheduled;

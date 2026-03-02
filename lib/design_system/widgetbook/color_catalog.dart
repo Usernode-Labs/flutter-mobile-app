@@ -178,6 +178,12 @@ class SemanticColorsCatalog extends StatelessWidget {
           _SwatchData(
               'onColorContainer', group.onColorContainer, group.colorContainer),
         ]),
+        const SizedBox(height: 8),
+        _colorRow(context, [
+          _SwatchData('colorSurface', group.colorSurface, group.onColorSurface),
+          _SwatchData(
+              'onColorSurface', group.onColorSurface, group.colorSurface),
+        ]),
       ],
     );
   }

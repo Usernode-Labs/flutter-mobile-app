@@ -208,7 +208,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                         ),
                         const Spacer(),
                         _buildSendButton(theme),
-                        SizedBox(height: spacing.space24),
+                        SizedBox(height: spacing.space32),
                       ],
                     ),
                   ),

@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import 'package:crypto_mobile_app/core/widgets/app_card.dart';
+
 import '../tokens/app_opacity.dart';
 import '../tokens/app_radii.dart';
 import '../tokens/app_sizing.dart';
@@ -131,12 +133,9 @@ class _LeaderboardStatsCardState extends State<LeaderboardStatsCard> {
       effectiveCalloutBody = widget.calloutBody;
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerLowest,
-        borderRadius: radii.borderRadiusLargeIncreased,
-      ),
-      padding: EdgeInsets.all(spacing.space16),
+    return AppCard(
+      color: colors.surfaceContainerLowest,
+      borderRadius: radii.borderRadiusLargeIncreased,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

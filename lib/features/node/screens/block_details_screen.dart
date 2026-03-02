@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
+import 'package:crypto_mobile_app/core/widgets/app_card.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
@@ -199,12 +200,10 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
             SizedBox(height: spacing.space32),
 
             // Block Information Card
-            Container(
+            AppCard(
               padding: EdgeInsets.all(spacing.space16),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest,
-                borderRadius: radii.borderRadiusMedium,
-              ),
+              color: theme.colorScheme.surfaceContainerHighest,
+              borderRadius: radii.borderRadiusMedium,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

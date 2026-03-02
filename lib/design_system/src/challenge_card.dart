@@ -334,26 +334,25 @@ class _ChallengeCardState extends State<ChallengeCard>
 
       case ChallengeCardVariant.completed:
         return Container(
-          color: catColors.colorContainer,
+          color: catColors.colorSurface,
           padding: EdgeInsets.all(spacing.space16),
           child: Row(
             children: [
               Icon(
                 Symbols.check_circle_sharp,
                 size: sizing.iconSmall,
-                color: catColors.onColorContainer,
+                color: catColors.onColorSurface,
               ),
               SizedBox(width: spacing.space4),
               Text(
                 'Completed',
-                style: rewardStyle?.copyWith(color: catColors.onColorContainer),
+                style: rewardStyle?.copyWith(color: catColors.onColorSurface),
               ),
               if (widget.completedPoints != null) ...[
                 SizedBox(width: spacing.space4),
                 Text(
                   widget.completedPoints!,
-                  style:
-                      rewardStyle?.copyWith(color: catColors.onColorContainer),
+                  style: rewardStyle?.copyWith(color: catColors.onColorSurface),
                 ),
               ],
             ],

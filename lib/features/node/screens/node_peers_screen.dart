@@ -99,13 +99,14 @@ class NodePeersScreen extends StatelessWidget {
             // Peer list
             Expanded(
               child: ListView.separated(
-                padding: EdgeInsets.symmetric(horizontal: spacing.space16),
+                padding: EdgeInsets.fromLTRB(
+                    spacing.space16, 0, spacing.space16, spacing.space32),
                 itemCount: sortedPeers.length,
                 separatorBuilder: (_, __) => Divider(
-                  height: 8,
+                  height: spacing.space8,
                   thickness: 1,
-                  indent: 16,
-                  endIndent: 16,
+                  indent: spacing.space16,
+                  endIndent: spacing.space16,
                   color: colorScheme.outlineVariant.withValues(alpha: 0.5),
                 ),
                 itemBuilder: (_, i) {
@@ -154,7 +155,7 @@ class NodePeersScreen extends StatelessWidget {
                             children: [
                               // Direction icon badge
                               Container(
-                                padding: const EdgeInsets.all(2),
+                                padding: EdgeInsets.all(spacing.space4),
                                 decoration: BoxDecoration(
                                   color: directionColor.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(4),

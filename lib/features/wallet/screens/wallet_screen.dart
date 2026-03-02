@@ -124,7 +124,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                         l10n: l10n,
                       ),
                       _AddressCard(theme: theme),
-                      const SizedBox(height: 2),
+                      SizedBox(height: spacing.space4),
                       _RecentActivityCard(
                         walletState: walletState,
                         l10n: l10n,
@@ -575,7 +575,7 @@ class _TransactionTile extends StatelessWidget {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 2),
+                SizedBox(height: spacing.space4),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -588,7 +588,7 @@ class _TransactionTile extends StatelessWidget {
                         fontSize: 11,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    SizedBox(height: spacing.space4),
                     Text(
                       transaction.formattedTimestamp,
                       style: theme.textTheme.bodySmall?.copyWith(

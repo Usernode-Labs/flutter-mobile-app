@@ -39,8 +39,8 @@ class BottomNavItem {
   final Color? indicatorColor;
 
   /// Fill color for the indicator shape background.
-  /// Pass semantic `colorContainer` for the light tint.
-  /// Falls back to [indicatorColor] at 20% opacity if null.
+  /// Pass semantic `colorSurface` for the faint tint.
+  /// Falls back to transparent if null.
   final Color? indicatorFillColor;
 }
 
@@ -93,9 +93,8 @@ class BottomNav extends StatelessWidget {
     final ShapeBorder? indicatorShape = selected.indicatorShape != null
         ? shapeBorderFor(selected.indicatorShape!)
         : null;
-    final Color indicatorColor = selected.indicatorFillColor ??
-        selected.indicatorColor?.withValues(alpha: 0.2) ??
-        Colors.transparent;
+    final Color indicatorColor =
+        selected.indicatorFillColor ?? Colors.transparent;
 
     final navBar = NavigationBar(
       selectedIndex: selectedIndex,

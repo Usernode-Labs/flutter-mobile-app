@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/services.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:crypto_mobile_app/core/widgets/app_card.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -619,6 +620,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       padding: EdgeInsets.all(spacing.space12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: spacing.space12,
         children: [
           Padding(
             padding: EdgeInsets.all(spacing.space12),
@@ -628,7 +630,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
                   ?.copyWith(fontWeight: FontWeight.w500),
             ),
           ),
-          SizedBox(height: spacing.space12),
           _buildSyncDetailsCard(
             context: context,
             icon: Symbols.hub_sharp,
@@ -638,7 +639,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             trailing: _buildPeersTrailing(),
             onTap: _navigateToPeers,
           ),
-          SizedBox(height: spacing.space12),
           _buildSyncDetailsCard(
             context: context,
             icon: Symbols.collections_bookmark_sharp,
@@ -655,7 +655,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
               );
             },
           ),
-          SizedBox(height: spacing.space12),
           _buildSyncDetailsCard(
             context: context,
             icon: Symbols.calculate_sharp,
@@ -664,7 +663,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             subtitle: _buildVrfSubtitle(),
             trailing: _buildVrfTrailing(),
           ),
-          SizedBox(height: spacing.space12),
           _buildSyncDetailsCard(
             context: context,
             icon: Symbols.star_sharp,
@@ -674,7 +672,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             trailing: Icon(Symbols.content_copy_sharp,
                 color: colorScheme.primary, size: 20),
           ),
-          SizedBox(height: spacing.space12),
           _buildSyncDetailsCard(
             context: context,
             icon: Symbols.account_tree_sharp,
@@ -770,13 +767,11 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     final spacing = Theme.of(context).extension<AppSpacing>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceBright,
-        borderRadius: radii.borderRadiusLargeIncreased,
-      ),
+    return AppCard(
       padding: EdgeInsets.symmetric(
           horizontal: spacing.space16, vertical: spacing.space12),
+      color: colorScheme.surfaceBright,
+      borderRadius: radii.borderRadiusLargeIncreased,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: children,

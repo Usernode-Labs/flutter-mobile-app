@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:crypto_mobile_app/core/widgets/app_card.dart';
 import 'package:crypto_mobile_app/core/providers/node_data_providers.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
@@ -194,12 +195,9 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
                 SizedBox(height: spacing.space16),
 
                 // Summary card
-                Container(
-                  padding: EdgeInsets.all(spacing.space12),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerLow,
-                    borderRadius: radii.borderRadiusSmall,
-                  ),
+                AppCard.compact(
+                  color: colorScheme.surfaceContainerLow,
+                  borderRadius: radii.borderRadiusSmall,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
@@ -248,6 +246,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
                       useHourly,
                       l10n,
                     )),
+                SizedBox(height: spacing.space32),
               ],
             ),
           );
@@ -363,77 +362,72 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
       }
     }
 
-    return Container(
-      margin: EdgeInsets.only(bottom: spacing.space8),
-      padding: EdgeInsets.all(spacing.space12),
-      decoration: BoxDecoration(
+    return Padding(
+      padding: EdgeInsets.only(bottom: spacing.space8),
+      child: AppCard.compact(
         color: colorScheme.surfaceContainer,
         borderRadius: radii.borderRadiusSmall,
-        border: Border.all(
-          color: colorScheme.outlineVariant,
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Time header
-          Row(
-            children: [
-              Icon(
-                useHourly
-                    ? Symbols.access_time_sharp
-                    : Symbols.calendar_today_sharp,
-                size: 16,
-                color: colorScheme.primary,
-              ),
-              SizedBox(width: spacing.space8),
-              Text(
-                timeLabel,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.onSurface,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Time header
+            Row(
+              children: [
+                Icon(
+                  useHourly
+                      ? Symbols.access_time_sharp
+                      : Symbols.calendar_today_sharp,
+                  size: 16,
+                  color: colorScheme.primary,
                 ),
-              ),
-            ],
-          ),
-          SizedBox(height: spacing.space8),
+                SizedBox(width: spacing.space8),
+                Text(
+                  timeLabel,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: spacing.space8),
 
-          // Stats row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildStatChip(
-                context,
-                l10n.wonSlotsWon,
-                bucket.wonSlots,
-                colorScheme.secondaryContainer,
-                colorScheme.onSecondaryContainer,
-              ),
-              _buildStatChip(
-                context,
-                l10n.wonSlotsProduced,
-                bucket.produced,
-                colorScheme.tertiaryContainer,
-                colorScheme.onTertiaryContainer,
-              ),
-              _buildStatChip(
-                context,
-                l10n.wonSlotsMissed,
-                bucket.missed,
-                colorScheme.errorContainer,
-                colorScheme.onErrorContainer,
-              ),
-              _buildStatChip(
-                context,
-                l10n.wonSlotsPending,
-                bucket.pending,
-                colorScheme.primaryContainer,
-                colorScheme.onPrimaryContainer,
-              ),
-            ],
-          ),
-        ],
+            // Stats row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildStatChip(
+                  context,
+                  l10n.wonSlotsWon,
+                  bucket.wonSlots,
+                  colorScheme.secondaryContainer,
+                  colorScheme.onSecondaryContainer,
+                ),
+                _buildStatChip(
+                  context,
+                  l10n.wonSlotsProduced,
+                  bucket.produced,
+                  colorScheme.tertiaryContainer,
+                  colorScheme.onTertiaryContainer,
+                ),
+                _buildStatChip(
+                  context,
+                  l10n.wonSlotsMissed,
+                  bucket.missed,
+                  colorScheme.errorContainer,
+                  colorScheme.onErrorContainer,
+                ),
+                _buildStatChip(
+                  context,
+                  l10n.wonSlotsPending,
+                  bucket.pending,
+                  colorScheme.primaryContainer,
+                  colorScheme.onPrimaryContainer,
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -57,13 +57,21 @@ The chromatic gatekeeper. A `ThemeExtension` (not a `ColorScheme` role) — acce
 | **Community** | Green | Participation, growth, social |
 | **Success** | Green (distinct tone) | Completion, achievement, earned badges |
 
-Each group provides a 4-role pattern (`color`, `onColor`, `colorContainer`, `onColorContainer`) mirroring M3. All pairs APCA-verified.
+Each group provides a 6-role pattern mirroring M3. All pairs APCA-verified.
+
+| Tier | Role | Visual Weight | Use Case |
+|------|------|--------------|----------|
+| Strong | `color` / `onColor` | Full accent | Icons, text, borders, small-area emphasis |
+| Medium | `colorContainer` / `onColorContainer` | Medium tint | Badges, chips, banners |
+| Faint | `colorSurface` / `onColorSurface` | Near-surface whisper | Card backgrounds, section fills, list highlights |
+
+Use `colorSurface` for large-area backgrounds where `colorContainer` would be too loud. `colorSurface` is a solid near-surface color with barely perceptible hue; `onColorSurface` reinforces the semantic with chromatic text.
 
 > Values, sub-roles, and contrast data → `app_semantic_colors.dart`
 
 ## Do's & Don'ts
 
-**Do:** Use `primary` for CTAs. Use `AppSemanticColors` for chromatic emphasis. Pair `colorContainer` + `onColorContainer`. Use neutrals for backgrounds.
+**Do:** Use `primary` for CTAs. Use `AppSemanticColors` for chromatic emphasis. Pair `colorContainer` + `onColorContainer` for compact elements (badges, chips). Pair `colorSurface` + `onColorSurface` for large-area backgrounds (card fills, section highlights). Use neutrals for structural backgrounds.
 
 **Don't:** Use chromatic color decoratively. Hardcode hex values. Reach for `tertiary*` expecting visible emphasis (ghost role). Mix semantic purposes. Use `Opacity` on readable content (drops contrast) — use color-based demotion instead.
 

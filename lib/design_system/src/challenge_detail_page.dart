@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:crypto_mobile_app/core/widgets/app_card.dart';
+
 import '../tokens/app_radii.dart';
 import '../tokens/app_spacing.dart';
 import 'challenge_card.dart';
@@ -107,12 +109,9 @@ class _SectionsCard extends StatelessWidget {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerLowest,
-        borderRadius: radii.borderRadiusLargeIncreased,
-      ),
-      padding: EdgeInsets.all(spacing.space16),
+    return AppCard(
+      color: colors.surfaceContainerLowest,
+      borderRadius: radii.borderRadiusLargeIncreased,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -155,12 +154,9 @@ class _TotalRewardCard extends StatelessWidget {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerLowest,
-        borderRadius: radii.borderRadiusLargeIncreased,
-      ),
-      padding: EdgeInsets.all(spacing.space16),
+    return AppCard(
+      color: colors.surfaceContainerLowest,
+      borderRadius: radii.borderRadiusLargeIncreased,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         spacing: spacing.space4,

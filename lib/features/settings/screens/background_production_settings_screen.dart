@@ -645,7 +645,7 @@ class _BackgroundProductionSettingsScreenState
                   color: colorScheme.onSurface,
                 ),
               ),
-              const SizedBox(height: 2),
+              SizedBox(height: spacing.space4),
               Text(
                 description,
                 style: TextStyle(

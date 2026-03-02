@@ -151,7 +151,8 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
                 // Transaction list
                 Expanded(
                   child: ListView.separated(
-                    padding: EdgeInsets.symmetric(horizontal: spacing.space16),
+                    padding: EdgeInsets.fromLTRB(
+                        spacing.space16, 0, spacing.space16, spacing.space32),
                     itemCount: mempool.entries.length,
                     separatorBuilder: (_, __) => Divider(
                       height: 1,

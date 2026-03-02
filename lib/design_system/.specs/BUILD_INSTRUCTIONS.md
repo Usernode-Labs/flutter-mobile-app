@@ -207,20 +207,29 @@ If the spec contains `mapping_notes` with `confidence: nearest`, those values we
 
 ## Dart MCP Tools
 
-Use Dart MCP tools at every stage of the build. Do not fall back to shell commands when an MCP tool exists.
+Use Dart MCP tools at every stage of the build. Do not fall back to shell
+commands when an MCP tool exists.
 
-**Before writing code:**
-- `resolve_workspace_symbol` — look up tokens (AppSpacing, AppRadii, etc.) and existing widgets before using them. Catches typos, confirms APIs exist.
-- `hover` — get docs and type info for any token or widget you plan to compose.
-- `signature_help` — verify constructor signatures of `lib/core/widgets/` components before composing them.
+**Before writing code — batch all lookups in ONE parallel call:**
+1. Scan the spec for all token classes and existing widgets referenced
+2. Make a SINGLE parallel batch of tool calls (one message, multiple tool uses):
+   - `resolve_workspace_symbol` for EACH symbol (AppSpacing, AppRadii,
+     AppSemanticColors, StatusBadge, IconBadge, AppButton, etc.)
+   - `hover` on any token/widget whose API you need to verify
+3. Use the results to ground your code — do NOT proceed without confirming
+   symbols exist
 
-**After writing each file:**
-- `analyze_files` — run analysis to catch type errors, missing imports, and lint issues before moving to the next file.
-- `dart_fix` — auto-fix any fixable issues found by analysis.
+**After writing ALL output files (widget, test, use case, barrel, catalog):**
+- `analyze_files` — run once to catch all issues across new files
+- `dart_fix` — auto-fix any fixable issues
+- `run_tests` — verify the test passes
+
+Run these post-write checks ONCE after all files are written, not after
+each individual file. This avoids redundant analysis runs.
 
 **For formatting:** use `dart_format` MCP tool (not `dart format` shell command).
-
-**For tests:** use `run_tests` MCP tool (not `flutter test` shell command). The Dart MCP server states: "ALWAYS use instead of `dart test` or `flutter test` shell commands."
+**For tests:** use `run_tests` MCP tool (not `flutter test` shell command).
+The Dart MCP server states: "ALWAYS use instead of `dart test` or `flutter test` shell commands."
 
 ## Golden Tests
 

@@ -97,3 +97,65 @@ Three slash commands drive design-to-code:
 4. **surfaceTint disabled globally.** Intentional with achromatic primary. Re-evaluate if chromatic primary is ever adopted.
 
 **Where:** [DECISIONS.md](DECISIONS.md) "Architecture Decisions"; `theme/color_is_expensive_theme.dart`.
+
+## Manual Review Rules
+
+Constraints that cannot be enforced by static analysis and require periodic manual audits. Run these commands as part of screen review or before merging screen migration PRs.
+
+### Hardcoded Spacing Audit
+
+Detect hardcoded EdgeInsets that should use spacing tokens:
+
+```bash
+grep -rn 'EdgeInsets\.\(all\|symmetric\|only\|fromLTRB\)' lib/design_system/src/ lib/features/
+```
+
+Look for: numeric literals instead of `spacing.space*` tokens.
+
+### Hardcoded Color Audit
+
+Detect hex color literals and `Colors.*` usage outside the theme:
+
+```bash
+grep -rn 'Color(0x' lib/design_system/src/ lib/features/
+grep -rn 'Colors\.' lib/design_system/src/ lib/features/
+```
+
+Exceptions: `Colors.transparent` is allowed.
+
+### Double Padding Audit
+
+Detect potential padding stacking (screen margin + card margin):
+
+```bash
+grep -rn 'padding:' lib/features/ | grep -v 'test'
+```
+
+Manually verify no screen applies horizontal margin AND its cards also apply horizontal margin.
+
+### SizedBox-for-Spacing Audit
+
+Detect `SizedBox` used for gaps where Column/Row `spacing:` parameter should be used:
+
+```bash
+grep -rn 'SizedBox(height:' lib/design_system/src/ lib/features/
+```
+
+Prefer Column/Row `spacing:` parameter when all gaps are the same size.
+
+### Screen Review Checklist
+
+When reviewing a screen (new or migrated), verify:
+
+| # | Check | How |
+|---|-------|-----|
+| 1 | Padding ownership | No double margins (screen + card both adding horizontal padding) |
+| 2 | Tokens only | No hardcoded EdgeInsets, no magic dp values |
+| 3 | Correct scroll container | Matches LAYOUT.md decision tree |
+| 4 | State handling | Loading/error/empty use DS widgets (FullPageLoadingState, FullPageErrorState, EmptyState) |
+| 5 | SafeArea | Present only where needed (not doubled with TopAppBar) |
+| 6 | Bottom padding | `space32` breathing room at end |
+| 7 | RefreshIndicator | Wraps scroll view if pull-to-refresh needed |
+| 8 | SliverPadding | Used for margins in CustomScrollView |
+
+See also: [SCREEN_PATTERNS.md](SCREEN_PATTERNS.md) for full screen building playbook.

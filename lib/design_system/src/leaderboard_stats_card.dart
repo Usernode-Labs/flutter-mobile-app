@@ -209,6 +209,7 @@ class _StatBox extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: spacing.space4,
         children: [
           Text(
             label.toUpperCase(),
@@ -217,7 +218,6 @@ class _StatBox extends StatelessWidget {
             ),
             textAlign: TextAlign.start,
           ),
-          SizedBox(height: spacing.space4),
           Text(
             value,
             style: textTheme.headlineSmall?.copyWith(
@@ -318,6 +318,7 @@ class _DotMatrixChartState extends State<_DotMatrixChart>
               ? _buildColumns(
                   colors: colors,
                   radii: radii,
+                  spacing: spacing,
                   clampedIndex: clampedIndex,
                   maxCount: maxCount,
                   animationValue: 1.0,
@@ -327,6 +328,7 @@ class _DotMatrixChartState extends State<_DotMatrixChart>
                   builder: (context, _) => _buildColumns(
                     colors: colors,
                     radii: radii,
+                    spacing: spacing,
                     clampedIndex: clampedIndex,
                     maxCount: maxCount,
                     animationValue: _controller.value,
@@ -351,6 +353,7 @@ class _DotMatrixChartState extends State<_DotMatrixChart>
   Widget _buildColumns({
     required ColorScheme colors,
     required AppRadii radii,
+    required AppSpacing spacing,
     required int clampedIndex,
     required int maxCount,
     required double animationValue,
@@ -367,6 +370,7 @@ class _DotMatrixChartState extends State<_DotMatrixChart>
               clampedIndex: clampedIndex,
               colors: colors,
               radii: radii,
+              spacing: spacing,
               animationValue: animationValue,
             ),
           ),
@@ -381,6 +385,7 @@ class _DotMatrixChartState extends State<_DotMatrixChart>
     required int clampedIndex,
     required ColorScheme colors,
     required AppRadii radii,
+    required AppSpacing spacing,
     required double animationValue,
   }) {
     final isUser = index == clampedIndex;
@@ -443,7 +448,7 @@ class _DotMatrixChartState extends State<_DotMatrixChart>
       column = Align(
         alignment: Alignment.bottomCenter,
         child: Container(
-          padding: const EdgeInsets.all(6),
+          padding: EdgeInsets.all(spacing.space8),
           decoration: BoxDecoration(
             color: colors.surfaceContainerHigh,
             borderRadius: radii.borderRadiusFull,
@@ -455,7 +460,7 @@ class _DotMatrixChartState extends State<_DotMatrixChart>
       column = Align(
         alignment: Alignment.bottomCenter,
         child: Padding(
-          padding: const EdgeInsets.only(bottom: 6),
+          padding: EdgeInsets.only(bottom: spacing.space8),
           child: dots,
         ),
       );
@@ -552,13 +557,13 @@ class _ExplainerCallout extends StatelessWidget {
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: spacing.space16,
         children: [
           Icon(
             Symbols.bar_chart_4_bars,
             size: 20,
             color: colors.onSurfaceVariant,
           ),
-          SizedBox(width: spacing.space16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

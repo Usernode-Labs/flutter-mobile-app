@@ -173,6 +173,7 @@ class _ChallengeCardState extends State<ChallengeCard>
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: spacing.space8,
               children: [
                 // Header row: date range | category + icon
                 Row(
@@ -212,7 +213,6 @@ class _ChallengeCardState extends State<ChallengeCard>
                     ),
                   ],
                 ),
-                SizedBox(height: spacing.space8),
                 // Title
                 Text(
                   widget.title,
@@ -220,7 +220,6 @@ class _ChallengeCardState extends State<ChallengeCard>
                     color: _contentColor(colors),
                   ),
                 ),
-                SizedBox(height: spacing.space8),
                 // Description
                 Text(
                   widget.description,
@@ -408,6 +407,8 @@ class _OngoingBorderWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
+
     // Reduced motion fallback: solid border
     if (animation == null) {
       return Container(
@@ -430,7 +431,7 @@ class _OngoingBorderWrapper extends StatelessWidget {
             strokeWidth: 2,
           ),
           child: Padding(
-            padding: const EdgeInsets.all(2),
+            padding: EdgeInsets.all(spacing.space4),
             child: child,
           ),
         );

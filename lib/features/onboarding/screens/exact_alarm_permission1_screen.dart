@@ -5,7 +5,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
-import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 
 class ExactAlarmPermission1Screen extends StatefulWidget {
   const ExactAlarmPermission1Screen({super.key});
@@ -69,13 +69,14 @@ class _ExactAlarmPermission1ScreenState
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final semantic = Theme.of(context).extension<AppSemanticColors>()!;
     final l10n = AppLocalizations.of(context);
     final isAndroid = Platform.isAndroid;
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.permExactAlarmsTitle)),
       body: _checking
-          ? const Center(child: CircularProgressIndicator())
+          ? const FullPageLoadingState()
           : SafeArea(
               child: Padding(
                 padding: EdgeInsets.all(spacing.space16),
@@ -115,8 +116,9 @@ class _ExactAlarmPermission1ScreenState
                             _hasExactAlarm
                                 ? Symbols.check_circle_sharp
                                 : Symbols.warning_sharp,
-                            color:
-                                _hasExactAlarm ? Colors.green : Colors.orange,
+                            color: _hasExactAlarm
+                                ? semantic.success.color
+                                : semantic.warning.color,
                           ),
                           SizedBox(width: spacing.space8),
                           Text(_hasExactAlarm

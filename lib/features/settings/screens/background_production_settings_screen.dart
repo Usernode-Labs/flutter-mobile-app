@@ -17,7 +17,7 @@ import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/providers/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
-import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 
 final _log =
     LoggingService.instance.withTag('usernode/BackgroundProductionSettings');
@@ -282,6 +282,7 @@ class _BackgroundProductionSettingsScreenState
     }
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final semantic = theme.extension<AppSemanticColors>()!;
 
     return Scaffold(
       body: SafeArea(
@@ -294,14 +295,14 @@ class _BackgroundProductionSettingsScreenState
               _buildAboutSection(theme, colorScheme),
               SizedBox(height: spacing.space8),
               // Top-priority sections
-              _buildPermissionsSection(theme, colorScheme),
+              _buildPermissionsSection(theme, colorScheme, semantic),
               SizedBox(height: spacing.space8),
               if (Platform.isIOS) ...[
-                _buildIOSKeepAliveSection(theme, colorScheme),
+                _buildIOSKeepAliveSection(theme, colorScheme, semantic),
                 SizedBox(height: spacing.space8),
               ],
               if (Platform.isAndroid) ...[
-                _buildAndroidBatterySection(theme, colorScheme),
+                _buildAndroidBatterySection(theme, colorScheme, semantic),
                 SizedBox(height: spacing.space8),
                 _buildThemeSection(theme, colorScheme),
                 SizedBox(height: spacing.space8),
@@ -314,9 +315,9 @@ class _BackgroundProductionSettingsScreenState
               // Collapsible sections (collapsed by default)
               _buildFeatureOverviewCard(theme, colorScheme),
               SizedBox(height: spacing.space8),
-              _buildPlatformInfoCard(theme, colorScheme),
+              _buildPlatformInfoCard(theme, colorScheme, semantic),
               SizedBox(height: spacing.space8),
-              _buildVrfExplanationCard(theme, colorScheme),
+              _buildVrfExplanationCard(theme, colorScheme, semantic),
               SizedBox(height: spacing.space8),
 
               // Build Info section (at the bottom)
@@ -610,6 +611,7 @@ class _BackgroundProductionSettingsScreenState
     ColorScheme colorScheme,
   ) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -618,7 +620,7 @@ class _BackgroundProductionSettingsScreenState
           height: 24,
           decoration: BoxDecoration(
             color: colorScheme.primary.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: radii.borderRadiusMedium,
           ),
           child: Center(
             child: Text(
@@ -659,8 +661,10 @@ class _BackgroundProductionSettingsScreenState
     );
   }
 
-  Widget _buildPlatformInfoCard(ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildPlatformInfoCard(
+      ThemeData theme, ColorScheme colorScheme, AppSemanticColors semantic) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     final l10n = AppLocalizations.of(context);
     final isAndroid = Platform.isAndroid;
 
@@ -685,7 +689,7 @@ class _BackgroundProductionSettingsScreenState
             padding: EdgeInsets.all(spacing.space12),
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: radii.borderRadiusSmall,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -702,28 +706,28 @@ class _BackgroundProductionSettingsScreenState
                     l10n.bgProdDefaultMode,
                     l10n.bgProdDefaultReliability,
                     l10n.bgProdDefaultDesc,
-                    Colors.green,
+                    semantic.success.color,
                   ),
                   SizedBox(height: spacing.space8),
                   _buildReliabilityRow(
                     l10n.bgProdKeepAliveMode,
                     l10n.bgProdKeepAliveReliability,
                     l10n.bgProdKeepAliveDesc,
-                    Colors.blue,
+                    semantic.technical.color,
                   ),
                 ] else ...[
                   _buildReliabilityRow(
                     l10n.bgProdKeepAliveMode,
                     l10n.bgProdIosKeepAliveReliability,
                     l10n.bgProdIosKeepAliveDesc,
-                    Colors.green,
+                    semantic.success.color,
                   ),
                   SizedBox(height: spacing.space8),
                   _buildReliabilityRow(
                     l10n.bgProdBackgroundOnly,
                     l10n.bgProdBackgroundOnlyReliability,
                     l10n.bgProdBackgroundOnlyDesc,
-                    Colors.orange,
+                    semantic.warning.color,
                   ),
                 ],
               ],
@@ -807,8 +811,10 @@ class _BackgroundProductionSettingsScreenState
     );
   }
 
-  Widget _buildVrfExplanationCard(ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildVrfExplanationCard(
+      ThemeData theme, ColorScheme colorScheme, AppSemanticColors semantic) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     return _buildCollapsibleCard(
       theme: theme,
       colorScheme: colorScheme,
@@ -844,21 +850,21 @@ class _BackgroundProductionSettingsScreenState
           _buildStatusExplanation(
             'Pending',
             'Waiting for epoch transition to start calculations',
-            Colors.grey,
+            colorScheme.outline,
             colorScheme,
           ),
           SizedBox(height: spacing.space8),
           _buildStatusExplanation(
             'Calculating',
             'VRF evaluation in progress (takes a few hours)',
-            Colors.orange,
+            semantic.warning.color,
             colorScheme,
           ),
           SizedBox(height: spacing.space8),
           _buildStatusExplanation(
             'Complete',
             'Slot assignments are finalized and scheduled',
-            Colors.green,
+            semantic.success.color,
             colorScheme,
           ),
           SizedBox(height: spacing.space16),
@@ -882,10 +888,10 @@ class _BackgroundProductionSettingsScreenState
           Container(
             padding: EdgeInsets.all(spacing.space12),
             decoration: BoxDecoration(
-              color: Colors.amber.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
+              color: semantic.warning.colorContainer,
+              borderRadius: radii.borderRadiusSmall,
               border: Border.all(
-                color: Colors.amber.withValues(alpha: 0.3),
+                color: semantic.warning.color.withValues(alpha: 0.3),
               ),
             ),
             child: Row(
@@ -894,7 +900,7 @@ class _BackgroundProductionSettingsScreenState
                 Icon(
                   Symbols.timer_sharp,
                   size: 20,
-                  color: Colors.amber.shade700,
+                  color: semantic.warning.color,
                 ),
                 SizedBox(width: spacing.space12),
                 Expanded(
@@ -905,7 +911,7 @@ class _BackgroundProductionSettingsScreenState
                         'Why Timing Matters',
                         style: theme.textTheme.labelMedium?.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: Colors.amber.shade800,
+                          color: semantic.warning.color,
                         ),
                       ),
                       SizedBox(height: spacing.space4),
@@ -987,14 +993,16 @@ class _BackgroundProductionSettingsScreenState
     );
   }
 
-  Widget _buildPermissionsSection(ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildPermissionsSection(
+      ThemeData theme, ColorScheme colorScheme, AppSemanticColors semantic) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     final isAndroid = Platform.isAndroid;
 
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.surfaceBright,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: radii.borderRadiusLargeIncreased,
       ),
       child: Padding(
         padding: EdgeInsets.fromLTRB(
@@ -1034,13 +1042,13 @@ class _BackgroundProductionSettingsScreenState
               padding: EdgeInsets.all(spacing.space12),
               decoration: BoxDecoration(
                 color: _hasPermissions
-                    ? Colors.green.withValues(alpha: 0.1)
-                    : Colors.orange.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
+                    ? semantic.success.colorContainer
+                    : semantic.warning.colorContainer,
+                borderRadius: radii.borderRadiusSmall,
                 border: Border.all(
                   color: _hasPermissions
-                      ? Colors.green.withValues(alpha: 0.3)
-                      : Colors.orange.withValues(alpha: 0.3),
+                      ? semantic.success.color.withValues(alpha: 0.3)
+                      : semantic.warning.color.withValues(alpha: 0.3),
                 ),
               ),
               child: Row(
@@ -1050,7 +1058,9 @@ class _BackgroundProductionSettingsScreenState
                         ? Symbols.check_circle_sharp
                         : Symbols.warning_sharp,
                     size: 20,
-                    color: _hasPermissions ? Colors.green : Colors.orange,
+                    color: _hasPermissions
+                        ? semantic.success.color
+                        : semantic.warning.color,
                   ),
                   SizedBox(width: spacing.space12),
                   Expanded(
@@ -1065,8 +1075,8 @@ class _BackgroundProductionSettingsScreenState
                       style: theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w500,
                         color: _hasPermissions
-                            ? Colors.green.shade700
-                            : Colors.orange.shade700,
+                            ? semantic.success.color
+                            : semantic.warning.color,
                       ),
                     ),
                   ),
@@ -1088,12 +1098,14 @@ class _BackgroundProductionSettingsScreenState
     );
   }
 
-  Widget _buildIOSKeepAliveSection(ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildIOSKeepAliveSection(
+      ThemeData theme, ColorScheme colorScheme, AppSemanticColors semantic) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: radii.borderRadiusLargeIncreased,
       ),
       child: Padding(
         padding: EdgeInsets.fromLTRB(
@@ -1120,15 +1132,15 @@ class _BackgroundProductionSettingsScreenState
                     vertical: spacing.space4,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.green.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
+                    color: semantic.success.colorContainer,
+                    borderRadius: radii.borderRadiusMedium,
                   ),
-                  child: const Text(
+                  child: Text(
                     '99%',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
-                      color: Colors.green,
+                      color: semantic.success.color,
                     ),
                   ),
                 ),
@@ -1179,7 +1191,7 @@ class _BackgroundProductionSettingsScreenState
             Container(
               decoration: BoxDecoration(
                 color: colorScheme.surface.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: radii.borderRadiusMedium,
               ),
               child: SwitchListTile(
                 value: _iosKeepAliveActive,
@@ -1226,7 +1238,7 @@ class _BackgroundProductionSettingsScreenState
                 padding: EdgeInsets.all(spacing.space12),
                 decoration: BoxDecoration(
                   color: colorScheme.surface.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: radii.borderRadiusSmall,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1259,11 +1271,12 @@ class _BackgroundProductionSettingsScreenState
     Color color,
   ) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     return Container(
       padding: EdgeInsets.all(spacing.space8),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: radii.borderRadiusSmall,
       ),
       child: Row(
         children: [
@@ -1321,12 +1334,14 @@ class _BackgroundProductionSettingsScreenState
     );
   }
 
-  Widget _buildAndroidBatterySection(ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildAndroidBatterySection(
+      ThemeData theme, ColorScheme colorScheme, AppSemanticColors semantic) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.surfaceBright,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: radii.borderRadiusLargeIncreased,
         border: Border.all(color: colorScheme.outlineVariant, width: 1),
       ),
       child: Padding(
@@ -1364,7 +1379,7 @@ class _BackgroundProductionSettingsScreenState
               decoration: BoxDecoration(
                 color:
                     colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: radii.borderRadiusSmall,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1382,7 +1397,7 @@ class _BackgroundProductionSettingsScreenState
                       Icon(
                         Symbols.warning_amber_sharp,
                         size: 16,
-                        color: Colors.orange.shade700,
+                        color: semantic.warning.color,
                       ),
                       SizedBox(width: spacing.space8),
                       Expanded(
@@ -1402,7 +1417,7 @@ class _BackgroundProductionSettingsScreenState
                       Icon(
                         Symbols.check_circle_sharp,
                         size: 16,
-                        color: Colors.green.shade700,
+                        color: semantic.success.color,
                       ),
                       SizedBox(width: spacing.space8),
                       Expanded(
@@ -1424,13 +1439,13 @@ class _BackgroundProductionSettingsScreenState
               padding: EdgeInsets.all(spacing.space12),
               decoration: BoxDecoration(
                 color: _batteryOptDisabled
-                    ? Colors.green.withValues(alpha: 0.1)
-                    : Colors.orange.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
+                    ? semantic.success.colorContainer
+                    : semantic.warning.colorContainer,
+                borderRadius: radii.borderRadiusSmall,
                 border: Border.all(
                   color: _batteryOptDisabled
-                      ? Colors.green.withValues(alpha: 0.3)
-                      : Colors.orange.withValues(alpha: 0.3),
+                      ? semantic.success.color.withValues(alpha: 0.3)
+                      : semantic.warning.color.withValues(alpha: 0.3),
                 ),
               ),
               child: Row(
@@ -1440,7 +1455,9 @@ class _BackgroundProductionSettingsScreenState
                         ? Symbols.check_circle_sharp
                         : Symbols.warning_sharp,
                     size: 20,
-                    color: _batteryOptDisabled ? Colors.green : Colors.orange,
+                    color: _batteryOptDisabled
+                        ? semantic.success.color
+                        : semantic.warning.color,
                   ),
                   SizedBox(width: spacing.space12),
                   Expanded(
@@ -1451,8 +1468,8 @@ class _BackgroundProductionSettingsScreenState
                       style: theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w500,
                         color: _batteryOptDisabled
-                            ? Colors.green.shade700
-                            : Colors.orange.shade700,
+                            ? semantic.success.color
+                            : semantic.warning.color,
                       ),
                     ),
                   ),
@@ -1475,10 +1492,10 @@ class _BackgroundProductionSettingsScreenState
               Container(
                 padding: EdgeInsets.all(spacing.space12),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  color: semantic.warning.colorContainer,
+                  borderRadius: radii.borderRadiusSmall,
                   border: Border.all(
-                    color: Colors.orange.withValues(alpha: 0.5),
+                    color: semantic.warning.color.withValues(alpha: 0.5),
                   ),
                 ),
                 child: Column(
@@ -1489,7 +1506,7 @@ class _BackgroundProductionSettingsScreenState
                         Icon(
                           Symbols.warning_amber_sharp,
                           size: 18,
-                          color: Colors.orange.shade700,
+                          color: semantic.warning.color,
                         ),
                         SizedBox(width: spacing.space8),
                         Expanded(
@@ -1497,7 +1514,7 @@ class _BackgroundProductionSettingsScreenState
                             '$_deviceManufacturer Device Detected',
                             style: theme.textTheme.labelMedium?.copyWith(
                               fontWeight: FontWeight.w600,
-                              color: Colors.orange.shade800,
+                              color: semantic.warning.color,
                             ),
                           ),
                         ),
@@ -1585,10 +1602,11 @@ class _CollapsibleCardState extends State<_CollapsibleCard> {
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     return Container(
       decoration: BoxDecoration(
         color: widget.colorScheme.surfaceBright,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: radii.borderRadiusLargeIncreased,
       ),
       child: Theme(
         data: widget.theme.copyWith(dividerColor: Colors.transparent),
@@ -1605,10 +1623,10 @@ class _CollapsibleCardState extends State<_CollapsibleCard> {
           ),
           subtitle: _buildSubtitle(),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: radii.borderRadiusLargeIncreased,
           ),
           collapsedShape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: radii.borderRadiusLargeIncreased,
           ),
           collapsedBackgroundColor: widget.colorScheme.surfaceBright,
           backgroundColor: widget.colorScheme.surfaceBright,
@@ -1677,8 +1695,9 @@ class _NetworkSwitcherDialogState extends State<_NetworkSwitcherDialog> {
 
   Widget _buildUrlRow(
       String label, String url, ThemeData theme, ColorScheme colorScheme) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     return Padding(
-      padding: const EdgeInsets.only(left: 28),
+      padding: EdgeInsets.only(left: spacing.space24),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1716,8 +1735,10 @@ class _NetworkSwitcherDialogState extends State<_NetworkSwitcherDialog> {
     required String seedlistUrl,
     required ThemeData theme,
     required ColorScheme colorScheme,
+    required AppSemanticColors semantic,
   }) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     return GestureDetector(
       onTap: () {
         setState(() {
@@ -1730,7 +1751,7 @@ class _NetworkSwitcherDialogState extends State<_NetworkSwitcherDialog> {
           color: isSelected
               ? colorScheme.primaryContainer.withValues(alpha: 0.3)
               : colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: radii.borderRadiusSmall,
           border: Border.all(
             color: isSelected
                 ? colorScheme.primary.withValues(alpha: 0.5)
@@ -1766,13 +1787,13 @@ class _NetworkSwitcherDialogState extends State<_NetworkSwitcherDialog> {
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.green.withValues(alpha: 0.2),
+                      color: semantic.success.colorContainer,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       'Active',
                       style: theme.textTheme.labelSmall?.copyWith(
-                        color: Colors.green.shade700,
+                        color: semantic.success.color,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -1782,7 +1803,7 @@ class _NetworkSwitcherDialogState extends State<_NetworkSwitcherDialog> {
             ),
             SizedBox(height: spacing.space4),
             Padding(
-              padding: const EdgeInsets.only(left: 28),
+              padding: EdgeInsets.only(left: spacing.space24),
               child: Text(
                 description,
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -1806,6 +1827,7 @@ class _NetworkSwitcherDialogState extends State<_NetworkSwitcherDialog> {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final semantic = theme.extension<AppSemanticColors>()!;
 
     return AlertDialog(
       title: Row(
@@ -1846,6 +1868,7 @@ class _NetworkSwitcherDialogState extends State<_NetworkSwitcherDialog> {
               seedlistUrl: AppConfig.testnetSeedlistUrl,
               theme: theme,
               colorScheme: colorScheme,
+              semantic: semantic,
             ),
 
             SizedBox(height: spacing.space12),
@@ -1861,6 +1884,7 @@ class _NetworkSwitcherDialogState extends State<_NetworkSwitcherDialog> {
               seedlistUrl: AppConfig.internalSeedlistUrl,
               theme: theme,
               colorScheme: colorScheme,
+              semantic: semantic,
             ),
 
             SizedBox(height: spacing.space12),
@@ -1876,6 +1900,7 @@ class _NetworkSwitcherDialogState extends State<_NetworkSwitcherDialog> {
               seedlistUrl: AppConfig.customSeedlistUrl,
               theme: theme,
               colorScheme: colorScheme,
+              semantic: semantic,
             ),
           ],
         ),

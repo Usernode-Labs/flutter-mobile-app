@@ -5,14 +5,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 
 /// Shows a bottom sheet with node status summary
 void showNodeStatusSummaryModal(BuildContext context) {
+  final radii = Theme.of(context).extension<AppRadii>()!;
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    shape: RoundedRectangleBorder(
+      borderRadius: radii.borderRadiusTopLargeIncreased,
     ),
     builder: (context) => const NodeStatusSummaryModal(),
   );
@@ -55,12 +57,13 @@ class _NodeStatusSummaryModalState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final statusAsync = ref.watch(nodeStatusProvider);
     final nodeStatus = statusAsync.valueOrNull;
     final syncStatus = nodeStatus?.syncStatus;
 
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(spacing.space24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -661,12 +664,14 @@ class _StatusCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(spacing.space12),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: radii.borderRadiusMedium,
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.5),
         ),

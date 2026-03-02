@@ -12,11 +12,7 @@ import 'package:crypto_mobile_app/core/providers/ranking_provider.dart';
 import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
-import 'package:crypto_mobile_app/design_system/src/challenge_activity_summary.dart';
-import 'package:crypto_mobile_app/design_system/src/challenge_card.dart';
-import 'package:crypto_mobile_app/design_system/src/challenge_category_icon.dart';
-import 'package:crypto_mobile_app/design_system/src/score_header.dart';
-import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 import 'package:crypto_mobile_app/features/challenges/heartbeat_animation.dart';
 import 'package:crypto_mobile_app/features/challenges/season_event_pickers.dart';
@@ -120,30 +116,15 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
 
     if (isLoading) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+        body: FullPageLoadingState(),
       );
     }
 
     if (hasError) {
-      final spacing = Theme.of(context).extension<AppSpacing>()!;
       return Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                AppLocalizations.of(context).challengeFailedToLoad,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-              ),
-              SizedBox(height: spacing.space16),
-              FilledButton(
-                onPressed: () => ref.invalidate(challengesProvider),
-                child: Text(AppLocalizations.of(context).retry),
-              ),
-            ],
-          ),
+        body: FullPageErrorState(
+          message: AppLocalizations.of(context).challengeFailedToLoad,
+          onRetry: () => ref.invalidate(challengesProvider),
         ),
       );
     }

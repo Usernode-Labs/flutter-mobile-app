@@ -567,6 +567,7 @@ class _CountdownRow extends StatelessWidget {
       case CountdownTextMode.normal:
         content = Row(
           mainAxisSize: MainAxisSize.min,
+          spacing: spacing.space8,
           children: [
             Text(
               label.toUpperCase(),
@@ -574,7 +575,6 @@ class _CountdownRow extends StatelessWidget {
                 color: colors.onSurfaceVariant,
               ),
             ),
-            SizedBox(width: spacing.space8),
             Text(
               time.toUpperCase(),
               style: textTheme.labelSmall?.copyWith(

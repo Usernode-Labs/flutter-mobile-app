@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/data/slot_production_repository.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
-import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:intl/intl.dart';
 
 final _log =
@@ -82,7 +82,7 @@ class _SlotProductionStatsScreenState
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const FullPageLoadingState()
           : RefreshIndicator(
               onRefresh: _loadData,
               child: ListView(
@@ -111,6 +111,8 @@ class _SlotProductionStatsScreenState
       return const SizedBox.shrink();
     }
 
+    final semantic = theme.extension<AppSemanticColors>()!;
+
     return Card(
       child: Padding(
         padding: EdgeInsets.all(spacing.space16),
@@ -137,7 +139,7 @@ class _SlotProductionStatsScreenState
                     l10n.statsWonSlots,
                     _stats!.totalWonSlots.toString(),
                     Symbols.star_sharp,
-                    Colors.amber,
+                    semantic.warning.color,
                     theme,
                     spacing,
                   ),
@@ -147,7 +149,7 @@ class _SlotProductionStatsScreenState
                     l10n.statsAttempted,
                     _stats!.totalAttempted.toString(),
                     Symbols.play_arrow_sharp,
-                    Colors.blue,
+                    semantic.technical.color,
                     theme,
                     spacing,
                   ),
@@ -162,7 +164,7 @@ class _SlotProductionStatsScreenState
                     l10n.statsProduced,
                     _stats!.totalProduced.toString(),
                     Symbols.check_circle_sharp,
-                    Colors.green,
+                    semantic.success.color,
                     theme,
                     spacing,
                   ),
@@ -172,7 +174,7 @@ class _SlotProductionStatsScreenState
                     l10n.statsFailed,
                     _stats!.totalFailed.toString(),
                     Symbols.error_sharp,
-                    Colors.red,
+                    colorScheme.error,
                     theme,
                     spacing,
                   ),
@@ -240,12 +242,13 @@ class _SlotProductionStatsScreenState
       return const SizedBox.shrink();
     }
 
+    final semantic = theme.extension<AppSemanticColors>()!;
     final successRate = _stats!.successRate;
     final color = successRate >= 90
-        ? Colors.green
+        ? semantic.success.color
         : successRate >= 70
-            ? Colors.orange
-            : Colors.red;
+            ? semantic.warning.color
+            : colorScheme.error;
 
     return Card(
       color: color.withValues(alpha: 0.1),

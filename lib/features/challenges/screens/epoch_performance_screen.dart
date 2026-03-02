@@ -7,7 +7,7 @@ import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/providers/produced_blocks_provider.dart';
-import 'package:crypto_mobile_app/design_system/src/epoch_performance_page.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 
 /// Feature screen that wires live block-production data to
 /// [EpochPerformancePage].
@@ -54,9 +54,7 @@ class _EpochPerformanceScreenState
           ),
           title: Text(l10n.statsEpoch(_viewedEpoch)),
         ),
-        body: const Center(
-          child: CircularProgressIndicator(strokeWidth: 2.5),
-        ),
+        body: const FullPageLoadingState(),
       ),
       error: (e, _) => Scaffold(
         appBar: AppBar(
@@ -66,7 +64,9 @@ class _EpochPerformanceScreenState
           ),
           title: Text(l10n.statsEpoch(_viewedEpoch)),
         ),
-        body: Center(child: Text(l10n.commonNoValuePlaceholder)),
+        body: FullPageErrorState(
+          message: l10n.commonNoValuePlaceholder,
+        ),
       ),
       data: (data) => RefreshIndicator(
         onRefresh: () => ref.refresh(producedBlocksSummaryProvider.future),

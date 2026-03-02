@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/config/legacy_colors.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 
 enum SlotStatus {
@@ -28,6 +29,7 @@ class WonSlotItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final radii = Theme.of(context).extension<AppRadii>()!;
 
     // Format expected time
     final expectedTime = _formatExpectedTime(slot.expectedTimeMs);
@@ -78,6 +80,7 @@ class WonSlotItem extends StatelessWidget {
       return _buildCompactView(
         theme,
         colorScheme,
+        radii,
         expectedTime,
         timeRemaining,
         statusColor,
@@ -90,6 +93,7 @@ class WonSlotItem extends StatelessWidget {
     return _buildFullView(
       theme,
       colorScheme,
+      radii,
       expectedTime,
       timeRemaining,
       isPast,
@@ -103,6 +107,7 @@ class WonSlotItem extends StatelessWidget {
   Widget _buildCompactView(
     ThemeData theme,
     ColorScheme colorScheme,
+    AppRadii radii,
     String expectedTime,
     Duration timeRemaining,
     Color statusColor,
@@ -115,7 +120,7 @@ class WonSlotItem extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: statusBgColor,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: radii.borderRadiusSmall,
         border: Border.all(color: statusColor.withValues(alpha: 0.3)),
       ),
       child: Row(
@@ -164,6 +169,7 @@ class WonSlotItem extends StatelessWidget {
   Widget _buildFullView(
     ThemeData theme,
     ColorScheme colorScheme,
+    AppRadii radii,
     String expectedTime,
     Duration timeRemaining,
     bool isPast,
@@ -177,7 +183,7 @@ class WonSlotItem extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: statusBgColor,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: radii.borderRadiusMedium,
         border:
             Border.all(color: statusColor.withValues(alpha: 0.3), width: 1.5),
       ),
@@ -215,7 +221,7 @@ class WonSlotItem extends StatelessWidget {
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: statusColor,
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: radii.borderRadiusSmall,
                 ),
                 child: Text(
                   statusLabel.toUpperCase(),

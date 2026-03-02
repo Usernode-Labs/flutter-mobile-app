@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/core/widgets/produced_block_card.dart';
 import 'package:crypto_mobile_app/core/providers/node_data_providers.dart';
 import 'package:crypto_mobile_app/core/providers/epoch_rewards_provider.dart';
@@ -77,6 +78,7 @@ class _NodeStatusProducedBlocksScreenState
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
@@ -104,7 +106,7 @@ class _NodeStatusProducedBlocksScreenState
         title: l10n.producedBlocksTitle,
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(spacing.space16),
         child: () {
           if (blockchain == null) {
             return Center(
@@ -125,8 +127,9 @@ class _NodeStatusProducedBlocksScreenState
           final items = blockchain.items.take(100).toList();
 
           return ListView.separated(
+            padding: EdgeInsets.only(bottom: spacing.space32),
             itemCount: items.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            separatorBuilder: (_, __) => SizedBox(height: spacing.space8),
             itemBuilder: (_, i) {
               final block = items[i];
               final isBestTip =

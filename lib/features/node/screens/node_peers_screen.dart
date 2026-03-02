@@ -3,7 +3,6 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
-import 'package:crypto_mobile_app/core/config/legacy_colors.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 
 class NodePeersScreen extends StatelessWidget {
@@ -13,8 +12,10 @@ class NodePeersScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final semantic = Theme.of(context).extension<AppSemanticColors>()!;
     final l10n = AppLocalizations.of(context);
 
     // Calculate peer statistics
@@ -98,7 +99,7 @@ class NodePeersScreen extends StatelessWidget {
             // Peer list
             Expanded(
               child: ListView.separated(
-                padding: EdgeInsets.zero,
+                padding: EdgeInsets.symmetric(horizontal: spacing.space16),
                 itemCount: sortedPeers.length,
                 separatorBuilder: (_, __) => Divider(
                   height: 8,
@@ -110,7 +111,8 @@ class NodePeersScreen extends StatelessWidget {
                 itemBuilder: (_, i) {
                   final p = sortedPeers[i];
                   final status = p.connectionStatus.toString().split('.').last;
-                  final statusColor = _statusColor(theme, p.connectionStatus);
+                  final statusColor =
+                      _statusColor(theme, semantic, p.connectionStatus);
                   final details = p.connectingDetails;
 
                   // Safely stringify peerId
@@ -243,7 +245,7 @@ class NodePeersScreen extends StatelessWidget {
                           horizontal: spacing.space8, vertical: spacing.space4),
                       decoration: BoxDecoration(
                         color: statusColor.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: radii.borderRadiusSmall,
                         border: Border.all(color: statusColor, width: 1),
                       ),
                       child: Text(
@@ -264,17 +266,18 @@ class NodePeersScreen extends StatelessWidget {
     );
   }
 
-  Color _statusColor(ThemeData theme, PeerConnectionStatus s) {
+  Color _statusColor(
+      ThemeData theme, AppSemanticColors semantic, PeerConnectionStatus s) {
     final colorScheme = theme.colorScheme;
     switch (s) {
       case PeerConnectionStatus.connected:
         return colorScheme.tertiary; // Green
       case PeerConnectionStatus.connecting:
-        return LegacyColors.warningColor; // Orange
+        return semantic.warning.color; // Orange
       case PeerConnectionStatus.disconnected:
         return colorScheme.error; // Red
       case PeerConnectionStatus.disconnecting:
-        return LegacyColors.accentYellow; // Amber
+        return semantic.warning.color; // Amber
     }
   }
 

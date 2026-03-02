@@ -12,15 +12,7 @@ import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provide
 import 'package:crypto_mobile_app/core/providers/leaderboard_provider.dart';
 import 'package:crypto_mobile_app/core/providers/ranking_provider.dart';
 import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
-import 'package:crypto_mobile_app/design_system/src/challenge_card.dart';
-import 'package:crypto_mobile_app/design_system/src/challenge_category_icon.dart';
-import 'package:crypto_mobile_app/design_system/src/challenge_category_tile.dart';
-import 'package:crypto_mobile_app/design_system/src/dropdown_chain.dart';
-import 'package:crypto_mobile_app/design_system/src/leaderboard_stats_card.dart';
-import 'package:crypto_mobile_app/design_system/src/rank_badge.dart';
-import 'package:crypto_mobile_app/design_system/src/top_app_bar.dart';
-import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
-import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 import 'package:crypto_mobile_app/features/challenges/season_event_pickers.dart';
 import 'package:crypto_mobile_app/features/leaderboard/leaderboard_distribution.dart';
@@ -84,35 +76,23 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
 
     if (isLoading) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+        body: FullPageLoadingState(),
       );
     }
 
     if (hasError) {
       return Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                AppLocalizations.of(context).leaderboardFailedToLoad,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-              ),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: () => ref.invalidate(leaderboardProvider),
-                child: Text(AppLocalizations.of(context).retry),
-              ),
-            ],
-          ),
+        body: FullPageErrorState(
+          message: AppLocalizations.of(context).leaderboardFailedToLoad,
+          onRetry: () => ref.invalidate(leaderboardProvider),
+          retryLabel: AppLocalizations.of(context).retry,
         ),
       );
     }
 
-    final colors = Theme.of(context).colorScheme;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+
+    final colors = Theme.of(context).colorScheme;
     final radii = Theme.of(context).extension<AppRadii>()!;
 
     final entries = leaderboard?.data.allEntries ?? [];
@@ -131,31 +111,31 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
             ),
 
             // Filter chip row
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: spacing.space16,
-                  vertical: spacing.space8,
-                ),
-                child: DropdownChain(
-                  items: [
-                    DropdownChainItem(
-                      label: seasonLabel(context, ref),
-                      onTap: () => showSeasonPicker(context, ref),
-                    ),
-                    DropdownChainItem(
-                      label: eventLabel(context, ref),
-                      onTap: () => showEventPicker(context, ref),
-                    ),
-                  ],
+            SliverPadding(
+              padding: EdgeInsets.symmetric(horizontal: spacing.space16),
+              sliver: SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: spacing.space8),
+                  child: DropdownChain(
+                    items: [
+                      DropdownChainItem(
+                        label: seasonLabel(context, ref),
+                        onTap: () => showSeasonPicker(context, ref),
+                      ),
+                      DropdownChainItem(
+                        label: eventLabel(context, ref),
+                        onTap: () => showEventPicker(context, ref),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
 
             // Stats card
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: spacing.space16),
+            SliverPadding(
+              padding: EdgeInsets.symmetric(horizontal: spacing.space16),
+              sliver: SliverToBoxAdapter(
                 child: _buildStatsCard(context, ranking, eventPoints),
               ),
             ),
@@ -166,9 +146,9 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
 
             // Challenge category tiles
             if (categorized != null)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: spacing.space16),
+              SliverPadding(
+                padding: EdgeInsets.symmetric(horizontal: spacing.space16),
+                sliver: SliverToBoxAdapter(
                   child: _buildCategoryTiles(
                     context,
                     categorized,
@@ -185,9 +165,9 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
               ),
 
             // Participants list card
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: spacing.space16),
+            SliverPadding(
+              padding: EdgeInsets.symmetric(horizontal: spacing.space16),
+              sliver: SliverToBoxAdapter(
                 child: Container(
                   decoration: BoxDecoration(
                     color: colors.surfaceContainerLowest,
@@ -229,9 +209,9 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                         );
                       }),
                       if (isLoadingMore)
-                        const Padding(
-                          padding: EdgeInsets.all(16),
-                          child: Center(
+                        Padding(
+                          padding: EdgeInsets.all(spacing.space16),
+                          child: const Center(
                             child: SizedBox(
                               width: 24,
                               height: 24,

@@ -9,6 +9,7 @@ import 'package:crypto_mobile_app/core/providers/recipient_history_provider.dart
 import 'package:crypto_mobile_app/features/wallet/transaction_limits_service.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 
 class SendScreen extends ConsumerStatefulWidget {
@@ -230,10 +231,11 @@ class _SendScreenState extends ConsumerState<SendScreen> {
     String? Function(String?)? validator,
   }) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     return ClipRRect(
-      borderRadius: const BorderRadius.only(
-        topLeft: Radius.circular(6),
-        topRight: Radius.circular(6),
+      borderRadius: BorderRadius.only(
+        topLeft: Radius.circular(radii.small),
+        topRight: Radius.circular(radii.small),
       ),
       child: Container(
         decoration: BoxDecoration(
@@ -278,6 +280,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
 
   Widget _buildSendButton(ThemeData theme) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     return Container(
       width: double.infinity,
       height: 56,
@@ -294,7 +297,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: radii.borderRadiusFull,
       ),
       child: ElevatedButton(
         onPressed: _isSending ? null : _onSend,
@@ -302,7 +305,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: radii.borderRadiusFull,
           ),
         ),
         child: _isSending

@@ -102,6 +102,8 @@ Tab Screen (Challenges, Wallet, Node)    Detail Screen (Leaderboard, ChallengeDe
 - Responsive breakpoints (only if tablet support is added)
 - Canonical layouts (list-detail, supporting pane — single-pane on mobile for now)
 
+See also: [SCREEN_PATTERNS.md](SCREEN_PATTERNS.md) — full screen building playbook with templates and checklists.
+
 ---
 
 Cross-references: [`app_spacing.dart`](../tokens/app_spacing.dart), [`app_sizing.dart`](../tokens/app_sizing.dart) (touch targets), [`SURFACES.md`](SURFACES.md), [`COLOR.md`](COLOR.md), [`CONSTRAINTS.md`](CONSTRAINTS.md)

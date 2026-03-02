@@ -58,3 +58,5 @@ final textTheme = Theme.of(context).textTheme;                // typography
 | `ListSystem` | [Figma](https://figma.com/design/Eu4jn5o8finpZ28IAGPyru/?node-id=3448-15182) | [genesis](.specs/ListSystem.genesis.md) |
 | `ChallengeRewardCard` | [Figma](https://figma.com/design/rsh9wLMKsMnFPOEBkHJUvg/?node-id=2943:28627) | [genesis](.specs/ChallengeRewardCard.genesis.md) |
 | `ChallengeDetailPage` | [Figma](https://figma.com/design/rsh9wLMKsMnFPOEBkHJUvg/?node-id=2943:28627) | [genesis](.specs/ChallengeDetailPage.genesis.md) |
+| `FullPageErrorState` | — | [genesis](.specs/FullPageErrorState.genesis.md) |
+| `FullPageLoadingState` | — | [genesis](.specs/FullPageLoadingState.genesis.md) |

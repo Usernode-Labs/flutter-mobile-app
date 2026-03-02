@@ -13,7 +13,7 @@ import 'package:crypto_mobile_app/core/services/explorer_service.dart';
 import 'package:crypto_mobile_app/features/wallet/models/transaction_model.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
-import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 
 class WalletScreen extends ConsumerStatefulWidget {
   const WalletScreen({super.key});
@@ -243,10 +243,11 @@ class _AddressCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     return Container(
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceBright,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: radii.borderRadiusTopLargeIncreased,
       ),
       padding: EdgeInsets.all(spacing.space24),
       child: ref.watch(accountsProvider).when(
@@ -257,9 +258,10 @@ class _AddressCard extends ConsumerWidget {
                 return _AddressRow(address: address, theme: theme);
               },
             ),
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (_, __) =>
-                const Center(child: Text('Error loading address')),
+            loading: () => const FullPageLoadingState(),
+            error: (_, __) => const FullPageErrorState(
+              message: 'Error loading address',
+            ),
           ),
     );
   }
@@ -278,6 +280,7 @@ class _AddressRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     return Row(
       children: [
         Container(
@@ -285,7 +288,7 @@ class _AddressRow extends StatelessWidget {
           height: 38,
           decoration: BoxDecoration(
             color: theme.colorScheme.secondaryContainer,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: radii.borderRadiusLargeIncreased,
           ),
           child: Icon(Symbols.tag_sharp, color: theme.colorScheme.onSurface),
         ),
@@ -336,12 +339,14 @@ class _RecentActivityCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     final theme = Theme.of(context);
+    final semantic = Theme.of(context).extension<AppSemanticColors>()!;
 
     return Container(
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceBright,
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
+        borderRadius: radii.borderRadiusBottomLargeIncreased,
       ),
       padding: EdgeInsets.all(spacing.space16)
           .copyWith(top: spacing.space12, bottom: spacing.space12),
@@ -372,21 +377,21 @@ class _RecentActivityCard extends StatelessWidget {
                   padding: EdgeInsets.symmetric(
                       horizontal: spacing.space12, vertical: spacing.space8),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border:
-                        Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                    color: semantic.warning.colorContainer,
+                    borderRadius: radii.borderRadiusSmall,
+                    border: Border.all(
+                        color: semantic.warning.color.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     children: [
                       Icon(Symbols.warning_amber_sharp,
-                          color: Colors.orange.shade700, size: 16),
+                          color: semantic.warning.color, size: 16),
                       SizedBox(width: spacing.space8),
                       Expanded(
                         child: Text(
                           'Explorer API unavailable. Showing cached data.',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: Colors.orange.shade700,
+                            color: semantic.warning.color,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -408,9 +413,10 @@ class _RecentActivityCard extends StatelessWidget {
                         .map<Widget>(
                             (transaction) => _TransactionTile(transaction))
                         .toList()),
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (_, __) =>
-                const Center(child: Text('Error loading transactions')),
+            loading: () => const FullPageLoadingState(),
+            error: (_, __) => const FullPageErrorState(
+              message: 'Error loading transactions',
+            ),
           ),
         ],
       ),
@@ -497,15 +503,17 @@ class _TransactionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final semantic = Theme.of(context).extension<AppSemanticColors>()!;
     final isPending = transaction.status == TransactionStatus.pending;
 
     // Determine container color based on transaction type
     Color containerColor;
     if (transaction.type == TransactionType.reward ||
         transaction.type == TransactionType.genesis) {
-      containerColor = Colors.orange.withValues(alpha: 0.2);
+      containerColor = semantic.warning.colorContainer;
     } else {
       // Use secondaryContainer for all other types (send, receive, pending)
       containerColor = colorScheme.secondaryContainer;
@@ -521,7 +529,7 @@ class _TransactionTile extends StatelessWidget {
             height: 48,
             decoration: BoxDecoration(
               color: containerColor,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: radii.borderRadiusMedium,
             ),
             child: Stack(
               children: [
@@ -540,14 +548,14 @@ class _TransactionTile extends StatelessWidget {
                       width: 12,
                       height: 12,
                       decoration: BoxDecoration(
-                        color: Colors.orange,
-                        borderRadius: BorderRadius.circular(6),
+                        color: semantic.warning.color,
+                        borderRadius: radii.borderRadiusSmall,
                         border:
                             Border.all(color: colorScheme.surface, width: 1),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Symbols.schedule_sharp,
-                        color: Colors.white,
+                        color: colorScheme.surface,
                         size: 6,
                       ),
                     ),

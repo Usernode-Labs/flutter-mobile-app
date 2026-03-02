@@ -18,6 +18,8 @@ import 'dropdown_chip_use_case.dart';
 import 'dropdown_sheet_use_case.dart';
 import 'empty_state_use_case.dart';
 import 'epoch_performance_page_use_case.dart';
+import 'full_page_error_state_use_case.dart';
+import 'full_page_loading_state_use_case.dart';
 import 'icon_badge_use_case.dart';
 import 'info_row_use_case.dart';
 import 'leaderboard_page_use_case.dart';
@@ -198,6 +200,8 @@ class WidgetbookApp extends StatelessWidget {
               name: 'Indicators',
               children: [
                 emptyStateComponent(),
+                fullPageErrorStateComponent(),
+                fullPageLoadingStateComponent(),
                 iconBadgeComponent(),
                 rankBadgeComponent(),
                 statusBadgeComponent(),

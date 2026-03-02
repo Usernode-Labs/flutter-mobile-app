@@ -221,7 +221,7 @@ class ChallengeRewardCard extends StatelessWidget {
                             Container(
                               padding: EdgeInsets.symmetric(
                                 horizontal: spacing.space8,
-                                vertical: 2,
+                                vertical: spacing.space4,
                               ),
                               decoration: BoxDecoration(
                                 color: onColor.withValues(alpha: 0.15),

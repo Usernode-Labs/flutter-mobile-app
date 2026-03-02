@@ -5,7 +5,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/services.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
-import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/utils.dart';
@@ -385,7 +385,9 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     final sync = statusFromProvider?.syncStatus;
 
     // Determine status display
-    final (statusIcon, statusLabel, circleColor) = _getStatusDisplay(sync);
+    final semantic = Theme.of(context).extension<AppSemanticColors>()!;
+    final (statusIcon, statusLabel, circleColor) =
+        _getStatusDisplay(sync, semantic, colorScheme);
 
     return Column(
       children: [
@@ -459,25 +461,34 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     );
   }
 
-  (IconData, String, Color) _getStatusDisplay(dynamic sync) {
+  (IconData, String, Color) _getStatusDisplay(
+    dynamic sync,
+    AppSemanticColors semantic,
+    ColorScheme colorScheme,
+  ) {
     if (_error != null) {
-      return (Symbols.close_sharp, 'Offline', const Color(0xFFF56E98));
+      return (Symbols.close_sharp, 'Offline', colorScheme.error);
     }
     if (sync == null || sync.isConnecting) {
       return (
         Symbols.hourglass_empty_sharp,
         'Connecting',
-        const Color(0xFFF1B440)
+        semantic.warning.color,
       );
     }
     if (sync.isSynced) {
-      return (Symbols.check_sharp, 'Synced', const Color(0xFF4CAF50));
+      return (Symbols.check_sharp, 'Synced', semantic.success.color);
     }
-    return (Symbols.hourglass_empty_sharp, 'Syncing', const Color(0xFFF1B440));
+    return (
+      Symbols.hourglass_empty_sharp,
+      'Syncing',
+      semantic.warning.color,
+    );
   }
 
   Widget _buildBlockSyncProgressSection(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final statusFromProvider = ref.read(nodeStatusProvider).value;
@@ -529,10 +540,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.surfaceBright,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
-        ),
+        borderRadius: radii.borderRadiusTopLargeIncreased,
       ),
       padding: EdgeInsets.all(spacing.space24),
       child: Column(
@@ -599,24 +607,21 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
 
   Widget _buildSyncDetailsSection(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.surfaceBright,
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(20),
-          bottomRight: Radius.circular(20),
-        ),
+        borderRadius: radii.borderRadiusBottomLargeIncreased,
       ),
       padding: EdgeInsets.all(spacing.space12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding:
-                EdgeInsets.fromLTRB(spacing.space12, spacing.space12, 0, 0),
+            padding: EdgeInsets.all(spacing.space12),
             child: Text(
               'Sync Details',
               style: theme.textTheme.titleMedium
@@ -694,6 +699,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     VoidCallback? onTap,
   }) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -707,7 +713,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
             height: 48,
             decoration: BoxDecoration(
               color: colorScheme.secondaryContainer,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: radii.borderRadiusMedium,
             ),
             child: Icon(icon, color: colorScheme.onSurface, size: 24),
           ),
@@ -752,7 +758,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     return onTap != null
         ? InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: radii.borderRadiusMedium,
             child: cardContent)
         : cardContent;
   }
@@ -762,11 +768,12 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     required List<Widget> children,
   }) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.surfaceBright,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: radii.borderRadiusLargeIncreased,
       ),
       padding: EdgeInsets.symmetric(
           horizontal: spacing.space16, vertical: spacing.space12),
@@ -1115,6 +1122,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
     required BigInt idle,
   }) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -1122,7 +1130,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen>
       padding: EdgeInsets.all(spacing.space12),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: radii.borderRadiusSmall,
         border: Border.all(
           color: colorScheme.outline.withValues(alpha: 0.1),
           width: 1,

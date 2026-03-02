@@ -49,12 +49,17 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
     required this.flash,
     required this.community,
     required this.success,
+    required this.warning,
   });
 
   final SemanticColorGroup technical;
   final SemanticColorGroup flash;
   final SemanticColorGroup community;
   final SemanticColorGroup success;
+
+  /// General-purpose warning status (syncing, permissions needed, etc.).
+  /// Distinct from [flash] which is challenge-category specific.
+  final SemanticColorGroup warning;
 
   // ---------------------------------------------------------------------------
   // Factory constructors — values from material-theme.json extendedColors
@@ -85,6 +90,12 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
           colorContainer: Color(0xFFBAF1B4),
           onColorContainer: Color(0xFF12681E),
         ),
+        warning: SemanticColorGroup(
+          color: Color(0xFF9C5700),
+          onColor: Color(0xFFFFFFFF),
+          colorContainer: Color(0xFFFFDDB3),
+          onColorContainer: Color(0xFF874900),
+        ),
       );
 
   factory AppSemanticColors.lightMediumContrast() => const AppSemanticColors(
@@ -110,6 +121,12 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
           color: Color(0xFF00540C),
           onColor: Color(0xFFFFFFFF),
           colorContainer: Color(0xFF408640),
+          onColorContainer: Color(0xFFFFFFFF),
+        ),
+        warning: SemanticColorGroup(
+          color: Color(0xFF7A4100),
+          onColor: Color(0xFFFFFFFF),
+          colorContainer: Color(0xFFB87200),
           onColorContainer: Color(0xFFFFFFFF),
         ),
       );
@@ -139,6 +156,12 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
           colorContainer: Color(0xFF00540C),
           onColorContainer: Color(0xFFFFFFFF),
         ),
+        warning: SemanticColorGroup(
+          color: Color(0xFF5C2E00),
+          onColor: Color(0xFFFFFFFF),
+          colorContainer: Color(0xFF7A4100),
+          onColorContainer: Color(0xFFFFFFFF),
+        ),
       );
 
   factory AppSemanticColors.dark() => const AppSemanticColors(
@@ -166,6 +189,12 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
           colorContainer: Color(0xFF00540C),
           onColorContainer: Color(0xFFA5E0A0),
         ),
+        warning: SemanticColorGroup(
+          color: Color(0xFFFFB95D),
+          onColor: Color(0xFF5C2E00),
+          colorContainer: Color(0xFF7A4100),
+          onColorContainer: Color(0xFFFFD5A0),
+        ),
       );
 
   factory AppSemanticColors.darkMediumContrast() => const AppSemanticColors(
@@ -191,6 +220,12 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
           color: Color(0xFFBAF1B4),
           onColor: Color(0xFF002E00),
           colorContainer: Color(0xFF54A153),
+          onColorContainer: Color(0xFF000000),
+        ),
+        warning: SemanticColorGroup(
+          color: Color(0xFFFFDDB3),
+          onColor: Color(0xFF4A2200),
+          colorContainer: Color(0xFFD49200),
           onColorContainer: Color(0xFF000000),
         ),
       );
@@ -220,6 +255,12 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
           colorContainer: Color(0xFF95D690),
           onColorContainer: Color(0xFF091406),
         ),
+        warning: SemanticColorGroup(
+          color: Color(0xFFFFEEDA),
+          onColor: Color(0xFF000000),
+          colorContainer: Color(0xFFFFB95D),
+          onColorContainer: Color(0xFF1E0F00),
+        ),
       );
 
   @override
@@ -228,12 +269,14 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
     SemanticColorGroup? flash,
     SemanticColorGroup? community,
     SemanticColorGroup? success,
+    SemanticColorGroup? warning,
   }) {
     return AppSemanticColors(
       technical: technical ?? this.technical,
       flash: flash ?? this.flash,
       community: community ?? this.community,
       success: success ?? this.success,
+      warning: warning ?? this.warning,
     );
   }
 
@@ -245,6 +288,7 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
       flash: SemanticColorGroup.lerp(flash, other.flash, t),
       community: SemanticColorGroup.lerp(community, other.community, t),
       success: SemanticColorGroup.lerp(success, other.success, t),
+      warning: SemanticColorGroup.lerp(warning, other.warning, t),
     );
   }
 }

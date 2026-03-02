@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
-import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/onboarding/data/onboarding_providers.dart';
 
 class WelcomeSetupScreen extends ConsumerWidget {
@@ -27,25 +27,22 @@ class WelcomeSetupScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: spacing.space32),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.onboardingWelcomeSetupTitle(displayUserId),
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.normal,
-                        ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.onboardingWelcomeSetupTitle(displayUserId),
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.normal,
                       ),
-                      SizedBox(height: spacing.space24),
-                      Text(
-                        l10n.onboardingWelcomeSetupBody,
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                    ],
-                  ),
+                    ),
+                    SizedBox(height: spacing.space24),
+                    Text(
+                      l10n.onboardingWelcomeSetupBody,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ],
                 ),
               ),
               SizedBox(

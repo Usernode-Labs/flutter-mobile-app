@@ -81,8 +81,8 @@ class ProducedBlockCard extends StatelessWidget {
           children: [
             // Content
             Expanded(
-              child: _buildContent(
-                  context, theme, colorScheme, blockHash, producerPubkey),
+              child: _buildContent(context, theme, colorScheme, radii,
+                  blockHash, producerPubkey),
             ),
 
             // TKN amount
@@ -103,6 +103,7 @@ class ProducedBlockCard extends StatelessWidget {
     BuildContext context,
     ThemeData theme,
     ColorScheme colorScheme,
+    AppRadii radii,
     String blockHash,
     String producerPubkey,
   ) {
@@ -110,10 +111,10 @@ class ProducedBlockCard extends StatelessWidget {
       case BlockCardVariant.compact:
         return _buildCompactContent(theme, colorScheme);
       case BlockCardVariant.standard:
-        return _buildStandardContent(theme, colorScheme, blockHash);
+        return _buildStandardContent(theme, colorScheme, radii, blockHash);
       case BlockCardVariant.detailed:
         return _buildDetailedContent(
-            theme, colorScheme, blockHash, producerPubkey);
+            theme, colorScheme, radii, blockHash, producerPubkey);
     }
   }
 
@@ -164,6 +165,7 @@ class ProducedBlockCard extends StatelessWidget {
   Widget _buildStandardContent(
     ThemeData theme,
     ColorScheme colorScheme,
+    AppRadii radii,
     String blockHash,
   ) {
     return Column(
@@ -185,7 +187,7 @@ class ProducedBlockCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: colorScheme.tertiaryContainer,
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: radii.borderRadiusSmall,
                 ),
                 child: Text(
                   'BEST TIP',
@@ -232,6 +234,7 @@ class ProducedBlockCard extends StatelessWidget {
   Widget _buildDetailedContent(
     ThemeData theme,
     ColorScheme colorScheme,
+    AppRadii radii,
     String blockHash,
     String producerPubkey,
   ) {

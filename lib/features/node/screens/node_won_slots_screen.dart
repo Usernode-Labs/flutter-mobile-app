@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/providers/node_data_providers.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 import 'package:crypto_mobile_app/core/providers/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -83,6 +84,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
@@ -196,7 +198,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
                   padding: EdgeInsets.all(spacing.space12),
                   decoration: BoxDecoration(
                     color: colorScheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: radii.borderRadiusSmall,
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -339,6 +341,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
     AppLocalizations l10n,
   ) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     final now = DateTime.now();
     final isToday = bucket.time.year == now.year &&
         bucket.time.month == now.month &&
@@ -365,7 +368,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
       padding: EdgeInsets.all(spacing.space12),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: radii.borderRadiusSmall,
         border: Border.all(
           color: colorScheme.outlineVariant,
           width: 1,
@@ -438,12 +441,13 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
   Widget _buildStatChip(BuildContext context, String label, int count,
       Color bgColor, Color textColor) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     return Container(
       padding: EdgeInsets.symmetric(
           horizontal: spacing.space8, vertical: spacing.space8),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: radii.borderRadiusSmall,
       ),
       child: Column(
         children: [

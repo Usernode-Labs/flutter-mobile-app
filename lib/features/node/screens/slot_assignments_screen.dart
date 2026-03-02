@@ -137,6 +137,7 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     final theme = Theme.of(context);
     final secondary = theme.colorScheme.secondary;
 
@@ -182,7 +183,7 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
               Container(
                 decoration: BoxDecoration(
                   color: theme.colorScheme.surfaceBright,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: radii.borderRadiusLargeIncreased,
                 ),
                 padding: EdgeInsets.all(spacing.space16),
                 child: Column(
@@ -368,6 +369,7 @@ class _ProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final radii = Theme.of(context).extension<AppRadii>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = colorScheme.brightness == Brightness.dark;
@@ -375,9 +377,8 @@ class _ProgressBar extends StatelessWidget {
     // Match ProducedBlocksScreen epoch panel colors:
     // - Light: grey track + black active
     // - Dark: surfaceVariant track + primary active
-    final trackColor =
-        isDark ? colorScheme.surfaceContainerHighest : Colors.grey.shade300;
-    final activeColor = isDark ? colorScheme.primary : Colors.black87;
+    final trackColor = colorScheme.surfaceContainerHighest;
+    final activeColor = isDark ? colorScheme.primary : colorScheme.onSurface;
 
     final p = progress.clamp(0.0, 1.0);
     return SizedBox(
@@ -409,7 +410,7 @@ class _ProgressBar extends StatelessWidget {
               height: 8,
               decoration: BoxDecoration(
                 color: activeColor,
-                borderRadius: BorderRadius.circular(26),
+                borderRadius: radii.borderRadiusXLarge,
               ),
             ),
           ),
@@ -501,19 +502,21 @@ class _FilterChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     final theme = Theme.of(context);
-    final bg = selected ? Colors.black87 : Colors.transparent;
-    final fg = selected ? Colors.white : theme.colorScheme.onSurface;
-    final border = selected ? Colors.black87 : theme.colorScheme.outline;
+    final colorScheme = theme.colorScheme;
+    final bg = selected ? colorScheme.onSurface : colorScheme.surface;
+    final fg = selected ? colorScheme.surface : colorScheme.onSurface;
+    final border = selected ? colorScheme.onSurface : colorScheme.outline;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: radii.borderRadiusLargeIncreased,
       child: Container(
         padding: EdgeInsets.symmetric(
             horizontal: spacing.space8, vertical: spacing.space8),
         decoration: BoxDecoration(
           color: bg,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: radii.borderRadiusLarge,
           border: Border.all(color: border),
         ),
         child: Row(
@@ -523,13 +526,13 @@ class _FilterChip extends StatelessWidget {
               padding: EdgeInsets.symmetric(
                   horizontal: spacing.space8, vertical: spacing.space4),
               decoration: BoxDecoration(
-                color: Colors.grey.shade700,
-                borderRadius: BorderRadius.circular(999),
+                color: colorScheme.onSurfaceVariant,
+                borderRadius: radii.borderRadiusFull,
               ),
               child: Text(
                 '$count',
                 style: theme.textTheme.labelSmall?.copyWith(
-                  color: Colors.white,
+                  color: colorScheme.surface,
                   fontWeight: FontWeight.w600,
                 ),
               ),

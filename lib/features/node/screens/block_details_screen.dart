@@ -2,7 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
-import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 
@@ -78,6 +78,7 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     final theme = Theme.of(context);
     final block = widget.block;
     final l10n = AppLocalizations.of(context);
@@ -99,7 +100,7 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
                   height: 40,
                   decoration: BoxDecoration(
                     color: theme.colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(30),
+                    borderRadius: radii.borderRadiusFull,
                   ),
                   child: Icon(
                     Symbols.check_sharp,
@@ -202,7 +203,7 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
               padding: EdgeInsets.all(spacing.space16),
               decoration: BoxDecoration(
                 color: theme.colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: radii.borderRadiusMedium,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -290,7 +291,9 @@ class _TimelineItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     final theme = Theme.of(context);
+    final semantic = Theme.of(context).extension<AppSemanticColors>()!;
 
     return IntrinsicHeight(
       child: Padding(
@@ -306,14 +309,15 @@ class _TimelineItem extends StatelessWidget {
                   height: 20,
                   decoration: BoxDecoration(
                     color: icon == Symbols.verified_sharp
-                        ? Colors.amber.withValues(alpha: 0.2)
+                        ? semantic.warning.colorContainer
                         : theme.colorScheme.onSurface,
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: radii.borderRadiusLargeIncreased,
                   ),
                   child: Icon(
                     icon,
-                    color:
-                        isLast ? Colors.amber[700] : theme.colorScheme.surface,
+                    color: isLast
+                        ? semantic.warning.color
+                        : theme.colorScheme.surface,
                     size: isLast ? 20 : 14,
                   ),
                 ),

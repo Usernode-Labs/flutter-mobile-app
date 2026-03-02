@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
-import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 
 class WelcomeClaimScreen extends StatelessWidget {
   const WelcomeClaimScreen({super.key});
@@ -22,26 +22,23 @@ class WelcomeClaimScreen extends StatelessWidget {
             children: [
               Expanded(
                 child: Center(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: spacing.space32),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          l10n.welcomeAlphaTitle,
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.normal,
-                          ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        l10n.welcomeAlphaTitle,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.normal,
                         ),
-                        SizedBox(height: spacing.space24),
-                        Text(
-                          l10n.welcomeAlphaSubtitle,
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                      ],
-                    ),
+                      ),
+                      SizedBox(height: spacing.space24),
+                      Text(
+                        l10n.welcomeAlphaSubtitle,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ],
                   ),
                 ),
               ),

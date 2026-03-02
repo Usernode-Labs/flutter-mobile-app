@@ -11,7 +11,7 @@ import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/providers/produced_blocks_provider.dart';
 import 'package:crypto_mobile_app/core/widgets/app_progress_bar.dart';
-import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 
 // TODO use translation file to replace hard coded strings
 
@@ -159,12 +159,13 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
 
   Future<void> _showNotificationPermissionSheet() async {
     if (!mounted) return;
+    final radii = Theme.of(context).extension<AppRadii>()!;
 
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      shape: RoundedRectangleBorder(
+        borderRadius: radii.borderRadiusTopXLarge,
       ),
       builder: (sheetContext) {
         final theme = Theme.of(sheetContext);
@@ -221,12 +222,13 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
 
   Future<void> _showBatteryOptimizationSheet() async {
     if (!mounted) return;
+    final radii = Theme.of(context).extension<AppRadii>()!;
 
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      shape: RoundedRectangleBorder(
+        borderRadius: radii.borderRadiusTopXLarge,
       ),
       builder: (sheetContext) {
         final theme = Theme.of(sheetContext);
@@ -499,6 +501,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     final theme = Theme.of(context);
     final onSurfaceVariant = theme.colorScheme.onSurfaceVariant;
     final l10n = AppLocalizations.of(context);
@@ -645,9 +648,8 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                                   decoration: BoxDecoration(
                                                     color: theme.colorScheme
                                                         .secondaryContainer,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            24),
+                                                    borderRadius: radii
+                                                        .borderRadiusXLarge,
                                                   ),
                                                   child: Center(
                                                     child: Text(
@@ -696,7 +698,8 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                 Container(
                                   decoration: BoxDecoration(
                                     color: theme.colorScheme.surfaceBright,
-                                    borderRadius: BorderRadius.circular(20),
+                                    borderRadius:
+                                        radii.borderRadiusLargeIncreased,
                                   ),
                                   padding: EdgeInsets.fromLTRB(
                                       spacing.space16,
@@ -757,7 +760,8 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                 Container(
                                   decoration: BoxDecoration(
                                     color: theme.colorScheme.surfaceBright,
-                                    borderRadius: BorderRadius.circular(20),
+                                    borderRadius:
+                                        radii.borderRadiusLargeIncreased,
                                   ),
                                   padding: EdgeInsets.fromLTRB(
                                       spacing.space16,
@@ -909,7 +913,8 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                 return Container(
                                   decoration: BoxDecoration(
                                     color: theme.colorScheme.surfaceBright,
-                                    borderRadius: BorderRadius.circular(20),
+                                    borderRadius:
+                                        radii.borderRadiusLargeIncreased,
                                   ),
                                   padding: EdgeInsets.fromLTRB(
                                       spacing.space16,
@@ -1395,14 +1400,14 @@ class _EpochPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = colorScheme.brightness == Brightness.dark;
 
     // Keep light-mode behavior; improve dark-mode colors
-    final trackColor =
-        isDark ? colorScheme.surfaceContainerHighest : Colors.grey.shade300;
-    final activeColor = isDark ? colorScheme.primary : Colors.black87;
+    final trackColor = colorScheme.surfaceContainerHighest;
+    final activeColor = isDark ? colorScheme.primary : colorScheme.onSurface;
 
     final l10n = AppLocalizations.of(context);
     return Column(
@@ -1411,14 +1416,13 @@ class _EpochPanel extends StatelessWidget {
           children: [
             Expanded(
               child: InkWell(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: radii.borderRadiusSmall,
                 onTap: () {
                   showModalBottomSheet<void>(
                     context: context,
                     isScrollControlled: true,
-                    shape: const RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.vertical(top: Radius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: radii.borderRadiusTopLarge,
                     ),
                     builder: (ctx) {
                       final height = MediaQuery.of(ctx).size.height * 0.6;
@@ -1480,8 +1484,8 @@ class _EpochPanel extends StatelessWidget {
                                     title: Text(
                                         '${l10n.statsEpoch(epoch)} · $performanceStr'),
                                     trailing: selected
-                                        ? const Icon(Symbols.check_sharp,
-                                            color: Colors.black87)
+                                        ? Icon(Symbols.check_sharp,
+                                            color: colorScheme.onSurface)
                                         : null,
                                     onTap: () {
                                       Navigator.of(ctx).pop();
@@ -1583,9 +1587,10 @@ class _MetricTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     final theme = Theme.of(context);
     return InkWell(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: radii.borderRadiusMedium,
       onTap: onTap,
       child: Padding(
         padding: EdgeInsets.symmetric(vertical: spacing.space8),
@@ -1634,12 +1639,13 @@ class _IconBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final radii = Theme.of(context).extension<AppRadii>()!;
     return Container(
       width: 48,
       height: 48,
       decoration: BoxDecoration(
         color: theme.colorScheme.secondaryContainer,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: radii.borderRadiusMedium,
       ),
       child: Center(
         child: Icon(icon, color: theme.colorScheme.onSurface),

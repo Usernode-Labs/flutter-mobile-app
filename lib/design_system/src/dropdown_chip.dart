@@ -3,6 +3,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../tokens/app_opacity.dart';
 import '../tokens/app_radii.dart';
+import '../tokens/app_sizing.dart';
 import '../tokens/app_spacing.dart';
 
 /// Chip height — mirrors [ButtonSize] for consistency.
@@ -90,6 +91,7 @@ class DropdownChip extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
 
     final effectiveVariant = _effectiveVariant;
 
@@ -99,8 +101,8 @@ class DropdownChip extends StatelessWidget {
     };
 
     final iconSize = switch (size) {
-      ChipSize.small => 20.0,
-      ChipSize.regular => 24.0,
+      ChipSize.small => sizing.iconSmall,
+      ChipSize.regular => sizing.iconRegular,
     };
 
     final textStyle = switch (size) {

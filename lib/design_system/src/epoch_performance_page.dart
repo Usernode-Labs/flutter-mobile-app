@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../core/widgets/app_progress_bar.dart';
+import '../tokens/app_radii.dart';
+import '../tokens/app_sizing.dart';
 import '../tokens/app_spacing.dart';
 import 'icon_badge.dart';
 import 'text_chevron_trailing.dart';
@@ -196,6 +198,8 @@ class _EpochPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
 
     return Column(
       children: [
@@ -203,7 +207,7 @@ class _EpochPanel extends StatelessWidget {
           children: [
             Expanded(
               child: InkWell(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: radii.borderRadiusSmall,
                 onTap: () => _showEpochPicker(context),
                 child: Row(
                   children: [
@@ -212,7 +216,7 @@ class _EpochPanel extends StatelessWidget {
                       style: theme.textTheme.bodyLarge
                           ?.copyWith(fontWeight: FontWeight.w600),
                     ),
-                    const SizedBox(width: 4),
+                    SizedBox(width: spacing.space4),
                     const Icon(Symbols.expand_more_sharp, size: 18),
                   ],
                 ),
@@ -222,8 +226,9 @@ class _EpochPanel extends StatelessWidget {
               onPressed: onPrev,
               style: IconButton.styleFrom(
                 shape: const CircleBorder(),
-                padding: const EdgeInsets.all(8),
-                minimumSize: const Size(40, 40),
+                padding: EdgeInsets.all(spacing.space8),
+                minimumSize:
+                    Size(sizing.iconContainerSmall, sizing.iconContainerSmall),
               ),
               icon: const Icon(Symbols.chevron_left_sharp),
             ),
@@ -232,8 +237,9 @@ class _EpochPanel extends StatelessWidget {
               onPressed: onNext,
               style: IconButton.styleFrom(
                 shape: const CircleBorder(),
-                padding: const EdgeInsets.all(8),
-                minimumSize: const Size(40, 40),
+                padding: EdgeInsets.all(spacing.space8),
+                minimumSize:
+                    Size(sizing.iconContainerSmall, sizing.iconContainerSmall),
               ),
               icon: const Icon(Symbols.chevron_right_sharp),
             ),
@@ -266,11 +272,13 @@ class _EpochPanel extends StatelessWidget {
 
   void _showEpochPicker(BuildContext context) {
     final theme = Theme.of(context);
+    final radii = Theme.of(context).extension<AppRadii>()!;
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      shape: RoundedRectangleBorder(
+        borderRadius: radii.borderRadiusTopLarge,
       ),
       builder: (ctx) {
         final height = MediaQuery.of(ctx).size.height * 0.6;
@@ -279,7 +287,8 @@ class _EpochPanel extends StatelessWidget {
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                padding: EdgeInsets.fromLTRB(spacing.space16, spacing.space16,
+                    spacing.space16, spacing.space8),
                 child: Row(
                   children: [
                     Expanded(

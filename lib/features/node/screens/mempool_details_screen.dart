@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
-import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/core/providers/node_data_providers.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_mempool.dart';
@@ -64,44 +64,12 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
       body: RefreshIndicator(
         onRefresh: _refresh,
         child: mempoolAsync.when(
-          loading: () => const Center(
-            child: CircularProgressIndicator(),
-          ),
-          error: (error, stack) => Center(
-            child: Padding(
-              padding: EdgeInsets.all(spacing.space24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Symbols.error_sharp,
-                    size: 64,
-                    color: colorScheme.error,
-                  ),
-                  SizedBox(height: spacing.space16),
-                  Text(
-                    l10n.mempoolLoadFailed,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: colorScheme.error,
-                    ),
-                  ),
-                  SizedBox(height: spacing.space8),
-                  Text(
-                    error.toString(),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  SizedBox(height: spacing.space16),
-                  FilledButton.icon(
-                    onPressed: _refresh,
-                    icon: const Icon(Symbols.refresh_sharp),
-                    label: Text(l10n.mempoolRetry),
-                  ),
-                ],
-              ),
-            ),
+          loading: () => const FullPageLoadingState(),
+          error: (error, stack) => FullPageErrorState(
+            message: l10n.mempoolLoadFailed,
+            detail: error.toString(),
+            onRetry: _refresh,
+            retryLabel: l10n.mempoolRetry,
           ),
           data: (mempool) {
             if (mempool == null || mempool.entries.isEmpty) {
@@ -164,7 +132,10 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
                         'Orphans',
                         mempool.orphans.toString(),
                         Symbols.warning_amber_sharp,
-                        Colors.orange,
+                        Theme.of(context)
+                            .extension<AppSemanticColors>()!
+                            .warning
+                            .color,
                       ),
                       _buildStatColumn(
                         context,
@@ -180,7 +151,7 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
                 // Transaction list
                 Expanded(
                   child: ListView.separated(
-                    padding: EdgeInsets.zero,
+                    padding: EdgeInsets.symmetric(horizontal: spacing.space16),
                     itemCount: mempool.entries.length,
                     separatorBuilder: (_, __) => Divider(
                       height: 1,

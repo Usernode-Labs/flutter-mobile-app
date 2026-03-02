@@ -42,11 +42,19 @@ class AppRadii extends ThemeExtension<AppRadii> {
       BorderRadius.all(Radius.circular(xLarge));
   BorderRadius get borderRadiusFull => BorderRadius.all(Radius.circular(full));
 
-  // Top-only variants (for bottom sheets, modals)
+  // Top-only variants (for bottom sheets, modals, split cards)
+  BorderRadius get borderRadiusTopSmall =>
+      BorderRadius.vertical(top: Radius.circular(small));
   BorderRadius get borderRadiusTopLarge =>
       BorderRadius.vertical(top: Radius.circular(large));
+  BorderRadius get borderRadiusTopLargeIncreased =>
+      BorderRadius.vertical(top: Radius.circular(largeIncreased));
   BorderRadius get borderRadiusTopXLarge =>
       BorderRadius.vertical(top: Radius.circular(xLarge));
+
+  // Bottom-only variants (for split cards)
+  BorderRadius get borderRadiusBottomLargeIncreased =>
+      BorderRadius.vertical(bottom: Radius.circular(largeIncreased));
 
   @override
   AppRadii copyWith({

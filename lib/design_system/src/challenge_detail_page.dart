@@ -67,26 +67,25 @@ class ChallengeDetailPage extends StatelessWidget {
           image: ChallengeCategoryIcon(category: category),
           onLeadingTap: onBackTap,
         ),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.only(
-              left: spacing.space16,
-              right: spacing.space16,
-              bottom: spacing.space32,
-            ),
-            child: Column(
-              children: [
-                if (rewardCard != null) ...[
-                  rewardCard!,
+        SliverPadding(
+          padding: EdgeInsets.symmetric(horizontal: spacing.space16),
+          sliver: SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: spacing.space32),
+              child: Column(
+                children: [
+                  if (rewardCard != null) ...[
+                    rewardCard!,
+                    SizedBox(height: spacing.space16),
+                  ],
+                  _SectionsCard(sections: sections),
                   SizedBox(height: spacing.space16),
+                  _TotalRewardCard(
+                    heading: totalRewardHeading,
+                    body: totalRewardBody,
+                  ),
                 ],
-                _SectionsCard(sections: sections),
-                SizedBox(height: spacing.space16),
-                _TotalRewardCard(
-                  heading: totalRewardHeading,
-                  body: totalRewardBody,
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -164,6 +163,7 @@ class _TotalRewardCard extends StatelessWidget {
       padding: EdgeInsets.all(spacing.space16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: spacing.space4,
         children: [
           Text(
             heading,
@@ -171,7 +171,6 @@ class _TotalRewardCard extends StatelessWidget {
               color: colors.onSurface,
             ),
           ),
-          SizedBox(height: spacing.space4),
           Text(
             body,
             style: textTheme.bodySmall?.copyWith(

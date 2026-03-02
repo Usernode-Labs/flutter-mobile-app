@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
 import 'package:crypto_mobile_app/core/providers/produced_blocks_provider.dart';
@@ -70,7 +71,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
     final dto = challenge.dto;
     final category = mapCategory(dto.category);
     final variant = mapEnrichedVariant(challenge);
-    final isProduceBlocks = isProduceBlocksChallenge(dto.id);
+    final isProduceBlocks = isProduceBlocksChallenge(dto);
 
     // Reward card visibility rules:
     // - Missed: never shown
@@ -92,8 +93,9 @@ class ChallengeDetailScreen extends ConsumerWidget {
       rewardCard: showRewardCard
           ? _buildRewardCard(context, category, eb, diff, latestEpoch)
           : null,
-      sections: _buildSections(dto),
-      totalRewardHeading: 'Total Reward ${formatRewardText(dto.reward)}',
+      sections: _buildSections(context, dto),
+      totalRewardHeading: AppLocalizations.of(context)
+          .challengeTotalReward(formatRewardText(dto.reward)),
       totalRewardBody: dto.rewardLogic ?? '',
       onBackTap: () => context.pop(),
     );
@@ -107,7 +109,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
     int? latestEpoch,
   ) {
     final dto = challenge.dto;
-    final isProduceBlocks = isProduceBlocksChallenge(dto.id);
+    final isProduceBlocks = isProduceBlocksChallenge(dto);
 
     // Use per-challenge earned points from breakdown activity, not event total.
     final totalEarned = challenge.earnedPoints != null
@@ -122,8 +124,8 @@ class ChallengeDetailScreen extends ConsumerWidget {
         epochEarned = '+${formatPoints(diff.points)}';
         epochSectionLabel = formatDiffLabel(diff.since);
       } else if (challenge.earnedPoints != null) {
-        epochEarned = '+0';
-        epochSectionLabel = 'Last 24h';
+        epochEarned = AppLocalizations.of(context).challengeEpochNoChange;
+        epochSectionLabel = AppLocalizations.of(context).challengeEpochLast24h;
       } else {
         epochEarned = null;
         epochSectionLabel = null;
@@ -177,16 +179,20 @@ class ChallengeDetailScreen extends ConsumerWidget {
     );
   }
 
-  List<ChallengeDetailSection> _buildSections(ChallengeDto dto) {
+  List<ChallengeDetailSection> _buildSections(
+      BuildContext context, ChallengeDto dto) {
+    final l10n = AppLocalizations.of(context);
     final sections = <ChallengeDetailSection>[];
     if (dto.description != null && dto.description!.isNotEmpty) {
-      sections.add((title: 'The Why', body: dto.description!));
+      sections
+          .add((title: l10n.challengeSectionTheWhy, body: dto.description!));
     }
     if (dto.task.isNotEmpty) {
-      sections.add((title: 'Task', body: dto.task));
+      sections.add((title: l10n.challengeSectionTask, body: dto.task));
     }
     if (dto.requirements != null && dto.requirements!.isNotEmpty) {
-      sections.add((title: 'Requirements', body: dto.requirements!));
+      sections.add(
+          (title: l10n.challengeSectionRequirements, body: dto.requirements!));
     }
     return sections;
   }

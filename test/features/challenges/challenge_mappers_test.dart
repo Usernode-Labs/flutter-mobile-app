@@ -13,6 +13,7 @@ ChallengeDto _makeDto({
   String reward = '1000',
   String? scheduleStart,
   String? scheduleEnd,
+  String? subCategory,
 }) {
   return ChallengeDto(
     id: id,
@@ -24,6 +25,7 @@ ChallengeDto _makeDto({
     completed: completed,
     scheduleStart: scheduleStart,
     scheduleEnd: scheduleEnd,
+    subCategory: subCategory,
   );
 }
 
@@ -444,16 +446,15 @@ void main() {
   });
 
   group('isProduceBlocksChallenge', () {
-    test('returns true for produce-blocks challenge ID', () {
-      expect(isProduceBlocksChallenge(produceBlocksChallengeId), isTrue);
-      expect(isProduceBlocksChallenge(17), isTrue);
+    test('returns true when subCategory is PRODUCE_BLOCKS_CHALLENGE', () {
+      final dto =
+          _makeDto(subCategory: 'PRODUCE_BLOCKS_CHALLENGE');
+      expect(isProduceBlocksChallenge(dto), isTrue);
     });
 
-    test('returns false for other challenge IDs', () {
-      expect(isProduceBlocksChallenge(1), isFalse);
-      expect(isProduceBlocksChallenge(0), isFalse);
-      expect(isProduceBlocksChallenge(16), isFalse);
-      expect(isProduceBlocksChallenge(18), isFalse);
+    test('returns false for other subCategories', () {
+      expect(isProduceBlocksChallenge(_makeDto(subCategory: 'OTHER')), isFalse);
+      expect(isProduceBlocksChallenge(_makeDto()), isFalse);
     });
   });
 

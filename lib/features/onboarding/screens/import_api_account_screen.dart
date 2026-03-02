@@ -58,12 +58,13 @@ class _OnboardingImportApiAccountScreenState
       final contact = _contactController.text.trim();
       final activationCode = _activationCodeController.text.trim();
 
-      final secretKey = await _requestSecretKeyFromApi(contact, activationCode);
+      final registration =
+          await _registerViaApi(contact: contact, code: activationCode);
 
       final repo = await AccountsRepository.create();
       final result = await repo.importFromSecretKey(
         name: 'API Account',
-        secretKey: secretKey,
+        secretKey: registration.secretKey,
       );
 
       if (!mounted) return;
@@ -109,11 +110,12 @@ class _OnboardingImportApiAccountScreenState
     }
   }
 
-  Future<String> _requestSecretKeyFromApi(String contact, String code) async {
+  Future<RegistrationResult> _registerViaApi({
+    required String contact,
+    required String code,
+  }) async {
     final repo = RegistrationRepository();
-    final result =
-        await repo.register(registrationCode: code, identifier: contact);
-    return result.secretKey;
+    return repo.register(registrationCode: code, identifier: contact);
   }
 
   @override

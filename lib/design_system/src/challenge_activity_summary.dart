@@ -71,10 +71,12 @@ class ChallengeActivitySummary extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        SizedBox(
-          height: 126,
-          width: double.infinity,
-          child: Center(child: illustration),
+        Flexible(
+          child: SizedBox(
+            height: 126,
+            width: double.infinity,
+            child: Center(child: illustration),
+          ),
         ),
         SizedBox(height: spacing.space4),
         Text(

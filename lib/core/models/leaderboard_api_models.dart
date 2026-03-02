@@ -183,6 +183,7 @@ class ChallengeDto {
   final String? scheduleEnd;
   final bool enabled;
   final bool completed;
+  final String? subCategory;
 
   const ChallengeDto({
     required this.id,
@@ -201,6 +202,7 @@ class ChallengeDto {
     this.scheduleEnd,
     required this.enabled,
     required this.completed,
+    this.subCategory,
   });
 
   factory ChallengeDto.fromJson(Map<String, dynamic> json) {
@@ -221,6 +223,7 @@ class ChallengeDto {
       scheduleEnd: json['schedule_end'] as String?,
       enabled: json['enabled'] as bool? ?? false,
       completed: json['completed'] as bool? ?? false,
+      subCategory: json['sub_category'] as String?,
     );
   }
 
@@ -241,6 +244,7 @@ class ChallengeDto {
         if (scheduleEnd != null) 'schedule_end': scheduleEnd,
         'enabled': enabled,
         'completed': completed,
+        if (subCategory != null) 'sub_category': subCategory,
       };
 }
 

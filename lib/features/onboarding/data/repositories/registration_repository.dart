@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
+import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
+import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
@@ -88,7 +89,9 @@ class RegistrationRepository {
           body: resp.body,
         );
       }
-      return RegistrationResult.fromJson(data);
+      final result = RegistrationResult.fromJson(data);
+      await saveParticipantId(result.participantId);
+      return result;
     }
 
     // Map known error codes to messages
@@ -123,7 +126,7 @@ class RegistrationRepository {
     }
     switch (resp.statusCode) {
       case 403:
-        return detail ?? 'Registration phase inactive. Please try later.';
+        return detail ?? 'Registration event inactive. Please try later.';
       case 404:
         return detail ??
             'Participant not found or code invalid. Check your identifier and code.';
@@ -141,27 +144,36 @@ class RegistrationRepository {
 
 class RegistrationResult {
   RegistrationResult({
+    required this.participantId,
     required this.identityUid,
     required this.publicKey,
     required this.address,
     required this.tier,
     required this.secretKey,
-    this.phaseId,
-    this.phaseName,
-    this.phaseEndsAt,
+    this.eventId,
+    this.eventName,
+    this.eventEndsAt,
   });
 
+  final int participantId;
   final String identityUid;
   final String publicKey;
   final String address;
   final String tier;
   final String secretKey;
-  final int? phaseId;
-  final String? phaseName;
-  final String? phaseEndsAt;
+  final int? eventId;
+  final String? eventName;
+  final String? eventEndsAt;
 
   factory RegistrationResult.fromJson(Map<String, dynamic> json) {
-    final phase = json['phase'];
+    final event = json['event'] ?? json['phase'];
+
+    int? parseInt(dynamic value) {
+      if (value == null) return null;
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      return int.tryParse(value.toString());
+    }
 
     String requiredString(List<String> keys) {
       for (final key in keys) {
@@ -171,7 +183,11 @@ class RegistrationResult {
       throw FormatException('Missing required field: ${keys.join(' or ')}');
     }
 
+    final participantId = parseInt(json['participant_id'] ?? json['id']) ??
+        (throw const FormatException('Missing participant_id'));
+
     return RegistrationResult(
+      participantId: participantId,
       identityUid: requiredString(['identity_uid', 'identity_uid_hex']),
       publicKey: requiredString(['public_key', 'public_key_hex']),
       address: requiredString([
@@ -181,11 +197,13 @@ class RegistrationResult {
       ]),
       tier: json['tier'] as String,
       secretKey: requiredString(['secret_key', 'secret_key_hex']),
-      phaseId: phase is Map<String, dynamic> ? phase['id'] as int? : null,
-      phaseName:
-          phase is Map<String, dynamic> ? phase['name'] as String? : null,
-      phaseEndsAt:
-          phase is Map<String, dynamic> ? phase['ends_at'] as String? : null,
+      eventId: event is Map<String, dynamic>
+          ? parseInt(event['event_id'] ?? event['id'])
+          : null,
+      eventName:
+          event is Map<String, dynamic> ? event['name'] as String? : null,
+      eventEndsAt:
+          event is Map<String, dynamic> ? event['ends_at'] as String? : null,
     );
   }
 }

@@ -380,6 +380,10 @@ class ColorIsExpensiveTheme {
           backgroundColor: colorScheme.surfaceContainerLowest,
           surfaceTintColor: Colors.transparent,
           elevation: 0,
+          showDragHandle: true,
+          shape: RoundedRectangleBorder(
+            borderRadius: _radii.borderRadiusTopXXLarge,
+          ),
         ),
 
         cardTheme: CardThemeData(

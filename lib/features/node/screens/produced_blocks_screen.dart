@@ -159,58 +159,43 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
 
   Future<void> _showNotificationPermissionSheet() async {
     if (!mounted) return;
-    final radii = Theme.of(context).extension<AppRadii>()!;
 
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      shape: RoundedRectangleBorder(
-        borderRadius: radii.borderRadiusTopXLarge,
-      ),
       builder: (sheetContext) {
         final theme = Theme.of(sheetContext);
         final l10n = AppLocalizations.of(sheetContext);
         final spacing = Theme.of(sheetContext).extension<AppSpacing>()!;
-        return SafeArea(
+        return SheetLayout(
+          title: l10n.permNotificationsBlockBackgroundTitle,
           child: Padding(
-            padding: EdgeInsets.fromLTRB(spacing.space24, spacing.space24,
-                spacing.space24, spacing.space32),
+            padding: EdgeInsets.symmetric(horizontal: spacing.space16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                SizedBox(height: spacing.space24),
-                Text(
-                  l10n.permNotificationsBlockBackgroundTitle,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.normal,
-                  ),
-                ),
-                SizedBox(height: spacing.space24),
                 Text(
                   l10n.permNotificationsBlockBackgroundBody,
                   style: theme.textTheme.bodyMedium,
                 ),
-                const SizedBox(height: 64),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () async {
-                      final status = await Permission.notification.request();
-                      if (!mounted) return;
-                      setState(() {
-                        _notificationsEnabled = status.isGranted;
-                        _notificationsChecked = true;
-                      });
-                      if (Navigator.of(sheetContext).canPop()) {
-                        Navigator.of(sheetContext).pop();
-                      }
-                    },
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(52),
-                    ),
-                    child: Text(l10n.permAllowNotifications),
+                SizedBox(height: spacing.space32),
+                FilledButton(
+                  onPressed: () async {
+                    final status = await Permission.notification.request();
+                    if (!mounted) return;
+                    setState(() {
+                      _notificationsEnabled = status.isGranted;
+                      _notificationsChecked = true;
+                    });
+                    if (Navigator.of(sheetContext).canPop()) {
+                      Navigator.of(sheetContext).pop();
+                    }
+                  },
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(52),
                   ),
+                  child: Text(l10n.permAllowNotifications),
                 ),
               ],
             ),
@@ -222,38 +207,27 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
 
   Future<void> _showBatteryOptimizationSheet() async {
     if (!mounted) return;
-    final radii = Theme.of(context).extension<AppRadii>()!;
 
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      shape: RoundedRectangleBorder(
-        borderRadius: radii.borderRadiusTopXLarge,
-      ),
       builder: (sheetContext) {
         final theme = Theme.of(sheetContext);
         final l10n = AppLocalizations.of(sheetContext);
         final spacing = Theme.of(sheetContext).extension<AppSpacing>()!;
-        return SafeArea(
+        return SheetLayout(
+          title: l10n.permBatteryTitle,
           child: Padding(
-            padding: EdgeInsets.fromLTRB(spacing.space24, spacing.space24,
-                spacing.space24, spacing.space32),
+            padding: EdgeInsets.symmetric(horizontal: spacing.space16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  l10n.permBatteryTitle,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.normal,
-                  ),
-                ),
-                SizedBox(height: spacing.space24),
-                Text(
                   l10n.permBatteryAndroidExplanation,
                   style: theme.textTheme.bodyMedium,
                 ),
-                SizedBox(height: spacing.space24),
+                SizedBox(height: spacing.space16),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -353,23 +327,20 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                     ),
                   ],
                 ),
-                SizedBox(height: spacing.space32),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () async {
-                      await PlatformAlarmService.instance
-                          .openBatteryOptimizationSettings();
-                      await _checkBatteryOptimizationStatus();
-                      if (Navigator.of(sheetContext).canPop()) {
-                        Navigator.of(sheetContext).pop();
-                      }
-                    },
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(52),
-                    ),
-                    child: Text(l10n.permOpenBatterySettings),
+                SizedBox(height: spacing.space24),
+                FilledButton(
+                  onPressed: () async {
+                    await PlatformAlarmService.instance
+                        .openBatteryOptimizationSettings();
+                    await _checkBatteryOptimizationStatus();
+                    if (Navigator.of(sheetContext).canPop()) {
+                      Navigator.of(sheetContext).pop();
+                    }
+                  },
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(52),
                   ),
+                  child: Text(l10n.permOpenBatterySettings),
                 ),
               ],
             ),
@@ -1422,84 +1393,51 @@ class _EpochPanel extends StatelessWidget {
                   showModalBottomSheet<void>(
                     context: context,
                     isScrollControlled: true,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: radii.borderRadiusTopLarge,
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.height * 0.6,
                     ),
-                    builder: (ctx) {
-                      final height = MediaQuery.of(ctx).size.height * 0.6;
-                      return SizedBox(
-                        height: height,
-                        child: Column(
-                          children: [
-                            Padding(
-                              padding: EdgeInsets.fromLTRB(
-                                  spacing.space16,
-                                  spacing.space16,
-                                  spacing.space16,
-                                  spacing.space8),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      l10n.producedBlocksSelectEpoch,
-                                      style: theme.textTheme.titleMedium
-                                          ?.copyWith(
-                                              fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Symbols.close_sharp),
-                                    onPressed: () => Navigator.of(ctx).pop(),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const Divider(height: 1),
-                            Expanded(
-                              child: ListView.builder(
-                                itemCount: maxEpoch + 1,
-                                itemBuilder: (_, index) {
-                                  // index 0 corresponds to maxEpoch (highest at top)
-                                  final epoch = maxEpoch - index;
-                                  final selected = epoch == selectedEpoch;
+                    builder: (ctx) => SheetLayout(
+                      title: l10n.producedBlocksSelectEpoch,
+                      child: ListView.builder(
+                        itemCount: maxEpoch + 1,
+                        itemBuilder: (_, index) {
+                          // index 0 corresponds to maxEpoch (highest at top)
+                          final epoch = maxEpoch - index;
+                          final selected = epoch == selectedEpoch;
 
-                                  // Calculate epoch performance
-                                  double performance = 0.0;
-                                  if (summaryData != null) {
-                                    final scores = summaryData.epochScores;
-                                    if (scores != null &&
-                                        epoch >= 0 &&
-                                        epoch < scores.length) {
-                                      final s = scores[epoch];
-                                      final value = (s.evaluatedPercent *
-                                          s.producedOfEvaluatedPercent);
-                                      if (!value.isNaN && !value.isInfinite) {
-                                        performance = value.clamp(0.0, 1.0);
-                                      }
-                                    }
-                                  }
-                                  final performanceStr =
-                                      '${(performance * 100).toStringAsFixed(0)}%';
+                          // Calculate epoch performance
+                          double performance = 0.0;
+                          if (summaryData != null) {
+                            final scores = summaryData.epochScores;
+                            if (scores != null &&
+                                epoch >= 0 &&
+                                epoch < scores.length) {
+                              final s = scores[epoch];
+                              final value = (s.evaluatedPercent *
+                                  s.producedOfEvaluatedPercent);
+                              if (!value.isNaN && !value.isInfinite) {
+                                performance = value.clamp(0.0, 1.0);
+                              }
+                            }
+                          }
+                          final performanceStr =
+                              '${(performance * 100).toStringAsFixed(0)}%';
 
-                                  return ListTile(
-                                    title: Text(
-                                        '${l10n.statsEpoch(epoch)} · $performanceStr'),
-                                    trailing: selected
-                                        ? Icon(Symbols.check_sharp,
-                                            color: colorScheme.onSurface)
-                                        : null,
-                                    onTap: () {
-                                      Navigator.of(ctx).pop();
-                                      onPickEpoch(epoch);
-                                    },
-                                  );
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
+                          return ListTile(
+                            title: Text(
+                                '${l10n.statsEpoch(epoch)} · $performanceStr'),
+                            trailing: selected
+                                ? Icon(Symbols.check_sharp,
+                                    color: colorScheme.onSurface)
+                                : null,
+                            onTap: () {
+                              Navigator.of(ctx).pop();
+                              onPickEpoch(epoch);
+                            },
+                          );
+                        },
+                      ),
+                    ),
                   );
                 },
                 child: Row(

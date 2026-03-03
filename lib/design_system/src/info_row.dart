@@ -17,6 +17,7 @@ class InfoRow extends StatelessWidget {
     this.trailing,
     this.onTap,
     this.showDivider = true,
+    this.contentPadding,
   });
 
   /// The label text on the left side.
@@ -37,14 +38,24 @@ class InfoRow extends StatelessWidget {
   /// Whether to show a thin divider at the bottom. Defaults to true.
   final bool showDivider;
 
+  /// Padding around the row content.
+  /// Defaults to horizontal space16, vertical space12 (matching M3 ListTile).
+  final EdgeInsetsGeometry? contentPadding;
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
 
+    final resolvedPadding = contentPadding ??
+        EdgeInsets.symmetric(
+          horizontal: spacing.space16,
+          vertical: spacing.space12,
+        );
+
     final content = Padding(
-      padding: EdgeInsets.symmetric(vertical: spacing.space12),
+      padding: resolvedPadding,
       child: Row(
         children: [
           Text(

@@ -6,6 +6,7 @@ import '../tokens/app_radii.dart';
 import '../tokens/app_sizing.dart';
 import '../tokens/app_spacing.dart';
 import 'icon_badge.dart';
+import 'sheet_layout.dart';
 import 'text_chevron_trailing.dart';
 
 /// Data for a single metric row in [EpochPerformancePage].
@@ -272,66 +273,36 @@ class _EpochPanel extends StatelessWidget {
 
   void _showEpochPicker(BuildContext context) {
     final theme = Theme.of(context);
-    final radii = Theme.of(context).extension<AppRadii>()!;
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final height = MediaQuery.of(context).size.height;
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      shape: RoundedRectangleBorder(
-        borderRadius: radii.borderRadiusTopLarge,
-      ),
+      constraints: BoxConstraints(maxHeight: height * 0.6),
       builder: (ctx) {
-        final height = MediaQuery.of(ctx).size.height * 0.6;
-        return SizedBox(
-          height: height,
-          child: Column(
-            children: [
-              Padding(
-                padding: EdgeInsets.fromLTRB(spacing.space16, spacing.space16,
-                    spacing.space16, spacing.space8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Select Epoch',
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Symbols.close_sharp),
-                      onPressed: () => Navigator.of(ctx).pop(),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: maxEpoch + 1,
-                  itemBuilder: (_, index) {
-                    final epoch = maxEpoch - index;
-                    final selected = epoch == selectedEpoch;
-                    final score = epochScoreLookup?.call(epoch) ?? '';
-                    final label = score.isNotEmpty
-                        ? 'Epoch $epoch · $score'
-                        : 'Epoch $epoch';
+        return SheetLayout(
+          title: 'Select Epoch',
+          child: ListView.builder(
+            itemCount: maxEpoch + 1,
+            itemBuilder: (_, index) {
+              final epoch = maxEpoch - index;
+              final selected = epoch == selectedEpoch;
+              final score = epochScoreLookup?.call(epoch) ?? '';
+              final label = score.isNotEmpty
+                  ? 'Epoch $epoch \u00b7 $score'
+                  : 'Epoch $epoch';
 
-                    return ListTile(
-                      title: Text(label),
-                      trailing: selected
-                          ? Icon(Symbols.check_sharp,
-                              color: theme.colorScheme.onSurface)
-                          : null,
-                      onTap: () {
-                        Navigator.of(ctx).pop();
-                        onPickEpoch(epoch);
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
+              return ListTile(
+                title: Text(label),
+                trailing: selected
+                    ? Icon(Symbols.check_sharp,
+                        color: theme.colorScheme.onSurface)
+                    : null,
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  onPickEpoch(epoch);
+                },
+              );
+            },
           ),
         );
       },

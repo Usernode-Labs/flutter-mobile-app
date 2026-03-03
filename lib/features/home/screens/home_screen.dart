@@ -4,7 +4,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/wallet/screens/wallet_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/node_status_screen.dart';
-import 'package:crypto_mobile_app/features/settings/screens/background_production_settings_screen.dart';
+import 'package:crypto_mobile_app/features/settings/screens/settings_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/dapps_screen.dart';
 import 'package:crypto_mobile_app/features/challenges/screens/challenges_screen.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
@@ -37,7 +37,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           WalletScreen(),
           DappsScreen(),
           NodeStatusScreen(),
-          BackgroundProductionSettingsScreen(),
+          SettingsScreen(),
         ],
       ),
       bottomNavigationBar: Builder(

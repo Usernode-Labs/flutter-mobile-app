@@ -28,11 +28,14 @@ import 'list_tile_use_case.dart';
 import 'rank_badge_use_case.dart';
 import 'result_page_use_case.dart';
 import 'score_header_use_case.dart';
+import 'settings_page_use_case.dart';
+import 'sheet_layout_use_case.dart';
 import 'status_badge_use_case.dart';
 import 'tabs_use_case.dart';
 import 'text_field_use_case.dart';
 import 'top_app_bar_use_case.dart';
 import 'unified_theme_catalog.dart';
+import 'wallet_page_use_case.dart';
 
 void main() {
   runApp(const WidgetbookApp());
@@ -194,6 +197,7 @@ class WidgetbookApp extends StatelessWidget {
                 leaderboardStatsCardComponent(),
                 listTileComponent(),
                 scoreHeaderComponent(),
+                sheetLayoutComponent(),
               ],
             ),
             WidgetbookFolder(
@@ -238,6 +242,18 @@ class WidgetbookApp extends StatelessWidget {
               name: 'Outcomes',
               children: [
                 resultPageComponent(),
+              ],
+            ),
+            WidgetbookFolder(
+              name: 'Settings',
+              children: [
+                settingsPageComponent(),
+              ],
+            ),
+            WidgetbookFolder(
+              name: 'Wallet',
+              children: [
+                walletPageComponent(),
               ],
             ),
           ],

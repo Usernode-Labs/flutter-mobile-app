@@ -9,6 +9,7 @@ import 'package:crypto_mobile_app/core/providers/recipient_history_provider.dart
 import 'package:crypto_mobile_app/features/wallet/transaction_limits_service.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:crypto_mobile_app/design_system/src/sheet_layout.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 
@@ -380,39 +381,41 @@ class _SendScreenState extends ConsumerState<SendScreen> {
   }
 
   void _showRecipientHistory(BuildContext context, List<String> recipients) {
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
     showModalBottomSheet<void>(
       context: context,
-      useSafeArea: true,
-      showDragHandle: true,
       builder: (sheetContext) {
         if (recipients.isEmpty) {
-          return Padding(
-            padding: EdgeInsets.all(spacing.space24),
-            child: const Center(
-              child: Text('No recent addresses'),
+          return SheetLayout(
+            title: 'Recent Recipients',
+            child: Center(
+              child: Text(
+                'No recent addresses',
+                style: Theme.of(sheetContext).textTheme.bodyMedium,
+              ),
             ),
           );
         }
-        return ListView.separated(
-          padding: EdgeInsets.symmetric(vertical: spacing.space8),
-          itemCount: recipients.length,
-          separatorBuilder: (_, __) => const Divider(height: 1),
-          itemBuilder: (context, index) {
-            final address = recipients[index];
-            return ListTile(
-              leading: const Icon(Symbols.history_sharp),
-              title: Text(
-                address,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              onTap: () {
-                _addressController.text = address;
-                Navigator.of(sheetContext).pop();
-              },
-            );
-          },
+        return SheetLayout(
+          title: 'Recent Recipients',
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: recipients.length,
+            itemBuilder: (context, index) {
+              final address = recipients[index];
+              return ListTile(
+                leading: const Icon(Symbols.history_sharp),
+                title: Text(
+                  address,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                onTap: () {
+                  _addressController.text = address;
+                  Navigator.of(sheetContext).pop();
+                },
+              );
+            },
+          ),
         );
       },
     );

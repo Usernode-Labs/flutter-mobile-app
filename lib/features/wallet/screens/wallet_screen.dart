@@ -15,6 +15,9 @@ import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 
+/// Spacer height between the balance hero and the white content surface.
+const kWalletSpacerHeight = 200.0;
+
 class WalletScreen extends ConsumerStatefulWidget {
   const WalletScreen({super.key});
 
@@ -28,6 +31,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   Timer? _refreshTimer;
   late AsyncValue _walletState;
   late AsyncValue _nodeStatus;
+  final _scrollFraction = ValueNotifier<double>(0.0);
 
   @override
   void initState() {
@@ -44,6 +48,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _scrollFraction.dispose();
     super.dispose();
   }
 
@@ -82,6 +87,16 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     _startAutoRefresh();
   }
 
+  bool _onScroll(ScrollNotification notification) {
+    if (notification.depth != 0) return false;
+    final fraction =
+        (notification.metrics.pixels / kWalletSpacerHeight).clamp(0.0, 1.0);
+    if (fraction != _scrollFraction.value) {
+      _scrollFraction.value = fraction;
+    }
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
@@ -104,38 +119,96 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     });
 
     return Scaffold(
-      body: RefreshIndicator(
-        onRefresh: _onRefresh,
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: SafeArea(
+      body: SafeArea(
+        child: ColoredBox(
+          color: theme.colorScheme.surface,
+          child: Stack(
+            alignment: Alignment.topCenter,
+            children: [
+              // Layer 1: Balance hero (parallax)
+              ValueListenableBuilder<double>(
+                valueListenable: _scrollFraction,
+                builder: (context, sf, child) {
+                  return Transform.translate(
+                    offset: Offset(0, -sf * kWalletSpacerHeight * 0.4),
+                    child: child,
+                  );
+                },
                 child: Padding(
-                  padding: EdgeInsets.all(spacing.space16)
-                      .copyWith(top: spacing.space24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _BalanceSection(
-                        walletState: walletState,
-                        nodeStatus: nodeStatus,
-                        l10n: l10n,
+                  padding: EdgeInsets.only(top: spacing.space32),
+                  child: _BalanceSection(
+                    walletState: walletState,
+                    nodeStatus: nodeStatus,
+                    l10n: l10n,
+                  ),
+                ),
+              ),
+
+              // Layer 2: Scrolling content surface
+              NotificationListener<ScrollNotification>(
+                onNotification: _onScroll,
+                child: RefreshIndicator(
+                  onRefresh: _onRefresh,
+                  child: CustomScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      // Transparent spacer — reveals balance behind
+                      const SliverToBoxAdapter(
+                        child: SizedBox(height: kWalletSpacerHeight),
                       ),
-                      _AddressCard(theme: theme),
-                      SizedBox(height: spacing.space4),
-                      _RecentActivityCard(
-                        walletState: walletState,
-                        l10n: l10n,
+
+                      // White content surface with animated corner radius
+                      SliverToBoxAdapter(
+                        child: ValueListenableBuilder<double>(
+                          valueListenable: _scrollFraction,
+                          builder: (context, sf, child) {
+                            return Container(
+                              clipBehavior: Clip.hardEdge,
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.surfaceContainerLowest,
+                                borderRadius: BorderRadius.vertical(
+                                  top: Radius.circular(28.0 * (1.0 - sf)),
+                                ),
+                              ),
+                              child: child,
+                            );
+                          },
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const _AddressSection(),
+                              Divider(
+                                height: 1,
+                                color: theme.colorScheme.outlineVariant,
+                                indent: spacing.space16,
+                                endIndent: spacing.space16,
+                              ),
+                              Padding(
+                                padding: EdgeInsets.fromLTRB(
+                                  spacing.space16,
+                                  spacing.space16,
+                                  spacing.space16,
+                                  spacing.space8,
+                                ),
+                                child: Text(
+                                  'Recent Activity',
+                                  style: theme.textTheme.titleMedium,
+                                ),
+                              ),
+                              _buildCachedDataBanner(
+                                  walletState, theme, spacing),
+                              _buildTransactionContent(walletState, l10n),
+                              SizedBox(height: spacing.space32),
+                            ],
+                          ),
+                        ),
                       ),
-                      SizedBox(height: spacing.space32),
                     ],
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -144,6 +217,105 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
         foregroundColor: theme.colorScheme.onPrimary,
         icon: const Icon(Symbols.north_east_sharp),
         label: const Text('Send'),
+      ),
+    );
+  }
+
+  Widget _buildCachedDataBanner(
+    AsyncValue walletState,
+    ThemeData theme,
+    AppSpacing spacing,
+  ) {
+    return walletState.when(
+      data: (state) {
+        final hasExplorerData =
+            state.recent.any((tx) => tx.dataSource != DataSource.local);
+        final hasOnlyCachedData = state.recent.every((tx) =>
+            tx.dataSource == DataSource.cached ||
+            tx.dataSource == DataSource.local);
+
+        if (hasExplorerData && hasOnlyCachedData && state.recent.isNotEmpty) {
+          final semantic = theme.extension<AppSemanticColors>()!;
+          final sizing = theme.extension<AppSizing>()!;
+          final radii = theme.extension<AppRadii>()!;
+
+          return Padding(
+            padding: EdgeInsets.symmetric(horizontal: spacing.space16),
+            child: Container(
+              margin: EdgeInsets.only(bottom: spacing.space8),
+              padding: EdgeInsets.symmetric(
+                horizontal: spacing.space12,
+                vertical: spacing.space8,
+              ),
+              decoration: BoxDecoration(
+                color: semantic.warning.colorContainer,
+                borderRadius: radii.borderRadiusSmall,
+                border: Border.all(
+                  color: semantic.warning.color.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Symbols.warning_amber_sharp,
+                    color: semantic.warning.color,
+                    size: sizing.iconXSmall,
+                  ),
+                  SizedBox(width: spacing.space8),
+                  Expanded(
+                    child: Text(
+                      'Explorer API unavailable. Showing cached data.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: semantic.warning.color,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        return const SizedBox.shrink();
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+    );
+  }
+
+  Widget _buildTransactionContent(
+      AsyncValue walletState, AppLocalizations l10n) {
+    return walletState.when(
+      data: (state) {
+        if (state.recent.isEmpty) {
+          return Padding(
+            padding: EdgeInsets.symmetric(
+              vertical: Theme.of(context).extension<AppSpacing>()!.space48,
+            ),
+            child: EmptyState(
+              icon: Symbols.receipt_long_sharp,
+              title: l10n.walletNoRecentActivity,
+              subtitle: l10n.walletNoRecentActivitySubtitle,
+            ),
+          );
+        }
+        return Column(
+          children: [
+            for (int i = 0; i < state.recent.length; i++) ...[
+              _TransactionTile(state.recent[i]),
+              if (i < state.recent.length - 1)
+                Divider(
+                  height: 1,
+                  indent: 88,
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
+            ],
+          ],
+        );
+      },
+      loading: () => const FullPageLoadingState(),
+      error: (_, __) => const FullPageErrorState(
+        message: 'Error loading transactions',
       ),
     );
   }
@@ -169,109 +341,91 @@ class _BalanceSection extends StatelessWidget {
     final syncStatus = nodeStatus.valueOrNull?.syncStatus;
     final showSyncMessage = syncStatus == null || !syncStatus.isSynced;
 
-    return SizedBox(
-      height: 160,
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              '\$TOKEN Balance',
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '\$TOKEN Balance',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        SizedBox(height: spacing.space4),
+        SizedBox(height: spacing.space16),
+        walletState.when(
+          data: (state) => Text(
+            state.balance.getFormattedBalance(compact: false, decimals: 0),
+            style: theme.textTheme.displaySmall,
+          ),
+          loading: () => const SizedBox.square(
+            dimension: 28,
+            child: CircularProgressIndicator(strokeWidth: 2.5),
+          ),
+          error: (_, __) => Text(
+            l10n.commonNoValuePlaceholder,
+            style: theme.textTheme.displaySmall,
+          ),
+        ),
+        if (showSyncMessage && nodeStatus.hasValue)
+          Padding(
+            padding: EdgeInsets.only(top: spacing.space8),
+            child: Text(
+              'Sync in progress...',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
-            SizedBox(height: spacing.space24),
-            walletState.when(
-              data: (state) => Text(
-                state.balance.getFormattedBalance(compact: false, decimals: 0),
-                style: theme.textTheme.displaySmall,
-              ),
-              loading: () => const SizedBox.square(
-                dimension: 28,
-                child: CircularProgressIndicator(strokeWidth: 2.5),
-              ),
-              error: (_, __) => Text(
-                l10n.commonNoValuePlaceholder,
-                style: theme.textTheme.displaySmall,
-              ),
-            ),
-            if (showSyncMessage && nodeStatus.hasValue)
-              Padding(
-                padding: EdgeInsets.only(top: spacing.space8),
+          ),
+        // Data source indicator
+        walletState.when(
+          data: (state) {
+            final balance = state.balance;
+            if (balance.lastUpdated != null) {
+              return Padding(
+                padding: EdgeInsets.only(top: spacing.space4),
                 child: Text(
-                  'Sync in progress...',
+                  'Last checked at ${balance.lastUpdatedText}',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
-                    fontStyle: FontStyle.italic,
                   ),
                 ),
-              ),
-            // Data source indicator
-            walletState.when(
-              data: (state) {
-                final balance = state.balance;
-                if (balance.lastUpdated != null) {
-                  return Padding(
-                    padding: EdgeInsets.only(top: spacing.space4),
-                    child: Text(
-                      'Last checked at ${balance.lastUpdatedText}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        fontSize: 11,
-                      ),
-                    ),
-                  );
-                }
-                return const SizedBox.shrink();
-              },
-              loading: () => const SizedBox.shrink(),
-              error: (_, __) => const SizedBox.shrink(),
-            ),
-          ],
+              );
+            }
+            return const SizedBox.shrink();
+          },
+          loading: () => const SizedBox.shrink(),
+          error: (_, __) => const SizedBox.shrink(),
         ),
-      ),
+      ],
     );
   }
 }
 
-class _AddressCard extends ConsumerWidget {
-  const _AddressCard({required this.theme});
-
-  final ThemeData theme;
+class _AddressSection extends ConsumerWidget {
+  const _AddressSection();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
-    final radii = Theme.of(context).extension<AppRadii>()!;
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceBright,
-        borderRadius: radii.borderRadiusTopLargeIncreased,
-      ),
-      padding: EdgeInsets.all(spacing.space24),
-      child: ref.watch(accountsProvider).when(
-            data: (repo) => FutureBuilder(
-              future: repo.getActive(),
-              builder: (context, snapshot) {
-                final address = snapshot.data?.address ?? 'Loading...';
-                return _AddressRow(address: address, theme: theme);
-              },
-            ),
-            loading: () => const FullPageLoadingState(),
-            error: (_, __) => const FullPageErrorState(
-              message: 'Error loading address',
-            ),
+    return ref.watch(accountsProvider).when(
+          data: (repo) => FutureBuilder(
+            future: repo.getActive(),
+            builder: (context, snapshot) {
+              final address = snapshot.data?.address ?? 'Loading...';
+              return _AddressListTile(address: address);
+            },
           ),
-    );
+          loading: () => const FullPageLoadingState(),
+          error: (_, __) => const FullPageErrorState(
+            message: 'Error loading address',
+          ),
+        );
   }
 }
 
-class _AddressRow extends StatelessWidget {
-  const _AddressRow({required this.address, required this.theme});
+class _AddressListTile extends StatelessWidget {
+  const _AddressListTile({required this.address});
 
   final String address;
-  final ThemeData theme;
 
   String get _displayAddress => address.length > 16
       ? '${address.substring(0, 8)}...${address.substring(address.length - 8)}'
@@ -279,193 +433,23 @@ class _AddressRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
-    final radii = Theme.of(context).extension<AppRadii>()!;
-    return Row(
-      children: [
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: theme.colorScheme.secondaryContainer,
-            borderRadius: radii.borderRadiusLargeIncreased,
-          ),
-          child: Icon(Symbols.tag_sharp, color: theme.colorScheme.onSurface),
-        ),
-        SizedBox(width: spacing.space12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'My Address',
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w600),
-              ),
-              SizedBox(height: spacing.space4),
-              Text(
-                _displayAddress,
-                style: theme.textTheme.bodyMedium
-                    ?.copyWith(color: theme.colorScheme.secondary),
-              ),
-            ],
-          ),
-        ),
-        SizedBox(width: spacing.space12),
-        FilledButton(
-          onPressed: () {
-            Clipboard.setData(ClipboardData(text: address));
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Address copied to clipboard')),
-            );
-          },
-          style: FilledButton.styleFrom(
-            padding: EdgeInsets.symmetric(
-                horizontal: spacing.space16, vertical: spacing.space8),
-          ),
-          child: const Text('Copy'),
-        ),
-      ],
-    );
-  }
-}
-
-class _RecentActivityCard extends StatelessWidget {
-  const _RecentActivityCard({required this.walletState, required this.l10n});
-
-  final AsyncValue walletState;
-  final AppLocalizations l10n;
-
-  @override
-  Widget build(BuildContext context) {
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
-    final sizing = Theme.of(context).extension<AppSizing>()!;
-    final radii = Theme.of(context).extension<AppRadii>()!;
-    final theme = Theme.of(context);
-    final semantic = Theme.of(context).extension<AppSemanticColors>()!;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceBright,
-        borderRadius: radii.borderRadiusBottomLargeIncreased,
+    return ListTile(
+      leading: const IconBadge(icon: Symbols.tag_sharp),
+      title: const Text('My Address'),
+      subtitle: Text(
+        _displayAddress,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              fontFamily: 'monospace',
+            ),
       ),
-      padding: EdgeInsets.all(spacing.space16)
-          .copyWith(top: spacing.space12, bottom: spacing.space12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'Recent Activity',
-            style: theme.textTheme.titleMedium
-                ?.copyWith(fontWeight: FontWeight.w500),
-          ),
-          SizedBox(height: spacing.space16),
-          // API status banner for transaction data
-          walletState.when(
-            data: (state) {
-              // Check if we have non-local transactions
-              final hasExplorerData =
-                  state.recent.any((tx) => tx.dataSource != DataSource.local);
-              final hasOnlyCachedData = state.recent.every((tx) =>
-                  tx.dataSource == DataSource.cached ||
-                  tx.dataSource == DataSource.local);
-
-              if (hasExplorerData &&
-                  hasOnlyCachedData &&
-                  state.recent.isNotEmpty) {
-                return Container(
-                  margin: EdgeInsets.only(bottom: spacing.space8),
-                  padding: EdgeInsets.symmetric(
-                      horizontal: spacing.space12, vertical: spacing.space8),
-                  decoration: BoxDecoration(
-                    color: semantic.warning.colorContainer,
-                    borderRadius: radii.borderRadiusSmall,
-                    border: Border.all(
-                        color: semantic.warning.color.withValues(alpha: 0.3)),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Symbols.warning_amber_sharp,
-                          color: semantic.warning.color,
-                          size: sizing.iconXSmall),
-                      SizedBox(width: spacing.space8),
-                      Expanded(
-                        child: Text(
-                          'Explorer API unavailable. Showing cached data.',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: semantic.warning.color,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-              return const SizedBox.shrink();
-            },
-            loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
-          ),
-          walletState.when(
-            data: (state) => state.recent.isEmpty
-                ? _EmptyState(message: l10n.walletNoRecentActivity)
-                : Column(
-                    children: state.recent
-                        .map<Widget>(
-                            (transaction) => _TransactionTile(transaction))
-                        .toList()),
-            loading: () => const FullPageLoadingState(),
-            error: (_, __) => const FullPageErrorState(
-              message: 'Error loading transactions',
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.message});
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
-    final theme = Theme.of(context);
-    final l10n = AppLocalizations.of(context);
-
-    return Padding(
-      padding: EdgeInsets.symmetric(
-          vertical: spacing.space48, horizontal: spacing.space16),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Symbols.receipt_long_sharp,
-            size: Theme.of(context).extension<AppSizing>()!.iconDisplay,
-            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-          ),
-          SizedBox(height: spacing.space16),
-          Text(
-            l10n.walletNoRecentActivity,
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: theme.colorScheme.onSurface,
-              fontWeight: FontWeight.w500,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          SizedBox(height: spacing.space8),
-          Text(
-            l10n.walletNoRecentActivitySubtitle,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              height: 1.4,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
+      trailing: IconButton(
+        icon: const Icon(Symbols.content_copy_sharp),
+        onPressed: () {
+          Clipboard.setData(ClipboardData(text: address));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Address copied to clipboard')),
+          );
+        },
       ),
     );
   }
@@ -505,108 +489,43 @@ class _TransactionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
-    final sizing = Theme.of(context).extension<AppSizing>()!;
-    final radii = Theme.of(context).extension<AppRadii>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final semantic = Theme.of(context).extension<AppSemanticColors>()!;
     final isPending = transaction.status == TransactionStatus.pending;
 
-    // Determine container color based on transaction type
-    Color containerColor;
-    if (transaction.type == TransactionType.reward ||
-        transaction.type == TransactionType.genesis) {
-      containerColor = semantic.warning.colorContainer;
-    } else {
-      // Use secondaryContainer for all other types (send, receive, pending)
-      containerColor = colorScheme.secondaryContainer;
-    }
-
-    return Container(
-      padding: EdgeInsets.symmetric(
-          vertical: spacing.space8, horizontal: spacing.space8),
-      child: Row(
+    return ListTile(
+      leading: IconBadge(
+        icon: isPending && transaction.type == TransactionType.send
+            ? Symbols.hourglass_empty_sharp
+            : transaction.icon,
+        backgroundColor: isPending
+            ? semantic.warning.colorContainer
+            : colorScheme.secondaryContainer,
+        iconColor: isPending
+            ? semantic.warning.onColorContainer
+            : colorScheme.onSecondaryContainer,
+      ),
+      title: Text(transaction.title),
+      subtitle: Text(
+        '${_displayDetails()}\n${transaction.formattedTimestamp}',
+      ),
+      isThreeLine: true,
+      trailing: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: containerColor,
-              borderRadius: radii.borderRadiusMedium,
-            ),
-            child: Stack(
-              children: [
-                Center(
-                  child: isPending && transaction.type == TransactionType.send
-                      ? Icon(Symbols.hourglass_empty_sharp,
-                          color: colorScheme.onSurface, size: sizing.iconSmall)
-                      : Icon(transaction.icon,
-                          color: colorScheme.onSurface, size: sizing.iconSmall),
-                ),
-                if (isPending)
-                  Positioned(
-                    top: 2,
-                    right: 2,
-                    child: Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        color: semantic.warning.color,
-                        borderRadius: radii.borderRadiusSmall,
-                        border:
-                            Border.all(color: colorScheme.surface, width: 1),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          SizedBox(width: spacing.space12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  transaction.title,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                SizedBox(height: spacing.space4),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _displayDetails(),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurface,
-                        fontWeight: FontWeight.w400,
-                        fontFamily: 'monospace',
-                        fontSize: 11,
-                      ),
-                    ),
-                    SizedBox(height: spacing.space4),
-                    Text(
-                      transaction.formattedTimestamp,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurface,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          SizedBox(width: spacing.space8),
           Text(
             '${transaction.formattedAmount} ${transaction.tokenSymbol}',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurface,
-              fontWeight: FontWeight.w500,
-            ),
+            style: theme.textTheme.bodyMedium,
           ),
+          if (isPending) ...[
+            SizedBox(height: spacing.space4),
+            const StatusBadge(
+              label: 'Pending',
+              variant: StatusBadgeVariant.warning,
+            ),
+          ],
         ],
       ),
     );

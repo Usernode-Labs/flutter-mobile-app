@@ -11,6 +11,7 @@ class AppRadii extends ThemeExtension<AppRadii> {
     required this.large,
     required this.largeIncreased,
     required this.xLarge,
+    required this.xxLarge,
     required this.full,
   });
 
@@ -21,6 +22,7 @@ class AppRadii extends ThemeExtension<AppRadii> {
         large: 16.0,
         largeIncreased: 20.0,
         xLarge: 24.0,
+        xxLarge: 28.0,
         full: 999.0,
       );
 
@@ -30,6 +32,7 @@ class AppRadii extends ThemeExtension<AppRadii> {
   final double large;
   final double largeIncreased;
   final double xLarge;
+  final double xxLarge;
   final double full;
 
   // Convenience getters for BorderRadius
@@ -45,6 +48,8 @@ class AppRadii extends ThemeExtension<AppRadii> {
       BorderRadius.all(Radius.circular(largeIncreased));
   BorderRadius get borderRadiusXLarge =>
       BorderRadius.all(Radius.circular(xLarge));
+  BorderRadius get borderRadiusXXLarge =>
+      BorderRadius.all(Radius.circular(xxLarge));
   BorderRadius get borderRadiusFull => BorderRadius.all(Radius.circular(full));
 
   // Top-only variants (for bottom sheets, modals, split cards)
@@ -56,6 +61,8 @@ class AppRadii extends ThemeExtension<AppRadii> {
       BorderRadius.vertical(top: Radius.circular(largeIncreased));
   BorderRadius get borderRadiusTopXLarge =>
       BorderRadius.vertical(top: Radius.circular(xLarge));
+  BorderRadius get borderRadiusTopXXLarge =>
+      BorderRadius.vertical(top: Radius.circular(xxLarge));
 
   // Bottom-only variants (for split cards)
   BorderRadius get borderRadiusBottomLargeIncreased =>
@@ -69,6 +76,7 @@ class AppRadii extends ThemeExtension<AppRadii> {
     double? large,
     double? largeIncreased,
     double? xLarge,
+    double? xxLarge,
     double? full,
   }) {
     return AppRadii(
@@ -78,6 +86,7 @@ class AppRadii extends ThemeExtension<AppRadii> {
       large: large ?? this.large,
       largeIncreased: largeIncreased ?? this.largeIncreased,
       xLarge: xLarge ?? this.xLarge,
+      xxLarge: xxLarge ?? this.xxLarge,
       full: full ?? this.full,
     );
   }
@@ -92,6 +101,7 @@ class AppRadii extends ThemeExtension<AppRadii> {
       large: lerpDouble(large, other.large, t)!,
       largeIncreased: lerpDouble(largeIncreased, other.largeIncreased, t)!,
       xLarge: lerpDouble(xLarge, other.xLarge, t)!,
+      xxLarge: lerpDouble(xxLarge, other.xxLarge, t)!,
       full: lerpDouble(full, other.full, t)!,
     );
   }

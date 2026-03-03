@@ -49,7 +49,6 @@ final textTheme = Theme.of(context).textTheme;                // typography
 |--------|--------|---------|
 | `ChallengeCard` | [Figma (list)](https://figma.com/design/rsh9wLMKsMnFPOEBkHJUvg/?node-id=2943:19310), [Figma (ongoing)](https://figma.com/design/rsh9wLMKsMnFPOEBkHJUvg/?node-id=3012:2402) | [genesis](.specs/ChallengeCard.genesis.md) |
 | `ChallengeCategoryIcon` | [Figma](https://figma.com/design/rsh9wLMKsMnFPOEBkHJUvg/?node-id=3012:2775) | [genesis](.specs/ChallengeCategoryIcon.genesis.md) |
-| `Button` | — | [genesis](.specs/ScoreHeader.genesis.md) |
 | `DropdownChain` | [Figma](https://figma.com/design/Eu4jn5o8finpZ28IAGPyru/?node-id=2994:2860) | [genesis](.specs/DropdownChain.genesis.md) |
 | `DropdownChip` | [Figma](https://figma.com/design/Eu4jn5o8finpZ28IAGPyru/?node-id=2994:2860) | [genesis](.specs/DropdownChip.genesis.md) |
 | `DropdownSheet` | — | [genesis](.specs/DropdownSheet.genesis.md) |

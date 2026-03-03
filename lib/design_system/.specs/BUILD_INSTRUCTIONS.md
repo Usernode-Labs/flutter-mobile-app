@@ -7,8 +7,9 @@ Read a `.spec.yaml` file from this directory and produce a complete design syste
 ## Design System Constraints
 
 ### Widget approach
-Prefer M3 Material components for native behaviour, accessibility, and platform consistency.
-When M3 does not cover the need, build from Flutter core primitives:
+Design system widgets are **slot widgets** — small, focused components (IconBadge, StatusBadge, ScoreHeader) that compose into M3 containers at the screen level. They do NOT wrap M3 container widgets.
+
+Build DS widgets from Flutter core primitives:
 - Layout: Container, Padding, Row, Column, Stack, ...
 - Interaction: GestureDetector, InkWell
 - Animation: AnimatedContainer, AnimatedOpacity, ...

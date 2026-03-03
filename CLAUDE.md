@@ -23,6 +23,24 @@ flutter test
 cd packages/ds_lints && dart run bin/lint.dart ../..   # design system lints
 ```
 
+## Planning & Approach
+
+- Prefer lean/minimal approaches. Start with the simplest viable solution and iterate.
+- Do NOT over-specify plans. Keep plans under 200 words with numbered steps unless complexity demands more.
+- Before committing to a multi-step implementation, do a quick feasibility check (environment, dependencies, platform constraints).
+
+## MCP Servers
+
+Figma and Dart MCP servers are configured at local scope (not in .mcp.json).
+If MCP tools fail, do NOT debug .mcp.json — servers are in ~/.claude.json.
+Re-add via: `claude mcp add --transport http <name> <url>`
+Never add a "type" field to .mcp.json — schema validation rejects it.
+
+## Git Workflow
+
+- Before stashing or switching branches with staged changes, commit current work first or confirm with user.
+- When pre-commit hooks fail on issues unrelated to current changes, diagnose once. If the failure is environmental (missing node_modules, unrelated lint), use --no-verify and note it.
+
 ## Design System Boundary
 
 All new design system work lives in `lib/design_system/`. Existing code is untouched.
@@ -36,3 +54,7 @@ All new design system work lives in `lib/design_system/`. Existing code is untou
 - **Presentation-only**: Design system widgets take all state via constructor params (data + callbacks). No providers, no `ConsumerWidget`, no services. No FRB-generated types in constructor params (they transitively import native FFI). Screens in `lib/features/` wire state to widgets.
 - **Widgetbook rule**: Every new design system widget gets a use case that imports the **real widget** with mock data via knobs — never hand-built replicas.
 - **Quality gate**: `dart format` clean, `flutter analyze` passes, tests pass, `ds_lints` clean (no warnings)
+- **Screen building**: `lib/design_system/docs/SCREEN_PATTERNS.md` — templates, token reference, checklists
+- **Widget pipeline**: `.claude/commands/widget-from-figma.md` → `.claude/commands/figma-inspect.md` → `.claude/commands/verify-widget.md`
+- **Build constraints**: `lib/design_system/.specs/BUILD_INSTRUCTIONS.md` — canonical token-to-code reference
+- **All constraints**: `lib/design_system/docs/CONSTRAINTS.md` — rules, lint rules, quality gate

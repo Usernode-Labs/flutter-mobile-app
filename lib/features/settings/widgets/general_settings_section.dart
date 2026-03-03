@@ -56,7 +56,7 @@ class GeneralSettingsSection extends StatelessWidget {
                   subtitle: Text(
                     buildInfoSubtitle,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      fontFamily: 'monospace',
+                      fontFamily: kMonoFontFamily,
                       color: colorScheme.onSurfaceVariant,
                     ),
                   ),

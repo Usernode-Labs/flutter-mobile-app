@@ -3,6 +3,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import '../src/info_row.dart';
+import '../tokens/app_typography.dart';
 
 WidgetbookComponent infoRowComponent() {
   return WidgetbookComponent(
@@ -57,7 +58,7 @@ WidgetbookUseCase _patterns() {
               label: 'Hash',
               value: '0x3a9f...b2c1',
               valueStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontFamily: 'monospace',
+                    fontFamily: kMonoFontFamily,
                     color: Theme.of(context).colorScheme.onSurface,
                   ),
               trailing: IconButton(

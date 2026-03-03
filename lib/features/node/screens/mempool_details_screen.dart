@@ -230,20 +230,16 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
     }
 
     return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: colorScheme.primaryContainer.withValues(alpha: 0.5),
-        radius: 16,
-        child: Icon(
-          Symbols.receipt_long_sharp,
-          size: sizing.iconXSmall,
-          color: colorScheme.primary,
-        ),
+      leading: IconBadge(
+        icon: Symbols.receipt_long_sharp,
+        backgroundColor: colorScheme.primaryContainer,
+        iconColor: colorScheme.primary,
       ),
       title: Text(
         txHash,
         style: theme.textTheme.bodySmall?.copyWith(
           fontWeight: FontWeight.w600,
-          fontFamily: 'monospace',
+          fontFamily: kMonoFontFamily,
         ),
       ),
       subtitle: Padding(

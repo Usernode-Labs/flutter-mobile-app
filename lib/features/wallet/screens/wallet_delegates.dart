@@ -5,6 +5,7 @@ import 'package:crypto_mobile_app/core/utils/utils.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_sizing.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_typography.dart';
 import 'package:crypto_mobile_app/design_system/src/parallax_surface_layout.dart';
 
 /// Address bar content height — matches [kChipHeight] in challenges_delegates.
@@ -128,7 +129,7 @@ class _AddressBarContent extends StatelessWidget {
               child: Text(
                 _displayAddress,
                 style: theme.textTheme.labelLarge?.copyWith(
-                  fontFamily: 'monospace',
+                  fontFamily: kMonoFontFamily,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,

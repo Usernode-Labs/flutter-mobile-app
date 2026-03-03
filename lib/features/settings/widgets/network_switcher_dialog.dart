@@ -46,7 +46,7 @@ class _NetworkSwitcherDialogState extends State<NetworkSwitcherDialog> {
             child: Text(
               url,
               style: theme.textTheme.bodySmall?.copyWith(
-                fontFamily: 'monospace',
+                fontFamily: kMonoFontFamily,
                 fontSize: 11,
               ),
               softWrap: true,

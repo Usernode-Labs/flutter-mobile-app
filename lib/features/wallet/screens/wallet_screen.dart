@@ -256,8 +256,10 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
           ],
         );
       },
-      loading: () => Column(
-        children: List.generate(4, (_) => const ShimmerListTile()),
+      loading: () => ShimmerHost(
+        child: Column(
+          children: List.generate(4, (_) => const ShimmerListTile()),
+        ),
       ),
       error: (_, __) => const FullPageErrorState(
         message: 'Error loading transactions',

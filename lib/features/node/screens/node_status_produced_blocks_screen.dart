@@ -122,10 +122,12 @@ class _NodeStatusProducedBlocksScreenState
 
     // Loading — no cached data yet.
     if (blockchain == null && blockchainAsync.isLoading) {
-      return Column(
-        children: List.generate(
-          6,
-          (_) => const ShimmerListTile(isThreeLine: false),
+      return ShimmerHost(
+        child: Column(
+          children: List.generate(
+            6,
+            (_) => const ShimmerListTile(isThreeLine: false),
+          ),
         ),
       );
     }

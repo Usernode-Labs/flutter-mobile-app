@@ -60,20 +60,27 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
   @override
   void initState() {
     super.initState();
-    _log.debug('NodeStatusScreen initialized');
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _log.debug(
-          'Post-frame callback triggered - initializing data and starting timer');
       _initializeData();
-      // Start timer immediately after post-frame to ensure continuous refresh
       _startTimer();
+    });
+
+    // React to tab changes — start/stop timer when node tab becomes active.
+    ref.listenManual(currentHomeTabProvider, (previous, next) {
+      final shouldBeActive = next == 3;
+      if (shouldBeActive != _active) {
+        _active = shouldBeActive;
+        if (shouldBeActive) {
+          _startTimer();
+        } else {
+          _stopTimer();
+        }
+      }
     });
   }
 
   @override
   void dispose() {
-    _log.debug('NodeStatusScreen disposing - cancelling timer');
     _autoTimer?.cancel();
     super.dispose();
   }
@@ -165,113 +172,55 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
   // ============== REFRESH LOGIC ==============
 
   Future<void> _refresh() async {
-    final refreshStartTime = DateTime.now();
-    _log.debug('=== REFRESH START ===');
-    _log.debug('Refresh triggered at ${refreshStartTime.toIso8601String()}');
+    if (!mounted) return;
 
-    if (!mounted) {
-      _log.debug('Widget not mounted, skipping refresh');
-      return;
-    }
-
-    _log.debug('Setting refreshing=true and clearing error');
     setState(() {
       _refreshing = true;
       _error = null;
     });
 
     try {
-      _log.debug(
-          'Starting parallel provider refresh (nodeStatus, mempool, blockchain)');
-      final providerRefreshStart = DateTime.now();
-
-      // Refresh all providers in parallel with individual timing
       await Future.wait([
-        _timedProviderRefresh('nodeStatus',
-            () => ref.read(nodeStatusProvider.notifier).refresh()),
-        _timedProviderRefresh(
-            'mempool', () => ref.read(nodeMempoolProvider.notifier).refresh()),
-        _timedProviderRefresh('blockchain',
-            () => ref.read(nodeBlockchainProvider.notifier).refresh()),
+        ref.read(nodeStatusProvider.notifier).refresh(),
+        ref.read(nodeMempoolProvider.notifier).refresh(),
+        ref.read(nodeBlockchainProvider.notifier).refresh(),
       ]);
 
-      final providerRefreshDuration =
-          DateTime.now().difference(providerRefreshStart);
-      _log.debug(
-          'Provider refresh completed in ${providerRefreshDuration.inMilliseconds}ms');
-
-      _log.debug('Loading chain metadata');
-      final chainMetadataStart = DateTime.now();
       await _loadChainMetadata();
-      final chainMetadataDuration =
-          DateTime.now().difference(chainMetadataStart);
-      _log.debug(
-          'Chain metadata loaded in ${chainMetadataDuration.inMilliseconds}ms');
 
-      if (!mounted) {
-        _log.debug('Widget unmounted during refresh, aborting');
-        return;
-      }
+      if (!mounted) return;
 
       final status = ref.read(nodeStatusProvider).value;
       if (status != null) {
-        final localBestTip = status.localBest;
-        final networkBestTip = status.networkBest;
-        final displayBestTip = networkBestTip ?? localBestTip;
-
-        _log.debug(
-            'Status data received - updating state with peers: ${status.peers.length}, bestTip: ${displayBestTip?.globalSlot}');
+        final displayBestTip = status.networkBest ?? status.localBest;
         setState(() {
           _peers = status.peers;
           _bestTipGlobalSlot = displayBestTip?.globalSlot;
           _lastChecked = DateTime.now();
         });
-        _log.debug('State updated successfully');
       } else {
-        _log.debug(
-            'Status is null (connecting state) - updating only last checked');
-        // Even if status is null (connecting state), update last checked
         if (mounted) {
-          setState(() {
-            _lastChecked = DateTime.now();
-          });
+          setState(() => _lastChecked = DateTime.now());
         }
       }
-    } on StateError catch (e, st) {
-      _log.debug('StateError during refresh: $e');
-      _log.debug('StateError stackTrace: $st');
-      // Update last checked even on StateError
+    } on StateError {
       if (mounted) {
-        _log.debug('Updating last checked after StateError');
+        setState(() => _lastChecked = DateTime.now());
+      }
+    } catch (e, st) {
+      _log.error('Refresh failed', error: e, stackTrace: st);
+      if (mounted) {
         setState(() {
+          _error = e.toString();
           _lastChecked = DateTime.now();
         });
       }
-    } catch (e, st) {
-      _log.error('Refresh failed with error: $e', error: e, stackTrace: st);
-      if (mounted) {
-        _log.debug('Setting error state and updating last checked');
-        setState(() {
-          _error = e.toString();
-          _lastChecked = DateTime.now(); // Update last checked even on error
-        });
-      }
     } finally {
-      // Always update _lastChecked and rebuild UI, even if no data changed
       if (mounted) {
-        final finalUpdateTime = DateTime.now();
-        _log.debug(
-            'Final update - setting refreshing=false and updating last checked to ${finalUpdateTime.toIso8601String()}');
         setState(() {
           _refreshing = false;
-          _lastChecked = finalUpdateTime;
+          _lastChecked = DateTime.now();
         });
-
-        final totalDuration = finalUpdateTime.difference(refreshStartTime);
-        _log.debug(
-            '=== REFRESH COMPLETE === Total duration: ${totalDuration.inMilliseconds}ms');
-      } else {
-        _log.debug('Widget unmounted in finally block');
       }
     }
   }
@@ -280,26 +229,14 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
 
   void _startTimer() {
     _autoTimer?.cancel();
-    _log.debug('Starting auto refresh timer (2s interval)');
     _autoTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-      final now = DateTime.now();
-      _log.debug(
-          'Timer tick at ${now.toIso8601String()} - checking conditions...');
-      _log.debug(
-          'mounted: $mounted, active: $_active, refreshing: $_refreshing');
-
       if (mounted && _active && !_refreshing) {
-        _log.debug('All conditions met - triggering auto refresh');
         _refresh();
-      } else {
-        _log.debug(
-            'Auto refresh skipped - mounted: $mounted, active: $_active, refreshing: $_refreshing');
       }
     });
   }
 
   void _stopTimer() {
-    _log.debug('Stopping auto refresh timer');
     _autoTimer?.cancel();
     _autoTimer = null;
   }
@@ -308,22 +245,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // React to tab changes
-    final currentTab = ref.watch(currentHomeTabProvider);
-    final shouldBeActive = currentTab == 3;
-    if (shouldBeActive != _active) {
-      _log.debug(
-          'Tab change detected: currentTab=$currentTab, shouldBeActive=$shouldBeActive, _active=$_active');
-      _active = shouldBeActive;
-      if (shouldBeActive) {
-        _log.debug('Node status tab activated - starting timer');
-        _startTimer();
-      } else {
-        _log.debug('Node status tab deactivated - stopping timer');
-        _stopTimer();
-      }
-    }
-
     final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
@@ -1004,22 +925,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
         );
       },
     );
-  }
-
-  Future<void> _timedProviderRefresh(
-      String providerName, Future<void> Function() refreshFunction) async {
-    final stopwatch = Stopwatch()..start();
-    try {
-      await refreshFunction();
-      stopwatch.stop();
-      _log.debug(
-          '$providerName provider refreshed in ${stopwatch.elapsedMilliseconds}ms');
-    } catch (e) {
-      stopwatch.stop();
-      _log.debug(
-          '$providerName provider failed after ${stopwatch.elapsedMilliseconds}ms: $e');
-      rethrow;
-    }
   }
 
   String _formatLastChecked() {

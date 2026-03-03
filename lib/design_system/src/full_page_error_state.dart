@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
-import '../tokens/app_sizing.dart';
-import '../tokens/app_spacing.dart';
+import 'empty_state.dart';
 
 /// A centered error display for use as a full-page body.
 ///
 /// Shows an error icon, a primary message, an optional detail line,
-/// and an optional retry button. Designed for the `body:` slot of a
-/// [Scaffold] when data loading has failed entirely.
+/// and an optional retry button. Delegates to [EmptyState] internally.
 ///
 /// Presentation-only — takes all state via constructor params.
 class FullPageErrorState extends StatelessWidget {
@@ -34,51 +32,16 @@ class FullPageErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final sizing = Theme.of(context).extension<AppSizing>()!;
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
-
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: spacing.space16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Symbols.error_sharp,
-              size: sizing.iconDisplay,
-              color: colors.onSurfaceVariant,
-            ),
-            SizedBox(height: spacing.space16),
-            Text(
-              message,
-              style: textTheme.titleMedium?.copyWith(
-                color: colors.onSurface,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            if (detail != null) ...[
-              SizedBox(height: spacing.space8),
-              Text(
-                detail!,
-                style: textTheme.bodyMedium?.copyWith(
-                  color: colors.onSurfaceVariant,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-            if (onRetry != null) ...[
-              SizedBox(height: spacing.space24),
-              FilledButton(
-                onPressed: onRetry,
-                child: Text(retryLabel),
-              ),
-            ],
-          ],
-        ),
-      ),
+    return EmptyState(
+      icon: Symbols.error_sharp,
+      title: message,
+      subtitle: detail,
+      action: onRetry != null
+          ? FilledButton(
+              onPressed: onRetry,
+              child: Text(retryLabel),
+            )
+          : null,
     );
   }
 }

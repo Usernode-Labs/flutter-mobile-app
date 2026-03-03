@@ -993,7 +993,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                             : 0.0;
 
                                         return _MetricTile(
-                                          leading: const _IconBadge(
+                                          leading: const IconBadge(
                                               icon: Symbols.search_sharp),
                                           title:
                                               l10n.producedBlocksCheckedSlots,
@@ -1083,7 +1083,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                         final produced = score?.produced ?? 0;
                                         final won = score?.won ?? '?';
                                         return _MetricTile(
-                                          leading: const _IconBadge(
+                                          leading: const IconBadge(
                                               icon: Symbols.check_box_sharp),
                                           title: l10n.producedBlocksTitle,
                                           subtitle:
@@ -1182,7 +1182,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                         final missed = score?.missed ?? 0;
                                         final won = score?.won ?? '?';
                                         return _MetricTile(
-                                          leading: const _IconBadge(
+                                          leading: const IconBadge(
                                               icon: Icons
                                                   .disabled_by_default_outlined),
                                           title: l10n
@@ -1260,7 +1260,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                               final upcoming =
                                                   score?.upcoming ?? 0;
                                               return _MetricTile(
-                                                leading: const _IconBadge(
+                                                leading: const IconBadge(
                                                     icon: Icons
                                                         .schedule_outlined),
                                                 title: l10n
@@ -1574,28 +1574,6 @@ class _MetricTile extends StatelessWidget {
             ],
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _IconBadge extends StatelessWidget {
-  const _IconBadge({required this.icon});
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final radii = Theme.of(context).extension<AppRadii>()!;
-    return Container(
-      width: 48,
-      height: 48,
-      decoration: BoxDecoration(
-        color: theme.colorScheme.secondaryContainer,
-        borderRadius: radii.borderRadiusMedium,
-      ),
-      child: Center(
-        child: Icon(icon, color: theme.colorScheme.onSurface),
       ),
     );
   }

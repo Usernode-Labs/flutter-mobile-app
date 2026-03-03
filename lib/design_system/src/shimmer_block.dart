@@ -2,11 +2,77 @@ import 'package:flutter/material.dart';
 
 import '../tokens/app_radii.dart';
 
+/// Provides a single shared [AnimationController] to descendant [ShimmerBlock]
+/// widgets, eliminating redundant controllers when multiple blocks appear in
+/// the same subtree (e.g. a wallet loading screen with 4 [ShimmerListTile]s).
+///
+/// Wrap the shimmer region once:
+/// ```dart
+/// ShimmerHost(
+///   child: Column(children: List.generate(4, (_) => ShimmerListTile())),
+/// )
+/// ```
+class ShimmerHost extends StatefulWidget {
+  const ShimmerHost({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<ShimmerHost> createState() => _ShimmerHostState();
+}
+
+class _ShimmerHostState extends State<ShimmerHost>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _ShimmerScope(
+      controller: _controller,
+      child: widget.child,
+    );
+  }
+}
+
+class _ShimmerScope extends InheritedWidget {
+  const _ShimmerScope({required this.controller, required super.child});
+
+  final AnimationController controller;
+
+  static AnimationController? maybeOf(BuildContext context) {
+    return context
+        .dependOnInheritedWidgetOfExactType<_ShimmerScope>()
+        ?.controller;
+  }
+
+  @override
+  bool updateShouldNotify(_ShimmerScope oldWidget) =>
+      controller != oldWidget.controller;
+}
+
 /// A rounded rectangle with a continuous gradient-sweep animation.
 ///
 /// The core shimmer primitive for content-first loading. Compose multiple
 /// [ShimmerBlock]s to build skeleton placeholders that match real layout
 /// structure, giving users immediate spatial context during data loading.
+///
+/// When placed inside a [ShimmerHost], shares a single animation controller
+/// with all sibling blocks. Otherwise creates its own controller.
 ///
 /// Colors are derived from [ColorScheme] surface container tones:
 /// - **base** = `surfaceContainerHighest`
@@ -39,14 +105,12 @@ class ShimmerBlock extends StatefulWidget {
 
 class _ShimmerBlockState extends State<ShimmerBlock>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
+  AnimationController? _ownController;
 
-  @override
-  void initState() {
-    super.initState();
-    // Longer than AppAnimation tokens — shimmer is ambient, not a state
-    // transition (same rationale as HeartbeatAnimation).
-    _controller = AnimationController(
+  AnimationController _resolveController() {
+    final host = _ShimmerScope.maybeOf(context);
+    if (host != null) return host;
+    return _ownController ??= AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     )..repeat();
@@ -54,7 +118,7 @@ class _ShimmerBlockState extends State<ShimmerBlock>
 
   @override
   void dispose() {
-    _controller.dispose();
+    _ownController?.dispose();
     super.dispose();
   }
 
@@ -81,6 +145,8 @@ class _ShimmerBlockState extends State<ShimmerBlock>
       );
     }
 
+    final controller = _resolveController();
+
     final highlightColor = Color.lerp(
       baseColor,
       colors.surfaceContainerLowest,
@@ -88,7 +154,7 @@ class _ShimmerBlockState extends State<ShimmerBlock>
     )!;
 
     return AnimatedBuilder(
-      animation: _controller,
+      animation: controller,
       builder: (context, child) {
         return SizedBox(
           width: widget.width,
@@ -96,7 +162,7 @@ class _ShimmerBlockState extends State<ShimmerBlock>
           child: ShaderMask(
             blendMode: BlendMode.srcATop,
             shaderCallback: (bounds) {
-              final slide = _controller.value * 2 - 0.5;
+              final slide = controller.value * 2 - 0.5;
               return LinearGradient(
                 begin: Alignment.centerLeft,
                 end: Alignment.centerRight,

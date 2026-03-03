@@ -109,7 +109,7 @@ class NodePeersScreen extends StatelessWidget {
                         Text(
                           'Peer ID: ${Utils.shortenID(peerId!, head: 8, tail: 8)}',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            fontFamily: 'monospace',
+                            fontFamily: kMonoFontFamily,
                             color: colorScheme.onSurfaceVariant,
                           ),
                         ),

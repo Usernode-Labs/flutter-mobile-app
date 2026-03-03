@@ -8,6 +8,7 @@ import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_typography.dart';
 
 class AppDrawer extends ConsumerStatefulWidget {
   const AppDrawer({super.key});
@@ -262,7 +263,7 @@ class _AppDrawerState extends ConsumerState<AppDrawer> {
               ref.watch(nodeStatusProvider).value?.peerId ??
                   l10n.nodeNotAvailable,
               style: const TextStyle(
-                fontFamily: 'monospace',
+                fontFamily: kMonoFontFamily,
                 fontSize: 11,
               ),
             ),

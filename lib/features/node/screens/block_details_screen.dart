@@ -216,29 +216,37 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
                     ),
                   ),
                   SizedBox(height: spacing.space16),
-                  _InfoRow(
+                  InfoRow(
                     label: l10n.blockHash,
                     value: block.hash.toString().length > 24
                         ? '${block.hash.toString().substring(0, 24)}...'
                         : block.hash.toString(),
+                    valueStyle: _valueBold(theme),
+                    showDivider: false,
+                    contentPadding: EdgeInsets.only(bottom: spacing.space12),
                   ),
-                  SizedBox(height: spacing.space12),
-                  _InfoRow(
+                  InfoRow(
                     label: l10n.blockHeight,
                     value: '${block.height}',
+                    valueStyle: _valueBold(theme),
+                    showDivider: false,
+                    contentPadding: EdgeInsets.only(bottom: spacing.space12),
                   ),
-                  SizedBox(height: spacing.space12),
-                  _InfoRow(
+                  InfoRow(
                     label: l10n.blockGlobalSlot,
                     value: '${block.globalSlot}',
+                    valueStyle: _valueBold(theme),
+                    showDivider: false,
+                    contentPadding: EdgeInsets.only(bottom: spacing.space12),
                   ),
-                  SizedBox(height: spacing.space12),
-                  _InfoRow(
+                  InfoRow(
                     label: l10n.blockEpoch,
                     value: '${block.epoch}',
+                    valueStyle: _valueBold(theme),
+                    showDivider: false,
+                    contentPadding: EdgeInsets.only(bottom: spacing.space12),
                   ),
-                  SizedBox(height: spacing.space12),
-                  _InfoRow(
+                  InfoRow(
                     label: l10n.blockProducer,
                     value: (() {
                       String producer;
@@ -251,16 +259,23 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
                           ? '${producer.substring(0, 24)}...'
                           : producer;
                     })(),
+                    valueStyle: _valueBold(theme),
+                    showDivider: false,
+                    contentPadding: EdgeInsets.only(bottom: spacing.space12),
                   ),
-                  SizedBox(height: spacing.space12),
-                  _InfoRow(
+                  InfoRow(
                     label: l10n.blockTransactions,
                     value: '${block.transactions}',
+                    valueStyle: _valueBold(theme),
+                    showDivider: false,
+                    contentPadding: EdgeInsets.only(bottom: spacing.space12),
                   ),
-                  SizedBox(height: spacing.space12),
-                  _InfoRow(
+                  InfoRow(
                     label: l10n.blockBatches,
                     value: '${block.batches.length}',
+                    valueStyle: _valueBold(theme),
+                    showDivider: false,
+                    contentPadding: EdgeInsets.zero,
                   ),
                 ],
               ),
@@ -374,42 +389,7 @@ class _TimelineItem extends StatelessWidget {
   }
 }
 
-class _InfoRow extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _InfoRow({
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
-    final theme = Theme.of(context);
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        SizedBox(width: spacing.space16),
-        Expanded(
-          child: Text(
-            value,
-            textAlign: TextAlign.end,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: theme.colorScheme.onSurface,
-            ),
-          ),
-        ),
-      ],
+TextStyle? _valueBold(ThemeData theme) => theme.textTheme.bodyMedium?.copyWith(
+      fontWeight: FontWeight.w600,
+      color: theme.colorScheme.onSurface,
     );
-  }
-}

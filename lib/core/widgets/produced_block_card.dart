@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_typography.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 
 @Deprecated('Replaced by M3 ListTile composition in screen files.')
@@ -297,7 +298,7 @@ class ProducedBlockCard extends StatelessWidget {
           'Hash: ${_shortenHash(blockHash)}',
           style: theme.textTheme.labelSmall?.copyWith(
             color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-            fontFamily: 'monospace',
+            fontFamily: kMonoFontFamily,
           ),
         ),
 
@@ -308,7 +309,7 @@ class ProducedBlockCard extends StatelessWidget {
             'Producer: ${_shortenHash(producerPubkey, head: 8, tail: 8)}',
             style: theme.textTheme.labelSmall?.copyWith(
               color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-              fontFamily: 'monospace',
+              fontFamily: kMonoFontFamily,
             ),
           ),
         ],

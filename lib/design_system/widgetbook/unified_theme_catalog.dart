@@ -6,6 +6,7 @@ import '../src/challenge_card.dart';
 import '../tokens/app_radii.dart';
 import '../tokens/app_semantic_colors.dart';
 import '../tokens/app_spacing.dart';
+import '../tokens/app_typography.dart';
 
 // =============================================================================
 // Unified Theme Catalog — "Color is Expensive" Design System Encyclopedia
@@ -899,7 +900,7 @@ class _TextRoleChip extends StatelessWidget {
           color: color,
           fontSize: 10,
           fontWeight: FontWeight.w600,
-          fontFamily: 'monospace',
+          fontFamily: kMonoFontFamily,
         ),
       ),
     );
@@ -2746,7 +2747,7 @@ class _SemanticBridgeDemo extends StatelessWidget {
                 'Theme.of(context)\n  .extension<AppSemanticColors>()!\n  .technical.colorContainer',
                 style: textTheme.bodySmall?.copyWith(
                   color: cs.onSurface,
-                  fontFamily: 'monospace',
+                  fontFamily: kMonoFontFamily,
                 ),
               ),
               const SizedBox(height: 8),

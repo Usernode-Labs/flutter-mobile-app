@@ -401,15 +401,15 @@ class _SlotProductionStatsScreenState
     ColorScheme colorScheme,
     AppLocalizations l10n,
   ) {
-    final sizing = theme.extension<AppSizing>()!;
     final statusColor = _getStatusColor(record.status, colorScheme);
     final statusIcon = _getStatusIcon(record.status);
     final statusText = _getStatusText(record.status, l10n);
 
     return ListTile(
-      leading: CircleAvatar(
+      leading: IconBadge(
+        icon: statusIcon,
         backgroundColor: statusColor.withValues(alpha: 0.2),
-        child: Icon(statusIcon, color: statusColor, size: sizing.iconSmall),
+        iconColor: statusColor,
       ),
       title: Text(l10n.statsSlot(record.slotNumber)),
       subtitle: Column(

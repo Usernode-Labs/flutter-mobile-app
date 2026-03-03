@@ -472,18 +472,20 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
   }
 
   Widget _buildShimmerCards(AppSpacing spacing) {
-    return CustomScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      slivers: [
-        SliverPadding(
-          padding: EdgeInsets.all(spacing.space16),
-          sliver: SliverList.separated(
-            itemCount: 3,
-            separatorBuilder: (_, __) => SizedBox(height: spacing.space12),
-            itemBuilder: (_, __) => const ShimmerCardSkeleton(),
+    return ShimmerHost(
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: EdgeInsets.all(spacing.space16),
+            sliver: SliverList.separated(
+              itemCount: 3,
+              separatorBuilder: (_, __) => SizedBox(height: spacing.space12),
+              itemBuilder: (_, __) => const ShimmerCardSkeleton(),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 

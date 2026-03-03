@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -102,7 +101,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
       final hasPermissions = PlatformAlarmService.instance.hasPermissions;
 
-      if (Platform.isAndroid) {
+      if (defaultTargetPlatform == TargetPlatform.android) {
         final batteryOptDisabled =
             await PlatformAlarmService.instance.isBatteryOptimizationDisabled();
         final deviceManufacturer =
@@ -115,7 +114,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             _deviceManufacturer = deviceManufacturer;
           });
         }
-      } else if (Platform.isIOS) {
+      } else if (defaultTargetPlatform == TargetPlatform.iOS) {
         final iosKeepAliveActive =
             IOSForegroundKeepAliveService.instance.isActive;
 
@@ -347,10 +346,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         title: const Text('Restart Required'),
         content: Text(
           'Network switched to ${_networkLabel(network)}. '
-          '${Platform.isIOS ? 'Please manually close and reopen the app to connect to the new network.' : 'The app will now close. Please reopen it to connect to the new network.'}',
+          '${defaultTargetPlatform == TargetPlatform.iOS ? 'Please manually close and reopen the app to connect to the new network.' : 'The app will now close. Please reopen it to connect to the new network.'}',
         ),
         actions: [
-          if (Platform.isIOS)
+          if (defaultTargetPlatform == TargetPlatform.iOS)
             TextButton(
               onPressed: () {
                 Navigator.of(ctx).pop();

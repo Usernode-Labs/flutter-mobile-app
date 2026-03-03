@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
@@ -34,11 +32,11 @@ class QuickSettingsPanel extends StatelessWidget {
 
   bool get _isIOS => platformOverride != null
       ? platformOverride == TargetPlatform.iOS
-      : Platform.isIOS;
+      : defaultTargetPlatform == TargetPlatform.iOS;
 
   bool get _isAndroid => platformOverride != null
       ? platformOverride == TargetPlatform.android
-      : Platform.isAndroid;
+      : defaultTargetPlatform == TargetPlatform.android;
 
   bool get _allPermissionsGranted {
     if (_isIOS) return hasPermissions;

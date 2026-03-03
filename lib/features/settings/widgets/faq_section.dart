@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
@@ -232,7 +230,7 @@ class FaqSection extends StatelessWidget {
     final spacing = theme.extension<AppSpacing>()!;
     final sizing = theme.extension<AppSizing>()!;
     final radii = theme.extension<AppRadii>()!;
-    final isAndroid = Platform.isAndroid;
+    final isAndroid = defaultTargetPlatform == TargetPlatform.android;
 
     return ExpansionTile(
       title: Text(

@@ -406,10 +406,13 @@ class _TransactionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final spacing = theme.extension<AppSpacing>()!;
     final colorScheme = theme.colorScheme;
     final semantic = theme.extension<AppSemanticColors>()!;
     final isPending = transaction.status == TransactionStatus.pending;
+
+    final titleText = isPending
+        ? '${transaction.title} · ${transaction.statusText}'
+        : transaction.title;
 
     return ListTile(
       leading: IconBadge(
@@ -423,19 +426,12 @@ class _TransactionTile extends StatelessWidget {
             ? semantic.warning.onColorContainer
             : colorScheme.onSecondaryContainer,
       ),
-      title: Text(transaction.title),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            _displayDetails(),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          Text(transaction.formattedTimestamp),
-        ],
+      title: Text(titleText),
+      subtitle: Text(
+        _displayDetails(),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
       ),
-      isThreeLine: true,
       trailing: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -444,13 +440,12 @@ class _TransactionTile extends StatelessWidget {
             '${transaction.formattedAmount} ${transaction.tokenSymbol}',
             style: theme.textTheme.bodyMedium,
           ),
-          if (isPending) ...[
-            SizedBox(height: spacing.space4),
-            const StatusBadge(
-              label: 'Pending',
-              variant: StatusBadgeVariant.warning,
+          Text(
+            transaction.timeAgo,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
             ),
-          ],
+          ),
         ],
       ),
     );

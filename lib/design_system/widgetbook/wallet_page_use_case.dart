@@ -14,7 +14,6 @@ import '../src/shimmer_block.dart';
 import '../src/shimmer_list_tile.dart';
 import '../src/nav_indicator_shapes.dart';
 import '../src/parallax_surface_layout.dart';
-import '../src/status_badge.dart';
 import '../tokens/app_radii.dart';
 import '../tokens/app_semantic_colors.dart';
 import '../tokens/app_sizing.dart';
@@ -105,7 +104,7 @@ WidgetbookUseCase _transactionTiles() {
               icon: Symbols.south_west_sharp,
               title: 'Received',
               details: 'From: 0x1a2b3c...f4e5d6',
-              timestamp: '2026-03-01 14:32:45',
+              timeAgo: '2 days ago',
               amount: '+1,000 TOKEN',
               isPending: false,
             ),
@@ -115,7 +114,7 @@ WidgetbookUseCase _transactionTiles() {
               icon: Symbols.north_east_sharp,
               title: 'Sent',
               details: 'To: 0x9f8e7d...a1b2c3',
-              timestamp: '2026-03-01 12:15:30',
+              timeAgo: '2 days ago',
               amount: '-500 TOKEN',
               isPending: false,
             ),
@@ -125,7 +124,7 @@ WidgetbookUseCase _transactionTiles() {
               icon: Symbols.hourglass_empty_sharp,
               title: 'Sent',
               details: 'To: 0x9f8e7d...a1b2c3',
-              timestamp: '2026-03-03 09:00:12',
+              timeAgo: '5 minutes ago',
               amount: '-250 TOKEN',
               isPending: true,
             ),
@@ -135,7 +134,7 @@ WidgetbookUseCase _transactionTiles() {
               icon: Symbols.layers_sharp,
               title: 'Block Reward',
               details: 'Block 1,234,567',
-              timestamp: '2026-03-01 10:05:00',
+              timeAgo: '2 days ago',
               amount: '+50 TOKEN',
               isPending: false,
             ),
@@ -145,7 +144,7 @@ WidgetbookUseCase _transactionTiles() {
               icon: Symbols.diamond_sharp,
               title: 'Genesis Allocation',
               details: '0xgenesis...00000001',
-              timestamp: '2025-01-01 00:00:00',
+              timeAgo: '427 days ago',
               amount: '+10,000 TOKEN',
               isPending: false,
             ),
@@ -155,7 +154,7 @@ WidgetbookUseCase _transactionTiles() {
               icon: Symbols.payment_sharp,
               title: 'Fee',
               details: '0xfee123...abc45678',
-              timestamp: '2026-03-01 12:15:30',
+              timeAgo: '2 days ago',
               amount: '-1 TOKEN',
               isPending: false,
             ),
@@ -459,7 +458,7 @@ class _WalletPageState extends State<_WalletPage> {
         icon: Symbols.hourglass_empty_sharp,
         title: 'Sent',
         details: 'To: 0x9f8e7d...a1b2c3',
-        timestamp: '2026-03-03 09:00:12',
+        timeAgo: '5 minutes ago',
         amount: '-250 TOKEN',
         isPending: true,
       ));
@@ -472,7 +471,7 @@ class _WalletPageState extends State<_WalletPage> {
         icon: Symbols.south_west_sharp,
         title: 'Received',
         details: 'From: 0x1a2b3c...f4e5d6',
-        timestamp: '2026-03-01 14:32:45',
+        timeAgo: '2 days ago',
         amount: '+1,000 TOKEN',
         isPending: false,
       ),
@@ -481,7 +480,7 @@ class _WalletPageState extends State<_WalletPage> {
         icon: Symbols.north_east_sharp,
         title: 'Sent',
         details: 'To: 0xabcdef...123456',
-        timestamp: '2026-02-28 18:20:10',
+        timeAgo: '3 days ago',
         amount: '-500 TOKEN',
         isPending: false,
       ),
@@ -490,7 +489,7 @@ class _WalletPageState extends State<_WalletPage> {
         icon: Symbols.layers_sharp,
         title: 'Block Reward',
         details: 'Block 1,234,567',
-        timestamp: '2026-02-28 10:05:00',
+        timeAgo: '3 days ago',
         amount: '+50 TOKEN',
         isPending: false,
       ),
@@ -499,7 +498,7 @@ class _WalletPageState extends State<_WalletPage> {
         icon: Symbols.south_west_sharp,
         title: 'Received',
         details: 'From: 0x5d6e7f...8a9b0c',
-        timestamp: '2026-02-27 22:14:33',
+        timeAgo: '4 days ago',
         amount: '+2,500 TOKEN',
         isPending: false,
       ),
@@ -520,14 +519,15 @@ Widget _buildMockTile(
   required IconData icon,
   required String title,
   required String details,
-  required String timestamp,
+  required String timeAgo,
   required String amount,
   required bool isPending,
 }) {
   final theme = Theme.of(context);
-  final spacing = Theme.of(context).extension<AppSpacing>()!;
   final colorScheme = theme.colorScheme;
   final semantic = Theme.of(context).extension<AppSemanticColors>()!;
+
+  final titleText = isPending ? '$title · Pending' : title;
 
   return ListTile(
     leading: IconBadge(
@@ -539,31 +539,23 @@ Widget _buildMockTile(
           ? semantic.warning.onColorContainer
           : colorScheme.onSecondaryContainer,
     ),
-    title: Text(title),
-    subtitle: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          details,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        Text(timestamp),
-      ],
+    title: Text(titleText),
+    subtitle: Text(
+      details,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
     ),
-    isThreeLine: true,
     trailing: Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Text(amount, style: theme.textTheme.bodyMedium),
-        if (isPending) ...[
-          SizedBox(height: spacing.space4),
-          const StatusBadge(
-            label: 'Pending',
-            variant: StatusBadgeVariant.warning,
+        Text(
+          timeAgo,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
           ),
-        ],
+        ),
       ],
     ),
   );

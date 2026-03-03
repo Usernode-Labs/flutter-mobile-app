@@ -9,6 +9,10 @@ const kSurfaceCornerRadius = 28.0;
 /// Default header height for the parallax spacer.
 const kDefaultHeaderHeight = 200.0;
 
+/// Standard screen header height — shared across screens that use the
+/// parallax-header-plus-pinned-bar pattern (wallet, challenges, etc.).
+const kScreenHeaderHeight = 344.0;
+
 /// A layout that places a fixed [header] behind a scrolling surface container.
 ///
 /// As the user scrolls, the header translates upward at [kParallaxRatio] of the
@@ -61,11 +65,12 @@ class ParallaxSurfaceLayout extends StatefulWidget {
   /// to it. When null, an internal notifier is used.
   final ValueNotifier<double>? scrollFractionNotifier;
 
-  /// When true, the surface background is stretched to viewport height (so
-  /// there is scroll distance even when the body is small) and the [surfaceBody]
-  /// is constrained to the initially-visible portion of the surface so that
-  /// centering widgets like [Center] appear in the visible area, not in the
-  /// middle of the full viewport-tall container.
+  /// When true the [surfaceBody] is constrained to the initially-visible
+  /// portion of the surface so that centering widgets like [Center] appear in
+  /// the visible area, not in the middle of the full viewport-tall container.
+  ///
+  /// The surface background always stretches to at least viewport height
+  /// regardless of this flag — this flag only controls the body constraint.
   final bool surfaceFillsViewport;
 
   @override
@@ -179,31 +184,25 @@ class _ParallaxSurfaceLayoutState extends State<ParallaxSurfaceLayout> {
   }
 
   Widget _buildSurfaceSliver(ThemeData theme) {
-    if (!widget.surfaceFillsViewport) {
-      return SliverToBoxAdapter(
-        child: _buildDecoratedSurface(theme, widget.surfaceBody),
-      );
-    }
     return SliverLayoutBuilder(
       builder: (context, constraints) {
         final viewportHeight = constraints.viewportMainAxisExtent;
-        final visibleSurfaceHeight =
-            viewportHeight - widget.headerHeight - widget.pinnedHeaderHeight;
+        final body = widget.surfaceFillsViewport
+            ? Align(
+                alignment: Alignment.topCenter,
+                child: SizedBox(
+                  height: viewportHeight -
+                      widget.headerHeight -
+                      widget.pinnedHeaderHeight,
+                  child: widget.surfaceBody,
+                ),
+              )
+            : widget.surfaceBody;
+
         return SliverToBoxAdapter(
           child: ConstrainedBox(
             constraints: BoxConstraints(minHeight: viewportHeight),
-            child: _buildDecoratedSurface(
-              theme,
-              // Align loosens the ConstrainedBox's minHeight so SizedBox
-              // can shrink to visibleSurfaceHeight for correct centering.
-              Align(
-                alignment: Alignment.topCenter,
-                child: SizedBox(
-                  height: visibleSurfaceHeight,
-                  child: widget.surfaceBody,
-                ),
-              ),
-            ),
+            child: _buildDecoratedSurface(theme, body),
           ),
         );
       },

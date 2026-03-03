@@ -393,7 +393,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final theme = Theme.of(context);
+    final spacing = theme.extension<AppSpacing>()!;
     final l10n = AppLocalizations.of(context);
 
     final themeMode = ref.watch(themeModeProvider);

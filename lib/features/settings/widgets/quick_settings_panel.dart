@@ -91,25 +91,22 @@ class QuickSettingsPanel extends StatelessWidget {
   ) {
     final theme = Theme.of(context);
     final spacing = theme.extension<AppSpacing>()!;
-    final sizing = theme.extension<AppSizing>()!;
 
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          allGood ? Symbols.check_circle_sharp : Symbols.warning_sharp,
-          size: sizing.iconSmall,
-          color: group.onColorSurface,
+        Text(
+          'Permissions',
+          style: theme.textTheme.labelLarge?.copyWith(
+            color: group.onColorSurface,
+          ),
         ),
-        SizedBox(width: spacing.space8),
-        Expanded(
-          child: Text(
-            allGood
-                ? 'All permissions configured'
-                : 'Action needed for reliable block production',
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: group.onColorSurface,
-              fontWeight: FontWeight.w600,
-            ),
+        SizedBox(height: spacing.space8),
+        Text(
+          allGood ? 'All Good' : 'Action Needed',
+          style: theme.textTheme.titleLarge?.copyWith(
+            color: group.onColorSurface,
+            fontWeight: FontWeight.bold,
           ),
         ),
       ],

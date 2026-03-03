@@ -55,11 +55,6 @@ class AddressBarDelegate extends SliverPersistentHeaderDelegate {
           colors.surfaceContainerLowest,
           scrollFraction,
         )!;
-        final borderColor = Color.lerp(
-          colors.outlineVariant.withValues(alpha: 0),
-          colors.outlineVariant,
-          scrollFraction,
-        )!;
 
         return ColoredBox(
           color: bgColor,
@@ -73,7 +68,6 @@ class AddressBarDelegate extends SliverPersistentHeaderDelegate {
             child: _AddressBarContent(
               address: address,
               onCopy: onCopy,
-              borderColor: borderColor,
             ),
           ),
         );
@@ -94,12 +88,10 @@ class _AddressBarContent extends StatelessWidget {
   const _AddressBarContent({
     required this.address,
     required this.onCopy,
-    required this.borderColor,
   });
 
   final String address;
   final VoidCallback onCopy;
-  final Color borderColor;
 
   String get _displayAddress => address.length > 16
       ? '${address.substring(0, 8)}...${address.substring(address.length - 8)}'
@@ -117,7 +109,7 @@ class _AddressBarContent extends StatelessWidget {
       child: Container(
         height: kAddressBarHeight,
         decoration: BoxDecoration(
-          border: Border.all(color: borderColor),
+          color: Theme.of(context).colorScheme.surfaceContainerHigh,
           borderRadius: radii.borderRadiusSmall,
         ),
         padding: EdgeInsets.only(
@@ -126,6 +118,13 @@ class _AddressBarContent extends StatelessWidget {
         ),
         child: Row(
           children: [
+            Text(
+              'My address',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            SizedBox(width: spacing.space8),
             Expanded(
               child: Text(
                 _displayAddress,

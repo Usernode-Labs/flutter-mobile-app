@@ -138,7 +138,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
               padding: EdgeInsets.only(
                 left: spacing.space16,
                 right: spacing.space16,
-                bottom: spacing.space16,
+                bottom: spacing.space8,
               ),
               sliver: SliverToBoxAdapter(
                 child: _buildStatsCard(context, ranking, eventPoints),
@@ -151,7 +151,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                 padding: EdgeInsets.only(
                   left: spacing.space16,
                   right: spacing.space16,
-                  bottom: spacing.space16,
+                  bottom: spacing.space8,
                 ),
                 sliver: SliverToBoxAdapter(
                   child: _buildCategoryTiles(

@@ -1,0 +1,70 @@
+widget: IconBadge
+source: lib/design_system/src/icon_badge.dart
+figma_ref: "3621:15254"
+
+description: >
+  A square container with rounded corners and a centered icon.
+  Defaults to the 3-layer model (outer transparent container → inset colored surface → icon).
+  Pass surfaceSize equal to container size for a flush 2-layer look.
+
+icon_model:
+  two_layer:
+    description: "Colored surface fills the full container size"
+    layers:
+      - name: container
+        size: iconContainerRegular  # 48px
+        color: secondaryContainer
+        radius: borderRadiusMedium
+      - name: icon
+        size: iconRegular  # 24px
+        color: onSecondaryContainer
+
+  three_layer:
+    description: "Outer transparent container with inset colored surface — matches Figma 3621:15254"
+    precedent: "TopAppBar.spec.yaml:37-39 (icon_button touch_target/visible_size/icon_size)"
+    layers:
+      - name: container
+        role: layout allocation / touch target
+        size: iconContainerRegular  # 48px
+        color: transparent
+      - name: surface
+        role: visible colored background
+        size: iconContainerSmall  # 40px
+        color: secondaryContainer
+        radius: borderRadiusMedium
+      - name: icon
+        size: iconRegular  # 24px
+        color: onSecondaryContainer
+
+params:
+  - name: icon
+    type: IconData
+    required: true
+  - name: size
+    type: double?
+    default: "AppSizing.iconContainerRegular (48px)"
+    description: "Outer container size"
+  - name: surfaceSize
+    type: double?
+    default: "AppSizing.iconContainerSmall (40px) — 3-layer mode"
+    description: "Colored surface size; pass iconContainerRegular for flush 2-layer look"
+  - name: backgroundColor
+    type: Color?
+    default: "colorScheme.secondaryContainer"
+  - name: iconColor
+    type: Color?
+    default: "colorScheme.onSecondaryContainer"
+  - name: borderRadius
+    type: BorderRadius?
+    default: "AppRadii.borderRadiusMedium"
+
+tokens_used:
+  sizing:
+    - iconContainerRegular  # 48px — outer container
+    - iconContainerSmall    # 40px — inset surface
+    - iconRegular           # 24px — glyph
+  radii:
+    - borderRadiusMedium
+  colors:
+    - secondaryContainer
+    - onSecondaryContainer

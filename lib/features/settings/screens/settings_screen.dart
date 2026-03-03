@@ -438,31 +438,43 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 localizations: FaqLocalizations(
                   whatIsTitle: l10n.bgProdWhatIs,
                   whatIsDescription: l10n.bgProdDescription,
-                  step1Title: l10n.bgProdVrfSelection,
-                  step1Desc: l10n.bgProdVrfSelectionDesc,
-                  step2Title: l10n.bgProdSlotScheduling,
-                  step2Desc: l10n.bgProdSlotSchedulingDesc,
-                  step3Title: l10n.bgProdBlockProduction,
-                  step3Desc: l10n.bgProdBlockProductionDesc,
-                  step4Title: l10n.bgProdSuccessTracking,
-                  step4Desc: l10n.bgProdSuccessTrackingDesc,
-                  platformAndroidTitle: l10n.bgProdAndroidTitle,
-                  platformIosTitle: l10n.bgProdIosTitle,
+                  steps: [
+                    FaqStep(
+                        title: l10n.bgProdVrfSelection,
+                        description: l10n.bgProdVrfSelectionDesc),
+                    FaqStep(
+                        title: l10n.bgProdSlotScheduling,
+                        description: l10n.bgProdSlotSchedulingDesc),
+                    FaqStep(
+                        title: l10n.bgProdBlockProduction,
+                        description: l10n.bgProdBlockProductionDesc),
+                    FaqStep(
+                        title: l10n.bgProdSuccessTracking,
+                        description: l10n.bgProdSuccessTrackingDesc),
+                  ],
                   platformAndroidDesc: l10n.bgProdAndroidDesc,
                   platformIosDesc: l10n.bgProdIosDesc,
                   reliabilityByMode: l10n.bgProdReliabilityByMode,
-                  defaultMode: l10n.bgProdDefaultMode,
-                  defaultReliability: l10n.bgProdDefaultReliability,
-                  defaultDesc: l10n.bgProdDefaultDesc,
-                  keepAliveMode: l10n.bgProdKeepAliveMode,
-                  keepAliveReliability: l10n.bgProdKeepAliveReliability,
-                  keepAliveDesc: l10n.bgProdKeepAliveDesc,
-                  iosKeepAliveReliability: l10n.bgProdIosKeepAliveReliability,
-                  iosKeepAliveDesc: l10n.bgProdIosKeepAliveDesc,
-                  backgroundOnly: l10n.bgProdBackgroundOnly,
-                  backgroundOnlyReliability:
-                      l10n.bgProdBackgroundOnlyReliability,
-                  backgroundOnlyDesc: l10n.bgProdBackgroundOnlyDesc,
+                  androidModes: [
+                    ReliabilityMode(
+                        mode: l10n.bgProdDefaultMode,
+                        reliability: l10n.bgProdDefaultReliability,
+                        description: l10n.bgProdDefaultDesc),
+                    ReliabilityMode(
+                        mode: l10n.bgProdKeepAliveMode,
+                        reliability: l10n.bgProdKeepAliveReliability,
+                        description: l10n.bgProdKeepAliveDesc),
+                  ],
+                  iosModes: [
+                    ReliabilityMode(
+                        mode: l10n.bgProdKeepAliveMode,
+                        reliability: l10n.bgProdIosKeepAliveReliability,
+                        description: l10n.bgProdIosKeepAliveDesc),
+                    ReliabilityMode(
+                        mode: l10n.bgProdBackgroundOnly,
+                        reliability: l10n.bgProdBackgroundOnlyReliability,
+                        description: l10n.bgProdBackgroundOnlyDesc),
+                  ],
                 ),
               ),
 

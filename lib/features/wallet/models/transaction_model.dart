@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/services/explorer_service.dart';
+import 'package:crypto_mobile_app/core/utils/utils.dart';
 
 enum TransactionType {
   receive,
@@ -93,10 +94,7 @@ class TransactionModel {
   String get fullSubtitle => shortHash;
 
   /// Get shortened transaction hash for display
-  String get shortHash {
-    if (id.length <= 16) return id;
-    return '${id.substring(0, 8)}...${id.substring(id.length - 8)}';
-  }
+  String get shortHash => Utils.shortenID(id, head: 8, tail: 8);
 
   /// Create TransactionModel from ExplorerTransaction
   factory TransactionModel.fromExplorerTransaction(
@@ -197,10 +195,8 @@ class TransactionModel {
     );
   }
 
-  static String _shortenAddress(String address) {
-    if (address.length <= 16) return address;
-    return '${address.substring(0, 8)}...${address.substring(address.length - 8)}';
-  }
+  static String _shortenAddress(String address) =>
+      Utils.shortenID(address, head: 8, tail: 8);
 
   static TransactionStatus _parseTransactionStatus(String status) {
     switch (status.toLowerCase()) {

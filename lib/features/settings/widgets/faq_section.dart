@@ -3,63 +3,48 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 
+/// A numbered step in the "How it works" FAQ tile.
+class FaqStep {
+  const FaqStep({required this.title, required this.description});
+
+  final String title;
+  final String description;
+}
+
+/// A reliability mode row in the platform FAQ tile.
+class ReliabilityMode {
+  const ReliabilityMode({
+    required this.mode,
+    required this.reliability,
+    required this.description,
+  });
+
+  final String mode;
+  final String reliability;
+  final String description;
+}
+
 /// Localization strings needed by the FAQ section.
 class FaqLocalizations {
   const FaqLocalizations({
     required this.whatIsTitle,
     required this.whatIsDescription,
-    required this.step1Title,
-    required this.step1Desc,
-    required this.step2Title,
-    required this.step2Desc,
-    required this.step3Title,
-    required this.step3Desc,
-    required this.step4Title,
-    required this.step4Desc,
-    required this.platformAndroidTitle,
-    required this.platformIosTitle,
+    required this.steps,
     required this.platformAndroidDesc,
     required this.platformIosDesc,
     required this.reliabilityByMode,
-    required this.defaultMode,
-    required this.defaultReliability,
-    required this.defaultDesc,
-    required this.keepAliveMode,
-    required this.keepAliveReliability,
-    required this.keepAliveDesc,
-    required this.iosKeepAliveReliability,
-    required this.iosKeepAliveDesc,
-    required this.backgroundOnly,
-    required this.backgroundOnlyReliability,
-    required this.backgroundOnlyDesc,
+    required this.androidModes,
+    required this.iosModes,
   });
 
   final String whatIsTitle;
   final String whatIsDescription;
-  final String step1Title;
-  final String step1Desc;
-  final String step2Title;
-  final String step2Desc;
-  final String step3Title;
-  final String step3Desc;
-  final String step4Title;
-  final String step4Desc;
-  final String platformAndroidTitle;
-  final String platformIosTitle;
+  final List<FaqStep> steps;
   final String platformAndroidDesc;
   final String platformIosDesc;
   final String reliabilityByMode;
-  final String defaultMode;
-  final String defaultReliability;
-  final String defaultDesc;
-  final String keepAliveMode;
-  final String keepAliveReliability;
-  final String keepAliveDesc;
-  final String iosKeepAliveReliability;
-  final String iosKeepAliveDesc;
-  final String backgroundOnly;
-  final String backgroundOnlyReliability;
-  final String backgroundOnlyDesc;
+  final List<ReliabilityMode> androidModes;
+  final List<ReliabilityMode> iosModes;
 }
 
 /// Tier 3: Help & Info FAQ section with 4 ExpansionTiles.
@@ -68,10 +53,12 @@ class FaqSection extends StatelessWidget {
     super.key,
     required this.localizations,
     this.deviceManufacturer,
+    this.platformOverride,
   });
 
   final FaqLocalizations localizations;
   final String? deviceManufacturer;
+  final TargetPlatform? platformOverride;
 
   static const _aboutText =
       'Your device is part of a new network. It verifies, executes, and '
@@ -97,20 +84,10 @@ class FaqSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final spacing = theme.extension<AppSpacing>()!;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Help & Info',
-          style: theme.textTheme.labelLarge?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
-        ),
-        SizedBox(height: spacing.space8),
+        const ListSectionHeader(title: 'Help & Info'),
         Card(
           clipBehavior: Clip.antiAlias,
           child: Column(
@@ -129,7 +106,6 @@ class FaqSection extends StatelessWidget {
   Widget _buildAboutTile(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final spacing = theme.extension<AppSpacing>()!;
 
     return ExpansionTile(
       shape: const Border(),
@@ -137,12 +113,6 @@ class FaqSection extends StatelessWidget {
       leading: const Icon(Symbols.info_sharp),
       title: const Text('About'),
       expandedCrossAxisAlignment: CrossAxisAlignment.start,
-      childrenPadding: EdgeInsets.fromLTRB(
-        spacing.space16,
-        0,
-        spacing.space16,
-        spacing.space16,
-      ),
       children: [
         Text(
           _aboutText,
@@ -166,12 +136,6 @@ class FaqSection extends StatelessWidget {
       leading: const Icon(Symbols.lightbulb_sharp),
       title: Text(localizations.whatIsTitle),
       expandedCrossAxisAlignment: CrossAxisAlignment.start,
-      childrenPadding: EdgeInsets.fromLTRB(
-        spacing.space16,
-        0,
-        spacing.space16,
-        spacing.space16,
-      ),
       children: [
         Text(
           localizations.whatIsDescription,
@@ -181,25 +145,14 @@ class FaqSection extends StatelessWidget {
           ),
         ),
         SizedBox(height: spacing.space16),
-        _NumberedStep(
-            number: '1',
-            title: localizations.step1Title,
-            description: localizations.step1Desc),
-        SizedBox(height: spacing.space12),
-        _NumberedStep(
-            number: '2',
-            title: localizations.step2Title,
-            description: localizations.step2Desc),
-        SizedBox(height: spacing.space12),
-        _NumberedStep(
-            number: '3',
-            title: localizations.step3Title,
-            description: localizations.step3Desc),
-        SizedBox(height: spacing.space12),
-        _NumberedStep(
-            number: '4',
-            title: localizations.step4Title,
-            description: localizations.step4Desc),
+        for (var i = 0; i < localizations.steps.length; i++) ...[
+          if (i > 0) SizedBox(height: spacing.space12),
+          _NumberedStep(
+            number: '${i + 1}',
+            title: localizations.steps[i].title,
+            description: localizations.steps[i].description,
+          ),
+        ],
       ],
     );
   }
@@ -211,7 +164,10 @@ class FaqSection extends StatelessWidget {
     final spacing = theme.extension<AppSpacing>()!;
     final sizing = theme.extension<AppSizing>()!;
     final radii = theme.extension<AppRadii>()!;
-    final isAndroid = defaultTargetPlatform == TargetPlatform.android;
+    final isAndroid =
+        (platformOverride ?? defaultTargetPlatform) == TargetPlatform.android;
+    final modes =
+        isAndroid ? localizations.androidModes : localizations.iosModes;
 
     return ExpansionTile(
       shape: const Border(),
@@ -219,12 +175,6 @@ class FaqSection extends StatelessWidget {
       leading: const Icon(Symbols.smartphone_sharp),
       title: const Text('Platform & Reliability'),
       expandedCrossAxisAlignment: CrossAxisAlignment.start,
-      childrenPadding: EdgeInsets.fromLTRB(
-        spacing.space16,
-        0,
-        spacing.space16,
-        spacing.space16,
-      ),
       children: [
         Text(
           isAndroid
@@ -252,33 +202,17 @@ class FaqSection extends StatelessWidget {
                 ),
               ),
               SizedBox(height: spacing.space12),
-              if (isAndroid) ...[
+              for (var i = 0; i < modes.length; i++) ...[
+                if (i > 0) SizedBox(height: spacing.space8),
                 _ReliabilityRow(
-                  mode: localizations.defaultMode,
-                  percentage: localizations.defaultReliability,
-                  description: localizations.defaultDesc,
-                  color: semantic.success.color,
-                ),
-                SizedBox(height: spacing.space8),
-                _ReliabilityRow(
-                  mode: localizations.keepAliveMode,
-                  percentage: localizations.keepAliveReliability,
-                  description: localizations.keepAliveDesc,
-                  color: semantic.technical.color,
-                ),
-              ] else ...[
-                _ReliabilityRow(
-                  mode: localizations.keepAliveMode,
-                  percentage: localizations.iosKeepAliveReliability,
-                  description: localizations.iosKeepAliveDesc,
-                  color: semantic.success.color,
-                ),
-                SizedBox(height: spacing.space8),
-                _ReliabilityRow(
-                  mode: localizations.backgroundOnly,
-                  percentage: localizations.backgroundOnlyReliability,
-                  description: localizations.backgroundOnlyDesc,
-                  color: semantic.warning.color,
+                  mode: modes[i].mode,
+                  percentage: modes[i].reliability,
+                  description: modes[i].description,
+                  color: i == 0
+                      ? semantic.success.color
+                      : (isAndroid
+                          ? semantic.technical.color
+                          : semantic.warning.color),
                 ),
               ],
             ],
@@ -321,12 +255,6 @@ class FaqSection extends StatelessWidget {
       leading: const Icon(Symbols.casino_sharp),
       title: const Text('Understanding VRF & Slots'),
       expandedCrossAxisAlignment: CrossAxisAlignment.start,
-      childrenPadding: EdgeInsets.fromLTRB(
-        spacing.space16,
-        0,
-        spacing.space16,
-        spacing.space16,
-      ),
       children: [
         Text(
           'What is VRF?',

@@ -232,44 +232,18 @@ class _SendScreenState extends ConsumerState<SendScreen> {
     Widget? suffixIcon,
     String? Function(String?)? validator,
   }) {
-    final spacing = theme.extension<AppSpacing>()!;
-    final radii = theme.extension<AppRadii>()!;
-    return ClipRRect(
-      borderRadius: BorderRadius.only(
-        topLeft: Radius.circular(radii.small),
-        topRight: Radius.circular(radii.small),
+    return TextFormField(
+      controller: controller,
+      validator: validator,
+      maxLines: maxLines,
+      keyboardType: isNumeric
+          ? const TextInputType.numberWithOptions(decimal: true)
+          : null,
+      decoration: InputDecoration(
+        hintText: hint,
+        suffixIcon: suffixIcon,
       ),
-      child: Container(
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest,
-          border: Border(
-            bottom: BorderSide(
-              color: theme.colorScheme.outline,
-              width: 1,
-            ),
-          ),
-        ),
-        child: TextFormField(
-          controller: controller,
-          validator: validator,
-          maxLines: maxLines,
-          keyboardType: isNumeric
-              ? const TextInputType.numberWithOptions(decimal: true)
-              : null,
-          decoration: InputDecoration(
-            border: InputBorder.none,
-            enabledBorder: InputBorder.none,
-            focusedBorder: InputBorder.none,
-            errorBorder: InputBorder.none,
-            focusedErrorBorder: InputBorder.none,
-            filled: false,
-            contentPadding: EdgeInsets.all(spacing.space16),
-            hintText: hint,
-            suffixIcon: suffixIcon,
-          ),
-          style: theme.textTheme.bodyLarge,
-        ),
-      ),
+      style: theme.textTheme.bodyLarge,
     );
   }
 

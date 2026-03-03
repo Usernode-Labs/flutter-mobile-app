@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import 'package:crypto_mobile_app/core/utils/utils.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_sizing.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
@@ -93,9 +94,7 @@ class _AddressBarContent extends StatelessWidget {
   final String address;
   final VoidCallback onCopy;
 
-  String get _displayAddress => address.length > 16
-      ? '${address.substring(0, 8)}...${address.substring(address.length - 8)}'
-      : address;
+  String get _displayAddress => Utils.shortenID(address, head: 8, tail: 8);
 
   @override
   Widget build(BuildContext context) {

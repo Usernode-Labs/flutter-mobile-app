@@ -337,36 +337,49 @@ class _SettingsPageState extends State<_SettingsPage> {
                 whatIsTitle: 'How Block Production Works',
                 whatIsDescription:
                     'Your device participates in a decentralized block production process.',
-                step1Title: 'VRF Selection',
-                step1Desc:
-                    'At each epoch start, the network uses VRF to fairly select block producers.',
-                step2Title: 'Slot Scheduling',
-                step2Desc:
-                    'Your device schedules alarms for each assigned slot.',
-                step3Title: 'Block Production',
-                step3Desc:
-                    'When the alarm fires, your device wakes up and produces the block.',
-                step4Title: 'Success Tracking',
-                step4Desc:
-                    'The network records whether each block was produced successfully.',
-                platformAndroidTitle: 'Android Reliability',
-                platformIosTitle: 'iOS Reliability',
+                steps: [
+                  FaqStep(
+                      title: 'VRF Selection',
+                      description:
+                          'At each epoch start, the network uses VRF to fairly select block producers.'),
+                  FaqStep(
+                      title: 'Slot Scheduling',
+                      description:
+                          'Your device schedules alarms for each assigned slot.'),
+                  FaqStep(
+                      title: 'Block Production',
+                      description:
+                          'When the alarm fires, your device wakes up and produces the block.'),
+                  FaqStep(
+                      title: 'Success Tracking',
+                      description:
+                          'The network records whether each block was produced successfully.'),
+                ],
                 platformAndroidDesc:
                     'Android uses exact alarms that fire even in Doze mode.',
                 platformIosDesc:
                     'iOS requires the app to remain in the foreground for reliable timing.',
                 reliabilityByMode: 'Reliability by mode',
-                defaultMode: 'Default (Exact Alarms)',
-                defaultReliability: '~95%',
-                defaultDesc: 'Uses Android exact alarm API',
-                keepAliveMode: 'Keep-Alive Mode',
-                keepAliveReliability: '~98%',
-                keepAliveDesc: 'Foreground service with wake lock',
-                iosKeepAliveReliability: '~99%',
-                iosKeepAliveDesc: 'Screen stays on at minimum brightness',
-                backgroundOnly: 'Background Only',
-                backgroundOnlyReliability: '~60%',
-                backgroundOnlyDesc: 'iOS may suspend the app at any time',
+                androidModes: [
+                  ReliabilityMode(
+                      mode: 'Default (Exact Alarms)',
+                      reliability: '~95%',
+                      description: 'Uses Android exact alarm API'),
+                  ReliabilityMode(
+                      mode: 'Keep-Alive Mode',
+                      reliability: '~98%',
+                      description: 'Foreground service with wake lock'),
+                ],
+                iosModes: [
+                  ReliabilityMode(
+                      mode: 'Keep-Alive Mode',
+                      reliability: '~99%',
+                      description: 'Screen stays on at minimum brightness'),
+                  ReliabilityMode(
+                      mode: 'Background Only',
+                      reliability: '~60%',
+                      description: 'iOS may suspend the app at any time'),
+                ],
               ),
             ),
 

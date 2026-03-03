@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
+import 'package:crypto_mobile_app/core/utils/utils.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/core/providers/node_data_providers.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
@@ -219,7 +220,7 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
   ) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
     final sizing = Theme.of(context).extension<AppSizing>()!;
-    final txHash = _formatTxHash(tx.id.toString());
+    final txHash = Utils.shortenID(tx.id.toString(), head: 8, tail: 8);
     final fee = tx.fee.toString();
 
     // Optional: Add priority indicator emoji based on fee amount
@@ -320,11 +321,6 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
         );
       },
     );
-  }
-
-  String _formatTxHash(String hash) {
-    if (hash.length <= 16) return hash;
-    return '${hash.substring(0, 8)}...${hash.substring(hash.length - 8)}';
   }
 
   String _formatBytes(BigInt bytes) {

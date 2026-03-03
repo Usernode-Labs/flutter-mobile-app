@@ -29,15 +29,12 @@ final _log = LoggingService.instance.withTag('usernode/WalletScreen');
 
 class _WalletScreenState extends ConsumerState<WalletScreen> {
   Timer? _refreshTimer;
-  late AsyncValue _walletState;
-  late AsyncValue _nodeStatus;
   final _scrollFraction = ValueNotifier<double>(0.0);
   String _address = 'Loading...';
 
   @override
   void initState() {
     super.initState();
-    _loadInitialData();
     _startAutoRefresh();
 
     // Resolve address when accounts provider loads or changes.
@@ -50,11 +47,6 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
         _onRefresh();
       }
     });
-  }
-
-  void _loadInitialData() {
-    _walletState = ref.read(walletProvider);
-    _nodeStatus = ref.read(nodeStatusProvider);
   }
 
   Future<void> _resolveAddress() async {
@@ -84,14 +76,6 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
           ref.read(walletProvider.notifier).silentRefresh(),
           ref.read(nodeStatusProvider.notifier).silentRefresh(),
         ]);
-
-        // Update local state with fresh data
-        if (mounted) {
-          setState(() {
-            _walletState = ref.read(walletProvider);
-            _nodeStatus = ref.read(nodeStatusProvider);
-          });
-        }
       }
     });
   }
@@ -102,14 +86,6 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       ref.read(nodeStatusProvider.notifier).silentRefresh(),
     ]);
 
-    if (!mounted) return;
-
-    // Update local state with fresh data
-    setState(() {
-      _walletState = ref.read(walletProvider);
-      _nodeStatus = ref.read(nodeStatusProvider);
-    });
-
     _startAutoRefresh();
   }
 
@@ -118,8 +94,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     final theme = Theme.of(context);
     final spacing = theme.extension<AppSpacing>()!;
     final l10n = AppLocalizations.of(context);
-    final walletState = _walletState;
-    final nodeStatus = _nodeStatus;
+    final walletState = ref.watch(walletProvider);
+    final nodeStatus = ref.watch(nodeStatusProvider);
 
     final isEmpty = walletState.valueOrNull?.recent.isEmpty ?? false;
 

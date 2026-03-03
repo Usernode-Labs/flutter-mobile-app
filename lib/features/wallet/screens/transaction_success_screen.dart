@@ -1,3 +1,4 @@
+import 'package:crypto_mobile_app/core/utils/utils.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -16,9 +17,7 @@ class TransactionSuccessScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final displayAddress = recipientAddress.length > 16
-        ? '${recipientAddress.substring(0, 8)}..${recipientAddress.substring(recipientAddress.length - 8)}'
-        : recipientAddress;
+    final displayAddress = Utils.shortenID(recipientAddress, head: 8, tail: 8);
 
     return Scaffold(
       body: ResultPage(

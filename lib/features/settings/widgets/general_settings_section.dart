@@ -27,19 +27,12 @@ class GeneralSettingsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final spacing = theme.extension<AppSpacing>()!;
     final radii = theme.extension<AppRadii>()!;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'General',
-          style: theme.textTheme.labelLarge?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
-        ),
-        SizedBox(height: spacing.space8),
+        const ListSectionHeader(title: 'General'),
         Card(
           child: Column(
             children: [

@@ -425,12 +425,64 @@ class ColorIsExpensiveTheme {
           ),
         ),
 
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: colorScheme.surfaceContainerHighest,
+          border: UnderlineInputBorder(
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(_radii.small),
+              topRight: Radius.circular(_radii.small),
+            ),
+            borderSide: BorderSide(color: colorScheme.outline),
+          ),
+          enabledBorder: UnderlineInputBorder(
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(_radii.small),
+              topRight: Radius.circular(_radii.small),
+            ),
+            borderSide: BorderSide(color: colorScheme.outline),
+          ),
+          focusedBorder: UnderlineInputBorder(
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(_radii.small),
+              topRight: Radius.circular(_radii.small),
+            ),
+            borderSide: BorderSide(
+              color: colorScheme.primary,
+              width: 2,
+            ),
+          ),
+          errorBorder: UnderlineInputBorder(
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(_radii.small),
+              topRight: Radius.circular(_radii.small),
+            ),
+            borderSide: BorderSide(color: colorScheme.error),
+          ),
+          focusedErrorBorder: UnderlineInputBorder(
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(_radii.small),
+              topRight: Radius.circular(_radii.small),
+            ),
+            borderSide: BorderSide(
+              color: colorScheme.error,
+              width: 2,
+            ),
+          ),
+          contentPadding: EdgeInsets.all(_spacing.space16),
+        ),
+
         expansionTileTheme: ExpansionTileThemeData(
           tilePadding: EdgeInsets.symmetric(
             horizontal: _spacing.space16,
             vertical: _spacing.space12,
           ),
-          childrenPadding: EdgeInsets.zero,
+          childrenPadding: EdgeInsets.fromLTRB(
+            _spacing.space16,
+            0,
+            _spacing.space16,
+            _spacing.space16,
+          ),
           shape: const RoundedRectangleBorder(),
           collapsedShape: const RoundedRectangleBorder(),
           backgroundColor: Colors.transparent,

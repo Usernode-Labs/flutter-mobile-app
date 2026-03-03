@@ -21,8 +21,6 @@ echo "cargokit build_pod TMPDIR=$TMPDIR" >&2
 CARGO_HOME_PATH=${CARGO_HOME:-$HOME/.cargo}
 REGISTRY_SRC="$CARGO_HOME_PATH/registry/src"
 
-env
-
 # Ensure libclang is discoverable for bindgen; prefer existing value if valid
 if [ -z "${LIBCLANG_PATH:-}" ] || [ ! -f "${LIBCLANG_PATH}/libclang.dylib" ]; then
   DEV_DIR="${DEVELOPER_DIR:-$(xcode-select -p 2>/dev/null || true)}"

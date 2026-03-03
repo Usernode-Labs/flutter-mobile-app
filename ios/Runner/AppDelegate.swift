@@ -8,6 +8,7 @@ import UserNotifications
   private let alarmChannelName = "com.usernode.app/alarm"
   private var alarmChannel: FlutterMethodChannel?
   private let bgTaskScheduler = BGTaskSchedulerManager()
+  private var transientBackgroundTask: UIBackgroundTaskIdentifier = .invalid
 
   // Singleton access for sending events from BGTaskSchedulerManager
   static var shared: AppDelegate?
@@ -69,6 +70,33 @@ import UserNotifications
 
     print("[AppDelegate] Calling super.application(didFinishLaunchingWithOptions:)")
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  override func application(
+    _ app: UIApplication,
+    open url: URL,
+    options: [UIApplication.OpenURLOptionsKey : Any] = [:]
+  ) -> Bool {
+    print("[AppDelegate] openURL received: \(url.absoluteString)")
+    let handled = super.application(app, open: url, options: options)
+    print("[AppDelegate] openURL handled by Flutter/plugins: \(handled)")
+    return handled
+  }
+
+  override func application(
+    _ application: UIApplication,
+    continue userActivity: NSUserActivity,
+    restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void
+  ) -> Bool {
+    let webpage = userActivity.webpageURL?.absoluteString ?? "<none>"
+    print("[AppDelegate] continueUserActivity type=\(userActivity.activityType) url=\(webpage)")
+    let handled = super.application(
+      application,
+      continue: userActivity,
+      restorationHandler: restorationHandler
+    )
+    print("[AppDelegate] continueUserActivity handled by Flutter/plugins: \(handled)")
+    return handled
   }
 
   // Check and notify current notification permission status
@@ -186,10 +214,51 @@ import UserNotifications
       incrementBackgroundTaskCount()
       result(true)
 
+    case "beginTransientBackgroundTask":
+      print("[AppDelegate] beginTransientBackgroundTask called")
+      beginTransientBackgroundTask(result: result)
+
+    case "endTransientBackgroundTask":
+      print("[AppDelegate] endTransientBackgroundTask called")
+      endTransientBackgroundTask()
+      result(true)
+
     default:
       print("[AppDelegate] ⚠ Unknown method: \(call.method)")
       result(FlutterMethodNotImplemented)
     }
+  }
+
+  private func beginTransientBackgroundTask(result: @escaping FlutterResult) {
+    if transientBackgroundTask != .invalid {
+      result(true)
+      return
+    }
+
+    transientBackgroundTask = UIApplication.shared.beginBackgroundTask(withName: "zkpassport-launch") { [weak self] in
+      self?.endTransientBackgroundTask()
+    }
+
+    if transientBackgroundTask == .invalid {
+      print("[AppDelegate] ✗ Failed to acquire transient background task")
+      result(false)
+      return
+    }
+
+    // Keep Usernode alive briefly during app-switch handshake.
+    DispatchQueue.main.asyncAfter(deadline: .now() + 20.0) { [weak self] in
+      self?.endTransientBackgroundTask()
+    }
+
+    result(true)
+  }
+
+  private func endTransientBackgroundTask() {
+    guard transientBackgroundTask != .invalid else {
+      return
+    }
+    UIApplication.shared.endBackgroundTask(transientBackgroundTask)
+    transientBackgroundTask = .invalid
   }
 
   private func getBackgroundTaskStats() -> [String: Any] {

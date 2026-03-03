@@ -118,6 +118,16 @@ platform :ios do
       xcodeproj: "ios/Runner.xcodeproj"
     )
 
+    # CI must not rely on Xcode project signing settings. We keep the project
+    # configured for local device development installs, and force distribution
+    # signing here for archive/export.
+    signing_xcargs = [
+      "DEVELOPMENT_TEAM=#{team_id}",
+      "CODE_SIGN_STYLE=Manual",
+      "CODE_SIGN_IDENTITY=\"iPhone Distribution\"",
+      "PROVISIONING_PROFILE_SPECIFIER=\"#{provisioning_profile}\"",
+    ].join(" ")
+
     # Build the app
     build_app(
       scheme: scheme,
@@ -131,7 +141,7 @@ platform :ios do
           "org.usernode.app" => provisioning_profile
         }
       },
-      xcargs: %(DEVELOPMENT_TEAM=#{team_id} CODE_SIGN_IDENTITY="iPhone Distribution"),
+      xcargs: signing_xcargs,
       output_directory: "build/ios",
       output_name: "Usernode-#{env_type}-#{version_string}.ipa"
     )

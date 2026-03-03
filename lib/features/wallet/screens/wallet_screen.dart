@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -319,14 +320,21 @@ class _BalanceSection extends StatelessWidget {
         ),
         SizedBox(height: spacing.space16),
         walletState.when(
-          data: (state) => Text(
-            state.balance.getFormattedBalance(compact: false, decimals: 0),
-            style: theme.textTheme.displaySmall,
+          data: (state) => TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: state.balance.tokenAmount),
+            duration: const Duration(milliseconds: 800),
+            curve: Curves.easeOutCubic,
+            builder: (context, value, _) => Text(
+              NumberFormat('#,##0').format(value.toInt()),
+              style: theme.textTheme.displaySmall
+                  ?.copyWith(fontFamily: 'IBMPlexMono'),
+            ),
           ),
           loading: () => const ShimmerBlock(width: 180, height: 36),
           error: (_, __) => Text(
             l10n.commonNoValuePlaceholder,
-            style: theme.textTheme.displaySmall,
+            style: theme.textTheme.displaySmall
+                ?.copyWith(fontFamily: 'IBMPlexMono'),
           ),
         ),
         if (showSyncMessage && nodeStatus.hasValue)

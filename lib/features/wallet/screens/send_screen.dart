@@ -148,69 +148,76 @@ class _SendScreenState extends ConsumerState<SendScreen> {
         title: const Text('Send'),
       ),
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
+        child: CustomScrollView(
+          slivers: [
+            SliverPadding(
               padding: EdgeInsets.all(spacing.space16),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: IntrinsicHeight(
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _buildField(
-                          theme: theme,
-                          controller: _addressController,
-                          hint: 'Recipient address',
-                          suffixIcon: IconButton(
-                            icon: const Icon(Symbols.history_sharp),
-                            tooltip: 'Recent recipients',
-                            onPressed: () => _showRecipientHistory(
-                              context,
-                              recipientHistory.value ?? const [],
-                            ),
-                          ),
-                          validator: _validateRequired(
-                            'recipient address',
-                            minLength: 20,
+              sliver: SliverToBoxAdapter(
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildField(
+                        theme: theme,
+                        controller: _addressController,
+                        hint: 'Recipient address',
+                        suffixIcon: IconButton(
+                          icon: const Icon(Symbols.history_sharp),
+                          tooltip: 'Recent recipients',
+                          onPressed: () => _showRecipientHistory(
+                            context,
+                            recipientHistory.value ?? const [],
                           ),
                         ),
-                        SizedBox(height: spacing.space16),
-                        _buildField(
-                          theme: theme,
-                          controller: _amountController,
-                          hint: 'Amount',
-                          isNumeric: true,
-                          validator: _validatePositiveNumber('amount'),
+                        validator: _validateRequired(
+                          'recipient address',
+                          minLength: 20,
                         ),
-                        SizedBox(height: spacing.space16),
-                        _buildField(
-                          theme: theme,
-                          controller: _feeController,
-                          hint: 'Fee',
-                          isNumeric: true,
-                          validator:
-                              _validatePositiveNumber('fee', allowZero: true),
-                        ),
-                        SizedBox(height: spacing.space16),
-                        _buildField(
-                          theme: theme,
-                          controller: _memoController,
-                          hint: 'Memo (optional)',
-                          maxLines: 4,
-                        ),
-                        const Spacer(),
-                        _buildSendButton(theme),
-                        SizedBox(height: spacing.space32),
-                      ],
-                    ),
+                      ),
+                      SizedBox(height: spacing.space16),
+                      _buildField(
+                        theme: theme,
+                        controller: _amountController,
+                        hint: 'Amount',
+                        isNumeric: true,
+                        validator: _validatePositiveNumber('amount'),
+                      ),
+                      SizedBox(height: spacing.space16),
+                      _buildField(
+                        theme: theme,
+                        controller: _feeController,
+                        hint: 'Fee',
+                        isNumeric: true,
+                        validator:
+                            _validatePositiveNumber('fee', allowZero: true),
+                      ),
+                      SizedBox(height: spacing.space16),
+                      _buildField(
+                        theme: theme,
+                        controller: _memoController,
+                        hint: 'Memo (optional)',
+                        maxLines: 4,
+                      ),
+                    ],
                   ),
                 ),
               ),
-            );
-          },
+            ),
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: spacing.space16),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    _buildSendButton(theme),
+                    SizedBox(height: spacing.space32),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -38,9 +38,9 @@ Rules enforced by convention (and eventually by lint). Each constraint has: WHAT
 
 ## Two-Tier Surface Rule
 
-**Constraint:** Scaffold = grey (`surface` T96). Content surfaces (cards, sheets, nav bars) = white (`surfaceContainerLowest`). Borders for separation, not elevation. `surfaceTintColor: Colors.transparent` on all surface-bearing components.
+**Constraint:** Scaffold = grey (`surface` T96). Content surfaces (cards, sheets, nav bars) = white (`surfaceContainerLowest`). FG/BG color contrast for separation. Outline borders only for white-on-white inner cards, never on grey scaffold. `surfaceTintColor: Colors.transparent` on all surface-bearing components.
 
-**Why:** M3's tonal elevation with achromatic primary produces imperceptible grey-on-grey shifts. Borders are clearer. **Where:** [SURFACES.md](SURFACES.md); `theme/color_is_expensive_theme.dart`.
+**Why:** M3's tonal elevation with achromatic primary produces imperceptible grey-on-grey shifts. The grey/white contrast IS the primary separation; borders are only warranted when a card sits on a same-tone parent surface. **Where:** [SURFACES.md](SURFACES.md); `theme/color_is_expensive_theme.dart`.
 
 ## Layout Token Rule
 
@@ -132,6 +132,7 @@ cd packages/ds_lints && dart run bin/lint.dart /path/to/project/root
 | `avoid_hardcoded_icon_size` | INFO | `Icon(..., size: 20)` with literal size. Icons without `size:` use theme default. |
 | `matryoshka_zone_violation` | WARNING | Macro tokens (space32/space48) as padding; space24 in horizontal EdgeInsets. Exception: `EdgeInsets.only(bottom: spacing.space32)` allowed per LAYOUT.md. |
 | `avoid_frb_imports` | WARNING | `import 'package:flutter_rust_bridge/...'` or `frb_generated` in `lib/design_system/`. FRB types break Widgetbook web. |
+| `avoid_padding_around_tiles` | WARNING | `Padding` with horizontal insets wrapping a ListTile-family widget (`ListTile`, `SwitchListTile`, `CheckboxListTile`, `RadioListTile`, `ExpansionTile`). These widgets get `contentPadding` from the theme — outer horizontal Padding causes double-indenting. |
 
 Excluded paths: `/widgetbook/`, `/test/`.
 

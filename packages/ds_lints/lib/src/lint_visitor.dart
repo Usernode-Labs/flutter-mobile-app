@@ -86,7 +86,7 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
   }
 
   /// Types that use default (unnamed) constructors we care about.
-  static const _defaultConstructorTypes = {'SizedBox', 'Icon'};
+  static const _defaultConstructorTypes = {'SizedBox', 'Icon', 'Padding'};
 
   void _dispatch(
     AstNode node,
@@ -105,6 +105,8 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
         _checkSizedBoxSpacing(node, args);
       case 'Icon':
         _checkIconSize(node, args);
+      case 'Padding':
+        _checkPaddingAroundTile(node, args);
     }
   }
 
@@ -364,6 +366,173 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
     // legitimate for K₂ keyline alignment and balanced padding.
     if (constructorName == 'symmetric') {
       return paramName == 'horizontal';
+    }
+    return false;
+  }
+
+  // ── Rule 6: avoid_padding_around_tiles ──────────────────────────────
+
+  static const _tileWidgetNames = {
+    'ListTile',
+    'SwitchListTile',
+    'CheckboxListTile',
+    'RadioListTile',
+    'ExpansionTile',
+  };
+
+  void _checkPaddingAroundTile(AstNode node, ArgumentList args) {
+    // Check if this Padding has horizontal insets.
+    if (!_hasHorizontalPadding(args)) return;
+
+    // Find the child: argument.
+    for (final arg in args.arguments) {
+      if (arg is NamedExpression && arg.name.label.name == 'child') {
+        if (_containsTileWidget(arg.expression)) {
+          _report(
+            node,
+            'avoid_padding_around_tiles',
+            'Padding with horizontal insets wraps a ListTile-family widget. '
+                'ListTile/SwitchListTile/ExpansionTile get contentPadding '
+                'from the theme — remove the outer horizontal Padding to '
+                'avoid double-indenting.',
+            'WARNING',
+          );
+        }
+        return;
+      }
+    }
+  }
+
+  /// Returns true if the Padding's `padding:` argument has a horizontal
+  /// component. Only checks syntactic patterns (EdgeInsets constructors).
+  bool _hasHorizontalPadding(ArgumentList args) {
+    for (final arg in args.arguments) {
+      if (arg is! NamedExpression || arg.name.label.name != 'padding') continue;
+      final expr = arg.expression;
+
+      // Match EdgeInsets.symmetric(horizontal: ...)
+      if (expr is MethodInvocation) {
+        final target = expr.target;
+        final methodName = expr.methodName.name;
+        if (target is SimpleIdentifier && target.name == 'EdgeInsets') {
+          return _edgeInsetsHasHorizontal(methodName, expr.argumentList);
+        }
+      }
+      if (expr is InstanceCreationExpression) {
+        final typeName = expr.constructorName.type.name2.lexeme;
+        final ctorName = expr.constructorName.name?.name;
+        if (typeName == 'EdgeInsets' && ctorName != null) {
+          return _edgeInsetsHasHorizontal(ctorName, expr.argumentList);
+        }
+      }
+    }
+    return false;
+  }
+
+  /// Checks if a specific EdgeInsets constructor has a horizontal component.
+  bool _edgeInsetsHasHorizontal(String ctorName, ArgumentList args) {
+    switch (ctorName) {
+      case 'all':
+        // EdgeInsets.all() always has horizontal padding.
+        return args.arguments.isNotEmpty;
+      case 'symmetric':
+        return args.arguments.any(
+          (a) => a is NamedExpression && a.name.label.name == 'horizontal',
+        );
+      case 'only':
+        return args.arguments.any(
+          (a) =>
+              a is NamedExpression &&
+              (a.name.label.name == 'left' || a.name.label.name == 'right'),
+        );
+      case 'fromLTRB':
+        // Positional: left=0, right=2. Check if they're non-zero.
+        final positional =
+            args.arguments.where((a) => a is! NamedExpression).toList();
+        if (positional.isEmpty) return false;
+        // left (index 0)
+        if (positional.isNotEmpty) {
+          final v = numericLiteralValue(positional[0]);
+          if (v != null && v != 0) return true;
+        }
+        // right (index 2)
+        if (positional.length > 2) {
+          final v = numericLiteralValue(positional[2]);
+          if (v != null && v != 0) return true;
+        }
+        // Non-literal args — can't tell, assume horizontal.
+        if (positional.isNotEmpty &&
+            numericLiteralValue(positional[0]) == null) {
+          return true;
+        }
+        if (positional.length > 2 &&
+            numericLiteralValue(positional[2]) == null) {
+          return true;
+        }
+        return false;
+      default:
+        return false;
+    }
+  }
+
+  /// Recursively checks if the AST subtree contains a tile-family widget.
+  bool _containsTileWidget(Expression expr) {
+    // Check InstanceCreationExpression: const ListTile(...), new SwitchListTile(...)
+    if (expr is InstanceCreationExpression) {
+      final typeName = expr.constructorName.type.name2.lexeme;
+      if (_tileWidgetNames.contains(typeName)) return true;
+      return _searchArgumentsForTile(expr.argumentList);
+    }
+
+    // Check MethodInvocation: unprefixed ListTile(...)
+    if (expr is MethodInvocation) {
+      final target = expr.target;
+      if (target == null && _tileWidgetNames.contains(expr.methodName.name)) {
+        return true;
+      }
+      return _searchArgumentsForTile(expr.argumentList);
+    }
+
+    // Check list literals: [ListTile(...), SwitchListTile(...)]
+    if (expr is ListLiteral) {
+      for (final element in expr.elements) {
+        if (element is Expression && _containsTileWidget(element)) return true;
+        if (element is IfElement) {
+          if (element.thenElement is Expression &&
+              _containsTileWidget(element.thenElement as Expression)) {
+            return true;
+          }
+          if (element.elseElement is Expression &&
+              _containsTileWidget(element.elseElement as Expression)) {
+            return true;
+          }
+        }
+        if (element is SpreadElement &&
+            _containsTileWidget(element.expression)) {
+          return true;
+        }
+      }
+    }
+
+    // Check conditional: condition ? ListTile() : SizedBox()
+    if (expr is ConditionalExpression) {
+      if (_containsTileWidget(expr.thenExpression)) return true;
+      if (_containsTileWidget(expr.elseExpression)) return true;
+    }
+
+    return false;
+  }
+
+  /// Searches argument list values for tile widgets.
+  bool _searchArgumentsForTile(ArgumentList args) {
+    for (final arg in args.arguments) {
+      final Expression value;
+      if (arg is NamedExpression) {
+        value = arg.expression;
+      } else {
+        value = arg;
+      }
+      if (_containsTileWidget(value)) return true;
     }
     return false;
   }

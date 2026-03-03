@@ -60,14 +60,14 @@ class QuickSettingsPanel extends StatelessWidget {
       color: group.colorSurface,
       shape: RoundedRectangleBorder(borderRadius: radii.borderRadiusLarge),
       child: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: spacing.space16,
-          vertical: spacing.space16,
-        ),
+        padding: EdgeInsets.symmetric(vertical: spacing.space16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildHeader(context, allGood, group),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: spacing.space16),
+              child: _buildHeader(context, allGood, group),
+            ),
             SizedBox(height: spacing.space12),
             _buildPermissionTile(context, colorScheme, semantic),
             if (_isIOS) _buildKeepAliveTile(context, colorScheme, semantic),

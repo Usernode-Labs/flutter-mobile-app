@@ -87,15 +87,30 @@ seamless; for looping animations, use linear or C1-continuous curves.
 
 ### ScoreHeader Score Monospace (2026-02-23)
 
-`displaySmall.copyWith(fontFamily: 'monospace')` — functional override for
-tabular number alignment. IBM Plex Mono (Figma) isn't bundled; system monospace
-is acceptable.
+`displaySmall.copyWith(fontFamily: 'IBMPlexMono')` — functional override for
+tabular number alignment. IBM Plex Mono is bundled in the app.
 
 ### ScoreHeader Countdown Bold (2026-02-23)
 
 `labelSmall.copyWith(fontWeight: FontWeight.w700)` for countdown time value.
 Deliberate deviation — weight contrast separates actionable data from the
 "ENDS IN" label.
+
+### Display Mono Unification (2026-03-03)
+
+All display-class hero text (wallet balance, node status, permissions summary,
+KPI percentages) uses IBM Plex Mono via `.copyWith(fontFamily: 'IBMPlexMono')`.
+The `ScoreHeader` widget already applied this pattern; this decision extends it
+to all primary KPI / status headlines across the app. Gives the app a consistent
+technical/engineering identity. Affected screens: wallet, node status, quick
+settings panel, slot production stats, produced blocks.
+
+All five hero locations are unified to `displaySmall` (36px) — previously they
+used four different M3 styles. `displaySmall` was already the most common choice
+(wallet, produced blocks, ScoreHeader) and provides the right visual weight for
+a primary KPI without dominating the screen.
+
+See [TYPOGRAPHY.md](TYPOGRAPHY.md) for the full rule and table.
 
 ---
 

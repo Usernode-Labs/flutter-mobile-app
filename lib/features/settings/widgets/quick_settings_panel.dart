@@ -104,9 +104,10 @@ class QuickSettingsPanel extends StatelessWidget {
         SizedBox(height: spacing.space8),
         Text(
           allGood ? 'All Good' : 'Action Needed',
-          style: theme.textTheme.titleLarge?.copyWith(
+          style: theme.textTheme.displaySmall?.copyWith(
             color: group.onColorSurface,
             fontWeight: FontWeight.bold,
+            fontFamily: 'IBMPlexMono',
           ),
         ),
       ],

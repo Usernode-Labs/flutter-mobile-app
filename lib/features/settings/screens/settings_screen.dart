@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

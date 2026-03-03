@@ -128,6 +128,15 @@ directly, avoiding unnecessary layout passes.
 Available since Flutter 3.27; the project targets 3.35+. Reduces widget tree
 depth and keeps spacing declarative.
 
+### No Inter-Item Dividers by Default (2026-03-03)
+
+Standard-density ListTile lists do not use dividers between items. The ListTile's
+own contentPadding (16h / 4v) plus visualDensity: compact provides sufficient
+visual separation, especially inside Cards where the border groups items.
+
+Dividers are appropriate only between semantically different content sections
+within the same surface (e.g., address section above a transaction list).
+
 ---
 
 ## Compilation & Platform Decisions

@@ -36,6 +36,7 @@ WidgetbookComponent listTileComponent() {
       _trailingSlots(),
       _sectionGrouping(),
       _specializedVariants(),
+      _dividerConvention(),
     ],
   );
 }
@@ -508,7 +509,103 @@ WidgetbookUseCase _sectionGrouping() {
 }
 
 // ---------------------------------------------------------------------------
-// Use case 5 — Specialized Variants (guidance §2)
+// Use case 5 — Divider Convention
+// ---------------------------------------------------------------------------
+
+WidgetbookUseCase _dividerConvention() {
+  return WidgetbookUseCase(
+    name: 'Divider Convention',
+    builder: (context) {
+      final textTheme = Theme.of(context).textTheme;
+      final colorScheme = Theme.of(context).colorScheme;
+
+      // Shared transaction tiles reused in both examples.
+      final transactionTiles = [
+        ListTile(
+          leading: const IconBadge(icon: Symbols.south_west_sharp),
+          title: const Text('Received'),
+          subtitle: const Text('From: 0x1a2b...f4e5'),
+          trailing: const Text('+1,000'),
+          onTap: () {},
+        ),
+        ListTile(
+          leading: const IconBadge(icon: Symbols.north_east_sharp),
+          title: const Text('Sent'),
+          subtitle: const Text('To: 0x9f8e...a1b2'),
+          trailing: const Text('-500'),
+          onTap: () {},
+        ),
+      ];
+
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('DEFAULT — No dividers', style: textTheme.labelLarge),
+            const SizedBox(height: 4),
+            Text(
+              'Homogeneous ListTile lists rely on contentPadding for '
+              'visual separation. No Divider needed.',
+              style: textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Card(
+              child: Column(
+                children: [
+                  ...transactionTiles,
+                  ListTile(
+                    leading: const IconBadge(icon: Symbols.layers_sharp),
+                    title: const Text('Block Reward'),
+                    subtitle: const Text('Block 1,234,567'),
+                    trailing: const Text('+50'),
+                    onTap: () {},
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'SECTION DIVIDER — Between different content areas',
+              style: textTheme.labelLarge,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Dividers are appropriate between semantically different '
+              'sections within the same surface.',
+              style: textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Card(
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const IconBadge(icon: Symbols.tag_sharp),
+                    title: const Text('My Address'),
+                    subtitle: const Text('0x1a2b3c...7e8f9a0b'),
+                    trailing: IconButton(
+                      icon: const Icon(Symbols.content_copy_sharp),
+                      onPressed: () {},
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  ...transactionTiles,
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Use case 6 — Specialized Variants (guidance §2)
 // ---------------------------------------------------------------------------
 
 WidgetbookUseCase _specializedVariants() {

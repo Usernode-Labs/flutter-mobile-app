@@ -187,7 +187,7 @@ M3 distinguishes two containment strategies. Both follow the same Matryoshka spa
 1. **Screen body** applies horizontal `space16` margins (via `SliverPadding` or `ListView.padding`) and vertical gaps between surfaces (`space16` between cards, `space24` between sections).
 2. **Surfaces** (AppCard, explicit containers) own their internal inset padding — they sit flush within the screen's margins and never add their own horizontal margin.
 3. **Widgets** (ListTile, ExpansionTile, etc.) own their content padding via theme. Do not wrap them in extra `Padding`.
-4. **Inter-widget gaps** inside a surface are owned by that surface's layout — use `Column(spacing: ...)` or `Divider`.
+4. **Inter-widget gaps** inside a surface are owned by that surface's layout — use `Column(spacing: ...)`. Avoid `Divider` between homogeneous ListTile items.
 5. **Keyline consistency** — all text in ListTile/ExpansionTile rows must land on K₂ (see LAYOUT.md § Keylines). Never wrap these widgets in extra horizontal Padding.
 
 ### When Zones Collide: The ListTile-in-Card Case
@@ -201,7 +201,6 @@ AppCard(
   child: Column(
     children: [
       ListTile(title: Text('Item 1'), trailing: Text('Value 1')),
-      Divider(height: 1, indent: spacing.space16),
       ListTile(title: Text('Item 2'), trailing: Text('Value 2')),
     ],
   ),
@@ -662,6 +661,7 @@ Before submitting a new screen, verify:
 11. **Semantic colors** — status/category colors use `semanticColors.*`, not raw hex.
 12. **Grid alignment** — all spacing values snap to the 8pt grid (4, 8, 12, 16, 24, 32, 48).
 13. **Keylines** — text offsets from screen edge are consistent across sections (K₀ / K₁ / K₂).
+14. **No inter-item dividers** — homogeneous ListTile lists use padding, not `Divider`.
 
 ### Self-Service Audit Commands
 

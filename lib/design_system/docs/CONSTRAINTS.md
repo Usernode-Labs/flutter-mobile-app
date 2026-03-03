@@ -174,6 +174,7 @@ When reviewing a screen (new or migrated), verify:
 | 6 | Bottom padding | `space32` breathing room at end |
 | 7 | RefreshIndicator | Wraps scroll view if pull-to-refresh needed |
 | 8 | SliverPadding | Used for margins in CustomScrollView |
+| 9 | No inter-item dividers | Homogeneous ListTile lists use padding, not Divider |
 
 See also: [SCREEN_PATTERNS.md](SCREEN_PATTERNS.md) for full screen building playbook.
 

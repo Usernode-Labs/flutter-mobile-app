@@ -438,7 +438,6 @@ class _TransactionTile extends StatelessWidget {
         children: [
           Text(
             '${transaction.formattedAmount} ${transaction.tokenSymbol}',
-            style: theme.textTheme.bodyMedium,
           ),
           Text(
             transaction.timeAgo,

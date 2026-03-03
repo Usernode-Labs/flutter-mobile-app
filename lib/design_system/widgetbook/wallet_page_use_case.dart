@@ -549,7 +549,7 @@ Widget _buildMockTile(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Text(amount, style: theme.textTheme.bodyMedium),
+        Text(amount),
         Text(
           timeAgo,
           style: theme.textTheme.bodySmall?.copyWith(

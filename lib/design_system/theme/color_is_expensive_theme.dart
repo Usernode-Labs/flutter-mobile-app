@@ -442,6 +442,7 @@ class ColorIsExpensiveTheme {
 
         listTileTheme: ListTileThemeData(
           titleAlignment: ListTileTitleAlignment.center,
+          minVerticalPadding: 0,
           contentPadding: EdgeInsets.symmetric(
             horizontal: _spacing.space16,
             vertical: _spacing.space4,

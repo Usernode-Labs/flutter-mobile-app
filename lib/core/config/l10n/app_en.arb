@@ -437,6 +437,10 @@
   "@walletNoRecentActivitySubtitle": {
     "description": "Empty state subtitle explaining auto-refresh behavior"
   },
+  "walletEmptyStateSendAction": "Send Transaction",
+  "@walletEmptyStateSendAction": {
+    "description": "Button label on wallet empty state to initiate a send"
+  },
 
   "nodeStatusTitle": "Node Status",
   "@nodeStatusTitle": {
@@ -445,6 +449,14 @@
   "nodePeerIdCopied": "Peer ID copied to clipboard",
   "@nodePeerIdCopied": {
     "description": "Peer ID copied snackbar message"
+  },
+  "nodeChainIdCopied": "Chain ID copied to clipboard",
+  "@nodeChainIdCopied": {
+    "description": "Chain ID copied snackbar message"
+  },
+  "nodeBestTipCopied": "Best tip hash copied to clipboard",
+  "@nodeBestTipCopied": {
+    "description": "Best tip hash copied snackbar message"
   },
   "nodeCopyPeerId": "Copy full Peer ID",
   "@nodeCopyPeerId": {

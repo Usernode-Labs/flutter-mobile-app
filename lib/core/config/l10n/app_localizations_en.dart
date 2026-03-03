@@ -353,10 +353,19 @@ class AppLocalizationsEn extends AppLocalizations {
       'This page refreshes continuously and will display your transactions here.';
 
   @override
+  String get walletEmptyStateSendAction => 'Send Transaction';
+
+  @override
   String get nodeStatusTitle => 'Node Status';
 
   @override
   String get nodePeerIdCopied => 'Peer ID copied to clipboard';
+
+  @override
+  String get nodeChainIdCopied => 'Chain ID copied to clipboard';
+
+  @override
+  String get nodeBestTipCopied => 'Best tip hash copied to clipboard';
 
   @override
   String get nodeCopyPeerId => 'Copy full Peer ID';

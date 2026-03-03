@@ -712,6 +712,12 @@ abstract class AppLocalizations {
   /// **'This page refreshes continuously and will display your transactions here.'**
   String get walletNoRecentActivitySubtitle;
 
+  /// Button label on wallet empty state to initiate a send
+  ///
+  /// In en, this message translates to:
+  /// **'Send Transaction'**
+  String get walletEmptyStateSendAction;
+
   /// Node status screen title
   ///
   /// In en, this message translates to:
@@ -723,6 +729,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Peer ID copied to clipboard'**
   String get nodePeerIdCopied;
+
+  /// Chain ID copied snackbar message
+  ///
+  /// In en, this message translates to:
+  /// **'Chain ID copied to clipboard'**
+  String get nodeChainIdCopied;
+
+  /// Best tip hash copied snackbar message
+  ///
+  /// In en, this message translates to:
+  /// **'Best tip hash copied to clipboard'**
+  String get nodeBestTipCopied;
 
   /// Copy peer ID tooltip
   ///

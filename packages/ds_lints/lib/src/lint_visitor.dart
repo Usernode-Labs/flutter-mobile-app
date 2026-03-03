@@ -86,7 +86,15 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
   }
 
   /// Types that use default (unnamed) constructors we care about.
-  static const _defaultConstructorTypes = {'SizedBox', 'Icon', 'Padding'};
+  static const _defaultConstructorTypes = {
+    'SizedBox',
+    'Icon',
+    'Padding',
+    'ListTile',
+    'SwitchListTile',
+    'CheckboxListTile',
+    'RadioListTile',
+  };
 
   void _dispatch(
     AstNode node,
@@ -107,6 +115,11 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
         _checkIconSize(node, args);
       case 'Padding':
         _checkPaddingAroundTile(node, args);
+      case 'ListTile':
+      case 'SwitchListTile':
+      case 'CheckboxListTile':
+      case 'RadioListTile':
+        _checkListTileLayoutOverrides(node, typeName, args);
     }
   }
 
@@ -535,6 +548,42 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
       if (_containsTileWidget(value)) return true;
     }
     return false;
+  }
+
+  // ── Rule 7: avoid_listtile_layout_overrides ────────────────────────
+
+  static const _listTileLayoutProps = {
+    'visualDensity',
+    'minVerticalPadding',
+    'minTileHeight',
+    'titleAlignment',
+    'contentPadding',
+  };
+
+  void _checkListTileLayoutOverrides(
+    AstNode node,
+    String typeName,
+    ArgumentList args,
+  ) {
+    // Exclude widgetbook and test paths — demos need to show variants.
+    if (isExcludedPath(filePath)) return;
+
+    for (final arg in args.arguments) {
+      if (arg is! NamedExpression) continue;
+      final name = arg.name.label.name;
+      if (_listTileLayoutProps.contains(name)) {
+        _report(
+          node,
+          'avoid_listtile_layout_overrides',
+          "$typeName layout property '$name' should be set in the theme, "
+              'not per-widget. Per-widget overrides break M3\'s baseline '
+              'alignment algorithm. See CONSTRAINTS.md § ListTile Layout '
+              'Constraint.',
+          'WARNING',
+        );
+        return;
+      }
+    }
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────

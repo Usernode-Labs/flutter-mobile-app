@@ -146,11 +146,21 @@ depth and keeps spacing declarative.
 ### No Inter-Item Dividers by Default (2026-03-03)
 
 Standard-density ListTile lists do not use dividers between items. The ListTile's
-own contentPadding (16h / 4v) plus visualDensity: compact provides sufficient
-visual separation, especially inside Cards where the border groups items.
+own M3 default spacing (16h contentPadding, minVerticalPadding: 8) provides
+sufficient visual separation, especially inside Cards where the border groups items.
 
 Dividers are appropriate only between semantically different content sections
 within the same surface (e.g., address section above a transaction list).
+
+### ListTile: M3 Layout Properties Are Interdependent (2026-03-03)
+
+We tried overriding `visualDensity`, `minVerticalPadding`, `minTileHeight`, and
+`titleAlignment` to get compact centered tiles. Each override fixed one symptom
+but created another (misaligned icons, tiles crammed together). The M3 baseline
+algorithm (magic numbers 32.0, 52.0, 72.0) assumes standard density and default
+padding. Solution: only customize visual properties (text styles, colors, shape,
+horizontal padding) in `ListTileThemeData`. Enforced by
+`avoid_listtile_layout_overrides` lint.
 
 ---
 

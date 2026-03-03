@@ -6,6 +6,7 @@ library;
 
 // Tokens
 export 'tokens/app_animation.dart';
+export 'tokens/app_borders.dart';
 export 'tokens/app_elevation.dart';
 export 'tokens/app_opacity.dart';
 export 'tokens/app_radii.dart';

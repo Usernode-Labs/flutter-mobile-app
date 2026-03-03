@@ -18,6 +18,10 @@ WidgetbookUseCase _playground() {
   return WidgetbookUseCase(
     name: 'Playground',
     builder: (context) {
+      final showIcon = context.knobs.boolean(
+        label: 'Show Icon',
+        initialValue: true,
+      );
       final title = context.knobs.string(
         label: 'Title',
         initialValue: 'No transactions yet',
@@ -32,7 +36,7 @@ WidgetbookUseCase _playground() {
       );
 
       return EmptyState(
-        icon: Symbols.inbox_sharp,
+        icon: showIcon ? Symbols.inbox_sharp : null,
         title: title,
         subtitle: subtitle,
         action: showAction

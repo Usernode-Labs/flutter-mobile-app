@@ -39,6 +39,7 @@ final textTheme = Theme.of(context).textTheme;                // typography
 | `docs/COLOR.md` | Color philosophy and semantic color groups |
 | `docs/SURFACES.md` | Two-tier surface model |
 | `docs/LAYOUT.md` | Screen anatomy, spacing roles, scroll patterns |
+| `docs/TYPOGRAPHY.md` | Display Mono rule and type scale usage |
 | `docs/DECISIONS.md` | Design decisions organized by topic |
 
 ## Widget Catalog

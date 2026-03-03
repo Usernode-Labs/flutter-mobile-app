@@ -1,6 +1,6 @@
 # Surface Architecture
 
-The design system uses a **two-tier surface model** — grey scaffold + white content — instead of M3's five-level tonal gradient. Borders replace elevation as the primary separation mechanism.
+The design system uses a **two-tier surface model** — grey scaffold + white content — instead of M3's five-level tonal gradient. FG/BG color contrast (grey scaffold → white content) is the primary separation mechanism. Borders are reserved for white-on-white scenarios where tonal contrast is insufficient.
 
 ## Two-Tier Surface Model
 
@@ -11,11 +11,16 @@ The light theme derives from the Figma Home screen (`#F6F6F6` background with wh
 │  Scaffold: surface (#F5F5F5)    │  ← grey "paper" substrate
 │                                  │
 │  ┌───────────────────────────┐  │
+│  │ Card on grey scaffold:    │  │  ← FG/BG contrast = sufficient
+│  │ surfaceContainerLowest    │  │     (no border needed)
+│  └───────────────────────────┘  │
+│                                  │
+│  ┌───────────────────────────┐  │
 │  │ Content sheet:            │  │  ← white surface, rounded top
 │  │ surfaceContainerLowest    │  │
 │  │                           │  │
 │  │  ┌─────────────────────┐  │  │
-│  │  │ Card:               │  │  │  ← white card on white sheet
+│  │  │ Card on white sheet: │  │  │  ← white-on-white exception
 │  │  │ surfaceContainerLow │  │  │     (border = outlineVariant)
 │  │  │ est + outlineVariant│  │  │
 │  │  └─────────────────────┘  │  │
@@ -50,8 +55,8 @@ Every surface in the app belongs to exactly one category. When adding a new M3 c
 4. **Inverse** → M3 default
    Transient overlays needing max contrast. Examples: SnackBar, Tooltip.
 
-5. **Separation** → `outlineVariant` border, not elevation
-   Cards on white sheets are distinguished by border. Elevation is zero for content surfaces.
+5. **Separation** → `outlineVariant` border for white-on-white only
+   Cards that sit on a white parent surface (`surfaceContainerLowest`) use `outlineVariant` border. Cards on the grey scaffold need no border — FG/BG contrast provides separation. Elevation is zero for content surfaces.
 
 If the component doesn't fit cleanly into one category, prefer category 3 (inherit parent) — adding a background override is a stronger commitment than omitting one.
 
@@ -63,4 +68,4 @@ If the component doesn't fit cleanly into one category, prefer category 3 (inher
 | Does it float on the page? | Yes → `surfaceContainerLowest` | 2. Content-level |
 | Does it live inside another surface? | Yes → no override | 3. Inherit parent |
 | Is it a transient overlay? | Yes → M3 default | 4. Inverse |
-| Is it white-on-white? | Yes → `outlineVariant` border | 5. Separation |
+| Is it white-on-white? | Yes → `outlineVariant` border (not on grey scaffold) | 5. Separation |

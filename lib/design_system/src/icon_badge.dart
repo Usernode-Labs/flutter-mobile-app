@@ -5,12 +5,11 @@ import '../tokens/app_sizing.dart';
 /// A square container with rounded corners and a centered icon.
 ///
 /// Commonly used as a leading element in list rows and metric tiles.
-/// Defaults to 3-layer model (48px container, 40px surface, 24px icon).
+/// Defaults to the 3-layer model (48px container, 40px surface, 24px icon)
+/// which provides breathing room around the colored surface.
 ///
-/// The 3-layer model separates layout allocation ([size]) from the visible
-/// colored surface ([surfaceSize]), creating breathing room around the badge.
-/// To opt out (flush surface = 2-layer look), pass
-/// `surfaceSize: sizing.iconContainerRegular`.
+/// For flush mode (surface fills the container), pass
+/// `size: sizing.iconContainerSmall` (40px outer = 40px surface).
 ///
 /// Presentation-only — takes all state via constructor params.
 class IconBadge extends StatelessWidget {
@@ -32,9 +31,9 @@ class IconBadge extends StatelessWidget {
 
   /// Colored surface size inside the container.
   ///
-  /// Defaults to [AppSizing.iconContainerSmall] (40px), creating a 3-layer
-  /// layout: outer transparent container → centered colored surface → icon.
-  /// Pass [AppSizing.iconContainerRegular] for a flush 2-layer look.
+  /// Defaults to [AppSizing.iconContainerSmall] (40px). When [size] is larger
+  /// than [surfaceSize], the surface is centered within the outer container
+  /// (3-layer model with breathing room).
   final double? surfaceSize;
 
   /// Background color. Defaults to `colorScheme.secondaryContainer`.

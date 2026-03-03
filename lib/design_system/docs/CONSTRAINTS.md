@@ -16,7 +16,8 @@ Rules enforced by convention (and eventually by lint). Each constraint has: WHAT
 
 | Exception | copyWith | Justification |
 |-----------|----------|---------------|
-| Monospace for tabular data | `.copyWith(fontFamily: 'monospace')` | Fixed-width glyphs for column alignment |
+| Monospace for tabular data | `.copyWith(fontFamily: 'IBMPlexMono')` | Fixed-width glyphs for column alignment |
+| Monospace for display hero text | `.copyWith(fontFamily: 'IBMPlexMono')` | Unified technical identity for primary KPI / status headlines |
 | Bold for time-critical data | `.copyWith(fontWeight: FontWeight.w700)` | Weight contrast for actionable, time-sensitive values |
 
 **Why:** Per-widget overrides accumulate one-off styles that drift from the scale. A `titleMedium` should look the same everywhere. **Where:** [DECISIONS.md](DECISIONS.md) "Widget Implementation Decisions".
@@ -116,6 +117,14 @@ See [DECISIONS.md](DECISIONS.md) "Selective M3 Adoption" for a worked example.
 
 **Where:** [DECISIONS.md](DECISIONS.md) "Architecture Decisions"; `theme/color_is_expensive_theme.dart`.
 
+## ListTile Layout Constraint
+
+**Constraint:** Only customize **visual** properties in `ListTileThemeData` (text styles, colors, shape, horizontal `contentPadding`). Never override layout properties (`minVerticalPadding`, `visualDensity`, `minTileHeight`, `titleAlignment`, vertical `contentPadding`) — let M3 defaults handle tile height, density, padding, and alignment.
+
+**Why:** M3's ListTile uses a baseline-anchored layout algorithm where these properties are interdependent (magic numbers 32.0, 52.0, 72.0 in Flutter source). Overriding any one of them breaks the alignment between leading icons and text. We tried overriding all four and each fix solved one symptom but introduced another (misaligned icons, tiles crammed together).
+
+**Where:** `theme/color_is_expensive_theme.dart` (ListTileThemeData); enforced by `avoid_listtile_layout_overrides` lint.
+
 ## Automated Lint Rules (`ds_lints`)
 
 The following audits are automated via `packages/ds_lints/`. Run from the project root:
@@ -133,6 +142,7 @@ cd packages/ds_lints && dart run bin/lint.dart /path/to/project/root
 | `matryoshka_zone_violation` | WARNING | Macro tokens (space32/space48) as padding; space24 in horizontal EdgeInsets. Exception: `EdgeInsets.only(bottom: spacing.space32)` allowed per LAYOUT.md. |
 | `avoid_frb_imports` | WARNING | `import 'package:flutter_rust_bridge/...'` or `frb_generated` in `lib/design_system/`. FRB types break Widgetbook web. |
 | `avoid_padding_around_tiles` | WARNING | `Padding` with horizontal insets wrapping a ListTile-family widget (`ListTile`, `SwitchListTile`, `CheckboxListTile`, `RadioListTile`, `ExpansionTile`). These widgets get `contentPadding` from the theme — outer horizontal Padding causes double-indenting. |
+| `avoid_listtile_layout_overrides` | WARNING | Per-widget `visualDensity`, `minVerticalPadding`, `minTileHeight`, `titleAlignment`, or `contentPadding` on `ListTile`/`SwitchListTile`/`CheckboxListTile`/`RadioListTile`. These layout properties should come from the theme — per-widget overrides break M3's baseline alignment. |
 
 Excluded paths: `/widgetbook/`, `/test/`.
 

@@ -12,7 +12,7 @@ All values in one place. No source-file reading needed.
 
 | Token | Value | Typical use |
 |-------|-------|-------------|
-| `space4` | 4dp | ListTile vertical contentPadding, tiny gaps |
+| `space4` | 4dp | Tiny gaps, fine-grained adjustments |
 | `space8` | 8dp | Tight gaps, chip padding |
 | `space12` | 12dp | List-item separator, section sub-gap |
 | `space16` | 16dp | Screen horizontal margin, card internal padding, card gap |
@@ -127,7 +127,7 @@ Canvas (Scaffold)
 |------|---------|-------|------------------|-----------|
 | **Macro** | Margins + Spacers | Screen body / layout parent | Screen-edge margins, gaps between sibling surfaces and sections | `space16` (margin), `space16` / `space24` (gaps) |
 | **Meso** | Inset padding | Surface container (AppCard) | Space between a surface's edge and its content | `AppCard.compact` / `.regular` / `.spacious` |
-| **Micro** | Component padding | Leaf widget (ListTile, etc.) | Space between a widget's boundary and its rendered content | Theme `contentPadding` (16h / 4v) |
+| **Micro** | Component padding | Leaf widget (ListTile, etc.) | Space between a widget's boundary and its rendered content | Theme `contentPadding` (16h); vertical spacing is M3's `minVerticalPadding: 8` |
 
 **The iron rule:** each zone owns its own spacing. No zone reaches into another.
 
@@ -152,8 +152,8 @@ Canvas (Scaffold)
 │  │  │                                                  │  │  │  surface inset
 │  │  │  ┌─ ListTile ─────────────────────────────────┐  │  │  │
 │  │  │  │  ← 16h →  Title / Subtitle       ← 16h →  │  │  │  │  MICRO
-│  │  │  │  ↑ 4v ↑                           ↑ 4v ↑   │  │  │  │  widget
-│  │  │  └────────────────────────────────────────────┘  │  │  │  contentPadding
+│  │  │  │  ↑ 8v ↑                           ↑ 8v ↑   │  │  │  │  widget
+│  │  │  └────────────────────────────────────────────┘  │  │  │  M3 minVerticalPad
 │  │  │          ↕ space12 (gap between items)           │  │  │
 │  │  │  ┌─ ListTile ─────────────────────────────────┐  │  │  │
 │  │  │  │  ...                                       │  │  │  │

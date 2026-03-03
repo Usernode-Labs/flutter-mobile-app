@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../tokens/app_sizing.dart';
 import '../tokens/app_spacing.dart';
 
-/// A centered empty-state placeholder with icon, title, optional subtitle,
-/// and optional action button.
+/// A centered empty-state placeholder with optional icon, title, optional
+/// subtitle, and optional action button.
 ///
 /// Used when a list, page, or section has no content to display.
 ///
@@ -12,14 +12,15 @@ import '../tokens/app_spacing.dart';
 class EmptyState extends StatelessWidget {
   const EmptyState({
     super.key,
-    required this.icon,
+    this.icon,
     required this.title,
     this.subtitle,
     this.action,
   });
 
-  /// The large muted icon displayed above the title.
-  final IconData icon;
+  /// The large muted icon displayed above the title. When null, no icon is
+  /// rendered.
+  final IconData? icon;
 
   /// The primary message, e.g. "No transactions yet".
   final String title;
@@ -44,12 +45,14 @@ class EmptyState extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              size: sizing.iconDisplay,
-              color: colors.onSurfaceVariant,
-            ),
-            SizedBox(height: spacing.space16),
+            if (icon != null) ...[
+              Icon(
+                icon,
+                size: sizing.iconDisplay,
+                color: colors.onSurfaceVariant,
+              ),
+              SizedBox(height: spacing.space16),
+            ],
             Text(
               title,
               style: textTheme.titleMedium?.copyWith(

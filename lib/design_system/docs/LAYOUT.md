@@ -135,9 +135,59 @@ screen margin + card padding + widget padding + leading width + gap = offset
 
 ## Content Sheet Anatomy
 
-The "white sheet over grey scaffold" pattern is implemented by [`ParallaxSurfaceLayout`](../src/parallax_surface_layout.dart): a fixed parallax header behind a scrolling surface container with animated corner radius. It supports an optional pinned bar and scroll-fraction notifier for delegate-driven animations.
+The "white sheet over grey scaffold" pattern is implemented by [`ParallaxSurfaceLayout`](../src/parallax_surface_layout.dart): a fixed parallax header behind a scrolling surface container with animated corner radius.
 
-See [ParallaxSurfaceLayout genesis doc](../.specs/ParallaxSurfaceLayout.genesis.md) for layer architecture and constraint details.
+### Layer Architecture
+
+```
+Stack (alignment: topCenter)
+│
+├── Layer 1 — Parallax header (fixed)
+│   Padding(top: pinnedHeaderHeight)
+│   └── SizedBox(height: headerHeight)
+│       └── Center(child: header)
+│   Translates upward at 40% of scroll speed (kParallaxRatio).
+│
+└── Layer 2 — CustomScrollView (scrollable)
+    ├── [pinnedHeaderSliver]       ← optional pinned bar (SliverPersistentHeader)
+    ├── SliverToBoxAdapter          ← transparent spacer (height: headerHeight)
+    └── SliverToBoxAdapter          ← decorated surface container
+        └── Container(surfaceContainerLowest, animated top borderRadius)
+            └── surfaceBody
+```
+
+### API Quick-Reference
+
+| Param | Purpose |
+|-------|---------|
+| `header` | Widget centered in the fixed parallax area |
+| `surfaceBody` | Widget inside the white scrolling surface |
+| `headerHeight` | Height of the transparent spacer / parallax zone |
+| `pinnedHeaderSliver` | Optional pinned sliver before the spacer |
+| `pinnedHeaderHeight` | Offset for the header to sit below the pinned sliver |
+| `onRefresh` | Pull-to-refresh (wraps in `RefreshIndicator`) |
+| `scrollFractionNotifier` | External notifier for delegate-driven animations |
+| `surfaceFillsViewport` | Stretch surface to viewport height for centering empty states |
+
+### Safe Area Strategies
+
+| Pattern | pinnedHeaderSliver | pinnedHeaderHeight | Example |
+|---------|-------------------|-------------------|---------|
+| Pinned bar + safe area | `SliverPersistentHeader` | delegate height (includes `safeTop`) | Wallet |
+| Safe area only | `null` | `MediaQuery.padding.top` | Node status |
+| Neither | `null` | `0` | Widgetbook |
+
+### Surface Body Decoration Rules
+
+- Content inherits the white surface background — remove explicit `surfaceContainerLowest` from containers that were previously standalone cards.
+- Cards on white surface need `outlineVariant` border (see [SURFACES.md](SURFACES.md) white-on-white exception).
+- Use `space24` gaps between major sections, not container-based visual grouping.
+
+### When NOT to Use
+
+Screens that need `NestedScrollView` for independently-scrollable tab content (e.g. Challenges with its `TabBarView`) cannot use `ParallaxSurfaceLayout`. Build the grey-scaffold + white-surface pattern manually with the same visual rules.
+
+See [ParallaxSurfaceLayout genesis doc](../.specs/ParallaxSurfaceLayout.genesis.md) for constraint details.
 
 ## Progressive Extensions (deferred)
 

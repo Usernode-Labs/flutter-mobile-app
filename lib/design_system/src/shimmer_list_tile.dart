@@ -42,37 +42,61 @@ class ShimmerListTile extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Leading — circular, matches IconBadge 3-layer surface size (40px).
-          ShimmerBlock(
-            width: sizing.iconContainerSmall,
-            height: sizing.iconContainerSmall,
-            borderRadius: radii.borderRadiusFull,
+          // Leading — 48px box with 40px circle matches IconBadge's
+          // 3-layer default (48px container, 40px surface).
+          SizedBox(
+            width: sizing.iconContainerRegular,
+            height: sizing.iconContainerRegular,
+            child: Center(
+              child: ShimmerBlock(
+                width: sizing.iconContainerSmall,
+                height: sizing.iconContainerSmall,
+                borderRadius: radii.borderRadiusFull,
+              ),
+            ),
           ),
           SizedBox(width: spacing.space16),
 
-          // Title + subtitle lines.
+          // Title + subtitle lines — proportional widths.
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Title line — ~60% width.
-                const ShimmerBlock(width: 120, height: 14),
+                // Title line — ~55% width.
+                const FractionallySizedBox(
+                  widthFactor: 0.55,
+                  child: ShimmerBlock(width: double.infinity, height: 14),
+                ),
                 SizedBox(height: spacing.space8),
-                // Subtitle line 1 — ~80% width.
-                const ShimmerBlock(width: 180, height: 12),
+                // Subtitle line 1 — ~75% width.
+                const FractionallySizedBox(
+                  widthFactor: 0.75,
+                  child: ShimmerBlock(width: double.infinity, height: 12),
+                ),
                 if (isThreeLine) ...[
                   SizedBox(height: spacing.space4),
-                  // Subtitle line 2 — ~50% width.
-                  const ShimmerBlock(width: 100, height: 12),
+                  // Subtitle line 2 — ~40% width.
+                  const FractionallySizedBox(
+                    widthFactor: 0.40,
+                    child: ShimmerBlock(width: double.infinity, height: 12),
+                  ),
                 ],
               ],
             ),
           ),
 
-          // Trailing block.
+          // Trailing — two blocks matching real trailing structure
+          // (amount text + timestamp/badge).
           if (hasTrailing) ...[
             SizedBox(width: spacing.space12),
-            const ShimmerBlock(width: 60, height: 16),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                const ShimmerBlock(width: 60, height: 14),
+                SizedBox(height: spacing.space4),
+                const ShimmerBlock(width: 48, height: 12),
+              ],
+            ),
           ],
         ],
       ),

@@ -22,15 +22,15 @@ WidgetbookUseCase _playground() {
     name: 'Playground',
     builder: (context) {
       final sizing = Theme.of(context).extension<AppSizing>()!;
-      final insetSurface = context.knobs.boolean(
-        label: 'Inset surface (3-layer)',
-        initialValue: true,
+      final flushSurface = context.knobs.boolean(
+        label: 'Flush surface (no inset)',
+        initialValue: false,
       );
 
       return Center(
         child: IconBadge(
           icon: Symbols.bolt_sharp,
-          surfaceSize: insetSurface ? null : sizing.iconContainerRegular,
+          size: flushSurface ? sizing.iconContainerSmall : null,
         ),
       );
     },
@@ -88,7 +88,7 @@ WidgetbookUseCase _insetComparison() {
               children: [
                 IconBadge(
                   icon: Symbols.bolt_sharp,
-                  surfaceSize: sizing.iconContainerRegular,
+                  size: sizing.iconContainerSmall,
                 ),
                 Text('Flush surface', style: textTheme.labelSmall),
               ],

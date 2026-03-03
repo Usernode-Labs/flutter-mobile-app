@@ -42,27 +42,50 @@ WidgetbookComponent shimmerBlockComponent() {
         },
       ),
       WidgetbookUseCase(
-        name: 'Composition',
+        name: 'Card Skeleton',
         builder: (context) {
+          final colors = Theme.of(context).colorScheme;
           final spacing = Theme.of(context).extension<AppSpacing>()!;
+          final radii = Theme.of(context).extension<AppRadii>()!;
 
           return Center(
             child: Padding(
               padding: EdgeInsets.all(spacing.space16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Hero placeholder
-                  const ShimmerBlock(width: 200, height: 40),
-                  SizedBox(height: spacing.space16),
-                  // Paragraph placeholders
-                  const ShimmerBlock(width: double.infinity, height: 14),
-                  SizedBox(height: spacing.space8),
-                  const ShimmerBlock(width: 260, height: 14),
-                  SizedBox(height: spacing.space8),
-                  const ShimmerBlock(width: 180, height: 14),
-                ],
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: radii.borderRadiusLargeIncreased,
+                  border: Border.all(color: colors.outlineVariant),
+                ),
+                padding: EdgeInsets.all(spacing.space16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header line — ~40%.
+                    const FractionallySizedBox(
+                      widthFactor: 0.40,
+                      child: ShimmerBlock(width: double.infinity, height: 12),
+                    ),
+                    SizedBox(height: spacing.space12),
+                    // Title line — ~65%.
+                    const FractionallySizedBox(
+                      widthFactor: 0.65,
+                      child: ShimmerBlock(width: double.infinity, height: 16),
+                    ),
+                    SizedBox(height: spacing.space8),
+                    // Description line — ~90%.
+                    const FractionallySizedBox(
+                      widthFactor: 0.90,
+                      child: ShimmerBlock(width: double.infinity, height: 12),
+                    ),
+                    SizedBox(height: spacing.space12),
+                    // Reward bar — ~30%.
+                    const FractionallySizedBox(
+                      widthFactor: 0.30,
+                      child: ShimmerBlock(width: double.infinity, height: 14),
+                    ),
+                  ],
+                ),
               ),
             ),
           );

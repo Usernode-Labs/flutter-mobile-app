@@ -447,8 +447,7 @@ void main() {
 
   group('isProduceBlocksChallenge', () {
     test('returns true when subCategory is PRODUCE_BLOCKS_CHALLENGE', () {
-      final dto =
-          _makeDto(subCategory: 'PRODUCE_BLOCKS_CHALLENGE');
+      final dto = _makeDto(subCategory: 'PRODUCE_BLOCKS_CHALLENGE');
       expect(isProduceBlocksChallenge(dto), isTrue);
     });
 

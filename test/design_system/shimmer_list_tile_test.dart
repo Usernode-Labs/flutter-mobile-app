@@ -24,8 +24,8 @@ void main() {
         (tester) async {
       await tester.pumpWidget(wrap(const ShimmerListTile()));
 
-      // Leading circle + title + subtitle1 + subtitle2 + trailing = 5 blocks
-      expect(find.byType(ShimmerBlock), findsNWidgets(5));
+      // Leading circle + title + subtitle1 + subtitle2 + 2 trailing = 6 blocks
+      expect(find.byType(ShimmerBlock), findsNWidgets(6));
     });
 
     testWidgets('renders fewer blocks when isThreeLine is false',
@@ -34,8 +34,8 @@ void main() {
         const ShimmerListTile(isThreeLine: false),
       ));
 
-      // Leading + title + subtitle1 + trailing = 4 blocks (no subtitle2)
-      expect(find.byType(ShimmerBlock), findsNWidgets(4));
+      // Leading + title + subtitle1 + 2 trailing = 5 blocks (no subtitle2)
+      expect(find.byType(ShimmerBlock), findsNWidgets(5));
     });
 
     testWidgets('renders without trailing block when hasTrailing is false',

@@ -440,14 +440,13 @@ class ColorIsExpensiveTheme {
           clipBehavior: Clip.none,
         ),
 
+        // Layout: all M3 defaults (removed: titleAlignment, minVerticalPadding,
+        // minTileHeight, visualDensity, vertical contentPadding).
+        // See CONSTRAINTS.md § ListTile Layout Constraint.
         listTileTheme: ListTileThemeData(
-          titleAlignment: ListTileTitleAlignment.center,
-          minVerticalPadding: 0,
           contentPadding: EdgeInsets.symmetric(
             horizontal: _spacing.space16,
-            vertical: _spacing.space4,
           ),
-          visualDensity: VisualDensity.compact,
           shape: RoundedRectangleBorder(
             borderRadius: _radii.borderRadiusMedium,
           ),

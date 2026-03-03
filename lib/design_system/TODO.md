@@ -39,6 +39,16 @@ filtered by area. Use the feature folder name (e.g. `feature/settings`) or
 
 ## Extract widget
 
+### Consolidate address shortening into `Utils.shortenID`
+<!-- area: core -->
+
+Where: `wallet_screen.dart`, `transaction_success_screen.dart`,
+`transaction_model.dart`, `pending_transaction.dart`, `wallet_provider.dart`
+What: 6+ inline `substring(0,8)...substring(length-8)` implementations with
+minor variations (`...` vs `..`, different length guards).
+Fix: replace all with `Utils.shortenID(value, head: 8, tail: 8)` from
+`lib/core/utils/utils.dart` which already exists with configurable params.
+
 ### Section header
 <!-- area: design-system -->
 
@@ -50,6 +60,16 @@ Fix: extract a `ListSectionHeader(title:)` widget — archived guidance
 ---
 
 ## Theme defaults
+
+### SendScreen `_buildField` — let M3 `InputDecorationTheme` do the work
+<!-- area: theme -->
+
+Where: `lib/features/wallet/screens/send_screen.dart` `_buildField` method
+What: manually reconstructs M3 filled-text-field style with `ClipRRect` +
+`Container` + 5× `InputBorder.none` + `filled: false`. M3's filled variant
+already uses `surfaceContainerHighest` with a bottom indicator line.
+Fix: add `InputDecorationTheme` to `color_is_expensive_theme.dart` and simplify
+`_buildField` to a plain `TextFormField` with default decoration.
 
 ### ExpansionTile childrenPadding
 <!-- area: theme -->
@@ -63,6 +83,17 @@ the canonical padding, so tiles can omit it.
 ---
 
 ## API simplification
+
+### WalletScreen shadow state → `ref.watch`
+<!-- area: feature/wallet -->
+
+Where: `lib/features/wallet/screens/wallet_screen.dart`
+What: maintains `_walletState` / `_nodeStatus` shadow copies of provider state,
+synced via manual `setState` in a 5-second timer and `_onRefresh`. Creates a
+timing window where provider has updated but widget shows stale data.
+Fix: replace shadow fields with `ref.watch(walletProvider)` /
+`ref.watch(nodeStatusProvider)` in `build()`. Remove `_loadInitialData`,
+simplify timer to just call `silentRefresh()` without `setState`.
 
 ### FaqLocalizations (28 fields)
 <!-- area: feature/settings -->

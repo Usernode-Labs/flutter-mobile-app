@@ -139,18 +139,12 @@ class _SendScreenState extends ConsumerState<SendScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
+    final spacing = theme.extension<AppSpacing>()!;
     final recipientHistory = ref.watch(recipientHistoryProvider);
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Symbols.arrow_back_sharp),
-          onPressed: () => context.pop(),
-        ),
         title: const Text('Send'),
       ),
       body: SafeArea(
@@ -231,8 +225,8 @@ class _SendScreenState extends ConsumerState<SendScreen> {
     Widget? suffixIcon,
     String? Function(String?)? validator,
   }) {
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
-    final radii = Theme.of(context).extension<AppRadii>()!;
+    final spacing = theme.extension<AppSpacing>()!;
+    final radii = theme.extension<AppRadii>()!;
     return ClipRRect(
       borderRadius: BorderRadius.only(
         topLeft: Radius.circular(radii.small),
@@ -264,47 +258,25 @@ class _SendScreenState extends ConsumerState<SendScreen> {
             filled: false,
             contentPadding: EdgeInsets.all(spacing.space16),
             hintText: hint,
-            hintStyle: TextStyle(
-              color: theme.colorScheme.onSurfaceVariant,
-              fontSize: 16,
-            ),
             suffixIcon: suffixIcon,
           ),
-          style: TextStyle(
-            color: theme.colorScheme.onSurface,
-            fontSize: 16,
-          ),
+          style: theme.textTheme.bodyLarge,
         ),
       ),
     );
   }
 
   Widget _buildSendButton(ThemeData theme) {
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
-    final radii = Theme.of(context).extension<AppRadii>()!;
-    return Container(
+    final spacing = theme.extension<AppSpacing>()!;
+    final radii = theme.extension<AppRadii>()!;
+    final onPrimary = theme.colorScheme.onPrimary;
+
+    return SizedBox(
       width: double.infinity,
       height: 56,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            _isSending
-                ? theme.colorScheme.primary.withValues(alpha: 0.5)
-                : theme.colorScheme.primary,
-            _isSending
-                ? theme.colorScheme.primary.withValues(alpha: 0.3)
-                : theme.colorScheme.primary.withValues(alpha: 0.8),
-          ],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ),
-        borderRadius: radii.borderRadiusFull,
-      ),
-      child: ElevatedButton(
+      child: FilledButton(
         onPressed: _isSending ? null : _onSend,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.transparent,
-          shadowColor: Colors.transparent,
+        style: FilledButton.styleFrom(
           shape: RoundedRectangleBorder(
             borderRadius: radii.borderRadiusFull,
           ),
@@ -313,31 +285,26 @@ class _SendScreenState extends ConsumerState<SendScreen> {
             ? Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const SizedBox(
-                    width: 20,
-                    height: 20,
+                  SizedBox.square(
+                    dimension: 20,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      valueColor: AlwaysStoppedAnimation<Color>(onPrimary),
                     ),
                   ),
                   SizedBox(width: spacing.space12),
-                  const Text(
+                  Text(
                     'Sending...',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: onPrimary,
                     ),
                   ),
                 ],
               )
-            : const Text(
+            : Text(
                 'Send',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: onPrimary,
                 ),
               ),
       ),

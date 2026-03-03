@@ -33,6 +33,14 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     super.initState();
     _loadInitialData();
     _startAutoRefresh();
+
+    // React to tab changes — refresh when wallet tab becomes active.
+    ref.listenManual(currentHomeTabProvider, (previous, next) {
+      if (next == 1 && previous != 1) {
+        _log.debug('Switching to wallet tab - triggering refresh');
+        _onRefresh();
+      }
+    });
   }
 
   void _loadInitialData() {
@@ -52,8 +60,10 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       // Only refresh if currently on wallet tab (index 1)
       final currentTab = ref.read(currentHomeTabProvider);
       if (currentTab == 1) {
-        await ref.read(walletProvider.notifier).silentRefresh();
-        await ref.read(nodeStatusProvider.notifier).silentRefresh();
+        await Future.wait([
+          ref.read(walletProvider.notifier).silentRefresh(),
+          ref.read(nodeStatusProvider.notifier).silentRefresh(),
+        ]);
 
         // Update local state with fresh data
         if (mounted) {
@@ -83,24 +93,11 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
+    final spacing = theme.extension<AppSpacing>()!;
     final l10n = AppLocalizations.of(context);
     final walletState = _walletState;
     final nodeStatus = _nodeStatus;
-    final currentTab = ref.watch(currentHomeTabProvider);
-
-    _log.debug('WalletScreen build() called, current tab: $currentTab');
-
-    // Listen for tab changes to refresh when wallet tab becomes active
-    ref.listen<int>(currentHomeTabProvider, (previous, next) {
-      _log.debug('Tab changed from $previous to $next');
-      // Refresh wallet data when switching to wallet tab (index 1)
-      if (next == 1 && previous != 1) {
-        _log.debug('Switching to wallet tab - triggering refresh');
-        _onRefresh();
-      }
-    });
 
     return Scaffold(
       body: SafeArea(
@@ -119,8 +116,6 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             children: [
               const _AddressSection(),
               Divider(
-                height: 1,
-                color: theme.colorScheme.outlineVariant,
                 indent: spacing.space16,
                 endIndent: spacing.space16,
               ),
@@ -137,7 +132,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                 ),
               ),
               _buildCachedDataBanner(walletState, theme, spacing),
-              _buildTransactionContent(walletState, l10n),
+              _buildTransactionContent(walletState, l10n, spacing),
               SizedBox(height: spacing.space32),
             ],
           ),
@@ -182,9 +177,6 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               decoration: BoxDecoration(
                 color: semantic.warning.colorContainer,
                 borderRadius: radii.borderRadiusSmall,
-                border: Border.all(
-                  color: semantic.warning.color.withValues(alpha: 0.3),
-                ),
               ),
               child: Row(
                 children: [
@@ -216,13 +208,13 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   }
 
   Widget _buildTransactionContent(
-      AsyncValue walletState, AppLocalizations l10n) {
+      AsyncValue walletState, AppLocalizations l10n, AppSpacing spacing) {
     return walletState.when(
       data: (state) {
         if (state.recent.isEmpty) {
           return Padding(
             padding: EdgeInsets.symmetric(
-              vertical: Theme.of(context).extension<AppSpacing>()!.space48,
+              vertical: spacing.space48,
             ),
             child: EmptyState(
               icon: Symbols.receipt_long_sharp,
@@ -260,8 +252,8 @@ class _BalanceSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
+    final spacing = theme.extension<AppSpacing>()!;
     final syncStatus = nodeStatus.valueOrNull?.syncStatus;
     final showSyncMessage = syncStatus == null || !syncStatus.isSynced;
 
@@ -274,7 +266,6 @@ class _BalanceSection extends StatelessWidget {
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
-        SizedBox(height: spacing.space4),
         SizedBox(height: spacing.space16),
         walletState.when(
           data: (state) => Text(
@@ -412,10 +403,10 @@ class _TransactionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
+    final spacing = theme.extension<AppSpacing>()!;
     final colorScheme = theme.colorScheme;
-    final semantic = Theme.of(context).extension<AppSemanticColors>()!;
+    final semantic = theme.extension<AppSemanticColors>()!;
     final isPending = transaction.status == TransactionStatus.pending;
 
     return ListTile(

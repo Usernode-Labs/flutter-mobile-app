@@ -286,7 +286,6 @@ class _SlotProductionStatsScreenState
                 child: Text(
                   '${successRate.toStringAsFixed(1)}%',
                   style: theme.textTheme.displaySmall?.copyWith(
-                    fontWeight: FontWeight.bold,
                     color: color,
                     fontFamily: 'IBMPlexMono',
                   ),

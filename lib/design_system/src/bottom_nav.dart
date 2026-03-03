@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../tokens/app_borders.dart';
 import 'nav_indicator_shapes.dart';
 
 /// Data class for a single bottom navigation item.
@@ -87,6 +88,7 @@ class BottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final borders = Theme.of(context).extension<AppBorders>()!;
     final selected = items[selectedIndex];
 
     // Per-selection shape: rebuild with the selected item's indicator.
@@ -119,7 +121,10 @@ class BottomNav extends StatelessWidget {
       position: DecorationPosition.foreground,
       decoration: BoxDecoration(
         border: Border(
-          top: BorderSide(color: colors.outlineVariant),
+          top: BorderSide(
+            color: colors.onSurface.withValues(alpha: borders.opacity),
+            width: borders.width,
+          ),
         ),
       ),
       child: navBar,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../tokens/app_opacity.dart';
+import '../tokens/app_borders.dart';
 import '../tokens/app_radii.dart';
 import '../tokens/app_semantic_colors.dart';
 import '../tokens/app_sizing.dart';
@@ -52,9 +52,9 @@ class StatusBadge extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final semantic = Theme.of(context).extension<AppSemanticColors>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
+    final borders = Theme.of(context).extension<AppBorders>()!;
     final sizing = Theme.of(context).extension<AppSizing>()!;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
-    final opacity = Theme.of(context).extension<AppOpacity>()!;
     final textTheme = Theme.of(context).textTheme;
 
     final (Color foreground, Color background) = switch (variant) {
@@ -89,7 +89,8 @@ class StatusBadge extends StatelessWidget {
         color: background,
         borderRadius: radii.borderRadiusSmall,
         border: Border.all(
-          color: foreground.withValues(alpha: opacity.medium),
+          color: foreground.withValues(alpha: borders.opacity),
+          width: borders.width,
         ),
       ),
       child: Row(

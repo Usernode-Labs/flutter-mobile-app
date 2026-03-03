@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../tokens/app_borders.dart';
 import '../tokens/app_radii.dart';
 import '../tokens/app_spacing.dart';
 
@@ -20,6 +21,7 @@ class ColorIsExpensiveTheme {
   // Standard token instances used by the theme builder.
   static final _spacing = AppSpacing.standard();
   static final _radii = AppRadii.standard();
+  static final _borders = AppBorders.standard();
 
   // ---------------------------------------------------------------------------
   // Light schemes
@@ -392,7 +394,6 @@ class ColorIsExpensiveTheme {
           surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: _radii.borderRadiusLarge,
-            side: BorderSide(color: colorScheme.outlineVariant),
           ),
         ),
 
@@ -406,9 +407,9 @@ class ColorIsExpensiveTheme {
         ),
 
         dividerTheme: DividerThemeData(
-          color: colorScheme.outlineVariant,
-          thickness: 1,
-          space: 1,
+          color: colorScheme.onSurface.withValues(alpha: _borders.opacity),
+          thickness: _borders.width,
+          space: _borders.width,
         ),
 
         drawerTheme: DrawerThemeData(
@@ -440,6 +441,7 @@ class ColorIsExpensiveTheme {
         ),
 
         listTileTheme: ListTileThemeData(
+          titleAlignment: ListTileTitleAlignment.center,
           contentPadding: EdgeInsets.symmetric(
             horizontal: _spacing.space16,
             vertical: _spacing.space4,

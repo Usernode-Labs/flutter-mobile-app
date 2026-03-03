@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../tokens/app_borders.dart';
 import '../tokens/app_spacing.dart';
 
 /// A key-value row displaying a label on the left and a value on the right.
@@ -47,6 +48,7 @@ class InfoRow extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final borders = Theme.of(context).extension<AppBorders>()!;
 
     final resolvedPadding = contentPadding ??
         EdgeInsets.symmetric(
@@ -93,7 +95,11 @@ class InfoRow extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         row,
-        Divider(height: 1, thickness: 1, color: colors.outlineVariant),
+        Divider(
+          height: borders.width,
+          thickness: borders.width,
+          color: colors.onSurface.withValues(alpha: borders.opacity),
+        ),
       ],
     );
   }

@@ -5,6 +5,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import 'package:crypto_mobile_app/core/widgets/app_card.dart';
 
+import '../tokens/app_borders.dart';
 import '../tokens/app_opacity.dart';
 import '../tokens/app_radii.dart';
 import '../tokens/app_sizing.dart';
@@ -199,12 +200,16 @@ class _StatBox extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
+    final borders = Theme.of(context).extension<AppBorders>()!;
 
     return Container(
       padding: EdgeInsets.all(spacing.space24),
       decoration: BoxDecoration(
         borderRadius: radii.borderRadiusLarge,
-        border: Border.all(color: colors.surfaceContainerHighest),
+        border: Border.all(
+          color: colors.onSurface.withValues(alpha: borders.opacity),
+          width: borders.width,
+        ),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

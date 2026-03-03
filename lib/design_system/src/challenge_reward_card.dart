@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../tokens/app_borders.dart';
 import '../tokens/app_radii.dart';
 import '../tokens/app_semantic_colors.dart';
 import '../tokens/app_spacing.dart';
@@ -113,6 +114,7 @@ class ChallengeRewardCard extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
+    final borders = Theme.of(context).extension<AppBorders>()!;
     final semantic = Theme.of(context).extension<AppSemanticColors>()!;
     final catColors = _categoryColors(semantic);
 
@@ -253,9 +255,9 @@ class ChallengeRewardCard extends StatelessWidget {
           // Optional epoch section
           if (epochEarned != null) ...[
             Divider(
-              height: 1,
-              thickness: 1,
-              color: onColor.withValues(alpha: 0.1),
+              height: borders.width,
+              thickness: borders.width,
+              color: onColor.withValues(alpha: borders.opacity),
             ),
             Padding(
               padding: EdgeInsets.all(spacing.space16),

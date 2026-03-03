@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../tokens/app_borders.dart';
 import '../tokens/app_opacity.dart';
 import '../tokens/app_radii.dart';
 import '../tokens/app_sizing.dart';
@@ -91,6 +92,7 @@ class DropdownChip extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
+    final borders = Theme.of(context).extension<AppBorders>()!;
     final sizing = Theme.of(context).extension<AppSizing>()!;
 
     final effectiveVariant = _effectiveVariant;
@@ -119,7 +121,7 @@ class DropdownChip extends StatelessWidget {
         ),
       ChipVariant.outlined => (
           null,
-          colors.outlineVariant,
+          colors.onSurface.withValues(alpha: borders.opacity),
           colors.onSurfaceVariant,
         ),
       ChipVariant.surface => (
@@ -139,7 +141,10 @@ class DropdownChip extends StatelessWidget {
         ),
         decoration: BoxDecoration(
           color: fill,
-          border: Border.all(color: borderColor ?? defaultBorder),
+          border: Border.all(
+            color: borderColor ?? defaultBorder,
+            width: borders.width,
+          ),
           borderRadius: radii.borderRadiusSmall,
         ),
         child: Row(

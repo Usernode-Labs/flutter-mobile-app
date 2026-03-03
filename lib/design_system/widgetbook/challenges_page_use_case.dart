@@ -8,6 +8,7 @@ import '../src/challenge_category_icon.dart';
 import '../src/dropdown_chain.dart';
 import '../src/dropdown_chip.dart';
 import '../src/nav_indicator_shapes.dart';
+import '../src/parallax_surface_layout.dart';
 import '../src/score_header.dart';
 import '../tokens/app_semantic_colors.dart';
 import '../tokens/app_spacing.dart';
@@ -211,7 +212,8 @@ class _ChallengesPageState extends State<_ChallengesPage>
           children: [
             // Layer 1 — parallax ScoreHeader behind scroll surface
             Transform.translate(
-              offset: Offset(0, -_scrollFraction * _kSpacerHeight * 0.4),
+              offset:
+                  Offset(0, -_scrollFraction * _kSpacerHeight * kParallaxRatio),
               child: Padding(
                 padding: EdgeInsets.only(
                   top: safeTop + spacing.space8 + _kChipHeight + spacing.space8,
@@ -514,7 +516,7 @@ class _SurfaceTabBarDelegate extends SliverPersistentHeaderDelegate {
       BuildContext context, double shrinkOffset, bool overlapsContent) {
     final colors = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final cornerRadius = 28.0 * (1.0 - scrollFraction);
+    final cornerRadius = kSurfaceCornerRadius * (1.0 - scrollFraction);
 
     return Container(
       decoration: BoxDecoration(

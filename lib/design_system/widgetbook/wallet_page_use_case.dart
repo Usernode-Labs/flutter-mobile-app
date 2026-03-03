@@ -9,6 +9,7 @@ import '../src/full_page_error_state.dart';
 import '../src/full_page_loading_state.dart';
 import '../src/icon_badge.dart';
 import '../src/nav_indicator_shapes.dart';
+import '../src/parallax_surface_layout.dart';
 import '../src/status_badge.dart';
 import '../tokens/app_radii.dart';
 import '../tokens/app_semantic_colors.dart';
@@ -104,7 +105,6 @@ WidgetbookUseCase _transactionTiles() {
               amount: '+1,000 TOKEN',
               isPending: false,
             ),
-            _divider(context),
             label('SENT'),
             _buildMockTile(
               context,
@@ -115,7 +115,6 @@ WidgetbookUseCase _transactionTiles() {
               amount: '-500 TOKEN',
               isPending: false,
             ),
-            _divider(context),
             label('SENT \u2014 PENDING'),
             _buildMockTile(
               context,
@@ -126,7 +125,6 @@ WidgetbookUseCase _transactionTiles() {
               amount: '-250 TOKEN',
               isPending: true,
             ),
-            _divider(context),
             label('BLOCK REWARD'),
             _buildMockTile(
               context,
@@ -137,7 +135,6 @@ WidgetbookUseCase _transactionTiles() {
               amount: '+50 TOKEN',
               isPending: false,
             ),
-            _divider(context),
             label('GENESIS ALLOCATION'),
             _buildMockTile(
               context,
@@ -148,7 +145,6 @@ WidgetbookUseCase _transactionTiles() {
               amount: '+10,000 TOKEN',
               isPending: false,
             ),
-            _divider(context),
             label('FEE'),
             _buildMockTile(
               context,
@@ -167,19 +163,9 @@ WidgetbookUseCase _transactionTiles() {
   );
 }
 
-Widget _divider(BuildContext context) {
-  return Divider(
-    height: 1,
-    indent: 88,
-    color: Theme.of(context).colorScheme.outlineVariant,
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Constants & mock data
 // ---------------------------------------------------------------------------
-
-const _kSpacerHeight = 200.0;
 
 const _kMockAddress = '0x1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b';
 
@@ -206,17 +192,6 @@ class _WalletPage extends StatefulWidget {
 
 class _WalletPageState extends State<_WalletPage> {
   int _navIndex = 2;
-  double _scrollFraction = 0.0;
-
-  bool _onScroll(ScrollNotification notification) {
-    if (notification.depth != 0) return false;
-    final fraction =
-        (notification.metrics.pixels / _kSpacerHeight).clamp(0.0, 1.0);
-    if (fraction != _scrollFraction) {
-      setState(() => _scrollFraction = fraction);
-    }
-    return false;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -226,73 +201,38 @@ class _WalletPageState extends State<_WalletPage> {
 
     return Scaffold(
       body: SafeArea(
-        child: ColoredBox(
-          color: theme.colorScheme.surface,
-          child: Stack(
-            alignment: Alignment.topCenter,
+        child: ParallaxSurfaceLayout(
+          header: Padding(
+            padding: EdgeInsets.only(top: spacing.space32),
+            child: _buildBalanceSection(context),
+          ),
+          surfaceBody: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Layer 1: Balance hero (parallax)
-              Transform.translate(
-                offset: Offset(0, -_scrollFraction * _kSpacerHeight * 0.4),
-                child: Padding(
-                  padding: EdgeInsets.only(top: spacing.space32),
-                  child: _buildBalanceSection(context),
+              _buildAddressTile(context),
+              Divider(
+                height: 1,
+                color: theme.colorScheme.outlineVariant,
+                indent: spacing.space16,
+                endIndent: spacing.space16,
+              ),
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  spacing.space16,
+                  spacing.space16,
+                  spacing.space16,
+                  spacing.space8,
+                ),
+                child: Text(
+                  'Recent Activity',
+                  style: theme.textTheme.titleMedium,
                 ),
               ),
-
-              // Layer 2: Scrolling content surface
-              NotificationListener<ScrollNotification>(
-                onNotification: _onScroll,
-                child: CustomScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  slivers: [
-                    const SliverToBoxAdapter(
-                      child: SizedBox(height: _kSpacerHeight),
-                    ),
-                    SliverToBoxAdapter(
-                      child: Container(
-                        clipBehavior: Clip.hardEdge,
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceContainerLowest,
-                          borderRadius: BorderRadius.vertical(
-                            top:
-                                Radius.circular(28.0 * (1.0 - _scrollFraction)),
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _buildAddressTile(context),
-                            Divider(
-                              height: 1,
-                              color: theme.colorScheme.outlineVariant,
-                              indent: spacing.space16,
-                              endIndent: spacing.space16,
-                            ),
-                            Padding(
-                              padding: EdgeInsets.fromLTRB(
-                                spacing.space16,
-                                spacing.space16,
-                                spacing.space16,
-                                spacing.space8,
-                              ),
-                              child: Text(
-                                'Recent Activity',
-                                style: theme.textTheme.titleMedium,
-                              ),
-                            ),
-                            if (widget.showCachedBanner &&
-                                widget.dataState == _DataState.loaded)
-                              _buildCachedBanner(context),
-                            _buildContent(context),
-                            SizedBox(height: spacing.space32),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              if (widget.showCachedBanner &&
+                  widget.dataState == _DataState.loaded)
+                _buildCachedBanner(context),
+              _buildContent(context),
+              SizedBox(height: spacing.space32),
             ],
           ),
         ),
@@ -556,12 +496,7 @@ class _WalletPageState extends State<_WalletPage> {
     ]);
 
     return Column(
-      children: [
-        for (int i = 0; i < tiles.length; i++) ...[
-          tiles[i],
-          if (i < tiles.length - 1) _divider(context),
-        ],
-      ],
+      children: tiles,
     );
   }
 }
@@ -595,7 +530,17 @@ Widget _buildMockTile(
           : colorScheme.onSecondaryContainer,
     ),
     title: Text(title),
-    subtitle: Text('$details\n$timestamp'),
+    subtitle: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          details,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        Text(timestamp),
+      ],
+    ),
     isThreeLine: true,
     trailing: Column(
       mainAxisAlignment: MainAxisAlignment.center,

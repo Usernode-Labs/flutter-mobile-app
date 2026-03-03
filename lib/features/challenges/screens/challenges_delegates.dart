@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:crypto_mobile_app/design_system/src/dropdown_chain.dart';
+import 'package:crypto_mobile_app/design_system/src/parallax_surface_layout.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 
 /// Spacer height matching ScoreHeader's natural size.
@@ -131,7 +132,7 @@ class SurfaceTabBarDelegate extends SliverPersistentHeaderDelegate {
     return ValueListenableBuilder<double>(
       valueListenable: scrollFractionNotifier,
       builder: (context, scrollFraction, tabBar) {
-        final cornerRadius = 28.0 * (1.0 - scrollFraction);
+        final cornerRadius = kSurfaceCornerRadius * (1.0 - scrollFraction);
 
         return Container(
           decoration: BoxDecoration(

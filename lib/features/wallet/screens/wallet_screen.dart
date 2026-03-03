@@ -15,9 +15,6 @@ import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 
-/// Spacer height between the balance hero and the white content surface.
-const kWalletSpacerHeight = 200.0;
-
 class WalletScreen extends ConsumerStatefulWidget {
   const WalletScreen({super.key});
 
@@ -31,8 +28,6 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   Timer? _refreshTimer;
   late AsyncValue _walletState;
   late AsyncValue _nodeStatus;
-  final _scrollFraction = ValueNotifier<double>(0.0);
-
   @override
   void initState() {
     super.initState();
@@ -48,7 +43,6 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   @override
   void dispose() {
     _refreshTimer?.cancel();
-    _scrollFraction.dispose();
     super.dispose();
   }
 
@@ -87,16 +81,6 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     _startAutoRefresh();
   }
 
-  bool _onScroll(ScrollNotification notification) {
-    if (notification.depth != 0) return false;
-    final fraction =
-        (notification.metrics.pixels / kWalletSpacerHeight).clamp(0.0, 1.0);
-    if (fraction != _scrollFraction.value) {
-      _scrollFraction.value = fraction;
-    }
-    return false;
-  }
-
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
@@ -120,93 +104,41 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
 
     return Scaffold(
       body: SafeArea(
-        child: ColoredBox(
-          color: theme.colorScheme.surface,
-          child: Stack(
-            alignment: Alignment.topCenter,
+        child: ParallaxSurfaceLayout(
+          onRefresh: _onRefresh,
+          header: Padding(
+            padding: EdgeInsets.only(top: spacing.space32),
+            child: _BalanceSection(
+              walletState: walletState,
+              nodeStatus: nodeStatus,
+              l10n: l10n,
+            ),
+          ),
+          surfaceBody: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Layer 1: Balance hero (parallax)
-              ValueListenableBuilder<double>(
-                valueListenable: _scrollFraction,
-                builder: (context, sf, child) {
-                  return Transform.translate(
-                    offset: Offset(0, -sf * kWalletSpacerHeight * 0.4),
-                    child: child,
-                  );
-                },
-                child: Padding(
-                  padding: EdgeInsets.only(top: spacing.space32),
-                  child: _BalanceSection(
-                    walletState: walletState,
-                    nodeStatus: nodeStatus,
-                    l10n: l10n,
-                  ),
+              const _AddressSection(),
+              Divider(
+                height: 1,
+                color: theme.colorScheme.outlineVariant,
+                indent: spacing.space16,
+                endIndent: spacing.space16,
+              ),
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  spacing.space16,
+                  spacing.space16,
+                  spacing.space16,
+                  spacing.space8,
+                ),
+                child: Text(
+                  'Recent Activity',
+                  style: theme.textTheme.titleMedium,
                 ),
               ),
-
-              // Layer 2: Scrolling content surface
-              NotificationListener<ScrollNotification>(
-                onNotification: _onScroll,
-                child: RefreshIndicator(
-                  onRefresh: _onRefresh,
-                  child: CustomScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    slivers: [
-                      // Transparent spacer — reveals balance behind
-                      const SliverToBoxAdapter(
-                        child: SizedBox(height: kWalletSpacerHeight),
-                      ),
-
-                      // White content surface with animated corner radius
-                      SliverToBoxAdapter(
-                        child: ValueListenableBuilder<double>(
-                          valueListenable: _scrollFraction,
-                          builder: (context, sf, child) {
-                            return Container(
-                              clipBehavior: Clip.hardEdge,
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.surfaceContainerLowest,
-                                borderRadius: BorderRadius.vertical(
-                                  top: Radius.circular(28.0 * (1.0 - sf)),
-                                ),
-                              ),
-                              child: child,
-                            );
-                          },
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              const _AddressSection(),
-                              Divider(
-                                height: 1,
-                                color: theme.colorScheme.outlineVariant,
-                                indent: spacing.space16,
-                                endIndent: spacing.space16,
-                              ),
-                              Padding(
-                                padding: EdgeInsets.fromLTRB(
-                                  spacing.space16,
-                                  spacing.space16,
-                                  spacing.space16,
-                                  spacing.space8,
-                                ),
-                                child: Text(
-                                  'Recent Activity',
-                                  style: theme.textTheme.titleMedium,
-                                ),
-                              ),
-                              _buildCachedDataBanner(
-                                  walletState, theme, spacing),
-                              _buildTransactionContent(walletState, l10n),
-                              SizedBox(height: spacing.space32),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              _buildCachedDataBanner(walletState, theme, spacing),
+              _buildTransactionContent(walletState, l10n),
+              SizedBox(height: spacing.space32),
             ],
           ),
         ),
@@ -301,15 +233,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
         }
         return Column(
           children: [
-            for (int i = 0; i < state.recent.length; i++) ...[
-              _TransactionTile(state.recent[i]),
-              if (i < state.recent.length - 1)
-                Divider(
-                  height: 1,
-                  indent: 88,
-                  color: Theme.of(context).colorScheme.outlineVariant,
-                ),
-            ],
+            for (final tx in state.recent) _TransactionTile(tx),
           ],
         );
       },
@@ -507,8 +431,16 @@ class _TransactionTile extends StatelessWidget {
             : colorScheme.onSecondaryContainer,
       ),
       title: Text(transaction.title),
-      subtitle: Text(
-        '${_displayDetails()}\n${transaction.formattedTimestamp}',
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _displayDetails(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          Text(transaction.formattedTimestamp),
+        ],
       ),
       isThreeLine: true,
       trailing: Column(

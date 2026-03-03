@@ -158,7 +158,8 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
                     return Transform.translate(
                       offset: Offset(
                         0,
-                        -sf * kChallengesSpacerHeight * 0.4 + pf.offset,
+                        -sf * kChallengesSpacerHeight * kParallaxRatio +
+                            pf.offset,
                       ),
                       child: Padding(
                         padding: EdgeInsets.only(

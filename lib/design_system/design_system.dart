@@ -19,6 +19,7 @@ export 'src/empty_state.dart';
 export 'src/full_page_error_state.dart';
 export 'src/full_page_loading_state.dart';
 export 'src/nav_indicator_shapes.dart';
+export 'src/parallax_surface_layout.dart';
 export 'src/button.dart';
 export 'src/challenge_activity_summary.dart';
 export 'src/challenge_card.dart';

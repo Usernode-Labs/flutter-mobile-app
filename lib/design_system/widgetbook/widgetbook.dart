@@ -25,6 +25,7 @@ import 'info_row_use_case.dart';
 import 'leaderboard_page_use_case.dart';
 import 'leaderboard_stats_card_use_case.dart';
 import 'list_tile_use_case.dart';
+import 'parallax_surface_layout_use_case.dart';
 import 'rank_badge_use_case.dart';
 import 'result_page_use_case.dart';
 import 'score_header_use_case.dart';
@@ -188,6 +189,12 @@ class WidgetbookApp extends StatelessWidget {
               name: 'Inputs',
               children: [
                 textFieldComponent(),
+              ],
+            ),
+            WidgetbookFolder(
+              name: 'Layout',
+              children: [
+                parallaxSurfaceLayoutComponent(),
               ],
             ),
             WidgetbookFolder(

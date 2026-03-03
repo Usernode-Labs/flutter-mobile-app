@@ -5,7 +5,6 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/services.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
-import 'package:crypto_mobile_app/core/widgets/app_card.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -330,26 +329,31 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
 
+    final safeTop = MediaQuery.of(context).padding.top;
+    final hasRecentBlocks =
+        ref.read(nodeBlockchainProvider).value?.items.isNotEmpty ?? false;
+
     return Scaffold(
-      backgroundColor: colorScheme.surface,
       drawer: const AppDrawer(),
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _refresh,
-          child: ListView(
-            padding: EdgeInsets.all(spacing.space16),
-            children: [
-              if (_error != null) _buildErrorSection(theme, colorScheme, l10n),
-              _buildCentralStatusIndicator(context),
-              SizedBox(height: spacing.space48),
-              _buildBlockSyncProgressSection(context),
-              SizedBox(height: spacing.space4),
-              _buildSyncDetailsSection(context),
-              SizedBox(height: spacing.space8),
-              _buildRecentBlocksSection(context),
-              SizedBox(height: spacing.space32),
-            ],
-          ),
+      body: ParallaxSurfaceLayout(
+        headerHeight: kScreenHeaderHeight,
+        pinnedHeaderHeight: safeTop,
+        pinnedHeaderSliver: SliverToBoxAdapter(
+          child: SizedBox(height: safeTop),
+        ),
+        onRefresh: _refresh,
+        header: _buildCentralStatusIndicator(context),
+        surfaceBody: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_error != null) _buildErrorSection(theme, colorScheme, l10n),
+            _buildBlockSyncProgressSection(context),
+            SizedBox(height: spacing.space24),
+            _buildSyncDetailsSection(context),
+            if (hasRecentBlocks) SizedBox(height: spacing.space8),
+            _buildRecentBlocksSection(context),
+            SizedBox(height: spacing.space32),
+          ],
         ),
       ),
     );
@@ -394,8 +398,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
         _getStatusDisplay(sync, semantic, colorScheme);
 
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(height: spacing.space16),
         // Large circular indicator
         Container(
           width: 100,
@@ -410,7 +414,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
         // Status text
         Text(
           statusLabel,
-          style: theme.textTheme.headlineSmall,
+          style:
+              theme.textTheme.displaySmall?.copyWith(fontFamily: 'IBMPlexMono'),
         ),
         SizedBox(height: spacing.space8),
         // Chain name with copy functionality
@@ -487,7 +492,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
   Widget _buildBlockSyncProgressSection(BuildContext context) {
     final theme = Theme.of(context);
     final spacing = theme.extension<AppSpacing>()!;
-    final radii = theme.extension<AppRadii>()!;
     final colorScheme = theme.colorScheme;
     final statusFromProvider = ref.read(nodeStatusProvider).value;
 
@@ -535,11 +539,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
                 'Syncing blocks'
               );
 
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLowest,
-        borderRadius: radii.borderRadiusTopLargeIncreased,
-      ),
+    return Padding(
       padding: EdgeInsets.all(spacing.space24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -606,86 +606,74 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
   Widget _buildSyncDetailsSection(BuildContext context) {
     final theme = Theme.of(context);
     final spacing = theme.extension<AppSpacing>()!;
-    final radii = theme.extension<AppRadii>()!;
     final sizing = theme.extension<AppSizing>()!;
-    final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLowest,
-        borderRadius: radii.borderRadiusBottomLargeIncreased,
-      ),
-      padding: EdgeInsets.all(spacing.space12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        spacing: spacing.space12,
-        children: [
-          Padding(
-            padding: EdgeInsets.all(spacing.space12),
-            child: Text(
-              'Sync Details',
-              style: theme.textTheme.titleMedium,
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: spacing.space12,
+      children: [
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: spacing.space16),
+          child: Text(
+            'Sync Details',
+            style: theme.textTheme.titleMedium,
           ),
-          ListTile(
-            leading: const IconBadge(icon: Symbols.hub_sharp),
-            title: const Text('Peers'),
-            subtitle: _buildPeersSubtitle(context),
-            trailing: TextChevronTrailing(
-              text:
-                  '${ref.read(nodeStatusProvider).value?.connectedPeers ?? 0}',
-            ),
-            onTap: _navigateToPeers,
+        ),
+        ListTile(
+          leading: const IconBadge(icon: Symbols.hub_sharp),
+          title: const Text('Peers'),
+          subtitle: _buildPeersSubtitle(context),
+          trailing: TextChevronTrailing(
+            text: '${ref.read(nodeStatusProvider).value?.connectedPeers ?? 0}',
           ),
-          ListTile(
-            leading: const IconBadge(icon: Symbols.collections_bookmark_sharp),
-            title: _buildEpochTitle(),
-            subtitle: _buildEpochSubtitle(),
-            trailing: TextChevronTrailing(
-              text: _buildEpochTrailingText(),
-            ),
-            onTap: () {
-              final epoch =
-                  ref.read(nodeStatusProvider).value?.currentEpoch ?? 0;
-              context.push(
-                AppRoutes.epochPerformance,
-                extra: {'initialEpoch': epoch},
-              );
-            },
+          onTap: _navigateToPeers,
+        ),
+        ListTile(
+          leading: const IconBadge(icon: Symbols.collections_bookmark_sharp),
+          title: _buildEpochTitle(),
+          subtitle: _buildEpochSubtitle(),
+          trailing: TextChevronTrailing(
+            text: _buildEpochTrailingText(),
           ),
-          ListTile(
-            leading: const IconBadge(icon: Symbols.calculate_sharp),
-            title: const Text('VRF'),
-            subtitle: _buildVrfSubtitle(),
-            trailing: _buildVrfTrailing(),
+          onTap: () {
+            final epoch = ref.read(nodeStatusProvider).value?.currentEpoch ?? 0;
+            context.push(
+              AppRoutes.epochPerformance,
+              extra: {'initialEpoch': epoch},
+            );
+          },
+        ),
+        ListTile(
+          leading: const IconBadge(icon: Symbols.calculate_sharp),
+          title: const Text('VRF'),
+          subtitle: _buildVrfSubtitle(),
+          trailing: _buildVrfTrailing(),
+        ),
+        ListTile(
+          leading: const IconBadge(icon: Symbols.star_sharp),
+          title: const Text('Best Tip'),
+          subtitle: _buildBestTipSubtitle(),
+          trailing: _buildCopyButton(
+            text: () {
+              final status = ref.read(nodeStatusProvider).value;
+              final bestTip = status?.networkBest ?? status?.localBest;
+              return bestTip?.hash.toString() ?? '';
+            }(),
+            message: l10n.nodeBestTipCopied,
+            iconSize: sizing.iconSmall,
           ),
-          ListTile(
-            leading: const IconBadge(icon: Symbols.star_sharp),
-            title: const Text('Best Tip'),
-            subtitle: _buildBestTipSubtitle(),
-            trailing: _buildCopyButton(
-              text: () {
-                final status = ref.read(nodeStatusProvider).value;
-                final bestTip = status?.networkBest ?? status?.localBest;
-                return bestTip?.hash.toString() ?? '';
-              }(),
-              message: l10n.nodeBestTipCopied,
-              iconSize: sizing.iconSmall,
-            ),
+        ),
+        ListTile(
+          leading: const IconBadge(icon: Symbols.account_tree_sharp),
+          title: const Text('Mempool'),
+          subtitle: _buildMempoolSubtitle(),
+          trailing: TextChevronTrailing(
+            text: '${ref.read(nodeMempoolProvider).value?.count.toInt() ?? 0}',
           ),
-          ListTile(
-            leading: const IconBadge(icon: Symbols.account_tree_sharp),
-            title: const Text('Mempool'),
-            subtitle: _buildMempoolSubtitle(),
-            trailing: TextChevronTrailing(
-              text:
-                  '${ref.read(nodeMempoolProvider).value?.count.toInt() ?? 0}',
-            ),
-            onTap: () => context.push(AppRoutes.mainNodeMempool),
-          ),
-        ],
-      ),
+          onTap: () => context.push(AppRoutes.mainNodeMempool),
+        ),
+      ],
     );
   }
 
@@ -697,11 +685,15 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     final spacing = theme.extension<AppSpacing>()!;
     final radii = theme.extension<AppRadii>()!;
     final colorScheme = theme.colorScheme;
-    return AppCard(
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: spacing.space16),
       padding: EdgeInsets.symmetric(
           horizontal: spacing.space16, vertical: spacing.space12),
-      color: colorScheme.surfaceContainerLowest,
-      borderRadius: radii.borderRadiusLargeIncreased,
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLowest,
+        borderRadius: radii.borderRadiusLargeIncreased,
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: children,
@@ -831,7 +823,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     final theme = Theme.of(context);
     final spacing = theme.extension<AppSpacing>()!;
     final sizing = theme.extension<AppSizing>()!;
-    final colorScheme = theme.colorScheme;
     final statusFromProvider = ref.read(nodeStatusProvider).value;
     final connectedPeers = statusFromProvider?.connectedPeers ?? 0;
     final totalPeers = statusFromProvider?.totalPeers ?? 0;

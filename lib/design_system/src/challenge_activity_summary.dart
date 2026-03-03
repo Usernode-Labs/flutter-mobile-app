@@ -73,7 +73,7 @@ class ChallengeActivitySummary extends StatelessWidget {
       children: [
         Flexible(
           child: SizedBox(
-            height: 126,
+            height: 128,
             width: double.infinity,
             child: Center(child: illustration),
           ),

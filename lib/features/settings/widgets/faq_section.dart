@@ -113,16 +113,13 @@ class FaqSection extends StatelessWidget {
         SizedBox(height: spacing.space8),
         Card(
           clipBehavior: Clip.antiAlias,
-          child: Theme(
-            data: theme.copyWith(dividerColor: Colors.transparent),
-            child: Column(
-              children: [
-                _buildAboutTile(context),
-                _buildHowItWorksTile(context),
-                _buildPlatformTile(context),
-                _buildVrfTile(context),
-              ],
-            ),
+          child: Column(
+            children: [
+              _buildAboutTile(context),
+              _buildHowItWorksTile(context),
+              _buildPlatformTile(context),
+              _buildVrfTile(context),
+            ],
           ),
         ),
       ],
@@ -135,7 +132,11 @@ class FaqSection extends StatelessWidget {
     final spacing = theme.extension<AppSpacing>()!;
 
     return ExpansionTile(
-      title: Text('About', style: theme.textTheme.bodyLarge),
+      shape: const Border(),
+      collapsedShape: const Border(),
+      leading: const Icon(Symbols.info_sharp),
+      title: const Text('About'),
+      expandedCrossAxisAlignment: CrossAxisAlignment.start,
       childrenPadding: EdgeInsets.fromLTRB(
         spacing.space16,
         0,
@@ -160,7 +161,11 @@ class FaqSection extends StatelessWidget {
     final spacing = theme.extension<AppSpacing>()!;
 
     return ExpansionTile(
-      title: Text(localizations.whatIsTitle, style: theme.textTheme.bodyLarge),
+      shape: const Border(),
+      collapsedShape: const Border(),
+      leading: const Icon(Symbols.lightbulb_sharp),
+      title: Text(localizations.whatIsTitle),
+      expandedCrossAxisAlignment: CrossAxisAlignment.start,
       childrenPadding: EdgeInsets.fromLTRB(
         spacing.space16,
         0,
@@ -209,10 +214,11 @@ class FaqSection extends StatelessWidget {
     final isAndroid = defaultTargetPlatform == TargetPlatform.android;
 
     return ExpansionTile(
-      title: Text(
-        'Platform & Reliability',
-        style: theme.textTheme.bodyLarge,
-      ),
+      shape: const Border(),
+      collapsedShape: const Border(),
+      leading: const Icon(Symbols.smartphone_sharp),
+      title: const Text('Platform & Reliability'),
+      expandedCrossAxisAlignment: CrossAxisAlignment.start,
       childrenPadding: EdgeInsets.fromLTRB(
         spacing.space16,
         0,
@@ -310,10 +316,11 @@ class FaqSection extends StatelessWidget {
     final radii = theme.extension<AppRadii>()!;
 
     return ExpansionTile(
-      title: Text(
-        'Understanding VRF & Slots',
-        style: theme.textTheme.bodyLarge,
-      ),
+      shape: const Border(),
+      collapsedShape: const Border(),
+      leading: const Icon(Symbols.casino_sharp),
+      title: const Text('Understanding VRF & Slots'),
+      expandedCrossAxisAlignment: CrossAxisAlignment.start,
       childrenPadding: EdgeInsets.fromLTRB(
         spacing.space16,
         0,

@@ -13,6 +13,7 @@ import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:crypto_mobile_app/core/widgets/app_progress_bar.dart';
 import 'package:crypto_mobile_app/core/widgets/produced_block_card.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
+import 'package:crypto_mobile_app/features/wallet/screens/wallet_delegates.dart';
 import 'package:crypto_mobile_app/core/providers/node_data_providers.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/providers/epoch_rewards_provider.dart';
@@ -333,13 +334,16 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     final hasRecentBlocks =
         ref.read(nodeBlockchainProvider).value?.items.isNotEmpty ?? false;
 
+    final pinnedHeight =
+        safeTop + spacing.space8 + kAddressBarHeight + spacing.space8;
+
     return Scaffold(
       drawer: const AppDrawer(),
       body: ParallaxSurfaceLayout(
         headerHeight: kScreenHeaderHeight,
-        pinnedHeaderHeight: safeTop,
+        pinnedHeaderHeight: pinnedHeight,
         pinnedHeaderSliver: SliverToBoxAdapter(
-          child: SizedBox(height: safeTop),
+          child: SizedBox(height: pinnedHeight),
         ),
         onRefresh: _refresh,
         header: _buildCentralStatusIndicator(context),

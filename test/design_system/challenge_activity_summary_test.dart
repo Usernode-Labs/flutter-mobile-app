@@ -160,7 +160,7 @@ void main() {
       final illustrationBox = find.descendant(
         of: find.byType(ChallengeActivitySummary),
         matching: find.byWidgetPredicate(
-          (w) => w is SizedBox && w.height == 128,
+          (w) => w is SizedBox && w.height == 126,
         ),
       );
       expect(illustrationBox, findsOneWidget);

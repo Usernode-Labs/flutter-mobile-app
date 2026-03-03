@@ -81,7 +81,7 @@ class ResultPage extends StatelessWidget {
 
     return SafeArea(
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: spacing.space24),
+        padding: EdgeInsets.symmetric(horizontal: spacing.space16),
         child: Column(
           children: [
             Expanded(

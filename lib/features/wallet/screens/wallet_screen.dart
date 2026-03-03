@@ -11,6 +11,7 @@ import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/services/explorer_service.dart';
 import 'package:crypto_mobile_app/features/wallet/models/transaction_model.dart';
+import 'package:crypto_mobile_app/features/wallet/screens/wallet_delegates.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
@@ -28,11 +29,17 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   Timer? _refreshTimer;
   late AsyncValue _walletState;
   late AsyncValue _nodeStatus;
+  final _scrollFraction = ValueNotifier<double>(0.0);
+  String _address = 'Loading...';
+
   @override
   void initState() {
     super.initState();
     _loadInitialData();
     _startAutoRefresh();
+
+    // Resolve address when accounts provider loads or changes.
+    ref.listenManual(accountsProvider, (_, __) => _resolveAddress());
 
     // React to tab changes — refresh when wallet tab becomes active.
     ref.listenManual(currentHomeTabProvider, (previous, next) {
@@ -48,8 +55,19 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     _nodeStatus = ref.read(nodeStatusProvider);
   }
 
+  Future<void> _resolveAddress() async {
+    final accounts = ref.read(accountsProvider);
+    final repo = accounts.valueOrNull;
+    if (repo == null) return;
+    final active = await repo.getActive();
+    if (mounted && active != null) {
+      setState(() => _address = active.address);
+    }
+  }
+
   @override
   void dispose() {
+    _scrollFraction.dispose();
     _refreshTimer?.cancel();
     super.dispose();
   }
@@ -82,6 +100,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       ref.read(nodeStatusProvider.notifier).silentRefresh(),
     ]);
 
+    if (!mounted) return;
+
     // Update local state with fresh data
     setState(() {
       _walletState = ref.read(walletProvider);
@@ -99,43 +119,56 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     final walletState = _walletState;
     final nodeStatus = _nodeStatus;
 
+    final safeTop = MediaQuery.of(context).padding.top;
+    final pinnedHeight = AddressBarDelegate.computeHeight(safeTop, spacing);
+
     return Scaffold(
-      body: SafeArea(
-        child: ParallaxSurfaceLayout(
-          onRefresh: _onRefresh,
-          header: Padding(
-            padding: EdgeInsets.only(top: spacing.space32),
-            child: _BalanceSection(
-              walletState: walletState,
-              nodeStatus: nodeStatus,
-              l10n: l10n,
+      body: ParallaxSurfaceLayout(
+        onRefresh: _onRefresh,
+        scrollFractionNotifier: _scrollFraction,
+        pinnedHeaderHeight: pinnedHeight,
+        pinnedHeaderSliver: SliverPersistentHeader(
+          pinned: true,
+          delegate: AddressBarDelegate(
+            topPadding: safeTop,
+            spacing: spacing,
+            scrollFractionNotifier: _scrollFraction,
+            address: _address,
+            onCopy: () {
+              Clipboard.setData(ClipboardData(text: _address));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Address copied to clipboard')),
+              );
+            },
+          ),
+        ),
+        header: Padding(
+          padding: EdgeInsets.only(top: spacing.space32),
+          child: _BalanceSection(
+            walletState: walletState,
+            nodeStatus: nodeStatus,
+            l10n: l10n,
+          ),
+        ),
+        surfaceBody: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                spacing.space16,
+                spacing.space16,
+                spacing.space16,
+                spacing.space8,
+              ),
+              child: Text(
+                'Recent Activity',
+                style: theme.textTheme.titleMedium,
+              ),
             ),
-          ),
-          surfaceBody: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const _AddressSection(),
-              Divider(
-                indent: spacing.space16,
-                endIndent: spacing.space16,
-              ),
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                  spacing.space16,
-                  spacing.space16,
-                  spacing.space16,
-                  spacing.space8,
-                ),
-                child: Text(
-                  'Recent Activity',
-                  style: theme.textTheme.titleMedium,
-                ),
-              ),
-              _buildCachedDataBanner(walletState, theme, spacing),
-              _buildTransactionContent(walletState, l10n, spacing),
-              SizedBox(height: spacing.space32),
-            ],
-          ),
+            _buildCachedDataBanner(walletState, theme, spacing),
+            _buildTransactionContent(walletState, l10n, spacing),
+            SizedBox(height: spacing.space32),
+          ],
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -312,60 +345,6 @@ class _BalanceSection extends StatelessWidget {
           error: (_, __) => const SizedBox.shrink(),
         ),
       ],
-    );
-  }
-}
-
-class _AddressSection extends ConsumerWidget {
-  const _AddressSection();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return ref.watch(accountsProvider).when(
-          data: (repo) => FutureBuilder(
-            future: repo.getActive(),
-            builder: (context, snapshot) {
-              final address = snapshot.data?.address ?? 'Loading...';
-              return _AddressListTile(address: address);
-            },
-          ),
-          loading: () => const FullPageLoadingState(),
-          error: (_, __) => const FullPageErrorState(
-            message: 'Error loading address',
-          ),
-        );
-  }
-}
-
-class _AddressListTile extends StatelessWidget {
-  const _AddressListTile({required this.address});
-
-  final String address;
-
-  String get _displayAddress => address.length > 16
-      ? '${address.substring(0, 8)}...${address.substring(address.length - 8)}'
-      : address;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      leading: const IconBadge(icon: Symbols.tag_sharp),
-      title: const Text('My Address'),
-      subtitle: Text(
-        _displayAddress,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              fontFamily: 'monospace',
-            ),
-      ),
-      trailing: IconButton(
-        icon: const Icon(Symbols.content_copy_sharp),
-        onPressed: () {
-          Clipboard.setData(ClipboardData(text: address));
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Address copied to clipboard')),
-          );
-        },
-      ),
     );
   }
 }

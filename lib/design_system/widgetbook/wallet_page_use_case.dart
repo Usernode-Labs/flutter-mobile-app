@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:widgetbook/widgetbook.dart';
 
+import 'package:crypto_mobile_app/features/wallet/screens/wallet_delegates.dart';
+
 import '../src/bottom_nav.dart';
 import '../src/empty_state.dart';
 import '../src/full_page_error_state.dart';
@@ -192,6 +194,13 @@ class _WalletPage extends StatefulWidget {
 
 class _WalletPageState extends State<_WalletPage> {
   int _navIndex = 2;
+  final _scrollFraction = ValueNotifier<double>(0.0);
+
+  @override
+  void dispose() {
+    _scrollFraction.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -199,42 +208,53 @@ class _WalletPageState extends State<_WalletPage> {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
     final semantic = Theme.of(context).extension<AppSemanticColors>()!;
 
+    final safeTop = MediaQuery.of(context).padding.top;
+    final pinnedHeight = AddressBarDelegate.computeHeight(safeTop, spacing);
+
     return Scaffold(
-      body: SafeArea(
-        child: ParallaxSurfaceLayout(
-          header: Padding(
-            padding: EdgeInsets.only(top: spacing.space32),
-            child: _buildBalanceSection(context),
+      body: ParallaxSurfaceLayout(
+        scrollFractionNotifier: _scrollFraction,
+        pinnedHeaderHeight: pinnedHeight,
+        pinnedHeaderSliver: SliverPersistentHeader(
+          pinned: true,
+          delegate: AddressBarDelegate(
+            topPadding: safeTop,
+            spacing: spacing,
+            scrollFractionNotifier: _scrollFraction,
+            address: _kMockAddress,
+            onCopy: () {
+              Clipboard.setData(const ClipboardData(text: _kMockAddress));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Address copied to clipboard')),
+              );
+            },
           ),
-          surfaceBody: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildAddressTile(context),
-              Divider(
-                height: 1,
-                color: theme.colorScheme.outlineVariant,
-                indent: spacing.space16,
-                endIndent: spacing.space16,
+        ),
+        header: Padding(
+          padding: EdgeInsets.only(top: spacing.space32),
+          child: _buildBalanceSection(context),
+        ),
+        surfaceBody: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                spacing.space16,
+                spacing.space16,
+                spacing.space16,
+                spacing.space8,
               ),
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                  spacing.space16,
-                  spacing.space16,
-                  spacing.space16,
-                  spacing.space8,
-                ),
-                child: Text(
-                  'Recent Activity',
-                  style: theme.textTheme.titleMedium,
-                ),
+              child: Text(
+                'Recent Activity',
+                style: theme.textTheme.titleMedium,
               ),
-              if (widget.showCachedBanner &&
-                  widget.dataState == _DataState.loaded)
-                _buildCachedBanner(context),
-              _buildContent(context),
-              SizedBox(height: spacing.space32),
-            ],
-          ),
+            ),
+            if (widget.showCachedBanner &&
+                widget.dataState == _DataState.loaded)
+              _buildCachedBanner(context),
+            _buildContent(context),
+            SizedBox(height: spacing.space32),
+          ],
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -337,32 +357,6 @@ class _WalletPageState extends State<_WalletPage> {
             ),
           ),
       ],
-    );
-  }
-
-  // -- Address tile ----------------------------------------------------------
-
-  Widget _buildAddressTile(BuildContext context) {
-    const displayAddress = '0x1a2b3c4d...7e8f9a0b';
-
-    return ListTile(
-      leading: const IconBadge(icon: Symbols.tag_sharp),
-      title: const Text('My Address'),
-      subtitle: Text(
-        displayAddress,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              fontFamily: 'monospace',
-            ),
-      ),
-      trailing: IconButton(
-        icon: const Icon(Symbols.content_copy_sharp),
-        onPressed: () {
-          Clipboard.setData(const ClipboardData(text: _kMockAddress));
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Address copied to clipboard')),
-          );
-        },
-      ),
     );
   }
 

@@ -17,6 +17,15 @@ const kDefaultHeaderHeight = 200.0;
 ///
 /// When [onRefresh] is provided the scroll view is wrapped in a
 /// [RefreshIndicator].
+///
+/// When [pinnedHeaderSliver] is provided it is inserted as the first sliver
+/// (before the transparent spacer), creating a pinned bar that stays visible
+/// while the rest of the content scrolls.  Use [pinnedHeaderHeight] to offset
+/// the parallax header downward so it doesn't overlap.
+///
+/// When [scrollFractionNotifier] is provided the layout writes the scroll
+/// fraction (0.0 – 1.0) to that notifier so external delegates can react to
+/// scroll position.  When null, an internal notifier is used.
 class ParallaxSurfaceLayout extends StatefulWidget {
   const ParallaxSurfaceLayout({
     super.key,
@@ -24,6 +33,9 @@ class ParallaxSurfaceLayout extends StatefulWidget {
     required this.surfaceBody,
     this.headerHeight = kDefaultHeaderHeight,
     this.onRefresh,
+    this.pinnedHeaderSliver,
+    this.pinnedHeaderHeight = 0.0,
+    this.scrollFractionNotifier,
   });
 
   /// Content centered in the fixed-height parallax area.
@@ -38,16 +50,29 @@ class ParallaxSurfaceLayout extends StatefulWidget {
   /// Pull-to-refresh callback. When null, no [RefreshIndicator] is shown.
   final RefreshCallback? onRefresh;
 
+  /// A sliver (e.g. [SliverPersistentHeader]) inserted before the spacer.
+  final Widget? pinnedHeaderSliver;
+
+  /// Height of the pinned header — offsets the parallax header downward.
+  final double pinnedHeaderHeight;
+
+  /// Externally-provided notifier. When set, the layout writes scroll fraction
+  /// to it. When null, an internal notifier is used.
+  final ValueNotifier<double>? scrollFractionNotifier;
+
   @override
   State<ParallaxSurfaceLayout> createState() => _ParallaxSurfaceLayoutState();
 }
 
 class _ParallaxSurfaceLayoutState extends State<ParallaxSurfaceLayout> {
-  final _scrollFraction = ValueNotifier<double>(0.0);
+  final _internalNotifier = ValueNotifier<double>(0.0);
+
+  ValueNotifier<double> get _effectiveNotifier =>
+      widget.scrollFractionNotifier ?? _internalNotifier;
 
   @override
   void dispose() {
-    _scrollFraction.dispose();
+    _internalNotifier.dispose();
     super.dispose();
   }
 
@@ -55,8 +80,8 @@ class _ParallaxSurfaceLayoutState extends State<ParallaxSurfaceLayout> {
     if (notification.depth != 0) return false;
     final fraction =
         (notification.metrics.pixels / widget.headerHeight).clamp(0.0, 1.0);
-    if (fraction != _scrollFraction.value) {
-      _scrollFraction.value = fraction;
+    if (fraction != _effectiveNotifier.value) {
+      _effectiveNotifier.value = fraction;
     }
     return false;
   }
@@ -72,16 +97,19 @@ class _ParallaxSurfaceLayoutState extends State<ParallaxSurfaceLayout> {
         children: [
           // Layer 1: Header (parallax)
           ValueListenableBuilder<double>(
-            valueListenable: _scrollFraction,
+            valueListenable: _effectiveNotifier,
             builder: (context, sf, child) {
               return Transform.translate(
                 offset: Offset(0, -sf * widget.headerHeight * kParallaxRatio),
                 child: child,
               );
             },
-            child: SizedBox(
-              height: widget.headerHeight,
-              child: Center(child: widget.header),
+            child: Padding(
+              padding: EdgeInsets.only(top: widget.pinnedHeaderHeight),
+              child: SizedBox(
+                height: widget.headerHeight,
+                child: Center(child: widget.header),
+              ),
             ),
           ),
 
@@ -99,6 +127,9 @@ class _ParallaxSurfaceLayoutState extends State<ParallaxSurfaceLayout> {
     final scrollView = CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
+        // Pinned header (if provided)
+        if (widget.pinnedHeaderSliver != null) widget.pinnedHeaderSliver!,
+
         // Transparent spacer — reveals header behind
         SliverToBoxAdapter(
           child: SizedBox(height: widget.headerHeight),
@@ -107,7 +138,7 @@ class _ParallaxSurfaceLayoutState extends State<ParallaxSurfaceLayout> {
         // Surface container with animated corner radius
         SliverToBoxAdapter(
           child: ValueListenableBuilder<double>(
-            valueListenable: _scrollFraction,
+            valueListenable: _effectiveNotifier,
             builder: (context, sf, child) {
               final radius = kSurfaceCornerRadius * (1.0 - sf);
               return Container(

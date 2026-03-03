@@ -611,11 +611,17 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     final theme = Theme.of(context);
     final spacing = theme.extension<AppSpacing>()!;
     final sizing = theme.extension<AppSizing>()!;
+    final radii = theme.extension<AppRadii>()!;
+    final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
+
+    final status = ref.read(nodeStatusProvider).value;
+    final vrf = status?.vrfEvaluator;
+    final displayBestTip = status?.networkBest ?? status?.localBest;
+    final bestTipHash = displayBestTip?.hash.toString() ?? '';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      spacing: spacing.space12,
       children: [
         Padding(
           padding: EdgeInsets.symmetric(horizontal: spacing.space16),
@@ -624,12 +630,14 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
             style: theme.textTheme.titleMedium,
           ),
         ),
+
+        // --- Navigable rows ---
         ListTile(
           leading: const IconBadge(icon: Symbols.hub_sharp),
           title: const Text('Peers'),
-          subtitle: _buildPeersSubtitle(context),
+          subtitle: _buildPeersSubtitle(),
           trailing: TextChevronTrailing(
-            text: '${ref.read(nodeStatusProvider).value?.connectedPeers ?? 0}',
+            text: '${status?.connectedPeers ?? 0}',
           ),
           onTap: _navigateToPeers,
         ),
@@ -649,26 +657,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
           },
         ),
         ListTile(
-          leading: const IconBadge(icon: Symbols.calculate_sharp),
-          title: const Text('VRF'),
-          subtitle: _buildVrfSubtitle(),
-          trailing: _buildVrfTrailing(),
-        ),
-        ListTile(
-          leading: const IconBadge(icon: Symbols.star_sharp),
-          title: const Text('Best Tip'),
-          subtitle: _buildBestTipSubtitle(),
-          trailing: _buildCopyButton(
-            text: () {
-              final status = ref.read(nodeStatusProvider).value;
-              final bestTip = status?.networkBest ?? status?.localBest;
-              return bestTip?.hash.toString() ?? '';
-            }(),
-            message: l10n.nodeBestTipCopied,
-            iconSize: sizing.iconSmall,
-          ),
-        ),
-        ListTile(
           leading: const IconBadge(icon: Symbols.account_tree_sharp),
           title: const Text('Mempool'),
           subtitle: _buildMempoolSubtitle(),
@@ -676,6 +664,50 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
             text: '${ref.read(nodeMempoolProvider).value?.count.toInt() ?? 0}',
           ),
           onTap: () => context.push(AppRoutes.mainNodeMempool),
+        ),
+
+        SizedBox(height: spacing.space4),
+
+        // --- Reference/status data ---
+        Card(
+          elevation: 0,
+          margin: EdgeInsets.symmetric(horizontal: spacing.space16),
+          shape: RoundedRectangleBorder(
+            borderRadius: radii.borderRadiusLarge,
+            side: BorderSide(color: colorScheme.outlineVariant),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            children: [
+              InfoRow(
+                label: 'VRF',
+                value: vrf != null
+                    ? 'Evaluated ${vrf.details?.evaluatedCurrentEpoch ?? 0}/${status?.slotsInEpoch ?? 0}'
+                    : 'Evaluated ---',
+                trailing: StatusBadge(
+                  label: vrf != null
+                      ? _mapVrfStatus(vrf.currentEpochVrfEvaluationStatus.name)
+                      : 'N/A',
+                  variant: _vrfStatusVariant(vrf),
+                ),
+              ),
+              InfoRow(
+                label: 'Best Tip',
+                value: bestTipHash.isNotEmpty
+                    ? Utils.shortenID(bestTipHash, head: 8, tail: 6)
+                    : 'N/A',
+                valueStyle: theme.textTheme.bodyMedium?.copyWith(
+                  fontFamily: 'monospace',
+                ),
+                trailing: _buildCopyButton(
+                  text: bestTipHash,
+                  message: l10n.nodeBestTipCopied,
+                  iconSize: sizing.iconSmall,
+                ),
+                showDivider: false,
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -823,49 +855,11 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     return (pct, '(${progress.done}/$total)');
   }
 
-  Widget _buildPeersSubtitle(BuildContext context) {
-    final theme = Theme.of(context);
-    final spacing = theme.extension<AppSpacing>()!;
-    final sizing = theme.extension<AppSizing>()!;
+  Widget _buildPeersSubtitle() {
     final statusFromProvider = ref.read(nodeStatusProvider).value;
     final connectedPeers = statusFromProvider?.connectedPeers ?? 0;
     final totalPeers = statusFromProvider?.totalPeers ?? 0;
-
-    final healthStatus = connectedPeers > 0 && connectedPeers == totalPeers
-        ? 'All connected'
-        : 'Some offline';
-
-    final peerId = statusFromProvider?.peerId;
-
-    if (peerId != null) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('$connectedPeers/$totalPeers $healthStatus'),
-          SizedBox(height: spacing.space4),
-          Row(
-            children: [
-              _buildCopyButton(
-                text: peerId,
-                message: AppLocalizations.of(context).nodePeerIdCopied,
-                iconSize: sizing.iconXSmall,
-              ),
-              SizedBox(width: spacing.space8),
-              const Text('Peer ID: '),
-              Expanded(
-                child: Text(
-                  Utils.shortenID(peerId, head: 8, tail: 8),
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(fontFamily: 'monospace'),
-                ),
-              ),
-            ],
-          ),
-        ],
-      );
-    }
-
-    return Text('$connectedPeers/$totalPeers $healthStatus');
+    return Text('$connectedPeers/$totalPeers connected');
   }
 
   Widget _buildEpochTitle() {
@@ -883,17 +877,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
   }
 
   Widget _buildEpochSubtitle() {
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
-    final (slotInEpoch, slotsPerEpoch, currentSlot) = _epochSlotData();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Epoch Slot:$slotInEpoch/$slotsPerEpoch'),
-        SizedBox(height: spacing.space4),
-        Text('Global slot:$currentSlot'),
-      ],
-    );
+    final (_, _, currentSlot) = _epochSlotData();
+    return Text('Global slot $currentSlot');
   }
 
   String _buildEpochTrailingText() {
@@ -903,38 +888,17 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     return '${progress.round()}%';
   }
 
-  Widget _buildVrfSubtitle() {
-    final statusFromProvider = ref.read(nodeStatusProvider).value;
-    final vrf = statusFromProvider?.vrfEvaluator;
-    if (vrf == null) return const Text('Evaluated ---');
-
-    final evaluatedSlots = vrf.details?.evaluatedCurrentEpoch ?? 0;
-    final slotsPerEpoch = statusFromProvider?.slotsInEpoch ?? 0;
-    return Text('Evaluated $evaluatedSlots/$slotsPerEpoch');
-  }
-
-  Widget _buildVrfTrailing() {
-    final vrf = ref.read(nodeStatusProvider).value?.vrfEvaluator;
-    final theme = Theme.of(context);
-
-    if (vrf == null) {
-      return Text(
-        'N/A',
-        style: theme.textTheme.titleSmall?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-          fontWeight: FontWeight.bold,
-        ),
-      );
+  StatusBadgeVariant _vrfStatusVariant(dynamic vrf) {
+    if (vrf == null) return StatusBadgeVariant.neutral;
+    final name = vrf.currentEpochVrfEvaluationStatus.name.toLowerCase();
+    switch (name) {
+      case 'ready':
+        return StatusBadgeVariant.success;
+      case 'evaluating':
+        return StatusBadgeVariant.info;
+      default:
+        return StatusBadgeVariant.neutral;
     }
-
-    final statusText = _mapVrfStatus(vrf.currentEpochVrfEvaluationStatus.name);
-    return Text(
-      statusText,
-      style: theme.textTheme.titleSmall?.copyWith(
-        color: theme.colorScheme.primary,
-        fontWeight: FontWeight.bold,
-      ),
-    );
   }
 
   String _mapVrfStatus(String statusName) {
@@ -952,31 +916,13 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     }
   }
 
-  Widget _buildBestTipSubtitle() {
-    final status = ref.read(nodeStatusProvider).value;
-    final displayBestTip = status?.networkBest ?? status?.localBest;
-
-    if (displayBestTip == null) {
-      return const Text('N/A');
-    }
-
-    final hash = displayBestTip.hash.toString();
-    final theme = Theme.of(context);
-
-    return Text(
-      Utils.shortenID(hash, head: 10, tail: 10),
-      style: theme.textTheme.labelSmall?.copyWith(fontFamily: 'monospace'),
-    );
-  }
-
   Widget _buildMempoolSubtitle() {
     final mempool = ref.read(nodeMempoolProvider).value;
     if (mempool == null) return const Text('N/A');
 
     final count = mempool.count.toInt();
     final sizeKB = (mempool.totalSize.toInt() / 1024).toStringAsFixed(1);
-    final orphans = mempool.orphans.toInt();
-    return Text('$count txns, $sizeKB KB, $orphans orphans');
+    return Text('$count txns \u00b7 $sizeKB KB');
   }
 
   // ============== NAVIGATION ==============
@@ -985,7 +931,10 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     final status = ref.read(nodeStatusProvider).value;
     final peers = status?.peers.isNotEmpty == true ? status!.peers : _peers;
     if (peers.isEmpty) return;
-    context.push(AppRoutes.mainNodePeers, extra: peers);
+    context.push(
+      AppRoutes.mainNodePeers,
+      extra: {'peers': peers, 'peerId': status?.peerId},
+    );
   }
 
   Widget _buildPhaseCard({

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:crypto_mobile_app/core/utils/utils.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
@@ -7,7 +9,8 @@ import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 
 class NodePeersScreen extends StatelessWidget {
   final List<RpcPeerInfo> peers;
-  const NodePeersScreen({super.key, required this.peers});
+  final String? peerId;
+  const NodePeersScreen({super.key, required this.peers, this.peerId});
 
   @override
   Widget build(BuildContext context) {
@@ -86,14 +89,52 @@ class NodePeersScreen extends StatelessWidget {
                   ),
                 ),
               ),
-              child: Text(
-                l10n.nodePeersSummary(peers.length.toString(),
-                    connected.toString(), connecting.toString()),
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.onSurface,
-                ),
-                textAlign: TextAlign.center,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    l10n.nodePeersSummary(peers.length.toString(),
+                        connected.toString(), connecting.toString()),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.onSurface,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  if (peerId != null) ...[
+                    SizedBox(height: spacing.space8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Peer ID: ${Utils.shortenID(peerId!, head: 8, tail: 8)}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontFamily: 'monospace',
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        SizedBox(width: spacing.space4),
+                        IconButton(
+                          icon: const Icon(Symbols.content_copy_sharp),
+                          iconSize: sizing.iconXSmall,
+                          color: colorScheme.primary,
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: () {
+                            Clipboard.setData(ClipboardData(text: peerId!));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(l10n.nodePeerIdCopied),
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
               ),
             ),
 
@@ -138,7 +179,7 @@ class NodePeersScreen extends StatelessWidget {
                       : Symbols.arrow_upward_sharp;
 
                   return ListTile(
-                    leading: IconBadge(icon: Symbols.hub_sharp),
+                    leading: const IconBadge(icon: Symbols.hub_sharp),
                     title: Text(
                       titleText,
                       maxLines: 1,

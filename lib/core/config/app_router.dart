@@ -208,8 +208,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.mainNodePeers,
         builder: (context, state) {
-          final peers = state.extra as List<RpcPeerInfo>;
-          return NodePeersScreen(peers: peers);
+          final extra = state.extra as Map<String, dynamic>;
+          final peers = extra['peers'] as List<RpcPeerInfo>;
+          final peerId = extra['peerId'] as String?;
+          return NodePeersScreen(peers: peers, peerId: peerId);
         },
       ),
       GoRoute(

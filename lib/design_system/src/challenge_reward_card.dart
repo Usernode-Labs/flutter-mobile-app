@@ -4,6 +4,7 @@ import '../tokens/app_borders.dart';
 import '../tokens/app_radii.dart';
 import '../tokens/app_semantic_colors.dart';
 import '../tokens/app_spacing.dart';
+import '../tokens/app_typography.dart';
 import 'button.dart';
 import 'challenge_card.dart';
 
@@ -151,7 +152,7 @@ class ChallengeRewardCard extends StatelessWidget {
                       child: Text(
                         totalEarned,
                         style: textTheme.displaySmall?.copyWith(
-                          fontFamily: 'IBMPlexMono',
+                          fontFamily: kMonoFontFamily,
                           color: onColor,
                         ),
                         overflow: TextOverflow.ellipsis,
@@ -241,7 +242,7 @@ class ChallengeRewardCard extends StatelessWidget {
                       Text(
                         rankReward,
                         style: textTheme.bodyMedium?.copyWith(
-                          fontFamily: 'IBMPlexMono',
+                          fontFamily: kMonoFontFamily,
                           color: onColor,
                         ),
                       ),
@@ -282,7 +283,7 @@ class ChallengeRewardCard extends StatelessWidget {
                               child: Text(
                                 epochEarned!,
                                 style: textTheme.headlineSmall?.copyWith(
-                                  fontFamily: 'IBMPlexMono',
+                                  fontFamily: kMonoFontFamily,
                                   color: onColor,
                                 ),
                                 overflow: TextOverflow.ellipsis,
@@ -340,7 +341,7 @@ class _CalculationRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final labelStyle = textTheme.labelSmall?.copyWith(color: dimOnColor);
     final valueStyle = textTheme.bodyMedium?.copyWith(
-      fontFamily: 'IBMPlexMono',
+      fontFamily: kMonoFontFamily,
       color: onColor,
     );
     final operatorStyle = textTheme.bodyMedium?.copyWith(color: onColor);

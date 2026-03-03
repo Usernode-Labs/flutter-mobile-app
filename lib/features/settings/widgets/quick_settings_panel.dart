@@ -106,7 +106,7 @@ class QuickSettingsPanel extends StatelessWidget {
           allGood ? 'All Good' : 'Action Needed',
           style: theme.textTheme.displaySmall?.copyWith(
             color: group.onColorSurface,
-            fontFamily: 'IBMPlexMono',
+            fontFamily: kMonoFontFamily,
           ),
         ),
       ],

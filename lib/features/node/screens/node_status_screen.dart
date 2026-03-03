@@ -417,8 +417,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
         // Status text
         Text(
           statusLabel,
-          style:
-              theme.textTheme.displaySmall?.copyWith(fontFamily: 'IBMPlexMono'),
+          style: theme.textTheme.displaySmall
+              ?.copyWith(fontFamily: kMonoFontFamily),
         ),
         SizedBox(height: spacing.space8),
         // Chain name with copy functionality
@@ -690,7 +690,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
                     ? Utils.shortenID(bestTipHash, head: 8, tail: 6)
                     : 'N/A',
                 valueStyle: theme.textTheme.bodyMedium?.copyWith(
-                  fontFamily: 'IBMPlexMono',
+                  fontFamily: kMonoFontFamily,
                 ),
                 trailing: _buildCopyButton(
                   text: bestTipHash,

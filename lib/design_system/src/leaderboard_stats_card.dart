@@ -10,6 +10,7 @@ import '../tokens/app_opacity.dart';
 import '../tokens/app_radii.dart';
 import '../tokens/app_sizing.dart';
 import '../tokens/app_spacing.dart';
+import '../tokens/app_typography.dart';
 
 /// A stats summary card with dot-matrix distribution chart for the leaderboard.
 ///
@@ -226,7 +227,7 @@ class _StatBox extends StatelessWidget {
           Text(
             value,
             style: textTheme.headlineSmall?.copyWith(
-              fontFamily: 'IBMPlexMono',
+              fontFamily: kMonoFontFamily,
               color: colors.onSurface,
             ),
             textAlign: TextAlign.start,
@@ -489,11 +490,11 @@ class _DotMatrixChartState extends State<_DotMatrixChart>
     required int clampedIndex,
   }) {
     final labelStyle = textTheme.labelSmall?.copyWith(
-      fontFamily: 'IBMPlexMono',
+      fontFamily: kMonoFontFamily,
       color: colors.onSurfaceVariant,
     );
     final userLabelStyle = textTheme.labelSmall?.copyWith(
-      fontFamily: 'IBMPlexMono',
+      fontFamily: kMonoFontFamily,
       color: colors.onSurface,
       fontWeight: FontWeight.w600,
     );

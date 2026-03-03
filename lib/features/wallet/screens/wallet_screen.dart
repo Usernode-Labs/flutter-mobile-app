@@ -15,6 +15,7 @@ import 'package:crypto_mobile_app/features/wallet/models/transaction_model.dart'
 import 'package:crypto_mobile_app/features/wallet/screens/wallet_delegates.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/utils/utils.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 
 class WalletScreen extends ConsumerStatefulWidget {
@@ -327,14 +328,14 @@ class _BalanceSection extends StatelessWidget {
             builder: (context, value, _) => Text(
               NumberFormat('#,##0').format(value.toInt()),
               style: theme.textTheme.displaySmall
-                  ?.copyWith(fontFamily: 'IBMPlexMono'),
+                  ?.copyWith(fontFamily: kMonoFontFamily),
             ),
           ),
           loading: () => const ShimmerBlock(width: 180, height: 36),
           error: (_, __) => Text(
             l10n.commonNoValuePlaceholder,
             style: theme.textTheme.displaySmall
-                ?.copyWith(fontFamily: 'IBMPlexMono'),
+                ?.copyWith(fontFamily: kMonoFontFamily),
           ),
         ),
         if (showSyncMessage && nodeStatus.hasValue)
@@ -376,11 +377,6 @@ class _TransactionTile extends StatelessWidget {
   const _TransactionTile(this.transaction);
   final TransactionModel transaction;
 
-  String _shorten(String value) {
-    if (value.length <= 16) return value;
-    return '${value.substring(0, 8)}...${value.substring(value.length - 8)}';
-  }
-
   String _displayDetails() {
     switch (transaction.type) {
       case TransactionType.send:
@@ -396,7 +392,7 @@ class _TransactionTile extends StatelessWidget {
         final id = transaction.id;
         final normalized =
             id.startsWith(prefix) ? id.substring(prefix.length) : id;
-        return _shorten(normalized);
+        return Utils.shortenID(normalized, head: 8, tail: 8);
       case TransactionType.genesis:
       case TransactionType.fee:
         return transaction.shortHash;

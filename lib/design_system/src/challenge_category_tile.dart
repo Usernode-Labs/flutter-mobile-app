@@ -5,6 +5,7 @@ import '../tokens/app_opacity.dart';
 import '../tokens/app_radii.dart';
 import '../tokens/app_sizing.dart';
 import '../tokens/app_spacing.dart';
+import '../tokens/app_typography.dart';
 
 /// A single sub-challenge item within a [ChallengeCategoryTile].
 class ChallengeCategoryItem {
@@ -132,7 +133,7 @@ class _ChallengeCategoryTileState extends State<ChallengeCategoryTile> {
           Text(
             widget.pointsLabel,
             style: textTheme.labelMedium?.copyWith(
-              fontFamily: 'IBMPlexMono',
+              fontFamily: kMonoFontFamily,
               color: colors.onSurfaceVariant,
             ),
           ),

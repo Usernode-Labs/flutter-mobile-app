@@ -287,7 +287,7 @@ class _SlotProductionStatsScreenState
                   '${successRate.toStringAsFixed(1)}%',
                   style: theme.textTheme.displaySmall?.copyWith(
                     color: color,
-                    fontFamily: 'IBMPlexMono',
+                    fontFamily: kMonoFontFamily,
                   ),
                 ),
               ),

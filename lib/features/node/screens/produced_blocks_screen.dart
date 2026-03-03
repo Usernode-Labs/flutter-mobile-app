@@ -584,7 +584,8 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                     data: (value) => Text(
                                       '${(totalScoreLastN(value, 10) * 100).toStringAsFixed(1)}%',
                                       style: theme.textTheme.displaySmall
-                                          ?.copyWith(fontFamily: 'IBMPlexMono'),
+                                          ?.copyWith(
+                                              fontFamily: kMonoFontFamily),
                                       textAlign: TextAlign.center,
                                     ),
                                     loading: () => const SizedBox(
@@ -596,7 +597,8 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                     error: (e, _) => Text(
                                       l10n.commonNoValuePlaceholder,
                                       style: theme.textTheme.displaySmall
-                                          ?.copyWith(fontFamily: 'IBMPlexMono'),
+                                          ?.copyWith(
+                                              fontFamily: kMonoFontFamily),
                                       textAlign: TextAlign.center,
                                     ),
                                   ),

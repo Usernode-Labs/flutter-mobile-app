@@ -36,6 +36,7 @@ class ParallaxSurfaceLayout extends StatefulWidget {
     this.pinnedHeaderSliver,
     this.pinnedHeaderHeight = 0.0,
     this.scrollFractionNotifier,
+    this.surfaceFillsViewport = false,
   });
 
   /// Content centered in the fixed-height parallax area.
@@ -59,6 +60,13 @@ class ParallaxSurfaceLayout extends StatefulWidget {
   /// Externally-provided notifier. When set, the layout writes scroll fraction
   /// to it. When null, an internal notifier is used.
   final ValueNotifier<double>? scrollFractionNotifier;
+
+  /// When true, the surface background is stretched to viewport height (so
+  /// there is scroll distance even when the body is small) and the [surfaceBody]
+  /// is constrained to the initially-visible portion of the surface so that
+  /// centering widgets like [Center] appear in the visible area, not in the
+  /// middle of the full viewport-tall container.
+  final bool surfaceFillsViewport;
 
   @override
   State<ParallaxSurfaceLayout> createState() => _ParallaxSurfaceLayoutState();
@@ -136,27 +144,7 @@ class _ParallaxSurfaceLayoutState extends State<ParallaxSurfaceLayout> {
         ),
 
         // Surface container with animated corner radius
-        SliverToBoxAdapter(
-          child: ValueListenableBuilder<double>(
-            valueListenable: _effectiveNotifier,
-            builder: (context, sf, child) {
-              final radius = kSurfaceCornerRadius * (1.0 - sf);
-              return Container(
-                clipBehavior: radius > 0 ? Clip.hardEdge : Clip.none,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerLowest,
-                  borderRadius: radius > 0
-                      ? BorderRadius.vertical(
-                          top: Radius.circular(radius),
-                        )
-                      : null,
-                ),
-                child: child,
-              );
-            },
-            child: widget.surfaceBody,
-          ),
-        ),
+        _buildSurfaceSliver(theme),
       ],
     );
 
@@ -168,5 +156,57 @@ class _ParallaxSurfaceLayoutState extends State<ParallaxSurfaceLayout> {
     }
 
     return scrollView;
+  }
+
+  Widget _buildDecoratedSurface(ThemeData theme, Widget body) {
+    return ValueListenableBuilder<double>(
+      valueListenable: _effectiveNotifier,
+      builder: (context, sf, child) {
+        final radius = kSurfaceCornerRadius * (1.0 - sf);
+        return Container(
+          clipBehavior: radius > 0 ? Clip.hardEdge : Clip.none,
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerLowest,
+            borderRadius: radius > 0
+                ? BorderRadius.vertical(top: Radius.circular(radius))
+                : null,
+          ),
+          child: child,
+        );
+      },
+      child: body,
+    );
+  }
+
+  Widget _buildSurfaceSliver(ThemeData theme) {
+    if (!widget.surfaceFillsViewport) {
+      return SliverToBoxAdapter(
+        child: _buildDecoratedSurface(theme, widget.surfaceBody),
+      );
+    }
+    return SliverLayoutBuilder(
+      builder: (context, constraints) {
+        final viewportHeight = constraints.viewportMainAxisExtent;
+        final visibleSurfaceHeight =
+            viewportHeight - widget.headerHeight - widget.pinnedHeaderHeight;
+        return SliverToBoxAdapter(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: viewportHeight),
+            child: _buildDecoratedSurface(
+              theme,
+              // Align loosens the ConstrainedBox's minHeight so SizedBox
+              // can shrink to visibleSurfaceHeight for correct centering.
+              Align(
+                alignment: Alignment.topCenter,
+                child: SizedBox(
+                  height: visibleSurfaceHeight,
+                  child: widget.surfaceBody,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 }

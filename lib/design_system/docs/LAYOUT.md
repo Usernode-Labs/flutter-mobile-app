@@ -133,9 +133,14 @@ screen margin + card padding + widget padding + leading width + gap = offset
 - Add `SafeArea` when `TopAppBar` already handles insets
 - Use `SingleChildScrollView` wrapping a `Column` when slivers are more appropriate
 
+## Content Sheet Anatomy
+
+The "white sheet over grey scaffold" pattern is implemented by [`ParallaxSurfaceLayout`](../src/parallax_surface_layout.dart): a fixed parallax header behind a scrolling surface container with animated corner radius. It supports an optional pinned bar and scroll-fraction notifier for delegate-driven animations.
+
+See [ParallaxSurfaceLayout genesis doc](../.specs/ParallaxSurfaceLayout.genesis.md) for layer architecture and constraint details.
+
 ## Progressive Extensions (deferred)
 
-- Content sheet anatomy (white sheet over grey scaffold as layout pattern)
 - Grid layouts (2-column cards)
 - Bottom sheet internal layout rules
 - Full-bleed sections (edge-to-edge images, dividers)

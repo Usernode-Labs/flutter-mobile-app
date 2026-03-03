@@ -60,3 +60,4 @@ final textTheme = Theme.of(context).textTheme;                // typography
 | `ChallengeDetailPage` | [Figma](https://figma.com/design/rsh9wLMKsMnFPOEBkHJUvg/?node-id=2943:28627) | [genesis](.specs/ChallengeDetailPage.genesis.md) |
 | `FullPageErrorState` | — | [genesis](.specs/FullPageErrorState.genesis.md) |
 | `FullPageLoadingState` | — | [genesis](.specs/FullPageLoadingState.genesis.md) |
+| `ParallaxSurfaceLayout` | — | [genesis](.specs/ParallaxSurfaceLayout.genesis.md) |

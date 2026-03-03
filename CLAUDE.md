@@ -2,6 +2,10 @@
 
 Flutter mobile app for a Layer 1 blockchain operated from phones.
 
+## Documentation Philosophy
+
+**Code is the documentation.** Doc comments, type signatures, and well-named abstractions are the source of truth. Everything else — markdown files, genesis docs, spec files — is scaffolding that points readers to the right code with just enough context. Never duplicate what the code already says; link to it instead.
+
 ## Quick Reference
 
 - **Project guidelines**: `AGENTS.md`

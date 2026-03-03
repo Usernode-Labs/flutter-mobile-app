@@ -1,5 +1,5 @@
 import 'package:crypto_mobile_app/features/node/screens/node_status_screen.dart';
-import 'package:crypto_mobile_app/features/settings/screens/background_production_settings_screen.dart';
+import 'package:crypto_mobile_app/features/settings/screens/settings_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
@@ -23,7 +23,7 @@ class _MainAppState extends State<MainApp> {
   Widget _screenFor(AppFeature f) {
     switch (f) {
       case AppFeature.settings:
-        return const BackgroundProductionSettingsScreen();
+        return const SettingsScreen();
       case AppFeature.node:
         return const NodeStatusScreen();
     }

@@ -11,7 +11,6 @@ import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/utils.dart';
 import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:crypto_mobile_app/core/widgets/app_progress_bar.dart';
-import 'package:crypto_mobile_app/core/widgets/produced_block_card.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/features/wallet/screens/wallet_delegates.dart';
 import 'package:crypto_mobile_app/core/providers/node_data_providers.dart';
@@ -820,20 +819,41 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
 
     final blocks = blockchain.items.take(10).toList();
     final bestTipSlot = status?.globalSlot ?? _bestTipGlobalSlot;
-    // Get reward per block from epoch rewards, with fallback to reasonable default
     final rewardsAsync = ref.read(epochRewardsProvider);
     final rewardPerBlock = rewardsAsync.value?.rewardPerBlock ?? BigInt.zero;
+    final rewardText = '+${Utils.formatBigInt(rewardPerBlock)} TKN';
 
     return Column(
       children: [
         for (final block in blocks)
-          ProducedBlockCard(
-            block: block,
-            isBestTip: bestTipSlot != null && block.globalSlot == bestTipSlot,
-            customHash: _safeGetBlockHash(block),
-            customProducer: _safeGetBlockProducer(block),
-            rewardPerBlock: rewardPerBlock,
-            variant: BlockCardVariant.detailed,
+          ListTile(
+            title: Row(
+              children: [
+                Text('Block #${block.height}'),
+                if (bestTipSlot != null && block.globalSlot == bestTipSlot) ...[
+                  SizedBox(width: spacing.space8),
+                  const StatusBadge(
+                    label: 'BEST TIP',
+                    variant: StatusBadgeVariant.info,
+                  ),
+                ],
+              ],
+            ),
+            subtitle: Text(
+              '${Utils.timestampToTimeAgo(block.timestamp)} · '
+              'Epoch ${block.epoch} · Slot ${block.globalSlot}',
+            ),
+            trailing: Text(
+              rewardText,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: colorScheme.tertiary,
+              ),
+            ),
+            onTap: () => context.push(
+              AppRoutes.mainNodeBlockDetails,
+              extra: block,
+            ),
           ),
       ],
     );
@@ -1016,21 +1036,5 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
       return 'Last checked at $timeStr';
     }
     return 'Last checked on ${checked.year}-${checked.month.toString().padLeft(2, '0')}-${checked.day.toString().padLeft(2, '0')} at $timeStr';
-  }
-
-  String _safeGetBlockHash(dynamic block) {
-    try {
-      return block.hash.toString();
-    } catch (_) {
-      return 'N/A';
-    }
-  }
-
-  String _safeGetBlockProducer(dynamic block) {
-    try {
-      return block.producerPubkey;
-    } catch (_) {
-      return '';
-    }
   }
 }

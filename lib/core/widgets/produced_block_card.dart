@@ -6,12 +6,14 @@ import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 
+@Deprecated('Replaced by M3 ListTile composition in screen files.')
 enum BlockCardVariant {
   compact, // Home Screen - minimal info
   standard, // Produced Blocks Screen - detailed
   detailed, // Node Status Screen - most detailed
 }
 
+@Deprecated('Replaced by M3 ListTile composition in screen files.')
 class ProducedBlockCard extends StatelessWidget {
   final RpcStatusBlockInfo block;
   final BigInt rewardPerBlock;

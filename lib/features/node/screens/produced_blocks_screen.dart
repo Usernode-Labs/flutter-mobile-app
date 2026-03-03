@@ -39,7 +39,6 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
 
   Timer? _refreshTimer;
   bool _refreshingSummary = false;
-  Timer? _nodeStatusRefreshTimer;
   bool _refreshingNodeStatus = false;
   bool _showSyncingLabel = true;
   bool _notificationsEnabled = true;
@@ -47,13 +46,13 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
   bool _batteryOptimizationDisabled = true;
   bool _batteryStatusChecked = false;
 
-  void _startAutoRefreshTimer() {
+  void _startRefreshTimer() {
     // Avoid creating multiple timers on repeated hot reloads.
     _refreshTimer?.cancel();
     _refreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       if (!mounted) return;
-      // Avoid overlapping refreshes; if a refresh is in progress, skip.
       _refreshSummary();
+      _refreshNodeStatus();
     });
   }
 
@@ -84,36 +83,28 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
     }
   }
 
-  void _startNodeStatusRefreshTimer() {
-    // Avoid creating multiple timers on repeated hot reloads.
-    _nodeStatusRefreshTimer?.cancel();
-    _nodeStatusRefreshTimer =
-        Timer.periodic(const Duration(seconds: 3), (_) async {
-      if (!mounted || _refreshingNodeStatus) return;
-      _refreshingNodeStatus = true;
-      try {
-        await ref.read(nodeStatusProvider.notifier).refresh();
-        _updateSyncingLabel(
-          status: ref.read(nodeStatusProvider).value,
-        );
-      } finally {
-        if (mounted) {
-          _refreshingNodeStatus = false;
-        }
+  Future<void> _refreshNodeStatus() async {
+    if (_refreshingNodeStatus || !mounted) return;
+    _refreshingNodeStatus = true;
+    try {
+      await ref.read(nodeStatusProvider.notifier).refresh();
+      _updateSyncingLabel(
+        status: ref.read(nodeStatusProvider).value,
+      );
+    } finally {
+      if (mounted) {
+        _refreshingNodeStatus = false;
       }
-    });
+    }
   }
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Periodically refresh the produced blocks summary so slot progress
-    // and related metrics stay up to date while this screen is visible.
-    _startAutoRefreshTimer();
-    // Also periodically refresh node status so slot timing and progress
-    // reflect the latest backend state.
-    _startNodeStatusRefreshTimer();
+    // Periodically refresh both the produced blocks summary and node status
+    // so slot progress and related metrics stay up to date.
+    _startRefreshTimer();
     _checkNotificationStatus();
     _checkBatteryOptimizationStatus();
   }
@@ -356,14 +347,12 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
     // Force provider to recompute on hot reload
     ref.invalidate(producedBlocksSummaryProvider);
     // Ensure the periodic refresh is (re)started after hot reload.
-    _startAutoRefreshTimer();
-    _startNodeStatusRefreshTimer();
+    _startRefreshTimer();
   }
 
   @override
   void dispose() {
     _refreshTimer?.cancel();
-    _nodeStatusRefreshTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -398,6 +387,48 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
         _refreshingSummary = false;
       }
     }
+  }
+
+  void _pushSlotAssignments({
+    required int epoch,
+    required int slotsInEpoch,
+    required dynamic epochScore,
+    required List<String> filters,
+    bool includeProducedMeta = false,
+  }) {
+    final epochData = epochScore?.epochData.slotData;
+    final results = epochData == null
+        ? <int>[]
+        : epochData.map((s) => s.result.index).toList();
+    final slotTimesMs = epochData == null
+        ? <int?>[]
+        : epochData
+            .map((s) => s.slotTimeMs == null ? null : (s.slotTimeMs!.toInt()))
+            .toList();
+    final producedMeta = !includeProducedMeta || epochData == null
+        ? const <Map<String, dynamic>?>[]
+        : epochData
+            .map((s) => s.producedBlockMetadata == null
+                ? null
+                : <String, dynamic>{
+                    'blockHash': s.producedBlockMetadata!.blockHash.toString(),
+                    'canonical': s.producedBlockMetadata!.canonical,
+                    'timestampMs':
+                        s.producedBlockMetadata!.timestampMs.toString(),
+                    'tokensWon': s.producedBlockMetadata!.tokensWon.toString(),
+                  })
+            .toList();
+    context.push(
+      AppRoutes.slotAssignments,
+      extra: {
+        'epoch': epoch,
+        'slotsInEpoch': slotsInEpoch,
+        'results': results,
+        'slotTimesMs': slotTimesMs,
+        'producedMeta': producedMeta,
+        'filters': filters,
+      },
+    );
   }
 
   double totalScoreLastN(summary, int n) {
@@ -480,7 +511,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
     final summary = ref.watch(producedBlocksSummaryProvider);
     final nodeStatus = ref.watch(nodeStatusProvider).value;
     final homeTabIndex = ref.watch(currentHomeTabProvider);
-    final bool isActiveTab = homeTabIndex == 0;
+    final bool isActiveTab = homeTabIndex == HomeTab.challenges;
 
     // Detect when this tab becomes active again (e.g., user switched away to
     // Node Status and then back). When it does, reset the manual-epoch-change
@@ -671,155 +702,51 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                             children: [
                               if (_notificationsChecked &&
                                   !_notificationsEnabled) ...[
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: theme.colorScheme.surfaceBright,
-                                    borderRadius:
-                                        radii.borderRadiusLargeIncreased,
+                                _PermissionBanner(
+                                  icon: Icon(
+                                    Symbols.notifications_off_sharp,
+                                    color: theme.colorScheme.error,
                                   ),
-                                  padding: EdgeInsets.fromLTRB(
-                                      spacing.space16,
-                                      spacing.space12,
-                                      spacing.space16,
-                                      spacing.space12),
-                                  child: Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Symbols.notifications_off_sharp,
-                                        color: theme.colorScheme.error,
-                                      ),
-                                      SizedBox(width: spacing.space12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              'Notifications Disabled',
-                                              style: theme.textTheme.titleSmall
-                                                  ?.copyWith(
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                            SizedBox(height: spacing.space4),
-                                            Text(
-                                              'Background block production impacted',
-                                              style: theme.textTheme.bodySmall,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      SizedBox(width: spacing.space12),
-                                      FilledButton(
-                                        onPressed:
-                                            _showNotificationPermissionSheet,
-                                        style: FilledButton.styleFrom(
-                                          backgroundColor:
-                                              theme.colorScheme.primary,
-                                          foregroundColor:
-                                              theme.colorScheme.onPrimary,
-                                          padding: EdgeInsets.symmetric(
-                                            horizontal: spacing.space16,
-                                            vertical: spacing.space8,
-                                          ),
-                                        ),
-                                        child: const Text('Enable'),
-                                      ),
-                                    ],
-                                  ),
+                                  title: 'Notifications Disabled',
+                                  onAction: _showNotificationPermissionSheet,
                                 ),
                                 SizedBox(height: spacing.space16),
                               ] else if (_batteryStatusChecked &&
                                   !_batteryOptimizationDisabled) ...[
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: theme.colorScheme.surfaceBright,
-                                    borderRadius:
-                                        radii.borderRadiusLargeIncreased,
-                                  ),
-                                  padding: EdgeInsets.fromLTRB(
-                                      spacing.space16,
-                                      spacing.space12,
-                                      spacing.space16,
-                                      spacing.space12),
-                                  child: Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.center,
-                                    children: [
-                                      SizedBox(
-                                        height: 24,
-                                        width: 24,
-                                        child: Stack(
-                                          alignment: Alignment.center,
-                                          children: [
-                                            Icon(
-                                              Symbols.battery_0_bar_sharp,
+                                _PermissionBanner(
+                                  icon: SizedBox(
+                                    height: 24,
+                                    width: 24,
+                                    child: Stack(
+                                      alignment: Alignment.center,
+                                      children: [
+                                        Icon(
+                                          Symbols.battery_0_bar_sharp,
+                                          color: theme.colorScheme.error,
+                                          size: sizing.iconRegular,
+                                        ),
+                                        Positioned(
+                                          right: 0,
+                                          bottom: 0,
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              color: theme.colorScheme.surface,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            padding:
+                                                EdgeInsets.all(spacing.space4),
+                                            child: Icon(
+                                              Symbols.settings_sharp,
                                               color: theme.colorScheme.error,
-                                              size: sizing.iconRegular,
+                                              size: sizing.iconXSmall,
                                             ),
-                                            Positioned(
-                                              right: 0,
-                                              bottom: 0,
-                                              child: Container(
-                                                decoration: BoxDecoration(
-                                                  color:
-                                                      theme.colorScheme.surface,
-                                                  shape: BoxShape.circle,
-                                                ),
-                                                padding: EdgeInsets.all(
-                                                    spacing.space4),
-                                                child: Icon(
-                                                  Symbols.settings_sharp,
-                                                  color:
-                                                      theme.colorScheme.error,
-                                                  size: sizing.iconXSmall,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      SizedBox(width: spacing.space12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              'Battery optimization enabled',
-                                              style: theme.textTheme.titleSmall
-                                                  ?.copyWith(
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                            SizedBox(height: spacing.space4),
-                                            Text(
-                                              'Background block production impacted',
-                                              style: theme.textTheme.bodySmall,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      SizedBox(width: spacing.space12),
-                                      FilledButton(
-                                        onPressed:
-                                            _showBatteryOptimizationSheet,
-                                        style: FilledButton.styleFrom(
-                                          backgroundColor:
-                                              theme.colorScheme.primary,
-                                          foregroundColor:
-                                              theme.colorScheme.onPrimary,
-                                          padding: EdgeInsets.symmetric(
-                                            horizontal: spacing.space16,
-                                            vertical: spacing.space8,
                                           ),
                                         ),
-                                        child: const Text('Enable'),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
+                                  title: 'Battery optimization enabled',
+                                  onAction: _showBatteryOptimizationSheet,
                                 ),
                                 SizedBox(height: spacing.space16),
                               ],
@@ -950,35 +877,32 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                                           FontWeight.w500),
                                             ),
                                           ),
-                                          Builder(
-                                            builder: (_) {
-                                              final epochScore = scoreEpochI(
-                                                  summary.asData?.value,
-                                                  viewedEpoch);
-                                              final text = epochScore == null
-                                                  ? '--'
-                                                  : '${(epochScore * 100).toStringAsFixed(1)}%';
-                                              return Text(
-                                                text,
-                                                style: theme
-                                                    .textTheme.titleMedium
-                                                    ?.copyWith(
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              );
-                                            },
-                                          ),
+                                          () {
+                                            final epochScore = scoreEpochI(
+                                                summary.asData?.value,
+                                                viewedEpoch);
+                                            final text = epochScore == null
+                                                ? '--'
+                                                : '${(epochScore * 100).toStringAsFixed(1)}%';
+                                            return Text(
+                                              text,
+                                              style: theme.textTheme.titleMedium
+                                                  ?.copyWith(
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            );
+                                          }(),
                                         ],
                                       ),
                                       SizedBox(height: spacing.space8),
-                                      Builder(builder: (_) {
+                                      // Resolve epoch score once for all metric tiles below.
+                                      ...() {
                                         final data = summary.asData?.value;
                                         final scores =
                                             data?.epochScores ?? const [];
-                                        final idxCandidate = viewedEpoch;
                                         final idx = (scores.isNotEmpty &&
-                                                idxCandidate < scores.length)
-                                            ? idxCandidate
+                                                viewedEpoch < scores.length)
+                                            ? viewedEpoch
                                             : (scores.isNotEmpty
                                                 ? scores.length - 1
                                                 : -1);
@@ -986,347 +910,113 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                             idx >= 0 ? scores[idx] : null;
                                         final slotsInEpoch =
                                             data?.slotsInEpoch ?? 0;
+
                                         final evaluated =
                                             score?.calculated ?? 0;
                                         final evaluatedPct = slotsInEpoch > 0
                                             ? (evaluated / slotsInEpoch) * 100.0
                                             : 0.0;
-
-                                        return _MetricTile(
-                                          leading: const IconBadge(
-                                              icon: Symbols.search_sharp),
-                                          title:
-                                              l10n.producedBlocksCheckedSlots,
-                                          subtitle: l10n
-                                              .producedBlocksEvaluatedOfSlots(
-                                            evaluated,
-                                            slotsInEpoch,
-                                          ),
-                                          trailingPrimary:
-                                              '${evaluatedPct.toStringAsFixed(0)}%',
-                                          onTap: () {
-                                            final epoch = viewedEpoch;
-                                            final epochScore = score;
-                                            final epochData =
-                                                epochScore?.epochData.slotData;
-                                            final results = epochData == null
-                                                ? <int>[]
-                                                : epochData
-                                                    .map((s) => s.result.index)
-                                                    .toList();
-                                            final slotTimesMs =
-                                                epochData == null
-                                                    ? <int?>[]
-                                                    : epochData
-                                                        .map((s) =>
-                                                            s.slotTimeMs == null
-                                                                ? null
-                                                                : (s.slotTimeMs!
-                                                                    .toInt()))
-                                                        .toList();
-                                            final producedMeta = epochData ==
-                                                    null
-                                                ? const <Map<String,
-                                                    dynamic>?>[]
-                                                : epochData
-                                                    .map((s) =>
-                                                        s.producedBlockMetadata ==
-                                                                null
-                                                            ? null
-                                                            : <String, dynamic>{
-                                                                'blockHash': s
-                                                                    .producedBlockMetadata!
-                                                                    .blockHash
-                                                                    .toString(),
-                                                                'canonical': s
-                                                                    .producedBlockMetadata!
-                                                                    .canonical,
-                                                                'timestampMs': s
-                                                                    .producedBlockMetadata!
-                                                                    .timestampMs
-                                                                    .toString(),
-                                                                'tokensWon': s
-                                                                    .producedBlockMetadata!
-                                                                    .tokensWon
-                                                                    .toString(),
-                                                              })
-                                                    .toList();
-                                            context.push(
-                                              AppRoutes.slotAssignments,
-                                              extra: {
-                                                'epoch': epoch,
-                                                'slotsInEpoch': slotsInEpoch,
-                                                'results': results,
-                                                'slotTimesMs': slotTimesMs,
-                                                'producedMeta': producedMeta,
-                                                'filters': ['all'],
-                                              },
-                                            );
-                                          },
-                                          showChevron: true,
-                                        );
-                                      }),
-                                      const SizedBox(height: 6),
-                                      Builder(builder: (_) {
-                                        final data = summary.asData?.value;
-                                        final scores =
-                                            data?.epochScores ?? const [];
-                                        final idxCandidate = viewedEpoch;
-                                        final idx = (scores.isNotEmpty &&
-                                                idxCandidate < scores.length)
-                                            ? idxCandidate
-                                            : (scores.isNotEmpty
-                                                ? scores.length - 1
-                                                : -1);
-                                        final score =
-                                            idx >= 0 ? scores[idx] : null;
                                         final produced = score?.produced ?? 0;
                                         final won = score?.won ?? '?';
-                                        return _MetricTile(
-                                          leading: const IconBadge(
-                                              icon: Symbols.check_box_sharp),
-                                          title: l10n.producedBlocksTitle,
-                                          subtitle:
-                                              l10n.producedBlocksProducedOfWon(
-                                            produced.toString(),
-                                            won.toString(),
-                                          ),
-                                          trailingPrimary: '$produced',
-                                          onTap: produced > 0
-                                              ? () {
-                                                  final epoch = viewedEpoch;
-                                                  final epochScore = score;
-                                                  final slotsInEpoch =
-                                                      data?.slotsInEpoch ?? 0;
-                                                  final epochData = epochScore
-                                                      ?.epochData.slotData;
-                                                  final results = epochData ==
-                                                          null
-                                                      ? <int>[]
-                                                      : epochData
-                                                          .map((s) =>
-                                                              s.result.index)
-                                                          .toList();
-                                                  final slotTimesMs = epochData ==
-                                                          null
-                                                      ? <int?>[]
-                                                      : epochData
-                                                          .map((s) =>
-                                                              s.slotTimeMs ==
-                                                                      null
-                                                                  ? null
-                                                                  : (s.slotTimeMs!
-                                                                      .toInt()))
-                                                          .toList();
-                                                  final producedMeta = epochData ==
-                                                          null
-                                                      ? const <Map<String,
-                                                          dynamic>?>[]
-                                                      : epochData
-                                                          .map((s) =>
-                                                              s.producedBlockMetadata ==
-                                                                      null
-                                                                  ? null
-                                                                  : <String,
-                                                                      dynamic>{
-                                                                      'blockHash': s
-                                                                          .producedBlockMetadata!
-                                                                          .blockHash
-                                                                          .toString(),
-                                                                      'canonical': s
-                                                                          .producedBlockMetadata!
-                                                                          .canonical,
-                                                                      'timestampMs': s
-                                                                          .producedBlockMetadata!
-                                                                          .timestampMs
-                                                                          .toString(),
-                                                                      'tokensWon': s
-                                                                          .producedBlockMetadata!
-                                                                          .tokensWon
-                                                                          .toString(),
-                                                                    })
-                                                          .toList();
-                                                  context.push(
-                                                    AppRoutes.slotAssignments,
-                                                    extra: {
-                                                      'epoch': epoch,
-                                                      'slotsInEpoch':
-                                                          slotsInEpoch,
-                                                      'results': results,
-                                                      'slotTimesMs':
-                                                          slotTimesMs,
-                                                      'producedMeta':
-                                                          producedMeta,
-                                                      'filters': ['produced'],
-                                                    },
-                                                  );
-                                                }
-                                              : null,
-                                          showChevron: produced > 0,
-                                        );
-                                      }),
-                                      const SizedBox(height: 6),
-                                      Builder(builder: (_) {
-                                        final data = summary.asData?.value;
-                                        final scores =
-                                            data?.epochScores ?? const [];
-                                        final idxCandidate = viewedEpoch;
-                                        final idx = (scores.isNotEmpty &&
-                                                idxCandidate < scores.length)
-                                            ? idxCandidate
-                                            : (scores.isNotEmpty
-                                                ? scores.length - 1
-                                                : -1);
-                                        final score =
-                                            idx >= 0 ? scores[idx] : null;
                                         final missed = score?.missed ?? 0;
-                                        final won = score?.won ?? '?';
-                                        return _MetricTile(
-                                          leading: const IconBadge(
-                                              icon: Icons
-                                                  .disabled_by_default_outlined),
-                                          title: l10n
-                                              .producedBlocksMissedBlocksTitle,
-                                          subtitle:
-                                              l10n.producedBlocksMissedOfWon(
-                                            missed.toString(),
-                                            won.toString(),
+                                        final upcoming = score?.upcoming ?? 0;
+
+                                        return <Widget>[
+                                          _MetricTile(
+                                            leading: const IconBadge(
+                                                icon: Symbols.search_sharp),
+                                            title:
+                                                l10n.producedBlocksCheckedSlots,
+                                            subtitle: l10n
+                                                .producedBlocksEvaluatedOfSlots(
+                                              evaluated,
+                                              slotsInEpoch,
+                                            ),
+                                            trailingPrimary:
+                                                '${evaluatedPct.toStringAsFixed(0)}%',
+                                            onTap: () => _pushSlotAssignments(
+                                              epoch: viewedEpoch,
+                                              slotsInEpoch: slotsInEpoch,
+                                              epochScore: score,
+                                              filters: ['all'],
+                                              includeProducedMeta: true,
+                                            ),
+                                            showChevron: true,
                                           ),
-                                          trailingPrimary: '$missed',
-                                          onTap: missed > 0
-                                              ? () {
-                                                  final epoch = viewedEpoch;
-                                                  final epochScore = score;
-                                                  final slotsInEpoch =
-                                                      data?.slotsInEpoch ?? 0;
-                                                  final epochData = epochScore
-                                                      ?.epochData.slotData;
-                                                  final results = epochData ==
-                                                          null
-                                                      ? <int>[]
-                                                      : epochData
-                                                          .map((s) =>
-                                                              s.result.index)
-                                                          .toList();
-                                                  final slotTimesMs = epochData ==
-                                                          null
-                                                      ? <int?>[]
-                                                      : epochData
-                                                          .map((s) =>
-                                                              s.slotTimeMs ==
-                                                                      null
-                                                                  ? null
-                                                                  : (s.slotTimeMs!
-                                                                      .toInt()))
-                                                          .toList();
-                                                  context.push(
-                                                    AppRoutes.slotAssignments,
-                                                    extra: {
-                                                      'epoch': epoch,
-                                                      'slotsInEpoch':
+                                          const SizedBox(height: 6),
+                                          _MetricTile(
+                                            leading: const IconBadge(
+                                                icon: Symbols.check_box_sharp),
+                                            title: l10n.producedBlocksTitle,
+                                            subtitle: l10n
+                                                .producedBlocksProducedOfWon(
+                                              produced.toString(),
+                                              won.toString(),
+                                            ),
+                                            trailingPrimary: '$produced',
+                                            onTap: produced > 0
+                                                ? () => _pushSlotAssignments(
+                                                      epoch: viewedEpoch,
+                                                      slotsInEpoch:
                                                           slotsInEpoch,
-                                                      'results': results,
-                                                      'slotTimesMs':
-                                                          slotTimesMs,
-                                                      'producedMeta':
-                                                          const <Map<String,
-                                                              dynamic>?>[],
-                                                      'filters': ['missed'],
-                                                    },
-                                                  );
-                                                }
-                                              : null,
-                                          showChevron: missed > 0,
-                                        );
-                                      }),
-                                      const SizedBox(height: 6),
-                                      (viewedEpoch >= currentEpoch &&
+                                                      epochScore: score,
+                                                      filters: ['produced'],
+                                                      includeProducedMeta: true,
+                                                    )
+                                                : null,
+                                            showChevron: produced > 0,
+                                          ),
+                                          const SizedBox(height: 6),
+                                          _MetricTile(
+                                            leading: const IconBadge(
+                                                icon: Icons
+                                                    .disabled_by_default_outlined),
+                                            title: l10n
+                                                .producedBlocksMissedBlocksTitle,
+                                            subtitle:
+                                                l10n.producedBlocksMissedOfWon(
+                                              missed.toString(),
+                                              won.toString(),
+                                            ),
+                                            trailingPrimary: '$missed',
+                                            onTap: missed > 0
+                                                ? () => _pushSlotAssignments(
+                                                      epoch: viewedEpoch,
+                                                      slotsInEpoch:
+                                                          slotsInEpoch,
+                                                      epochScore: score,
+                                                      filters: ['missed'],
+                                                    )
+                                                : null,
+                                            showChevron: missed > 0,
+                                          ),
+                                          const SizedBox(height: 6),
+                                          if (viewedEpoch >= currentEpoch &&
                                               viewedEpoch <= maxEpochWithData)
-                                          ? Builder(builder: (_) {
-                                              final data =
-                                                  summary.asData?.value;
-                                              final scores =
-                                                  data?.epochScores ?? const [];
-                                              final idxCandidate = viewedEpoch;
-                                              final idx = (scores.isNotEmpty &&
-                                                      idxCandidate <
-                                                          scores.length)
-                                                  ? idxCandidate
-                                                  : (scores.isNotEmpty
-                                                      ? scores.length - 1
-                                                      : -1);
-                                              final score =
-                                                  idx >= 0 ? scores[idx] : null;
-                                              final upcoming =
-                                                  score?.upcoming ?? 0;
-                                              return _MetricTile(
-                                                leading: const IconBadge(
-                                                    icon: Icons
-                                                        .schedule_outlined),
-                                                title: l10n
-                                                    .producedBlocksUpcomingBlocksTitle,
-                                                subtitle: l10n
-                                                    .producedBlocksUpcomingThisEpoch(
-                                                  upcoming.toString(),
-                                                ),
-                                                trailingPrimary: '$upcoming',
-                                                onTap: upcoming > 0
-                                                    ? () {
-                                                        final epoch =
-                                                            viewedEpoch;
-                                                        final epochScore =
-                                                            score;
-                                                        final slotsInEpoch =
-                                                            data?.slotsInEpoch ??
-                                                                0;
-                                                        final epochData =
-                                                            epochScore
-                                                                ?.epochData
-                                                                .slotData;
-                                                        final results =
-                                                            epochData == null
-                                                                ? <int>[]
-                                                                : epochData
-                                                                    .map((s) => s
-                                                                        .result
-                                                                        .index)
-                                                                    .toList();
-                                                        final slotTimesMs = epochData ==
-                                                                null
-                                                            ? <int?>[]
-                                                            : epochData
-                                                                .map((s) => s
-                                                                            .slotTimeMs ==
-                                                                        null
-                                                                    ? null
-                                                                    : (s.slotTimeMs!
-                                                                        .toInt()))
-                                                                .toList();
-                                                        context.push(
-                                                          AppRoutes
-                                                              .slotAssignments,
-                                                          extra: {
-                                                            'epoch': epoch,
-                                                            'slotsInEpoch':
-                                                                slotsInEpoch,
-                                                            'results': results,
-                                                            'slotTimesMs':
-                                                                slotTimesMs,
-                                                            'producedMeta':
-                                                                const <Map<
-                                                                    String,
-                                                                    dynamic>?>[],
-                                                            'filters': [
-                                                              'upcoming'
-                                                            ],
-                                                          },
-                                                        );
-                                                      }
-                                                    : null,
-                                                showChevron: upcoming > 0,
-                                              );
-                                            })
-                                          : const SizedBox.shrink(),
+                                            _MetricTile(
+                                              leading: const IconBadge(
+                                                  icon:
+                                                      Icons.schedule_outlined),
+                                              title: l10n
+                                                  .producedBlocksUpcomingBlocksTitle,
+                                              subtitle: l10n
+                                                  .producedBlocksUpcomingThisEpoch(
+                                                upcoming.toString(),
+                                              ),
+                                              trailingPrimary: '$upcoming',
+                                              onTap: upcoming > 0
+                                                  ? () => _pushSlotAssignments(
+                                                        epoch: viewedEpoch,
+                                                        slotsInEpoch:
+                                                            slotsInEpoch,
+                                                        epochScore: score,
+                                                        filters: ['upcoming'],
+                                                      )
+                                                  : null,
+                                              showChevron: upcoming > 0,
+                                            ),
+                                        ];
+                                      }(),
                                     ],
                                   ),
                                 );
@@ -1509,6 +1199,71 @@ class _EpochPanel extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+class _PermissionBanner extends StatelessWidget {
+  const _PermissionBanner({
+    required this.icon,
+    required this.title,
+    required this.onAction,
+  });
+
+  final Widget icon;
+  final String title;
+  final VoidCallback onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final spacing = theme.extension<AppSpacing>()!;
+    final radii = theme.extension<AppRadii>()!;
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceBright,
+        borderRadius: radii.borderRadiusLargeIncreased,
+      ),
+      padding: EdgeInsets.fromLTRB(
+          spacing.space16, spacing.space12, spacing.space16, spacing.space12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          icon,
+          SizedBox(width: spacing.space12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                SizedBox(height: spacing.space4),
+                Text(
+                  'Background block production impacted',
+                  style: theme.textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: spacing.space12),
+          FilledButton(
+            onPressed: onAction,
+            style: FilledButton.styleFrom(
+              backgroundColor: theme.colorScheme.primary,
+              foregroundColor: theme.colorScheme.onPrimary,
+              padding: EdgeInsets.symmetric(
+                horizontal: spacing.space16,
+                vertical: spacing.space8,
+              ),
+            ),
+            child: const Text('Enable'),
+          ),
+        ],
+      ),
     );
   }
 }

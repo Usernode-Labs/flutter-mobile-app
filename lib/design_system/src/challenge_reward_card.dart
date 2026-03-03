@@ -203,8 +203,6 @@ class ChallengeRewardCard extends StatelessWidget {
                     totalPoints: totalPoints,
                     onColor: onColor,
                     dimOnColor: dimOnColor,
-                    textTheme: textTheme,
-                    spacing: spacing,
                   ),
                   SizedBox(height: spacing.space12),
                   // Rank reward row
@@ -325,8 +323,6 @@ class _CalculationRow extends StatelessWidget {
     required this.totalPoints,
     required this.onColor,
     required this.dimOnColor,
-    required this.textTheme,
-    required this.spacing,
   });
 
   final String successRate;
@@ -334,11 +330,11 @@ class _CalculationRow extends StatelessWidget {
   final String totalPoints;
   final Color onColor;
   final Color dimOnColor;
-  final TextTheme textTheme;
-  final AppSpacing spacing;
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final labelStyle = textTheme.labelSmall?.copyWith(color: dimOnColor);
     final valueStyle = textTheme.bodyMedium?.copyWith(
       fontFamily: kMonoFontFamily,

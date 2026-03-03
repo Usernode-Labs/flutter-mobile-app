@@ -55,7 +55,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     // React to tab changes and start/stop the refresh timer.
     ref.listenManual(currentHomeTabProvider, (_, next) {
-      final shouldBeActive = next == 4;
+      final shouldBeActive = next == HomeTab.settings;
       if (shouldBeActive != _active) {
         _active = shouldBeActive;
         shouldBeActive ? _startTimer() : _stopTimer();
@@ -79,7 +79,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   bool _isActiveTab() {
     try {
-      return ref.read(currentHomeTabProvider) == 4;
+      return ref.read(currentHomeTabProvider) == HomeTab.settings;
     } catch (_) {
       return false;
     }

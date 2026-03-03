@@ -45,7 +45,7 @@ class _NodeStatusProducedBlocksScreenState
 
   bool _isActiveTab() {
     try {
-      return ref.read(currentHomeTabProvider) == 0;
+      return ref.read(currentHomeTabProvider) == HomeTab.challenges;
     } catch (_) {
       return true;
     }
@@ -83,7 +83,7 @@ class _NodeStatusProducedBlocksScreenState
   @override
   Widget build(BuildContext context) {
     final currentTab = ref.watch(currentHomeTabProvider);
-    final shouldBeActive = currentTab == 0;
+    final shouldBeActive = currentTab == HomeTab.challenges;
     if (shouldBeActive != _active) {
       _active = shouldBeActive;
       if (_active) {

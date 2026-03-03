@@ -45,6 +45,8 @@ class BuildInfoSheet extends StatelessWidget {
   final BuildInfo info;
   final BuildInfoLocalizations localizations;
 
+  static const _monoStyle = TextStyle(fontFamily: kMonoFontFamily);
+
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
@@ -59,14 +61,14 @@ class BuildInfoSheet extends StatelessWidget {
             InfoRow(
               label: 'App Version',
               value: info.appVersion!,
-              valueStyle: const TextStyle(fontFamily: kMonoFontFamily),
+              valueStyle: _monoStyle,
               showDivider: info.buildNumber != null,
             ),
             if (info.buildNumber != null)
               InfoRow(
                 label: 'Build Number',
                 value: info.buildNumber!,
-                valueStyle: const TextStyle(fontFamily: kMonoFontFamily),
+                valueStyle: _monoStyle,
                 showDivider: false,
               ),
             SizedBox(height: spacing.space4),
@@ -75,34 +77,34 @@ class BuildInfoSheet extends StatelessWidget {
           InfoRow(
             label: localizations.version,
             value: info.nodeVersion,
-            valueStyle: const TextStyle(fontFamily: kMonoFontFamily),
+            valueStyle: _monoStyle,
           ),
           InfoRow(
             label: localizations.commit,
             value: info.commitHash,
-            valueStyle: const TextStyle(fontFamily: kMonoFontFamily),
+            valueStyle: _monoStyle,
           ),
           InfoRow(
             label: localizations.branch,
             value: info.branch,
-            valueStyle: const TextStyle(fontFamily: kMonoFontFamily),
+            valueStyle: _monoStyle,
           ),
           InfoRow(
             label: localizations.commitTime,
             value: info.commitTime,
-            valueStyle: const TextStyle(fontFamily: kMonoFontFamily),
+            valueStyle: _monoStyle,
             showDivider: false,
           ),
           SizedBox(height: spacing.space4),
           InfoRow(
             label: localizations.rustc,
             value: '${info.rustcVersion} (${info.rustcChannel})',
-            valueStyle: const TextStyle(fontFamily: kMonoFontFamily),
+            valueStyle: _monoStyle,
           ),
           InfoRow(
             label: localizations.llvm,
             value: info.llvmVersion,
-            valueStyle: const TextStyle(fontFamily: kMonoFontFamily),
+            valueStyle: _monoStyle,
             showDivider: false,
           ),
           SizedBox(height: spacing.space4),
@@ -110,22 +112,22 @@ class BuildInfoSheet extends StatelessWidget {
           InfoRow(
             label: localizations.cargoTarget,
             value: info.cargoTarget,
-            valueStyle: const TextStyle(fontFamily: kMonoFontFamily),
+            valueStyle: _monoStyle,
           ),
           InfoRow(
             label: localizations.features,
             value: info.cargoFeatures,
-            valueStyle: const TextStyle(fontFamily: kMonoFontFamily),
+            valueStyle: _monoStyle,
           ),
           InfoRow(
             label: localizations.optLevel,
             value: info.cargoOptLevel,
-            valueStyle: const TextStyle(fontFamily: kMonoFontFamily),
+            valueStyle: _monoStyle,
           ),
           InfoRow(
             label: localizations.debug,
             value: info.cargoIsDebug,
-            valueStyle: const TextStyle(fontFamily: kMonoFontFamily),
+            valueStyle: _monoStyle,
             showDivider: false,
           ),
         ],

@@ -67,7 +67,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
 
     // React to tab changes — start/stop timer when node tab becomes active.
     ref.listenManual(currentHomeTabProvider, (previous, next) {
-      final shouldBeActive = next == 3;
+      final shouldBeActive = next == HomeTab.nodeStatus;
       if (shouldBeActive != _active) {
         _active = shouldBeActive;
         if (shouldBeActive) {
@@ -138,12 +138,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
       return;
     }
 
-    // Set loading state only if no cache
     if (!mounted) return;
-    setState(() {
-      _chainId ??= 'Loading...';
-      _chainName ??= 'Loading...';
-    });
 
     // Fetch from status (single call for both values)
     try {
@@ -161,8 +156,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
 
       if (!mounted) return;
       setState(() {
-        _chainId = chainId?.isNotEmpty == true ? chainId : 'Loading...';
-        _chainName = chainName?.isNotEmpty == true ? chainName : 'Loading...';
+        _chainId = chainId?.isNotEmpty == true ? chainId : null;
+        _chainName = chainName?.isNotEmpty == true ? chainName : null;
       });
     } catch (e) {
       _log.debug('Failed to get chain metadata: $e');
@@ -193,28 +188,14 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
       final status = ref.read(nodeStatusProvider).value;
       if (status != null) {
         final displayBestTip = status.networkBest ?? status.localBest;
-        setState(() {
-          _peers = status.peers;
-          _bestTipGlobalSlot = displayBestTip?.globalSlot;
-          _lastChecked = DateTime.now();
-        });
-      } else {
-        if (mounted) {
-          setState(() => _lastChecked = DateTime.now());
-        }
+        _peers = status.peers;
+        _bestTipGlobalSlot = displayBestTip?.globalSlot;
       }
     } on StateError {
-      if (mounted) {
-        setState(() => _lastChecked = DateTime.now());
-      }
+      // Provider disposed during refresh — ignore.
     } catch (e, st) {
       _log.error('Refresh failed', error: e, stackTrace: st);
-      if (mounted) {
-        setState(() {
-          _error = e.toString();
-          _lastChecked = DateTime.now();
-        });
-      }
+      if (mounted) _error = e.toString();
     } finally {
       if (mounted) {
         setState(() {
@@ -343,9 +324,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
         ),
         SizedBox(height: spacing.space8),
         // Chain name with copy functionality
-        if (_chainName != null &&
-            _chainName!.isNotEmpty &&
-            _chainName != 'Loading...') ...[
+        if (_chainName != null && _chainName!.isNotEmpty) ...[
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -656,11 +635,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     final spacing = theme.extension<AppSpacing>()!;
     final sizing = theme.extension<AppSizing>()!;
     final colorScheme = theme.colorScheme;
-    final blockchain = ref.read(nodeBlockchainProvider).value;
-
-    if (blockchain == null || blockchain.items.isEmpty) {
-      return const SizedBox.shrink();
-    }
 
     return _buildDiaryCard(
       context: context,
@@ -726,16 +700,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     final status = ref.read(nodeStatusProvider).value;
 
     if (blockchain == null || blockchain.items.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: EdgeInsets.all(spacing.space24),
-          child: Text(
-            'No produced blocks available',
-            style: theme.textTheme.bodyMedium
-                ?.copyWith(color: colorScheme.onSurfaceVariant),
-          ),
-        ),
-      );
+      return const SizedBox.shrink();
     }
 
     final blocks = blockchain.items.take(10).toList();

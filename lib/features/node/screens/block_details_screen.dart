@@ -218,9 +218,7 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
                   SizedBox(height: spacing.space16),
                   InfoRow(
                     label: l10n.blockHash,
-                    value: block.hash.toString().length > 24
-                        ? '${block.hash.toString().substring(0, 24)}...'
-                        : block.hash.toString(),
+                    value: _truncate(block.hash.toString()),
                     valueStyle: _valueBold(theme),
                     showDivider: false,
                     contentPadding: EdgeInsets.only(bottom: spacing.space12),
@@ -248,17 +246,7 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
                   ),
                   InfoRow(
                     label: l10n.blockProducer,
-                    value: (() {
-                      String producer;
-                      try {
-                        producer = block.producerPubkey.toString();
-                      } catch (_) {
-                        producer = '';
-                      }
-                      return producer.length > 24
-                          ? '${producer.substring(0, 24)}...'
-                          : producer;
-                    })(),
+                    value: _truncate(block.producerPubkey.toString()),
                     valueStyle: _valueBold(theme),
                     showDivider: false,
                     contentPadding: EdgeInsets.only(bottom: spacing.space12),
@@ -388,6 +376,9 @@ class _TimelineItem extends StatelessWidget {
     );
   }
 }
+
+String _truncate(String s, [int maxLen = 24]) =>
+    s.length > maxLen ? '${s.substring(0, maxLen)}...' : s;
 
 TextStyle? _valueBold(ThemeData theme) => theme.textTheme.bodyMedium?.copyWith(
       fontWeight: FontWeight.w600,

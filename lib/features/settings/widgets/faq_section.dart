@@ -117,11 +117,8 @@ class FaqSection extends StatelessWidget {
             child: Column(
               children: [
                 _buildAboutTile(context),
-                Divider(indent: spacing.space16),
                 _buildHowItWorksTile(context),
-                Divider(indent: spacing.space16),
                 _buildPlatformTile(context),
-                Divider(indent: spacing.space16),
                 _buildVrfTile(context),
               ],
             ),

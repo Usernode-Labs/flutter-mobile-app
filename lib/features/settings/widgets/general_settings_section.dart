@@ -55,7 +55,6 @@ class GeneralSettingsSection extends StatelessWidget {
                 ),
                 onTap: onAppearanceTap,
               ),
-              Divider(indent: spacing.space16),
               GestureDetector(
                 onLongPress: onBuildInfoLongPress,
                 child: ListTile(

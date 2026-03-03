@@ -623,14 +623,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: spacing.space16),
-          child: Text(
-            'Sync Details',
-            style: theme.textTheme.titleMedium,
-          ),
-        ),
-
         // --- Navigable rows ---
         ListTile(
           leading: const IconBadge(icon: Symbols.hub_sharp),
@@ -699,7 +691,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
                     ? Utils.shortenID(bestTipHash, head: 8, tail: 6)
                     : 'N/A',
                 valueStyle: theme.textTheme.bodyMedium?.copyWith(
-                  fontFamily: 'monospace',
+                  fontFamily: 'IBMPlexMono',
                 ),
                 trailing: _buildCopyButton(
                   text: bestTipHash,

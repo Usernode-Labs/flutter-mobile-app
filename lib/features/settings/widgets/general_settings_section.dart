@@ -41,12 +41,6 @@ class GeneralSettingsSection extends StatelessWidget {
         ),
         SizedBox(height: spacing.space8),
         Card(
-          elevation: 0,
-          color: colorScheme.surfaceContainerLowest,
-          shape: RoundedRectangleBorder(
-            borderRadius: radii.borderRadiusLarge,
-            side: BorderSide(color: colorScheme.outlineVariant),
-          ),
           child: Column(
             children: [
               ListTile(
@@ -61,11 +55,7 @@ class GeneralSettingsSection extends StatelessWidget {
                 ),
                 onTap: onAppearanceTap,
               ),
-              Divider(
-                height: 1,
-                indent: spacing.space16,
-                color: colorScheme.outlineVariant,
-              ),
+              Divider(indent: spacing.space16),
               GestureDetector(
                 onLongPress: onBuildInfoLongPress,
                 child: ListTile(

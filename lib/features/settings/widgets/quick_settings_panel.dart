@@ -50,7 +50,6 @@ class QuickSettingsPanel extends StatelessWidget {
     final semantic = theme.extension<AppSemanticColors>()!;
     final spacing = theme.extension<AppSpacing>()!;
     final radii = theme.extension<AppRadii>()!;
-    final opacity = theme.extension<AppOpacity>()!;
 
     final allGood = _allPermissionsGranted;
     final group = allGood ? semantic.success : semantic.warning;
@@ -58,12 +57,7 @@ class QuickSettingsPanel extends StatelessWidget {
     return Card(
       elevation: 0,
       color: group.colorSurface,
-      shape: RoundedRectangleBorder(
-        borderRadius: radii.borderRadiusLarge,
-        side: BorderSide(
-          color: group.color.withValues(alpha: opacity.medium),
-        ),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: radii.borderRadiusLarge),
       child: Padding(
         padding: EdgeInsets.symmetric(
           horizontal: spacing.space16,
@@ -75,20 +69,8 @@ class QuickSettingsPanel extends StatelessWidget {
             _buildHeader(context, allGood, group),
             SizedBox(height: spacing.space12),
             _buildPermissionTile(context, colorScheme, semantic),
-            if (_isIOS) ...[
-              Divider(
-                height: 1,
-                indent: spacing.space16,
-                color: colorScheme.outlineVariant,
-              ),
-              _buildKeepAliveTile(context, colorScheme, semantic),
-            ],
+            if (_isIOS) _buildKeepAliveTile(context, colorScheme, semantic),
             if (_isAndroid) ...[
-              Divider(
-                height: 1,
-                indent: spacing.space16,
-                color: colorScheme.outlineVariant,
-              ),
               _buildBatteryTile(context, colorScheme, semantic),
               if (_isAggressiveManufacturer) ...[
                 SizedBox(height: spacing.space8),
@@ -245,7 +227,7 @@ class QuickSettingsPanel extends StatelessWidget {
         children: [
           Icon(
             Symbols.warning_amber_sharp,
-            size: Theme.of(context).extension<AppSizing>()!.iconXSmall,
+            size: theme.extension<AppSizing>()!.iconXSmall,
             color: semantic.warning.onColorSurface,
           ),
           SizedBox(width: spacing.space8),

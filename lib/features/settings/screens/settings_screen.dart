@@ -51,6 +51,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _loadPackageInfo();
     _active = _isActiveTab();
     if (_active) _startTimer();
+
+    // React to tab changes and start/stop the refresh timer.
+    ref.listenManual(currentHomeTabProvider, (_, next) {
+      final shouldBeActive = next == 4;
+      if (shouldBeActive != _active) {
+        _active = shouldBeActive;
+        shouldBeActive ? _startTimer() : _stopTimer();
+      }
+    });
   }
 
   Future<void> _loadPackageInfo() async {
@@ -212,12 +221,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   // --- Build info ---
 
+  String _shortCommit(String hash) =>
+      hash.length >= 7 ? hash.substring(0, 7) : hash;
+
   void _showBuildInfo() {
     final env = ref.read(buildEnvProvider);
     final l10n = AppLocalizations.of(context);
-    final shortCommit = env.git.commitHash.length >= 7
-        ? env.git.commitHash.substring(0, 7)
-        : env.git.commitHash;
+    final shortCommit = _shortCommit(env.git.commitHash);
 
     showModalBottomSheet<void>(
       context: context,
@@ -373,31 +383,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   String get _buildInfoSubtitle {
     final env = ref.read(buildEnvProvider);
-    final shortCommit = env.git.commitHash.length >= 7
-        ? env.git.commitHash.substring(0, 7)
-        : env.git.commitHash;
+    final sc = _shortCommit(env.git.commitHash);
     if (_packageInfo != null) {
-      return 'v${_packageInfo!.version} \u00b7 $shortCommit';
+      return 'v${_packageInfo!.version} \u00b7 $sc';
     }
-    return shortCommit;
+    return sc;
   }
 
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
     final l10n = AppLocalizations.of(context);
-
-    // React to tab changes and start/stop timers
-    final currentTab = ref.watch(currentHomeTabProvider);
-    final shouldBeActive = currentTab == 2;
-    if (shouldBeActive != _active) {
-      _active = shouldBeActive;
-      if (_active) {
-        _startTimer();
-      } else {
-        _stopTimer();
-      }
-    }
 
     final themeMode = ref.watch(themeModeProvider);
 

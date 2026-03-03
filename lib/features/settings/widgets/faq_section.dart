@@ -99,7 +99,6 @@ class FaqSection extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final spacing = theme.extension<AppSpacing>()!;
-    final radii = theme.extension<AppRadii>()!;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -112,38 +111,17 @@ class FaqSection extends StatelessWidget {
         ),
         SizedBox(height: spacing.space8),
         Card(
-          elevation: 0,
-          color: colorScheme.surfaceContainerLowest,
-          shape: RoundedRectangleBorder(
-            borderRadius: radii.borderRadiusLarge,
-            side: BorderSide(color: colorScheme.outlineVariant),
-          ),
           clipBehavior: Clip.antiAlias,
           child: Theme(
             data: theme.copyWith(dividerColor: Colors.transparent),
             child: Column(
               children: [
                 _buildAboutTile(context),
-                Divider(
-                  height: 1,
-                  indent: spacing.space16,
-                  endIndent: spacing.space16,
-                  color: colorScheme.outlineVariant,
-                ),
+                Divider(indent: spacing.space16),
                 _buildHowItWorksTile(context),
-                Divider(
-                  height: 1,
-                  indent: spacing.space16,
-                  endIndent: spacing.space16,
-                  color: colorScheme.outlineVariant,
-                ),
+                Divider(indent: spacing.space16),
                 _buildPlatformTile(context),
-                Divider(
-                  height: 1,
-                  indent: spacing.space16,
-                  endIndent: spacing.space16,
-                  color: colorScheme.outlineVariant,
-                ),
+                Divider(indent: spacing.space16),
                 _buildVrfTile(context),
               ],
             ),
@@ -257,7 +235,7 @@ class FaqSection extends StatelessWidget {
         Container(
           padding: EdgeInsets.all(spacing.space12),
           decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+            color: colorScheme.surfaceContainerHighest,
             borderRadius: radii.borderRadiusSmall,
           ),
           child: Column(
@@ -309,13 +287,13 @@ class FaqSection extends StatelessWidget {
               Icon(
                 Symbols.smartphone_sharp,
                 size: sizing.iconXSmall,
-                color: colorScheme.onSurface.withValues(alpha: 0.6),
+                color: colorScheme.onSurfaceVariant,
               ),
               SizedBox(width: spacing.space8),
               Text(
                 'Device: $deviceManufacturer',
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurface.withValues(alpha: 0.6),
+                  color: colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
@@ -410,9 +388,6 @@ class FaqSection extends StatelessWidget {
           decoration: BoxDecoration(
             color: semantic.warning.colorContainer,
             borderRadius: radii.borderRadiusSmall,
-            border: Border.all(
-              color: semantic.warning.color.withValues(alpha: 0.3),
-            ),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -440,7 +415,7 @@ class FaqSection extends StatelessWidget {
                       'doesn\'t wake up in time or loses network connectivity, '
                       'the slot is missed and counted as "failed."',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurface.withValues(alpha: 0.7),
+                        color: colorScheme.onSurfaceVariant,
                         height: 1.4,
                       ),
                     ),
@@ -471,14 +446,15 @@ class _NumberedStep extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final spacing = theme.extension<AppSpacing>()!;
+    final sizing = theme.extension<AppSizing>()!;
     final radii = theme.extension<AppRadii>()!;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          width: 24,
-          height: 24,
+          width: sizing.iconRegular,
+          height: sizing.iconRegular,
           decoration: BoxDecoration(
             color: colorScheme.primary.withValues(alpha: 0.1),
             borderRadius: radii.borderRadiusMedium,
@@ -486,10 +462,9 @@ class _NumberedStep extends StatelessWidget {
           child: Center(
             child: Text(
               number,
-              style: TextStyle(
+              style: theme.textTheme.labelSmall?.copyWith(
                 color: colorScheme.primary,
                 fontWeight: FontWeight.w500,
-                fontSize: 12,
               ),
             ),
           ),
@@ -501,16 +476,15 @@ class _NumberedStep extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: TextStyle(
+                style: theme.textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: colorScheme.onSurface,
                 ),
               ),
               SizedBox(height: spacing.space4),
               Text(
                 description,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurface.withValues(alpha: 0.7),
+                  color: colorScheme.onSurfaceVariant,
                   height: 1.4,
                 ),
               ),
@@ -556,8 +530,7 @@ class _ReliabilityRow extends StatelessWidget {
           ),
           child: Text(
             percentage,
-            style: TextStyle(
-              fontSize: 12,
+            style: theme.textTheme.labelSmall?.copyWith(
               fontWeight: FontWeight.w500,
               color: color,
             ),
@@ -570,17 +543,14 @@ class _ReliabilityRow extends StatelessWidget {
             children: [
               Text(
                 mode,
-                style: TextStyle(
-                  fontSize: 13,
+                style: theme.textTheme.bodySmall?.copyWith(
                   fontWeight: FontWeight.w500,
-                  color: colorScheme.onSurface,
                 ),
               ),
               Text(
                 description,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: colorScheme.onSurface.withValues(alpha: 0.6),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
@@ -604,8 +574,9 @@ class _StatusExplanation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final spacing = theme.extension<AppSpacing>()!;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -623,9 +594,8 @@ class _StatusExplanation extends StatelessWidget {
         Expanded(
           child: RichText(
             text: TextSpan(
-              style: TextStyle(
-                fontSize: 13,
-                color: colorScheme.onSurface.withValues(alpha: 0.8),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
                 height: 1.4,
               ),
               children: [

@@ -60,58 +60,83 @@ class ResultPage extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
 
-    final (IconData defaultIcon, Color iconColor) = switch (variant) {
+    final (IconData defaultIcon, Color circleBg, Color iconColor) =
+        switch (variant) {
       ResultPageVariant.success => (
-          Symbols.check_circle_sharp,
-          semantic.success.color,
+          Symbols.check_sharp,
+          semantic.success.colorContainer,
+          semantic.success.onColorContainer,
         ),
       ResultPageVariant.failure => (
-          Symbols.error_sharp,
-          colors.error,
+          Symbols.close_sharp,
+          colors.errorContainer,
+          colors.onErrorContainer,
         ),
       ResultPageVariant.info => (
           Symbols.info_sharp,
-          semantic.technical.color,
+          semantic.technical.colorContainer,
+          semantic.technical.onColorContainer,
         ),
     };
 
     return SafeArea(
       child: Padding(
-        padding: EdgeInsets.all(spacing.space24),
+        padding: EdgeInsets.symmetric(horizontal: spacing.space24),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon ?? defaultIcon,
-              size: sizing.iconDisplayLarge,
-              color: iconColor,
-            ),
-            SizedBox(height: spacing.space24),
-            Text(
-              title,
-              style: textTheme.headlineSmall?.copyWith(
-                color: colors.onSurface,
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      color: circleBg,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      icon ?? defaultIcon,
+                      size: sizing.iconDisplay,
+                      color: iconColor,
+                    ),
+                  ),
+                  SizedBox(height: spacing.space24),
+                  Text(
+                    title,
+                    style: textTheme.headlineMedium?.copyWith(
+                      color: colors.onSurface,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  if (subtitle != null) ...[
+                    SizedBox(height: spacing.space12),
+                    Text(
+                      subtitle!,
+                      style: textTheme.bodyLarge?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ],
               ),
-              textAlign: TextAlign.center,
             ),
-            if (subtitle != null) ...[
-              SizedBox(height: spacing.space12),
-              Text(
-                subtitle!,
-                style: textTheme.bodyLarge?.copyWith(
-                  color: colors.onSurfaceVariant,
-                ),
-                textAlign: TextAlign.center,
+            if (primaryAction != null)
+              SizedBox(
+                width: double.infinity,
+                height: sizing.buttonHeightLarge,
+                child: primaryAction,
+              ),
+            if (secondaryAction != null) ...[
+              SizedBox(height: spacing.space8),
+              SizedBox(
+                width: double.infinity,
+                height: sizing.buttonHeightLarge,
+                child: secondaryAction,
               ),
             ],
-            if (primaryAction != null || secondaryAction != null) ...[
-              SizedBox(height: spacing.space32),
-              if (primaryAction != null) primaryAction!,
-              if (secondaryAction != null) ...[
-                SizedBox(height: spacing.space16),
-                secondaryAction!,
-              ],
-            ],
+            SizedBox(height: spacing.space32),
           ],
         ),
       ),

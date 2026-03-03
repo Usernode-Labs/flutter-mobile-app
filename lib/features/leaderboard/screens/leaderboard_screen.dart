@@ -330,13 +330,11 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     ].where(grouped.containsKey).toList();
 
     return AppCard(
-      padding: EdgeInsets.symmetric(vertical: spacing.space8),
+      padding: EdgeInsets.zero,
       borderRadius: radii.borderRadiusLargeIncreased,
       child: Column(
         children: [
           for (var i = 0; i < sortedCategories.length; i++) ...[
-            if (i > 0)
-              Divider(height: 1, color: colors.surfaceContainerHighest),
             _buildCategoryTile(
               context,
               sortedCategories[i],

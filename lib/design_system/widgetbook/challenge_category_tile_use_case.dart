@@ -136,8 +136,6 @@ WidgetbookUseCase _threeCategories() {
                 ),
               ],
             ),
-            Divider(
-                height: 1, color: Theme.of(context).colorScheme.outlineVariant),
             ChallengeCategoryTile(
               categoryIcon: const ChallengeCategoryIcon(
                 category: ChallengeCategory.community,
@@ -170,8 +168,6 @@ WidgetbookUseCase _threeCategories() {
                 ),
               ],
             ),
-            Divider(
-                height: 1, color: Theme.of(context).colorScheme.outlineVariant),
             ChallengeCategoryTile(
               categoryIcon: const ChallengeCategoryIcon(
                 category: ChallengeCategory.flash,

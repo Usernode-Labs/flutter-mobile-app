@@ -53,7 +53,9 @@ class WidgetbookApp extends StatelessWidget {
     ThemeData withSemanticColors(ThemeData base, AppSemanticColors semantic) {
       return base.copyWith(
         extensions: [
-          ...DesignSystemTheme.standardExtensions(semanticColors: semantic),
+          ...DesignSystemTheme.standardExtensions(
+            semanticColors: semantic,
+          ),
         ],
       );
     }

@@ -8,9 +8,11 @@ import '../tokens/app_radii.dart';
 /// [ShimmerBlock]s to build skeleton placeholders that match real layout
 /// structure, giving users immediate spatial context during data loading.
 ///
-/// Colors are derived from the theme:
-/// - base: [ColorScheme.surfaceContainerHighest]
-/// - highlight: [ColorScheme.surfaceContainerLowest]
+/// Colors are derived from [ColorScheme] surface container tones:
+/// - **base** = `surfaceContainerHighest`
+/// - **highlight** = `Color.lerp(base, surfaceContainerLowest, t)`
+///   where *t* = 0.45 in light mode, −0.45 in dark mode (negative lerp
+///   extrapolates away from the darker anchor, producing a symmetric lift).
 ///
 /// Respects [MediaQueryData.disableAnimations] — renders a static block
 /// when reduced motion is preferred.
@@ -58,8 +60,8 @@ class _ShimmerBlockState extends State<ShimmerBlock>
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     final radii = Theme.of(context).extension<AppRadii>()!;
+    final colors = Theme.of(context).colorScheme;
     final reduceMotion =
         MediaQuery.maybeOf(context)?.disableAnimations ?? false;
 
@@ -79,7 +81,11 @@ class _ShimmerBlockState extends State<ShimmerBlock>
       );
     }
 
-    final highlightColor = colors.surfaceContainerLowest;
+    final highlightColor = Color.lerp(
+      baseColor,
+      colors.surfaceContainerLowest,
+      colors.brightness == Brightness.light ? 0.45 : -0.45,
+    )!;
 
     return AnimatedBuilder(
       animation: _controller,
@@ -96,9 +102,9 @@ class _ShimmerBlockState extends State<ShimmerBlock>
                 end: Alignment.centerRight,
                 colors: [baseColor, highlightColor, baseColor],
                 stops: [
-                  (slide - 0.3).clamp(0.0, 1.0),
+                  (slide - 0.2).clamp(0.0, 1.0),
                   slide.clamp(0.0, 1.0),
-                  (slide + 0.3).clamp(0.0, 1.0),
+                  (slide + 0.2).clamp(0.0, 1.0),
                 ],
               ).createShader(bounds);
             },

@@ -15,6 +15,13 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
   final String filePath;
   final List<LintFinding> findings = [];
 
+  // ── FRB import patterns ────────────────────────────────────────────────
+
+  static const _frbImportPatterns = [
+    'flutter_rust_bridge',
+    'frb_generated',
+  ];
+
   // ── Entry points ──────────────────────────────────────────────────────
 
   @override
@@ -49,6 +56,33 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
     }
 
     super.visitMethodInvocation(node);
+  }
+
+  @override
+  void visitImportDirective(ImportDirective node) {
+    if (!filePath.contains('design_system')) {
+      super.visitImportDirective(node);
+      return;
+    }
+    final uri = node.uri.stringValue;
+    if (uri != null) {
+      for (final pattern in _frbImportPatterns) {
+        if (uri.contains(pattern)) {
+          _report(
+            node,
+            'avoid_frb_imports',
+            'FRB import "$uri" in design system widget. '
+                'FRB types transitively import native FFI, breaking '
+                'Widgetbook web builds. Pass data via constructor params '
+                'from lib/features/ instead.',
+            'WARNING',
+          );
+          super.visitImportDirective(node);
+          return;
+        }
+      }
+    }
+    super.visitImportDirective(node);
   }
 
   /// Types that use default (unnamed) constructors we care about.

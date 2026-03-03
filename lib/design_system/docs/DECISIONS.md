@@ -27,12 +27,19 @@ Complete dark schemes exist (`darkScheme()`, `darkMediumContrastScheme()`,
 system brightness. Fix: move `ColorIsExpensiveTheme` to `MaterialApp` root with
 `themeMode: ThemeMode.system` and remove per-feature wrappers.
 
+**Status: Resolved.** Dark theme is wired at the `MaterialApp` root via
+`theme:` / `darkTheme:` / `themeMode:`. No per-feature `.light()` overrides remain.
+
 ### Dual Theme Coexistence (2026-02-27)
 
 Legacy `MaterialTheme` (chromatic blue `#2633C5`) lives at app root; design
 system `ColorIsExpensiveTheme` (achromatic) is injected at feature boundaries
 via `Theme()`. Widgets calling `Theme.of(context).extension<T>()!` outside a
 wrapper crash. A 5-step migration path exists to consolidate to a single root.
+
+**Status: Resolved (2026-03-02).** `ColorIsExpensiveTheme` is the sole theme at
+the `MaterialApp` root. Legacy `MaterialTheme` deleted. Only `LegacyColors`
+constants in `lib/core/config/legacy_colors.dart` remain for unmigrated screens.
 
 ---
 

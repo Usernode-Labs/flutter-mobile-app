@@ -72,6 +72,18 @@ Three slash commands drive design-to-code:
 
 **Where:** Skills: `/figma-inspect`, `/widget-from-figma`, `/verify-widget`.
 
+## M3 Gap-Proof Checklist
+
+Before creating a custom widget, complete these steps:
+
+1. **Identify M3 candidates** — which M3 widgets could handle this? (ListTile, Card, ExpansionTile, etc.)
+2. **Prototype with M3** — attempt composition with M3 containers + DS slot widgets
+3. **List the gaps** — what specific capability is missing? (custom paint, non-standard layout, animation)
+4. **Log a decision** — add an entry to [DECISIONS.md](DECISIONS.md) with the M3 widget tried, what failed, and why a custom widget is needed
+5. **Build custom** — only now create the primitive-based widget
+
+See [DECISIONS.md](DECISIONS.md) "Selective M3 Adoption" for a worked example.
+
 ## Quality Gate Checklist
 
 | # | Constraint | Verification |
@@ -91,10 +103,16 @@ Three slash commands drive design-to-code:
 
 ## Known Architecture Issues
 
-1. **Dual theme.** Legacy `MaterialTheme` (chromatic blue `#2633C5`) at app root; design system `ColorIsExpensiveTheme` (achromatic) injected locally. Widgets calling `extension<T>()!` outside a wrapper **throw null assertion errors**.
-2. **Local Theme() fragility.** Every feature screen must wrap with design system theme + `Builder`. `.light()` is hardcoded, blocking dark mode.
-3. **Extension null-crash risk.** Until single-root migration, widgets outside the design system boundary crash on `ThemeExtension` access. Interim fix: register `standardExtensions()` at app root.
-4. **surfaceTint disabled globally.** Intentional with achromatic primary. Re-evaluate if chromatic primary is ever adopted.
+1. ~~**Dual theme.**~~ **Resolved (2026-03-02).** `ColorIsExpensiveTheme` is now the
+   sole theme at the `MaterialApp` root with all extensions registered via
+   `standardExtensions()`. No per-screen `Theme()` wrappers remain.
+2. ~~**Local Theme() fragility.**~~ **Resolved.** Dark mode is wired at root
+   (`theme:` / `darkTheme:` / `themeMode:`). No hardcoded `.light()` in feature screens.
+3. **surfaceTint disabled globally.** Intentional with achromatic primary.
+   Re-evaluate if chromatic primary is ever adopted.
+4. **`LegacyColors` constants.** `lib/core/config/legacy_colors.dart` still holds
+   accent hex values (`#F56E98`, `#F1B440`, `#FF9800`). Map to `AppSemanticColors`
+   or `colorScheme` roles when those screens are migrated.
 
 **Where:** [DECISIONS.md](DECISIONS.md) "Architecture Decisions"; `theme/color_is_expensive_theme.dart`.
 
@@ -113,6 +131,7 @@ cd packages/ds_lints && dart run bin/lint.dart /path/to/project/root
 | `avoid_hardcoded_sized_box_spacing` | INFO | Childless `SizedBox(height: 16)` matching grid values {4,8,12,16,24,32,48}. SizedBox with `child:` not flagged. |
 | `avoid_hardcoded_icon_size` | INFO | `Icon(..., size: 20)` with literal size. Icons without `size:` use theme default. |
 | `matryoshka_zone_violation` | WARNING | Macro tokens (space32/space48) as padding; space24 in horizontal EdgeInsets. Exception: `EdgeInsets.only(bottom: spacing.space32)` allowed per LAYOUT.md. |
+| `avoid_frb_imports` | WARNING | `import 'package:flutter_rust_bridge/...'` or `frb_generated` in `lib/design_system/`. FRB types break Widgetbook web. |
 
 Excluded paths: `/widgetbook/`, `/test/`.
 
@@ -157,3 +176,13 @@ When reviewing a screen (new or migrated), verify:
 | 8 | SliverPadding | Used for margins in CustomScrollView |
 
 See also: [SCREEN_PATTERNS.md](SCREEN_PATTERNS.md) for full screen building playbook.
+
+### Widget-Test Constant Sync
+
+When a widget uses an internal numeric constant (not a token) that a test asserts against, mark it:
+
+```dart
+height: 128, // @tested — challenge_activity_summary_test.dart:163
+```
+
+Before changing a `// @tested` value, update the referenced test first. This prevents the 126→128 class of silent test breakage.

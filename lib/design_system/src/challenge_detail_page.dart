@@ -75,6 +75,7 @@ class ChallengeDetailPage extends StatelessWidget {
             child: Padding(
               padding: EdgeInsets.only(bottom: spacing.space32),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   if (rewardCard != null) ...[
                     rewardCard!,

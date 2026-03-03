@@ -6,10 +6,12 @@ import 'package:widgetbook/widgetbook.dart';
 import 'package:crypto_mobile_app/features/wallet/screens/wallet_delegates.dart';
 
 import '../src/bottom_nav.dart';
+import '../src/button.dart';
 import '../src/empty_state.dart';
 import '../src/full_page_error_state.dart';
-import '../src/full_page_loading_state.dart';
 import '../src/icon_badge.dart';
+import '../src/shimmer_block.dart';
+import '../src/shimmer_list_tile.dart';
 import '../src/nav_indicator_shapes.dart';
 import '../src/parallax_surface_layout.dart';
 import '../src/status_badge.dart';
@@ -207,13 +209,16 @@ class _WalletPageState extends State<_WalletPage> {
     final theme = Theme.of(context);
     final spacing = Theme.of(context).extension<AppSpacing>()!;
     final semantic = Theme.of(context).extension<AppSemanticColors>()!;
+    final isEmpty = widget.dataState == _DataState.empty;
 
     final safeTop = MediaQuery.of(context).padding.top;
     final pinnedHeight = AddressBarDelegate.computeHeight(safeTop, spacing);
 
     return Scaffold(
       body: ParallaxSurfaceLayout(
+        headerHeight: kScreenHeaderHeight,
         scrollFractionNotifier: _scrollFraction,
+        surfaceFillsViewport: isEmpty,
         pinnedHeaderHeight: pinnedHeight,
         pinnedHeaderSliver: SliverPersistentHeader(
           pinned: true,
@@ -234,36 +239,48 @@ class _WalletPageState extends State<_WalletPage> {
           padding: EdgeInsets.only(top: spacing.space32),
           child: _buildBalanceSection(context),
         ),
-        surfaceBody: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                spacing.space16,
-                spacing.space16,
-                spacing.space16,
-                spacing.space8,
+        surfaceBody: isEmpty
+            ? EmptyState(
+                title: 'No recent activity',
+                subtitle: 'Your transactions will appear here',
+                action: Button(
+                  variant: ButtonVariant.primary,
+                  label: 'Send Transaction',
+                  onTap: () {},
+                ),
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      spacing.space16,
+                      spacing.space16,
+                      spacing.space16,
+                      spacing.space8,
+                    ),
+                    child: Text(
+                      'Recent Activity',
+                      style: theme.textTheme.titleMedium,
+                    ),
+                  ),
+                  if (widget.showCachedBanner &&
+                      widget.dataState == _DataState.loaded)
+                    _buildCachedBanner(context),
+                  _buildContent(context),
+                  SizedBox(height: spacing.space32),
+                ],
               ),
-              child: Text(
-                'Recent Activity',
-                style: theme.textTheme.titleMedium,
-              ),
+      ),
+      floatingActionButton: isEmpty
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () {},
+              backgroundColor: theme.colorScheme.primary,
+              foregroundColor: theme.colorScheme.onPrimary,
+              icon: const Icon(Symbols.north_east_sharp),
+              label: const Text('Send'),
             ),
-            if (widget.showCachedBanner &&
-                widget.dataState == _DataState.loaded)
-              _buildCachedBanner(context),
-            _buildContent(context),
-            SizedBox(height: spacing.space32),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {},
-        backgroundColor: theme.colorScheme.primary,
-        foregroundColor: theme.colorScheme.onPrimary,
-        icon: const Icon(Symbols.north_east_sharp),
-        label: const Text('Send'),
-      ),
       bottomNavigationBar: BottomNav(
         items: [
           BottomNavItem(
@@ -328,10 +345,7 @@ class _WalletPageState extends State<_WalletPage> {
         SizedBox(height: spacing.space4),
         SizedBox(height: spacing.space16),
         if (isLoading)
-          const SizedBox.square(
-            dimension: 28,
-            child: CircularProgressIndicator(strokeWidth: 2.5),
-          )
+          const ShimmerBlock(width: 180, height: 36)
         else if (isError)
           Text('\u2014', style: theme.textTheme.displaySmall)
         else
@@ -414,7 +428,9 @@ class _WalletPageState extends State<_WalletPage> {
 
     switch (widget.dataState) {
       case _DataState.loading:
-        return const FullPageLoadingState();
+        return Column(
+          children: List.generate(4, (_) => const ShimmerListTile()),
+        );
       case _DataState.error:
         return const FullPageErrorState(
           message: 'Error loading transactions',

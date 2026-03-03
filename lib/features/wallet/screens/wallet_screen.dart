@@ -119,13 +119,17 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     final walletState = _walletState;
     final nodeStatus = _nodeStatus;
 
+    final isEmpty = walletState.valueOrNull?.recent.isEmpty ?? false;
+
     final safeTop = MediaQuery.of(context).padding.top;
     final pinnedHeight = AddressBarDelegate.computeHeight(safeTop, spacing);
 
     return Scaffold(
       body: ParallaxSurfaceLayout(
+        headerHeight: kScreenHeaderHeight,
         onRefresh: _onRefresh,
         scrollFractionNotifier: _scrollFraction,
+        surfaceFillsViewport: isEmpty,
         pinnedHeaderHeight: pinnedHeight,
         pinnedHeaderSliver: SliverPersistentHeader(
           pinned: true,
@@ -150,34 +154,46 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             l10n: l10n,
           ),
         ),
-        surfaceBody: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                spacing.space16,
-                spacing.space16,
-                spacing.space16,
-                spacing.space8,
+        surfaceBody: isEmpty
+            ? EmptyState(
+                title: l10n.walletNoRecentActivity,
+                subtitle: l10n.walletNoRecentActivitySubtitle,
+                action: Button(
+                  variant: ButtonVariant.primary,
+                  label: l10n.walletEmptyStateSendAction,
+                  onTap: () => context.push(AppRoutes.walletSend),
+                ),
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      spacing.space16,
+                      spacing.space16,
+                      spacing.space16,
+                      spacing.space8,
+                    ),
+                    child: Text(
+                      'Recent Activity',
+                      style: theme.textTheme.titleMedium,
+                    ),
+                  ),
+                  _buildCachedDataBanner(walletState, theme, spacing),
+                  _buildTransactionContent(walletState, l10n, spacing),
+                  SizedBox(height: spacing.space32),
+                ],
               ),
-              child: Text(
-                'Recent Activity',
-                style: theme.textTheme.titleMedium,
-              ),
+      ),
+      floatingActionButton: isEmpty
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () => context.push(AppRoutes.walletSend),
+              backgroundColor: theme.colorScheme.primary,
+              foregroundColor: theme.colorScheme.onPrimary,
+              icon: const Icon(Symbols.north_east_sharp),
+              label: const Text('Send'),
             ),
-            _buildCachedDataBanner(walletState, theme, spacing),
-            _buildTransactionContent(walletState, l10n, spacing),
-            SizedBox(height: spacing.space32),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push(AppRoutes.walletSend),
-        backgroundColor: theme.colorScheme.primary,
-        foregroundColor: theme.colorScheme.onPrimary,
-        icon: const Icon(Symbols.north_east_sharp),
-        label: const Text('Send'),
-      ),
     );
   }
 
@@ -262,7 +278,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
           ],
         );
       },
-      loading: () => const FullPageLoadingState(),
+      loading: () => Column(
+        children: List.generate(4, (_) => const ShimmerListTile()),
+      ),
       error: (_, __) => const FullPageErrorState(
         message: 'Error loading transactions',
       ),
@@ -305,10 +323,7 @@ class _BalanceSection extends StatelessWidget {
             state.balance.getFormattedBalance(compact: false, decimals: 0),
             style: theme.textTheme.displaySmall,
           ),
-          loading: () => const SizedBox.square(
-            dimension: 28,
-            child: CircularProgressIndicator(strokeWidth: 2.5),
-          ),
+          loading: () => const ShimmerBlock(width: 180, height: 36),
           error: (_, __) => Text(
             l10n.commonNoValuePlaceholder,
             style: theme.textTheme.displaySmall,

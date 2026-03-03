@@ -13,6 +13,7 @@ import 'package:crypto_mobile_app/core/providers/ranking_provider.dart';
 import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
 import 'package:crypto_mobile_app/core/utils/leaderboard_cache.dart';
 import 'package:crypto_mobile_app/design_system/src/score_header.dart';
+import 'package:crypto_mobile_app/design_system/src/shimmer_block.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/design_system/theme/color_is_expensive_theme.dart';
 import 'package:crypto_mobile_app/design_system/theme/design_system_theme.dart';
@@ -304,11 +305,12 @@ void main() {
       expect(find.text('Produce Every Block'), findsNothing);
     });
 
-    testWidgets('shows loading spinner when no cached data', (tester) async {
+    testWidgets('shows shimmer placeholders when no cached data',
+        (tester) async {
       await tester.pumpWidget(_buildTestApp(loading: true));
       await tester.pump();
 
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.byType(ShimmerBlock), findsWidgets);
     });
 
     testWidgets('shows empty state for tab with no challenges', (tester) async {

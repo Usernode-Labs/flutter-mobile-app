@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 /// [CircularProgressIndicator] directly.
 ///
 /// Presentation-only — takes all state via constructor params.
+@Deprecated('Use ShimmerBlock / ShimmerListTile for content-first loading. '
+    'Kept for onboarding permission screens where a spinner is appropriate.')
 class FullPageLoadingState extends StatelessWidget {
   const FullPageLoadingState({super.key});
 

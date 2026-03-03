@@ -31,6 +31,7 @@ import 'result_page_use_case.dart';
 import 'score_header_use_case.dart';
 import 'settings_page_use_case.dart';
 import 'sheet_layout_use_case.dart';
+import 'shimmer_use_case.dart';
 import 'status_badge_use_case.dart';
 import 'tabs_use_case.dart';
 import 'text_field_use_case.dart';
@@ -215,6 +216,8 @@ class WidgetbookApp extends StatelessWidget {
                 fullPageLoadingStateComponent(),
                 iconBadgeComponent(),
                 rankBadgeComponent(),
+                shimmerBlockComponent(),
+                shimmerListTileComponent(),
                 statusBadgeComponent(),
               ],
             ),

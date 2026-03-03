@@ -68,7 +68,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
   bool _onScroll(ScrollNotification notification) {
     if (notification.depth != 0) return false;
     final fraction =
-        (notification.metrics.pixels / kChallengesSpacerHeight).clamp(0.0, 1.0);
+        (notification.metrics.pixels / kScreenHeaderHeight).clamp(0.0, 1.0);
     if (fraction != _scrollFraction.value) {
       _scrollFraction.value = fraction;
     }
@@ -114,12 +114,6 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
     // Trigger lazy init so seasons data is available for the pickers.
     ref.watch(seasonsProvider);
 
-    if (isLoading) {
-      return const Scaffold(
-        body: FullPageLoadingState(),
-      );
-    }
-
     if (hasError) {
       return Scaffold(
         body: FullPageErrorState(
@@ -158,8 +152,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
                     return Transform.translate(
                       offset: Offset(
                         0,
-                        -sf * kChallengesSpacerHeight * kParallaxRatio +
-                            pf.offset,
+                        -sf * kScreenHeaderHeight * kParallaxRatio + pf.offset,
                       ),
                       child: Padding(
                         padding: EdgeInsets.only(
@@ -233,7 +226,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
                       // in Layer 2 directly.
                       SliverToBoxAdapter(
                         child: SizedBox(
-                          height: kChallengesSpacerHeight,
+                          height: kScreenHeaderHeight,
                           child: Align(
                             alignment: Alignment.bottomCenter,
                             child: Padding(
@@ -267,13 +260,16 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
                       controller: _tabController,
                       children: [
                         _buildActiveTabContent(
-                            categorized.active, categorized, spacing),
+                            categorized.active, categorized, spacing,
+                            isLoading: isLoading),
                         _buildEnrichedChallengeList(
                             categorized.completed,
                             spacing,
-                            AppLocalizations.of(context).challengeNoCompleted),
+                            AppLocalizations.of(context).challengeNoCompleted,
+                            isLoading: isLoading),
                         _buildEnrichedChallengeList(categorized.missed, spacing,
-                            AppLocalizations.of(context).challengeNoMissed),
+                            AppLocalizations.of(context).challengeNoMissed,
+                            isLoading: isLoading),
                       ],
                     ),
                   ),
@@ -395,8 +391,13 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
   Widget _buildActiveTabContent(
     List<EnrichedChallenge> active,
     CategorizedEnrichedChallenges categorized,
-    AppSpacing spacing,
-  ) {
+    AppSpacing spacing, {
+    bool isLoading = false,
+  }) {
+    if (isLoading) {
+      return _buildShimmerCards(spacing);
+    }
+
     if (active.isNotEmpty) {
       return _buildEnrichedChallengeList(active, spacing, '');
     }
@@ -432,8 +433,13 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
   Widget _buildEnrichedChallengeList(
     List<EnrichedChallenge> challenges,
     AppSpacing spacing,
-    String emptyMessage,
-  ) {
+    String emptyMessage, {
+    bool isLoading = false,
+  }) {
+    if (isLoading) {
+      return _buildShimmerCards(spacing);
+    }
+
     if (challenges.isEmpty) {
       return CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -462,6 +468,25 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
         key: ValueKey(challenges[index].dto.id),
         child: _buildEnrichedChallengeCard(challenges[index]),
       ),
+    );
+  }
+
+  Widget _buildShimmerCards(AppSpacing spacing) {
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverPadding(
+          padding: EdgeInsets.all(spacing.space16),
+          sliver: SliverList.separated(
+            itemCount: 3,
+            separatorBuilder: (_, __) => SizedBox(height: spacing.space12),
+            itemBuilder: (_, __) => const ShimmerBlock(
+              width: double.infinity,
+              height: 120,
+            ),
+          ),
+        ),
+      ],
     );
   }
 

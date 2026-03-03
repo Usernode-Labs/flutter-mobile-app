@@ -9,6 +9,7 @@ import 'package:crypto_mobile_app/core/models/block_production_event.dart';
 import 'package:crypto_mobile_app/features/metrics/models/metrics_payload.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'package:crypto_mobile_app/core/providers/produced_blocks_provider.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
@@ -614,9 +615,9 @@ class MetricsCollectorService {
             currentEpochWonSlots =
                 vrfEvaluator.details?.wonSlotsCurrentEpoch.toInt();
             currentEpochVrfEvaluationStatus =
-                vrfEvaluator.currentEpochVrfEvaluationStatus.name;
+                _vrfStatusName(vrfEvaluator.currentEpochVrfEvaluationStatus);
             nextEpochVrfEvaluationStatus =
-                vrfEvaluator.nextEpochVrfEvaluationStatus.name;
+                _vrfStatusName(vrfEvaluator.nextEpochVrfEvaluationStatus);
           }
         }
 
@@ -788,4 +789,12 @@ class _PermissionsCache {
     required this.exactAlarms,
     required this.batteryOptimization,
   });
+}
+
+String _vrfStatusName(RpcStatusVrfEvaluationStatus status) {
+  return switch (status) {
+    RpcStatusVrfEvaluationStatus.pending => 'pending',
+    RpcStatusVrfEvaluationStatus.completed => 'completed',
+    RpcStatusVrfEvaluationStatus.evaluating => 'evaluating',
+  };
 }

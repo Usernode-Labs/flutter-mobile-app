@@ -686,9 +686,11 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
                     : 'Evaluated ---',
                 trailing: StatusBadge(
                   label: vrf != null
-                      ? _mapVrfStatus(vrf.currentEpochVrfEvaluationStatus.name)
+                      ? _mapVrfEvaluationLabel(
+                          vrf.currentEpochVrfEvaluationStatus)
                       : 'N/A',
-                  variant: _vrfStatusVariant(vrf),
+                  variant: _vrfEvaluationVariant(
+                      vrf?.currentEpochVrfEvaluationStatus),
                 ),
               ),
               InfoRow(
@@ -888,32 +890,23 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     return '${progress.round()}%';
   }
 
-  StatusBadgeVariant _vrfStatusVariant(dynamic vrf) {
-    if (vrf == null) return StatusBadgeVariant.neutral;
-    final name = vrf.currentEpochVrfEvaluationStatus.name.toLowerCase();
-    switch (name) {
-      case 'ready':
-        return StatusBadgeVariant.success;
-      case 'evaluating':
-        return StatusBadgeVariant.info;
-      default:
-        return StatusBadgeVariant.neutral;
-    }
+  StatusBadgeVariant _vrfEvaluationVariant(
+      RpcStatusVrfEvaluationStatus? status) {
+    return switch (status) {
+      RpcStatusVrfEvaluationStatus.completed => StatusBadgeVariant.success,
+      RpcStatusVrfEvaluationStatus.evaluating => StatusBadgeVariant.info,
+      RpcStatusVrfEvaluationStatus.pending ||
+      null =>
+        StatusBadgeVariant.neutral,
+    };
   }
 
-  String _mapVrfStatus(String statusName) {
-    switch (statusName.toLowerCase()) {
-      case 'ready':
-        return 'Ready';
-      case 'pending':
-        return 'Pending';
-      case 'evaluating':
-        return 'Evaluating';
-      default:
-        return statusName.isNotEmpty
-            ? '${statusName[0].toUpperCase()}${statusName.substring(1)}'
-            : 'Pending';
-    }
+  String _mapVrfEvaluationLabel(RpcStatusVrfEvaluationStatus status) {
+    return switch (status) {
+      RpcStatusVrfEvaluationStatus.completed => 'Completed',
+      RpcStatusVrfEvaluationStatus.evaluating => 'Evaluating',
+      RpcStatusVrfEvaluationStatus.pending => 'Pending',
+    };
   }
 
   Widget _buildMempoolSubtitle() {

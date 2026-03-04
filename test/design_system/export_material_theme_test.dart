@@ -229,7 +229,7 @@ void main() {
       'palettes': palettes,
     };
 
-    final encoder = const JsonEncoder.withIndent('    ');
+    const encoder = JsonEncoder.withIndent('    ');
     final output = '${encoder.convert(json)}\n';
 
     final file = File('lib/design_system/material-theme.json');

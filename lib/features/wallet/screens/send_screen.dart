@@ -110,6 +110,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
               .read(recipientHistoryProvider.notifier)
               .addRecipient(recipientAddress);
           // Transaction successful
+          if (!mounted) return;
           context.push(AppRoutes.walletSendSuccess, extra: {
             'amount': amountStr,
             'tokenSymbol': '\$TOKEN', // TODO: Get actual token symbol

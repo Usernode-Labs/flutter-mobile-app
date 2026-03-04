@@ -12,7 +12,7 @@ void main() {
     );
   }
 
-  final testItems = const [
+  const testItems = [
     BottomNavItem(icon: Symbols.home_sharp, label: 'Home'),
     BottomNavItem(icon: Symbols.search_sharp, label: 'Search'),
     BottomNavItem(icon: Symbols.settings_sharp, label: 'Settings'),

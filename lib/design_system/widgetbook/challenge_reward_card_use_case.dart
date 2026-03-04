@@ -13,7 +13,7 @@ WidgetbookComponent challengeRewardCardComponent() {
         name: 'Simple',
         builder: (context) {
           final spacing = Theme.of(context).extension<AppSpacing>()!;
-          final category = context.knobs.list(
+          final category = context.knobs.object.dropdown(
             label: 'Category',
             options: ChallengeCategory.values,
             labelBuilder: (c) => c.name,
@@ -42,7 +42,7 @@ WidgetbookComponent challengeRewardCardComponent() {
         name: 'Produce Blocks',
         builder: (context) {
           final spacing = Theme.of(context).extension<AppSpacing>()!;
-          final category = context.knobs.list(
+          final category = context.knobs.object.dropdown(
             label: 'Category',
             options: ChallengeCategory.values,
             labelBuilder: (c) => c.name,

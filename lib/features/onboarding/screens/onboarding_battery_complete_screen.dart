@@ -32,7 +32,7 @@ class _OnboardingBatteryCompleteScreenState
   Future<void> _completeAndGoToProducedBlocks() async {
     await markOnboardingComplete();
     ref.invalidate(hasCompletedOnboardingProvider);
-    if (!context.mounted) return;
+    if (!mounted) return;
     context.go(AppRoutes.nodeStatusProducedBlocks);
   }
 
@@ -76,6 +76,7 @@ class _OnboardingBatteryCompleteScreenState
               Expanded(
                 child: Center(
                   child: _checking
+                      // ignore: deprecated_member_use_from_same_package
                       ? const FullPageLoadingState()
                       : Column(
                           mainAxisSize: MainAxisSize.min,

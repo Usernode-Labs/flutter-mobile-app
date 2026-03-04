@@ -10,7 +10,6 @@ import 'package:crypto_mobile_app/features/challenges/screens/challenges_screen.
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
-import 'package:crypto_mobile_app/core/config/legacy_colors.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -24,8 +23,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final currentNetwork = ref.watch(currentNetworkProvider);
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     final index = ref.watch(currentHomeTabProvider);
     final isInternal = currentNetwork == 'internal';
 
@@ -92,16 +89,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           );
 
           if (isInternal) {
-            bottomNav = Container(
+            final warnColors =
+                Theme.of(context).extension<AppSemanticColors>()!.warning;
+            bottomNav = DecoratedBox(
               decoration: BoxDecoration(
-                color: LegacyColors.getInternalNetworkBackgroundColor(
-                  isDark,
-                ),
+                color: warnColors.colorSurface,
                 border: Border(
                   top: BorderSide(
-                    color: LegacyColors.getInternalNetworkBorderColor(
-                      isDark,
-                    ),
+                    color: warnColors.colorContainer,
                   ),
                 ),
               ),

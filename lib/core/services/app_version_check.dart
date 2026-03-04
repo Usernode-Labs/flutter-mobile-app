@@ -190,7 +190,7 @@ Future<void> showUpdateDialog(
     },
   );
 
-  // ignore: use_build_context_synchronously
+  if (!context.mounted) return;
   showDialog(
     context: context,
     barrierDismissible: !result.isBlocking,

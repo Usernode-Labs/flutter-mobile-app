@@ -28,7 +28,7 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       final now = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
       final oldT = now - const Duration(hours: 25).inSeconds;
-      final key = 'testnet:challenge_pts:test_key';
+      const key = 'testnet:challenge_pts:test_key';
       await prefs.setString(
         key,
         jsonEncode([
@@ -46,7 +46,7 @@ void main() {
     test('record prunes entries older than 48 hours', () async {
       final prefs = await SharedPreferences.getInstance();
       final now = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
-      final key = 'testnet:challenge_pts:prune_key';
+      const key = 'testnet:challenge_pts:prune_key';
 
       // Seed an entry 50 hours ago (should be pruned) and one 23 hours ago
       await prefs.setString(
@@ -78,7 +78,7 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       final now = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
       final oldT = now - const Duration(hours: 25).inSeconds;
-      final key = 'testnet:challenge_pts:since_key2';
+      const key = 'testnet:challenge_pts:since_key2';
       await prefs.setString(
         key,
         jsonEncode([
@@ -149,7 +149,7 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       final now = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
       final threeHoursAgo = now - const Duration(hours: 3).inSeconds;
-      final key = 'testnet:challenge_pts:best_effort_short';
+      const key = 'testnet:challenge_pts:best_effort_short';
 
       await prefs.setString(
         key,
@@ -173,7 +173,7 @@ void main() {
       final now = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
       final twentyFiveHoursAgo = now - const Duration(hours: 25).inSeconds;
       final twelveHoursAgo = now - const Duration(hours: 12).inSeconds;
-      final key = 'testnet:challenge_pts:best_effort_24h';
+      const key = 'testnet:challenge_pts:best_effort_24h';
 
       await prefs.setString(
         key,
@@ -197,7 +197,7 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       final now = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
       final twoHoursAgo = now - const Duration(hours: 2).inSeconds;
-      final key = 'testnet:challenge_pts:best_effort_negative';
+      const key = 'testnet:challenge_pts:best_effort_negative';
 
       // Points decreased (e.g. backend correction)
       await prefs.setString(

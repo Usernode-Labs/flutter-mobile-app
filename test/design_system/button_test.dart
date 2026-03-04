@@ -176,7 +176,7 @@ void main() {
     testWidgets('disabled button does not fire onTap', (tester) async {
       var tapped = false;
       await tester.pumpWidget(wrap(
-        Button(label: 'Disabled'),
+        const Button(label: 'Disabled'),
       ));
 
       await tester.tap(find.text('Disabled'));

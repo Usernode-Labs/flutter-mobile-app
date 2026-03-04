@@ -54,6 +54,7 @@ class _EpochPerformanceScreenState
           ),
           title: Text(l10n.statsEpoch(_viewedEpoch)),
         ),
+        // ignore: deprecated_member_use_from_same_package
         body: const FullPageLoadingState(),
       ),
       error: (e, _) => Scaffold(

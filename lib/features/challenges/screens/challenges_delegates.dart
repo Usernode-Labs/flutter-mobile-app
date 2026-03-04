@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:crypto_mobile_app/design_system/src/dropdown_chain.dart';
+import 'package:crypto_mobile_app/design_system/src/dropdown_chip.dart';
 import 'package:crypto_mobile_app/design_system/src/parallax_surface_layout.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_borders.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
@@ -74,13 +75,13 @@ class ChipBarDelegate extends SliverPersistentHeaderDelegate {
               items: [
                 DropdownChainItem(
                   label: seasonLabel,
-                  selected: true,
+                  variant: ChipVariant.surface,
                   borderColor: chipBorder,
                   onTap: onSeasonTap,
                 ),
                 DropdownChainItem(
                   label: eventLabel,
-                  selected: true,
+                  variant: ChipVariant.surface,
                   borderColor: chipBorder,
                   onTap: onEventTap,
                 ),

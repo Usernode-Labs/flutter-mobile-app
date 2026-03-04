@@ -42,7 +42,7 @@ WidgetbookComponent topAppBarComponent() {
                     ? 'Technical · Jan 12 - Jan 30'
                     : null,
                 image: isLarge && showImage
-                    ? Container(
+                    ? ColoredBox(
                         color: colors.primaryContainer,
                         child: Icon(
                           Symbols.hexagon_sharp,

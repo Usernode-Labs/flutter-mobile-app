@@ -43,7 +43,7 @@ class AppConfig {
   static const String rustLogLevel =
       String.fromEnvironment('RUST_LOG_LEVEL', defaultValue: 'warn');
 
-  static AppConfig get instance => AppConfig._(
+  static AppConfig get instance => const AppConfig._(
         environment: _env,
         verboseLogging: _verbose,
       );
@@ -162,11 +162,11 @@ class AppConfig {
 
   // Convert to Duration for convenience
   static Duration get metricsCollectionInterval =>
-      Duration(seconds: metricsCollectionIntervalSeconds);
+      const Duration(seconds: metricsCollectionIntervalSeconds);
   static Duration get blockProductionWakeBeforeSlot =>
-      Duration(seconds: blockProductionWakeBeforeSlotSeconds);
+      const Duration(seconds: blockProductionWakeBeforeSlotSeconds);
   static Duration get epochMonitorBaseInterval =>
-      Duration(seconds: epochMonitorBaseIntervalSeconds);
+      const Duration(seconds: epochMonitorBaseIntervalSeconds);
 
   // Version check configuration
   // If empty, version checking is disabled
@@ -176,7 +176,7 @@ class AppConfig {
       int.fromEnvironment('VERSION_CHECK_INTERVAL_SECONDS', defaultValue: 7200);
 
   static Duration get versionCheckInterval =>
-      Duration(seconds: versionCheckIntervalSeconds);
+      const Duration(seconds: versionCheckIntervalSeconds);
   static bool get versionCheckEnabled => versionCheckApiUrl.isNotEmpty;
 
   // Leaderboard API v2
@@ -185,7 +185,7 @@ class AppConfig {
     defaultValue: 15,
   );
   static Duration get leaderboardApiTimeout =>
-      Duration(seconds: leaderboardApiTimeoutSeconds);
+      const Duration(seconds: leaderboardApiTimeoutSeconds);
 
   static const String leaderboardApiBaseUrl = String.fromEnvironment(
     'LEADERBOARD_API_BASE_URL',
@@ -202,9 +202,9 @@ class AppConfig {
     defaultValue: 24,
   );
   static Duration get challengePointMaxAge =>
-      Duration(hours: challengePointMaxAgeHours);
+      const Duration(hours: challengePointMaxAgeHours);
   static Duration get challengePointDiffWindow =>
-      Duration(hours: challengePointDiffWindowHours);
+      const Duration(hours: challengePointDiffWindowHours);
 
   // Explorer API configuration
   static const String primaryExplorerUrl = String.fromEnvironment(
@@ -226,9 +226,9 @@ class AppConfig {
 
   // Convert to Duration for convenience
   static Duration get explorerTimeout =>
-      Duration(seconds: explorerTimeoutSeconds);
+      const Duration(seconds: explorerTimeoutSeconds);
   static Duration get explorerCacheTtl =>
-      Duration(minutes: explorerCacheTtlMinutes);
+      const Duration(minutes: explorerCacheTtlMinutes);
 
   // Demo accounts configuration (JSON object with account metadata)
   static const String _demoAccountsJson = String.fromEnvironment(

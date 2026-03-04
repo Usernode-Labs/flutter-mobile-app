@@ -81,7 +81,6 @@ class WalletController extends AsyncNotifier<WalletState> {
       return WalletBalance(
         tokenAmount: 0.0,
         tokenSymbol: 'TOKENS',
-        usdValue: 0.0,
         totalBalance: BigInt.zero,
         dataSource: DataSource.local,
         lastUpdated: DateTime.now(),
@@ -158,7 +157,6 @@ class WalletController extends AsyncNotifier<WalletState> {
     return WalletBalance(
       tokenAmount: totalBalance.toDouble(),
       tokenSymbol: primaryTokenSymbol,
-      usdValue: 0.0,
       totalBalance: totalBalance,
       dataSource: DataSource.local,
       lastUpdated: DateTime.now(),

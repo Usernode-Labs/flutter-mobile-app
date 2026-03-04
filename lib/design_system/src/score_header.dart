@@ -458,7 +458,7 @@ class _GlowPainter extends CustomPainter {
         liftRadius,
         [
           Color.fromRGBO(255, 255, 255, liftAlpha),
-          Color.fromRGBO(255, 255, 255, 0),
+          const Color.fromRGBO(255, 255, 255, 0),
         ],
         [0.0, 1.0],
       );

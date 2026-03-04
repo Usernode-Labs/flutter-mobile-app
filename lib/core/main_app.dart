@@ -69,7 +69,7 @@ class _MainAppState extends State<MainApp> {
     return Scaffold(
       body: widget.child ?? screens[index],
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      bottomNavigationBar: Container(
+      bottomNavigationBar: DecoratedBox(
         decoration: BoxDecoration(
           color: colorScheme.surface,
           boxShadow: [
@@ -96,9 +96,9 @@ class _MainAppState extends State<MainApp> {
           destinations: [
             for (final f in active)
               switch (f) {
-                AppFeature.settings => NavigationDestination(
-                    icon: const Icon(Symbols.settings_sharp),
-                    selectedIcon: const Icon(Symbols.settings_sharp, fill: 1),
+                AppFeature.settings => const NavigationDestination(
+                    icon: Icon(Symbols.settings_sharp),
+                    selectedIcon: Icon(Symbols.settings_sharp, fill: 1),
                     label: 'Settings',
                   ),
                 AppFeature.node => NavigationDestination(

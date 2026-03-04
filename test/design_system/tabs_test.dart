@@ -17,7 +17,7 @@ void main() {
     );
   }
 
-  final testTabs = const [
+  const testTabs = [
     TabItem(label: 'Active', badgeCount: 2),
     TabItem(label: 'Completed', badgeCount: 1),
     TabItem(label: 'Missed'),

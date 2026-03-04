@@ -36,7 +36,7 @@ void main() {
         onTap: onProduced ?? () {},
         showChevron: true,
       ),
-      EpochMetricData(
+      const EpochMetricData(
         icon: Symbols.disabled_by_default_sharp,
         title: 'Missed Blocks',
         subtitle: '0 of 21 won slots missed',

@@ -344,7 +344,7 @@ class _Pill extends StatelessWidget {
       );
     }
 
-    return Container(
+    return DecoratedBox(
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: BorderRadius.circular(borderRadius),

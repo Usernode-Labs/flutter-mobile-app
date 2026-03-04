@@ -11,6 +11,7 @@ WidgetbookComponent fullPageLoadingStateComponent() {
         name: 'Default',
         builder: (context) {
           return const Scaffold(
+            // ignore: deprecated_member_use_from_same_package
             body: FullPageLoadingState(),
           );
         },

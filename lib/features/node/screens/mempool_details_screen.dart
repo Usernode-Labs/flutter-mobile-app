@@ -66,6 +66,7 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
       body: RefreshIndicator(
         onRefresh: _refresh,
         child: mempoolAsync.when(
+          // ignore: deprecated_member_use_from_same_package
           loading: () => const FullPageLoadingState(),
           error: (error, stack) => FullPageErrorState(
             message: l10n.mempoolLoadFailed,

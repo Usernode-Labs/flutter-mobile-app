@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 
 /// Tier 1: High-priority quick settings panel with semantic Card.
@@ -96,14 +97,16 @@ class QuickSettingsPanel extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Permissions',
+          AppLocalizations.of(context).settingsPermissions,
           style: theme.textTheme.labelLarge?.copyWith(
             color: group.onColorSurface,
           ),
         ),
         SizedBox(height: spacing.space8),
         Text(
-          allGood ? 'All Good' : 'Action Needed',
+          allGood
+              ? AppLocalizations.of(context).settingsPermAllGood
+              : AppLocalizations.of(context).settingsPermActionNeeded,
           style: theme.textTheme.displaySmall?.copyWith(
             color: group.onColorSurface,
             fontFamily: kMonoFontFamily,
@@ -126,13 +129,15 @@ class QuickSettingsPanel extends StatelessWidget {
         backgroundColor: group.colorContainer,
         iconColor: group.onColorContainer,
       ),
-      title: Text(_isAndroid ? 'Exact Alarms' : 'Notifications'),
+      title: Text(_isAndroid
+          ? AppLocalizations.of(context).permExactAlarmsTitle
+          : AppLocalizations.of(context).settingsNotifications),
       subtitle: Text(
         hasPermissions
-            ? 'Granted'
+            ? AppLocalizations.of(context).permGranted
             : _isAndroid
-                ? 'Required for precise block timing'
-                : 'Required for slot alerts',
+                ? AppLocalizations.of(context).permRequiredBlockTiming
+                : AppLocalizations.of(context).permRequiredSlotAlerts,
       ),
       trailing: hasPermissions
           ? Icon(
@@ -140,7 +145,7 @@ class QuickSettingsPanel extends StatelessWidget {
               color: semantic.success.color,
             )
           : Button(
-              label: 'Enable',
+              label: AppLocalizations.of(context).commonEnable,
               size: ButtonSize.small,
               variant: ButtonVariant.primary,
               onTap: onRequestPermissions,
@@ -163,11 +168,11 @@ class QuickSettingsPanel extends StatelessWidget {
         backgroundColor: group.colorContainer,
         iconColor: group.onColorContainer,
       ),
-      title: const Text('Foreground Keep-Alive'),
+      title: Text(AppLocalizations.of(context).settingsForegroundKeepAlive),
       subtitle: Text(
         iosKeepAliveActive
-            ? 'Active \u2014 99% reliability'
-            : 'Enable for critical slots',
+            ? AppLocalizations.of(context).settingsKeepAliveActive
+            : AppLocalizations.of(context).settingsKeepAliveInactive,
       ),
     );
   }
@@ -185,11 +190,11 @@ class QuickSettingsPanel extends StatelessWidget {
         backgroundColor: group.colorContainer,
         iconColor: group.onColorContainer,
       ),
-      title: const Text('Battery Optimization'),
+      title: Text(AppLocalizations.of(context).settingsBatteryOptimization),
       subtitle: Text(
         batteryOptDisabled
-            ? 'Disabled (recommended)'
-            : 'May delay or skip alarms',
+            ? AppLocalizations.of(context).settingsBatteryOptDisabled
+            : AppLocalizations.of(context).settingsBatteryOptWarning,
       ),
       trailing: batteryOptDisabled
           ? Icon(
@@ -197,7 +202,7 @@ class QuickSettingsPanel extends StatelessWidget {
               color: semantic.success.color,
             )
           : Button(
-              label: 'Fix',
+              label: AppLocalizations.of(context).commonFix,
               size: ButtonSize.small,
               variant: ButtonVariant.primary,
               onTap: onOpenBatterySettings,
@@ -231,8 +236,8 @@ class QuickSettingsPanel extends StatelessWidget {
           SizedBox(width: spacing.space8),
           Expanded(
             child: Text(
-              '$deviceManufacturer devices have aggressive battery management '
-              'that may kill apps. Check your device\'s battery manager.',
+              AppLocalizations.of(context)
+                  .settingsManufacturerWarning(deviceManufacturer!),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: semantic.warning.onColorSurface,
               ),

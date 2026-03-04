@@ -27,24 +27,62 @@ class ReliabilityMode {
 /// Localization strings needed by the FAQ section.
 class FaqLocalizations {
   const FaqLocalizations({
+    required this.helpAndInfoTitle,
+    required this.aboutTitle,
+    required this.aboutDescription,
     required this.whatIsTitle,
     required this.whatIsDescription,
     required this.steps,
+    required this.platformReliabilityTitle,
     required this.platformAndroidDesc,
     required this.platformIosDesc,
     required this.reliabilityByMode,
     required this.androidModes,
     required this.iosModes,
+    this.deviceLabel,
+    required this.vrfSlotsTitle,
+    required this.vrfWhatIsTitle,
+    required this.vrfWhatIsDescription,
+    required this.vrfStatusMeaningsTitle,
+    required this.vrfStatusPending,
+    required this.vrfStatusPendingDesc,
+    required this.vrfStatusCalculating,
+    required this.vrfStatusCalculatingDesc,
+    required this.vrfStatusComplete,
+    required this.vrfStatusCompleteDesc,
+    required this.vrfWonSlotTitle,
+    required this.vrfWonSlotDescription,
+    required this.vrfTimingTitle,
+    required this.vrfTimingDescription,
   });
 
+  final String helpAndInfoTitle;
+  final String aboutTitle;
+  final String aboutDescription;
   final String whatIsTitle;
   final String whatIsDescription;
   final List<FaqStep> steps;
+  final String platformReliabilityTitle;
   final String platformAndroidDesc;
   final String platformIosDesc;
   final String reliabilityByMode;
   final List<ReliabilityMode> androidModes;
   final List<ReliabilityMode> iosModes;
+  final String? deviceLabel;
+  final String vrfSlotsTitle;
+  final String vrfWhatIsTitle;
+  final String vrfWhatIsDescription;
+  final String vrfStatusMeaningsTitle;
+  final String vrfStatusPending;
+  final String vrfStatusPendingDesc;
+  final String vrfStatusCalculating;
+  final String vrfStatusCalculatingDesc;
+  final String vrfStatusComplete;
+  final String vrfStatusCompleteDesc;
+  final String vrfWonSlotTitle;
+  final String vrfWonSlotDescription;
+  final String vrfTimingTitle;
+  final String vrfTimingDescription;
 }
 
 /// Tier 3: Help & Info FAQ section with 4 ExpansionTiles.
@@ -60,34 +98,12 @@ class FaqSection extends StatelessWidget {
   final String? deviceManufacturer;
   final TargetPlatform? platformOverride;
 
-  static const _aboutText =
-      'Your device is part of a new network. It verifies, executes, and '
-      'contributes compute directly to the network, passively in the '
-      'background - with no central servers, no hidden infra. As long as users '
-      'keep the app running, the network will continue to operate, peer to '
-      'peer, with no external dependencies.\n\n'
-      'We\'re doing this to enable networks that can be hosted end-to-end by '
-      'their own communities - both for decentralization, and to enable a '
-      'natural coordination point around participation, where users who help '
-      'operate and contribute to systems directly realize the benefits from '
-      'it.\n\n'
-      'Right now we are in testnet as we validate the core layer: block '
-      'production, consensus behavior, and network reliability. As these '
-      'stabilize, we\'ll build upon the unique features of the platform - its '
-      'decentralization, zero knowledge proofs, and sybil-resistant identity - '
-      'to introduce new activities, coordination mechanisms, and tools for '
-      'self-hosted, sybil-resistant communities.\n\n'
-      'Thanks for helping test at this early stage. The app right now is '
-      'simple, but as we prove out the core functionality, we hope to make '
-      'possible a new kind of community-owned network, where users can '
-      'directly run and benefit from the networks they use.';
-
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const ListSectionHeader(title: 'Help & Info'),
+        ListSectionHeader(title: localizations.helpAndInfoTitle),
         Card(
           clipBehavior: Clip.antiAlias,
           child: Column(
@@ -111,11 +127,11 @@ class FaqSection extends StatelessWidget {
       shape: const Border(),
       collapsedShape: const Border(),
       leading: const Icon(Symbols.info_sharp),
-      title: const Text('About'),
+      title: Text(localizations.aboutTitle),
       expandedCrossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          _aboutText,
+          localizations.aboutDescription,
           style: theme.textTheme.bodySmall?.copyWith(
             color: colorScheme.onSurfaceVariant,
             height: 1.5,
@@ -173,7 +189,7 @@ class FaqSection extends StatelessWidget {
       shape: const Border(),
       collapsedShape: const Border(),
       leading: const Icon(Symbols.smartphone_sharp),
-      title: const Text('Platform & Reliability'),
+      title: Text(localizations.platformReliabilityTitle),
       expandedCrossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
@@ -229,7 +245,7 @@ class FaqSection extends StatelessWidget {
               ),
               SizedBox(width: spacing.space8),
               Text(
-                'Device: $deviceManufacturer',
+                localizations.deviceLabel ?? '',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
@@ -253,21 +269,18 @@ class FaqSection extends StatelessWidget {
       shape: const Border(),
       collapsedShape: const Border(),
       leading: const Icon(Symbols.casino_sharp),
-      title: const Text('Understanding VRF & Slots'),
+      title: Text(localizations.vrfSlotsTitle),
       expandedCrossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'What is VRF?',
+          localizations.vrfWhatIsTitle,
           style: theme.textTheme.labelLarge?.copyWith(
             fontWeight: FontWeight.w600,
           ),
         ),
         SizedBox(height: spacing.space8),
         Text(
-          'VRF (Verifiable Random Function) is how the network fairly selects '
-          'block producers. At the start of each epoch, the network runs VRF '
-          'calculations to determine which validators will produce blocks in '
-          'upcoming slots.',
+          localizations.vrfWhatIsDescription,
           style: theme.textTheme.bodySmall?.copyWith(
             color: colorScheme.onSurfaceVariant,
             height: 1.5,
@@ -275,41 +288,39 @@ class FaqSection extends StatelessWidget {
         ),
         SizedBox(height: spacing.space16),
         Text(
-          'VRF Status Meanings',
+          localizations.vrfStatusMeaningsTitle,
           style: theme.textTheme.labelLarge?.copyWith(
             fontWeight: FontWeight.w600,
           ),
         ),
         SizedBox(height: spacing.space8),
         _StatusExplanation(
-          status: 'Pending',
-          description: 'Waiting for epoch transition to start calculations',
+          status: localizations.vrfStatusPending,
+          description: localizations.vrfStatusPendingDesc,
           color: colorScheme.outline,
         ),
         SizedBox(height: spacing.space8),
         _StatusExplanation(
-          status: 'Calculating',
-          description: 'VRF evaluation in progress (takes a few hours)',
+          status: localizations.vrfStatusCalculating,
+          description: localizations.vrfStatusCalculatingDesc,
           color: semantic.warning.color,
         ),
         SizedBox(height: spacing.space8),
         _StatusExplanation(
-          status: 'Complete',
-          description: 'Slot assignments are finalized and scheduled',
+          status: localizations.vrfStatusComplete,
+          description: localizations.vrfStatusCompleteDesc,
           color: semantic.success.color,
         ),
         SizedBox(height: spacing.space16),
         Text(
-          'What is a "Won Slot"?',
+          localizations.vrfWonSlotTitle,
           style: theme.textTheme.labelLarge?.copyWith(
             fontWeight: FontWeight.w600,
           ),
         ),
         SizedBox(height: spacing.space8),
         Text(
-          'When VRF selects your node to produce a block at a specific time, '
-          'you\'ve "won" that slot. Your responsibility is to have your device '
-          'awake and connected so the block can be produced.',
+          localizations.vrfWonSlotDescription,
           style: theme.textTheme.bodySmall?.copyWith(
             color: colorScheme.onSurfaceVariant,
             height: 1.5,
@@ -336,7 +347,7 @@ class FaqSection extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Why Timing Matters',
+                      localizations.vrfTimingTitle,
                       style: theme.textTheme.labelMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                         color: semantic.warning.color,
@@ -344,9 +355,7 @@ class FaqSection extends StatelessWidget {
                     ),
                     SizedBox(height: spacing.space4),
                     Text(
-                      'Each slot has a ~5-seconds window. If your device '
-                      'doesn\'t wake up in time or loses network connectivity, '
-                      'the slot is missed and counted as "failed."',
+                      localizations.vrfTimingDescription,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                         height: 1.4,

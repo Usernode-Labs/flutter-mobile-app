@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 
 /// Tier 2: General settings section — Appearance and Build Info.
@@ -32,13 +33,13 @@ class GeneralSettingsSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const ListSectionHeader(title: 'General'),
+        ListSectionHeader(title: AppLocalizations.of(context).settingsGeneral),
         Card(
           child: Column(
             children: [
               ListTile(
                 leading: const Icon(Symbols.palette_sharp),
-                title: const Text('Appearance'),
+                title: Text(AppLocalizations.of(context).settingsAppearance),
                 trailing: TextChevronTrailing(text: currentThemeLabel),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.only(
@@ -52,7 +53,7 @@ class GeneralSettingsSection extends StatelessWidget {
                 onLongPress: onBuildInfoLongPress,
                 child: ListTile(
                   leading: const Icon(Symbols.info_sharp),
-                  title: const Text('Build Info'),
+                  title: Text(AppLocalizations.of(context).settingsBuildInfo),
                   subtitle: Text(
                     buildInfoSubtitle,
                     style: theme.textTheme.bodySmall?.copyWith(

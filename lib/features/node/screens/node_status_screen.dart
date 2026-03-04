@@ -169,9 +169,9 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
   Future<void> _refresh() async {
     if (!mounted) return;
 
+    _error = null;
     setState(() {
       _refreshing = true;
-      _error = null;
     });
 
     try {
@@ -360,10 +360,11 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     AppSemanticColors semantic,
     ColorScheme colorScheme,
   ) {
+    final l10n = AppLocalizations.of(context);
     if (_error != null) {
       return (
         Symbols.close_sharp,
-        'Offline',
+        l10n.nodeOffline,
         colorScheme.errorContainer,
         colorScheme.onErrorContainer,
       );
@@ -371,7 +372,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     if (sync == null || sync.isConnecting) {
       return (
         Symbols.hourglass_empty_sharp,
-        'Connecting',
+        l10n.nodeConnecting,
         semantic.warning.colorContainer,
         semantic.warning.onColorContainer,
       );
@@ -379,14 +380,14 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     if (sync.isSynced) {
       return (
         Symbols.check_sharp,
-        'Synced',
+        l10n.nodeSynced,
         semantic.success.colorContainer,
         semantic.success.onColorContainer,
       );
     }
     return (
       Symbols.hourglass_empty_sharp,
-      'Syncing',
+      l10n.nodeSyncing,
       semantic.warning.colorContainer,
       semantic.warning.onColorContainer,
     );
@@ -412,6 +413,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     final progressPercent = (mainProgress * 100).round();
 
     // Use different display values based on sync status
+    final l10n = AppLocalizations.of(context);
     final (
       displayCurrentBlocks,
       displayTotalBlocks,
@@ -421,17 +423,17 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
             // When connecting or sync status unavailable: show connecting message
             BigInt.zero,
             BigInt.zero,
-            'Connecting...'
+            l10n.nodeConnectingEllipsis,
           )
         : isNodeSynced
             ? (
                 // When synced: check if genesis block (height 1) for special display
                 (statusFromProvider?.localBestHeight ?? 0) == 1
-                    ? (BigInt.zero, BigInt.zero, 'Loaded genesis')
+                    ? (BigInt.zero, BigInt.zero, l10n.nodeLoadedGenesis)
                     : (
                         BigInt.from(statusFromProvider?.localBestHeight ?? 0),
                         BigInt.from(statusFromProvider?.localBestHeight ?? 0),
-                        'Chain Synced'
+                        l10n.nodeChainSynced,
                       ))
             : (
                 // When syncing: use apply progress
@@ -439,7 +441,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
                 ((applyProgress?.idle ?? BigInt.zero) +
                     (applyProgress?.pending ?? BigInt.zero) +
                     (applyProgress?.done ?? BigInt.zero)),
-                'Syncing blocks'
+                l10n.nodeSyncingBlocks,
               );
 
     return Padding(
@@ -453,7 +455,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
               Text(
                 sync?.isConnecting == true || sync == null
                     ? displayText
-                    : displayText == 'Loaded genesis'
+                    : displayText == l10n.nodeLoadedGenesis
                         ? displayText
                         : '$displayText $displayCurrentBlocks/$displayTotalBlocks',
                 style: theme.textTheme.titleMedium,
@@ -480,7 +482,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
                 Expanded(
                   child: _buildPhaseCard(
                     context: context,
-                    title: 'Fetch',
+                    title: l10n.nodeFetchPhase,
                     progress: fetchPct,
                     done: fetchProgress?.done ?? BigInt.zero,
                     pending: fetchProgress?.pending ?? BigInt.zero,
@@ -491,7 +493,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
                 Expanded(
                   child: _buildPhaseCard(
                     context: context,
-                    title: 'Apply',
+                    title: l10n.nodeApplyPhase,
                     progress: applyPct,
                     done: applyProgress?.done ?? BigInt.zero,
                     pending: applyProgress?.pending ?? BigInt.zero,
@@ -525,7 +527,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
         // --- Navigable rows ---
         ListTile(
           leading: const IconBadge(icon: Symbols.hub_sharp),
-          title: const Text('Peers'),
+          title: Text(l10n.nodePeers),
           subtitle: _buildPeersSubtitle(),
           trailing: TextChevronTrailing(
             text: '${status?.connectedPeers ?? 0}',
@@ -549,7 +551,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
         ),
         ListTile(
           leading: const IconBadge(icon: Symbols.account_tree_sharp),
-          title: const Text('Mempool'),
+          title: Text(l10n.nodeMempool),
           subtitle: _buildMempoolSubtitle(),
           trailing: TextChevronTrailing(
             text: '${ref.read(nodeMempoolProvider).value?.count.toInt() ?? 0}',
@@ -571,24 +573,26 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
           child: Column(
             children: [
               InfoRow(
-                label: 'VRF',
+                label: l10n.nodeVrf,
                 value: vrf != null
-                    ? 'Evaluated ${vrf.details?.evaluatedCurrentEpoch ?? 0}/${status?.slotsInEpoch ?? 0}'
-                    : 'Evaluated ---',
+                    ? l10n.nodeVrfEvaluated(
+                        vrf.details?.evaluatedCurrentEpoch ?? 0,
+                        status?.slotsInEpoch ?? 0)
+                    : l10n.nodeVrfEvaluatedNA,
                 trailing: StatusBadge(
                   label: vrf != null
                       ? _mapVrfEvaluationLabel(
                           vrf.currentEpochVrfEvaluationStatus)
-                      : 'N/A',
+                      : l10n.nodeNotAvailable,
                   variant: _vrfEvaluationVariant(
                       vrf?.currentEpochVrfEvaluationStatus),
                 ),
               ),
               InfoRow(
-                label: 'Best Tip',
+                label: l10n.nodeBestTip,
                 value: bestTipHash.isNotEmpty
                     ? Utils.shortenID(bestTipHash, head: 8, tail: 6)
-                    : 'N/A',
+                    : l10n.nodeNotAvailable,
                 valueStyle: theme.textTheme.bodyMedium?.copyWith(
                   fontFamily: kMonoFontFamily,
                 ),
@@ -646,7 +650,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
             children: [
               Expanded(
                 child: Text(
-                  'Recent Blocks',
+                  AppLocalizations.of(context).nodeRecentBlocks,
                   style: theme.textTheme.bodyLarge,
                 ),
               ),
@@ -664,7 +668,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'View All',
+                        AppLocalizations.of(context).nodeViewAll,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colorScheme.primary,
                         ),
@@ -718,8 +722,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
                 Text('Block #${block.height}'),
                 if (bestTipSlot != null && block.globalSlot == bestTipSlot) ...[
                   SizedBox(width: spacing.space8),
-                  const StatusBadge(
-                    label: 'BEST TIP',
+                  StatusBadge(
+                    label: AppLocalizations.of(context).nodeBestTipBadge,
                     variant: StatusBadgeVariant.info,
                   ),
                 ],
@@ -759,13 +763,15 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     final statusFromProvider = ref.read(nodeStatusProvider).value;
     final connectedPeers = statusFromProvider?.connectedPeers ?? 0;
     final totalPeers = statusFromProvider?.totalPeers ?? 0;
-    return Text('$connectedPeers/$totalPeers connected');
+    final l10n = AppLocalizations.of(context);
+    return Text(l10n.nodePeersConnected(connectedPeers, totalPeers));
   }
 
   Widget _buildEpochTitle() {
     final statusFromProvider = ref.read(nodeStatusProvider).value;
     final currentEpoch = statusFromProvider?.currentEpoch ?? 0;
-    return Text('Epoch $currentEpoch');
+    final l10n = AppLocalizations.of(context);
+    return Text(l10n.nodeEpochN(currentEpoch));
   }
 
   (int slotInEpoch, int slotsPerEpoch, int currentSlot) _epochSlotData() {
@@ -778,7 +784,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
 
   Widget _buildEpochSubtitle() {
     final (_, _, currentSlot) = _epochSlotData();
-    return Text('Global slot $currentSlot');
+    final l10n = AppLocalizations.of(context);
+    return Text(l10n.nodeGlobalSlot(currentSlot));
   }
 
   String _buildEpochTrailingText() {
@@ -800,20 +807,22 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
   }
 
   String _mapVrfEvaluationLabel(RpcStatusVrfEvaluationStatus status) {
+    final l10n = AppLocalizations.of(context);
     return switch (status) {
-      RpcStatusVrfEvaluationStatus.completed => 'Completed',
-      RpcStatusVrfEvaluationStatus.evaluating => 'Evaluating',
-      RpcStatusVrfEvaluationStatus.pending => 'Pending',
+      RpcStatusVrfEvaluationStatus.completed => l10n.nodeVrfCompleted,
+      RpcStatusVrfEvaluationStatus.evaluating => l10n.nodeVrfEvaluating,
+      RpcStatusVrfEvaluationStatus.pending => l10n.nodeVrfPendingLabel,
     };
   }
 
   Widget _buildMempoolSubtitle() {
     final mempool = ref.read(nodeMempoolProvider).value;
-    if (mempool == null) return const Text('N/A');
+    final l10n = AppLocalizations.of(context);
+    if (mempool == null) return Text(l10n.nodeNotAvailable);
 
     final count = mempool.count.toInt();
     final sizeKB = (mempool.totalSize.toInt() / 1024).toStringAsFixed(1);
-    return Text('$count txns \u00b7 $sizeKB KB');
+    return Text(l10n.nodeMempoolSummary(count, sizeKB));
   }
 
   // ============== NAVIGATION ==============
@@ -855,9 +864,12 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
           children: [
             Text(title, style: theme.textTheme.bodyLarge),
             SizedBox(height: spacing.space8),
-            Text('Done: $done', style: theme.textTheme.bodySmall),
-            Text('Pending: $pending', style: theme.textTheme.bodySmall),
-            Text('Idle: $idle', style: theme.textTheme.bodySmall),
+            Text(AppLocalizations.of(context).nodePhaseDone('$done'),
+                style: theme.textTheme.bodySmall),
+            Text(AppLocalizations.of(context).nodePhasePending('$pending'),
+                style: theme.textTheme.bodySmall),
+            Text(AppLocalizations.of(context).nodePhaseIdle('$idle'),
+                style: theme.textTheme.bodySmall),
           ],
         ),
       ),
@@ -895,6 +907,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
   String _formatLastChecked() {
     final now = DateTime.now();
     final checked = _lastChecked;
+    final l10n = AppLocalizations.of(context);
     final timeStr =
         '${checked.hour.toString().padLeft(2, '0')}:${checked.minute.toString().padLeft(2, '0')}:${checked.second.toString().padLeft(2, '0')}';
 
@@ -903,8 +916,10 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
         now.day == checked.day;
 
     if (isToday) {
-      return 'Last checked at $timeStr';
+      return l10n.commonLastCheckedAt(timeStr);
     }
-    return 'Last checked on ${checked.year}-${checked.month.toString().padLeft(2, '0')}-${checked.day.toString().padLeft(2, '0')} at $timeStr';
+    final dateStr =
+        '${checked.year}-${checked.month.toString().padLeft(2, '0')}-${checked.day.toString().padLeft(2, '0')}';
+    return l10n.commonLastCheckedOnAt(dateStr, timeStr);
   }
 }

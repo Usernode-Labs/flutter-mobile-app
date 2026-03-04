@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 
 /// Bottom sheet with 3 RadioListTiles for theme selection.
@@ -17,8 +18,9 @@ class ThemePickerSheet extends StatelessWidget {
     final theme = Theme.of(context);
     final radii = theme.extension<AppRadii>()!;
 
+    final l10n = AppLocalizations.of(context);
     return SheetLayout(
-      title: 'Appearance',
+      title: l10n.settingsAppearance,
       child: RadioGroup<ThemeMode>(
         groupValue: currentMode,
         onChanged: (mode) {
@@ -29,9 +31,9 @@ class ThemePickerSheet extends StatelessWidget {
           children: [
             RadioListTile<ThemeMode>(
               value: ThemeMode.system,
-              title: Text('System', style: theme.textTheme.bodyLarge),
+              title: Text(l10n.themeSystem, style: theme.textTheme.bodyLarge),
               subtitle: Text(
-                'Follow your device setting',
+                l10n.themeSystemSubtitle,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -42,14 +44,14 @@ class ThemePickerSheet extends StatelessWidget {
             ),
             RadioListTile<ThemeMode>(
               value: ThemeMode.light,
-              title: Text('Light', style: theme.textTheme.bodyLarge),
+              title: Text(l10n.themeLight, style: theme.textTheme.bodyLarge),
               shape: RoundedRectangleBorder(
                 borderRadius: radii.borderRadiusSmall,
               ),
             ),
             RadioListTile<ThemeMode>(
               value: ThemeMode.dark,
-              title: Text('Dark', style: theme.textTheme.bodyLarge),
+              title: Text(l10n.themeDark, style: theme.textTheme.bodyLarge),
               shape: RoundedRectangleBorder(
                 borderRadius: radii.borderRadiusSmall,
               ),

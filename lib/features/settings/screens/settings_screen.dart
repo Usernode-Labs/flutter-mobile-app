@@ -163,12 +163,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     if (!mounted) return;
 
+    final l10n = AppLocalizations.of(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
           granted
-              ? 'Permissions granted successfully'
-              : 'Please grant permissions in settings',
+              ? l10n.settingsPermGrantedSnackbar
+              : l10n.settingsPermDeniedSnackbar,
         ),
       ),
     );
@@ -196,13 +197,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   // --- Theme picker ---
 
   String _themeModeLabel(ThemeMode mode) {
+    final l10n = AppLocalizations.of(context);
     switch (mode) {
       case ThemeMode.system:
-        return 'System';
+        return l10n.themeSystem;
       case ThemeMode.light:
-        return 'Light';
+        return l10n.themeLight;
       case ThemeMode.dark:
-        return 'Dark';
+        return l10n.themeDark;
     }
   }
 
@@ -251,6 +253,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         localizations: BuildInfoLocalizations(
           title: l10n.settingsBuildInfo,
+          appVersion: l10n.buildInfoAppVersion,
+          buildNumber: l10n.buildInfoBuildNumber,
           version: l10n.buildInfoVersion,
           commit: l10n.buildInfoCommit,
           branch: l10n.buildInfoBranch,
@@ -274,25 +278,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _showPinDialog() async {
     final pinController = TextEditingController();
+    final l10n = AppLocalizations.of(context);
     final result = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Enter Code'),
+        title: Text(l10n.networkEnterCode),
         content: TextField(
           controller: pinController,
           keyboardType: TextInputType.number,
           maxLength: 4,
           obscureText: true,
           autofocus: true,
-          decoration: const InputDecoration(
-            hintText: '4-digit code',
+          decoration: InputDecoration(
+            hintText: l10n.networkCodeHint,
             counterText: '',
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
+            child: Text(l10n.commonCancel),
           ),
           TextButton(
             onPressed: () {
@@ -302,7 +307,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 Navigator.of(ctx).pop(false);
               }
             },
-            child: const Text('OK'),
+            child: Text(l10n.commonOk),
           ),
         ],
       ),
@@ -350,14 +355,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _showRestartDialog(String network) async {
+    final l10n = AppLocalizations.of(context);
+    final networkName = _networkLabel(network);
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text('Restart Required'),
+        title: Text(l10n.networkRestartRequired),
         content: Text(
-          'Network switched to ${_networkLabel(network)}. '
-          '${defaultTargetPlatform == TargetPlatform.iOS ? 'Please manually close and reopen the app to connect to the new network.' : 'The app will now close. Please reopen it to connect to the new network.'}',
+          defaultTargetPlatform == TargetPlatform.iOS
+              ? l10n.networkSwitchedRestartIos(networkName)
+              : l10n.networkSwitchedRestartAndroid(networkName),
         ),
         actions: [
           if (defaultTargetPlatform == TargetPlatform.iOS)
@@ -365,7 +373,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               onPressed: () {
                 Navigator.of(ctx).pop();
               },
-              child: const Text('OK'),
+              child: Text(l10n.commonOk),
             )
           else
             TextButton(
@@ -373,7 +381,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 Navigator.of(ctx).pop();
                 SystemNavigator.pop();
               },
-              child: const Text('Close App'),
+              child: Text(l10n.networkCloseApp),
             ),
         ],
       ),
@@ -436,6 +444,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               FaqSection(
                 deviceManufacturer: _deviceManufacturer,
                 localizations: FaqLocalizations(
+                  helpAndInfoTitle: l10n.settingsHelpAndInfo,
+                  aboutTitle: l10n.settingsAbout,
+                  aboutDescription: l10n.faqAboutDescription,
                   whatIsTitle: l10n.bgProdWhatIs,
                   whatIsDescription: l10n.bgProdDescription,
                   steps: [
@@ -452,6 +463,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         title: l10n.bgProdSuccessTracking,
                         description: l10n.bgProdSuccessTrackingDesc),
                   ],
+                  platformReliabilityTitle: l10n.faqPlatformReliabilityTitle,
                   platformAndroidDesc: l10n.bgProdAndroidDesc,
                   platformIosDesc: l10n.bgProdIosDesc,
                   reliabilityByMode: l10n.bgProdReliabilityByMode,
@@ -475,6 +487,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         reliability: l10n.bgProdBackgroundOnlyReliability,
                         description: l10n.bgProdBackgroundOnlyDesc),
                   ],
+                  deviceLabel: _deviceManufacturer != null
+                      ? l10n.faqDeviceLabel(_deviceManufacturer!)
+                      : null,
+                  vrfSlotsTitle: l10n.faqVrfSlotsTitle,
+                  vrfWhatIsTitle: l10n.faqVrfWhatIsTitle,
+                  vrfWhatIsDescription: l10n.faqVrfWhatIsDescription,
+                  vrfStatusMeaningsTitle: l10n.faqVrfStatusMeaningsTitle,
+                  vrfStatusPending: l10n.faqVrfStatusPending,
+                  vrfStatusPendingDesc: l10n.faqVrfStatusPendingDesc,
+                  vrfStatusCalculating: l10n.faqVrfStatusCalculating,
+                  vrfStatusCalculatingDesc: l10n.faqVrfStatusCalculatingDesc,
+                  vrfStatusComplete: l10n.faqVrfStatusComplete,
+                  vrfStatusCompleteDesc: l10n.faqVrfStatusCompleteDesc,
+                  vrfWonSlotTitle: l10n.faqVrfWonSlotTitle,
+                  vrfWonSlotDescription: l10n.faqVrfWonSlotDescription,
+                  vrfTimingTitle: l10n.faqVrfTimingTitle,
+                  vrfTimingDescription: l10n.faqVrfTimingDescription,
                 ),
               ),
 

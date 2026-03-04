@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/providers/recipient_history_provider.dart';
@@ -11,6 +12,7 @@ import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/design_system/src/sheet_layout.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_sizing.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 
 class SendScreen extends ConsumerStatefulWidget {
@@ -141,11 +143,12 @@ class _SendScreenState extends ConsumerState<SendScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final spacing = theme.extension<AppSpacing>()!;
+    final l10n = AppLocalizations.of(context);
     final recipientHistory = ref.watch(recipientHistoryProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Send'),
+        title: Text(l10n.walletSend),
       ),
       body: SafeArea(
         child: CustomScrollView(
@@ -161,16 +164,17 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                       _buildField(
                         theme: theme,
                         controller: _addressController,
-                        hint: 'Recipient address',
+                        hint: l10n.walletRecipientAddress,
                         suffixIcon: IconButton(
                           icon: const Icon(Symbols.history_sharp),
-                          tooltip: 'Recent recipients',
+                          tooltip: l10n.walletRecentRecipients,
                           onPressed: () => _showRecipientHistory(
                             context,
                             recipientHistory.value ?? const [],
                           ),
                         ),
                         validator: _validateRequired(
+                          l10n,
                           'recipient address',
                           minLength: 20,
                         ),
@@ -179,24 +183,24 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                       _buildField(
                         theme: theme,
                         controller: _amountController,
-                        hint: 'Amount',
+                        hint: l10n.walletAmount,
                         isNumeric: true,
-                        validator: _validatePositiveNumber('amount'),
+                        validator: _validatePositiveNumber(l10n, 'amount'),
                       ),
                       SizedBox(height: spacing.space16),
                       _buildField(
                         theme: theme,
                         controller: _feeController,
-                        hint: 'Fee',
+                        hint: l10n.walletFee,
                         isNumeric: true,
-                        validator:
-                            _validatePositiveNumber('fee', allowZero: true),
+                        validator: _validatePositiveNumber(l10n, 'fee',
+                            allowZero: true),
                       ),
                       SizedBox(height: spacing.space16),
                       _buildField(
                         theme: theme,
                         controller: _memoController,
-                        hint: 'Memo (optional)',
+                        hint: l10n.walletMemoOptional,
                         maxLines: 4,
                       ),
                     ],
@@ -250,11 +254,12 @@ class _SendScreenState extends ConsumerState<SendScreen> {
   Widget _buildSendButton(ThemeData theme) {
     final spacing = theme.extension<AppSpacing>()!;
     final radii = theme.extension<AppRadii>()!;
+    final sizing = theme.extension<AppSizing>()!;
     final onPrimary = theme.colorScheme.onPrimary;
 
     return SizedBox(
       width: double.infinity,
-      height: 56,
+      height: sizing.buttonHeightLarge,
       child: FilledButton(
         onPressed: _isSending ? null : _onSend,
         style: FilledButton.styleFrom(
@@ -275,7 +280,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                   ),
                   SizedBox(width: spacing.space12),
                   Text(
-                    'Sending...',
+                    AppLocalizations.of(context).walletSending,
                     style: theme.textTheme.titleMedium?.copyWith(
                       color: onPrimary,
                     ),
@@ -283,7 +288,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                 ],
               )
             : Text(
-                'Send',
+                AppLocalizations.of(context).walletSend,
                 style: theme.textTheme.titleMedium?.copyWith(
                   color: onPrimary,
                 ),
@@ -292,28 +297,32 @@ class _SendScreenState extends ConsumerState<SendScreen> {
     );
   }
 
-  String? Function(String?) _validateRequired(String fieldName,
+  String? Function(String?) _validateRequired(
+      AppLocalizations l10n, String fieldName,
       {int minLength = 1}) {
     return (value) {
       if (value == null || value.trim().isEmpty) {
-        return 'Please enter a $fieldName';
+        return l10n.walletFieldRequired(fieldName);
       }
       if (value.trim().length < minLength) {
-        return '${fieldName[0].toUpperCase()}${fieldName.substring(1)} appears to be too short';
+        return l10n.walletFieldTooShort(
+          '${fieldName[0].toUpperCase()}${fieldName.substring(1)}',
+        );
       }
       return null;
     };
   }
 
-  String? Function(String?) _validatePositiveNumber(String fieldName,
+  String? Function(String?) _validatePositiveNumber(
+      AppLocalizations l10n, String fieldName,
       {bool allowZero = false}) {
     return (value) {
       if (value == null || value.trim().isEmpty) {
-        return 'Please enter a $fieldName';
+        return l10n.walletFieldRequired(fieldName);
       }
       final number = double.tryParse(value.trim());
       if (number == null || (allowZero ? number < 0 : number <= 0)) {
-        return 'Please enter a valid $fieldName';
+        return l10n.walletFieldInvalid(fieldName);
       }
 
       // Check amount limit for amount field
@@ -329,22 +338,23 @@ class _SendScreenState extends ConsumerState<SendScreen> {
   }
 
   void _showRecipientHistory(BuildContext context, List<String> recipients) {
+    final l10n = AppLocalizations.of(context);
     showModalBottomSheet<void>(
       context: context,
       builder: (sheetContext) {
         if (recipients.isEmpty) {
           return SheetLayout(
-            title: 'Recent Recipients',
+            title: l10n.walletRecentRecipients,
             child: Center(
               child: Text(
-                'No recent addresses',
+                l10n.walletNoRecentAddresses,
                 style: Theme.of(sheetContext).textTheme.bodyMedium,
               ),
             ),
           );
         }
         return SheetLayout(
-          title: 'Recent Recipients',
+          title: l10n.walletRecentRecipients,
           child: ListView.builder(
             shrinkWrap: true,
             itemCount: recipients.length,

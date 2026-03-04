@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 
 class NetworkSwitcherDialog extends StatefulWidget {
@@ -45,9 +46,8 @@ class _NetworkSwitcherDialogState extends State<NetworkSwitcherDialog> {
           Expanded(
             child: Text(
               url,
-              style: theme.textTheme.bodySmall?.copyWith(
+              style: theme.textTheme.labelSmall?.copyWith(
                 fontFamily: kMonoFontFamily,
-                fontSize: 11,
               ),
               softWrap: true,
             ),
@@ -124,7 +124,7 @@ class _NetworkSwitcherDialogState extends State<NetworkSwitcherDialog> {
                       borderRadius: radii.borderRadiusXSmall,
                     ),
                     child: Text(
-                      'Active',
+                      AppLocalizations.of(context).networkActive,
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: semantic.success.color,
                         fontWeight: FontWeight.w500,
@@ -162,11 +162,12 @@ class _NetworkSwitcherDialogState extends State<NetworkSwitcherDialog> {
     final colorScheme = theme.colorScheme;
     final semantic = theme.extension<AppSemanticColors>()!;
 
+    final l10n = AppLocalizations.of(context);
     return AlertDialog(
       title: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text('Network Switcher'),
+          Text(l10n.networkSwitcherTitle),
           IconButton(
             icon: const Icon(Symbols.close_sharp),
             onPressed: () => Navigator.of(context).pop(),
@@ -181,7 +182,7 @@ class _NetworkSwitcherDialogState extends State<NetworkSwitcherDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'SELECT NETWORK',
+              l10n.networkSelectNetwork,
               style: theme.textTheme.labelSmall?.copyWith(
                 color: colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w600,
@@ -192,7 +193,7 @@ class _NetworkSwitcherDialogState extends State<NetworkSwitcherDialog> {
             _buildNetworkOption(
               networkType: 'testnet',
               displayName: 'Testnet',
-              description: 'Default network',
+              description: l10n.networkTestnetDesc,
               isSelected: selectedNetwork == 'testnet',
               isCurrentlyActive: widget.currentNetwork == 'testnet',
               genesisUrl: AppConfig.testnetGenesisUrl,
@@ -205,7 +206,7 @@ class _NetworkSwitcherDialogState extends State<NetworkSwitcherDialog> {
             _buildNetworkOption(
               networkType: 'internal',
               displayName: 'Internal',
-              description: 'Development network',
+              description: l10n.networkInternalDesc,
               isSelected: selectedNetwork == 'internal',
               isCurrentlyActive: widget.currentNetwork == 'internal',
               genesisUrl: AppConfig.internalGenesisUrl,
@@ -233,15 +234,15 @@ class _NetworkSwitcherDialogState extends State<NetworkSwitcherDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(l10n.commonCancel),
         ),
         FilledButton(
           onPressed: selectedNetwork == widget.currentNetwork
               ? null
               : () => Navigator.of(context).pop(selectedNetwork),
           child: Text(selectedNetwork == widget.currentNetwork
-              ? 'No Change'
-              : 'Switch Network'),
+              ? l10n.networkNoChange
+              : l10n.networkSwitch),
         ),
       ],
     );

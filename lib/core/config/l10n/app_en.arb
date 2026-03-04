@@ -1475,5 +1475,497 @@
   "challengeEpochLast24h": "Last 24h",
   "@challengeEpochLast24h": {
     "description": "Fallback epoch section label"
+  },
+
+  "walletSentSuccessfully": "Sent successfully!",
+  "@walletSentSuccessfully": {
+    "description": "Transaction success screen title"
+  },
+  "walletSentDetail": "{amount} {tokenSymbol} sent to\n{address}",
+  "@walletSentDetail": {
+    "description": "Transaction success screen subtitle",
+    "placeholders": {
+      "amount": {"type": "String"},
+      "tokenSymbol": {"type": "String"},
+      "address": {"type": "String"}
+    }
+  },
+  "walletTransactionFailed": "Transaction Failed",
+  "@walletTransactionFailed": {
+    "description": "Transaction failed screen title"
+  },
+  "walletTransactionFailedGeneric": "An error occurred while processing your transaction",
+  "@walletTransactionFailedGeneric": {
+    "description": "Generic transaction failure message"
+  },
+  "walletAddressCopied": "Address copied to clipboard",
+  "@walletAddressCopied": {
+    "description": "Snackbar message when wallet address is copied"
+  },
+  "walletRecentActivity": "Recent Activity",
+  "@walletRecentActivity": {
+    "description": "Wallet screen recent activity section header"
+  },
+  "walletExplorerUnavailable": "Explorer API unavailable. Showing cached data.",
+  "@walletExplorerUnavailable": {
+    "description": "Banner when explorer API is down and cached data is shown"
+  },
+  "walletTransactionsError": "Error loading transactions",
+  "@walletTransactionsError": {
+    "description": "Error state message for transaction list"
+  },
+  "walletTokenBalance": "$TOKEN Balance",
+  "@walletTokenBalance": {
+    "description": "Token balance label on wallet screen"
+  },
+  "walletSyncInProgress": "Sync in progress...",
+  "@walletSyncInProgress": {
+    "description": "Message shown when node is syncing on wallet screen"
+  },
+  "walletMyAddress": "My address",
+  "@walletMyAddress": {
+    "description": "Label in the wallet address bar"
+  },
+  "walletRecipientAddress": "Recipient address",
+  "@walletRecipientAddress": {
+    "description": "Hint text for recipient address field"
+  },
+  "walletRecentRecipients": "Recent Recipients",
+  "@walletRecentRecipients": {
+    "description": "Title for recent recipients sheet and tooltip"
+  },
+  "walletFee": "Fee",
+  "@walletFee": {
+    "description": "Fee field hint text"
+  },
+  "walletMemoOptional": "Memo (optional)",
+  "@walletMemoOptional": {
+    "description": "Memo field hint text"
+  },
+  "walletSending": "Sending...",
+  "@walletSending": {
+    "description": "Send button text while transaction is processing"
+  },
+  "walletFieldRequired": "Please enter a {fieldName}",
+  "@walletFieldRequired": {
+    "description": "Validation error for required field",
+    "placeholders": {
+      "fieldName": {"type": "String"}
+    }
+  },
+  "walletFieldTooShort": "{fieldName} appears to be too short",
+  "@walletFieldTooShort": {
+    "description": "Validation error for field that is too short",
+    "placeholders": {
+      "fieldName": {"type": "String"}
+    }
+  },
+  "walletFieldInvalid": "Please enter a valid {fieldName}",
+  "@walletFieldInvalid": {
+    "description": "Validation error for invalid field value",
+    "placeholders": {
+      "fieldName": {"type": "String"}
+    }
+  },
+  "walletNoRecentAddresses": "No recent addresses",
+  "@walletNoRecentAddresses": {
+    "description": "Empty state in recent recipients sheet"
+  },
+
+  "nodeOffline": "Offline",
+  "@nodeOffline": {
+    "description": "Node status label when offline"
+  },
+  "nodeConnectingEllipsis": "Connecting...",
+  "@nodeConnectingEllipsis": {
+    "description": "Node sync progress text while connecting"
+  },
+  "nodeLoadedGenesis": "Loaded genesis",
+  "@nodeLoadedGenesis": {
+    "description": "Node sync text when only genesis block is loaded"
+  },
+  "nodeChainSynced": "Chain Synced",
+  "@nodeChainSynced": {
+    "description": "Node sync progress text when chain is synced"
+  },
+  "nodeSyncingBlocks": "Syncing blocks",
+  "@nodeSyncingBlocks": {
+    "description": "Node sync progress text while syncing"
+  },
+  "nodeFetchPhase": "Fetch",
+  "@nodeFetchPhase": {
+    "description": "Fetch phase card title"
+  },
+  "nodeApplyPhase": "Apply",
+  "@nodeApplyPhase": {
+    "description": "Apply phase card title"
+  },
+  "nodePeers": "Peers",
+  "@nodePeers": {
+    "description": "Peers list tile title"
+  },
+  "nodeMempool": "Mempool",
+  "@nodeMempool": {
+    "description": "Mempool list tile title"
+  },
+  "nodeRecentBlocks": "Recent Blocks",
+  "@nodeRecentBlocks": {
+    "description": "Recent blocks section title"
+  },
+  "nodeViewAll": "View All",
+  "@nodeViewAll": {
+    "description": "View all blocks link text"
+  },
+  "nodePeersConnected": "{connected}/{total} connected",
+  "@nodePeersConnected": {
+    "description": "Peers subtitle showing connected/total count",
+    "placeholders": {
+      "connected": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
+  "nodeEpochN": "Epoch {epoch}",
+  "@nodeEpochN": {
+    "description": "Epoch list tile title",
+    "placeholders": {
+      "epoch": {"type": "int"}
+    }
+  },
+  "nodeGlobalSlot": "Global slot {slot}",
+  "@nodeGlobalSlot": {
+    "description": "Epoch subtitle showing current global slot",
+    "placeholders": {
+      "slot": {"type": "int"}
+    }
+  },
+  "nodeMempoolSummary": "{count} txns \u00b7 {sizeKB} KB",
+  "@nodeMempoolSummary": {
+    "description": "Mempool subtitle with transaction count and size",
+    "placeholders": {
+      "count": {"type": "int"},
+      "sizeKB": {"type": "String"}
+    }
+  },
+  "nodePhaseDone": "Done: {count}",
+  "@nodePhaseDone": {
+    "description": "Phase card done count",
+    "placeholders": {
+      "count": {"type": "String"}
+    }
+  },
+  "nodePhasePending": "Pending: {count}",
+  "@nodePhasePending": {
+    "description": "Phase card pending count",
+    "placeholders": {
+      "count": {"type": "String"}
+    }
+  },
+  "nodePhaseIdle": "Idle: {count}",
+  "@nodePhaseIdle": {
+    "description": "Phase card idle count",
+    "placeholders": {
+      "count": {"type": "String"}
+    }
+  },
+  "nodeVrf": "VRF",
+  "@nodeVrf": {
+    "description": "VRF info row label"
+  },
+  "nodeVrfEvaluated": "Evaluated {evaluated}/{total}",
+  "@nodeVrfEvaluated": {
+    "description": "VRF evaluation progress",
+    "placeholders": {
+      "evaluated": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
+  "nodeVrfEvaluatedNA": "Evaluated ---",
+  "@nodeVrfEvaluatedNA": {
+    "description": "VRF evaluation when no data available"
+  },
+  "nodeBestTip": "Best Tip",
+  "@nodeBestTip": {
+    "description": "Best tip info row label"
+  },
+  "nodeBestTipBadge": "BEST TIP",
+  "@nodeBestTipBadge": {
+    "description": "Best tip status badge label"
+  },
+  "nodeVrfCompleted": "Completed",
+  "@nodeVrfCompleted": {
+    "description": "VRF evaluation status completed"
+  },
+  "nodeVrfEvaluating": "Evaluating",
+  "@nodeVrfEvaluating": {
+    "description": "VRF evaluation status evaluating"
+  },
+  "nodeVrfPendingLabel": "Pending",
+  "@nodeVrfPendingLabel": {
+    "description": "VRF evaluation status pending"
+  },
+
+  "commonGotIt": "Got it",
+  "@commonGotIt": {
+    "description": "Dismissal button text"
+  },
+  "commonCancel": "Cancel",
+  "@commonCancel": {
+    "description": "Cancel button text"
+  },
+  "commonEnable": "Enable",
+  "@commonEnable": {
+    "description": "Enable button text"
+  },
+  "commonFix": "Fix",
+  "@commonFix": {
+    "description": "Fix button text"
+  },
+  "commonLastCheckedAt": "Last checked at {time}",
+  "@commonLastCheckedAt": {
+    "description": "Timestamp label for last check (same day)",
+    "placeholders": {
+      "time": {"type": "String"}
+    }
+  },
+  "commonLastCheckedOnAt": "Last checked on {date} at {time}",
+  "@commonLastCheckedOnAt": {
+    "description": "Timestamp label for last check (different day)",
+    "placeholders": {
+      "date": {"type": "String"},
+      "time": {"type": "String"}
+    }
+  },
+
+  "settingsGeneral": "General",
+  "@settingsGeneral": {
+    "description": "General settings section header"
+  },
+  "settingsAppearance": "Appearance",
+  "@settingsAppearance": {
+    "description": "Appearance settings tile title and sheet title"
+  },
+  "settingsPermissions": "Permissions",
+  "@settingsPermissions": {
+    "description": "Quick settings panel header label"
+  },
+  "settingsPermAllGood": "All Good",
+  "@settingsPermAllGood": {
+    "description": "Quick settings header when all permissions granted"
+  },
+  "settingsPermActionNeeded": "Action Needed",
+  "@settingsPermActionNeeded": {
+    "description": "Quick settings header when permissions need attention"
+  },
+  "settingsNotifications": "Notifications",
+  "@settingsNotifications": {
+    "description": "iOS permission tile title"
+  },
+  "settingsForegroundKeepAlive": "Foreground Keep-Alive",
+  "@settingsForegroundKeepAlive": {
+    "description": "iOS keep-alive toggle title"
+  },
+  "settingsKeepAliveActive": "Active \u2014 99% reliability",
+  "@settingsKeepAliveActive": {
+    "description": "iOS keep-alive subtitle when active"
+  },
+  "settingsKeepAliveInactive": "Enable for critical slots",
+  "@settingsKeepAliveInactive": {
+    "description": "iOS keep-alive subtitle when inactive"
+  },
+  "settingsBatteryOptimization": "Battery Optimization",
+  "@settingsBatteryOptimization": {
+    "description": "Battery optimization tile title"
+  },
+  "settingsBatteryOptDisabled": "Disabled (recommended)",
+  "@settingsBatteryOptDisabled": {
+    "description": "Battery optimization subtitle when disabled"
+  },
+  "settingsBatteryOptWarning": "May delay or skip alarms",
+  "@settingsBatteryOptWarning": {
+    "description": "Battery optimization subtitle when enabled"
+  },
+  "settingsManufacturerWarning": "{manufacturer} devices have aggressive battery management that may kill apps. Check your device''s battery manager.",
+  "@settingsManufacturerWarning": {
+    "description": "Warning for aggressive manufacturer battery management",
+    "placeholders": {
+      "manufacturer": {"type": "String"}
+    }
+  },
+  "settingsPermGrantedSnackbar": "Permissions granted successfully",
+  "@settingsPermGrantedSnackbar": {
+    "description": "Snackbar message when permissions are granted"
+  },
+  "settingsPermDeniedSnackbar": "Please grant permissions in settings",
+  "@settingsPermDeniedSnackbar": {
+    "description": "Snackbar message when permissions are denied"
+  },
+  "settingsHelpAndInfo": "Help & Info",
+  "@settingsHelpAndInfo": {
+    "description": "FAQ section header"
+  },
+  "permRequiredBlockTiming": "Required for precise block timing",
+  "@permRequiredBlockTiming": {
+    "description": "Android exact alarms permission subtitle when not granted"
+  },
+  "permRequiredSlotAlerts": "Required for slot alerts",
+  "@permRequiredSlotAlerts": {
+    "description": "iOS notifications permission subtitle when not granted"
+  },
+
+  "themeSystem": "System",
+  "@themeSystem": {
+    "description": "System theme option"
+  },
+  "themeSystemSubtitle": "Follow your device setting",
+  "@themeSystemSubtitle": {
+    "description": "System theme option subtitle"
+  },
+  "themeLight": "Light",
+  "@themeLight": {
+    "description": "Light theme option"
+  },
+  "themeDark": "Dark",
+  "@themeDark": {
+    "description": "Dark theme option"
+  },
+
+  "buildInfoAppVersion": "App Version",
+  "@buildInfoAppVersion": {
+    "description": "App version label in build info sheet"
+  },
+  "buildInfoBuildNumber": "Build Number",
+  "@buildInfoBuildNumber": {
+    "description": "Build number label in build info sheet"
+  },
+
+  "networkSwitcherTitle": "Network Switcher",
+  "@networkSwitcherTitle": {
+    "description": "Network switcher dialog title"
+  },
+  "networkSelectNetwork": "SELECT NETWORK",
+  "@networkSelectNetwork": {
+    "description": "Network switcher section label"
+  },
+  "networkTestnetDesc": "Default network",
+  "@networkTestnetDesc": {
+    "description": "Testnet network option description"
+  },
+  "networkInternalDesc": "Development network",
+  "@networkInternalDesc": {
+    "description": "Internal network option description"
+  },
+  "networkActive": "Active",
+  "@networkActive": {
+    "description": "Currently active network badge label"
+  },
+  "networkNoChange": "No Change",
+  "@networkNoChange": {
+    "description": "Network switcher button when same network selected"
+  },
+  "networkSwitch": "Switch Network",
+  "@networkSwitch": {
+    "description": "Network switcher confirm button"
+  },
+  "networkEnterCode": "Enter Code",
+  "@networkEnterCode": {
+    "description": "PIN dialog title for network switcher"
+  },
+  "networkCodeHint": "4-digit code",
+  "@networkCodeHint": {
+    "description": "PIN dialog input hint"
+  },
+  "networkRestartRequired": "Restart Required",
+  "@networkRestartRequired": {
+    "description": "Restart dialog title after network switch"
+  },
+  "networkSwitchedRestartIos": "Network switched to {network}. Please manually close and reopen the app to connect to the new network.",
+  "@networkSwitchedRestartIos": {
+    "description": "iOS restart dialog message after network switch",
+    "placeholders": {
+      "network": {"type": "String"}
+    }
+  },
+  "networkSwitchedRestartAndroid": "Network switched to {network}. The app will now close. Please reopen it to connect to the new network.",
+  "@networkSwitchedRestartAndroid": {
+    "description": "Android restart dialog message after network switch",
+    "placeholders": {
+      "network": {"type": "String"}
+    }
+  },
+  "networkCloseApp": "Close App",
+  "@networkCloseApp": {
+    "description": "Close app button in restart dialog"
+  },
+
+  "faqAboutDescription": "Your device is part of a new network. It verifies, executes, and contributes compute directly to the network, passively in the background - with no central servers, no hidden infra. As long as users keep the app running, the network will continue to operate, peer to peer, with no external dependencies.\n\nWe''re doing this to enable networks that can be hosted end-to-end by their own communities - both for decentralization, and to enable a natural coordination point around participation, where users who help operate and contribute to systems directly realize the benefits from it.\n\nRight now we are in testnet as we validate the core layer: block production, consensus behavior, and network reliability. As these stabilize, we''ll build upon the unique features of the platform - its decentralization, zero knowledge proofs, and sybil-resistant identity - to introduce new activities, coordination mechanisms, and tools for self-hosted, sybil-resistant communities.\n\nThanks for helping test at this early stage. The app right now is simple, but as we prove out the core functionality, we hope to make possible a new kind of community-owned network, where users can directly run and benefit from the networks they use.",
+  "@faqAboutDescription": {
+    "description": "About section long-form description text"
+  },
+  "faqPlatformReliabilityTitle": "Platform & Reliability",
+  "@faqPlatformReliabilityTitle": {
+    "description": "Platform reliability FAQ tile title"
+  },
+  "faqDeviceLabel": "Device: {manufacturer}",
+  "@faqDeviceLabel": {
+    "description": "Device manufacturer label in platform FAQ",
+    "placeholders": {
+      "manufacturer": {"type": "String"}
+    }
+  },
+  "faqVrfSlotsTitle": "Understanding VRF & Slots",
+  "@faqVrfSlotsTitle": {
+    "description": "VRF FAQ tile title"
+  },
+  "faqVrfWhatIsTitle": "What is VRF?",
+  "@faqVrfWhatIsTitle": {
+    "description": "VRF explanation section title"
+  },
+  "faqVrfWhatIsDescription": "VRF (Verifiable Random Function) is how the network fairly selects block producers. At the start of each epoch, the network runs VRF calculations to determine which validators will produce blocks in upcoming slots.",
+  "@faqVrfWhatIsDescription": {
+    "description": "VRF explanation text"
+  },
+  "faqVrfStatusMeaningsTitle": "VRF Status Meanings",
+  "@faqVrfStatusMeaningsTitle": {
+    "description": "VRF status meanings section title"
+  },
+  "faqVrfStatusPending": "Pending",
+  "@faqVrfStatusPending": {
+    "description": "VRF pending status label"
+  },
+  "faqVrfStatusPendingDesc": "Waiting for epoch transition to start calculations",
+  "@faqVrfStatusPendingDesc": {
+    "description": "VRF pending status description"
+  },
+  "faqVrfStatusCalculating": "Calculating",
+  "@faqVrfStatusCalculating": {
+    "description": "VRF calculating status label"
+  },
+  "faqVrfStatusCalculatingDesc": "VRF evaluation in progress (takes a few hours)",
+  "@faqVrfStatusCalculatingDesc": {
+    "description": "VRF calculating status description"
+  },
+  "faqVrfStatusComplete": "Complete",
+  "@faqVrfStatusComplete": {
+    "description": "VRF complete status label"
+  },
+  "faqVrfStatusCompleteDesc": "Slot assignments are finalized and scheduled",
+  "@faqVrfStatusCompleteDesc": {
+    "description": "VRF complete status description"
+  },
+  "faqVrfWonSlotTitle": "What is a \"Won Slot\"?",
+  "@faqVrfWonSlotTitle": {
+    "description": "Won slot explanation section title"
+  },
+  "faqVrfWonSlotDescription": "When VRF selects your node to produce a block at a specific time, you''ve \"won\" that slot. Your responsibility is to have your device awake and connected so the block can be produced.",
+  "@faqVrfWonSlotDescription": {
+    "description": "Won slot explanation text"
+  },
+  "faqVrfTimingTitle": "Why Timing Matters",
+  "@faqVrfTimingTitle": {
+    "description": "Timing explanation section title"
+  },
+  "faqVrfTimingDescription": "Each slot has a ~5-seconds window. If your device doesn''t wake up in time or loses network connectivity, the slot is missed and counted as \"failed.\"",
+  "@faqVrfTimingDescription": {
+    "description": "Timing explanation text"
   }
 }

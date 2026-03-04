@@ -1,3 +1,4 @@
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/utils/utils.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:flutter/material.dart';
@@ -17,16 +18,17 @@ class TransactionSuccessScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final displayAddress = Utils.shortenID(recipientAddress, head: 8, tail: 8);
 
     return Scaffold(
       body: ResultPage(
         variant: ResultPageVariant.success,
-        title: 'Sent successfully!',
-        subtitle: '$amount $tokenSymbol sent to\n$displayAddress',
+        title: l10n.walletSentSuccessfully,
+        subtitle: l10n.walletSentDetail(amount, tokenSymbol, displayAddress),
         primaryAction: FilledButton(
           onPressed: () => context.go('/home'),
-          child: const Text('Done'),
+          child: Text(l10n.walletDone),
         ),
       ),
     );

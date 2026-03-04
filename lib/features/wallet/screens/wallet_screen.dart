@@ -119,7 +119,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             onCopy: () {
               Clipboard.setData(ClipboardData(text: _address));
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Address copied to clipboard')),
+                SnackBar(content: Text(l10n.walletAddressCopied)),
               );
             },
           ),
@@ -153,7 +153,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                       spacing.space8,
                     ),
                     child: Text(
-                      'Recent Activity',
+                      l10n.walletRecentActivity,
                       style: theme.textTheme.titleMedium,
                     ),
                   ),
@@ -170,7 +170,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               backgroundColor: theme.colorScheme.primary,
               foregroundColor: theme.colorScheme.onPrimary,
               icon: const Icon(Symbols.north_east_sharp),
-              label: const Text('Send'),
+              label: Text(l10n.walletSend),
             ),
     );
   }
@@ -215,7 +215,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   SizedBox(width: spacing.space8),
                   Expanded(
                     child: Text(
-                      'Explorer API unavailable. Showing cached data.',
+                      AppLocalizations.of(context).walletExplorerUnavailable,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: semantic.warning.color,
                         fontWeight: FontWeight.w500,
@@ -261,8 +261,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
           children: List.generate(4, (_) => const ShimmerListTile()),
         ),
       ),
-      error: (_, __) => const FullPageErrorState(
-        message: 'Error loading transactions',
+      error: (_, __) => FullPageErrorState(
+        message: l10n.walletTransactionsError,
       ),
     );
   }
@@ -292,7 +292,7 @@ class _BalanceSection extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          '\$TOKEN Balance',
+          l10n.walletTokenBalance,
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -320,7 +320,7 @@ class _BalanceSection extends StatelessWidget {
           Padding(
             padding: EdgeInsets.only(top: spacing.space8),
             child: Text(
-              'Sync in progress...',
+              l10n.walletSyncInProgress,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -334,7 +334,7 @@ class _BalanceSection extends StatelessWidget {
               return Padding(
                 padding: EdgeInsets.only(top: spacing.space4),
                 child: Text(
-                  'Last checked at ${balance.lastUpdatedText}',
+                  l10n.commonLastCheckedAt(balance.lastUpdatedText),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),

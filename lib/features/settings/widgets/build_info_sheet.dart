@@ -59,14 +59,14 @@ class BuildInfoSheet extends StatelessWidget {
           // App info
           if (info.appVersion != null) ...[
             InfoRow(
-              label: 'App Version',
+              label: localizations.appVersion,
               value: info.appVersion!,
               valueStyle: _monoStyle,
               showDivider: info.buildNumber != null,
             ),
             if (info.buildNumber != null)
               InfoRow(
-                label: 'Build Number',
+                label: localizations.buildNumber,
                 value: info.buildNumber!,
                 valueStyle: _monoStyle,
                 showDivider: false,
@@ -140,6 +140,8 @@ class BuildInfoSheet extends StatelessWidget {
 class BuildInfoLocalizations {
   const BuildInfoLocalizations({
     required this.title,
+    required this.appVersion,
+    required this.buildNumber,
     required this.version,
     required this.commit,
     required this.branch,
@@ -153,6 +155,8 @@ class BuildInfoLocalizations {
   });
 
   final String title;
+  final String appVersion;
+  final String buildNumber;
   final String version;
   final String commit;
   final String branch;

@@ -278,6 +278,8 @@ class _SettingsPageState extends State<_SettingsPage> {
         ),
         localizations: BuildInfoLocalizations(
           title: 'Build Info',
+          appVersion: 'App Version',
+          buildNumber: 'Build Number',
           version: 'Version',
           commit: 'Commit',
           branch: 'Branch',
@@ -333,11 +335,15 @@ class _SettingsPageState extends State<_SettingsPage> {
             // Tier 3: Help & Info
             FaqSection(
               deviceManufacturer: widget.deviceManufacturer,
-              localizations: const FaqLocalizations(
+              localizations: FaqLocalizations(
+                helpAndInfoTitle: 'Help & Info',
+                aboutTitle: 'About',
+                aboutDescription:
+                    'Your device is part of a new network. It verifies, executes, and contributes compute directly to the network.',
                 whatIsTitle: 'How Block Production Works',
                 whatIsDescription:
                     'Your device participates in a decentralized block production process.',
-                steps: [
+                steps: const [
                   FaqStep(
                       title: 'VRF Selection',
                       description:
@@ -355,12 +361,13 @@ class _SettingsPageState extends State<_SettingsPage> {
                       description:
                           'The network records whether each block was produced successfully.'),
                 ],
+                platformReliabilityTitle: 'Platform & Reliability',
                 platformAndroidDesc:
                     'Android uses exact alarms that fire even in Doze mode.',
                 platformIosDesc:
                     'iOS requires the app to remain in the foreground for reliable timing.',
                 reliabilityByMode: 'Reliability by mode',
-                androidModes: [
+                androidModes: const [
                   ReliabilityMode(
                       mode: 'Default (Exact Alarms)',
                       reliability: '~95%',
@@ -370,7 +377,7 @@ class _SettingsPageState extends State<_SettingsPage> {
                       reliability: '~98%',
                       description: 'Foreground service with wake lock'),
                 ],
-                iosModes: [
+                iosModes: const [
                   ReliabilityMode(
                       mode: 'Keep-Alive Mode',
                       reliability: '~99%',
@@ -380,6 +387,29 @@ class _SettingsPageState extends State<_SettingsPage> {
                       reliability: '~60%',
                       description: 'iOS may suspend the app at any time'),
                 ],
+                deviceLabel: widget.deviceManufacturer != null
+                    ? 'Device: ${widget.deviceManufacturer}'
+                    : null,
+                vrfSlotsTitle: 'Understanding VRF & Slots',
+                vrfWhatIsTitle: 'What is VRF?',
+                vrfWhatIsDescription:
+                    'VRF (Verifiable Random Function) is how the network fairly selects block producers.',
+                vrfStatusMeaningsTitle: 'VRF Status Meanings',
+                vrfStatusPending: 'Pending',
+                vrfStatusPendingDesc:
+                    'Waiting for epoch transition to start calculations',
+                vrfStatusCalculating: 'Calculating',
+                vrfStatusCalculatingDesc:
+                    'VRF evaluation in progress (takes a few hours)',
+                vrfStatusComplete: 'Complete',
+                vrfStatusCompleteDesc:
+                    'Slot assignments are finalized and scheduled',
+                vrfWonSlotTitle: 'What is a "Won Slot"?',
+                vrfWonSlotDescription:
+                    'When VRF selects your node to produce a block at a specific time, you\'ve "won" that slot.',
+                vrfTimingTitle: 'Why Timing Matters',
+                vrfTimingDescription:
+                    'Each slot has a ~5-seconds window. If your device doesn\'t wake up in time, the slot is missed.',
               ),
             ),
 

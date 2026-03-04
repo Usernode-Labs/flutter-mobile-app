@@ -33,6 +33,7 @@ class ZkPassportPipelineState {
     this.wrapOuterMs,
     this.verifyWrappedMs,
     this.resumeAttemptCount,
+    this.outerPublicInputsHex,
   });
 
   final ZkPassportPipelineStatus status;
@@ -45,6 +46,7 @@ class ZkPassportPipelineState {
   final int? wrapOuterMs;
   final int? verifyWrappedMs;
   final int? resumeAttemptCount;
+  final List<String>? outerPublicInputsHex;
 
   static ZkPassportPipelineState idle() {
     return ZkPassportPipelineState(
@@ -52,6 +54,7 @@ class ZkPassportPipelineState {
       phase: ZkPassportPipelinePhase.idle,
       message: '',
       updatedAtMs: DateTime.now().millisecondsSinceEpoch,
+      outerPublicInputsHex: null,
     );
   }
 
@@ -66,6 +69,7 @@ class ZkPassportPipelineState {
     int? wrapOuterMs,
     int? verifyWrappedMs,
     int? resumeAttemptCount,
+    List<String>? outerPublicInputsHex,
   }) {
     return ZkPassportPipelineState(
       status: status ?? this.status,
@@ -78,6 +82,7 @@ class ZkPassportPipelineState {
       wrapOuterMs: wrapOuterMs ?? this.wrapOuterMs,
       verifyWrappedMs: verifyWrappedMs ?? this.verifyWrappedMs,
       resumeAttemptCount: resumeAttemptCount ?? this.resumeAttemptCount,
+      outerPublicInputsHex: outerPublicInputsHex ?? this.outerPublicInputsHex,
     );
   }
 }
@@ -277,6 +282,8 @@ class ZkPassportSessionResultResponse {
     required this.sessionId,
     required this.status,
     required this.outerProofB64Url,
+    required this.nullifierHex,
+    required this.nullifierType,
     required this.error,
     required this.finalizedAtMs,
   });
@@ -284,6 +291,8 @@ class ZkPassportSessionResultResponse {
   final String sessionId;
   final String status;
   final String? outerProofB64Url;
+  final String? nullifierHex;
+  final int? nullifierType;
   final String? error;
   final int finalizedAtMs;
 
@@ -295,12 +304,16 @@ class ZkPassportSessionResultResponse {
       fallbackResult: json['result'],
     );
     final error = _extractError(json);
+    final nullifierHex = _extractNullifierHex(json);
+    final nullifierType = _extractNullifierType(json);
     return ZkPassportSessionResultResponse(
       sessionId:
           (json['sessionId'] as String? ?? json['session_id'] as String? ?? '')
               .trim(),
       status: (json['status'] as String? ?? '').trim(),
       outerProofB64Url: proof,
+      nullifierHex: nullifierHex,
+      nullifierType: nullifierType,
       error: error,
       finalizedAtMs:
           (json['finalizedAtMs'] as num? ?? json['finalized_at_ms'] as num?)
@@ -369,6 +382,45 @@ class ZkPassportSessionResultResponse {
       if (candidate is String && candidate.trim().isNotEmpty) {
         return candidate.trim();
       }
+    }
+    return null;
+  }
+
+  static String? _extractNullifierHex(Map<String, dynamic> json) {
+    final result = json['result'];
+    if (result is! Map) {
+      return null;
+    }
+    final map = Map<String, dynamic>.from(result);
+    final candidates = [
+      map['nullifier_hex'],
+      map['nullifierHex'],
+      map['scoped_nullifier'],
+      map['scopedNullifier'],
+    ];
+    for (final candidate in candidates) {
+      if (candidate is String && candidate.trim().isNotEmpty) {
+        return candidate.trim();
+      }
+    }
+    return null;
+  }
+
+  static int? _extractNullifierType(Map<String, dynamic> json) {
+    final result = json['result'];
+    if (result is! Map) {
+      return null;
+    }
+    final map = Map<String, dynamic>.from(result);
+    final raw = map['nullifier_type'] ?? map['nullifierType'];
+    if (raw is int) {
+      return raw;
+    }
+    if (raw is num) {
+      return raw.toInt();
+    }
+    if (raw is String) {
+      return int.tryParse(raw.trim());
     }
     return null;
   }

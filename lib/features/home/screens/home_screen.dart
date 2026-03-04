@@ -12,7 +12,7 @@ import 'package:crypto_mobile_app/features/challenges/screens/challenges_screen.
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
-import 'package:crypto_mobile_app/core/config/theme.dart';
+import 'package:crypto_mobile_app/core/config/legacy_colors.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_models.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 
@@ -151,12 +151,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             if (isInternal) {
               bottomNav = Container(
                 decoration: BoxDecoration(
-                  color: MaterialTheme.getInternalNetworkBackgroundColor(
+                  color: LegacyColors.getInternalNetworkBackgroundColor(
                     isDark,
                   ),
                   border: Border(
                     top: BorderSide(
-                      color: MaterialTheme.getInternalNetworkBorderColor(
+                      color: LegacyColors.getInternalNetworkBorderColor(
                         isDark,
                       ),
                     ),

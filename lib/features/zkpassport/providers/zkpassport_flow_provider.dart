@@ -121,7 +121,7 @@ class ZkPassportFlowController {
       );
     }
 
-    final chainId = ZkPassportRequestPolicy.boundChainId;
+    const chainId = ZkPassportRequestPolicy.boundChainId;
 
     final sessionServerRepo =
         _ref.read(zkPassportSessionServerRepositoryProvider);
@@ -248,6 +248,9 @@ class ZkPassportPipelineController
   static const Duration _serverStatusBurstPollInterval =
       Duration(milliseconds: 100);
   static const Duration _serverStatusBurstWindow = Duration(seconds: 2);
+  static const int _zkPassportOuterCount4SemanticPublicInputCount = 8;
+  static const int _zkPassportOuterCount4ScopedNullifierIndex =
+      _zkPassportOuterCount4SemanticPublicInputCount - 1;
 
   ZkPassportPipelineController(this._ref)
       : super(ZkPassportPipelineState.idle()) {
@@ -457,6 +460,7 @@ class ZkPassportPipelineController
     int? verifyOuterMs,
     int? wrapOuterMs,
     int? verifyWrappedMs,
+    List<String>? outerPublicInputsHex,
   }) async {
     final normalizedRequestId = requestId?.trim();
     if (normalizedRequestId != null && normalizedRequestId.isNotEmpty) {
@@ -476,6 +480,7 @@ class ZkPassportPipelineController
       verifyOuterMs: verifyOuterMs,
       wrapOuterMs: wrapOuterMs,
       verifyWrappedMs: verifyWrappedMs,
+      outerPublicInputsHex: outerPublicInputsHex,
       resumeAttemptCount: _runtimeSession?.resumeAttemptCount,
     );
     await _runtimeRepo.clear();
@@ -662,6 +667,8 @@ class ZkPassportPipelineController
           _runPipeline(
             requestId,
             outerProof,
+            serverNullifierHex: readyResult.nullifierHex,
+            serverNullifierType: readyResult.nullifierType,
             fetchOuterProofMs: fetchStopwatch.elapsedMilliseconds,
           ),
         );
@@ -754,9 +761,12 @@ class ZkPassportPipelineController
   Future<void> _runPipeline(
     String requestId,
     String outerProofB64Url, {
+    String? serverNullifierHex,
+    int? serverNullifierType,
     int? fetchOuterProofMs,
   }) async {
     _inFlight = true;
+    List<String>? outerPublicInputsHex;
     try {
       _log.warn(
         'Starting zkPassport pipeline from session server result',
@@ -831,9 +841,53 @@ class ZkPassportPipelineController
         );
         return;
       }
+      outerPublicInputsHex = verifyOuter.publicInputsHex;
 
-      final derivedNullifierHex =
+      String? normalizeServerNullifier(String? raw) {
+        if (raw == null) return null;
+        final trimmed = raw.trim();
+        if (trimmed.isEmpty) return null;
+        final normalized = trimmed.startsWith('0x') ? trimmed : '0x$trimmed';
+        return normalized.toLowerCase();
+      }
+
+      final verifierNullifierHex =
           _deriveNullifierHex(verifyOuter.publicInputsHex);
+      final normalizedServerNullifierHex =
+          normalizeServerNullifier(serverNullifierHex);
+
+      if (verifierNullifierHex == null || verifierNullifierHex.trim().isEmpty) {
+        await _finalizeRuntimeSession(
+          requestId: requestId,
+          phase: ZkPassportPipelinePhase.failed,
+          status: ZkPassportPipelineStatus.failure,
+          message:
+              'Outer proof verified, but no public inputs were returned; cannot derive nullifier.',
+          fetchOuterProofMs: fetchOuterProofMs,
+          verifyOuterMs: verifyOuterMs,
+          outerPublicInputsHex: outerPublicInputsHex,
+        );
+        return;
+      }
+
+      String? nullifierMismatchWarning;
+      if (normalizedServerNullifierHex != null &&
+          normalizedServerNullifierHex != verifierNullifierHex) {
+        _log.error(
+          'Outer nullifier mismatch between session server and verifier (using verifier-derived value)',
+          context: {
+            'requestId': requestId,
+            'serverNullifierHex': normalizedServerNullifierHex,
+            'serverNullifierType': serverNullifierType,
+            'verifierNullifierHex': verifierNullifierHex,
+            'publicInputsLen': verifyOuter.publicInputsHex?.length,
+          },
+        );
+        nullifierMismatchWarning =
+            'Warning: bridge nullifier mismatch.\nServer: $normalizedServerNullifierHex\nVerifier: $verifierNullifierHex';
+      }
+
+      final derivedNullifierHex = verifierNullifierHex;
 
       if (requestId.isNotEmpty) {
         await _updateRuntimeSession(
@@ -861,6 +915,7 @@ class ZkPassportPipelineController
           message: 'Proof wrapping returned no response.',
           fetchOuterProofMs: fetchOuterProofMs,
           verifyOuterMs: verifyOuterMs,
+          outerPublicInputsHex: outerPublicInputsHex,
         );
         return;
       }
@@ -875,6 +930,7 @@ class ZkPassportPipelineController
           fetchOuterProofMs: fetchOuterProofMs,
           verifyOuterMs: verifyOuterMs,
           wrapOuterMs: wrapOuterMs,
+          outerPublicInputsHex: outerPublicInputsHex,
         );
         return;
       }
@@ -907,6 +963,7 @@ class ZkPassportPipelineController
           fetchOuterProofMs: fetchOuterProofMs,
           verifyOuterMs: verifyOuterMs,
           wrapOuterMs: wrapOuterMs,
+          outerPublicInputsHex: outerPublicInputsHex,
         );
         return;
       }
@@ -921,6 +978,7 @@ class ZkPassportPipelineController
           verifyOuterMs: verifyOuterMs,
           wrapOuterMs: wrapOuterMs,
           verifyWrappedMs: verifyWrappedMs,
+          outerPublicInputsHex: outerPublicInputsHex,
         );
         return;
       }
@@ -928,15 +986,20 @@ class ZkPassportPipelineController
       await _ref
           .read(zkPassportFlowControllerProvider)
           .storeSuccessfulRegistration(nullifierHex: derivedNullifierHex);
+      const baseMessage = 'zkPassport proof accepted and wrapped successfully.';
+      final message = nullifierMismatchWarning != null
+          ? '$baseMessage\n\n$nullifierMismatchWarning'
+          : baseMessage;
       await _finalizeRuntimeSession(
         requestId: requestId,
         phase: ZkPassportPipelinePhase.success,
         status: ZkPassportPipelineStatus.success,
-        message: 'zkPassport proof accepted and wrapped successfully.',
+        message: message,
         fetchOuterProofMs: fetchOuterProofMs,
         verifyOuterMs: verifyOuterMs,
         wrapOuterMs: wrapOuterMs,
         verifyWrappedMs: verifyWrappedMs,
+        outerPublicInputsHex: outerPublicInputsHex,
       );
     } catch (e) {
       await _finalizeRuntimeSession(
@@ -945,6 +1008,7 @@ class ZkPassportPipelineController
         status: ZkPassportPipelineStatus.failure,
         message: 'zkPassport pipeline failed: $e',
         fetchOuterProofMs: fetchOuterProofMs,
+        outerPublicInputsHex: outerPublicInputsHex,
       );
     } finally {
       _inFlight = false;
@@ -999,15 +1063,23 @@ class ZkPassportPipelineController
   String? _deriveNullifierHex(List<String>? publicInputsHex) {
     // Demo: surface a stable identifier to the user after a successful run.
     //
-    // The verifier returns the zkPassport "outer" public inputs as field elements.
-    // For the `outer_count_4` demo circuit, the nullifier is the *last* public input.
-    // (The first inputs are registry roots/date/scope, and the last 2 are
-    // nullifier_type + nullifier.)
+    // The current integration is pinned to zkPassport `outer_count_4`.
+    // zkPassport's packaged utility reports 8 semantic public inputs for
+    // `outer_count_4`, with the final two semantic fields being
+    // `nullifier_type` and `scoped_nullifier`.
+    //
+    // `zkpassportVerifyOuter` returns the full recursive verifier public input
+    // list, so recursive/default-IO fields appear after the semantic zkPassport
+    // slice. Reading `inputs.last` therefore picks the wrong field; we want the
+    // final element of the 8-field semantic prefix.
     final inputs = publicInputsHex;
     if (inputs == null || inputs.isEmpty) {
       return null;
     }
-    final raw = inputs.last.trim();
+    if (inputs.length <= _zkPassportOuterCount4ScopedNullifierIndex) {
+      return null;
+    }
+    final raw = inputs[_zkPassportOuterCount4ScopedNullifierIndex].trim();
     if (raw.isEmpty) {
       return null;
     }
@@ -1025,6 +1097,7 @@ class ZkPassportPipelineController
     int? wrapOuterMs,
     int? verifyWrappedMs,
     int? resumeAttemptCount,
+    List<String>? outerPublicInputsHex,
   }) {
     if (status == ZkPassportPipelineStatus.failure) {
       _log.warn(
@@ -1048,6 +1121,7 @@ class ZkPassportPipelineController
       wrapOuterMs: wrapOuterMs,
       verifyWrappedMs: verifyWrappedMs,
       resumeAttemptCount: resumeAttemptCount,
+      outerPublicInputsHex: outerPublicInputsHex,
       updatedAtMs: DateTime.now().millisecondsSinceEpoch,
     );
   }

@@ -57,7 +57,7 @@ class AppConfig {
   // zkPassport session server (bridge) base URL.
   static const String zkPassportBridgeBaseUrl = String.fromEnvironment(
     'ZKPASSPORT_BRIDGE_BASE_URL',
-    defaultValue: '',
+    defaultValue: 'https://zkbridge.usernodelabs.org',
   );
 
   // GitHub configuration

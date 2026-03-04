@@ -82,6 +82,7 @@ class _SlotProductionStatsScreenState
         ],
       ),
       body: _isLoading
+          // ignore: deprecated_member_use_from_same_package
           ? const FullPageLoadingState()
           : RefreshIndicator(
               onRefresh: _loadData,

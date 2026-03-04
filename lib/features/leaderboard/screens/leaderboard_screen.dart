@@ -77,6 +77,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
 
     if (isLoading) {
       return const Scaffold(
+        // ignore: deprecated_member_use_from_same_package
         body: FullPageLoadingState(),
       );
     }
@@ -306,7 +307,6 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     CategorizedEnrichedChallenges categorized,
     AppSpacing spacing,
   ) {
-    final colors = Theme.of(context).colorScheme;
     final radii = Theme.of(context).extension<AppRadii>()!;
 
     final allChallenges = [

@@ -118,9 +118,9 @@ class _LeaderboardPageState extends State<_LeaderboardPage> {
       body: CustomScrollView(
         slivers: [
           // App bar
-          TopAppBar(
+          const TopAppBar(
             title: 'Leaderboard',
-            leading: const SizedBox.shrink(),
+            leading: SizedBox.shrink(),
           ),
 
           // Filter chip row
@@ -180,8 +180,8 @@ class _LeaderboardPageState extends State<_LeaderboardPage> {
                     Padding(
                       padding:
                           EdgeInsets.symmetric(horizontal: spacing.space16),
-                      child: ChallengeCategoryTile(
-                        categoryIcon: const ChallengeCategoryIcon(
+                      child: const ChallengeCategoryTile(
+                        categoryIcon: ChallengeCategoryIcon(
                           category: ChallengeCategory.technical,
                           size: 40,
                         ),
@@ -189,7 +189,7 @@ class _LeaderboardPageState extends State<_LeaderboardPage> {
                         remainingCount: 3,
                         completedCount: 2,
                         pointsLabel: '4,525 pts',
-                        challenges: const [
+                        challenges: [
                           ChallengeCategoryItem(
                             title: 'Run a validator node',
                             isCompleted: true,
@@ -209,8 +209,8 @@ class _LeaderboardPageState extends State<_LeaderboardPage> {
                     Padding(
                       padding:
                           EdgeInsets.symmetric(horizontal: spacing.space16),
-                      child: ChallengeCategoryTile(
-                        categoryIcon: const ChallengeCategoryIcon(
+                      child: const ChallengeCategoryTile(
+                        categoryIcon: ChallengeCategoryIcon(
                           category: ChallengeCategory.community,
                           size: 40,
                         ),
@@ -218,7 +218,7 @@ class _LeaderboardPageState extends State<_LeaderboardPage> {
                         remainingCount: 1,
                         completedCount: 3,
                         pointsLabel: '6,200 pts',
-                        challenges: const [
+                        challenges: [
                           ChallengeCategoryItem(
                             title: 'Invite 5 friends',
                             isCompleted: true,
@@ -238,8 +238,8 @@ class _LeaderboardPageState extends State<_LeaderboardPage> {
                     Padding(
                       padding:
                           EdgeInsets.symmetric(horizontal: spacing.space16),
-                      child: ChallengeCategoryTile(
-                        categoryIcon: const ChallengeCategoryIcon(
+                      child: const ChallengeCategoryTile(
+                        categoryIcon: ChallengeCategoryIcon(
                           category: ChallengeCategory.flash,
                           size: 40,
                         ),
@@ -247,7 +247,7 @@ class _LeaderboardPageState extends State<_LeaderboardPage> {
                         remainingCount: 2,
                         completedCount: 1,
                         pointsLabel: '1,800 pts',
-                        challenges: const [
+                        challenges: [
                           ChallengeCategoryItem(
                             title: 'Daily check-in streak',
                             isCompleted: true,
@@ -273,7 +273,7 @@ class _LeaderboardPageState extends State<_LeaderboardPage> {
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.symmetric(horizontal: spacing.space16),
-              child: Container(
+              child: DecoratedBox(
                 decoration: BoxDecoration(
                   color: colors.surfaceContainerLowest,
                   borderRadius: radii.borderRadiusLargeIncreased,

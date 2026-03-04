@@ -13,6 +13,7 @@ void main() {
 
   group('FullPageLoadingState', () {
     testWidgets('renders centered CircularProgressIndicator', (tester) async {
+      // ignore: deprecated_member_use_from_same_package
       await tester.pumpWidget(wrap(const FullPageLoadingState()));
 
       expect(find.byType(CircularProgressIndicator), findsOneWidget);

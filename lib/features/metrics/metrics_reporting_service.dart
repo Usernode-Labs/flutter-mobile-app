@@ -358,7 +358,7 @@ class MetricsReportingService {
   Future<bool> _testConnection() async {
     if (_httpClient == null) return false;
 
-    final healthEndpoint = AppConfig.metricsHealthEndpoint;
+    const healthEndpoint = AppConfig.metricsHealthEndpoint;
     if (healthEndpoint.isEmpty) return true;
 
     try {

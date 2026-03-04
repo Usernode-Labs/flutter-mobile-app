@@ -343,51 +343,51 @@ class _ChallengesPageState extends State<_ChallengesPage>
     return ListView(
       padding: EdgeInsets.all(spacing.space16),
       children: [
-        ChallengeCard(
+        const ChallengeCard(
           title: 'Produce Every Block',
           description:
               'Successfully produce every block assigned to your node during the challenge period.',
           dateRange: 'Jan 15 - Feb 15',
           category: ChallengeCategory.technical,
-          categoryIcon: const ChallengeCategoryIcon(
-              category: ChallengeCategory.technical),
+          categoryIcon:
+              ChallengeCategoryIcon(category: ChallengeCategory.technical),
           variant: ChallengeCardVariant.ongoing,
           earnedPoints: '10,550.1 pts',
           epochPoints: '+50 pts',
         ),
         SizedBox(height: spacing.space12),
-        ChallengeCard(
+        const ChallengeCard(
           title: 'Prove Humanity',
           description:
               'Complete the humanity verification process to prove you are a real person.',
           dateRange: 'Jan 15 - Feb 15',
           category: ChallengeCategory.community,
-          categoryIcon: const ChallengeCategoryIcon(
-              category: ChallengeCategory.community),
+          categoryIcon:
+              ChallengeCategoryIcon(category: ChallengeCategory.community),
           variant: ChallengeCardVariant.active,
           rewardText: 'Up to 1000 pts',
         ),
         SizedBox(height: spacing.space12),
-        ChallengeCard(
+        const ChallengeCard(
           title: 'Refer New Testers',
           description:
               'Invite friends to join the testnet and earn points for each successful referral.',
           dateRange: 'Jan 15 - Feb 15',
           category: ChallengeCategory.community,
-          categoryIcon: const ChallengeCategoryIcon(
-              category: ChallengeCategory.community),
+          categoryIcon:
+              ChallengeCategoryIcon(category: ChallengeCategory.community),
           variant: ChallengeCardVariant.active,
           rewardText: 'Up to 500 pts',
         ),
         SizedBox(height: spacing.space12),
-        ChallengeCard(
+        const ChallengeCard(
           title: 'Live Feedback',
           description:
               'Submit feedback on your experience running a node during the testnet.',
           dateRange: 'Jan 1 - Jan 14',
           category: ChallengeCategory.technical,
-          categoryIcon: const ChallengeCategoryIcon(
-              category: ChallengeCategory.technical),
+          categoryIcon:
+              ChallengeCategoryIcon(category: ChallengeCategory.technical),
           variant: ChallengeCardVariant.completed,
           completedPoints: '500 pts',
         ),
@@ -398,15 +398,15 @@ class _ChallengesPageState extends State<_ChallengesPage>
   Widget _buildCompletedTab(AppSpacing spacing) {
     return ListView(
       padding: EdgeInsets.all(spacing.space16),
-      children: [
+      children: const [
         ChallengeCard(
           title: 'Live Feedback',
           description:
               'Submit feedback on your experience running a node during the testnet.',
           dateRange: 'Jan 1 - Jan 14',
           category: ChallengeCategory.technical,
-          categoryIcon: const ChallengeCategoryIcon(
-              category: ChallengeCategory.technical),
+          categoryIcon:
+              ChallengeCategoryIcon(category: ChallengeCategory.technical),
           variant: ChallengeCardVariant.completed,
           completedPoints: '500 pts',
         ),

@@ -175,20 +175,20 @@ WidgetbookUseCase _leadingSlots() {
             Text('RANK CIRCLE — RankBadge (40 px)',
                 style: textTheme.labelLarge),
             const SizedBox(height: 8),
-            Card(
+            const Card(
               child: Column(
                 children: [
-                  const ListTile(
+                  ListTile(
                     leading: RankBadge(rank: '#1'),
                     title: Text('namaah'),
                     trailing: Text('10,000 pts'),
                   ),
-                  const ListTile(
+                  ListTile(
                     leading: RankBadge(rank: '#2'),
                     title: Text('madmax'),
                     trailing: Text('8,500 pts'),
                   ),
-                  const ListTile(
+                  ListTile(
                     leading: RankBadge(rank: '#3'),
                     title: Text('boscrypto'),
                     trailing: Text('7,200 pts'),
@@ -480,20 +480,20 @@ WidgetbookUseCase _sectionGrouping() {
             // Section 3 — ranking
             Text('LEADERBOARD', style: textTheme.labelLarge),
             const SizedBox(height: 8),
-            Card(
+            const Card(
               child: Column(
                 children: [
-                  const ListTile(
+                  ListTile(
                     leading: RankBadge(rank: '#1'),
                     title: Text('namaah'),
                     trailing: Text('10,000 pts'),
                   ),
-                  const ListTile(
+                  ListTile(
                     leading: RankBadge(rank: '#2'),
                     title: Text('madmax'),
                     trailing: Text('8,500 pts'),
                   ),
-                  const ListTile(
+                  ListTile(
                     leading: RankBadge(rank: '#3'),
                     title: Text('boscrypto'),
                     trailing: Text('7,200 pts'),
@@ -683,10 +683,10 @@ WidgetbookUseCase _specializedVariants() {
             const SizedBox(height: 24),
             Text('DISABLED STATE', style: textTheme.labelLarge),
             const SizedBox(height: 8),
-            Card(
+            const Card(
               child: Column(
                 children: [
-                  const ListTile(
+                  ListTile(
                     leading: IconBadge(icon: Symbols.lock_sharp),
                     title: Text('Locked Feature'),
                     subtitle: Text('Requires active node'),
@@ -695,8 +695,8 @@ WidgetbookUseCase _specializedVariants() {
                   SwitchListTile(
                     value: false,
                     onChanged: null,
-                    title: const Text('Unavailable Toggle'),
-                    subtitle: const Text('Node must be running'),
+                    title: Text('Unavailable Toggle'),
+                    subtitle: Text('Node must be running'),
                   ),
                 ],
               ),

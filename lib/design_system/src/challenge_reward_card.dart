@@ -124,7 +124,7 @@ class ChallengeRewardCard extends StatelessWidget {
 
     const headerLabel = 'Total Earned';
 
-    return Container(
+    return DecoratedBox(
       decoration: BoxDecoration(
         color: catColors.color,
         borderRadius: radii.borderRadiusLargeIncreased,

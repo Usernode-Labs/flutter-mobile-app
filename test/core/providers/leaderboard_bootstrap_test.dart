@@ -16,7 +16,7 @@ void main() {
 
   group('handleRegistration', () {
     test('persists participant ID and season, returns context', () async {
-      final result = RegistrationV2Result(
+      const result = RegistrationV2Result(
         participantId: 42,
         identityUid: 'uid-abc',
         publicKey: 'pk-123',

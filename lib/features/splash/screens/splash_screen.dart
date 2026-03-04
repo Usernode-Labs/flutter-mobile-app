@@ -105,10 +105,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                       ),
                     ),
                     const SizedBox(height: 60),
-                    SizedBox(
+                    const SizedBox(
                       width: 32,
                       height: 32,
-                      child: const CircularProgressIndicator(strokeWidth: 2.5),
+                      child: CircularProgressIndicator(strokeWidth: 2.5),
                     ),
                     SizedBox(height: spacing.space16),
                     Text(

@@ -219,7 +219,6 @@ class TransactionModel {
 class WalletBalance {
   final double tokenAmount;
   final String tokenSymbol;
-  final double usdValue;
   final BigInt totalBalance; // Total balance from all UTXOs
   final DataSource dataSource;
   final DateTime? lastUpdated;
@@ -227,7 +226,6 @@ class WalletBalance {
   WalletBalance({
     required this.tokenAmount,
     required this.tokenSymbol,
-    required this.usdValue,
     required this.totalBalance,
     this.dataSource = DataSource.local,
     this.lastUpdated,
@@ -235,7 +233,6 @@ class WalletBalance {
 
   String get formattedTokenAmount =>
       '${tokenAmount.toStringAsFixed(2)} $tokenSymbol';
-  String get formattedUsdValue => '≈ \$${usdValue.toStringAsFixed(2)} USD';
 
   /// Get formatted balance with support for compact and full formatting
   ///
@@ -273,7 +270,6 @@ class WalletBalance {
   WalletBalance copyWith({
     double? tokenAmount,
     String? tokenSymbol,
-    double? usdValue,
     BigInt? totalBalance,
     DataSource? dataSource,
     DateTime? lastUpdated,
@@ -281,7 +277,6 @@ class WalletBalance {
     return WalletBalance(
       tokenAmount: tokenAmount ?? this.tokenAmount,
       tokenSymbol: tokenSymbol ?? this.tokenSymbol,
-      usdValue: usdValue ?? this.usdValue,
       totalBalance: totalBalance ?? this.totalBalance,
       dataSource: dataSource ?? this.dataSource,
       lastUpdated: lastUpdated ?? this.lastUpdated,
@@ -293,7 +288,6 @@ class WalletBalance {
     return WalletBalance(
       tokenAmount: response.balance,
       tokenSymbol: response.tokenSymbol,
-      usdValue: 0.0, // TODO: Add USD conversion
       totalBalance: BigInt.from(response.balance.toInt()),
       dataSource: response.dataSource,
       lastUpdated: response.fetchedAt,

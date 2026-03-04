@@ -101,10 +101,10 @@ WidgetbookUseCase _threeCategories() {
 
       return SingleChildScrollView(
         padding: EdgeInsets.all(spacing.space16),
-        child: Column(
+        child: const Column(
           children: [
             ChallengeCategoryTile(
-              categoryIcon: const ChallengeCategoryIcon(
+              categoryIcon: ChallengeCategoryIcon(
                 category: ChallengeCategory.technical,
                 size: 40,
               ),
@@ -113,7 +113,7 @@ WidgetbookUseCase _threeCategories() {
               completedCount: 2,
               pointsLabel: '4,525 pts',
               initiallyExpanded: true,
-              challenges: const [
+              challenges: [
                 ChallengeCategoryItem(
                   title: 'Run a validator node',
                   isCompleted: true,
@@ -137,7 +137,7 @@ WidgetbookUseCase _threeCategories() {
               ],
             ),
             ChallengeCategoryTile(
-              categoryIcon: const ChallengeCategoryIcon(
+              categoryIcon: ChallengeCategoryIcon(
                 category: ChallengeCategory.community,
                 size: 40,
               ),
@@ -145,7 +145,7 @@ WidgetbookUseCase _threeCategories() {
               remainingCount: 1,
               completedCount: 4,
               pointsLabel: '6,200 pts',
-              challenges: const [
+              challenges: [
                 ChallengeCategoryItem(
                   title: 'Invite 5 friends',
                   isCompleted: true,
@@ -169,7 +169,7 @@ WidgetbookUseCase _threeCategories() {
               ],
             ),
             ChallengeCategoryTile(
-              categoryIcon: const ChallengeCategoryIcon(
+              categoryIcon: ChallengeCategoryIcon(
                 category: ChallengeCategory.flash,
                 size: 40,
               ),
@@ -177,7 +177,7 @@ WidgetbookUseCase _threeCategories() {
               remainingCount: 2,
               completedCount: 1,
               pointsLabel: '1,800 pts',
-              challenges: const [
+              challenges: [
                 ChallengeCategoryItem(
                   title: 'Daily check-in streak',
                   isCompleted: true,

@@ -2052,26 +2052,26 @@ class _ComponentShowcaseSection extends StatelessWidget {
 
         // Buttons
         _subsectionTitle(context, 'Buttons'),
-        Wrap(
+        const Wrap(
           spacing: 8,
           runSpacing: 8,
           children: [
-            const Button(
+            Button(
               label: 'Primary',
               variant: ButtonVariant.primary,
               onTap: _noop,
             ),
-            const Button(
+            Button(
               label: 'Tonal',
               variant: ButtonVariant.tonal,
               onTap: _noop,
             ),
-            const Button(
+            Button(
               label: 'Outlined',
               variant: ButtonVariant.outlined,
               onTap: _noop,
             ),
-            const Button(
+            Button(
               label: 'Surface',
               variant: ButtonVariant.surface,
               onTap: _noop,
@@ -2302,14 +2302,14 @@ class _RoleMapDemo extends StatelessWidget {
         // FilledButton anatomy
         _ComponentAnatomyCard(
           title: 'FilledButton',
-          annotations: ['primary \u2192 fill', 'onPrimary \u2192 label'],
+          annotations: const ['primary \u2192 fill', 'onPrimary \u2192 label'],
           child: FilledButton(onPressed: () {}, child: const Text('Action')),
         ),
         const SizedBox(height: 12),
         // Card anatomy
         _ComponentAnatomyCard(
           title: 'Card (Outlined)',
-          annotations: [
+          annotations: const [
             'surfaceContainerLowest \u2192 fill',
             'outlineVariant \u2192 border',
             'onSurface \u2192 title',
@@ -2340,7 +2340,7 @@ class _RoleMapDemo extends StatelessWidget {
         // FilterChip anatomy
         _ComponentAnatomyCard(
           title: 'FilterChip',
-          annotations: [
+          annotations: const [
             'Selected: secondaryContainer fill, onSecondaryContainer label',
             'Unselected: surfaceContainerLowest fill, outlineVariant border',
           ],

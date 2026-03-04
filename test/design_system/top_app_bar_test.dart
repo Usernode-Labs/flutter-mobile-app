@@ -164,14 +164,14 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: themeWithExtensions(),
-          home: Scaffold(
+          home: const Scaffold(
             body: CustomScrollView(
               slivers: [
-                const TopAppBar(
+                TopAppBar(
                   title: 'Leaderboard',
                   actions: [Icon(Symbols.filter_list_sharp)],
                 ),
-                const SliverFillRemaining(child: SizedBox()),
+                SliverFillRemaining(child: SizedBox()),
               ],
             ),
           ),
@@ -187,19 +187,19 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: themeWithExtensions(),
-          home: Scaffold(
+          home: const Scaffold(
             body: CustomScrollView(
               slivers: [
                 TopAppBar(
                   title: 'Produce Every Block',
                   size: TopAppBarSize.large,
                   subtitle: 'Technical · Jan 12 - Jan 30',
-                  image: Container(
-                    color: const Color(0xFFE3F2FD),
-                    child: const Icon(Symbols.hexagon_sharp),
+                  image: ColoredBox(
+                    color: Color(0xFFE3F2FD),
+                    child: Icon(Symbols.hexagon_sharp),
                   ),
                 ),
-                const SliverFillRemaining(child: SizedBox()),
+                SliverFillRemaining(child: SizedBox()),
               ],
             ),
           ),

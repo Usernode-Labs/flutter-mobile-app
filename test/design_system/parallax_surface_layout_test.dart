@@ -81,10 +81,10 @@ void main() {
 
     testWidgets('renders pinnedHeaderSliver when provided', (tester) async {
       await tester.pumpWidget(wrapLayout(
-        ParallaxSurfaceLayout(
-          header: const Text('Header'),
-          surfaceBody: const Text('Body'),
-          pinnedHeaderSliver: const SliverToBoxAdapter(
+        const ParallaxSurfaceLayout(
+          header: Text('Header'),
+          surfaceBody: Text('Body'),
+          pinnedHeaderSliver: SliverToBoxAdapter(
             child: Text('Pinned'),
           ),
         ),

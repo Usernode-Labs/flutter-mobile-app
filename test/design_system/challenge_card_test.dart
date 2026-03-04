@@ -19,13 +19,13 @@ void main() {
   group('ChallengeCard', () {
     testWidgets('renders active variant', (tester) async {
       await tester.pumpWidget(wrap(
-        ChallengeCard(
+        const ChallengeCard(
           title: 'Run a Node',
           description: 'Keep your node running for 24 hours',
           dateRange: 'Jan 1 - Jan 31',
           category: ChallengeCategory.technical,
-          categoryIcon: const ChallengeCategoryIcon(
-              category: ChallengeCategory.technical),
+          categoryIcon:
+              ChallengeCategoryIcon(category: ChallengeCategory.technical),
           rewardText: 'Up to 1000 pts',
         ),
       ));
@@ -40,13 +40,13 @@ void main() {
     testWidgets('renders ongoing variant with category color bar',
         (tester) async {
       await tester.pumpWidget(wrap(
-        ChallengeCard(
+        const ChallengeCard(
           title: 'Run a Node',
           description: 'Keep your node running for 24 hours',
           dateRange: 'Jan 1 - Jan 31',
           category: ChallengeCategory.technical,
-          categoryIcon: const ChallengeCategoryIcon(
-              category: ChallengeCategory.technical),
+          categoryIcon:
+              ChallengeCategoryIcon(category: ChallengeCategory.technical),
           variant: ChallengeCardVariant.ongoing,
           earnedPoints: '10,550.1 pts',
           epochPoints: '+50 pts',
@@ -59,13 +59,13 @@ void main() {
 
     testWidgets('renders completed variant with checkmark', (tester) async {
       await tester.pumpWidget(wrap(
-        ChallengeCard(
+        const ChallengeCard(
           title: 'Community Post',
           description: 'Share your progress on social media',
           dateRange: 'Feb 1 - Feb 28',
           category: ChallengeCategory.community,
-          categoryIcon: const ChallengeCategoryIcon(
-              category: ChallengeCategory.community),
+          categoryIcon:
+              ChallengeCategoryIcon(category: ChallengeCategory.community),
           variant: ChallengeCardVariant.completed,
           completedPoints: '500 pts',
         ),
@@ -78,13 +78,13 @@ void main() {
 
     testWidgets('renders missed variant with event_busy icon', (tester) async {
       await tester.pumpWidget(wrap(
-        ChallengeCard(
+        const ChallengeCard(
           title: 'Flash Challenge',
           description: 'Complete 5 transactions in 1 hour',
           dateRange: 'Feb 10 - Feb 10',
           category: ChallengeCategory.flash,
           categoryIcon:
-              const ChallengeCategoryIcon(category: ChallengeCategory.flash),
+              ChallengeCategoryIcon(category: ChallengeCategory.flash),
           variant: ChallengeCardVariant.missed,
           completedPoints: '200 pts',
         ),

@@ -144,7 +144,7 @@ Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
         }),
       ));
     } else {
-      return EpochData(
+      return const EpochData(
         slotData: null,
       );
     }

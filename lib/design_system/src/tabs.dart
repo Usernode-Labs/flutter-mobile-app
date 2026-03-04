@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../tokens/app_borders.dart';
 import '../tokens/app_spacing.dart';
 
 /// Data class for a single tab definition.
@@ -100,6 +101,7 @@ class _TabsState extends State<Tabs> with SingleTickerProviderStateMixin {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final borders = Theme.of(context).extension<AppBorders>()!;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -114,9 +116,10 @@ class _TabsState extends State<Tabs> with SingleTickerProviderStateMixin {
           unselectedLabelStyle: textTheme.titleSmall,
           indicatorColor: colors.primary,
           indicatorWeight: 3,
-          dividerColor:
-              widget.showDivider ? colors.outlineVariant : Colors.transparent,
-          dividerHeight: widget.showDivider ? 1 : 0,
+          dividerColor: widget.showDivider
+              ? colors.onSurface.withValues(alpha: borders.opacity)
+              : Colors.transparent,
+          dividerHeight: widget.showDivider ? borders.width : 0,
           tabs: [
             for (int i = 0; i < widget.tabs.length; i++) _buildTab(i),
           ],

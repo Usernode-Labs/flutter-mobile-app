@@ -1,61 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:widgetbook/widgetbook.dart';
 
-// ---------------------------------------------------------------------------
-// Leading slot options
-// ---------------------------------------------------------------------------
-
-enum _LeadingOption { none, iconContainer, rankBadge }
-
-enum _TrailingOption { none, textOnly, textAndChevron }
+import '../src/icon_badge.dart';
+import '../src/rank_badge.dart';
+import '../src/status_badge.dart';
+import '../src/text_chevron_trailing.dart';
 
 // ---------------------------------------------------------------------------
-// File-private helpers — inlined slot constructions until real slot widgets
-// (IconTileLeading, RankBadge, TextChevronTrailing) are built just-in-time.
+// Knob options (aligned with 07_list_system_guidance.md §1)
 // ---------------------------------------------------------------------------
 
-Widget _buildIconContainer(ColorScheme cs, IconData icon) {
-  return Container(
-    width: 48,
-    height: 48,
-    decoration: BoxDecoration(
-      color: cs.secondaryContainer,
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: Icon(icon, size: 24, color: cs.onSecondaryContainer),
-  );
-}
+enum _LeadingOption { none, iconBadge, rankBadge, inlineIcon }
 
-Widget _buildRankBadge(ColorScheme cs, int rank) {
-  return Container(
-    width: 40,
-    height: 40,
-    decoration: BoxDecoration(
-      shape: BoxShape.circle,
-      border: Border.all(color: cs.outlineVariant),
-    ),
-    child: Center(
-      child: Text(
-        '#$rank',
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: cs.onSurface,
-        ),
-      ),
-    ),
-  );
-}
-
-Widget _buildTextAndChevron(ColorScheme cs, String text) {
-  return Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Text(text),
-      const SizedBox(width: 4),
-      Icon(Icons.chevron_right, size: 20, color: cs.onSurfaceVariant),
-    ],
-  );
+enum _TrailingOption {
+  none,
+  value,
+  chevron,
+  icon,
+  action,
+  statusBadge,
+  valueAndChevron,
 }
 
 // ---------------------------------------------------------------------------
@@ -67,7 +32,11 @@ WidgetbookComponent listTileComponent() {
     name: 'ListTile',
     useCases: [
       _playground(),
-      _patterns(),
+      _leadingSlots(),
+      _trailingSlots(),
+      _sectionGrouping(),
+      _specializedVariants(),
+      _dividerConvention(),
     ],
   );
 }
@@ -80,8 +49,6 @@ WidgetbookUseCase _playground() {
   return WidgetbookUseCase(
     name: 'Playground',
     builder: (context) {
-      final cs = Theme.of(context).colorScheme;
-
       final title = context.knobs.string(
         label: 'Title',
         initialValue: 'Checked Slots',
@@ -95,14 +62,14 @@ WidgetbookUseCase _playground() {
       final leading = context.knobs.object.dropdown<_LeadingOption>(
         label: 'Leading',
         options: _LeadingOption.values,
-        initialOption: _LeadingOption.iconContainer,
+        initialOption: _LeadingOption.iconBadge,
         labelBuilder: (o) => o.name,
       );
 
       final trailing = context.knobs.object.dropdown<_TrailingOption>(
         label: 'Trailing',
         options: _TrailingOption.values,
-        initialOption: _TrailingOption.textAndChevron,
+        initialOption: _TrailingOption.valueAndChevron,
         labelBuilder: (o) => o.name,
       );
 
@@ -118,20 +85,36 @@ WidgetbookUseCase _playground() {
 
       Widget? leadingWidget;
       switch (leading) {
-        case _LeadingOption.iconContainer:
-          leadingWidget = _buildIconContainer(cs, Icons.check_circle_outline);
+        case _LeadingOption.iconBadge:
+          leadingWidget = const IconBadge(icon: Symbols.check_circle_sharp);
         case _LeadingOption.rankBadge:
-          leadingWidget = _buildRankBadge(cs, 1);
+          leadingWidget = const RankBadge(rank: '#1');
+        case _LeadingOption.inlineIcon:
+          leadingWidget = const Icon(Symbols.history_sharp);
         case _LeadingOption.none:
           leadingWidget = null;
       }
 
       Widget? trailingWidget;
       switch (trailing) {
-        case _TrailingOption.textOnly:
+        case _TrailingOption.value:
           trailingWidget = Text(trailingText);
-        case _TrailingOption.textAndChevron:
-          trailingWidget = _buildTextAndChevron(cs, trailingText);
+        case _TrailingOption.chevron:
+          trailingWidget = const Icon(Symbols.chevron_right_sharp, size: 20);
+        case _TrailingOption.icon:
+          trailingWidget = const Icon(Symbols.open_in_new_sharp, size: 20);
+        case _TrailingOption.action:
+          trailingWidget = IconButton(
+            icon: const Icon(Symbols.more_vert_sharp),
+            onPressed: () {},
+          );
+        case _TrailingOption.statusBadge:
+          trailingWidget = const StatusBadge(
+            label: 'Active',
+            variant: StatusBadgeVariant.success,
+          );
+        case _TrailingOption.valueAndChevron:
+          trailingWidget = TextChevronTrailing(text: trailingText);
         case _TrailingOption.none:
           trailingWidget = null;
       }
@@ -151,14 +134,13 @@ WidgetbookUseCase _playground() {
 }
 
 // ---------------------------------------------------------------------------
-// Use case 2 — Patterns
+// Use case 2 — Leading Slots (guidance §1 Leading Slot table)
 // ---------------------------------------------------------------------------
 
-WidgetbookUseCase _patterns() {
+WidgetbookUseCase _leadingSlots() {
   return WidgetbookUseCase(
-    name: 'Patterns',
+    name: 'Leading Slots',
     builder: (context) {
-      final cs = Theme.of(context).colorScheme;
       final textTheme = Theme.of(context).textTheme;
 
       return SingleChildScrollView(
@@ -166,89 +148,97 @@ WidgetbookUseCase _patterns() {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ---- Pattern A: Stats Summary ----
-            Text('STATS SUMMARY', style: textTheme.labelLarge),
+            Text('ICON CONTAINER — IconBadge (48 px)',
+                style: textTheme.labelLarge),
             const SizedBox(height: 8),
             Card(
               child: Column(
                 children: [
-                  _statsTile(
-                    cs: cs,
-                    icon: Icons.check_circle_outline,
-                    title: 'Checked Slots',
-                    subtitle: 'Evaluated 240 of 240',
-                    trailing: '100%',
+                  ListTile(
+                    leading: const IconBadge(icon: Symbols.check_circle_sharp),
+                    title: const Text('Checked Slots'),
+                    subtitle: const Text('Evaluated 240 of 240'),
+                    trailing: const TextChevronTrailing(text: '100%'),
+                    onTap: () {},
                   ),
-                  _statsTile(
-                    cs: cs,
-                    icon: Icons.view_in_ar,
-                    title: 'Produced Blocks',
-                    subtitle: '16 of 21 won slots',
-                    trailing: '1',
-                  ),
-                  _statsTile(
-                    cs: cs,
-                    icon: Icons.block,
-                    title: 'Missed Blocks',
-                    subtitle: '0 of 21 won slots missed',
-                    trailing: '5',
-                  ),
-                  _statsTile(
-                    cs: cs,
-                    icon: Icons.schedule,
-                    title: 'Upcoming Blocks',
-                    subtitle: '3 upcoming this epoch',
-                    trailing: '5',
+                  ListTile(
+                    leading: const IconBadge(icon: Symbols.hub_sharp),
+                    title: const Text('Network Peers'),
+                    subtitle: const Text('12 connected'),
+                    trailing: const Text('Online'),
+                    onTap: () {},
                   ),
                 ],
               ),
             ),
-
             const SizedBox(height: 24),
-
-            // ---- Pattern B: Ranking ----
-            Text('RANKING', style: textTheme.labelLarge),
+            Text('RANK CIRCLE — RankBadge (40 px)',
+                style: textTheme.labelLarge),
             const SizedBox(height: 8),
             Card(
               child: Column(
                 children: [
-                  _rankTile(cs: cs, rank: 1, name: 'namaah', points: '10,000'),
-                  _rankTile(cs: cs, rank: 2, name: 'madmax', points: '8,500'),
-                  _rankTile(
-                      cs: cs, rank: 3, name: 'boscrypto', points: '7,200'),
-                  _rankTile(
-                      cs: cs, rank: 4, name: 'discordhandle', points: '6,100'),
-                  _rankTile(
-                      cs: cs, rank: 5, name: 'validator99', points: '5,000'),
+                  const ListTile(
+                    leading: RankBadge(rank: '#1'),
+                    title: Text('namaah'),
+                    trailing: Text('10,000 pts'),
+                  ),
+                  const ListTile(
+                    leading: RankBadge(rank: '#2'),
+                    title: Text('madmax'),
+                    trailing: Text('8,500 pts'),
+                  ),
+                  const ListTile(
+                    leading: RankBadge(rank: '#3'),
+                    title: Text('boscrypto'),
+                    trailing: Text('7,200 pts'),
+                  ),
                 ],
               ),
             ),
-
             const SizedBox(height: 24),
-
-            // ---- Pattern C: Simple 2-Line ----
-            Text('SIMPLE 2-LINE', style: textTheme.labelLarge),
+            Text('INLINE ICON — Icon (24 px)', style: textTheme.labelLarge),
             const SizedBox(height: 8),
             Card(
               child: Column(
                 children: [
-                  _simpleTile(
-                    cs: cs,
-                    title: '2132132',
-                    subtitle: '22 Oct 04:30:12',
-                    trailing: 'Produced',
+                  ListTile(
+                    leading: const Icon(Symbols.history_sharp),
+                    title: const Text('B62qk...x9fR'),
+                    subtitle: const Text('Last used 2 days ago'),
+                    onTap: () {},
                   ),
-                  _simpleTile(
-                    cs: cs,
-                    title: '2132131',
-                    subtitle: '22 Oct 04:29:58',
-                    trailing: 'Produced',
+                  ListTile(
+                    leading: const Icon(Symbols.qr_code_sharp),
+                    title: const Text('Scan QR Code'),
+                    onTap: () {},
                   ),
-                  _simpleTile(
-                    cs: cs,
-                    title: '2132130',
-                    subtitle: '22 Oct 04:29:44',
-                    trailing: 'Missed',
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text('EMPTY — no leading', style: textTheme.labelLarge),
+            const SizedBox(height: 8),
+            Card(
+              child: Column(
+                children: [
+                  ListTile(
+                    title: const Text('2132132'),
+                    subtitle: const Text('22 Oct 04:30:12'),
+                    trailing: const StatusBadge(
+                      label: 'Produced',
+                      variant: StatusBadgeVariant.success,
+                    ),
+                    onTap: () {},
+                  ),
+                  ListTile(
+                    title: const Text('2132130'),
+                    subtitle: const Text('22 Oct 04:29:44'),
+                    trailing: const StatusBadge(
+                      label: 'Missed',
+                      variant: StatusBadgeVariant.error,
+                    ),
+                    onTap: () {},
                   ),
                 ],
               ),
@@ -261,49 +251,459 @@ WidgetbookUseCase _patterns() {
 }
 
 // ---------------------------------------------------------------------------
-// Pattern tile builders
+// Use case 3 — Trailing Slots (guidance §1 Trailing Slot table)
 // ---------------------------------------------------------------------------
 
-Widget _statsTile({
-  required ColorScheme cs,
-  required IconData icon,
-  required String title,
-  required String subtitle,
-  required String trailing,
-}) {
-  return ListTile(
-    leading: _buildIconContainer(cs, icon),
-    title: Text(title),
-    subtitle: Text(subtitle),
-    trailing: _buildTextAndChevron(cs, trailing),
-    onTap: () {},
+WidgetbookUseCase _trailingSlots() {
+  return WidgetbookUseCase(
+    name: 'Trailing Slots',
+    builder: (context) {
+      final textTheme = Theme.of(context).textTheme;
+      final cs = Theme.of(context).colorScheme;
+
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('VALUE', style: textTheme.labelLarge),
+            const SizedBox(height: 8),
+            Card(
+              child: Column(
+                children: [
+                  const ListTile(
+                    leading: RankBadge(rank: '#1'),
+                    title: Text('namaah'),
+                    trailing: Text('10,000 pts'),
+                  ),
+                  ListTile(
+                    leading: const IconBadge(icon: Symbols.bolt_sharp),
+                    title: const Text('Uptime'),
+                    subtitle: const Text('Current epoch'),
+                    trailing: const Text('99.7%'),
+                    onTap: () {},
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text('CHEVRON', style: textTheme.labelLarge),
+            const SizedBox(height: 8),
+            Card(
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const IconBadge(icon: Symbols.settings_sharp),
+                    title: const Text('Advanced Settings'),
+                    trailing: Icon(
+                      Symbols.chevron_right_sharp,
+                      size: 20,
+                      color: cs.onSurfaceVariant,
+                    ),
+                    onTap: () {},
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text('VALUE + CHEVRON — TextChevronTrailing',
+                style: textTheme.labelLarge),
+            const SizedBox(height: 8),
+            Card(
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const IconBadge(icon: Symbols.check_circle_sharp),
+                    title: const Text('Checked Slots'),
+                    subtitle: const Text('Evaluated 240 of 240'),
+                    trailing: const TextChevronTrailing(text: '100%'),
+                    onTap: () {},
+                  ),
+                  ListTile(
+                    leading: const IconBadge(icon: Symbols.view_in_ar_sharp),
+                    title: const Text('Produced Blocks'),
+                    subtitle: const Text('16 of 21 won slots'),
+                    trailing: const TextChevronTrailing(text: '1'),
+                    onTap: () {},
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text('BADGE — StatusBadge', style: textTheme.labelLarge),
+            const SizedBox(height: 8),
+            Card(
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const IconBadge(icon: Symbols.cloud_done_sharp),
+                    title: const Text('Node Status'),
+                    subtitle: const Text('Running since 3 days ago'),
+                    trailing: const StatusBadge(
+                      label: 'Online',
+                      variant: StatusBadgeVariant.success,
+                      icon: Symbols.check_circle_sharp,
+                    ),
+                    onTap: () {},
+                  ),
+                  ListTile(
+                    leading: const IconBadge(icon: Symbols.sync_sharp),
+                    title: const Text('Sync Status'),
+                    subtitle: const Text('Block 1,234,567'),
+                    trailing: const StatusBadge(
+                      label: 'Syncing',
+                      variant: StatusBadgeVariant.warning,
+                      icon: Symbols.sync_sharp,
+                    ),
+                    onTap: () {},
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text('ACTION — IconButton', style: textTheme.labelLarge),
+            const SizedBox(height: 8),
+            Card(
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const IconBadge(icon: Symbols.person_sharp),
+                    title: const Text('Peer 192.168.1.1'),
+                    subtitle: const Text('Connected 5 min ago'),
+                    trailing: IconButton(
+                      icon: const Icon(Symbols.more_vert_sharp),
+                      onPressed: () {},
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text('EMPTY — no trailing', style: textTheme.labelLarge),
+            const SizedBox(height: 8),
+            Card(
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Symbols.qr_code_sharp),
+                    title: const Text('Scan QR Code'),
+                    onTap: () {},
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    },
   );
 }
 
-Widget _rankTile({
-  required ColorScheme cs,
-  required int rank,
-  required String name,
-  required String points,
-}) {
-  return ListTile(
-    leading: _buildRankBadge(cs, rank),
-    title: Text(name),
-    trailing: Text('$points pts'),
-    onTap: () {},
+// ---------------------------------------------------------------------------
+// Use case 4 — Section Grouping (guidance §2)
+// ---------------------------------------------------------------------------
+
+WidgetbookUseCase _sectionGrouping() {
+  return WidgetbookUseCase(
+    name: 'Section Grouping',
+    builder: (context) {
+      final textTheme = Theme.of(context).textTheme;
+
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Section 1 — normal header
+            Text('PERFORMANCE', style: textTheme.labelLarge),
+            const SizedBox(height: 8),
+            Card(
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const IconBadge(icon: Symbols.check_circle_sharp),
+                    title: const Text('Checked Slots'),
+                    subtitle: const Text('Evaluated 240 of 240'),
+                    trailing: const TextChevronTrailing(text: '100%'),
+                    onTap: () {},
+                  ),
+                  ListTile(
+                    leading: const IconBadge(icon: Symbols.view_in_ar_sharp),
+                    title: const Text('Produced Blocks'),
+                    subtitle: const Text('16 of 21 won slots'),
+                    trailing: const TextChevronTrailing(text: '1'),
+                    onTap: () {},
+                  ),
+                  ListTile(
+                    leading: const IconBadge(icon: Symbols.bolt_sharp),
+                    title: const Text('Uptime'),
+                    subtitle: const Text('Current epoch'),
+                    trailing: const Text('99.7%'),
+                    onTap: () {},
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Section 2 — normal header
+            Text('RECENT SLOTS', style: textTheme.labelLarge),
+            const SizedBox(height: 8),
+            Card(
+              child: Column(
+                children: [
+                  ListTile(
+                    title: const Text('Slot #2132132'),
+                    subtitle: const Text('22 Oct 04:30:12'),
+                    trailing: const StatusBadge(
+                      label: 'Produced',
+                      variant: StatusBadgeVariant.success,
+                    ),
+                    onTap: () {},
+                  ),
+                  ListTile(
+                    title: const Text('Slot #2132130'),
+                    subtitle: const Text('22 Oct 04:29:44'),
+                    trailing: const StatusBadge(
+                      label: 'Missed',
+                      variant: StatusBadgeVariant.error,
+                    ),
+                    onTap: () {},
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Section 3 — ranking
+            Text('LEADERBOARD', style: textTheme.labelLarge),
+            const SizedBox(height: 8),
+            Card(
+              child: Column(
+                children: [
+                  const ListTile(
+                    leading: RankBadge(rank: '#1'),
+                    title: Text('namaah'),
+                    trailing: Text('10,000 pts'),
+                  ),
+                  const ListTile(
+                    leading: RankBadge(rank: '#2'),
+                    title: Text('madmax'),
+                    trailing: Text('8,500 pts'),
+                  ),
+                  const ListTile(
+                    leading: RankBadge(rank: '#3'),
+                    title: Text('boscrypto'),
+                    trailing: Text('7,200 pts'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    },
   );
 }
 
-Widget _simpleTile({
-  required ColorScheme cs,
-  required String title,
-  required String subtitle,
-  required String trailing,
-}) {
-  return ListTile(
-    title: Text(title),
-    subtitle: Text(subtitle),
-    trailing: _buildTextAndChevron(cs, trailing),
-    onTap: () {},
+// ---------------------------------------------------------------------------
+// Use case 5 — Divider Convention
+// ---------------------------------------------------------------------------
+
+WidgetbookUseCase _dividerConvention() {
+  return WidgetbookUseCase(
+    name: 'Divider Convention',
+    builder: (context) {
+      final textTheme = Theme.of(context).textTheme;
+      final colorScheme = Theme.of(context).colorScheme;
+
+      // Shared transaction tiles reused in both examples.
+      final transactionTiles = [
+        ListTile(
+          leading: const IconBadge(icon: Symbols.south_west_sharp),
+          title: const Text('Received'),
+          subtitle: const Text('From: 0x1a2b...f4e5'),
+          trailing: const Text('+1,000'),
+          onTap: () {},
+        ),
+        ListTile(
+          leading: const IconBadge(icon: Symbols.north_east_sharp),
+          title: const Text('Sent'),
+          subtitle: const Text('To: 0x9f8e...a1b2'),
+          trailing: const Text('-500'),
+          onTap: () {},
+        ),
+      ];
+
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('DEFAULT — No dividers', style: textTheme.labelLarge),
+            const SizedBox(height: 4),
+            Text(
+              'Homogeneous ListTile lists rely on contentPadding for '
+              'visual separation. No Divider needed.',
+              style: textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Card(
+              child: Column(
+                children: [
+                  ...transactionTiles,
+                  ListTile(
+                    leading: const IconBadge(icon: Symbols.layers_sharp),
+                    title: const Text('Block Reward'),
+                    subtitle: const Text('Block 1,234,567'),
+                    trailing: const Text('+50'),
+                    onTap: () {},
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'SECTION DIVIDER — Between different content areas',
+              style: textTheme.labelLarge,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Dividers are appropriate between semantically different '
+              'sections within the same surface.',
+              style: textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Card(
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const IconBadge(icon: Symbols.tag_sharp),
+                    title: const Text('My Address'),
+                    subtitle: const Text('0x1a2b3c...7e8f9a0b'),
+                    trailing: IconButton(
+                      icon: const Icon(Symbols.content_copy_sharp),
+                      onPressed: () {},
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  ...transactionTiles,
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Use case 6 — Specialized Variants (guidance §2)
+// ---------------------------------------------------------------------------
+
+WidgetbookUseCase _specializedVariants() {
+  return WidgetbookUseCase(
+    name: 'Specialized Variants',
+    builder: (context) {
+      final textTheme = Theme.of(context).textTheme;
+
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('SWITCH — SwitchListTile', style: textTheme.labelLarge),
+            const SizedBox(height: 8),
+            Card(
+              child: Column(
+                children: [
+                  SwitchListTile(
+                    value: true,
+                    onChanged: (_) {},
+                    title: const Text('Background Production'),
+                    subtitle:
+                        const Text('Keep producing while app is in background'),
+                  ),
+                  SwitchListTile(
+                    value: false,
+                    onChanged: (_) {},
+                    title: const Text('Notifications'),
+                    subtitle: const Text('Get notified about slot assignments'),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text('EXPANDABLE — ExpansionTile', style: textTheme.labelLarge),
+            const SizedBox(height: 8),
+            Card(
+              child: Column(
+                children: [
+                  ExpansionTile(
+                    leading: const Icon(Symbols.calendar_today_sharp),
+                    title: const Text('Epoch 42'),
+                    subtitle: const Text('3 slots'),
+                    children: [
+                      ListTile(
+                        title: const Text('Slot #1284'),
+                        trailing: const StatusBadge(
+                          label: 'Produced',
+                          variant: StatusBadgeVariant.success,
+                        ),
+                        onTap: () {},
+                      ),
+                      ListTile(
+                        title: const Text('Slot #1290'),
+                        trailing: const StatusBadge(
+                          label: 'Missed',
+                          variant: StatusBadgeVariant.error,
+                        ),
+                        onTap: () {},
+                      ),
+                      ListTile(
+                        title: const Text('Slot #1305'),
+                        trailing: const StatusBadge(
+                          label: 'Upcoming',
+                          variant: StatusBadgeVariant.info,
+                        ),
+                        onTap: () {},
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text('DISABLED STATE', style: textTheme.labelLarge),
+            const SizedBox(height: 8),
+            Card(
+              child: Column(
+                children: [
+                  const ListTile(
+                    leading: IconBadge(icon: Symbols.lock_sharp),
+                    title: Text('Locked Feature'),
+                    subtitle: Text('Requires active node'),
+                    enabled: false,
+                  ),
+                  SwitchListTile(
+                    value: false,
+                    onChanged: null,
+                    title: const Text('Unavailable Toggle'),
+                    subtitle: const Text('Node must be running'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    },
   );
 }

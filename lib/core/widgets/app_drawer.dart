@@ -1,12 +1,14 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_typography.dart';
 
 class AppDrawer extends ConsumerStatefulWidget {
   const AppDrawer({super.key});
@@ -81,8 +83,8 @@ class _AppDrawerState extends ConsumerState<AppDrawer> {
             child: ListTile(
               leading: Icon(
                 currentNetwork == 'testnet'
-                    ? Icons.radio_button_checked
-                    : Icons.radio_button_off,
+                    ? Symbols.radio_button_checked_sharp
+                    : Symbols.radio_button_unchecked_sharp,
               ),
               title: const Text('Testnet'),
               subtitle: const Text('Default network'),
@@ -93,8 +95,8 @@ class _AppDrawerState extends ConsumerState<AppDrawer> {
             child: ListTile(
               leading: Icon(
                 currentNetwork == 'internal'
-                    ? Icons.radio_button_checked
-                    : Icons.radio_button_off,
+                    ? Symbols.radio_button_checked_sharp
+                    : Symbols.radio_button_unchecked_sharp,
               ),
               title: const Text('Internal'),
               subtitle: const Text('Development network'),
@@ -105,8 +107,8 @@ class _AppDrawerState extends ConsumerState<AppDrawer> {
             child: ListTile(
               leading: Icon(
                 currentNetwork == 'custom'
-                    ? Icons.radio_button_checked
-                    : Icons.radio_button_off,
+                    ? Symbols.radio_button_checked_sharp
+                    : Symbols.radio_button_unchecked_sharp,
               ),
               title: const Text('Custom'),
               subtitle: const Text('static.usernodelabs.org/custom'),
@@ -207,7 +209,7 @@ class _AppDrawerState extends ConsumerState<AppDrawer> {
             // Build Info
             ListTile(
               title: Text(l10n.settingsBuildInfo),
-              trailing: const Icon(Icons.info_outline),
+              trailing: const Icon(Symbols.info_sharp),
               onTap: () {
                 Navigator.of(context).pop(); // Close drawer
                 _showBuildInfoDialog(env, l10n);
@@ -261,7 +263,7 @@ class _AppDrawerState extends ConsumerState<AppDrawer> {
               ref.watch(nodeStatusProvider).value?.peerId ??
                   l10n.nodeNotAvailable,
               style: const TextStyle(
-                fontFamily: 'monospace',
+                fontFamily: kMonoFontFamily,
                 fontSize: 11,
               ),
             ),

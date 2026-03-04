@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 
 class ProducedBlockDetailsScreen extends StatelessWidget {
   const ProducedBlockDetailsScreen({super.key, this.args});
@@ -7,6 +8,7 @@ class ProducedBlockDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final epoch = (args?['epoch'] as int?) ?? 0;
     final slot = (args?['slot'] as int?) ?? 0;
     final slotsInEpoch = (args?['slotsInEpoch'] as int?) ?? 0;
@@ -21,7 +23,7 @@ class ProducedBlockDetailsScreen extends StatelessWidget {
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+          padding: EdgeInsets.all(spacing.space16),
           child: Builder(
             builder: (context) {
               if (meta == null) {
@@ -47,35 +49,35 @@ class ProducedBlockDetailsScreen extends StatelessWidget {
                     style: theme.textTheme.bodyMedium
                         ?.copyWith(color: theme.colorScheme.secondary),
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: spacing.space16),
                   Text(
                     'Block hash',
                     style: theme.textTheme.labelSmall
                         ?.copyWith(color: theme.colorScheme.secondary),
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: spacing.space4),
                   SelectableText(
                     blockHash,
                     style: theme.textTheme.bodyMedium,
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: spacing.space16),
                   Text(
                     'Tokens won',
                     style: theme.textTheme.labelSmall
                         ?.copyWith(color: theme.colorScheme.secondary),
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: spacing.space4),
                   Text(
                     tokensWon,
                     style: theme.textTheme.bodyMedium,
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: spacing.space16),
                   Text(
                     'Canonical',
                     style: theme.textTheme.labelSmall
                         ?.copyWith(color: theme.colorScheme.secondary),
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: spacing.space4),
                   Text(
                     canonical ? 'Yes' : 'No',
                     style: theme.textTheme.bodyMedium,

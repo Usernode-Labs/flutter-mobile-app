@@ -4,9 +4,11 @@ import 'dart:convert';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
+import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 class DappsScreen extends ConsumerStatefulWidget {
@@ -535,6 +537,7 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final showLoading = _progress < 100;
     final theme = Theme.of(context);
 
@@ -546,7 +549,12 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
         ),
       if (_showUrlEditor)
         Padding(
-          padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+          padding: EdgeInsets.fromLTRB(
+            spacing.space12,
+            spacing.space12,
+            spacing.space12,
+            spacing.space12,
+          ),
           child: Row(
             children: [
               Expanded(
@@ -563,16 +571,16 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: spacing.space12),
               FilledButton(
                 onPressed: _loadUrlFromInput,
                 child: const Text('Go'),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: spacing.space8),
               IconButton(
                 tooltip: 'Refresh',
                 onPressed: () => _controller.reload(),
-                icon: const Icon(Icons.refresh),
+                icon: const Icon(Symbols.refresh_sharp),
               ),
             ],
           ),
@@ -584,7 +592,7 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
         leading: IconButton(
           tooltip: 'Back',
           onPressed: _canGoBack ? () => _controller.goBack() : null,
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Symbols.arrow_back_sharp),
         ),
         titleSpacing: 0,
         actions: [
@@ -594,7 +602,7 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
             child: IconButton(
               tooltip: 'Hidden',
               onPressed: _onSecretTap,
-              icon: const Icon(Icons.more_horiz),
+              icon: const Icon(Symbols.more_horiz_sharp),
             ),
           ),
         ],

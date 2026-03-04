@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/providers/produced_blocks_provider.dart';
-import 'package:crypto_mobile_app/design_system/src/epoch_performance_page.dart';
-import 'package:crypto_mobile_app/design_system/theme/color_is_expensive_theme.dart';
-import 'package:crypto_mobile_app/design_system/theme/design_system_theme.dart';
-import 'package:crypto_mobile_app/design_system/tokens/app_semantic_colors.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 
 /// Feature screen that wires live block-production data to
 /// [EpochPerformancePage].
@@ -38,7 +36,6 @@ class _EpochPerformanceScreenState
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
     final summary = ref.watch(producedBlocksSummaryProvider);
     final nodeStatus = ref.watch(nodeStatusProvider).value;
     final l10n = AppLocalizations.of(context);
@@ -48,52 +45,43 @@ class _EpochPerformanceScreenState
     final maxEpochWithData = dataValue?.maxEpochWithData ?? currentEpoch;
     final viewedEpoch = _viewedEpoch.clamp(0, maxEpochWithData);
 
-    return Theme(
-      data: ColorIsExpensiveTheme(textTheme).light().copyWith(
-            extensions: DesignSystemTheme.standardExtensions(
-              semanticColors: AppSemanticColors.light(),
-            ),
+    return summary.when(
+      loading: () => Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Symbols.arrow_back_sharp),
+            onPressed: () => context.pop(),
           ),
-      child: Builder(
-        builder: (context) => summary.when(
-          loading: () => Scaffold(
-            appBar: AppBar(
-              leading: IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => context.pop(),
-              ),
-              title: Text(l10n.statsEpoch(_viewedEpoch)),
-            ),
-            body: const Center(
-              child: CircularProgressIndicator(strokeWidth: 2.5),
-            ),
+          title: Text(l10n.statsEpoch(_viewedEpoch)),
+        ),
+        body: const FullPageLoadingState(),
+      ),
+      error: (e, _) => Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Symbols.arrow_back_sharp),
+            onPressed: () => context.pop(),
           ),
-          error: (e, _) => Scaffold(
-            appBar: AppBar(
-              leading: IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => context.pop(),
-              ),
-              title: Text(l10n.statsEpoch(_viewedEpoch)),
-            ),
-            body: Center(child: Text(l10n.commonNoValuePlaceholder)),
-          ),
-          data: (data) => RefreshIndicator(
-            onRefresh: () => ref.refresh(producedBlocksSummaryProvider.future),
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              child: SizedBox(
-                height: MediaQuery.of(context).size.height,
-                child: _buildPage(
-                  context,
-                  data,
-                  nodeStatus,
-                  viewedEpoch,
-                  currentEpoch,
-                  maxEpochWithData,
-                  l10n,
-                ),
-              ),
+          title: Text(l10n.statsEpoch(_viewedEpoch)),
+        ),
+        body: FullPageErrorState(
+          message: l10n.commonNoValuePlaceholder,
+        ),
+      ),
+      data: (data) => RefreshIndicator(
+        onRefresh: () => ref.refresh(producedBlocksSummaryProvider.future),
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height,
+            child: _buildPage(
+              context,
+              data,
+              nodeStatus,
+              viewedEpoch,
+              currentEpoch,
+              maxEpochWithData,
+              l10n,
             ),
           ),
         ),
@@ -224,7 +212,7 @@ class _EpochPerformanceScreenState
 
     final metrics = <EpochMetricData>[
       EpochMetricData(
-        icon: Icons.search_outlined,
+        icon: Symbols.search_sharp,
         title: l10n.producedBlocksCheckedSlots,
         subtitle: l10n.producedBlocksEvaluatedOfSlots(evaluated, slotsInEpoch),
         trailingValue: '${evaluatedPct.toStringAsFixed(0)}%',
@@ -238,7 +226,7 @@ class _EpochPerformanceScreenState
         showChevron: true,
       ),
       EpochMetricData(
-        icon: Icons.check_box_outlined,
+        icon: Symbols.check_box_sharp,
         title: l10n.producedBlocksTitle,
         subtitle: l10n.producedBlocksProducedOfWon(
           produced.toString(),
@@ -257,7 +245,7 @@ class _EpochPerformanceScreenState
         showChevron: produced > 0,
       ),
       EpochMetricData(
-        icon: Icons.disabled_by_default_outlined,
+        icon: Symbols.disabled_by_default_sharp,
         title: l10n.producedBlocksMissedBlocksTitle,
         subtitle: l10n.producedBlocksMissedOfWon(
           missed.toString(),
@@ -280,7 +268,7 @@ class _EpochPerformanceScreenState
     if (showUpcoming) {
       metrics.add(
         EpochMetricData(
-          icon: Icons.schedule_outlined,
+          icon: Symbols.schedule_sharp,
           title: l10n.producedBlocksUpcomingBlocksTitle,
           subtitle: l10n.producedBlocksUpcomingThisEpoch(upcoming.toString()),
           trailingValue: '$upcoming',

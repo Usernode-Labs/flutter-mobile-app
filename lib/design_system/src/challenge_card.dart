@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
-import '../tokens/app_elevation.dart';
+import '../tokens/app_borders.dart';
 import '../tokens/app_radii.dart';
 import '../tokens/app_semantic_colors.dart';
 import '../tokens/app_sizing.dart';
@@ -137,29 +137,24 @@ class _ChallengeCardState extends State<ChallengeCard>
     final textTheme = Theme.of(context).textTheme;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
-    final elevation = Theme.of(context).extension<AppElevation>()!;
     final sizing = Theme.of(context).extension<AppSizing>()!;
+    final borders = Theme.of(context).extension<AppBorders>()!;
     final semantic = Theme.of(context).extension<AppSemanticColors>()!;
     final catColors = _categoryColors(semantic);
 
     final borderRadius = BorderRadius.circular(radii.largeIncreased);
 
-    Widget card = Container(
-      decoration: BoxDecoration(
-        color: _cardBackground(colors),
+    Widget card = Card(
+      color: _cardBackground(colors),
+      elevation: 0,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
         borderRadius: borderRadius,
-        border: Border.all(color: colors.outlineVariant, width: 1),
-        boxShadow: elevation.low > 0
-            ? [
-                BoxShadow(
-                  color: colors.shadow.withValues(alpha: 0.05),
-                  blurRadius: elevation.low * 2,
-                  offset: Offset(0, elevation.low),
-                ),
-              ]
-            : null,
+        side: BorderSide(
+          color: colors.onSurface.withValues(alpha: borders.opacity),
+          width: borders.width,
+        ),
       ),
-      clipBehavior: Clip.hardEdge,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -173,6 +168,7 @@ class _ChallengeCardState extends State<ChallengeCard>
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: spacing.space8,
               children: [
                 // Header row: date range | category + icon
                 Row(
@@ -212,7 +208,6 @@ class _ChallengeCardState extends State<ChallengeCard>
                     ),
                   ],
                 ),
-                SizedBox(height: spacing.space8),
                 // Title
                 Text(
                   widget.title,
@@ -220,7 +215,6 @@ class _ChallengeCardState extends State<ChallengeCard>
                     color: _contentColor(colors),
                   ),
                 ),
-                SizedBox(height: spacing.space8),
                 // Description
                 Text(
                   widget.description,
@@ -335,26 +329,25 @@ class _ChallengeCardState extends State<ChallengeCard>
 
       case ChallengeCardVariant.completed:
         return Container(
-          color: catColors.colorContainer,
+          color: catColors.colorSurface,
           padding: EdgeInsets.all(spacing.space16),
           child: Row(
             children: [
               Icon(
                 Symbols.check_circle_sharp,
                 size: sizing.iconSmall,
-                color: catColors.onColorContainer,
+                color: catColors.onColorSurface,
               ),
               SizedBox(width: spacing.space4),
               Text(
                 'Completed',
-                style: rewardStyle?.copyWith(color: catColors.onColorContainer),
+                style: rewardStyle?.copyWith(color: catColors.onColorSurface),
               ),
               if (widget.completedPoints != null) ...[
                 SizedBox(width: spacing.space4),
                 Text(
                   widget.completedPoints!,
-                  style:
-                      rewardStyle?.copyWith(color: catColors.onColorContainer),
+                  style: rewardStyle?.copyWith(color: catColors.onColorSurface),
                 ),
               ],
             ],
@@ -408,9 +401,11 @@ class _OngoingBorderWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
+
     // Reduced motion fallback: solid border
     if (animation == null) {
-      return Container(
+      return DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(borderRadius),
           border: Border.all(color: categoryColor, width: 2),
@@ -430,7 +425,7 @@ class _OngoingBorderWrapper extends StatelessWidget {
             strokeWidth: 2,
           ),
           child: Padding(
-            padding: const EdgeInsets.all(2),
+            padding: EdgeInsets.all(spacing.space4),
             child: child,
           ),
         );

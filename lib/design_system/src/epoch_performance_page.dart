@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../core/widgets/app_progress_bar.dart';
+import '../tokens/app_radii.dart';
+import '../tokens/app_sizing.dart';
 import '../tokens/app_spacing.dart';
+import 'icon_badge.dart';
+import 'sheet_layout.dart';
+import 'text_chevron_trailing.dart';
 
 /// Data for a single metric row in [EpochPerformancePage].
 class EpochMetricData {
@@ -96,7 +102,7 @@ class EpochPerformancePage extends StatelessWidget {
       appBar: AppBar(
         leading: onBackTap != null
             ? IconButton(
-                icon: const Icon(Icons.arrow_back),
+                icon: const Icon(Symbols.arrow_back_sharp),
                 onPressed: onBackTap,
               )
             : null,
@@ -148,13 +154,12 @@ class EpochPerformancePage extends StatelessWidget {
   }
 
   Widget _buildMetricTile(BuildContext context, EpochMetricData metric) {
-    final cs = Theme.of(context).colorScheme;
     return ListTile(
-      leading: _buildIconContainer(cs, metric.icon),
+      leading: IconBadge(icon: metric.icon),
       title: Text(metric.title),
       subtitle: Text(metric.subtitle),
       trailing: metric.showChevron
-          ? _buildTextAndChevron(cs, metric.trailingValue)
+          ? TextChevronTrailing(text: metric.trailingValue)
           : Text(metric.trailingValue),
       onTap: metric.onTap,
     );
@@ -194,6 +199,8 @@ class _EpochPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
 
     return Column(
       children: [
@@ -201,7 +208,7 @@ class _EpochPanel extends StatelessWidget {
           children: [
             Expanded(
               child: InkWell(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: radii.borderRadiusSmall,
                 onTap: () => _showEpochPicker(context),
                 child: Row(
                   children: [
@@ -210,8 +217,8 @@ class _EpochPanel extends StatelessWidget {
                       style: theme.textTheme.bodyLarge
                           ?.copyWith(fontWeight: FontWeight.w600),
                     ),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.expand_more, size: 18),
+                    SizedBox(width: spacing.space4),
+                    Icon(Symbols.expand_more_sharp, size: sizing.iconXSmall),
                   ],
                 ),
               ),
@@ -220,20 +227,22 @@ class _EpochPanel extends StatelessWidget {
               onPressed: onPrev,
               style: IconButton.styleFrom(
                 shape: const CircleBorder(),
-                padding: const EdgeInsets.all(8),
-                minimumSize: const Size(40, 40),
+                padding: EdgeInsets.all(spacing.space8),
+                minimumSize:
+                    Size(sizing.iconContainerSmall, sizing.iconContainerSmall),
               ),
-              icon: const Icon(Icons.chevron_left),
+              icon: const Icon(Symbols.chevron_left_sharp),
             ),
             SizedBox(width: spacing.space8),
             IconButton.filledTonal(
               onPressed: onNext,
               style: IconButton.styleFrom(
                 shape: const CircleBorder(),
-                padding: const EdgeInsets.all(8),
-                minimumSize: const Size(40, 40),
+                padding: EdgeInsets.all(spacing.space8),
+                minimumSize:
+                    Size(sizing.iconContainerSmall, sizing.iconContainerSmall),
               ),
-              icon: const Icon(Icons.chevron_right),
+              icon: const Icon(Symbols.chevron_right_sharp),
             ),
           ],
         ),
@@ -264,63 +273,36 @@ class _EpochPanel extends StatelessWidget {
 
   void _showEpochPicker(BuildContext context) {
     final theme = Theme.of(context);
+    final height = MediaQuery.of(context).size.height;
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
+      constraints: BoxConstraints(maxHeight: height * 0.6),
       builder: (ctx) {
-        final height = MediaQuery.of(ctx).size.height * 0.6;
-        return SizedBox(
-          height: height,
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Select Epoch',
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.of(ctx).pop(),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: maxEpoch + 1,
-                  itemBuilder: (_, index) {
-                    final epoch = maxEpoch - index;
-                    final selected = epoch == selectedEpoch;
-                    final score = epochScoreLookup?.call(epoch) ?? '';
-                    final label = score.isNotEmpty
-                        ? 'Epoch $epoch · $score'
-                        : 'Epoch $epoch';
+        return SheetLayout(
+          title: 'Select Epoch',
+          child: ListView.builder(
+            itemCount: maxEpoch + 1,
+            itemBuilder: (_, index) {
+              final epoch = maxEpoch - index;
+              final selected = epoch == selectedEpoch;
+              final score = epochScoreLookup?.call(epoch) ?? '';
+              final label = score.isNotEmpty
+                  ? 'Epoch $epoch \u00b7 $score'
+                  : 'Epoch $epoch';
 
-                    return ListTile(
-                      title: Text(label),
-                      trailing: selected
-                          ? Icon(Icons.check,
-                              color: theme.colorScheme.onSurface)
-                          : null,
-                      onTap: () {
-                        Navigator.of(ctx).pop();
-                        onPickEpoch(epoch);
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
+              return ListTile(
+                title: Text(label),
+                trailing: selected
+                    ? Icon(Symbols.check_sharp,
+                        color: theme.colorScheme.onSurface)
+                    : null,
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  onPickEpoch(epoch);
+                },
+              );
+            },
           ),
         );
       },
@@ -357,31 +339,4 @@ class _PerformanceHeading extends StatelessWidget {
       ],
     );
   }
-}
-
-// ---------------------------------------------------------------------------
-// Slot helpers (same pattern as list_tile_use_case.dart)
-// ---------------------------------------------------------------------------
-
-Widget _buildIconContainer(ColorScheme cs, IconData icon) {
-  return Container(
-    width: 48,
-    height: 48,
-    decoration: BoxDecoration(
-      color: cs.secondaryContainer,
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: Icon(icon, size: 24, color: cs.onSecondaryContainer),
-  );
-}
-
-Widget _buildTextAndChevron(ColorScheme cs, String text) {
-  return Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Text(text),
-      const SizedBox(width: 4),
-      Icon(Icons.chevron_right, size: 20, color: cs.onSurfaceVariant),
-    ],
-  );
 }

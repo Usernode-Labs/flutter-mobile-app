@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
@@ -10,6 +11,7 @@ import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/providers/produced_blocks_provider.dart';
 import 'package:crypto_mobile_app/core/widgets/app_progress_bar.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 
 // TODO use translation file to replace hard coded strings
 
@@ -37,7 +39,6 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
 
   Timer? _refreshTimer;
   bool _refreshingSummary = false;
-  Timer? _nodeStatusRefreshTimer;
   bool _refreshingNodeStatus = false;
   bool _showSyncingLabel = true;
   bool _notificationsEnabled = true;
@@ -45,13 +46,13 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
   bool _batteryOptimizationDisabled = true;
   bool _batteryStatusChecked = false;
 
-  void _startAutoRefreshTimer() {
+  void _startRefreshTimer() {
     // Avoid creating multiple timers on repeated hot reloads.
     _refreshTimer?.cancel();
     _refreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       if (!mounted) return;
-      // Avoid overlapping refreshes; if a refresh is in progress, skip.
       _refreshSummary();
+      _refreshNodeStatus();
     });
   }
 
@@ -82,36 +83,28 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
     }
   }
 
-  void _startNodeStatusRefreshTimer() {
-    // Avoid creating multiple timers on repeated hot reloads.
-    _nodeStatusRefreshTimer?.cancel();
-    _nodeStatusRefreshTimer =
-        Timer.periodic(const Duration(seconds: 3), (_) async {
-      if (!mounted || _refreshingNodeStatus) return;
-      _refreshingNodeStatus = true;
-      try {
-        await ref.read(nodeStatusProvider.notifier).refresh();
-        _updateSyncingLabel(
-          status: ref.read(nodeStatusProvider).value,
-        );
-      } finally {
-        if (mounted) {
-          _refreshingNodeStatus = false;
-        }
+  Future<void> _refreshNodeStatus() async {
+    if (_refreshingNodeStatus || !mounted) return;
+    _refreshingNodeStatus = true;
+    try {
+      await ref.read(nodeStatusProvider.notifier).refresh();
+      _updateSyncingLabel(
+        status: ref.read(nodeStatusProvider).value,
+      );
+    } finally {
+      if (mounted) {
+        _refreshingNodeStatus = false;
       }
-    });
+    }
   }
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Periodically refresh the produced blocks summary so slot progress
-    // and related metrics stay up to date while this screen is visible.
-    _startAutoRefreshTimer();
-    // Also periodically refresh node status so slot timing and progress
-    // reflect the latest backend state.
-    _startNodeStatusRefreshTimer();
+    // Periodically refresh both the produced blocks summary and node status
+    // so slot progress and related metrics stay up to date.
+    _startRefreshTimer();
     _checkNotificationStatus();
     _checkBatteryOptimizationStatus();
   }
@@ -161,51 +154,39 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
       builder: (sheetContext) {
         final theme = Theme.of(sheetContext);
         final l10n = AppLocalizations.of(sheetContext);
-        return SafeArea(
+        final spacing = Theme.of(sheetContext).extension<AppSpacing>()!;
+        return SheetLayout(
+          title: l10n.permNotificationsBlockBackgroundTitle,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+            padding: EdgeInsets.symmetric(horizontal: spacing.space16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 24),
-                Text(
-                  l10n.permNotificationsBlockBackgroundTitle,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.normal,
-                  ),
-                ),
-                const SizedBox(height: 24),
                 Text(
                   l10n.permNotificationsBlockBackgroundBody,
                   style: theme.textTheme.bodyMedium,
                 ),
-                const SizedBox(height: 64),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () async {
-                      final status = await Permission.notification.request();
-                      if (!mounted) return;
-                      setState(() {
-                        _notificationsEnabled = status.isGranted;
-                        _notificationsChecked = true;
-                      });
-                      if (Navigator.of(sheetContext).canPop()) {
-                        Navigator.of(sheetContext).pop();
-                      }
-                    },
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(52),
-                    ),
-                    child: Text(l10n.permAllowNotifications),
+                SizedBox(height: spacing.space32),
+                FilledButton(
+                  onPressed: () async {
+                    final status = await Permission.notification.request();
+                    if (!mounted) return;
+                    setState(() {
+                      _notificationsEnabled = status.isGranted;
+                      _notificationsChecked = true;
+                    });
+                    if (Navigator.of(sheetContext).canPop()) {
+                      Navigator.of(sheetContext).pop();
+                    }
+                  },
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(52),
                   ),
+                  child: Text(l10n.permAllowNotifications),
                 ),
               ],
             ),
@@ -221,31 +202,23 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
       builder: (sheetContext) {
         final theme = Theme.of(sheetContext);
         final l10n = AppLocalizations.of(sheetContext);
-        return SafeArea(
+        final spacing = Theme.of(sheetContext).extension<AppSpacing>()!;
+        return SheetLayout(
+          title: l10n.permBatteryTitle,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+            padding: EdgeInsets.symmetric(horizontal: spacing.space16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  l10n.permBatteryTitle,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.normal,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
                   l10n.permBatteryAndroidExplanation,
                   style: theme.textTheme.bodyMedium,
                 ),
-                const SizedBox(height: 24),
+                SizedBox(height: spacing.space16),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -258,7 +231,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: spacing.space8),
                         Expanded(
                           child: Text(
                             l10n.onboardingBatteryStepAppUsage,
@@ -267,7 +240,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: spacing.space8),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -277,7 +250,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: spacing.space8),
                         Expanded(
                           child: Text(
                             l10n.onboardingBatteryStepAllowBackground,
@@ -286,7 +259,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: spacing.space8),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -296,7 +269,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: spacing.space8),
                         Expanded(
                           child: Text(
                             l10n.onboardingBatteryStepTapText,
@@ -305,7 +278,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: spacing.space8),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -315,7 +288,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: spacing.space8),
                         Expanded(
                           child: Text(
                             l10n.onboardingBatteryStepSelectUnrestricted,
@@ -324,7 +297,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: spacing.space8),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -334,7 +307,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: spacing.space8),
                         Expanded(
                           child: Text(
                             l10n.onboardingBatteryStepReturnToApp,
@@ -345,23 +318,20 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                     ),
                   ],
                 ),
-                const SizedBox(height: 32),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () async {
-                      await PlatformAlarmService.instance
-                          .openBatteryOptimizationSettings();
-                      await _checkBatteryOptimizationStatus();
-                      if (Navigator.of(sheetContext).canPop()) {
-                        Navigator.of(sheetContext).pop();
-                      }
-                    },
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(52),
-                    ),
-                    child: Text(l10n.permOpenBatterySettings),
+                SizedBox(height: spacing.space24),
+                FilledButton(
+                  onPressed: () async {
+                    await PlatformAlarmService.instance
+                        .openBatteryOptimizationSettings();
+                    await _checkBatteryOptimizationStatus();
+                    if (Navigator.of(sheetContext).canPop()) {
+                      Navigator.of(sheetContext).pop();
+                    }
+                  },
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(52),
                   ),
+                  child: Text(l10n.permOpenBatterySettings),
                 ),
               ],
             ),
@@ -377,14 +347,12 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
     // Force provider to recompute on hot reload
     ref.invalidate(producedBlocksSummaryProvider);
     // Ensure the periodic refresh is (re)started after hot reload.
-    _startAutoRefreshTimer();
-    _startNodeStatusRefreshTimer();
+    _startRefreshTimer();
   }
 
   @override
   void dispose() {
     _refreshTimer?.cancel();
-    _nodeStatusRefreshTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -419,6 +387,48 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
         _refreshingSummary = false;
       }
     }
+  }
+
+  void _pushSlotAssignments({
+    required int epoch,
+    required int slotsInEpoch,
+    required dynamic epochScore,
+    required List<String> filters,
+    bool includeProducedMeta = false,
+  }) {
+    final epochData = epochScore?.epochData.slotData;
+    final results = epochData == null
+        ? <int>[]
+        : epochData.map((s) => s.result.index).toList();
+    final slotTimesMs = epochData == null
+        ? <int?>[]
+        : epochData
+            .map((s) => s.slotTimeMs == null ? null : (s.slotTimeMs!.toInt()))
+            .toList();
+    final producedMeta = !includeProducedMeta || epochData == null
+        ? const <Map<String, dynamic>?>[]
+        : epochData
+            .map((s) => s.producedBlockMetadata == null
+                ? null
+                : <String, dynamic>{
+                    'blockHash': s.producedBlockMetadata!.blockHash.toString(),
+                    'canonical': s.producedBlockMetadata!.canonical,
+                    'timestampMs':
+                        s.producedBlockMetadata!.timestampMs.toString(),
+                    'tokensWon': s.producedBlockMetadata!.tokensWon.toString(),
+                  })
+            .toList();
+    context.push(
+      AppRoutes.slotAssignments,
+      extra: {
+        'epoch': epoch,
+        'slotsInEpoch': slotsInEpoch,
+        'results': results,
+        'slotTimesMs': slotTimesMs,
+        'producedMeta': producedMeta,
+        'filters': filters,
+      },
+    );
   }
 
   double totalScoreLastN(summary, int n) {
@@ -492,13 +502,16 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     final theme = Theme.of(context);
     final onSurfaceVariant = theme.colorScheme.onSurfaceVariant;
     final l10n = AppLocalizations.of(context);
     final summary = ref.watch(producedBlocksSummaryProvider);
     final nodeStatus = ref.watch(nodeStatusProvider).value;
     final homeTabIndex = ref.watch(currentHomeTabProvider);
-    final bool isActiveTab = homeTabIndex == 0;
+    final bool isActiveTab = homeTabIndex == HomeTab.challenges;
 
     // Detect when this tab becomes active again (e.g., user switched away to
     // Node Status and then back). When it does, reset the manual-epoch-change
@@ -553,7 +566,8 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
             hasScrollBody: false,
             child: SafeArea(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+                padding: EdgeInsets.fromLTRB(spacing.space16, spacing.space24,
+                    spacing.space16, spacing.space24),
                 child: _showSyncingLabel
                     ? Center(
                         child: Column(
@@ -567,7 +581,7 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                               ),
                               textAlign: TextAlign.center,
                             ),
-                            const SizedBox(height: 16),
+                            SizedBox(height: spacing.space16),
                             SizedBox(
                               width: 260,
                               child: AppProgressBar(
@@ -596,11 +610,13 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                         ?.copyWith(color: onSurfaceVariant),
                                     textAlign: TextAlign.center,
                                   ),
-                                  const SizedBox(height: 20),
+                                  SizedBox(height: spacing.space24),
                                   summary.when(
                                     data: (value) => Text(
                                       '${(totalScoreLastN(value, 10) * 100).toStringAsFixed(1)}%',
-                                      style: theme.textTheme.displaySmall,
+                                      style: theme.textTheme.displaySmall
+                                          ?.copyWith(
+                                              fontFamily: kMonoFontFamily),
                                       textAlign: TextAlign.center,
                                     ),
                                     loading: () => const SizedBox(
@@ -611,11 +627,13 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                     ),
                                     error: (e, _) => Text(
                                       l10n.commonNoValuePlaceholder,
-                                      style: theme.textTheme.displaySmall,
+                                      style: theme.textTheme.displaySmall
+                                          ?.copyWith(
+                                              fontFamily: kMonoFontFamily),
                                       textAlign: TextAlign.center,
                                     ),
                                   ),
-                                  const SizedBox(height: 16),
+                                  SizedBox(height: spacing.space16),
                                   Builder(
                                     builder: (_) {
                                       return Column(
@@ -630,17 +648,15 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                                       const BoxConstraints(
                                                     minHeight: 48,
                                                   ),
-                                                  padding: const EdgeInsets
-                                                      .symmetric(
-                                                    horizontal: 16,
-                                                    vertical: 12,
+                                                  padding: EdgeInsets.symmetric(
+                                                    horizontal: spacing.space16,
+                                                    vertical: spacing.space12,
                                                   ),
                                                   decoration: BoxDecoration(
                                                     color: theme.colorScheme
                                                         .secondaryContainer,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            24),
+                                                    borderRadius: radii
+                                                        .borderRadiusXLarge,
                                                   ),
                                                   child: Center(
                                                     child: Text(
@@ -686,149 +702,53 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                             children: [
                               if (_notificationsChecked &&
                                   !_notificationsEnabled) ...[
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: theme.colorScheme.surfaceBright,
-                                    borderRadius: BorderRadius.circular(20),
+                                _PermissionBanner(
+                                  icon: Icon(
+                                    Symbols.notifications_off_sharp,
+                                    color: theme.colorScheme.error,
                                   ),
-                                  padding:
-                                      const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                                  child: Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.notifications_off_outlined,
-                                        color: theme.colorScheme.error,
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              'Notifications Disabled',
-                                              style: theme.textTheme.titleSmall
-                                                  ?.copyWith(
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              'Background block production impacted',
-                                              style: theme.textTheme.bodySmall,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      FilledButton(
-                                        onPressed:
-                                            _showNotificationPermissionSheet,
-                                        style: FilledButton.styleFrom(
-                                          backgroundColor:
-                                              theme.colorScheme.primary,
-                                          foregroundColor:
-                                              theme.colorScheme.onPrimary,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                            vertical: 8,
-                                          ),
-                                        ),
-                                        child: const Text('Enable'),
-                                      ),
-                                    ],
-                                  ),
+                                  title: 'Notifications Disabled',
+                                  onAction: _showNotificationPermissionSheet,
                                 ),
-                                const SizedBox(height: 16),
+                                SizedBox(height: spacing.space16),
                               ] else if (_batteryStatusChecked &&
                                   !_batteryOptimizationDisabled) ...[
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: theme.colorScheme.surfaceBright,
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  padding:
-                                      const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                                  child: Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.center,
-                                    children: [
-                                      SizedBox(
-                                        height: 24,
-                                        width: 24,
-                                        child: Stack(
-                                          alignment: Alignment.center,
-                                          children: [
-                                            Icon(
-                                              Icons.battery_0_bar,
+                                _PermissionBanner(
+                                  icon: SizedBox(
+                                    height: 24,
+                                    width: 24,
+                                    child: Stack(
+                                      alignment: Alignment.center,
+                                      children: [
+                                        Icon(
+                                          Symbols.battery_0_bar_sharp,
+                                          color: theme.colorScheme.error,
+                                          size: sizing.iconRegular,
+                                        ),
+                                        Positioned(
+                                          right: 0,
+                                          bottom: 0,
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              color: theme.colorScheme.surface,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            padding:
+                                                EdgeInsets.all(spacing.space4),
+                                            child: Icon(
+                                              Symbols.settings_sharp,
                                               color: theme.colorScheme.error,
-                                              size: 24,
+                                              size: sizing.iconXSmall,
                                             ),
-                                            Positioned(
-                                              right: 0,
-                                              bottom: 0,
-                                              child: Container(
-                                                decoration: BoxDecoration(
-                                                  color:
-                                                      theme.colorScheme.surface,
-                                                  shape: BoxShape.circle,
-                                                ),
-                                                padding:
-                                                    const EdgeInsets.all(1.5),
-                                                child: Icon(
-                                                  Icons.settings,
-                                                  color:
-                                                      theme.colorScheme.error,
-                                                  size: 12,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              'Battery optimization enabled',
-                                              style: theme.textTheme.titleSmall
-                                                  ?.copyWith(
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              'Background block production impacted',
-                                              style: theme.textTheme.bodySmall,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      FilledButton(
-                                        onPressed:
-                                            _showBatteryOptimizationSheet,
-                                        style: FilledButton.styleFrom(
-                                          backgroundColor:
-                                              theme.colorScheme.primary,
-                                          foregroundColor:
-                                              theme.colorScheme.onPrimary,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                            vertical: 8,
                                           ),
                                         ),
-                                        child: const Text('Enable'),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
+                                  title: 'Battery optimization enabled',
+                                  onAction: _showBatteryOptimizationSheet,
                                 ),
-                                const SizedBox(height: 16),
+                                SizedBox(height: spacing.space16),
                               ],
                               Builder(builder: (context) {
                                 final currEpochSlot =
@@ -896,10 +816,14 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                 return Container(
                                   decoration: BoxDecoration(
                                     color: theme.colorScheme.surfaceBright,
-                                    borderRadius: BorderRadius.circular(20),
+                                    borderRadius:
+                                        radii.borderRadiusLargeIncreased,
                                   ),
-                                  padding:
-                                      const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                                  padding: EdgeInsets.fromLTRB(
+                                      spacing.space16,
+                                      spacing.space12,
+                                      spacing.space16,
+                                      spacing.space12),
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.stretch,
@@ -953,35 +877,32 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                                           FontWeight.w500),
                                             ),
                                           ),
-                                          Builder(
-                                            builder: (_) {
-                                              final epochScore = scoreEpochI(
-                                                  summary.asData?.value,
-                                                  viewedEpoch);
-                                              final text = epochScore == null
-                                                  ? '--'
-                                                  : '${(epochScore * 100).toStringAsFixed(1)}%';
-                                              return Text(
-                                                text,
-                                                style: theme
-                                                    .textTheme.titleMedium
-                                                    ?.copyWith(
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              );
-                                            },
-                                          ),
+                                          () {
+                                            final epochScore = scoreEpochI(
+                                                summary.asData?.value,
+                                                viewedEpoch);
+                                            final text = epochScore == null
+                                                ? '--'
+                                                : '${(epochScore * 100).toStringAsFixed(1)}%';
+                                            return Text(
+                                              text,
+                                              style: theme.textTheme.titleMedium
+                                                  ?.copyWith(
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            );
+                                          }(),
                                         ],
                                       ),
-                                      const SizedBox(height: 8),
-                                      Builder(builder: (_) {
+                                      SizedBox(height: spacing.space8),
+                                      // Resolve epoch score once for all metric tiles below.
+                                      ...() {
                                         final data = summary.asData?.value;
                                         final scores =
                                             data?.epochScores ?? const [];
-                                        final idxCandidate = viewedEpoch;
                                         final idx = (scores.isNotEmpty &&
-                                                idxCandidate < scores.length)
-                                            ? idxCandidate
+                                                viewedEpoch < scores.length)
+                                            ? viewedEpoch
                                             : (scores.isNotEmpty
                                                 ? scores.length - 1
                                                 : -1);
@@ -989,347 +910,113 @@ class _ProducedBlocksScreenState extends ConsumerState<ProducedBlocksScreen>
                                             idx >= 0 ? scores[idx] : null;
                                         final slotsInEpoch =
                                             data?.slotsInEpoch ?? 0;
+
                                         final evaluated =
                                             score?.calculated ?? 0;
                                         final evaluatedPct = slotsInEpoch > 0
                                             ? (evaluated / slotsInEpoch) * 100.0
                                             : 0.0;
-
-                                        return _MetricTile(
-                                          leading: const _IconBadge(
-                                              icon: Icons.search_outlined),
-                                          title:
-                                              l10n.producedBlocksCheckedSlots,
-                                          subtitle: l10n
-                                              .producedBlocksEvaluatedOfSlots(
-                                            evaluated,
-                                            slotsInEpoch,
-                                          ),
-                                          trailingPrimary:
-                                              '${evaluatedPct.toStringAsFixed(0)}%',
-                                          onTap: () {
-                                            final epoch = viewedEpoch;
-                                            final epochScore = score;
-                                            final epochData =
-                                                epochScore?.epochData.slotData;
-                                            final results = epochData == null
-                                                ? <int>[]
-                                                : epochData
-                                                    .map((s) => s.result.index)
-                                                    .toList();
-                                            final slotTimesMs =
-                                                epochData == null
-                                                    ? <int?>[]
-                                                    : epochData
-                                                        .map((s) =>
-                                                            s.slotTimeMs == null
-                                                                ? null
-                                                                : (s.slotTimeMs!
-                                                                    .toInt()))
-                                                        .toList();
-                                            final producedMeta = epochData ==
-                                                    null
-                                                ? const <Map<String,
-                                                    dynamic>?>[]
-                                                : epochData
-                                                    .map((s) =>
-                                                        s.producedBlockMetadata ==
-                                                                null
-                                                            ? null
-                                                            : <String, dynamic>{
-                                                                'blockHash': s
-                                                                    .producedBlockMetadata!
-                                                                    .blockHash
-                                                                    .toString(),
-                                                                'canonical': s
-                                                                    .producedBlockMetadata!
-                                                                    .canonical,
-                                                                'timestampMs': s
-                                                                    .producedBlockMetadata!
-                                                                    .timestampMs
-                                                                    .toString(),
-                                                                'tokensWon': s
-                                                                    .producedBlockMetadata!
-                                                                    .tokensWon
-                                                                    .toString(),
-                                                              })
-                                                    .toList();
-                                            context.push(
-                                              AppRoutes.slotAssignments,
-                                              extra: {
-                                                'epoch': epoch,
-                                                'slotsInEpoch': slotsInEpoch,
-                                                'results': results,
-                                                'slotTimesMs': slotTimesMs,
-                                                'producedMeta': producedMeta,
-                                                'filters': ['all'],
-                                              },
-                                            );
-                                          },
-                                          showChevron: true,
-                                        );
-                                      }),
-                                      const SizedBox(height: 6),
-                                      Builder(builder: (_) {
-                                        final data = summary.asData?.value;
-                                        final scores =
-                                            data?.epochScores ?? const [];
-                                        final idxCandidate = viewedEpoch;
-                                        final idx = (scores.isNotEmpty &&
-                                                idxCandidate < scores.length)
-                                            ? idxCandidate
-                                            : (scores.isNotEmpty
-                                                ? scores.length - 1
-                                                : -1);
-                                        final score =
-                                            idx >= 0 ? scores[idx] : null;
                                         final produced = score?.produced ?? 0;
                                         final won = score?.won ?? '?';
-                                        return _MetricTile(
-                                          leading: const _IconBadge(
-                                              icon: Icons.check_box_outlined),
-                                          title: l10n.producedBlocksTitle,
-                                          subtitle:
-                                              l10n.producedBlocksProducedOfWon(
-                                            produced.toString(),
-                                            won.toString(),
-                                          ),
-                                          trailingPrimary: '$produced',
-                                          onTap: produced > 0
-                                              ? () {
-                                                  final epoch = viewedEpoch;
-                                                  final epochScore = score;
-                                                  final slotsInEpoch =
-                                                      data?.slotsInEpoch ?? 0;
-                                                  final epochData = epochScore
-                                                      ?.epochData.slotData;
-                                                  final results = epochData ==
-                                                          null
-                                                      ? <int>[]
-                                                      : epochData
-                                                          .map((s) =>
-                                                              s.result.index)
-                                                          .toList();
-                                                  final slotTimesMs = epochData ==
-                                                          null
-                                                      ? <int?>[]
-                                                      : epochData
-                                                          .map((s) =>
-                                                              s.slotTimeMs ==
-                                                                      null
-                                                                  ? null
-                                                                  : (s.slotTimeMs!
-                                                                      .toInt()))
-                                                          .toList();
-                                                  final producedMeta = epochData ==
-                                                          null
-                                                      ? const <Map<String,
-                                                          dynamic>?>[]
-                                                      : epochData
-                                                          .map((s) =>
-                                                              s.producedBlockMetadata ==
-                                                                      null
-                                                                  ? null
-                                                                  : <String,
-                                                                      dynamic>{
-                                                                      'blockHash': s
-                                                                          .producedBlockMetadata!
-                                                                          .blockHash
-                                                                          .toString(),
-                                                                      'canonical': s
-                                                                          .producedBlockMetadata!
-                                                                          .canonical,
-                                                                      'timestampMs': s
-                                                                          .producedBlockMetadata!
-                                                                          .timestampMs
-                                                                          .toString(),
-                                                                      'tokensWon': s
-                                                                          .producedBlockMetadata!
-                                                                          .tokensWon
-                                                                          .toString(),
-                                                                    })
-                                                          .toList();
-                                                  context.push(
-                                                    AppRoutes.slotAssignments,
-                                                    extra: {
-                                                      'epoch': epoch,
-                                                      'slotsInEpoch':
-                                                          slotsInEpoch,
-                                                      'results': results,
-                                                      'slotTimesMs':
-                                                          slotTimesMs,
-                                                      'producedMeta':
-                                                          producedMeta,
-                                                      'filters': ['produced'],
-                                                    },
-                                                  );
-                                                }
-                                              : null,
-                                          showChevron: produced > 0,
-                                        );
-                                      }),
-                                      const SizedBox(height: 6),
-                                      Builder(builder: (_) {
-                                        final data = summary.asData?.value;
-                                        final scores =
-                                            data?.epochScores ?? const [];
-                                        final idxCandidate = viewedEpoch;
-                                        final idx = (scores.isNotEmpty &&
-                                                idxCandidate < scores.length)
-                                            ? idxCandidate
-                                            : (scores.isNotEmpty
-                                                ? scores.length - 1
-                                                : -1);
-                                        final score =
-                                            idx >= 0 ? scores[idx] : null;
                                         final missed = score?.missed ?? 0;
-                                        final won = score?.won ?? '?';
-                                        return _MetricTile(
-                                          leading: const _IconBadge(
-                                              icon: Icons
-                                                  .disabled_by_default_outlined),
-                                          title: l10n
-                                              .producedBlocksMissedBlocksTitle,
-                                          subtitle:
-                                              l10n.producedBlocksMissedOfWon(
-                                            missed.toString(),
-                                            won.toString(),
+                                        final upcoming = score?.upcoming ?? 0;
+
+                                        return <Widget>[
+                                          _MetricTile(
+                                            leading: const IconBadge(
+                                                icon: Symbols.search_sharp),
+                                            title:
+                                                l10n.producedBlocksCheckedSlots,
+                                            subtitle: l10n
+                                                .producedBlocksEvaluatedOfSlots(
+                                              evaluated,
+                                              slotsInEpoch,
+                                            ),
+                                            trailingPrimary:
+                                                '${evaluatedPct.toStringAsFixed(0)}%',
+                                            onTap: () => _pushSlotAssignments(
+                                              epoch: viewedEpoch,
+                                              slotsInEpoch: slotsInEpoch,
+                                              epochScore: score,
+                                              filters: ['all'],
+                                              includeProducedMeta: true,
+                                            ),
+                                            showChevron: true,
                                           ),
-                                          trailingPrimary: '$missed',
-                                          onTap: missed > 0
-                                              ? () {
-                                                  final epoch = viewedEpoch;
-                                                  final epochScore = score;
-                                                  final slotsInEpoch =
-                                                      data?.slotsInEpoch ?? 0;
-                                                  final epochData = epochScore
-                                                      ?.epochData.slotData;
-                                                  final results = epochData ==
-                                                          null
-                                                      ? <int>[]
-                                                      : epochData
-                                                          .map((s) =>
-                                                              s.result.index)
-                                                          .toList();
-                                                  final slotTimesMs = epochData ==
-                                                          null
-                                                      ? <int?>[]
-                                                      : epochData
-                                                          .map((s) =>
-                                                              s.slotTimeMs ==
-                                                                      null
-                                                                  ? null
-                                                                  : (s.slotTimeMs!
-                                                                      .toInt()))
-                                                          .toList();
-                                                  context.push(
-                                                    AppRoutes.slotAssignments,
-                                                    extra: {
-                                                      'epoch': epoch,
-                                                      'slotsInEpoch':
+                                          const SizedBox(height: 6),
+                                          _MetricTile(
+                                            leading: const IconBadge(
+                                                icon: Symbols.check_box_sharp),
+                                            title: l10n.producedBlocksTitle,
+                                            subtitle: l10n
+                                                .producedBlocksProducedOfWon(
+                                              produced.toString(),
+                                              won.toString(),
+                                            ),
+                                            trailingPrimary: '$produced',
+                                            onTap: produced > 0
+                                                ? () => _pushSlotAssignments(
+                                                      epoch: viewedEpoch,
+                                                      slotsInEpoch:
                                                           slotsInEpoch,
-                                                      'results': results,
-                                                      'slotTimesMs':
-                                                          slotTimesMs,
-                                                      'producedMeta':
-                                                          const <Map<String,
-                                                              dynamic>?>[],
-                                                      'filters': ['missed'],
-                                                    },
-                                                  );
-                                                }
-                                              : null,
-                                          showChevron: missed > 0,
-                                        );
-                                      }),
-                                      const SizedBox(height: 6),
-                                      (viewedEpoch >= currentEpoch &&
+                                                      epochScore: score,
+                                                      filters: ['produced'],
+                                                      includeProducedMeta: true,
+                                                    )
+                                                : null,
+                                            showChevron: produced > 0,
+                                          ),
+                                          const SizedBox(height: 6),
+                                          _MetricTile(
+                                            leading: const IconBadge(
+                                                icon: Icons
+                                                    .disabled_by_default_outlined),
+                                            title: l10n
+                                                .producedBlocksMissedBlocksTitle,
+                                            subtitle:
+                                                l10n.producedBlocksMissedOfWon(
+                                              missed.toString(),
+                                              won.toString(),
+                                            ),
+                                            trailingPrimary: '$missed',
+                                            onTap: missed > 0
+                                                ? () => _pushSlotAssignments(
+                                                      epoch: viewedEpoch,
+                                                      slotsInEpoch:
+                                                          slotsInEpoch,
+                                                      epochScore: score,
+                                                      filters: ['missed'],
+                                                    )
+                                                : null,
+                                            showChevron: missed > 0,
+                                          ),
+                                          const SizedBox(height: 6),
+                                          if (viewedEpoch >= currentEpoch &&
                                               viewedEpoch <= maxEpochWithData)
-                                          ? Builder(builder: (_) {
-                                              final data =
-                                                  summary.asData?.value;
-                                              final scores =
-                                                  data?.epochScores ?? const [];
-                                              final idxCandidate = viewedEpoch;
-                                              final idx = (scores.isNotEmpty &&
-                                                      idxCandidate <
-                                                          scores.length)
-                                                  ? idxCandidate
-                                                  : (scores.isNotEmpty
-                                                      ? scores.length - 1
-                                                      : -1);
-                                              final score =
-                                                  idx >= 0 ? scores[idx] : null;
-                                              final upcoming =
-                                                  score?.upcoming ?? 0;
-                                              return _MetricTile(
-                                                leading: const _IconBadge(
-                                                    icon: Icons
-                                                        .schedule_outlined),
-                                                title: l10n
-                                                    .producedBlocksUpcomingBlocksTitle,
-                                                subtitle: l10n
-                                                    .producedBlocksUpcomingThisEpoch(
-                                                  upcoming.toString(),
-                                                ),
-                                                trailingPrimary: '$upcoming',
-                                                onTap: upcoming > 0
-                                                    ? () {
-                                                        final epoch =
-                                                            viewedEpoch;
-                                                        final epochScore =
-                                                            score;
-                                                        final slotsInEpoch =
-                                                            data?.slotsInEpoch ??
-                                                                0;
-                                                        final epochData =
-                                                            epochScore
-                                                                ?.epochData
-                                                                .slotData;
-                                                        final results =
-                                                            epochData == null
-                                                                ? <int>[]
-                                                                : epochData
-                                                                    .map((s) => s
-                                                                        .result
-                                                                        .index)
-                                                                    .toList();
-                                                        final slotTimesMs = epochData ==
-                                                                null
-                                                            ? <int?>[]
-                                                            : epochData
-                                                                .map((s) => s
-                                                                            .slotTimeMs ==
-                                                                        null
-                                                                    ? null
-                                                                    : (s.slotTimeMs!
-                                                                        .toInt()))
-                                                                .toList();
-                                                        context.push(
-                                                          AppRoutes
-                                                              .slotAssignments,
-                                                          extra: {
-                                                            'epoch': epoch,
-                                                            'slotsInEpoch':
-                                                                slotsInEpoch,
-                                                            'results': results,
-                                                            'slotTimesMs':
-                                                                slotTimesMs,
-                                                            'producedMeta':
-                                                                const <Map<
-                                                                    String,
-                                                                    dynamic>?>[],
-                                                            'filters': [
-                                                              'upcoming'
-                                                            ],
-                                                          },
-                                                        );
-                                                      }
-                                                    : null,
-                                                showChevron: upcoming > 0,
-                                              );
-                                            })
-                                          : const SizedBox.shrink(),
+                                            _MetricTile(
+                                              leading: const IconBadge(
+                                                  icon:
+                                                      Icons.schedule_outlined),
+                                              title: l10n
+                                                  .producedBlocksUpcomingBlocksTitle,
+                                              subtitle: l10n
+                                                  .producedBlocksUpcomingThisEpoch(
+                                                upcoming.toString(),
+                                              ),
+                                              trailingPrimary: '$upcoming',
+                                              onTap: upcoming > 0
+                                                  ? () => _pushSlotAssignments(
+                                                        epoch: viewedEpoch,
+                                                        slotsInEpoch:
+                                                            slotsInEpoch,
+                                                        epochScore: score,
+                                                        filters: ['upcoming'],
+                                                      )
+                                                  : null,
+                                              showChevron: upcoming > 0,
+                                            ),
+                                        ];
+                                      }(),
                                     ],
                                   ),
                                 );
@@ -1378,14 +1065,15 @@ class _EpochPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = colorScheme.brightness == Brightness.dark;
 
     // Keep light-mode behavior; improve dark-mode colors
-    final trackColor =
-        isDark ? colorScheme.surfaceContainerHighest : Colors.grey.shade300;
-    final activeColor = isDark ? colorScheme.primary : Colors.black87;
+    final trackColor = colorScheme.surfaceContainerHighest;
+    final activeColor = isDark ? colorScheme.primary : colorScheme.onSurface;
 
     final l10n = AppLocalizations.of(context);
     return Column(
@@ -1394,86 +1082,56 @@ class _EpochPanel extends StatelessWidget {
           children: [
             Expanded(
               child: InkWell(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: radii.borderRadiusSmall,
                 onTap: () {
                   showModalBottomSheet<void>(
                     context: context,
                     isScrollControlled: true,
-                    shape: const RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.vertical(top: Radius.circular(16)),
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.height * 0.6,
                     ),
-                    builder: (ctx) {
-                      final height = MediaQuery.of(ctx).size.height * 0.6;
-                      return SizedBox(
-                        height: height,
-                        child: Column(
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      l10n.producedBlocksSelectEpoch,
-                                      style: theme.textTheme.titleMedium
-                                          ?.copyWith(
-                                              fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.close),
-                                    onPressed: () => Navigator.of(ctx).pop(),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const Divider(height: 1),
-                            Expanded(
-                              child: ListView.builder(
-                                itemCount: maxEpoch + 1,
-                                itemBuilder: (_, index) {
-                                  // index 0 corresponds to maxEpoch (highest at top)
-                                  final epoch = maxEpoch - index;
-                                  final selected = epoch == selectedEpoch;
+                    builder: (ctx) => SheetLayout(
+                      title: l10n.producedBlocksSelectEpoch,
+                      child: ListView.builder(
+                        itemCount: maxEpoch + 1,
+                        itemBuilder: (_, index) {
+                          // index 0 corresponds to maxEpoch (highest at top)
+                          final epoch = maxEpoch - index;
+                          final selected = epoch == selectedEpoch;
 
-                                  // Calculate epoch performance
-                                  double performance = 0.0;
-                                  if (summaryData != null) {
-                                    final scores = summaryData.epochScores;
-                                    if (scores != null &&
-                                        epoch >= 0 &&
-                                        epoch < scores.length) {
-                                      final s = scores[epoch];
-                                      final value = (s.evaluatedPercent *
-                                          s.producedOfEvaluatedPercent);
-                                      if (!value.isNaN && !value.isInfinite) {
-                                        performance = value.clamp(0.0, 1.0);
-                                      }
-                                    }
-                                  }
-                                  final performanceStr =
-                                      '${(performance * 100).toStringAsFixed(0)}%';
+                          // Calculate epoch performance
+                          double performance = 0.0;
+                          if (summaryData != null) {
+                            final scores = summaryData.epochScores;
+                            if (scores != null &&
+                                epoch >= 0 &&
+                                epoch < scores.length) {
+                              final s = scores[epoch];
+                              final value = (s.evaluatedPercent *
+                                  s.producedOfEvaluatedPercent);
+                              if (!value.isNaN && !value.isInfinite) {
+                                performance = value.clamp(0.0, 1.0);
+                              }
+                            }
+                          }
+                          final performanceStr =
+                              '${(performance * 100).toStringAsFixed(0)}%';
 
-                                  return ListTile(
-                                    title: Text(
-                                        '${l10n.statsEpoch(epoch)} · $performanceStr'),
-                                    trailing: selected
-                                        ? const Icon(Icons.check,
-                                            color: Colors.black87)
-                                        : null,
-                                    onTap: () {
-                                      Navigator.of(ctx).pop();
-                                      onPickEpoch(epoch);
-                                    },
-                                  );
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
+                          return ListTile(
+                            title: Text(
+                                '${l10n.statsEpoch(epoch)} · $performanceStr'),
+                            trailing: selected
+                                ? Icon(Symbols.check_sharp,
+                                    color: colorScheme.onSurface)
+                                : null,
+                            onTap: () {
+                              Navigator.of(ctx).pop();
+                              onPickEpoch(epoch);
+                            },
+                          );
+                        },
+                      ),
+                    ),
                   );
                 },
                 child: Row(
@@ -1483,8 +1141,11 @@ class _EpochPanel extends StatelessWidget {
                       style: theme.textTheme.bodyLarge
                           ?.copyWith(fontWeight: FontWeight.w600),
                     ),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.expand_more, size: 18),
+                    SizedBox(width: spacing.space4),
+                    Icon(Symbols.expand_more_sharp,
+                        size: Theme.of(context)
+                            .extension<AppSizing>()!
+                            .iconXSmall),
                   ],
                 ),
               ),
@@ -1494,24 +1155,24 @@ class _EpochPanel extends StatelessWidget {
               onPressed: onPrev,
               style: IconButton.styleFrom(
                 shape: const CircleBorder(),
-                padding: const EdgeInsets.all(8),
+                padding: EdgeInsets.all(spacing.space8),
                 minimumSize: const Size(40, 40),
               ),
-              icon: const Icon(Icons.chevron_left),
+              icon: const Icon(Symbols.chevron_left_sharp),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: spacing.space8),
             IconButton.filledTonal(
               onPressed: onNext,
               style: IconButton.styleFrom(
                 shape: const CircleBorder(),
-                padding: const EdgeInsets.all(8),
+                padding: EdgeInsets.all(spacing.space8),
                 minimumSize: const Size(40, 40),
               ),
-              icon: const Icon(Icons.chevron_right),
+              icon: const Icon(Symbols.chevron_right_sharp),
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: spacing.space8),
         // Progress bar
         AppProgressBar(
           value: progress,
@@ -1542,6 +1203,71 @@ class _EpochPanel extends StatelessWidget {
   }
 }
 
+class _PermissionBanner extends StatelessWidget {
+  const _PermissionBanner({
+    required this.icon,
+    required this.title,
+    required this.onAction,
+  });
+
+  final Widget icon;
+  final String title;
+  final VoidCallback onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final spacing = theme.extension<AppSpacing>()!;
+    final radii = theme.extension<AppRadii>()!;
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceBright,
+        borderRadius: radii.borderRadiusLargeIncreased,
+      ),
+      padding: EdgeInsets.fromLTRB(
+          spacing.space16, spacing.space12, spacing.space16, spacing.space12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          icon,
+          SizedBox(width: spacing.space12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                SizedBox(height: spacing.space4),
+                Text(
+                  'Background block production impacted',
+                  style: theme.textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: spacing.space12),
+          FilledButton(
+            onPressed: onAction,
+            style: FilledButton.styleFrom(
+              backgroundColor: theme.colorScheme.primary,
+              foregroundColor: theme.colorScheme.onPrimary,
+              padding: EdgeInsets.symmetric(
+                horizontal: spacing.space16,
+                vertical: spacing.space8,
+              ),
+            ),
+            child: const Text('Enable'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _MetricTile extends StatelessWidget {
   const _MetricTile({
     required this.leading,
@@ -1561,16 +1287,19 @@ class _MetricTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     final theme = Theme.of(context);
     return InkWell(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: radii.borderRadiusMedium,
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: EdgeInsets.symmetric(vertical: spacing.space8),
         child: Row(
           children: [
             leading,
-            const SizedBox(width: 8),
+            SizedBox(width: spacing.space8),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1586,7 +1315,7 @@ class _MetricTile extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: spacing.space8),
             Text(
               trailingPrimary,
               style: theme.textTheme.bodyMedium?.copyWith(
@@ -1595,32 +1324,11 @@ class _MetricTile extends StatelessWidget {
               ),
             ),
             if (showChevron) ...[
-              const SizedBox(width: 8),
-              const Icon(Icons.chevron_right, size: 20),
+              SizedBox(width: spacing.space8),
+              Icon(Symbols.chevron_right_sharp, size: sizing.iconSmall),
             ],
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _IconBadge extends StatelessWidget {
-  const _IconBadge({required this.icon});
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      width: 48,
-      height: 48,
-      decoration: BoxDecoration(
-        color: theme.colorScheme.secondaryContainer,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Center(
-        child: Icon(icon, color: theme.colorScheme.onSurface),
       ),
     );
   }

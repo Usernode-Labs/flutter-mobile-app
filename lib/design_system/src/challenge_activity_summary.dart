@@ -73,7 +73,7 @@ class ChallengeActivitySummary extends StatelessWidget {
       children: [
         Flexible(
           child: SizedBox(
-            height: 126,
+            height: 128,
             width: double.infinity,
             child: Center(child: illustration),
           ),
@@ -93,6 +93,7 @@ class ChallengeActivitySummary extends StatelessWidget {
         SizedBox(height: spacing.space12),
         Row(
           mainAxisSize: MainAxisSize.min,
+          spacing: spacing.space12,
           children: [
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 160),
@@ -110,7 +111,6 @@ class ChallengeActivitySummary extends StatelessWidget {
                 ),
               ),
             ),
-            SizedBox(width: spacing.space12),
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 160),
               child: IntrinsicWidth(
@@ -314,13 +314,13 @@ class _Pill extends StatelessWidget {
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
+        spacing: spacing.space4,
         children: [
           Icon(
             icon,
             size: sizing.iconSmall,
             color: iconColor,
           ),
-          SizedBox(width: spacing.space4),
           Flexible(
             child: Text(
               label,

@@ -1,17 +1,10 @@
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_symbols_icons/symbols.dart';
+import 'helpers/ds_test_helpers.dart';
 
 void main() {
-  ThemeData themeWithExtensions() {
-    final cieTheme = ColorIsExpensiveTheme(ThemeData.light().textTheme);
-    return cieTheme.light().copyWith(
-          extensions: DesignSystemTheme.standardExtensions(
-            semanticColors: AppSemanticColors.light(),
-          ),
-        );
-  }
-
   Widget wrap(Widget child) {
     return MaterialApp(
       theme: themeWithExtensions(),
@@ -20,9 +13,9 @@ void main() {
   }
 
   final testItems = const [
-    BottomNavItem(icon: Icons.home, label: 'Home'),
-    BottomNavItem(icon: Icons.search, label: 'Search'),
-    BottomNavItem(icon: Icons.settings, label: 'Settings'),
+    BottomNavItem(icon: Symbols.home_sharp, label: 'Home'),
+    BottomNavItem(icon: Symbols.search_sharp, label: 'Search'),
+    BottomNavItem(icon: Symbols.settings_sharp, label: 'Settings'),
   ];
 
   group('BottomNav', () {
@@ -63,11 +56,11 @@ void main() {
       const indicatorColor = Color(0xFFFF0000);
       final items = [
         const BottomNavItem(
-          icon: Icons.home,
+          icon: Symbols.home_sharp,
           label: 'Home',
           indicatorColor: indicatorColor,
         ),
-        const BottomNavItem(icon: Icons.search, label: 'Search'),
+        const BottomNavItem(icon: Symbols.search_sharp, label: 'Search'),
       ];
 
       await tester.pumpWidget(wrap(
@@ -113,9 +106,9 @@ void main() {
     testWidgets('disabled item does not fire callback', (tester) async {
       int? selectedIndex;
       final items = [
-        const BottomNavItem(icon: Icons.home, label: 'Home'),
+        const BottomNavItem(icon: Symbols.home_sharp, label: 'Home'),
         const BottomNavItem(
-          icon: Icons.search,
+          icon: Symbols.search_sharp,
           label: 'Search',
           enabled: false,
         ),
@@ -137,8 +130,9 @@ void main() {
 
     testWidgets('badge renders when badgeCount > 0', (tester) async {
       final items = [
-        const BottomNavItem(icon: Icons.home, label: 'Home', badgeCount: 5),
-        const BottomNavItem(icon: Icons.search, label: 'Search'),
+        const BottomNavItem(
+            icon: Symbols.home_sharp, label: 'Home', badgeCount: 5),
+        const BottomNavItem(icon: Symbols.search_sharp, label: 'Search'),
       ];
 
       await tester.pumpWidget(wrap(
@@ -159,8 +153,9 @@ void main() {
 
     testWidgets('badge hidden when badgeCount is 0', (tester) async {
       final items = [
-        const BottomNavItem(icon: Icons.home, label: 'Home', badgeCount: 0),
-        const BottomNavItem(icon: Icons.search, label: 'Search'),
+        const BottomNavItem(
+            icon: Symbols.home_sharp, label: 'Home', badgeCount: 0),
+        const BottomNavItem(icon: Symbols.search_sharp, label: 'Search'),
       ];
 
       await tester.pumpWidget(wrap(
@@ -174,13 +169,13 @@ void main() {
       const fillColor = Color(0x33FF0000);
       final items = [
         const BottomNavItem(
-          icon: Icons.home,
+          icon: Symbols.home_sharp,
           label: 'Home',
           indicatorShape: NavIndicatorShape.circle,
           indicatorColor: Color(0xFFFF0000),
           indicatorFillColor: fillColor,
         ),
-        const BottomNavItem(icon: Icons.search, label: 'Search'),
+        const BottomNavItem(icon: Symbols.search_sharp, label: 'Search'),
       ];
 
       await tester.pumpWidget(wrap(

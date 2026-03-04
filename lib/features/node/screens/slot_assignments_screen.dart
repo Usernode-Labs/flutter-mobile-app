@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/providers/produced_blocks_provider.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:crypto_mobile_app/core/widgets/app_card.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_slots.dart';
 
@@ -134,6 +137,8 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     final theme = Theme.of(context);
     final secondary = theme.colorScheme.secondary;
 
@@ -171,17 +176,15 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+          padding: EdgeInsets.all(spacing.space16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Header KPI card
-              Container(
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceBright,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+              AppCard(
+                color: theme.colorScheme.surfaceBright,
+                borderRadius: radii.borderRadiusLargeIncreased,
+                padding: EdgeInsets.all(spacing.space16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -224,7 +227,7 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
                         }),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: spacing.space12),
                     Consumer(builder: (context, ref, _) {
                       final summary = ref.watch(producedBlocksSummaryProvider);
                       final data = summary.asData?.value;
@@ -253,11 +256,12 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: spacing.space12),
               // Filters row
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
+                  spacing: spacing.space8,
                   children: [
                     _FilterChip(
                       label: 'Won Slots',
@@ -265,21 +269,18 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
                       selected: _selected.contains(_Filter.all),
                       onTap: () => _toggleFilter(_Filter.all),
                     ),
-                    const SizedBox(width: 8),
                     _FilterChip(
                       label: 'Produced',
                       count: producedCount,
                       selected: _selected.contains(_Filter.produced),
                       onTap: () => _toggleFilter(_Filter.produced),
                     ),
-                    const SizedBox(width: 8),
                     _FilterChip(
                       label: 'Missed',
                       count: missedCount,
                       selected: _selected.contains(_Filter.missed),
                       onTap: () => _toggleFilter(_Filter.missed),
                     ),
-                    const SizedBox(width: 8),
                     _FilterChip(
                       label: 'Upcoming',
                       count: upcomingCount,
@@ -289,17 +290,18 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: spacing.space12),
               // List title
               Text(
                 'Assignments',
                 style: theme.textTheme.titleMedium
                     ?.copyWith(fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: spacing.space8),
               // Filtered list of slots (demo data)
               Expanded(
                 child: ListView.separated(
+                  padding: EdgeInsets.only(bottom: spacing.space32),
                   itemBuilder: (context, index) {
                     final item = filtered[index];
                     final isScheduled = item.result == RpcSlotResult.scheduled;
@@ -341,7 +343,7 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
                     // Calculate global slot: globalSlot = epoch * slotsInEpoch + slot
                     final globalSlot = epoch * slotsInEpoch + item.slot;
                     return _SlotRow(
-                      icon: Icons.layers,
+                      icon: Symbols.layers_sharp,
                       title: 'Epoch Slot ${item.slot}',
                       subtitle: subtitleText,
                       result: item.result,
@@ -367,6 +369,7 @@ class _ProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final radii = Theme.of(context).extension<AppRadii>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = colorScheme.brightness == Brightness.dark;
@@ -374,9 +377,8 @@ class _ProgressBar extends StatelessWidget {
     // Match ProducedBlocksScreen epoch panel colors:
     // - Light: grey track + black active
     // - Dark: surfaceVariant track + primary active
-    final trackColor =
-        isDark ? colorScheme.surfaceContainerHighest : Colors.grey.shade300;
-    final activeColor = isDark ? colorScheme.primary : Colors.black87;
+    final trackColor = colorScheme.surfaceContainerHighest;
+    final activeColor = isDark ? colorScheme.primary : colorScheme.onSurface;
 
     final p = progress.clamp(0.0, 1.0);
     return SizedBox(
@@ -388,7 +390,7 @@ class _ProgressBar extends StatelessWidget {
             height: 4,
             decoration: BoxDecoration(
               color: trackColor,
-              borderRadius: BorderRadius.circular(2),
+              borderRadius: radii.borderRadiusXSmall,
             ),
           ),
           FractionallySizedBox(
@@ -397,7 +399,7 @@ class _ProgressBar extends StatelessWidget {
               height: 4,
               decoration: BoxDecoration(
                 color: activeColor,
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: radii.borderRadiusXSmall,
               ),
             ),
           ),
@@ -408,7 +410,7 @@ class _ProgressBar extends StatelessWidget {
               height: 8,
               decoration: BoxDecoration(
                 color: activeColor,
-                borderRadius: BorderRadius.circular(26),
+                borderRadius: radii.borderRadiusXLarge,
               ),
             ),
           ),
@@ -436,77 +438,53 @@ class _SlotRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final theme = Theme.of(context);
-    final secondary = theme.colorScheme.secondary;
-    return InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.secondaryContainer,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child:
-                  Center(child: Icon(icon, color: theme.colorScheme.onSurface)),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: theme.textTheme.bodyMedium),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Global Slot $globalSlot',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: secondary,
-                      fontWeight: FontWeight.w500,
-                    ),
+    final colorScheme = theme.colorScheme;
+    final resultLabel = switch (result) {
+      RpcSlotResult.produced => 'Produced',
+      RpcSlotResult.orphaned => 'Orphaned',
+      RpcSlotResult.missed => 'Missed',
+      RpcSlotResult.scheduled => 'Upcoming',
+      RpcSlotResult.notCalculated => 'Not Calculated',
+      RpcSlotResult.notWon => 'Not Won',
+    };
+    final showChevron =
+        result == RpcSlotResult.produced || result == RpcSlotResult.orphaned;
+    final resultColor = result == RpcSlotResult.orphaned
+        ? colorScheme.error
+        : colorScheme.onSurface;
+
+    return ListTile(
+      leading: IconBadge(icon: icon),
+      title: Text(title),
+      subtitle: Text('Global Slot $globalSlot · $subtitle'),
+      trailing: showChevron
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  resultLabel,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: resultColor,
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style:
-                        theme.textTheme.bodyMedium?.copyWith(color: secondary),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              result == RpcSlotResult.produced
-                  ? 'Produced'
-                  : result == RpcSlotResult.orphaned
-                      ? 'Orphaned'
-                      : result == RpcSlotResult.missed
-                          ? 'Missed'
-                          : result == RpcSlotResult.scheduled
-                              ? 'Upcoming'
-                              : result == RpcSlotResult.notCalculated
-                                  ? 'Not Calculated'
-                                  : result == RpcSlotResult.notWon
-                                      ? 'Not Won'
-                                      : 'Unknown',
+                ),
+                SizedBox(width: spacing.space4),
+                Icon(Symbols.chevron_right_sharp,
+                    size: sizing.iconSmall,
+                    color: colorScheme.onSurfaceVariant),
+              ],
+            )
+          : Text(
+              resultLabel,
               style: theme.textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.w600,
-                color: result == RpcSlotResult.orphaned
-                    ? Colors.orange
-                    : theme.colorScheme.onSurface,
+                color: resultColor,
               ),
             ),
-            const SizedBox(width: 4),
-            if (result == RpcSlotResult.produced ||
-                result == RpcSlotResult.orphaned)
-              const Icon(Icons.chevron_right, size: 20),
-          ],
-        ),
-      ),
+      onTap: onTap,
     );
   }
 }
@@ -525,38 +503,43 @@ class _FilterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     final theme = Theme.of(context);
-    final bg = selected ? Colors.black87 : Colors.transparent;
-    final fg = selected ? Colors.white : theme.colorScheme.onSurface;
-    final border = selected ? Colors.black87 : theme.colorScheme.outline;
+    final colorScheme = theme.colorScheme;
+    final bg = selected ? colorScheme.onSurface : colorScheme.surface;
+    final fg = selected ? colorScheme.surface : colorScheme.onSurface;
+    final border = selected ? colorScheme.onSurface : colorScheme.outline;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: radii.borderRadiusLargeIncreased,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        padding: EdgeInsets.symmetric(
+            horizontal: spacing.space8, vertical: spacing.space8),
         decoration: BoxDecoration(
           color: bg,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: radii.borderRadiusLarge,
           border: Border.all(color: border),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              padding: EdgeInsets.symmetric(
+                  horizontal: spacing.space8, vertical: spacing.space4),
               decoration: BoxDecoration(
-                color: Colors.grey.shade700,
-                borderRadius: BorderRadius.circular(999),
+                color: colorScheme.onSurfaceVariant,
+                borderRadius: radii.borderRadiusFull,
               ),
               child: Text(
                 '$count',
                 style: theme.textTheme.labelSmall?.copyWith(
-                  color: Colors.white,
+                  color: colorScheme.surface,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: spacing.space8),
             Text(
               label,
               style: theme.textTheme.bodySmall?.copyWith(

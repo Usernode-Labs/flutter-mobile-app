@@ -9,6 +9,7 @@ import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 
 final _log = LoggingService.instance.withTag('usernode/ImportApiAccountScreen');
 
@@ -120,67 +121,59 @@ class _OnboardingImportApiAccountScreenState
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
 
     return Scaffold(
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(spacing.space16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 16),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Text(
-                  l10n.onboardingVerifyAccessTitle,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.normal,
-                  ),
+              SizedBox(height: spacing.space16),
+              Text(
+                l10n.onboardingVerifyAccessTitle,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.normal,
                 ),
               ),
-              const SizedBox(height: 24),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Text(
-                  l10n.onboardingVerifyAccessSubtitle,
-                  style: theme.textTheme.bodyMedium,
-                ),
+              SizedBox(height: spacing.space24),
+              Text(
+                l10n.onboardingVerifyAccessSubtitle,
+                style: theme.textTheme.bodyMedium,
               ),
-              const SizedBox(height: 30),
+              SizedBox(height: spacing.space32),
               Expanded(
                 child: SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        TextField(
-                          controller: _contactController,
-                          autofocus: true,
-                          decoration: InputDecoration(
-                            labelText: l10n.importApiAccountContactLabel,
-                            hintText: l10n.importApiAccountContactHint,
-                          ),
-                          textInputAction: TextInputAction.next,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      TextField(
+                        controller: _contactController,
+                        autofocus: true,
+                        decoration: InputDecoration(
+                          labelText: l10n.importApiAccountContactLabel,
+                          hintText: l10n.importApiAccountContactHint,
                         ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: _activationCodeController,
-                          decoration: InputDecoration(
-                            labelText: l10n.importApiAccountCodeLabel,
-                            hintText: l10n.importApiAccountCodeHint,
-                          ),
-                          textInputAction: TextInputAction.done,
+                        textInputAction: TextInputAction.next,
+                      ),
+                      SizedBox(height: spacing.space16),
+                      TextField(
+                        controller: _activationCodeController,
+                        decoration: InputDecoration(
+                          labelText: l10n.importApiAccountCodeLabel,
+                          hintText: l10n.importApiAccountCodeHint,
                         ),
-                      ],
-                    ),
+                        textInputAction: TextInputAction.done,
+                      ),
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: spacing.space24),
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(

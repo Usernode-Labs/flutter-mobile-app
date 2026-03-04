@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/widgets/node_status_icon.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
 
 /// Unified AppBar component with consistent styling across the app
 /// Follows Material Design 3 principles with transparent background and no elevation
@@ -27,6 +28,7 @@ class AppAppBar extends ConsumerWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final radii = Theme.of(context).extension<AppRadii>()!;
 
     // Build default actions with node status icon
     final defaultActions = <Widget>[
@@ -42,7 +44,7 @@ class AppAppBar extends ConsumerWidget implements PreferredSizeWidget {
     return AppBar(
       shape: ShapeBorder.lerp(
         RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20.0),
+          borderRadius: radii.borderRadiusLargeIncreased,
         ),
         null,
         0,

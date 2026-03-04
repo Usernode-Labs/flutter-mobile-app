@@ -88,7 +88,7 @@ class _DropdownSheetPlaygroundState extends State<_DropdownSheetPlayground> {
         children: [
           DropdownChip(
             label: _labels[_selectedIndex],
-            selected: true,
+            variant: ChipVariant.surface,
             onTap: () async {
               final result = await showDropdownSheet(
                 context: context,

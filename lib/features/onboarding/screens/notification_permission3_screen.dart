@@ -7,6 +7,7 @@ import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 
 class NotificationPermission3Screen extends ConsumerStatefulWidget {
   const NotificationPermission3Screen({super.key});
@@ -87,41 +88,39 @@ class _NotificationPermission3ScreenState
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
 
     return Scaffold(
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(spacing.space16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
                 child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          l10n.permNotificationsBlockBackgroundTitle,
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.normal,
-                          ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.permNotificationsBlockBackgroundTitle,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.normal,
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          l10n.permNotificationsBlockBackgroundBody,
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                      ],
-                    ),
+                      ),
+                      SizedBox(height: spacing.space16),
+                      Text(
+                        l10n.permNotificationsBlockBackgroundBody,
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: spacing.space24),
               if (_granted != true) ...[
                 SizedBox(
                   width: double.infinity,
@@ -139,7 +138,7 @@ class _NotificationPermission3ScreenState
                         : Text(l10n.permAllowNotifications),
                   ),
                 ),
-                const SizedBox(height: 6),
+                SizedBox(height: spacing.space8),
               ],
               SizedBox(
                 width: double.infinity,

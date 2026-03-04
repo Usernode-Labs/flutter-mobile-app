@@ -1,9 +1,11 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 
 class ExactAlarmPermission1Screen extends StatefulWidget {
   const ExactAlarmPermission1Screen({super.key});
@@ -66,16 +68,18 @@ class _ExactAlarmPermission1ScreenState
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final semantic = Theme.of(context).extension<AppSemanticColors>()!;
     final l10n = AppLocalizations.of(context);
     final isAndroid = Platform.isAndroid;
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.permExactAlarmsTitle)),
       body: _checking
-          ? const Center(child: CircularProgressIndicator())
+          ? const FullPageLoadingState()
           : SafeArea(
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(spacing.space16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -83,13 +87,13 @@ class _ExactAlarmPermission1ScreenState
                       l10n.permExactAlarmsWhy,
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: spacing.space8),
                     Text(
                       isAndroid
                           ? l10n.permExactAlarmsAndroidExplanation
                           : l10n.permExactAlarmsIosExplanation,
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: spacing.space16),
                     if (isAndroid && !_hasExactAlarm)
                       FilledButton.tonal(
                         onPressed: _requesting ? null : _requestExactAlarm,
@@ -102,18 +106,21 @@ class _ExactAlarmPermission1ScreenState
                               )
                             : Text(l10n.permGrantExactAlarm),
                       ),
-                    const SizedBox(height: 24),
+                    SizedBox(height: spacing.space24),
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            _hasExactAlarm ? Icons.check_circle : Icons.warning,
-                            color:
-                                _hasExactAlarm ? Colors.green : Colors.orange,
+                            _hasExactAlarm
+                                ? Symbols.check_circle_sharp
+                                : Symbols.warning_sharp,
+                            color: _hasExactAlarm
+                                ? semantic.success.color
+                                : semantic.warning.color,
                           ),
-                          const SizedBox(width: 8),
+                          SizedBox(width: spacing.space8),
                           Text(_hasExactAlarm
                               ? l10n.permGranted
                               : l10n.permRequired),

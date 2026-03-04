@@ -3,7 +3,9 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../tokens/app_opacity.dart';
 import '../tokens/app_radii.dart';
+import '../tokens/app_sizing.dart';
 import '../tokens/app_spacing.dart';
+import '../tokens/app_typography.dart';
 
 /// A single sub-challenge item within a [ChallengeCategoryTile].
 class ChallengeCategoryItem {
@@ -23,6 +25,9 @@ class ChallengeCategoryItem {
 /// Shows a category icon, name, remaining/completed counts, and total points.
 /// Expands to reveal individual challenge chips styled as completed (disabled)
 /// or remaining (active tonal).
+///
+/// Built on M3 [ExpansionTile] — inherits header layout from [ListTileThemeData]
+/// and expansion styling from [ExpansionTileThemeData].
 ///
 /// Presentation-only — takes all state via constructor params.
 class ChallengeCategoryTile extends StatefulWidget {
@@ -66,43 +71,13 @@ class ChallengeCategoryTile extends StatefulWidget {
   State<ChallengeCategoryTile> createState() => _ChallengeCategoryTileState();
 }
 
-class _ChallengeCategoryTileState extends State<ChallengeCategoryTile>
-    with SingleTickerProviderStateMixin {
+class _ChallengeCategoryTileState extends State<ChallengeCategoryTile> {
   late bool _isExpanded;
-  late final AnimationController _animController;
-  late final Animation<double> _expandAnimation;
 
   @override
   void initState() {
     super.initState();
     _isExpanded = widget.initiallyExpanded;
-    _animController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 150),
-      value: _isExpanded ? 1.0 : 0.0,
-    );
-    _expandAnimation = CurvedAnimation(
-      parent: _animController,
-      curve: Curves.easeInOut,
-    );
-  }
-
-  @override
-  void dispose() {
-    _animController.dispose();
-    super.dispose();
-  }
-
-  void _toggle() {
-    setState(() {
-      _isExpanded = !_isExpanded;
-      if (_isExpanded) {
-        _animController.forward();
-      } else {
-        _animController.reverse();
-      }
-      widget.onExpansionChanged?.call(_isExpanded);
-    });
   }
 
   @override
@@ -110,112 +85,90 @@ class _ChallengeCategoryTileState extends State<ChallengeCategoryTile>
     final colors = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final opacity = Theme.of(context).extension<AppOpacity>()!;
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Header
-        InkWell(
-          onTap: _toggle,
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-              vertical: spacing.space12,
+    return ExpansionTile(
+      expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+      leading: SizedBox(
+        width: sizing.iconContainerSmall,
+        height: sizing.iconContainerSmall,
+        child: widget.categoryIcon,
+      ),
+      title: Text(
+        widget.categoryName,
+        style: textTheme.titleSmall?.copyWith(
+          color: colors.onSurface,
+        ),
+      ),
+      subtitle: Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(
+              text: '${widget.remainingCount} Remaining',
+              style: textTheme.bodySmall?.copyWith(
+                color: colors.primary,
+              ),
             ),
-            child: Row(
-              children: [
-                // Category icon
-                SizedBox(
-                  width: 40,
-                  height: 40,
-                  child: widget.categoryIcon,
-                ),
-                SizedBox(width: spacing.space12),
-
-                // Title + subtitle
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        widget.categoryName,
-                        style: textTheme.titleSmall?.copyWith(
-                          color: colors.onSurface,
-                        ),
-                      ),
-                      SizedBox(height: spacing.space4),
-                      Text.rich(
-                        TextSpan(
-                          children: [
-                            TextSpan(
-                              text: '${widget.remainingCount} Remaining',
-                              style: textTheme.bodySmall?.copyWith(
-                                color: colors.primary,
-                              ),
-                            ),
-                            TextSpan(
-                              text: ' · ',
-                              style: textTheme.bodySmall?.copyWith(
-                                color: colors.onSurface
-                                    .withValues(alpha: opacity.secondary),
-                              ),
-                            ),
-                            TextSpan(
-                              text: '${widget.completedCount} Completed',
-                              style: textTheme.bodySmall?.copyWith(
-                                color: colors.onSurface
-                                    .withValues(alpha: opacity.disabled),
-                              ),
-                            ),
-                          ],
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Points + chevron
-                Text(
-                  widget.pointsLabel,
-                  style: textTheme.labelMedium?.copyWith(
-                    fontFamily: 'IBMPlexMono',
-                    color: colors.onSurfaceVariant,
-                  ),
-                ),
-                SizedBox(width: spacing.space4),
-                AnimatedRotation(
-                  turns: _isExpanded ? 0.0 : -0.25,
-                  duration: const Duration(milliseconds: 150),
-                  child: Icon(
-                    Symbols.expand_more,
-                    size: 20,
-                    color: colors.onSurfaceVariant,
-                  ),
-                ),
-              ],
+            TextSpan(
+              text: ' · ',
+              style: textTheme.bodySmall?.copyWith(
+                color: colors.onSurface.withValues(alpha: opacity.secondary),
+              ),
+            ),
+            TextSpan(
+              text: '${widget.completedCount} Completed',
+              style: textTheme.bodySmall?.copyWith(
+                color: colors.onSurface.withValues(alpha: opacity.disabled),
+              ),
+            ),
+          ],
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            widget.pointsLabel,
+            style: textTheme.labelMedium?.copyWith(
+              fontFamily: kMonoFontFamily,
+              color: colors.onSurfaceVariant,
             ),
           ),
-        ),
-
-        // Expanded body
-        SizeTransition(
-          sizeFactor: _expandAnimation,
-          child: _buildBody(context),
-        ),
-      ],
+          SizedBox(width: spacing.space4),
+          AnimatedRotation(
+            turns: _isExpanded ? 0.0 : -0.25,
+            duration: const Duration(milliseconds: 150),
+            child: Icon(
+              Symbols.expand_more,
+              size: sizing.iconSmall,
+              color: colors.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+      initiallyExpanded: widget.initiallyExpanded,
+      onExpansionChanged: (expanded) {
+        setState(() {
+          _isExpanded = expanded;
+        });
+        widget.onExpansionChanged?.call(expanded);
+      },
+      children: [_buildBody(context)],
     );
   }
 
   Widget _buildBody(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
 
     return Padding(
-      // 40 (icon) + 12 (gap) = 52px indent to align with title text
+      // K₂ keyline: contentPadding.start (16) + leading (40) + horizontalTitleGap (16) = 72dp
       padding: EdgeInsets.only(
-        left: 52,
+        left: spacing.space16 + sizing.iconContainerSmall + spacing.space16,
+        right: spacing.space16,
         bottom: spacing.space12,
       ),
       child: Wrap(
@@ -256,6 +209,7 @@ class _ChallengeChip extends StatelessWidget {
     final opacity = Theme.of(context).extension<AppOpacity>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
 
     if (isCompleted) {
       // Completed: disabled style
@@ -268,17 +222,17 @@ class _ChallengeChip extends StatelessWidget {
           ),
           decoration: BoxDecoration(
             color: colors.onSurface.withValues(alpha: opacity.subtle),
-            borderRadius: radii.borderRadiusSmall,
+            borderRadius: radii.borderRadiusFull,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
+            spacing: spacing.space4,
             children: [
               Icon(
                 Symbols.check_box,
-                size: 16,
+                size: sizing.iconXSmall,
                 color: colors.onSurface.withValues(alpha: opacity.disabled),
               ),
-              SizedBox(width: spacing.space4),
               Text(
                 label,
                 style: textTheme.labelMedium?.copyWith(
@@ -301,17 +255,17 @@ class _ChallengeChip extends StatelessWidget {
         ),
         decoration: BoxDecoration(
           color: colors.primary,
-          borderRadius: radii.borderRadiusSmall,
+          borderRadius: radii.borderRadiusFull,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
+          spacing: spacing.space4,
           children: [
             Icon(
               Symbols.check_box_outline_blank,
-              size: 16,
+              size: sizing.iconXSmall,
               color: colors.onPrimary,
             ),
-            SizedBox(width: spacing.space4),
             Text(
               label,
               style: textTheme.labelMedium?.copyWith(

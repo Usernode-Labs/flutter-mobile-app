@@ -2,7 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_symbols_icons/symbols.dart';
+import 'package:crypto_mobile_app/core/widgets/app_card.dart';
 import 'package:crypto_mobile_app/core/providers/node_data_providers.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_sizing.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 import 'package:crypto_mobile_app/core/providers/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
@@ -80,6 +85,8 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
@@ -95,7 +102,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
         leading: const BackButton(),
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(spacing.space16),
         child: () {
           if (rewards == null || blockchain == null) {
             return Center(
@@ -177,7 +184,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: spacing.space4),
                 Text(
                   useHourly
                       ? l10n.wonSlotsGroupedByHour
@@ -186,15 +193,12 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
                     color: colorScheme.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: spacing.space16),
 
                 // Summary card
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+                AppCard.compact(
+                  color: colorScheme.surfaceContainerLow,
+                  borderRadius: radii.borderRadiusSmall,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
@@ -232,7 +236,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
                   ),
                 ),
 
-                const SizedBox(height: 16),
+                SizedBox(height: spacing.space16),
 
                 // Time buckets
                 ...buckets.map((bucket) => _buildTimeBucket(
@@ -243,6 +247,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
                       useHourly,
                       l10n,
                     )),
+                SizedBox(height: spacing.space32),
               ],
             ),
           );
@@ -304,6 +309,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
 
   Widget _buildSummaryItem(
       BuildContext context, String label, String value, Color color) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     return Column(
       children: [
         Text(
@@ -314,7 +320,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
             color: color,
           ),
         ),
-        const SizedBox(height: 2),
+        SizedBox(height: spacing.space4),
         Text(
           label,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -334,6 +340,9 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
     bool useHourly,
     AppLocalizations l10n,
   ) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     final now = DateTime.now();
     final isToday = bucket.time.year == now.year &&
         bucket.time.month == now.month &&
@@ -355,86 +364,86 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
       }
     }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
+    return Padding(
+      padding: EdgeInsets.only(bottom: spacing.space8),
+      child: AppCard.compact(
         color: colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: colorScheme.outlineVariant,
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Time header
-          Row(
-            children: [
-              Icon(
-                useHourly ? Icons.access_time : Icons.calendar_today,
-                size: 16,
-                color: colorScheme.primary,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                timeLabel,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.onSurface,
+        borderRadius: radii.borderRadiusSmall,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Time header
+            Row(
+              children: [
+                Icon(
+                  useHourly
+                      ? Symbols.access_time_sharp
+                      : Symbols.calendar_today_sharp,
+                  size: sizing.iconXSmall,
+                  color: colorScheme.primary,
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
+                SizedBox(width: spacing.space8),
+                Text(
+                  timeLabel,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: spacing.space8),
 
-          // Stats row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildStatChip(
-                context,
-                l10n.wonSlotsWon,
-                bucket.wonSlots,
-                colorScheme.secondaryContainer,
-                colorScheme.onSecondaryContainer,
-              ),
-              _buildStatChip(
-                context,
-                l10n.wonSlotsProduced,
-                bucket.produced,
-                colorScheme.tertiaryContainer,
-                colorScheme.onTertiaryContainer,
-              ),
-              _buildStatChip(
-                context,
-                l10n.wonSlotsMissed,
-                bucket.missed,
-                colorScheme.errorContainer,
-                colorScheme.onErrorContainer,
-              ),
-              _buildStatChip(
-                context,
-                l10n.wonSlotsPending,
-                bucket.pending,
-                colorScheme.primaryContainer,
-                colorScheme.onPrimaryContainer,
-              ),
-            ],
-          ),
-        ],
+            // Stats row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildStatChip(
+                  context,
+                  l10n.wonSlotsWon,
+                  bucket.wonSlots,
+                  colorScheme.secondaryContainer,
+                  colorScheme.onSecondaryContainer,
+                ),
+                _buildStatChip(
+                  context,
+                  l10n.wonSlotsProduced,
+                  bucket.produced,
+                  colorScheme.tertiaryContainer,
+                  colorScheme.onTertiaryContainer,
+                ),
+                _buildStatChip(
+                  context,
+                  l10n.wonSlotsMissed,
+                  bucket.missed,
+                  colorScheme.errorContainer,
+                  colorScheme.onErrorContainer,
+                ),
+                _buildStatChip(
+                  context,
+                  l10n.wonSlotsPending,
+                  bucket.pending,
+                  colorScheme.primaryContainer,
+                  colorScheme.onPrimaryContainer,
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildStatChip(BuildContext context, String label, int count,
       Color bgColor, Color textColor) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      padding: EdgeInsets.symmetric(
+          horizontal: spacing.space8, vertical: spacing.space8),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: radii.borderRadiusSmall,
       ),
       child: Column(
         children: [
@@ -446,7 +455,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
               color: textColor,
             ),
           ),
-          const SizedBox(height: 1),
+          SizedBox(height: spacing.space4),
           Text(
             label,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(

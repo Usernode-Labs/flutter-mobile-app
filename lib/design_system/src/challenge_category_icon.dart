@@ -34,29 +34,30 @@ class ChallengeCategoryIcon extends StatelessWidget {
     final semantic = Theme.of(context).extension<AppSemanticColors>()!;
 
     final Color catColor;
+    final Color surfaceColor;
     final Color strokeColor;
 
     if (muted) {
       catColor = colors.surfaceDim;
+      surfaceColor = colors.surfaceDim;
       strokeColor = colors.outline;
     } else {
-      catColor = switch (category) {
-        ChallengeCategory.technical => semantic.technical.colorContainer,
-        ChallengeCategory.community => semantic.community.colorContainer,
-        ChallengeCategory.flash => semantic.flash.colorContainer,
+      final group = switch (category) {
+        ChallengeCategory.technical => semantic.technical,
+        ChallengeCategory.community => semantic.community,
+        ChallengeCategory.flash => semantic.flash,
       };
-      strokeColor = switch (category) {
-        ChallengeCategory.technical => semantic.technical.onColorContainer,
-        ChallengeCategory.community => semantic.community.onColorContainer,
-        ChallengeCategory.flash => semantic.flash.onColorContainer,
-      };
+      catColor = group.colorContainer;
+      surfaceColor = group.colorSurface;
+      strokeColor = group.onColorContainer;
     }
 
     final fillHex = _toHex(catColor);
+    final surfaceHex = _toHex(surfaceColor);
     final strokeHex = _toHex(strokeColor);
 
     final cacheKey =
-        '${category.index}|${muted ? 'm' : ''}|$fillHex|$strokeHex';
+        '${category.index}|${muted ? 'm' : ''}|$fillHex|$surfaceHex|$strokeHex';
     final cached = _cache[cacheKey];
     if (cached != null) {
       return SizedBox(width: size, height: size, child: cached);
@@ -65,12 +66,16 @@ class ChallengeCategoryIcon extends StatelessWidget {
     final svgString = switch (category) {
       ChallengeCategory.technical => _technicalSvg
           .replaceAll('{{C}}', fillHex)
+          .replaceAll('{{CS}}', surfaceHex)
           .replaceAll('{{S}}', strokeHex),
       ChallengeCategory.community => _communitySvg
           .replaceAll('{{C}}', fillHex)
+          .replaceAll('{{CS}}', surfaceHex)
           .replaceAll('{{S}}', strokeHex),
-      ChallengeCategory.flash =>
-        _flashSvg.replaceAll('{{C}}', fillHex).replaceAll('{{S}}', strokeHex),
+      ChallengeCategory.flash => _flashSvg
+          .replaceAll('{{C}}', fillHex)
+          .replaceAll('{{CS}}', surfaceHex)
+          .replaceAll('{{S}}', strokeHex),
     };
 
     final pic = SvgPicture.string(svgString);
@@ -88,7 +93,7 @@ class ChallengeCategoryIcon extends StatelessWidget {
   }
 
   // ── SVG templates ──
-  // {{C}} = category fill color, {{S}} = stroke color (onColorContainer)
+  // {{C}} = category fill color, {{CS}} = colorSurface, {{S}} = stroke color
 
   static const _technicalSvg = '<svg width="47" height="47" viewBox="0 0 47 47"'
       ' fill="none" xmlns="http://www.w3.org/2000/svg">'
@@ -97,7 +102,7 @@ class ChallengeCategoryIcon extends StatelessWidget {
       ' fill="{{C}}"/>'
       '<path d="M18.7263 46.67L3.57544 36.5763L0 18.7263L10.0937'
       ' 3.57544L27.9437 0L43.0946 10.0937L46.67 27.9437L36.5763'
-      ' 43.0946L18.7263 46.67Z" fill="{{C}}" fill-opacity="0.3"/>'
+      ' 43.0946L18.7263 46.67Z" fill="{{CS}}"/>'
       '<path d="M27.2905 12.0049L34.6652 19.8328L33.1804 30.5137L23.9536'
       ' 36.0049L13.9335 32.1715L10.6652 21.9001L16.6092 12.9249L27.2905'
       ' 12.0049Z" stroke="{{S}}"/>'
@@ -111,7 +116,7 @@ class ChallengeCategoryIcon extends StatelessWidget {
       ' 43.4592 24.0006 43.4592Z" fill="{{C}}"/>'
       '<path d="M24 48C37.2548 48 48 37.2548 48 24C48 10.7452 37.2548 0'
       ' 24 0C10.7452 0 0 10.7452 0 24C0 37.2548 10.7452 48 24 48Z"'
-      ' fill="{{C}}" fill-opacity="0.3"/>'
+      ' fill="{{CS}}"/>'
       '<path d="M24.3398 36C30.9673 36 36.3398 30.6274 36.3398 24C36.3398'
       ' 17.3726 30.9673 12 24.3398 12C17.7124 12 12.3398 17.3726 12.3398'
       ' 24C12.3398 30.6274 17.7124 36 24.3398 36Z" stroke="{{S}}"'
@@ -149,7 +154,7 @@ class ChallengeCategoryIcon extends StatelessWidget {
       ' 16.3392 46.3734 16.5039 46.6332 17.2592C46.893 18.0147 47.146'
       ' 18.84 46.9965 19.9791C46.8469 21.1182 45.946 23.4086 45.736'
       ' 24.0946C45.8041 23.7214 45.5259 24.7806 45.736 24.0946Z"'
-      ' fill="{{C}}" fill-opacity="0.3"/>'
+      ' fill="{{CS}}"/>'
       '<path d="M40.9813 24.0696C40.9281 24.3606 40.6883 24.7681 40.6621'
       ' 25.8158C40.6359 26.8636 40.8798 29.3201 40.8241 30.3559C40.7683'
       ' 31.3917 40.5624 31.4831 40.3274 32.0303C40.0924 32.5774 39.8997'

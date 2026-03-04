@@ -18,6 +18,7 @@ import 'package:crypto_mobile_app/features/node/screens/node_won_slots_screen.da
 import 'package:crypto_mobile_app/features/node/screens/node_status_produced_blocks_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/block_details_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/mempool_details_screen.dart';
+import 'package:crypto_mobile_app/features/node/screens/node_peers_screen.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 import 'package:crypto_mobile_app/features/challenges/screens/challenge_detail_screen.dart';
 import 'package:crypto_mobile_app/features/challenges/screens/epoch_performance_screen.dart';
@@ -70,6 +71,7 @@ class AppRoutes {
   static const nodeStatusProducedBlocks = '/main/node/status/produced-blocks';
   static const mainNodeBlockDetails = '/main/node/block-details';
   static const mainNodeMempool = '/main/node/mempool';
+  static const mainNodePeers = '/main/node/peers';
 }
 
 /// A ChangeNotifier that listens to Riverpod provider changes and notifies GoRouter
@@ -202,6 +204,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.mainNodeMempool,
         builder: (context, state) => const MempoolDetailsScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.mainNodePeers,
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>;
+          final peers = extra['peers'] as List<RpcPeerInfo>;
+          final peerId = extra['peerId'] as String?;
+          return NodePeersScreen(peers: peers, peerId: peerId);
+        },
       ),
       GoRoute(
         path: AppRoutes.walletSend,

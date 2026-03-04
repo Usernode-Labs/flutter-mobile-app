@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../tokens/app_radii.dart';
 import '../tokens/app_sizing.dart';
@@ -72,7 +73,7 @@ class TopAppBar extends StatelessWidget {
     final sizing = Theme.of(context).extension<AppSizing>()!;
     return IconButton(
       onPressed: onLeadingTap,
-      icon: Icon(Icons.arrow_back, size: sizing.iconRegular),
+      icon: Icon(Symbols.arrow_back_sharp, size: sizing.iconRegular),
     );
   }
 
@@ -217,39 +218,36 @@ class _LargeFlexibleContent extends StatelessWidget {
                       right: spacing.space16,
                       bottom: spacing.space12,
                     ),
-                    child: SingleChildScrollView(
-                      physics: const NeverScrollableScrollPhysics(),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (image != null) ...[
-                            ClipRRect(
-                              borderRadius: radii.borderRadiusSmall,
-                              child: SizedBox(
-                                width: sizing.iconContainerXLarge,
-                                height: sizing.iconContainerXLarge,
-                                child: image!,
-                              ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (image != null) ...[
+                          ClipRRect(
+                            borderRadius: radii.borderRadiusSmall,
+                            child: SizedBox(
+                              width: sizing.iconContainerXLarge,
+                              height: sizing.iconContainerXLarge,
+                              child: image!,
                             ),
-                            SizedBox(height: spacing.space16),
-                          ],
-                          Text(
-                            title,
-                            style: textTheme.displaySmall
-                                ?.copyWith(color: colors.onSurface),
                           ),
-                          if (subtitle != null) ...[
-                            SizedBox(height: spacing.space8),
-                            Text(
-                              subtitle!,
-                              style: textTheme.titleMedium?.copyWith(
-                                color: colors.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
+                          SizedBox(height: spacing.space16),
                         ],
-                      ),
+                        Text(
+                          title,
+                          style: textTheme.displaySmall
+                              ?.copyWith(color: colors.onSurface),
+                        ),
+                        if (subtitle != null) ...[
+                          SizedBox(height: spacing.space8),
+                          Text(
+                            subtitle!,
+                            style: textTheme.titleMedium?.copyWith(
+                              color: colors.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../tokens/app_borders.dart';
 import 'nav_indicator_shapes.dart';
 
 /// Data class for a single bottom navigation item.
@@ -39,8 +40,8 @@ class BottomNavItem {
   final Color? indicatorColor;
 
   /// Fill color for the indicator shape background.
-  /// Pass semantic `colorContainer` for the light tint.
-  /// Falls back to [indicatorColor] at 20% opacity if null.
+  /// Pass semantic `colorSurface` for the faint tint.
+  /// Falls back to transparent if null.
   final Color? indicatorFillColor;
 }
 
@@ -87,15 +88,15 @@ class BottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final borders = Theme.of(context).extension<AppBorders>()!;
     final selected = items[selectedIndex];
 
     // Per-selection shape: rebuild with the selected item's indicator.
     final ShapeBorder? indicatorShape = selected.indicatorShape != null
         ? shapeBorderFor(selected.indicatorShape!)
         : null;
-    final Color indicatorColor = selected.indicatorFillColor ??
-        selected.indicatorColor?.withValues(alpha: 0.2) ??
-        Colors.transparent;
+    final Color indicatorColor =
+        selected.indicatorFillColor ?? Colors.transparent;
 
     final navBar = NavigationBar(
       selectedIndex: selectedIndex,
@@ -120,7 +121,10 @@ class BottomNav extends StatelessWidget {
       position: DecorationPosition.foreground,
       decoration: BoxDecoration(
         border: Border(
-          top: BorderSide(color: colors.outlineVariant),
+          top: BorderSide(
+            color: colors.onSurface.withValues(alpha: borders.opacity),
+            width: borders.width,
+          ),
         ),
       ),
       child: navBar,
@@ -141,7 +145,7 @@ class BottomNav extends StatelessWidget {
           filled ? (item.indicatorColor ?? colors.primary) : colors.outline;
       Widget iconWidget = Opacity(
         opacity: disabledOpacity,
-        child: Icon(item.icon, fill: filled ? 1 : 0, size: 24, color: color),
+        child: Icon(item.icon, fill: filled ? 1 : 0, color: color),
       );
       if (hasBadge) {
         iconWidget = Badge(

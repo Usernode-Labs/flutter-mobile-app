@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_semantic_colors.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_sizing.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 
 enum SlotStatus {
@@ -26,6 +31,10 @@ class WonSlotItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final semantic = theme.extension<AppSemanticColors>()!;
+    final radii = theme.extension<AppRadii>()!;
+    final sizing = theme.extension<AppSizing>()!;
+    final spacing = theme.extension<AppSpacing>()!;
 
     // Format expected time
     final expectedTime = _formatExpectedTime(slot.expectedTimeMs);
@@ -40,33 +49,33 @@ class WonSlotItem extends StatelessWidget {
 
     switch (status) {
       case SlotStatus.produced:
-        statusColor = Colors.green;
-        statusBgColor = Colors.green.withValues(alpha: 0.1);
-        statusIcon = Icons.check_circle;
+        statusColor = colorScheme.tertiary;
+        statusBgColor = colorScheme.tertiary.withValues(alpha: 0.1);
+        statusIcon = Symbols.check_circle_sharp;
         statusLabel = 'Produced';
         break;
       case SlotStatus.missed:
-        statusColor = Colors.red;
-        statusBgColor = Colors.red.withValues(alpha: 0.1);
-        statusIcon = Icons.cancel;
+        statusColor = colorScheme.error;
+        statusBgColor = colorScheme.error.withValues(alpha: 0.1);
+        statusIcon = Symbols.cancel_sharp;
         statusLabel = 'Missed';
         break;
       case SlotStatus.orphaned:
-        statusColor = Colors.orange;
-        statusBgColor = Colors.orange.withValues(alpha: 0.1);
-        statusIcon = Icons.warning_amber;
+        statusColor = semantic.warning.color;
+        statusBgColor = semantic.warning.colorContainer;
+        statusIcon = Symbols.warning_amber_sharp;
         statusLabel = 'Orphaned';
         break;
       case SlotStatus.pending:
         if (isPast) {
-          statusColor = Colors.orange;
-          statusBgColor = Colors.orange.withValues(alpha: 0.1);
-          statusIcon = Icons.schedule;
+          statusColor = semantic.warning.color;
+          statusBgColor = semantic.warning.colorContainer;
+          statusIcon = Symbols.schedule_sharp;
           statusLabel = 'Pending';
         } else {
           statusColor = colorScheme.primary;
           statusBgColor = colorScheme.primaryContainer.withValues(alpha: 0.3);
-          statusIcon = Icons.schedule;
+          statusIcon = Symbols.schedule_sharp;
           statusLabel = 'Upcoming';
         }
         break;
@@ -76,6 +85,9 @@ class WonSlotItem extends StatelessWidget {
       return _buildCompactView(
         theme,
         colorScheme,
+        radii,
+        sizing,
+        spacing,
         expectedTime,
         timeRemaining,
         statusColor,
@@ -88,6 +100,9 @@ class WonSlotItem extends StatelessWidget {
     return _buildFullView(
       theme,
       colorScheme,
+      radii,
+      sizing,
+      spacing,
       expectedTime,
       timeRemaining,
       isPast,
@@ -101,6 +116,9 @@ class WonSlotItem extends StatelessWidget {
   Widget _buildCompactView(
     ThemeData theme,
     ColorScheme colorScheme,
+    AppRadii radii,
+    AppSizing sizing,
+    AppSpacing spacing,
     String expectedTime,
     Duration timeRemaining,
     Color statusColor,
@@ -109,17 +127,18 @@ class WonSlotItem extends StatelessWidget {
     String statusLabel,
   ) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      margin: EdgeInsets.only(bottom: spacing.space8),
+      padding: EdgeInsets.symmetric(
+          horizontal: spacing.space12, vertical: spacing.space8),
       decoration: BoxDecoration(
         color: statusBgColor,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: radii.borderRadiusSmall,
         border: Border.all(color: statusColor.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
-          Icon(statusIcon, size: 16, color: statusColor),
-          const SizedBox(width: 8),
+          Icon(statusIcon, size: sizing.iconXSmall, color: statusColor),
+          SizedBox(width: spacing.space8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -135,24 +154,23 @@ class WonSlotItem extends StatelessWidget {
                   expectedTime,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurfaceVariant,
-                    fontSize: 11,
                   ),
                 ),
               ],
             ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            padding: EdgeInsets.symmetric(
+                horizontal: spacing.space8, vertical: spacing.space4),
             decoration: BoxDecoration(
               color: statusColor.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: radii.borderRadiusXSmall,
             ),
             child: Text(
               statusLabel,
               style: theme.textTheme.labelSmall?.copyWith(
                 color: statusColor,
                 fontWeight: FontWeight.w600,
-                fontSize: 10,
               ),
             ),
           ),
@@ -164,6 +182,9 @@ class WonSlotItem extends StatelessWidget {
   Widget _buildFullView(
     ThemeData theme,
     ColorScheme colorScheme,
+    AppRadii radii,
+    AppSizing sizing,
+    AppSpacing spacing,
     String expectedTime,
     Duration timeRemaining,
     bool isPast,
@@ -173,11 +194,11 @@ class WonSlotItem extends StatelessWidget {
     String statusLabel,
   ) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      margin: EdgeInsets.only(bottom: spacing.space12),
+      padding: EdgeInsets.all(spacing.space16),
       decoration: BoxDecoration(
         color: statusBgColor,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: radii.borderRadiusMedium,
         border:
             Border.all(color: statusColor.withValues(alpha: 0.3), width: 1.5),
       ),
@@ -187,8 +208,8 @@ class WonSlotItem extends StatelessWidget {
           // Header row
           Row(
             children: [
-              Icon(statusIcon, color: statusColor, size: 24),
-              const SizedBox(width: 12),
+              Icon(statusIcon, color: statusColor, size: sizing.iconRegular),
+              SizedBox(width: spacing.space12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -211,18 +232,17 @@ class WonSlotItem extends StatelessWidget {
                 ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: EdgeInsets.symmetric(
+                    horizontal: spacing.space12, vertical: spacing.space8),
                 decoration: BoxDecoration(
                   color: statusColor,
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: radii.borderRadiusSmall,
                 ),
                 child: Text(
                   statusLabel.toUpperCase(),
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: Colors.white,
+                    color: colorScheme.onPrimary,
                     fontWeight: FontWeight.bold,
-                    fontSize: 10,
                   ),
                 ),
               ),
@@ -231,14 +251,14 @@ class WonSlotItem extends StatelessWidget {
 
           // Time remaining (only for pending/upcoming slots)
           if (status == SlotStatus.pending && !isPast) ...[
-            const SizedBox(height: 12),
+            SizedBox(height: spacing.space12),
             const Divider(height: 1),
-            const SizedBox(height: 12),
+            SizedBox(height: spacing.space12),
             Row(
               children: [
-                Icon(Icons.timer_outlined,
-                    size: 18, color: colorScheme.primary),
-                const SizedBox(width: 8),
+                Icon(Symbols.timer_sharp,
+                    size: sizing.iconXSmall, color: colorScheme.primary),
+                SizedBox(width: spacing.space8),
                 Text(
                   _formatTimeRemaining(timeRemaining),
                   style: theme.textTheme.bodyMedium?.copyWith(

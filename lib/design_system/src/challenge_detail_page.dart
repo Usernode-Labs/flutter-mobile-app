@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:crypto_mobile_app/core/widgets/app_card.dart';
+
 import '../tokens/app_radii.dart';
 import '../tokens/app_spacing.dart';
 import 'challenge_card.dart';
@@ -67,26 +69,26 @@ class ChallengeDetailPage extends StatelessWidget {
           image: ChallengeCategoryIcon(category: category),
           onLeadingTap: onBackTap,
         ),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.only(
-              left: spacing.space16,
-              right: spacing.space16,
-              bottom: spacing.space32,
-            ),
-            child: Column(
-              children: [
-                if (rewardCard != null) ...[
-                  rewardCard!,
+        SliverPadding(
+          padding: EdgeInsets.symmetric(horizontal: spacing.space16),
+          sliver: SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: spacing.space32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (rewardCard != null) ...[
+                    rewardCard!,
+                    SizedBox(height: spacing.space16),
+                  ],
+                  _SectionsCard(sections: sections),
                   SizedBox(height: spacing.space16),
+                  _TotalRewardCard(
+                    heading: totalRewardHeading,
+                    body: totalRewardBody,
+                  ),
                 ],
-                _SectionsCard(sections: sections),
-                SizedBox(height: spacing.space16),
-                _TotalRewardCard(
-                  heading: totalRewardHeading,
-                  body: totalRewardBody,
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -108,12 +110,9 @@ class _SectionsCard extends StatelessWidget {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerLowest,
-        borderRadius: radii.borderRadiusLargeIncreased,
-      ),
-      padding: EdgeInsets.all(spacing.space16),
+    return AppCard(
+      color: colors.surfaceContainerLowest,
+      borderRadius: radii.borderRadiusLargeIncreased,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -156,14 +155,12 @@ class _TotalRewardCard extends StatelessWidget {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerLowest,
-        borderRadius: radii.borderRadiusLargeIncreased,
-      ),
-      padding: EdgeInsets.all(spacing.space16),
+    return AppCard(
+      color: colors.surfaceContainerLowest,
+      borderRadius: radii.borderRadiusLargeIncreased,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: spacing.space4,
         children: [
           Text(
             heading,
@@ -171,7 +168,6 @@ class _TotalRewardCard extends StatelessWidget {
               color: colors.onSurface,
             ),
           ),
-          SizedBox(height: spacing.space4),
           Text(
             body,
             style: textTheme.bodySmall?.copyWith(

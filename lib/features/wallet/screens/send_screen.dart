@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/providers/recipient_history_provider.dart';
 import 'package:crypto_mobile_app/features/wallet/transaction_limits_service.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:crypto_mobile_app/design_system/src/sheet_layout.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_sizing.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 
 class SendScreen extends ConsumerStatefulWidget {
   const SendScreen({super.key});
@@ -136,82 +142,86 @@ class _SendScreenState extends ConsumerState<SendScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final spacing = theme.extension<AppSpacing>()!;
+    final l10n = AppLocalizations.of(context);
     final recipientHistory = ref.watch(recipientHistoryProvider);
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
-        ),
-        title: const Text('Send'),
+        title: Text(l10n.walletSend),
       ),
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: IntrinsicHeight(
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _buildField(
-                          theme: theme,
-                          controller: _addressController,
-                          hint: 'Recipient address',
-                          suffixIcon: IconButton(
-                            icon: const Icon(Icons.history),
-                            tooltip: 'Recent recipients',
-                            onPressed: () => _showRecipientHistory(
-                              context,
-                              recipientHistory.value ?? const [],
-                            ),
-                          ),
-                          validator: _validateRequired(
-                            'recipient address',
-                            minLength: 20,
+        child: CustomScrollView(
+          slivers: [
+            SliverPadding(
+              padding: EdgeInsets.all(spacing.space16),
+              sliver: SliverToBoxAdapter(
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildField(
+                        theme: theme,
+                        controller: _addressController,
+                        hint: l10n.walletRecipientAddress,
+                        suffixIcon: IconButton(
+                          icon: const Icon(Symbols.history_sharp),
+                          tooltip: l10n.walletRecentRecipients,
+                          onPressed: () => _showRecipientHistory(
+                            context,
+                            recipientHistory.value ?? const [],
                           ),
                         ),
-                        const SizedBox(height: 18),
-                        _buildField(
-                          theme: theme,
-                          controller: _amountController,
-                          hint: 'Amount',
-                          isNumeric: true,
-                          validator: _validatePositiveNumber('amount'),
+                        validator: _validateRequired(
+                          l10n,
+                          'recipient address',
+                          minLength: 20,
                         ),
-                        const SizedBox(height: 18),
-                        _buildField(
-                          theme: theme,
-                          controller: _feeController,
-                          hint: 'Fee',
-                          isNumeric: true,
-                          validator:
-                              _validatePositiveNumber('fee', allowZero: true),
-                        ),
-                        const SizedBox(height: 18),
-                        _buildField(
-                          theme: theme,
-                          controller: _memoController,
-                          hint: 'Memo (optional)',
-                          maxLines: 4,
-                        ),
-                        const Spacer(),
-                        _buildSendButton(theme),
-                        const SizedBox(height: 24),
-                      ],
-                    ),
+                      ),
+                      SizedBox(height: spacing.space16),
+                      _buildField(
+                        theme: theme,
+                        controller: _amountController,
+                        hint: l10n.walletAmount,
+                        isNumeric: true,
+                        validator: _validatePositiveNumber(l10n, 'amount'),
+                      ),
+                      SizedBox(height: spacing.space16),
+                      _buildField(
+                        theme: theme,
+                        controller: _feeController,
+                        hint: l10n.walletFee,
+                        isNumeric: true,
+                        validator: _validatePositiveNumber(l10n, 'fee',
+                            allowZero: true),
+                      ),
+                      SizedBox(height: spacing.space16),
+                      _buildField(
+                        theme: theme,
+                        controller: _memoController,
+                        hint: l10n.walletMemoOptional,
+                        maxLines: 4,
+                      ),
+                    ],
                   ),
                 ),
               ),
-            );
-          },
+            ),
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: spacing.space16),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    _buildSendButton(theme),
+                    SizedBox(height: spacing.space32),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -226,137 +236,93 @@ class _SendScreenState extends ConsumerState<SendScreen> {
     Widget? suffixIcon,
     String? Function(String?)? validator,
   }) {
-    return ClipRRect(
-      borderRadius: const BorderRadius.only(
-        topLeft: Radius.circular(6),
-        topRight: Radius.circular(6),
+    return TextFormField(
+      controller: controller,
+      validator: validator,
+      maxLines: maxLines,
+      keyboardType: isNumeric
+          ? const TextInputType.numberWithOptions(decimal: true)
+          : null,
+      decoration: InputDecoration(
+        hintText: hint,
+        suffixIcon: suffixIcon,
       ),
-      child: Container(
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest,
-          border: Border(
-            bottom: BorderSide(
-              color: theme.colorScheme.outline,
-              width: 1,
-            ),
-          ),
-        ),
-        child: TextFormField(
-          controller: controller,
-          validator: validator,
-          maxLines: maxLines,
-          keyboardType: isNumeric
-              ? const TextInputType.numberWithOptions(decimal: true)
-              : null,
-          decoration: InputDecoration(
-            border: InputBorder.none,
-            enabledBorder: InputBorder.none,
-            focusedBorder: InputBorder.none,
-            errorBorder: InputBorder.none,
-            focusedErrorBorder: InputBorder.none,
-            filled: false,
-            contentPadding: const EdgeInsets.all(16),
-            hintText: hint,
-            hintStyle: TextStyle(
-              color: theme.colorScheme.onSurfaceVariant,
-              fontSize: 16,
-            ),
-            suffixIcon: suffixIcon,
-          ),
-          style: TextStyle(
-            color: theme.colorScheme.onSurface,
-            fontSize: 16,
-          ),
-        ),
-      ),
+      style: theme.textTheme.bodyLarge,
     );
   }
 
   Widget _buildSendButton(ThemeData theme) {
-    return Container(
+    final spacing = theme.extension<AppSpacing>()!;
+    final radii = theme.extension<AppRadii>()!;
+    final sizing = theme.extension<AppSizing>()!;
+    final onPrimary = theme.colorScheme.onPrimary;
+
+    return SizedBox(
       width: double.infinity,
-      height: 56,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            _isSending
-                ? theme.colorScheme.primary.withValues(alpha: 0.5)
-                : theme.colorScheme.primary,
-            _isSending
-                ? theme.colorScheme.primary.withValues(alpha: 0.3)
-                : theme.colorScheme.primary.withValues(alpha: 0.8),
-          ],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ),
-        borderRadius: BorderRadius.circular(28),
-      ),
-      child: ElevatedButton(
+      height: sizing.buttonHeightLarge,
+      child: FilledButton(
         onPressed: _isSending ? null : _onSend,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.transparent,
-          shadowColor: Colors.transparent,
+        style: FilledButton.styleFrom(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: radii.borderRadiusFull,
           ),
         ),
         child: _isSending
             ? Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  SizedBox(
-                    width: 20,
-                    height: 20,
+                children: [
+                  SizedBox.square(
+                    dimension: 20,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      valueColor: AlwaysStoppedAnimation<Color>(onPrimary),
                     ),
                   ),
-                  SizedBox(width: 12),
+                  SizedBox(width: spacing.space12),
                   Text(
-                    'Sending...',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
+                    AppLocalizations.of(context).walletSending,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: onPrimary,
                     ),
                   ),
                 ],
               )
-            : const Text(
-                'Send',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
+            : Text(
+                AppLocalizations.of(context).walletSend,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: onPrimary,
                 ),
               ),
       ),
     );
   }
 
-  String? Function(String?) _validateRequired(String fieldName,
+  String? Function(String?) _validateRequired(
+      AppLocalizations l10n, String fieldName,
       {int minLength = 1}) {
     return (value) {
       if (value == null || value.trim().isEmpty) {
-        return 'Please enter a $fieldName';
+        return l10n.walletFieldRequired(fieldName);
       }
       if (value.trim().length < minLength) {
-        return '${fieldName[0].toUpperCase()}${fieldName.substring(1)} appears to be too short';
+        return l10n.walletFieldTooShort(
+          '${fieldName[0].toUpperCase()}${fieldName.substring(1)}',
+        );
       }
       return null;
     };
   }
 
-  String? Function(String?) _validatePositiveNumber(String fieldName,
+  String? Function(String?) _validatePositiveNumber(
+      AppLocalizations l10n, String fieldName,
       {bool allowZero = false}) {
     return (value) {
       if (value == null || value.trim().isEmpty) {
-        return 'Please enter a $fieldName';
+        return l10n.walletFieldRequired(fieldName);
       }
       final number = double.tryParse(value.trim());
       if (number == null || (allowZero ? number < 0 : number <= 0)) {
-        return 'Please enter a valid $fieldName';
+        return l10n.walletFieldInvalid(fieldName);
       }
 
       // Check amount limit for amount field
@@ -372,38 +338,42 @@ class _SendScreenState extends ConsumerState<SendScreen> {
   }
 
   void _showRecipientHistory(BuildContext context, List<String> recipients) {
+    final l10n = AppLocalizations.of(context);
     showModalBottomSheet<void>(
       context: context,
-      useSafeArea: true,
-      showDragHandle: true,
       builder: (sheetContext) {
         if (recipients.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.all(24),
+          return SheetLayout(
+            title: l10n.walletRecentRecipients,
             child: Center(
-              child: Text('No recent addresses'),
+              child: Text(
+                l10n.walletNoRecentAddresses,
+                style: Theme.of(sheetContext).textTheme.bodyMedium,
+              ),
             ),
           );
         }
-        return ListView.separated(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          itemCount: recipients.length,
-          separatorBuilder: (_, __) => const Divider(height: 1),
-          itemBuilder: (context, index) {
-            final address = recipients[index];
-            return ListTile(
-              leading: const Icon(Icons.history),
-              title: Text(
-                address,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              onTap: () {
-                _addressController.text = address;
-                Navigator.of(sheetContext).pop();
-              },
-            );
-          },
+        return SheetLayout(
+          title: l10n.walletRecentRecipients,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: recipients.length,
+            itemBuilder: (context, index) {
+              final address = recipients[index];
+              return ListTile(
+                leading: const Icon(Symbols.history_sharp),
+                title: Text(
+                  address,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                onTap: () {
+                  _addressController.text = address;
+                  Navigator.of(sheetContext).pop();
+                },
+              );
+            },
+          ),
         );
       },
     );

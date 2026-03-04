@@ -2,13 +2,19 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:material_symbols_icons/symbols.dart';
+import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:crypto_mobile_app/core/utils/utils.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
-import 'package:crypto_mobile_app/core/widgets/produced_block_card.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/core/providers/node_data_providers.dart';
 import 'package:crypto_mobile_app/core/providers/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_blockchain.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 
 class NodeStatusProducedBlocksScreen extends ConsumerStatefulWidget {
   const NodeStatusProducedBlocksScreen({super.key});
@@ -22,12 +28,11 @@ class _NodeStatusProducedBlocksScreenState
     extends ConsumerState<NodeStatusProducedBlocksScreen> {
   Timer? _autoTimer;
   bool _refreshing = false;
-  bool _active = true; // active when ProducedBlocks tab is selected (index 0)
+  bool _active = true;
 
   @override
   void initState() {
     super.initState();
-    // Determine initial active state and maybe start timer
     _active = _isActiveTab();
     if (_active) _startTimer();
   }
@@ -40,7 +45,7 @@ class _NodeStatusProducedBlocksScreenState
 
   bool _isActiveTab() {
     try {
-      return ref.read(currentHomeTabProvider) == 0;
+      return ref.read(currentHomeTabProvider) == HomeTab.challenges;
     } catch (_) {
       return true;
     }
@@ -77,12 +82,8 @@ class _NodeStatusProducedBlocksScreenState
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final l10n = AppLocalizations.of(context);
-    // React to tab changes and start/stop timers
     final currentTab = ref.watch(currentHomeTabProvider);
-    final shouldBeActive = currentTab == 0;
+    final shouldBeActive = currentTab == HomeTab.challenges;
     if (shouldBeActive != _active) {
       _active = shouldBeActive;
       if (_active) {
@@ -91,63 +92,116 @@ class _NodeStatusProducedBlocksScreenState
         _stopTimer();
       }
     }
+
     final blockchainAsync = ref.watch(nodeBlockchainProvider);
     final status = ref.watch(nodeStatusProvider).value;
     final rewardsAsync = ref.watch(epochRewardsProvider);
-
-    final blockchain = blockchainAsync.value;
-    final rewards = rewardsAsync.value;
-    final rewardPerBlock = rewards?.rewardPerBlock ?? BigInt.zero;
+    final rewardPerBlock = rewardsAsync.value?.rewardPerBlock ?? BigInt.zero;
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
-      appBar: AppAppBar(
-        title: l10n.producedBlocksTitle,
+      appBar: AppAppBar(title: l10n.producedBlocksTitle),
+      body: _buildBody(
+        context,
+        blockchainAsync: blockchainAsync,
+        bestTipSlot: status?.globalSlot,
+        rewardPerBlock: rewardPerBlock,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: () {
-          if (blockchain == null) {
-            return Center(
-              child: Text(
-                blockchainAsync.isLoading
-                    ? l10n.producedBlocksLoading
-                    : l10n.producedBlocksNoData,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: blockchainAsync.isLoading
-                      ? colorScheme.onSurfaceVariant
-                      : colorScheme.error,
-                ),
-              ),
-            );
-          }
+    );
+  }
 
-          final bestTipSlot = status?.globalSlot;
-          final items = blockchain.items.take(100).toList();
+  Widget _buildBody(
+    BuildContext context, {
+    required AsyncValue<RpcListBlockchainResp?> blockchainAsync,
+    required int? bestTipSlot,
+    required BigInt rewardPerBlock,
+  }) {
+    final blockchain = blockchainAsync.valueOrNull;
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final l10n = AppLocalizations.of(context);
 
-          return ListView.separated(
-            itemCount: items.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (_, i) {
-              final block = items[i];
-              final isBestTip =
-                  bestTipSlot != null && block.globalSlot == bestTipSlot;
-              String blockHash;
-              try {
-                blockHash = block.hash.toString();
-              } catch (_) {
-                blockHash = 'N/A';
-              }
-              return ProducedBlockCard(
-                block: block,
-                isBestTip: isBestTip,
-                customHash: blockHash,
-                rewardPerBlock: rewardPerBlock,
-                variant: BlockCardVariant.standard,
-              );
-            },
-          );
-        }(),
+    // Loading — no cached data yet.
+    if (blockchain == null && blockchainAsync.isLoading) {
+      return ShimmerHost(
+        child: Column(
+          children: List.generate(
+            6,
+            (_) => const ShimmerListTile(isThreeLine: false),
+          ),
+        ),
+      );
+    }
+
+    // Error — failed with no cached data.
+    if (blockchain == null) {
+      return FullPageErrorState(
+        message: l10n.producedBlocksNoData,
+        onRetry: _refresh,
+      );
+    }
+
+    final items = blockchain.items.take(100).toList();
+
+    // Empty — data loaded but no blocks.
+    if (items.isEmpty) {
+      return EmptyState(
+        icon: Symbols.deployed_code_sharp,
+        title: l10n.producedBlocksNoData,
+      );
+    }
+
+    // Data — list of blocks.
+    final rewardText = '+${Utils.formatBigInt(rewardPerBlock)} TKN';
+
+    return RefreshIndicator(
+      onRefresh: _refresh,
+      child: ListView.builder(
+        padding: EdgeInsets.only(bottom: spacing.space32),
+        itemCount: items.length,
+        itemBuilder: (_, i) {
+          final block = items[i];
+          final isBestTip =
+              bestTipSlot != null && block.globalSlot == bestTipSlot;
+          return _buildBlockTile(context, block, isBestTip, rewardText);
+        },
       ),
+    );
+  }
+
+  Widget _buildBlockTile(
+    BuildContext context,
+    RpcStatusBlockInfo block,
+    bool isBestTip,
+    String rewardText,
+  ) {
+    final theme = Theme.of(context);
+    final spacing = theme.extension<AppSpacing>()!;
+
+    return ListTile(
+      title: Row(
+        children: [
+          Text('Block #${block.height}'),
+          if (isBestTip) ...[
+            SizedBox(width: spacing.space8),
+            const StatusBadge(
+              label: 'BEST TIP',
+              variant: StatusBadgeVariant.info,
+            ),
+          ],
+        ],
+      ),
+      subtitle: Text(
+        '${Utils.timestampToTimeAgo(block.timestamp)} · '
+        'Epoch ${block.epoch} · Slot ${block.globalSlot}',
+      ),
+      trailing: Text(
+        rewardText,
+        style: theme.textTheme.bodyLarge?.copyWith(
+          fontWeight: FontWeight.w600,
+          color: theme.colorScheme.tertiary,
+        ),
+      ),
+      onTap: () => context.push(AppRoutes.mainNodeBlockDetails, extra: block),
     );
   }
 }

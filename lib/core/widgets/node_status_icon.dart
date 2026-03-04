@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_sizing.dart';
 import 'package:crypto_mobile_app/features/node/screens/widgets/node_status_summary_modal.dart';
 
 /// Icon button that displays current node sync status in the app bar
@@ -16,6 +18,7 @@ class NodeStatusIcon extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final statusAsync = ref.watch(nodeStatusProvider);
 
     // Extract sync status and determine if there's a provider-level error
@@ -33,22 +36,22 @@ class NodeStatusIcon extends ConsumerWidget {
 
     if (providerHasError || syncStatus == null || syncStatus.hasError) {
       // Error state
-      icon = Icons.error;
+      icon = Symbols.error_sharp;
       color = colorScheme.error;
       shouldRotate = false;
     } else if (syncStatus.isConnecting) {
       // Connecting state (no peers)
-      icon = Icons.hourglass_empty;
+      icon = Symbols.hourglass_empty_sharp;
       color = colorScheme.outline;
       shouldRotate = false;
     } else if (syncStatus.isSynced) {
       // Synced state
-      icon = Icons.check_circle;
+      icon = Symbols.check_circle_sharp;
       color = colorScheme.tertiary;
       shouldRotate = false;
     } else {
       // Syncing state
-      icon = Icons.sync;
+      icon = Symbols.sync_sharp;
       color = colorScheme.primary;
       shouldRotate = true;
     }
@@ -56,8 +59,8 @@ class NodeStatusIcon extends ConsumerWidget {
     return IconButton(
       constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
       icon: shouldRotate
-          ? _RotatingIcon(icon: icon, color: color)
-          : Icon(icon, color: color, size: 20),
+          ? _RotatingIcon(icon: icon, color: color, size: sizing.iconSmall)
+          : Icon(icon, color: color, size: sizing.iconSmall),
       onPressed: () {
         showNodeStatusSummaryModal(context);
       },
@@ -70,10 +73,12 @@ class NodeStatusIcon extends ConsumerWidget {
 class _RotatingIcon extends StatefulWidget {
   final IconData icon;
   final Color color;
+  final double size;
 
   const _RotatingIcon({
     required this.icon,
     required this.color,
+    required this.size,
   });
 
   @override
@@ -103,7 +108,7 @@ class _RotatingIconState extends State<_RotatingIcon>
   Widget build(BuildContext context) {
     return RotationTransition(
       turns: Tween<double>(begin: 1.0, end: 0.0).animate(_controller),
-      child: Icon(widget.icon, color: widget.color, size: 20),
+      child: Icon(widget.icon, color: widget.color, size: widget.size),
     );
   }
 }

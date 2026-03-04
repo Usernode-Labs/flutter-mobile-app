@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../tokens/app_borders.dart';
 import '../tokens/app_radii.dart';
 import '../tokens/app_semantic_colors.dart';
 import '../tokens/app_spacing.dart';
+import '../tokens/app_typography.dart';
 import 'button.dart';
 import 'challenge_card.dart';
 
@@ -113,6 +115,7 @@ class ChallengeRewardCard extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
+    final borders = Theme.of(context).extension<AppBorders>()!;
     final semantic = Theme.of(context).extension<AppSemanticColors>()!;
     final catColors = _categoryColors(semantic);
 
@@ -149,7 +152,7 @@ class ChallengeRewardCard extends StatelessWidget {
                       child: Text(
                         totalEarned,
                         style: textTheme.displaySmall?.copyWith(
-                          fontFamily: 'IBMPlexMono',
+                          fontFamily: kMonoFontFamily,
                           color: onColor,
                         ),
                         overflow: TextOverflow.ellipsis,
@@ -200,8 +203,6 @@ class ChallengeRewardCard extends StatelessWidget {
                     totalPoints: totalPoints,
                     onColor: onColor,
                     dimOnColor: dimOnColor,
-                    textTheme: textTheme,
-                    spacing: spacing,
                   ),
                   SizedBox(height: spacing.space12),
                   // Rank reward row
@@ -221,7 +222,7 @@ class ChallengeRewardCard extends StatelessWidget {
                             Container(
                               padding: EdgeInsets.symmetric(
                                 horizontal: spacing.space8,
-                                vertical: 2,
+                                vertical: spacing.space4,
                               ),
                               decoration: BoxDecoration(
                                 color: onColor.withValues(alpha: 0.15),
@@ -239,7 +240,7 @@ class ChallengeRewardCard extends StatelessWidget {
                       Text(
                         rankReward,
                         style: textTheme.bodyMedium?.copyWith(
-                          fontFamily: 'IBMPlexMono',
+                          fontFamily: kMonoFontFamily,
                           color: onColor,
                         ),
                       ),
@@ -253,9 +254,9 @@ class ChallengeRewardCard extends StatelessWidget {
           // Optional epoch section
           if (epochEarned != null) ...[
             Divider(
-              height: 1,
-              thickness: 1,
-              color: onColor.withValues(alpha: 0.1),
+              height: borders.width,
+              thickness: borders.width,
+              color: onColor.withValues(alpha: borders.opacity),
             ),
             Padding(
               padding: EdgeInsets.all(spacing.space16),
@@ -280,7 +281,7 @@ class ChallengeRewardCard extends StatelessWidget {
                               child: Text(
                                 epochEarned!,
                                 style: textTheme.headlineSmall?.copyWith(
-                                  fontFamily: 'IBMPlexMono',
+                                  fontFamily: kMonoFontFamily,
                                   color: onColor,
                                 ),
                                 overflow: TextOverflow.ellipsis,
@@ -322,8 +323,6 @@ class _CalculationRow extends StatelessWidget {
     required this.totalPoints,
     required this.onColor,
     required this.dimOnColor,
-    required this.textTheme,
-    required this.spacing,
   });
 
   final String successRate;
@@ -331,14 +330,14 @@ class _CalculationRow extends StatelessWidget {
   final String totalPoints;
   final Color onColor;
   final Color dimOnColor;
-  final TextTheme textTheme;
-  final AppSpacing spacing;
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final labelStyle = textTheme.labelSmall?.copyWith(color: dimOnColor);
     final valueStyle = textTheme.bodyMedium?.copyWith(
-      fontFamily: 'IBMPlexMono',
+      fontFamily: kMonoFontFamily,
       color: onColor,
     );
     final operatorStyle = textTheme.bodyMedium?.copyWith(color: onColor);

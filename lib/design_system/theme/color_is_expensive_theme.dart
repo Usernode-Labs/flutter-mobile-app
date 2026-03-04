@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../tokens/app_borders.dart';
+import '../tokens/app_radii.dart';
+import '../tokens/app_spacing.dart';
+
 /// "Color is Expensive" Material 3 theme — APCA-driven ink & paper philosophy.
 ///
 /// Near-black primary (#18191B) as the attention locker. Achromatic secondary
@@ -13,6 +17,11 @@ class ColorIsExpensiveTheme {
   final TextTheme textTheme;
 
   const ColorIsExpensiveTheme(this.textTheme);
+
+  // Standard token instances used by the theme builder.
+  static final _spacing = AppSpacing.standard();
+  static final _radii = AppRadii.standard();
+  static final _borders = AppBorders.standard();
 
   // ---------------------------------------------------------------------------
   // Light schemes
@@ -343,6 +352,15 @@ class ColorIsExpensiveTheme {
         scaffoldBackgroundColor: colorScheme.surface,
         canvasColor: colorScheme.surface,
 
+        // --- Icon defaults: weight 300, outline (fill 0), 24px ---
+        iconTheme: IconThemeData(
+          size: 24,
+          weight: 300,
+          fill: 0,
+          opticalSize: 24,
+          color: colorScheme.onSurface,
+        ),
+
         // --- Surface architecture: two-tier grey scaffold / white content ---
 
         appBarTheme: AppBarTheme(
@@ -364,6 +382,10 @@ class ColorIsExpensiveTheme {
           backgroundColor: colorScheme.surfaceContainerLowest,
           surfaceTintColor: Colors.transparent,
           elevation: 0,
+          showDragHandle: true,
+          shape: RoundedRectangleBorder(
+            borderRadius: _radii.borderRadiusTopXXLarge,
+          ),
         ),
 
         cardTheme: CardThemeData(
@@ -371,8 +393,7 @@ class ColorIsExpensiveTheme {
           elevation: 0,
           surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: colorScheme.outlineVariant),
+            borderRadius: _radii.borderRadiusLarge,
           ),
         ),
 
@@ -381,14 +402,14 @@ class ColorIsExpensiveTheme {
           elevation: 0,
           surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: _radii.borderRadiusXLarge,
           ),
         ),
 
         dividerTheme: DividerThemeData(
-          color: colorScheme.outlineVariant,
-          thickness: 1,
-          space: 1,
+          color: colorScheme.onSurface.withValues(alpha: _borders.opacity),
+          thickness: _borders.width,
+          space: _borders.width,
         ),
 
         drawerTheme: DrawerThemeData(
@@ -397,20 +418,89 @@ class ColorIsExpensiveTheme {
           elevation: 0,
         ),
 
-        snackBarTheme: const SnackBarThemeData(
+        snackBarTheme: SnackBarThemeData(
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12)),
+            borderRadius: _radii.borderRadiusMedium,
           ),
         ),
 
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: colorScheme.surfaceContainerHighest,
+          border: UnderlineInputBorder(
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(_radii.small),
+              topRight: Radius.circular(_radii.small),
+            ),
+            borderSide: BorderSide(color: colorScheme.outline),
+          ),
+          enabledBorder: UnderlineInputBorder(
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(_radii.small),
+              topRight: Radius.circular(_radii.small),
+            ),
+            borderSide: BorderSide(color: colorScheme.outline),
+          ),
+          focusedBorder: UnderlineInputBorder(
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(_radii.small),
+              topRight: Radius.circular(_radii.small),
+            ),
+            borderSide: BorderSide(
+              color: colorScheme.primary,
+              width: 2,
+            ),
+          ),
+          errorBorder: UnderlineInputBorder(
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(_radii.small),
+              topRight: Radius.circular(_radii.small),
+            ),
+            borderSide: BorderSide(color: colorScheme.error),
+          ),
+          focusedErrorBorder: UnderlineInputBorder(
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(_radii.small),
+              topRight: Radius.circular(_radii.small),
+            ),
+            borderSide: BorderSide(
+              color: colorScheme.error,
+              width: 2,
+            ),
+          ),
+          contentPadding: EdgeInsets.all(_spacing.space16),
+        ),
+
+        expansionTileTheme: ExpansionTileThemeData(
+          tilePadding: EdgeInsets.symmetric(
+            horizontal: _spacing.space16,
+            vertical: _spacing.space12,
+          ),
+          childrenPadding: EdgeInsets.fromLTRB(
+            _spacing.space16,
+            0,
+            _spacing.space16,
+            _spacing.space16,
+          ),
+          shape: const RoundedRectangleBorder(),
+          collapsedShape: const RoundedRectangleBorder(),
+          backgroundColor: Colors.transparent,
+          collapsedBackgroundColor: Colors.transparent,
+          iconColor: colorScheme.onSurfaceVariant,
+          collapsedIconColor: colorScheme.onSurfaceVariant,
+          clipBehavior: Clip.none,
+        ),
+
+        // Layout: all M3 defaults (removed: titleAlignment, minVerticalPadding,
+        // minTileHeight, visualDensity, vertical contentPadding).
+        // See CONSTRAINTS.md § ListTile Layout Constraint.
         listTileTheme: ListTileThemeData(
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          dense: true,
-          visualDensity: VisualDensity.compact,
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: _spacing.space16,
+          ),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: _radii.borderRadiusMedium,
           ),
           titleTextStyle: textTheme.bodyMedium?.copyWith(
             color: colorScheme.onSurface,

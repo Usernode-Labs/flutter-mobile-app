@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:crypto_mobile_app/core/widgets/app_card.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/categorized_challenges_provider.dart';
 import 'package:crypto_mobile_app/core/providers/event_points_provider.dart';
@@ -12,18 +13,7 @@ import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provide
 import 'package:crypto_mobile_app/core/providers/leaderboard_provider.dart';
 import 'package:crypto_mobile_app/core/providers/ranking_provider.dart';
 import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
-import 'package:crypto_mobile_app/design_system/src/challenge_card.dart';
-import 'package:crypto_mobile_app/design_system/src/challenge_category_icon.dart';
-import 'package:crypto_mobile_app/design_system/src/challenge_category_tile.dart';
-import 'package:crypto_mobile_app/design_system/src/dropdown_chain.dart';
-import 'package:crypto_mobile_app/design_system/src/leaderboard_stats_card.dart';
-import 'package:crypto_mobile_app/design_system/src/rank_badge.dart';
-import 'package:crypto_mobile_app/design_system/src/top_app_bar.dart';
-import 'package:crypto_mobile_app/design_system/theme/color_is_expensive_theme.dart';
-import 'package:crypto_mobile_app/design_system/theme/design_system_theme.dart';
-import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
-import 'package:crypto_mobile_app/design_system/tokens/app_semantic_colors.dart';
-import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 import 'package:crypto_mobile_app/features/challenges/season_event_pickers.dart';
 import 'package:crypto_mobile_app/features/leaderboard/leaderboard_distribution.dart';
@@ -68,16 +58,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
   Widget build(BuildContext context) {
     ref.watch(leaderboardBootstrapProvider);
 
-    final textTheme = Theme.of(context).textTheme;
-
-    return Theme(
-      data: ColorIsExpensiveTheme(textTheme).light().copyWith(
-            extensions: DesignSystemTheme.standardExtensions(
-              semanticColors: AppSemanticColors.light(),
-            ),
-          ),
-      child: Builder(builder: (context) => _buildBody(context)),
-    );
+    return _buildBody(context);
   }
 
   Widget _buildBody(BuildContext context) {
@@ -96,35 +77,23 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
 
     if (isLoading) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+        body: FullPageLoadingState(),
       );
     }
 
     if (hasError) {
       return Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                AppLocalizations.of(context).leaderboardFailedToLoad,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-              ),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: () => ref.invalidate(leaderboardProvider),
-                child: Text(AppLocalizations.of(context).retry),
-              ),
-            ],
-          ),
+        body: FullPageErrorState(
+          message: AppLocalizations.of(context).leaderboardFailedToLoad,
+          onRetry: () => ref.invalidate(leaderboardProvider),
+          retryLabel: AppLocalizations.of(context).retry,
         ),
       );
     }
 
-    final colors = Theme.of(context).colorScheme;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+
+    final colors = Theme.of(context).colorScheme;
     final radii = Theme.of(context).extension<AppRadii>()!;
 
     final entries = leaderboard?.data.allEntries ?? [];
@@ -143,12 +112,12 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
             ),
 
             // Filter chip row
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: spacing.space16,
-                  vertical: spacing.space8,
-                ),
+            SliverPadding(
+              padding: EdgeInsets.symmetric(
+                horizontal: spacing.space16,
+                vertical: spacing.space8,
+              ),
+              sliver: SliverToBoxAdapter(
                 child: DropdownChain(
                   items: [
                     DropdownChainItem(
@@ -165,52 +134,48 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
             ),
 
             // Stats card
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: spacing.space16),
+            SliverPadding(
+              padding: EdgeInsets.only(
+                left: spacing.space16,
+                right: spacing.space16,
+                bottom: spacing.space8,
+              ),
+              sliver: SliverToBoxAdapter(
                 child: _buildStatsCard(context, ranking, eventPoints),
               ),
             ),
 
-            SliverToBoxAdapter(
-              child: SizedBox(height: spacing.space16),
-            ),
-
             // Challenge category tiles
             if (categorized != null)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: spacing.space16),
+              SliverPadding(
+                padding: EdgeInsets.only(
+                  left: spacing.space16,
+                  right: spacing.space16,
+                  bottom: spacing.space8,
+                ),
+                sliver: SliverToBoxAdapter(
                   child: _buildCategoryTiles(
                     context,
                     categorized,
-                    colors,
                     spacing,
-                    radii,
                   ),
                 ),
               ),
 
-            if (categorized != null)
-              SliverToBoxAdapter(
-                child: SizedBox(height: spacing.space16),
-              ),
-
             // Participants list card
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: spacing.space16),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: colors.surfaceContainerLowest,
-                    borderRadius: radii.borderRadiusLargeIncreased,
-                  ),
+            SliverPadding(
+              padding: EdgeInsets.symmetric(horizontal: spacing.space16),
+              sliver: SliverToBoxAdapter(
+                child: AppCard(
+                  padding: EdgeInsets.zero,
+                  borderRadius: radii.borderRadiusLargeIncreased,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Padding(
                         padding: EdgeInsets.only(
                           left: spacing.space16,
+                          right: spacing.space16,
                           top: spacing.space16,
                           bottom: spacing.space8,
                         ),
@@ -237,13 +202,12 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                           tileColor: isCurrentUser
                               ? colors.primaryContainer.withValues(alpha: 0.3)
                               : null,
-                          onTap: () {},
                         );
                       }),
                       if (isLoadingMore)
-                        const Padding(
-                          padding: EdgeInsets.all(16),
-                          child: Center(
+                        Padding(
+                          padding: EdgeInsets.all(spacing.space16),
+                          child: const Center(
                             child: SizedBox(
                               width: 24,
                               height: 24,
@@ -340,10 +304,11 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
   Widget _buildCategoryTiles(
     BuildContext context,
     CategorizedEnrichedChallenges categorized,
-    ColorScheme colors,
     AppSpacing spacing,
-    AppRadii radii,
   ) {
+    final colors = Theme.of(context).colorScheme;
+    final radii = Theme.of(context).extension<AppRadii>()!;
+
     final allChallenges = [
       ...categorized.active,
       ...categorized.completed,
@@ -364,24 +329,16 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
       ChallengeCategory.flash,
     ].where(grouped.containsKey).toList();
 
-    return Container(
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerLowest,
-        borderRadius: radii.borderRadiusLargeIncreased,
-      ),
-      padding: EdgeInsets.symmetric(vertical: spacing.space8),
+    return AppCard(
+      padding: EdgeInsets.zero,
+      borderRadius: radii.borderRadiusLargeIncreased,
       child: Column(
         children: [
           for (var i = 0; i < sortedCategories.length; i++) ...[
-            if (i > 0)
-              Divider(height: 1, color: colors.surfaceContainerHighest),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: spacing.space16),
-              child: _buildCategoryTile(
-                context,
-                sortedCategories[i],
-                grouped[sortedCategories[i]]!,
-              ),
+            _buildCategoryTile(
+              context,
+              sortedCategories[i],
+              grouped[sortedCategories[i]]!,
             ),
           ],
         ],

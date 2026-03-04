@@ -14,37 +14,49 @@
                     "color": "#0055D9",
                     "onColor": "#FFFFFF",
                     "colorContainer": "#D3D9FF",
-                    "onColorContainer": "#0040BD"
+                    "onColorContainer": "#0040BD",
+                    "colorSurface": "#E1E8F3",
+                    "onColorSurface": "#0055D9"
                 },
                 "light-medium-contrast": {
                     "color": "#003EBA",
                     "onColor": "#FFFFFF",
                     "colorContainer": "#486DED",
-                    "onColorContainer": "#FFFFFF"
+                    "onColorContainer": "#FFFFFF",
+                    "colorSurface": "#D8DFEE",
+                    "onColorSurface": "#003EBA"
                 },
                 "light-high-contrast": {
                     "color": "#002A8F",
                     "onColor": "#FFFFFF",
                     "colorContainer": "#003EBA",
-                    "onColorContainer": "#FFFFFF"
+                    "onColorContainer": "#FFFFFF",
+                    "colorSurface": "#C9D0E3",
+                    "onColorSurface": "#002A8F"
                 },
                 "dark": {
                     "color": "#AEBCFF",
                     "onColor": "#002A8F",
                     "colorContainer": "#003EBA",
-                    "onColorContainer": "#CBD1FF"
+                    "onColorContainer": "#CBD1FF",
+                    "colorSurface": "#27282D",
+                    "onColorSurface": "#AEBCFF"
                 },
                 "dark-medium-contrast": {
                     "color": "#D3D9FF",
                     "onColor": "#002076",
                     "colorContainer": "#6286FF",
-                    "onColorContainer": "#000000"
+                    "onColorContainer": "#000000",
+                    "colorSurface": "#313236",
+                    "onColorSurface": "#D3D9FF"
                 },
                 "dark-high-contrast": {
                     "color": "#EEEDFF",
                     "onColor": "#000000",
                     "colorContainer": "#AEBCFF",
-                    "onColorContainer": "#100F1F"
+                    "onColorContainer": "#100F1F",
+                    "colorSurface": "#414144",
+                    "onColorSurface": "#EEEDFF"
                 }
             }
         },
@@ -57,37 +69,49 @@
                     "color": "#875300",
                     "onColor": "#FFFFFF",
                     "colorContainer": "#FFD87B",
-                    "onColorContainer": "#774500"
+                    "onColorContainer": "#774500",
+                    "colorSurface": "#ECE8E1",
+                    "onColorSurface": "#875300"
                 },
                 "light-medium-contrast": {
                     "color": "#6C3C00",
                     "onColor": "#FFFFFF",
                     "colorContainer": "#A36C00",
-                    "onColorContainer": "#FFFFFF"
+                    "onColorContainer": "#FFFFFF",
+                    "colorSurface": "#E5DFD8",
+                    "onColorSurface": "#6C3C00"
                 },
                 "light-high-contrast": {
                     "color": "#502700",
                     "onColor": "#FFFFFF",
                     "colorContainer": "#6C3C00",
-                    "onColorContainer": "#FFFFFF"
+                    "onColorContainer": "#FFFFFF",
+                    "colorSurface": "#D7D0C9",
+                    "onColorSurface": "#502700"
                 },
                 "dark": {
                     "color": "#FBBB4B",
                     "onColor": "#502700",
                     "colorContainer": "#6C3C00",
-                    "onColorContainer": "#FFCA69"
+                    "onColorContainer": "#FFCA69",
+                    "colorSurface": "#2D281F",
+                    "onColorSurface": "#FBBB4B"
                 },
                 "dark-medium-contrast": {
                     "color": "#FFD87B",
                     "onColor": "#431D00",
                     "colorContainer": "#C38400",
-                    "onColorContainer": "#000000"
+                    "onColorContainer": "#000000",
+                    "colorSurface": "#363227",
+                    "onColorSurface": "#FFD87B"
                 },
                 "dark-high-contrast": {
                     "color": "#FFEDC9",
                     "onColor": "#000000",
                     "colorContainer": "#FBBB4B",
-                    "onColorContainer": "#1B0F00"
+                    "onColorContainer": "#1B0F00",
+                    "colorSurface": "#44413A",
+                    "onColorSurface": "#FFEDC9"
                 }
             }
         },
@@ -100,37 +124,49 @@
                     "color": "#146D32",
                     "onColor": "#FFFFFF",
                     "colorContainer": "#B6F0BE",
-                    "onColorContainer": "#05652B"
+                    "onColorContainer": "#05652B",
+                    "colorSurface": "#E3EAE5",
+                    "onColorSurface": "#146D32"
                 },
                 "light-medium-contrast": {
                     "color": "#00541D",
                     "onColor": "#FFFFFF",
                     "colorContainer": "#3C864D",
-                    "onColorContainer": "#FFFFFF"
+                    "onColorContainer": "#FFFFFF",
+                    "colorSurface": "#D8E2DB",
+                    "onColorSurface": "#00541D"
                 },
                 "light-high-contrast": {
                     "color": "#003B0D",
                     "onColor": "#FFFFFF",
                     "colorContainer": "#00541D",
-                    "onColorContainer": "#FFFFFF"
+                    "onColorContainer": "#FFFFFF",
+                    "colorSurface": "#C9D4CB",
+                    "onColorSurface": "#003B0D"
                 },
                 "dark": {
                     "color": "#92D69C",
                     "onColor": "#003B0D",
                     "colorContainer": "#00541D",
-                    "onColorContainer": "#A2E0AB"
+                    "onColorContainer": "#A2E0AB",
+                    "colorSurface": "#252A25",
+                    "onColorSurface": "#92D69C"
                 },
                 "dark-medium-contrast": {
                     "color": "#B6F0BE",
                     "onColor": "#002E05",
                     "colorContainer": "#50A162",
-                    "onColorContainer": "#000000"
+                    "onColorContainer": "#000000",
+                    "colorSurface": "#2E352F",
+                    "onColorSurface": "#B6F0BE"
                 },
                 "dark-high-contrast": {
                     "color": "#E0F6E2",
                     "onColor": "#000000",
                     "colorContainer": "#92D69C",
-                    "onColorContainer": "#081409"
+                    "onColorContainer": "#081409",
+                    "colorSurface": "#3E423F",
+                    "onColorSurface": "#E0F6E2"
                 }
             }
         },
@@ -143,37 +179,49 @@
                     "color": "#1A6D23",
                     "onColor": "#FFFFFF",
                     "colorContainer": "#BAF1B4",
-                    "onColorContainer": "#12681E"
+                    "onColorContainer": "#12681E",
+                    "colorSurface": "#E3EAE4",
+                    "onColorSurface": "#1A6D23"
                 },
                 "light-medium-contrast": {
                     "color": "#00540C",
                     "onColor": "#FFFFFF",
                     "colorContainer": "#408640",
-                    "onColorContainer": "#FFFFFF"
+                    "onColorContainer": "#FFFFFF",
+                    "colorSurface": "#D8E2D9",
+                    "onColorSurface": "#00540C"
                 },
                 "light-high-contrast": {
                     "color": "#003B00",
                     "onColor": "#FFFFFF",
                     "colorContainer": "#00540C",
-                    "onColorContainer": "#FFFFFF"
+                    "onColorContainer": "#FFFFFF",
+                    "colorSurface": "#C9D4C9",
+                    "onColorSurface": "#003B00"
                 },
                 "dark": {
                     "color": "#95D690",
                     "onColor": "#003B00",
                     "colorContainer": "#00540C",
-                    "onColorContainer": "#A5E0A0"
+                    "onColorContainer": "#A5E0A0",
+                    "colorSurface": "#252A24",
+                    "onColorSurface": "#95D690"
                 },
                 "dark-medium-contrast": {
                     "color": "#BAF1B4",
                     "onColor": "#002E00",
                     "colorContainer": "#54A153",
-                    "onColorContainer": "#000000"
+                    "onColorContainer": "#000000",
+                    "colorSurface": "#2E352D",
+                    "onColorSurface": "#BAF1B4"
                 },
                 "dark-high-contrast": {
                     "color": "#E2F7DE",
                     "onColor": "#000000",
                     "colorContainer": "#95D690",
-                    "onColorContainer": "#091406"
+                    "onColorContainer": "#091406",
+                    "colorSurface": "#3F433E",
+                    "onColorSurface": "#E2F7DE"
                 }
             }
         }

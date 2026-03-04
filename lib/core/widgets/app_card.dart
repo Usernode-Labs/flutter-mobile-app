@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:crypto_mobile_app/core/config/design_tokens.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_elevation.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
+
+enum _PaddingVariant { compact, regular, spacious }
 
 /// Unified card component with consistent styling across the app
 /// Supports different padding variants, optional headers, and elevation levels
 class AppCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
+  final _PaddingVariant _paddingVariant;
   final Color? color;
   final double? elevation;
   final BorderRadius? borderRadius;
@@ -23,9 +28,9 @@ class AppCard extends StatelessWidget {
     this.onTap,
     this.header,
     this.headerAction,
-  });
+  }) : _paddingVariant = _PaddingVariant.regular;
 
-  /// Compact card with 12px padding
+  /// Compact card — 12px padding resolved from theme in [build].
   const AppCard.compact({
     super.key,
     required this.child,
@@ -35,9 +40,10 @@ class AppCard extends StatelessWidget {
     this.onTap,
     this.header,
     this.headerAction,
-  }) : padding = const EdgeInsets.all(kSpace12);
+  })  : padding = null,
+        _paddingVariant = _PaddingVariant.compact;
 
-  /// Regular card with 16px padding
+  /// Regular card — 16px padding resolved from theme in [build].
   const AppCard.regular({
     super.key,
     required this.child,
@@ -47,9 +53,10 @@ class AppCard extends StatelessWidget {
     this.onTap,
     this.header,
     this.headerAction,
-  }) : padding = const EdgeInsets.all(kSpace16);
+  })  : padding = null,
+        _paddingVariant = _PaddingVariant.regular;
 
-  /// Spacious card with 24px padding
+  /// Spacious card — 24px padding resolved from theme in [build].
   const AppCard.spacious({
     super.key,
     required this.child,
@@ -59,11 +66,24 @@ class AppCard extends StatelessWidget {
     this.onTap,
     this.header,
     this.headerAction,
-  }) : padding = const EdgeInsets.all(kSpace24);
+  })  : padding = null,
+        _paddingVariant = _PaddingVariant.spacious;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final spacing = theme.extension<AppSpacing>()!;
+    final elev = theme.extension<AppElevation>()!;
+    final radii = theme.extension<AppRadii>()!;
+
+    final effectiveRadius = borderRadius ?? radii.borderRadiusLarge;
+    final effectiveElevation = elevation ?? elev.none;
+    final effectivePadding = padding ??
+        EdgeInsets.all(switch (_paddingVariant) {
+          _PaddingVariant.compact => spacing.space12,
+          _PaddingVariant.regular => spacing.space16,
+          _PaddingVariant.spacious => spacing.space24,
+        });
 
     final cardContent = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -82,7 +102,7 @@ class AppCard extends StatelessWidget {
               if (headerAction != null) headerAction!,
             ],
           ),
-          const SizedBox(height: kSpace12),
+          SizedBox(height: spacing.space12),
         ],
         child,
       ],
@@ -90,16 +110,14 @@ class AppCard extends StatelessWidget {
 
     if (onTap != null) {
       return Card(
-        elevation: elevation ?? kElevationNone,
+        elevation: effectiveElevation,
         color: color,
-        shape: RoundedRectangleBorder(
-          borderRadius: borderRadius ?? kBorderRadiusLarge,
-        ),
+        shape: RoundedRectangleBorder(borderRadius: effectiveRadius),
         child: InkWell(
           onTap: onTap,
-          borderRadius: borderRadius ?? kBorderRadiusLarge,
+          borderRadius: effectiveRadius,
           child: Padding(
-            padding: padding ?? const EdgeInsets.all(kSpace16),
+            padding: effectivePadding,
             child: cardContent,
           ),
         ),
@@ -107,13 +125,11 @@ class AppCard extends StatelessWidget {
     }
 
     return Card(
-      elevation: elevation ?? kElevationNone,
+      elevation: effectiveElevation,
       color: color,
-      shape: RoundedRectangleBorder(
-        borderRadius: borderRadius ?? kBorderRadiusLarge,
-      ),
+      shape: RoundedRectangleBorder(borderRadius: effectiveRadius),
       child: Padding(
-        padding: padding ?? const EdgeInsets.all(kSpace16),
+        padding: effectivePadding,
         child: cardContent,
       ),
     );

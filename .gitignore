@@ -80,3 +80,6 @@ gmp.md
 # AI tool config (local-only)
 .gemini/
 .claude/
+
+# Design system research archive (local only)
+lib/design_system/.archive/

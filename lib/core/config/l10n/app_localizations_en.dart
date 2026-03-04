@@ -353,10 +353,19 @@ class AppLocalizationsEn extends AppLocalizations {
       'This page refreshes continuously and will display your transactions here.';
 
   @override
+  String get walletEmptyStateSendAction => 'Send Transaction';
+
+  @override
   String get nodeStatusTitle => 'Node Status';
 
   @override
   String get nodePeerIdCopied => 'Peer ID copied to clipboard';
+
+  @override
+  String get nodeChainIdCopied => 'Chain ID copied to clipboard';
+
+  @override
+  String get nodeBestTipCopied => 'Best tip hash copied to clipboard';
 
   @override
   String get nodeCopyPeerId => 'Copy full Peer ID';
@@ -1101,4 +1110,368 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get challengeEpochLast24h => 'Last 24h';
+
+  @override
+  String get walletSentSuccessfully => 'Sent successfully!';
+
+  @override
+  String walletSentDetail(String amount, String tokenSymbol, String address) {
+    return '$amount $tokenSymbol sent to\n$address';
+  }
+
+  @override
+  String get walletTransactionFailed => 'Transaction Failed';
+
+  @override
+  String get walletTransactionFailedGeneric =>
+      'An error occurred while processing your transaction';
+
+  @override
+  String get walletAddressCopied => 'Address copied to clipboard';
+
+  @override
+  String get walletRecentActivity => 'Recent Activity';
+
+  @override
+  String get walletExplorerUnavailable =>
+      'Explorer API unavailable. Showing cached data.';
+
+  @override
+  String get walletTransactionsError => 'Error loading transactions';
+
+  @override
+  String get walletTokenBalance => '\$TOKEN Balance';
+
+  @override
+  String get walletSyncInProgress => 'Sync in progress...';
+
+  @override
+  String get walletMyAddress => 'My address';
+
+  @override
+  String get walletRecipientAddress => 'Recipient address';
+
+  @override
+  String get walletRecentRecipients => 'Recent Recipients';
+
+  @override
+  String get walletFee => 'Fee';
+
+  @override
+  String get walletMemoOptional => 'Memo (optional)';
+
+  @override
+  String get walletSending => 'Sending...';
+
+  @override
+  String walletFieldRequired(String fieldName) {
+    return 'Please enter a $fieldName';
+  }
+
+  @override
+  String walletFieldTooShort(String fieldName) {
+    return '$fieldName appears to be too short';
+  }
+
+  @override
+  String walletFieldInvalid(String fieldName) {
+    return 'Please enter a valid $fieldName';
+  }
+
+  @override
+  String get walletNoRecentAddresses => 'No recent addresses';
+
+  @override
+  String get nodeOffline => 'Offline';
+
+  @override
+  String get nodeConnectingEllipsis => 'Connecting...';
+
+  @override
+  String get nodeLoadedGenesis => 'Loaded genesis';
+
+  @override
+  String get nodeChainSynced => 'Chain Synced';
+
+  @override
+  String get nodeSyncingBlocks => 'Syncing blocks';
+
+  @override
+  String get nodeFetchPhase => 'Fetch';
+
+  @override
+  String get nodeApplyPhase => 'Apply';
+
+  @override
+  String get nodePeers => 'Peers';
+
+  @override
+  String get nodeMempool => 'Mempool';
+
+  @override
+  String get nodeRecentBlocks => 'Recent Blocks';
+
+  @override
+  String get nodeViewAll => 'View All';
+
+  @override
+  String nodePeersConnected(int connected, int total) {
+    return '$connected/$total connected';
+  }
+
+  @override
+  String nodeEpochN(int epoch) {
+    return 'Epoch $epoch';
+  }
+
+  @override
+  String nodeGlobalSlot(int slot) {
+    return 'Global slot $slot';
+  }
+
+  @override
+  String nodeMempoolSummary(int count, String sizeKB) {
+    return '$count txns · $sizeKB KB';
+  }
+
+  @override
+  String nodePhaseDone(String count) {
+    return 'Done: $count';
+  }
+
+  @override
+  String nodePhasePending(String count) {
+    return 'Pending: $count';
+  }
+
+  @override
+  String nodePhaseIdle(String count) {
+    return 'Idle: $count';
+  }
+
+  @override
+  String get nodeVrf => 'VRF';
+
+  @override
+  String nodeVrfEvaluated(int evaluated, int total) {
+    return 'Evaluated $evaluated/$total';
+  }
+
+  @override
+  String get nodeVrfEvaluatedNA => 'Evaluated ---';
+
+  @override
+  String get nodeBestTip => 'Best Tip';
+
+  @override
+  String get nodeBestTipBadge => 'BEST TIP';
+
+  @override
+  String get nodeVrfCompleted => 'Completed';
+
+  @override
+  String get nodeVrfEvaluating => 'Evaluating';
+
+  @override
+  String get nodeVrfPendingLabel => 'Pending';
+
+  @override
+  String get commonGotIt => 'Got it';
+
+  @override
+  String get commonCancel => 'Cancel';
+
+  @override
+  String get commonEnable => 'Enable';
+
+  @override
+  String get commonFix => 'Fix';
+
+  @override
+  String commonLastCheckedAt(String time) {
+    return 'Last checked at $time';
+  }
+
+  @override
+  String commonLastCheckedOnAt(String date, String time) {
+    return 'Last checked on $date at $time';
+  }
+
+  @override
+  String get settingsGeneral => 'General';
+
+  @override
+  String get settingsAppearance => 'Appearance';
+
+  @override
+  String get settingsPermissions => 'Permissions';
+
+  @override
+  String get settingsPermAllGood => 'All Good';
+
+  @override
+  String get settingsPermActionNeeded => 'Action Needed';
+
+  @override
+  String get settingsNotifications => 'Notifications';
+
+  @override
+  String get settingsForegroundKeepAlive => 'Foreground Keep-Alive';
+
+  @override
+  String get settingsKeepAliveActive => 'Active — 99% reliability';
+
+  @override
+  String get settingsKeepAliveInactive => 'Enable for critical slots';
+
+  @override
+  String get settingsBatteryOptimization => 'Battery Optimization';
+
+  @override
+  String get settingsBatteryOptDisabled => 'Disabled (recommended)';
+
+  @override
+  String get settingsBatteryOptWarning => 'May delay or skip alarms';
+
+  @override
+  String settingsManufacturerWarning(String manufacturer) {
+    return '$manufacturer devices have aggressive battery management that may kill apps. Check your device\'\'s battery manager.';
+  }
+
+  @override
+  String get settingsPermGrantedSnackbar => 'Permissions granted successfully';
+
+  @override
+  String get settingsPermDeniedSnackbar =>
+      'Please grant permissions in settings';
+
+  @override
+  String get settingsHelpAndInfo => 'Help & Info';
+
+  @override
+  String get permRequiredBlockTiming => 'Required for precise block timing';
+
+  @override
+  String get permRequiredSlotAlerts => 'Required for slot alerts';
+
+  @override
+  String get themeSystem => 'System';
+
+  @override
+  String get themeSystemSubtitle => 'Follow your device setting';
+
+  @override
+  String get themeLight => 'Light';
+
+  @override
+  String get themeDark => 'Dark';
+
+  @override
+  String get buildInfoAppVersion => 'App Version';
+
+  @override
+  String get buildInfoBuildNumber => 'Build Number';
+
+  @override
+  String get networkSwitcherTitle => 'Network Switcher';
+
+  @override
+  String get networkSelectNetwork => 'SELECT NETWORK';
+
+  @override
+  String get networkTestnetDesc => 'Default network';
+
+  @override
+  String get networkInternalDesc => 'Development network';
+
+  @override
+  String get networkActive => 'Active';
+
+  @override
+  String get networkNoChange => 'No Change';
+
+  @override
+  String get networkSwitch => 'Switch Network';
+
+  @override
+  String get networkEnterCode => 'Enter Code';
+
+  @override
+  String get networkCodeHint => '4-digit code';
+
+  @override
+  String get networkRestartRequired => 'Restart Required';
+
+  @override
+  String networkSwitchedRestartIos(String network) {
+    return 'Network switched to $network. Please manually close and reopen the app to connect to the new network.';
+  }
+
+  @override
+  String networkSwitchedRestartAndroid(String network) {
+    return 'Network switched to $network. The app will now close. Please reopen it to connect to the new network.';
+  }
+
+  @override
+  String get networkCloseApp => 'Close App';
+
+  @override
+  String get faqAboutDescription =>
+      'Your device is part of a new network. It verifies, executes, and contributes compute directly to the network, passively in the background - with no central servers, no hidden infra. As long as users keep the app running, the network will continue to operate, peer to peer, with no external dependencies.\n\nWe\'\'re doing this to enable networks that can be hosted end-to-end by their own communities - both for decentralization, and to enable a natural coordination point around participation, where users who help operate and contribute to systems directly realize the benefits from it.\n\nRight now we are in testnet as we validate the core layer: block production, consensus behavior, and network reliability. As these stabilize, we\'\'ll build upon the unique features of the platform - its decentralization, zero knowledge proofs, and sybil-resistant identity - to introduce new activities, coordination mechanisms, and tools for self-hosted, sybil-resistant communities.\n\nThanks for helping test at this early stage. The app right now is simple, but as we prove out the core functionality, we hope to make possible a new kind of community-owned network, where users can directly run and benefit from the networks they use.';
+
+  @override
+  String get faqPlatformReliabilityTitle => 'Platform & Reliability';
+
+  @override
+  String faqDeviceLabel(String manufacturer) {
+    return 'Device: $manufacturer';
+  }
+
+  @override
+  String get faqVrfSlotsTitle => 'Understanding VRF & Slots';
+
+  @override
+  String get faqVrfWhatIsTitle => 'What is VRF?';
+
+  @override
+  String get faqVrfWhatIsDescription =>
+      'VRF (Verifiable Random Function) is how the network fairly selects block producers. At the start of each epoch, the network runs VRF calculations to determine which validators will produce blocks in upcoming slots.';
+
+  @override
+  String get faqVrfStatusMeaningsTitle => 'VRF Status Meanings';
+
+  @override
+  String get faqVrfStatusPending => 'Pending';
+
+  @override
+  String get faqVrfStatusPendingDesc =>
+      'Waiting for epoch transition to start calculations';
+
+  @override
+  String get faqVrfStatusCalculating => 'Calculating';
+
+  @override
+  String get faqVrfStatusCalculatingDesc =>
+      'VRF evaluation in progress (takes a few hours)';
+
+  @override
+  String get faqVrfStatusComplete => 'Complete';
+
+  @override
+  String get faqVrfStatusCompleteDesc =>
+      'Slot assignments are finalized and scheduled';
+
+  @override
+  String get faqVrfWonSlotTitle => 'What is a \"Won Slot\"?';
+
+  @override
+  String get faqVrfWonSlotDescription =>
+      'When VRF selects your node to produce a block at a specific time, you\'\'ve \"won\" that slot. Your responsibility is to have your device awake and connected so the block can be produced.';
+
+  @override
+  String get faqVrfTimingTitle => 'Why Timing Matters';
+
+  @override
+  String get faqVrfTimingDescription =>
+      'Each slot has a ~5-seconds window. If your device doesn\'\'t wake up in time or loses network connectivity, the slot is missed and counted as \"failed.\"';
 }

@@ -11,9 +11,6 @@ import 'package:crypto_mobile_app/core/utils/challenge_point_tracker.dart';
 import 'package:crypto_mobile_app/design_system/src/challenge_card.dart';
 import 'package:crypto_mobile_app/design_system/src/challenge_detail_page.dart';
 import 'package:crypto_mobile_app/design_system/src/challenge_reward_card.dart';
-import 'package:crypto_mobile_app/design_system/theme/color_is_expensive_theme.dart';
-import 'package:crypto_mobile_app/design_system/theme/design_system_theme.dart';
-import 'package:crypto_mobile_app/design_system/tokens/app_semantic_colors.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 
 /// Feature screen that wires live API data to [ChallengeDetailPage].
@@ -31,7 +28,6 @@ class ChallengeDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final textTheme = Theme.of(context).textTheme;
     final breakdownAsync = ref.watch(breakdownProvider);
     final breakdown = breakdownAsync.value?.data;
     final eb = breakdown?.eventBreakdown;
@@ -43,21 +39,12 @@ class ChallengeDetailScreen extends ConsumerWidget {
       ChallengePointTracker.record(_trackerKey, challenge.earnedPoints!);
     }
 
-    return Theme(
-      data: ColorIsExpensiveTheme(textTheme).light().copyWith(
-            extensions: DesignSystemTheme.standardExtensions(
-              semanticColors: AppSemanticColors.light(),
-            ),
-          ),
-      child: Builder(
-        builder: (context) => Scaffold(
-          body: FutureBuilder<PointDiff?>(
-            future: ChallengePointTracker.getDiffBestEffort(_trackerKey),
-            builder: (context, diffSnapshot) {
-              return _buildPage(context, eb, diffSnapshot.data, latestEpoch);
-            },
-          ),
-        ),
+    return Scaffold(
+      body: FutureBuilder<PointDiff?>(
+        future: ChallengePointTracker.getDiffBestEffort(_trackerKey),
+        builder: (context, diffSnapshot) {
+          return _buildPage(context, eb, diffSnapshot.data, latestEpoch);
+        },
       ),
     );
   }

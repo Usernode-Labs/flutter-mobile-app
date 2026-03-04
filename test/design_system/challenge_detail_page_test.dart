@@ -1,17 +1,10 @@
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_symbols_icons/symbols.dart';
+import 'helpers/ds_test_helpers.dart';
 
 void main() {
-  ThemeData themeWithExtensions() {
-    final cieTheme = ColorIsExpensiveTheme(ThemeData.light().textTheme);
-    return cieTheme.light().copyWith(
-          extensions: DesignSystemTheme.standardExtensions(
-            semanticColors: AppSemanticColors.light(),
-          ),
-        );
-  }
-
   Widget wrap(Widget child) {
     return MaterialApp(
       theme: themeWithExtensions(),
@@ -134,7 +127,7 @@ void main() {
         ),
       ));
 
-      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.tap(find.byIcon(Symbols.arrow_back_sharp));
       expect(tapped, isTrue);
     });
 

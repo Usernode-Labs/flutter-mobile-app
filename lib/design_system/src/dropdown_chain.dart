@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
+import '../tokens/app_sizing.dart';
 import '../tokens/app_spacing.dart';
 import 'dropdown_chip.dart';
 
@@ -8,8 +10,12 @@ class DropdownChainItem {
   const DropdownChainItem({
     required this.label,
     this.onTap,
-    this.selected = true,
+    this.variant,
     this.borderColor,
+    @Deprecated('Use variant instead. '
+        'selected=true maps to ChipVariant.surface, '
+        'selected=false maps to ChipVariant.outlined.')
+    this.selected,
   });
 
   /// The chip label text, e.g. "Season 2" or "DApps Integration".
@@ -18,12 +24,14 @@ class DropdownChainItem {
   /// Called when the chip is tapped.
   final VoidCallback? onTap;
 
-  /// Whether the chip is in selected state. Defaults to `true` because
-  /// chips in a filter chain typically represent active filter choices.
-  final bool selected;
+  /// Visual variant for this chip. When null, uses the chain's default.
+  final ChipVariant? variant;
 
   /// Optional border color passed through to [DropdownChip].
   final Color? borderColor;
+
+  /// Legacy parameter — use [variant] instead.
+  final bool? selected;
 }
 
 /// A horizontal row of [DropdownChip]s separated by chevron icons.
@@ -37,14 +45,23 @@ class DropdownChain extends StatelessWidget {
   const DropdownChain({
     super.key,
     required this.items,
+    this.variant = ChipVariant.surface,
+    this.size = ChipSize.regular,
   }) : assert(items.length > 0);
 
   /// The ordered list of filters. Must contain at least one item.
   final List<DropdownChainItem> items;
 
+  /// Default variant for all chips in the chain.
+  final ChipVariant variant;
+
+  /// Size for all chips in the chain.
+  final ChipSize size;
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
 
     final children = <Widget>[];
@@ -53,6 +70,11 @@ class DropdownChain extends StatelessWidget {
       final item = items[i];
       final isLast = i == items.length - 1;
 
+      // Resolve variant: item.selected (legacy) > item.variant > chain default
+      ChipVariant? chipVariant = item.variant ?? variant;
+      // ignore: deprecated_member_use_from_same_package
+      final legacySelected = item.selected;
+
       if (isLast) {
         children.add(
           Expanded(
@@ -60,7 +82,10 @@ class DropdownChain extends StatelessWidget {
               label: item.label,
               onTap: item.onTap,
               expanded: true,
-              selected: item.selected,
+              variant: chipVariant,
+              size: size,
+              // ignore: deprecated_member_use_from_same_package
+              selected: legacySelected,
               borderColor: item.borderColor,
             ),
           ),
@@ -70,15 +95,18 @@ class DropdownChain extends StatelessWidget {
           DropdownChip(
             label: item.label,
             onTap: item.onTap,
-            selected: item.selected,
+            variant: chipVariant,
+            size: size,
+            // ignore: deprecated_member_use_from_same_package
+            selected: legacySelected,
             borderColor: item.borderColor,
           ),
         );
         children.add(SizedBox(width: spacing.space8));
         children.add(
           Icon(
-            Icons.chevron_right,
-            size: 24,
+            Symbols.chevron_right_sharp,
+            size: sizing.iconRegular,
             color: colors.onSurfaceVariant,
           ),
         );

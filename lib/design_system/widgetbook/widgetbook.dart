@@ -9,6 +9,7 @@ import 'bottom_nav_use_case.dart';
 import 'button_use_case.dart';
 import 'challenge_activity_summary_use_case.dart';
 import 'challenge_card_use_case.dart';
+import 'challenge_reward_card_use_case.dart';
 import 'challenge_category_tile_use_case.dart';
 import 'challenge_detail_page_use_case.dart';
 import 'challenges_page_use_case.dart';
@@ -16,14 +17,30 @@ import 'color_catalog.dart';
 import 'dropdown_chain_use_case.dart';
 import 'dropdown_chip_use_case.dart';
 import 'dropdown_sheet_use_case.dart';
+import 'empty_state_use_case.dart';
 import 'epoch_performance_page_use_case.dart';
+import 'full_page_error_state_use_case.dart';
+import 'full_page_loading_state_use_case.dart';
+import 'icon_badge_use_case.dart';
+import 'info_row_use_case.dart';
 import 'leaderboard_page_use_case.dart';
 import 'leaderboard_stats_card_use_case.dart';
+import 'list_section_header_use_case.dart';
 import 'list_tile_use_case.dart';
+import 'parallax_surface_layout_use_case.dart';
 import 'rank_badge_use_case.dart';
+import 'result_page_use_case.dart';
 import 'score_header_use_case.dart';
+import 'settings_page_use_case.dart';
+import 'sheet_layout_use_case.dart';
+import 'shimmer_use_case.dart';
+import 'status_badge_use_case.dart';
 import 'tabs_use_case.dart';
+import 'text_chevron_trailing_use_case.dart';
+import 'text_field_use_case.dart';
 import 'top_app_bar_use_case.dart';
+import 'unified_theme_catalog.dart';
+import 'wallet_page_use_case.dart';
 
 void main() {
   runApp(const WidgetbookApp());
@@ -39,7 +56,9 @@ class WidgetbookApp extends StatelessWidget {
     ThemeData withSemanticColors(ThemeData base, AppSemanticColors semantic) {
       return base.copyWith(
         extensions: [
-          ...DesignSystemTheme.standardExtensions(semanticColors: semantic),
+          ...DesignSystemTheme.standardExtensions(
+            semanticColors: semantic,
+          ),
         ],
       );
     }
@@ -51,32 +70,44 @@ class WidgetbookApp extends StatelessWidget {
             WidgetbookTheme(
               name: 'Light',
               data: withSemanticColors(
-                  cieTheme.light(), AppSemanticColors.light()),
+                cieTheme.light(),
+                AppSemanticColors.light(),
+              ),
             ),
             WidgetbookTheme(
               name: 'Light Medium Contrast',
-              data: withSemanticColors(cieTheme.lightMediumContrast(),
-                  AppSemanticColors.lightMediumContrast()),
+              data: withSemanticColors(
+                cieTheme.lightMediumContrast(),
+                AppSemanticColors.lightMediumContrast(),
+              ),
             ),
             WidgetbookTheme(
               name: 'Light High Contrast',
-              data: withSemanticColors(cieTheme.lightHighContrast(),
-                  AppSemanticColors.lightHighContrast()),
+              data: withSemanticColors(
+                cieTheme.lightHighContrast(),
+                AppSemanticColors.lightHighContrast(),
+              ),
             ),
             WidgetbookTheme(
               name: 'Dark',
-              data:
-                  withSemanticColors(cieTheme.dark(), AppSemanticColors.dark()),
+              data: withSemanticColors(
+                cieTheme.dark(),
+                AppSemanticColors.dark(),
+              ),
             ),
             WidgetbookTheme(
               name: 'Dark Medium Contrast',
-              data: withSemanticColors(cieTheme.darkMediumContrast(),
-                  AppSemanticColors.darkMediumContrast()),
+              data: withSemanticColors(
+                cieTheme.darkMediumContrast(),
+                AppSemanticColors.darkMediumContrast(),
+              ),
             ),
             WidgetbookTheme(
               name: 'Dark High Contrast',
-              data: withSemanticColors(cieTheme.darkHighContrast(),
-                  AppSemanticColors.darkHighContrast()),
+              data: withSemanticColors(
+                cieTheme.darkHighContrast(),
+                AppSemanticColors.darkHighContrast(),
+              ),
             ),
           ],
           themeBuilder: (context, theme, child) {
@@ -104,6 +135,15 @@ class WidgetbookApp extends StatelessWidget {
           name: 'Foundations',
           children: [
             WidgetbookComponent(
+              name: 'Unified Theme',
+              useCases: [
+                WidgetbookUseCase(
+                  name: 'Full Demo',
+                  builder: (context) => const UnifiedThemeCatalog(),
+                ),
+              ],
+            ),
+            WidgetbookComponent(
               name: 'Color System',
               useCases: [
                 WidgetbookUseCase(
@@ -129,29 +169,111 @@ class WidgetbookApp extends StatelessWidget {
         WidgetbookCategory(
           name: 'Widgets',
           children: [
-            bottomNavComponent(),
-            buttonComponent(),
-            challengeActivitySummaryComponent(),
-            challengeCardComponent(),
-            challengeCategoryTileComponent(),
-            dropdownChainComponent(),
-            dropdownChipComponent(),
-            dropdownSheetComponent(),
-            leaderboardStatsCardComponent(),
-            listTileComponent(),
-            rankBadgeComponent(),
-            scoreHeaderComponent(),
-            tabsComponent(),
-            topAppBarComponent(),
+            WidgetbookFolder(
+              name: 'Navigation',
+              children: [
+                bottomNavComponent(),
+                tabsComponent(),
+                topAppBarComponent(),
+              ],
+            ),
+            WidgetbookFolder(
+              name: 'Buttons',
+              children: [
+                buttonComponent(),
+              ],
+            ),
+            WidgetbookFolder(
+              name: 'Chips',
+              children: [
+                dropdownChainComponent(),
+                dropdownChipComponent(),
+                dropdownSheetComponent(),
+              ],
+            ),
+            WidgetbookFolder(
+              name: 'Inputs',
+              children: [
+                textFieldComponent(),
+              ],
+            ),
+            WidgetbookFolder(
+              name: 'Layout',
+              children: [
+                parallaxSurfaceLayoutComponent(),
+              ],
+            ),
+            WidgetbookFolder(
+              name: 'Data Display',
+              children: [
+                infoRowComponent(),
+                leaderboardStatsCardComponent(),
+                listSectionHeaderComponent(),
+                listTileComponent(),
+                scoreHeaderComponent(),
+                sheetLayoutComponent(),
+                textChevronTrailingComponent(),
+              ],
+            ),
+            WidgetbookFolder(
+              name: 'Indicators',
+              children: [
+                emptyStateComponent(),
+                fullPageErrorStateComponent(),
+                fullPageLoadingStateComponent(),
+                iconBadgeComponent(),
+                rankBadgeComponent(),
+                shimmerBlockComponent(),
+                shimmerListTileComponent(),
+                statusBadgeComponent(),
+              ],
+            ),
+            WidgetbookFolder(
+              name: 'Challenges',
+              children: [
+                challengeActivitySummaryComponent(),
+                challengeCardComponent(),
+                challengeCategoryTileComponent(),
+                challengeRewardCardComponent(),
+              ],
+            ),
           ],
         ),
         WidgetbookCategory(
           name: 'Pages',
           children: [
-            challengeDetailPageComponent(),
-            challengesPageComponent(),
-            epochPerformancePageComponent(),
-            leaderboardPageComponent(),
+            WidgetbookFolder(
+              name: 'Challenges',
+              children: [
+                challengeDetailPageComponent(),
+                challengesPageComponent(),
+              ],
+            ),
+            WidgetbookFolder(
+              name: 'Performance',
+              children: [
+                epochPerformancePageComponent(),
+                leaderboardPageComponent(),
+              ],
+            ),
+            WidgetbookFolder(
+              name: 'Outcomes',
+              children: [
+                resultPageComponent(),
+              ],
+            ),
+            WidgetbookFolder(
+              name: 'Settings',
+              children: [
+                settingsPageComponent(),
+              ],
+            ),
+            WidgetbookFolder(
+              name: 'Wallet',
+              children: [
+                walletPageComponent(),
+              ],
+            ),
           ],
         ),
       ],

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/data/slot_production_repository.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:intl/intl.dart';
 
 final _log =
@@ -62,6 +64,7 @@ class _SlotProductionStatsScreenState
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
@@ -73,50 +76,53 @@ class _SlotProductionStatsScreenState
         backgroundColor: Colors.transparent,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Symbols.refresh_sharp),
             onPressed: _loadData,
           ),
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const FullPageLoadingState()
           : RefreshIndicator(
               onRefresh: _loadData,
               child: ListView(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(spacing.space16),
                 children: [
                   // Overview Stats Card
-                  _buildOverviewCard(theme, colorScheme, l10n),
-                  const SizedBox(height: 16),
+                  _buildOverviewCard(theme, colorScheme, l10n, spacing),
+                  SizedBox(height: spacing.space16),
 
                   // Success Rate Card
-                  _buildSuccessRateCard(theme, colorScheme, l10n),
-                  const SizedBox(height: 16),
+                  _buildSuccessRateCard(theme, colorScheme, l10n, spacing),
+                  SizedBox(height: spacing.space16),
 
                   // Recent Records by Epoch
-                  _buildRecentRecordsSection(theme, colorScheme, l10n),
+                  _buildRecentRecordsSection(theme, colorScheme, l10n, spacing),
+                  SizedBox(height: spacing.space32),
                 ],
               ),
             ),
     );
   }
 
-  Widget _buildOverviewCard(
-      ThemeData theme, ColorScheme colorScheme, AppLocalizations l10n) {
+  Widget _buildOverviewCard(ThemeData theme, ColorScheme colorScheme,
+      AppLocalizations l10n, AppSpacing spacing) {
     if (_stats == null) {
       return const SizedBox.shrink();
     }
 
+    final semantic = theme.extension<AppSemanticColors>()!;
+
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(spacing.space16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(Icons.analytics, color: colorScheme.primary),
-                const SizedBox(width: 12),
+                Icon(Symbols.analytics_sharp, color: colorScheme.primary),
+                SizedBox(width: spacing.space12),
                 Text(
                   l10n.statsOverall,
                   style: theme.textTheme.titleLarge?.copyWith(
@@ -125,55 +131,59 @@ class _SlotProductionStatsScreenState
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: spacing.space24),
             Row(
               children: [
                 Expanded(
                   child: _buildStatColumn(
                     l10n.statsWonSlots,
                     _stats!.totalWonSlots.toString(),
-                    Icons.star,
-                    Colors.amber,
+                    Symbols.star_sharp,
+                    semantic.warning.color,
                     theme,
+                    spacing,
                   ),
                 ),
                 Expanded(
                   child: _buildStatColumn(
                     l10n.statsAttempted,
                     _stats!.totalAttempted.toString(),
-                    Icons.play_arrow,
-                    Colors.blue,
+                    Symbols.play_arrow_sharp,
+                    semantic.technical.color,
                     theme,
+                    spacing,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: spacing.space16),
             Row(
               children: [
                 Expanded(
                   child: _buildStatColumn(
                     l10n.statsProduced,
                     _stats!.totalProduced.toString(),
-                    Icons.check_circle,
-                    Colors.green,
+                    Symbols.check_circle_sharp,
+                    semantic.success.color,
                     theme,
+                    spacing,
                   ),
                 ),
                 Expanded(
                   child: _buildStatColumn(
                     l10n.statsFailed,
                     _stats!.totalFailed.toString(),
-                    Icons.error,
-                    Colors.red,
+                    Symbols.error_sharp,
+                    colorScheme.error,
                     theme,
+                    spacing,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: spacing.space16),
             const Divider(),
-            const SizedBox(height: 8),
+            SizedBox(height: spacing.space8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -203,11 +213,13 @@ class _SlotProductionStatsScreenState
     IconData icon,
     Color color,
     ThemeData theme,
+    AppSpacing spacing,
   ) {
+    final sizing = theme.extension<AppSizing>()!;
     return Column(
       children: [
-        Icon(icon, color: color, size: 32),
-        const SizedBox(height: 8),
+        Icon(icon, color: color, size: sizing.iconXLarge),
+        SizedBox(height: spacing.space8),
         Text(
           value,
           style: theme.textTheme.headlineMedium?.copyWith(
@@ -215,7 +227,7 @@ class _SlotProductionStatsScreenState
             color: color,
           ),
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: spacing.space4),
         Text(
           label,
           style: theme.textTheme.bodySmall,
@@ -225,23 +237,26 @@ class _SlotProductionStatsScreenState
     );
   }
 
-  Widget _buildSuccessRateCard(
-      ThemeData theme, ColorScheme colorScheme, AppLocalizations l10n) {
+  Widget _buildSuccessRateCard(ThemeData theme, ColorScheme colorScheme,
+      AppLocalizations l10n, AppSpacing spacing) {
     if (_stats == null || _stats!.totalAttempted == 0) {
       return const SizedBox.shrink();
     }
 
+    final sizing = theme.extension<AppSizing>()!;
+    final radii = theme.extension<AppRadii>()!;
+    final semantic = theme.extension<AppSemanticColors>()!;
     final successRate = _stats!.successRate;
     final color = successRate >= 90
-        ? Colors.green
+        ? semantic.success.color
         : successRate >= 70
-            ? Colors.orange
-            : Colors.red;
+            ? semantic.warning.color
+            : colorScheme.error;
 
     return Card(
       color: color.withValues(alpha: 0.1),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(spacing.space16),
         child: Column(
           children: [
             Row(
@@ -255,37 +270,37 @@ class _SlotProductionStatsScreenState
                 ),
                 Icon(
                   successRate >= 90
-                      ? Icons.sentiment_very_satisfied
+                      ? Symbols.sentiment_very_satisfied_sharp
                       : successRate >= 70
-                          ? Icons.sentiment_satisfied
-                          : Icons.sentiment_dissatisfied,
+                          ? Symbols.sentiment_satisfied_sharp
+                          : Symbols.sentiment_dissatisfied_sharp,
                   color: color,
-                  size: 32,
+                  size: sizing.iconXLarge,
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: spacing.space16),
             SizedBox(
               height: 120,
               child: Center(
                 child: Text(
                   '${successRate.toStringAsFixed(1)}%',
-                  style: theme.textTheme.displayLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
+                  style: theme.textTheme.displaySmall?.copyWith(
                     color: color,
+                    fontFamily: kMonoFontFamily,
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: spacing.space8),
             LinearProgressIndicator(
               value: successRate / 100,
               backgroundColor: colorScheme.surfaceContainerHighest,
               valueColor: AlwaysStoppedAnimation<Color>(color),
               minHeight: 8,
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: radii.borderRadiusXSmall,
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: spacing.space12),
             Text(
               l10n.statsSuccessfulOf(
                   _stats!.totalProduced, _stats!.totalAttempted),
@@ -300,21 +315,23 @@ class _SlotProductionStatsScreenState
     );
   }
 
-  Widget _buildRecentRecordsSection(
-      ThemeData theme, ColorScheme colorScheme, AppLocalizations l10n) {
+  Widget _buildRecentRecordsSection(ThemeData theme, ColorScheme colorScheme,
+      AppLocalizations l10n, AppSpacing spacing) {
     if (_recentRecords.isEmpty) {
       return Card(
         child: Padding(
-          padding: const EdgeInsets.all(32),
+          padding: EdgeInsets.all(spacing.space24),
           child: Center(
             child: Column(
               children: [
                 Icon(
-                  Icons.inbox,
-                  size: 64,
+                  Symbols.inbox_sharp,
+                  size: Theme.of(context)
+                      .extension<AppSizing>()!
+                      .iconDisplayLarge,
                   color: colorScheme.onSurface.withValues(alpha: 0.3),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: spacing.space16),
                 Text(
                   l10n.statsNoRecords,
                   style: theme.textTheme.titleMedium?.copyWith(
@@ -332,7 +349,8 @@ class _SlotProductionStatsScreenState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.only(left: 8, bottom: 12),
+          padding:
+              EdgeInsets.only(left: spacing.space8, bottom: spacing.space12),
           child: Text(
             l10n.statsRecentRecords,
             style: theme.textTheme.titleMedium?.copyWith(
@@ -342,7 +360,7 @@ class _SlotProductionStatsScreenState
         ),
         ..._recordsByEpoch.entries.map((entry) {
           return _buildEpochSection(
-              entry.key, entry.value, theme, colorScheme, l10n);
+              entry.key, entry.value, theme, colorScheme, l10n, spacing);
         }),
       ],
     );
@@ -354,11 +372,12 @@ class _SlotProductionStatsScreenState
     ThemeData theme,
     ColorScheme colorScheme,
     AppLocalizations l10n,
+    AppSpacing spacing,
   ) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: EdgeInsets.only(bottom: spacing.space12),
       child: ExpansionTile(
-        leading: Icon(Icons.calendar_today, color: colorScheme.primary),
+        leading: Icon(Symbols.calendar_today_sharp, color: colorScheme.primary),
         title: Text(
           l10n.statsEpoch(epoch),
           style: theme.textTheme.titleMedium?.copyWith(
@@ -382,14 +401,15 @@ class _SlotProductionStatsScreenState
     ColorScheme colorScheme,
     AppLocalizations l10n,
   ) {
-    final statusColor = _getStatusColor(record.status);
+    final statusColor = _getStatusColor(record.status, colorScheme);
     final statusIcon = _getStatusIcon(record.status);
     final statusText = _getStatusText(record.status, l10n);
 
     return ListTile(
-      leading: CircleAvatar(
+      leading: IconBadge(
+        icon: statusIcon,
         backgroundColor: statusColor.withValues(alpha: 0.2),
-        child: Icon(statusIcon, color: statusColor, size: 20),
+        iconColor: statusColor,
       ),
       title: Text(l10n.statsSlot(record.slotNumber)),
       subtitle: Column(
@@ -405,7 +425,7 @@ class _SlotProductionStatsScreenState
             Text(
               'Reason: ${record.failureReason}',
               style: theme.textTheme.bodySmall?.copyWith(
-                color: Colors.red,
+                color: colorScheme.error,
               ),
             ),
         ],
@@ -413,9 +433,8 @@ class _SlotProductionStatsScreenState
       trailing: record.blockHeight != null
           ? Chip(
               label: Text(l10n.statsBlock(record.blockHeight!)),
-              backgroundColor: Colors.green.withValues(alpha: 0.2),
-              labelStyle: const TextStyle(
-                fontSize: 11,
+              backgroundColor: colorScheme.tertiary.withValues(alpha: 0.2),
+              labelStyle: theme.textTheme.labelSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             )
@@ -423,29 +442,29 @@ class _SlotProductionStatsScreenState
     );
   }
 
-  Color _getStatusColor(SlotProductionStatus status) {
+  Color _getStatusColor(SlotProductionStatus status, ColorScheme colorScheme) {
     switch (status) {
       case SlotProductionStatus.won:
-        return Colors.amber;
+        return colorScheme.secondary;
       case SlotProductionStatus.attempting:
-        return Colors.blue;
+        return colorScheme.primary;
       case SlotProductionStatus.produced:
-        return Colors.green;
+        return colorScheme.tertiary;
       case SlotProductionStatus.failed:
-        return Colors.red;
+        return colorScheme.error;
     }
   }
 
   IconData _getStatusIcon(SlotProductionStatus status) {
     switch (status) {
       case SlotProductionStatus.won:
-        return Icons.star;
+        return Symbols.star_sharp;
       case SlotProductionStatus.attempting:
-        return Icons.play_arrow;
+        return Symbols.play_arrow_sharp;
       case SlotProductionStatus.produced:
-        return Icons.check_circle;
+        return Symbols.check_circle_sharp;
       case SlotProductionStatus.failed:
-        return Icons.error;
+        return Symbols.error_sharp;
     }
   }
 

@@ -140,10 +140,16 @@ jobs:
         run: flutter_rust_bridge_codegen generate
 
       - name: Check formatting
-        run: dart format .
+        run: dart format . --set-exit-if-changed
 
       - name: Analyze code
         run: flutter analyze
+
+      - name: Design system lints
+        run: |
+          cd packages/ds_lints
+          dart pub get
+          dart run bin/lint.dart ../..
 
       - name: Run unit tests
         run: flutter test --coverage

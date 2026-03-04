@@ -1,6 +1,7 @@
 import 'package:crypto_mobile_app/features/node/screens/node_status_screen.dart';
-import 'package:crypto_mobile_app/features/settings/screens/background_production_settings_screen.dart';
+import 'package:crypto_mobile_app/features/settings/screens/settings_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/feature_flags.dart';
 import 'package:go_router/go_router.dart';
@@ -22,7 +23,7 @@ class _MainAppState extends State<MainApp> {
   Widget _screenFor(AppFeature f) {
     switch (f) {
       case AppFeature.settings:
-        return const BackgroundProductionSettingsScreen();
+        return const SettingsScreen();
       case AppFeature.node:
         return const NodeStatusScreen();
     }
@@ -95,14 +96,14 @@ class _MainAppState extends State<MainApp> {
           destinations: [
             for (final f in active)
               switch (f) {
-                AppFeature.settings => const NavigationDestination(
-                    icon: Icon(Icons.settings_outlined),
-                    selectedIcon: Icon(Icons.settings),
+                AppFeature.settings => NavigationDestination(
+                    icon: const Icon(Symbols.settings_sharp),
+                    selectedIcon: const Icon(Symbols.settings_sharp, fill: 1),
                     label: 'Settings',
                   ),
                 AppFeature.node => NavigationDestination(
-                    icon: const Icon(Icons.hub_outlined),
-                    selectedIcon: const Icon(Icons.hub),
+                    icon: const Icon(Symbols.hub_sharp),
+                    selectedIcon: const Icon(Symbols.hub_sharp, fill: 1),
                     label: l10n?.node ?? 'Node',
                   ),
               }

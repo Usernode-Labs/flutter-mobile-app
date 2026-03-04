@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../tokens/app_animation.dart';
+import '../tokens/app_borders.dart';
 import '../tokens/app_elevation.dart';
 import '../tokens/app_opacity.dart';
 import '../tokens/app_radii.dart';
@@ -10,21 +11,17 @@ import '../tokens/app_spacing.dart';
 
 /// Wraps a child widget tree with all design system ThemeExtensions.
 ///
-/// Usage:
-/// ```dart
-/// DesignSystemTheme(
-///   child: MaterialApp(...),
-/// )
-/// ```
-///
-/// Migration: Once proven, move extensions into `lib/core/config/theme.dart`
-/// and delete this wrapper.
+/// **Deprecated at runtime** — all token extensions are now injected at the
+/// app root in `main.dart` via [standardExtensions]. The [build] method and
+/// per-screen wrapping are no longer needed. Keep [standardExtensions] as
+/// the single factory for the canonical extension list.
 class DesignSystemTheme extends StatelessWidget {
   const DesignSystemTheme({
     super.key,
     required this.child,
     this.spacing,
     this.radii,
+    this.borders,
     this.elevation,
     this.opacity,
     this.sizing,
@@ -35,6 +32,7 @@ class DesignSystemTheme extends StatelessWidget {
   final Widget child;
   final AppSpacing? spacing;
   final AppRadii? radii;
+  final AppBorders? borders;
   final AppElevation? elevation;
   final AppOpacity? opacity;
   final AppSizing? sizing;
@@ -48,6 +46,7 @@ class DesignSystemTheme extends StatelessWidget {
       [
         AppSpacing.standard(),
         AppRadii.standard(),
+        AppBorders.standard(),
         AppElevation.standard(),
         AppOpacity.standard(),
         AppSizing.standard(),
@@ -62,6 +61,7 @@ class DesignSystemTheme extends StatelessWidget {
         extensions: [
           spacing ?? AppSpacing.standard(),
           radii ?? AppRadii.standard(),
+          borders ?? AppBorders.standard(),
           elevation ?? AppElevation.standard(),
           opacity ?? AppOpacity.standard(),
           sizing ?? AppSizing.standard(),

@@ -1,6 +1,9 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
+import 'package:crypto_mobile_app/core/widgets/app_card.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 
@@ -75,6 +78,9 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     final theme = Theme.of(context);
     final block = widget.block;
     final l10n = AppLocalizations.of(context);
@@ -86,7 +92,7 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
       ),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(spacing.space16),
           children: [
             // Header section with main info
             Row(
@@ -96,15 +102,15 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
                   height: 40,
                   decoration: BoxDecoration(
                     color: theme.colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(30),
+                    borderRadius: radii.borderRadiusFull,
                   ),
                   child: Icon(
-                    Icons.check,
+                    Symbols.check_sharp,
                     color: theme.colorScheme.onPrimaryContainer,
-                    size: 20,
+                    size: sizing.iconSmall,
                   ),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: spacing.space16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,7 +121,7 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: spacing.space4),
                       Text(
                         l10n.statsEpoch(block.epoch),
                         style: theme.textTheme.bodyMedium?.copyWith(
@@ -128,11 +134,11 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
               ],
             ),
 
-            const SizedBox(height: 32),
+            SizedBox(height: spacing.space32),
 
             // Timeline
             _TimelineItem(
-              icon: Icons.check,
+              icon: Symbols.check_sharp,
               title: l10n.blockVrfSlotDiscovered,
               subtitle: l10n.blockSlotWon(block.globalSlot),
               timing: '${timings[0]}ms',
@@ -140,7 +146,7 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
             ),
 
             _TimelineItem(
-              icon: Icons.check,
+              icon: Symbols.check_sharp,
               title: l10n.blockProductionScheduled,
               subtitle: l10n.blockEpochSlot(block.epoch, block.globalSlot),
               timing: '${timings[1]}ms',
@@ -148,7 +154,7 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
             ),
 
             _TimelineItem(
-              icon: Icons.check,
+              icon: Symbols.check_sharp,
               title: l10n.blockTxBatchesIncluded,
               subtitle: block.batches.isNotEmpty
                   ? l10n.blockIncludedBatchesTx(
@@ -159,7 +165,7 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
             ),
 
             _TimelineItem(
-              icon: Icons.check,
+              icon: Symbols.check_sharp,
               title: l10n.blockStateTransition,
               subtitle: l10n.blockStatesUpdated,
               timing: '${timings[3]}ms',
@@ -167,7 +173,7 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
             ),
 
             _TimelineItem(
-              icon: Icons.check,
+              icon: Symbols.check_sharp,
               title: l10n.blockAppliedLocally,
               subtitle: l10n.blockUtxosUpdated,
               timing: '${timings[4]}ms',
@@ -175,7 +181,7 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
             ),
 
             _TimelineItem(
-              icon: Icons.check,
+              icon: Symbols.check_sharp,
               title: l10n.blockCommitted,
               subtitle: l10n.blockNumber(block.height),
               timing: '${timings[5]}ms',
@@ -183,7 +189,7 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
             ),
 
             _TimelineItem(
-              icon: Icons.verified,
+              icon: Symbols.verified_sharp,
               title: l10n.blockConfirmed,
               subtitle: l10n.blockHashPrefix(block.hash.toString().length > 16
                   ? block.hash.toString().substring(0, 16)
@@ -192,15 +198,13 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
               isLast: true,
             ),
 
-            const SizedBox(height: 32),
+            SizedBox(height: spacing.space32),
 
             // Block Information Card
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(12),
-              ),
+            AppCard(
+              padding: EdgeInsets.all(spacing.space16),
+              color: theme.colorScheme.surfaceContainerHighest,
+              borderRadius: radii.borderRadiusMedium,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -211,56 +215,60 @@ class _BlockDetailsScreenState extends State<BlockDetailsScreen> {
                       color: theme.colorScheme.onSurface,
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  _InfoRow(
+                  SizedBox(height: spacing.space16),
+                  InfoRow(
                     label: l10n.blockHash,
-                    value: block.hash.toString().length > 24
-                        ? '${block.hash.toString().substring(0, 24)}...'
-                        : block.hash.toString(),
+                    value: _truncate(block.hash.toString()),
+                    valueStyle: _valueBold(theme),
+                    showDivider: false,
+                    contentPadding: EdgeInsets.only(bottom: spacing.space12),
                   ),
-                  const SizedBox(height: 12),
-                  _InfoRow(
+                  InfoRow(
                     label: l10n.blockHeight,
                     value: '${block.height}',
+                    valueStyle: _valueBold(theme),
+                    showDivider: false,
+                    contentPadding: EdgeInsets.only(bottom: spacing.space12),
                   ),
-                  const SizedBox(height: 12),
-                  _InfoRow(
+                  InfoRow(
                     label: l10n.blockGlobalSlot,
                     value: '${block.globalSlot}',
+                    valueStyle: _valueBold(theme),
+                    showDivider: false,
+                    contentPadding: EdgeInsets.only(bottom: spacing.space12),
                   ),
-                  const SizedBox(height: 12),
-                  _InfoRow(
+                  InfoRow(
                     label: l10n.blockEpoch,
                     value: '${block.epoch}',
+                    valueStyle: _valueBold(theme),
+                    showDivider: false,
+                    contentPadding: EdgeInsets.only(bottom: spacing.space12),
                   ),
-                  const SizedBox(height: 12),
-                  _InfoRow(
+                  InfoRow(
                     label: l10n.blockProducer,
-                    value: (() {
-                      String producer;
-                      try {
-                        producer = block.producerPubkey.toString();
-                      } catch (_) {
-                        producer = '';
-                      }
-                      return producer.length > 24
-                          ? '${producer.substring(0, 24)}...'
-                          : producer;
-                    })(),
+                    value: _truncate(block.producerPubkey.toString()),
+                    valueStyle: _valueBold(theme),
+                    showDivider: false,
+                    contentPadding: EdgeInsets.only(bottom: spacing.space12),
                   ),
-                  const SizedBox(height: 12),
-                  _InfoRow(
+                  InfoRow(
                     label: l10n.blockTransactions,
                     value: '${block.transactions}',
+                    valueStyle: _valueBold(theme),
+                    showDivider: false,
+                    contentPadding: EdgeInsets.only(bottom: spacing.space12),
                   ),
-                  const SizedBox(height: 12),
-                  _InfoRow(
+                  InfoRow(
                     label: l10n.blockBatches,
                     value: '${block.batches.length}',
+                    valueStyle: _valueBold(theme),
+                    showDivider: false,
+                    contentPadding: EdgeInsets.zero,
                   ),
                 ],
               ),
             ),
+            SizedBox(height: spacing.space32),
           ],
         ),
       ),
@@ -285,11 +293,14 @@ class _TimelineItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     final theme = Theme.of(context);
+    final semantic = Theme.of(context).extension<AppSemanticColors>()!;
 
     return IntrinsicHeight(
       child: Padding(
-        padding: const EdgeInsets.only(left: 10),
+        padding: EdgeInsets.only(left: spacing.space12),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -300,15 +311,16 @@ class _TimelineItem extends StatelessWidget {
                   width: 20,
                   height: 20,
                   decoration: BoxDecoration(
-                    color: icon == Icons.verified
-                        ? Colors.amber.withValues(alpha: 0.2)
+                    color: icon == Symbols.verified_sharp
+                        ? semantic.warning.colorContainer
                         : theme.colorScheme.onSurface,
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: radii.borderRadiusLargeIncreased,
                   ),
                   child: Icon(
                     icon,
-                    color:
-                        isLast ? Colors.amber[700] : theme.colorScheme.surface,
+                    color: isLast
+                        ? semantic.warning.color
+                        : theme.colorScheme.surface,
                     size: isLast ? 20 : 14,
                   ),
                 ),
@@ -321,7 +333,7 @@ class _TimelineItem extends StatelessWidget {
               ],
             ),
 
-            const SizedBox(width: 16),
+            SizedBox(width: spacing.space16),
 
             // Content
             Expanded(
@@ -347,14 +359,14 @@ class _TimelineItem extends StatelessWidget {
                         ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: spacing.space4),
                   Text(
                     subtitle,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: spacing.space16),
                 ],
               ),
             ),
@@ -365,41 +377,10 @@ class _TimelineItem extends StatelessWidget {
   }
 }
 
-class _InfoRow extends StatelessWidget {
-  final String label;
-  final String value;
+String _truncate(String s, [int maxLen = 24]) =>
+    s.length > maxLen ? '${s.substring(0, maxLen)}...' : s;
 
-  const _InfoRow({
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Text(
-            value,
-            textAlign: TextAlign.end,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: theme.colorScheme.onSurface,
-            ),
-          ),
-        ),
-      ],
+TextStyle? _valueBold(ThemeData theme) => theme.textTheme.bodyMedium?.copyWith(
+      fontWeight: FontWeight.w600,
+      color: theme.colorScheme.onSurface,
     );
-  }
-}

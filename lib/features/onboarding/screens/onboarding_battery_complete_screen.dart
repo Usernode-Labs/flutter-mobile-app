@@ -8,6 +8,7 @@ import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 
 class OnboardingBatteryCompleteScreen extends ConsumerStatefulWidget {
   const OnboardingBatteryCompleteScreen({super.key});
@@ -61,57 +62,55 @@ class _OnboardingBatteryCompleteScreenState
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
 
     return Scaffold(
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(spacing.space16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
                 child: Center(
                   child: _checking
-                      ? const CircularProgressIndicator()
-                      : Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (_unrestricted) ...[
-                                Text(
-                                  l10n.onboardingBatteryUnrestrictedTitle,
-                                  style: theme.textTheme.titleLarge?.copyWith(
-                                    fontWeight: FontWeight.normal,
-                                  ),
+                      ? const FullPageLoadingState()
+                      : Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (_unrestricted) ...[
+                              Text(
+                                l10n.onboardingBatteryUnrestrictedTitle,
+                                style: theme.textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.normal,
                                 ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  l10n.onboardingBatteryUnrestrictedBody,
-                                  style: theme.textTheme.bodyMedium,
+                              ),
+                              SizedBox(height: spacing.space16),
+                              Text(
+                                l10n.onboardingBatteryUnrestrictedBody,
+                                style: theme.textTheme.bodyMedium,
+                              ),
+                            ] else ...[
+                              Text(
+                                l10n.onboardingBatteryDefaultTitle,
+                                style: theme.textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.normal,
                                 ),
-                              ] else ...[
-                                Text(
-                                  l10n.onboardingBatteryDefaultTitle,
-                                  style: theme.textTheme.titleLarge?.copyWith(
-                                    fontWeight: FontWeight.normal,
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  l10n.onboardingBatteryDefaultBody,
-                                  style: theme.textTheme.bodyMedium,
-                                ),
-                              ],
+                              ),
+                              SizedBox(height: spacing.space16),
+                              Text(
+                                l10n.onboardingBatteryDefaultBody,
+                                style: theme.textTheme.bodyMedium,
+                              ),
                             ],
-                          ),
+                          ],
                         ),
                 ),
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: spacing.space24),
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(

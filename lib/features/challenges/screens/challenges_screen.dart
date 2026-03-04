@@ -12,14 +12,7 @@ import 'package:crypto_mobile_app/core/providers/ranking_provider.dart';
 import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
-import 'package:crypto_mobile_app/design_system/src/challenge_activity_summary.dart';
-import 'package:crypto_mobile_app/design_system/src/challenge_card.dart';
-import 'package:crypto_mobile_app/design_system/src/challenge_category_icon.dart';
-import 'package:crypto_mobile_app/design_system/src/score_header.dart';
-import 'package:crypto_mobile_app/design_system/theme/color_is_expensive_theme.dart';
-import 'package:crypto_mobile_app/design_system/theme/design_system_theme.dart';
-import 'package:crypto_mobile_app/design_system/tokens/app_semantic_colors.dart';
-import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 import 'package:crypto_mobile_app/features/challenges/heartbeat_animation.dart';
 import 'package:crypto_mobile_app/features/challenges/season_event_pickers.dart';
@@ -75,7 +68,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
   bool _onScroll(ScrollNotification notification) {
     if (notification.depth != 0) return false;
     final fraction =
-        (notification.metrics.pixels / kChallengesSpacerHeight).clamp(0.0, 1.0);
+        (notification.metrics.pixels / kScreenHeaderHeight).clamp(0.0, 1.0);
     if (fraction != _scrollFraction.value) {
       _scrollFraction.value = fraction;
     }
@@ -108,17 +101,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
     // Ensure cold-start context is restored
     ref.watch(leaderboardBootstrapProvider);
 
-    final textTheme = Theme.of(context).textTheme;
-
-    // Wrap the subtree with the design system theme
-    return Theme(
-      data: ColorIsExpensiveTheme(textTheme).light().copyWith(
-            extensions: DesignSystemTheme.standardExtensions(
-              semanticColors: AppSemanticColors.light(),
-            ),
-          ),
-      child: Builder(builder: (context) => _buildBody(context)),
-    );
+    return _buildBody(context);
   }
 
   Widget _buildBody(BuildContext context) {
@@ -131,31 +114,11 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
     // Trigger lazy init so seasons data is available for the pickers.
     ref.watch(seasonsProvider);
 
-    if (isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
     if (hasError) {
       return Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                AppLocalizations.of(context).challengeFailedToLoad,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-              ),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: () => ref.invalidate(challengesProvider),
-                child: Text(AppLocalizations.of(context).retry),
-              ),
-            ],
-          ),
+        body: FullPageErrorState(
+          message: AppLocalizations.of(context).challengeFailedToLoad,
+          onRetry: () => ref.invalidate(challengesProvider),
         ),
       );
     }
@@ -189,7 +152,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
                     return Transform.translate(
                       offset: Offset(
                         0,
-                        -sf * kChallengesSpacerHeight * 0.4 + pf.offset,
+                        -sf * kScreenHeaderHeight * kParallaxRatio + pf.offset,
                       ),
                       child: Padding(
                         padding: EdgeInsets.only(
@@ -263,7 +226,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
                       // in Layer 2 directly.
                       SliverToBoxAdapter(
                         child: SizedBox(
-                          height: kChallengesSpacerHeight,
+                          height: kScreenHeaderHeight,
                           child: Align(
                             alignment: Alignment.bottomCenter,
                             child: Padding(
@@ -272,7 +235,8 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
                                 behavior: HitTestBehavior.translucent,
                                 onTap: () =>
                                     context.push(AppRoutes.leaderboard),
-                                child: const SizedBox(width: 200, height: 48),
+                                child: SizedBox(
+                                    width: 200, height: spacing.space48),
                               ),
                             ),
                           ),
@@ -296,13 +260,16 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
                       controller: _tabController,
                       children: [
                         _buildActiveTabContent(
-                            categorized.active, categorized, spacing),
+                            categorized.active, categorized, spacing,
+                            isLoading: isLoading),
                         _buildEnrichedChallengeList(
                             categorized.completed,
                             spacing,
-                            AppLocalizations.of(context).challengeNoCompleted),
+                            AppLocalizations.of(context).challengeNoCompleted,
+                            isLoading: isLoading),
                         _buildEnrichedChallengeList(categorized.missed, spacing,
-                            AppLocalizations.of(context).challengeNoMissed),
+                            AppLocalizations.of(context).challengeNoMissed,
+                            isLoading: isLoading),
                       ],
                     ),
                   ),
@@ -424,8 +391,13 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
   Widget _buildActiveTabContent(
     List<EnrichedChallenge> active,
     CategorizedEnrichedChallenges categorized,
-    AppSpacing spacing,
-  ) {
+    AppSpacing spacing, {
+    bool isLoading = false,
+  }) {
+    if (isLoading) {
+      return _buildShimmerCards(spacing);
+    }
+
     if (active.isNotEmpty) {
       return _buildEnrichedChallengeList(active, spacing, '');
     }
@@ -461,8 +433,13 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
   Widget _buildEnrichedChallengeList(
     List<EnrichedChallenge> challenges,
     AppSpacing spacing,
-    String emptyMessage,
-  ) {
+    String emptyMessage, {
+    bool isLoading = false,
+  }) {
+    if (isLoading) {
+      return _buildShimmerCards(spacing);
+    }
+
     if (challenges.isEmpty) {
       return CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -490,6 +467,24 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
       itemBuilder: (context, index) => RepaintBoundary(
         key: ValueKey(challenges[index].dto.id),
         child: _buildEnrichedChallengeCard(challenges[index]),
+      ),
+    );
+  }
+
+  Widget _buildShimmerCards(AppSpacing spacing) {
+    return ShimmerHost(
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: EdgeInsets.all(spacing.space16),
+            sliver: SliverList.separated(
+              itemCount: 3,
+              separatorBuilder: (_, __) => SizedBox(height: spacing.space12),
+              itemBuilder: (_, __) => const ShimmerCardSkeleton(),
+            ),
+          ),
+        ],
       ),
     );
   }

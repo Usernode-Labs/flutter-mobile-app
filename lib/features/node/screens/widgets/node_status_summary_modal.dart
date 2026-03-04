@@ -1,18 +1,17 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 
 /// Shows a bottom sheet with node status summary
 void showNodeStatusSummaryModal(BuildContext context) {
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
     builder: (context) => const NodeStatusSummaryModal(),
   );
 }
@@ -54,195 +53,71 @@ class _NodeStatusSummaryModalState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     final statusAsync = ref.watch(nodeStatusProvider);
     final nodeStatus = statusAsync.valueOrNull;
     final syncStatus = nodeStatus?.syncStatus;
 
-    return Container(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Node Status',
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // Sync Status Card
-          statusAsync.when(
-            data: (status) {
-              if (syncStatus == null) {
-                // Loading state
-                return _StatusCard(
-                  icon: Icons.hourglass_empty,
-                  iconColor: colorScheme.outline,
-                  title: 'Sync Status',
-                  child: Center(
-                    child: Text(
-                      'Loading...',
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                  ),
-                );
-              }
-
-              final currentHeight = syncStatus.localHeight ?? 0;
-              final networkHeight = syncStatus.networkHeight ?? currentHeight;
-              final syncPercentage = syncStatus.progress;
-
-              // Calculate sync speed
-              _updateSyncSpeed(currentHeight);
-
-              // Determine icon and color based on state
-              final IconData icon;
-              final Color accentColor;
-              final String statusLabel;
-
-              if (syncStatus.isConnecting) {
-                icon = Icons.hourglass_empty;
-                accentColor = colorScheme.outline;
-                statusLabel = 'Connecting';
-              } else if (syncStatus.isSynced) {
-                icon = Icons.check_circle;
-                accentColor = colorScheme.tertiary;
-                statusLabel = 'Synced';
-              } else if (syncStatus.isSyncing) {
-                icon = Icons.sync;
-                accentColor = colorScheme.primary;
-                statusLabel = 'Syncing';
-              } else {
-                icon = Icons.error;
-                accentColor = colorScheme.error;
-                statusLabel = 'Error';
-              }
-
-              return _StatusCard(
-                icon: icon,
-                iconColor: accentColor,
-                title: 'Sync Status',
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          statusLabel,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: accentColor,
-                          ),
-                        ),
-                        Text(
-                          '${(syncPercentage * 100).toStringAsFixed(1)}%',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: accentColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: syncPercentage,
-                        backgroundColor: colorScheme.surfaceContainerHighest,
-                        valueColor: AlwaysStoppedAnimation<Color>(accentColor),
-                        minHeight: 6,
+    return SheetLayout(
+      title: 'Node Status',
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: spacing.space16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Sync Status Card
+            statusAsync.when(
+              data: (status) {
+                if (syncStatus == null) {
+                  // Loading state
+                  return _StatusCard(
+                    icon: Symbols.hourglass_empty_sharp,
+                    iconColor: colorScheme.outline,
+                    title: 'Sync Status',
+                    child: Center(
+                      child: Text(
+                        'Loading...',
+                        style: theme.textTheme.bodyMedium,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    // Show appropriate message based on state
-                    if (syncStatus.isConnecting) ...[
-                      Text(
-                        'Waiting for peer connections...',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      Text(
-                        '${syncStatus.connectedPeers} peers connected',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ] else ...[
-                      Text(
-                        'Block $currentHeight / $networkHeight',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      if (syncStatus.blocksRemaining != null) ...[
-                        Text(
-                          '${syncStatus.blocksRemaining} blocks remaining',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ],
-                    if (syncStatus.isSyncing &&
-                        _blocksPerSecond != null &&
-                        _blocksPerSecond! > 0) ...[
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(Icons.speed,
-                              size: 14, color: colorScheme.onSurfaceVariant),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${_blocksPerSecond!.toStringAsFixed(1)} blocks/sec',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Icon(Icons.schedule,
-                              size: 14, color: colorScheme.onSurfaceVariant),
-                          const SizedBox(width: 4),
-                          Text(
-                            'ETA: ${_calculateETA(currentHeight, networkHeight, _blocksPerSecond!)}',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-              );
-            },
-            loading: () {
-              // Check if we have previous data to avoid blinking
-              if (nodeStatus != null && syncStatus != null) {
-                final currentHeight = nodeStatus.localBestHeight ?? 0;
-                final networkHeight =
-                    nodeStatus.networkBestHeight ?? currentHeight;
+                  );
+                }
+
+                final currentHeight = syncStatus.localHeight ?? 0;
+                final networkHeight = syncStatus.networkHeight ?? currentHeight;
                 final syncPercentage = syncStatus.progress;
 
-                final accentColor = syncStatus.isSynced
-                    ? colorScheme.tertiary
-                    : colorScheme.primary;
+                // Calculate sync speed
+                _updateSyncSpeed(currentHeight);
+
+                // Determine icon and color based on state
+                final IconData icon;
+                final Color accentColor;
+                final String statusLabel;
+
+                if (syncStatus.isConnecting) {
+                  icon = Symbols.hourglass_empty_sharp;
+                  accentColor = colorScheme.outline;
+                  statusLabel = 'Connecting';
+                } else if (syncStatus.isSynced) {
+                  icon = Symbols.check_circle_sharp;
+                  accentColor = colorScheme.tertiary;
+                  statusLabel = 'Synced';
+                } else if (syncStatus.isSyncing) {
+                  icon = Symbols.sync_sharp;
+                  accentColor = colorScheme.primary;
+                  statusLabel = 'Syncing';
+                } else {
+                  icon = Symbols.error_sharp;
+                  accentColor = colorScheme.error;
+                  statusLabel = 'Error';
+                }
 
                 return _StatusCard(
-                  icon: syncStatus.isSynced ? Icons.check_circle : Icons.sync,
+                  icon: icon,
                   iconColor: accentColor,
                   title: 'Sync Status',
                   child: Column(
@@ -252,7 +127,7 @@ class _NodeStatusSummaryModalState
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            syncStatus.isSynced ? 'Synced' : 'Syncing',
+                            statusLabel,
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: accentColor,
@@ -267,9 +142,9 @@ class _NodeStatusSummaryModalState
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: spacing.space8),
                       ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: radii.borderRadiusXSmall,
                         child: LinearProgressIndicator(
                           value: syncPercentage,
                           backgroundColor: colorScheme.surfaceContainerHighest,
@@ -278,33 +153,58 @@ class _NodeStatusSummaryModalState
                           minHeight: 6,
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      if (!syncStatus.isConnecting)
+                      SizedBox(height: spacing.space8),
+                      // Show appropriate message based on state
+                      if (syncStatus.isConnecting) ...[
+                        Text(
+                          'Waiting for peer connections...',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        Text(
+                          '${syncStatus.connectedPeers} peers connected',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ] else ...[
                         Text(
                           'Block $currentHeight / $networkHeight',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
                         ),
-                      if (!syncStatus.isSynced &&
+                        if (syncStatus.blocksRemaining != null) ...[
+                          Text(
+                            '${syncStatus.blocksRemaining} blocks remaining',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ],
+                      if (syncStatus.isSyncing &&
                           _blocksPerSecond != null &&
                           _blocksPerSecond! > 0) ...[
-                        const SizedBox(height: 4),
+                        SizedBox(height: spacing.space4),
                         Row(
                           children: [
-                            Icon(Icons.speed,
-                                size: 14, color: colorScheme.onSurfaceVariant),
-                            const SizedBox(width: 4),
+                            Icon(Symbols.speed_sharp,
+                                size: sizing.iconXSmall,
+                                color: colorScheme.onSurfaceVariant),
+                            SizedBox(width: spacing.space4),
                             Text(
                               '${_blocksPerSecond!.toStringAsFixed(1)} blocks/sec',
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: colorScheme.onSurfaceVariant,
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            Icon(Icons.schedule,
-                                size: 14, color: colorScheme.onSurfaceVariant),
-                            const SizedBox(width: 4),
+                            SizedBox(width: spacing.space12),
+                            Icon(Symbols.schedule_sharp,
+                                size: sizing.iconXSmall,
+                                color: colorScheme.onSurfaceVariant),
+                            SizedBox(width: spacing.space4),
                             Text(
                               'ETA: ${_calculateETA(currentHeight, networkHeight, _blocksPerSecond!)}',
                               style: theme.textTheme.bodySmall?.copyWith(
@@ -317,110 +217,172 @@ class _NodeStatusSummaryModalState
                     ],
                   ),
                 );
-              }
-              // Show default values when no previous data (instead of placeholder)
-              final accentColor = colorScheme.outline;
-              return _StatusCard(
-                icon: Icons.hourglass_empty,
-                iconColor: accentColor,
-                title: 'Sync Status',
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              },
+              loading: () {
+                // Check if we have previous data to avoid blinking
+                if (nodeStatus != null && syncStatus != null) {
+                  final currentHeight = nodeStatus.localBestHeight ?? 0;
+                  final networkHeight =
+                      nodeStatus.networkBestHeight ?? currentHeight;
+                  final syncPercentage = syncStatus.progress;
+
+                  final accentColor = syncStatus.isSynced
+                      ? colorScheme.tertiary
+                      : colorScheme.primary;
+
+                  return _StatusCard(
+                    icon: syncStatus.isSynced
+                        ? Symbols.check_circle_sharp
+                        : Symbols.sync_sharp,
+                    iconColor: accentColor,
+                    title: 'Sync Status',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Connecting',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: accentColor,
-                          ),
-                        ),
-                        Text(
-                          '0.0%',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: accentColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: 0.0,
-                        backgroundColor: colorScheme.surfaceContainerHighest,
-                        valueColor: AlwaysStoppedAnimation<Color>(accentColor),
-                        minHeight: 6,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-            error: (_, __) => _StatusCard(
-              icon: Icons.error,
-              iconColor: colorScheme.error,
-              title: 'Sync Status',
-              child: Text(
-                'Error loading status',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.error,
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // Peers and Epoch Row
-          Row(
-            children: [
-              Expanded(
-                child: statusAsync.when(
-                  data: (status) {
-                    final connectedPeers = status?.connectedPeers ?? 0;
-                    final totalPeers = status?.totalPeers ?? 0;
-                    final peerHealthy =
-                        connectedPeers > 0 && connectedPeers == totalPeers;
-
-                    return _StatusCard(
-                      icon: Icons.people,
-                      iconColor: peerHealthy
-                          ? colorScheme.tertiary
-                          : colorScheme.error,
-                      title: 'Peers',
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '$connectedPeers/$totalPeers',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              syncStatus.isSynced ? 'Synced' : 'Syncing',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: accentColor,
+                              ),
                             ),
+                            Text(
+                              '${(syncPercentage * 100).toStringAsFixed(1)}%',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: accentColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: spacing.space8),
+                        ClipRRect(
+                          borderRadius: radii.borderRadiusXSmall,
+                          child: LinearProgressIndicator(
+                            value: syncPercentage,
+                            backgroundColor:
+                                colorScheme.surfaceContainerHighest,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(accentColor),
+                            minHeight: 6,
                           ),
+                        ),
+                        SizedBox(height: spacing.space8),
+                        if (!syncStatus.isConnecting)
                           Text(
-                            peerHealthy ? 'All connected' : 'Some offline',
+                            'Block $currentHeight / $networkHeight',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: colorScheme.onSurfaceVariant,
                             ),
                           ),
+                        if (!syncStatus.isSynced &&
+                            _blocksPerSecond != null &&
+                            _blocksPerSecond! > 0) ...[
+                          SizedBox(height: spacing.space4),
+                          Row(
+                            children: [
+                              Icon(Symbols.speed_sharp,
+                                  size: sizing.iconXSmall,
+                                  color: colorScheme.onSurfaceVariant),
+                              SizedBox(width: spacing.space4),
+                              Text(
+                                '${_blocksPerSecond!.toStringAsFixed(1)} blocks/sec',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              SizedBox(width: spacing.space12),
+                              Icon(Symbols.schedule_sharp,
+                                  size: sizing.iconXSmall,
+                                  color: colorScheme.onSurfaceVariant),
+                              SizedBox(width: spacing.space4),
+                              Text(
+                                'ETA: ${_calculateETA(currentHeight, networkHeight, _blocksPerSecond!)}',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  );
+                }
+                // Show default values when no previous data (instead of placeholder)
+                final accentColor = colorScheme.outline;
+                return _StatusCard(
+                  icon: Symbols.hourglass_empty_sharp,
+                  iconColor: accentColor,
+                  title: 'Sync Status',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Connecting',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: accentColor,
+                            ),
+                          ),
+                          Text(
+                            '0.0%',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: accentColor,
+                            ),
+                          ),
                         ],
                       ),
-                    );
-                  },
-                  loading: () {
-                    // Check if we have previous data to avoid blinking
-                    if (nodeStatus != null) {
-                      final connectedPeers = nodeStatus.connectedPeers;
-                      final totalPeers = nodeStatus.totalPeers;
+                      SizedBox(height: spacing.space8),
+                      ClipRRect(
+                        borderRadius: radii.borderRadiusXSmall,
+                        child: LinearProgressIndicator(
+                          value: 0.0,
+                          backgroundColor: colorScheme.surfaceContainerHighest,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(accentColor),
+                          minHeight: 6,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+              error: (_, __) => _StatusCard(
+                icon: Symbols.error_sharp,
+                iconColor: colorScheme.error,
+                title: 'Sync Status',
+                child: Text(
+                  'Error loading status',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.error,
+                  ),
+                ),
+              ),
+            ),
+
+            SizedBox(height: spacing.space12),
+
+            // Peers and Epoch Row
+            Row(
+              children: [
+                Expanded(
+                  child: statusAsync.when(
+                    data: (status) {
+                      final connectedPeers = status?.connectedPeers ?? 0;
+                      final totalPeers = status?.totalPeers ?? 0;
                       final peerHealthy =
                           connectedPeers > 0 && connectedPeers == totalPeers;
 
                       return _StatusCard(
-                        icon: Icons.people,
+                        icon: Symbols.people_sharp,
                         iconColor: peerHealthy
                             ? colorScheme.tertiary
                             : colorScheme.error,
@@ -443,82 +405,86 @@ class _NodeStatusSummaryModalState
                           ],
                         ),
                       );
-                    }
-                    // Show default values when no previous data (instead of placeholder)
-                    return _StatusCard(
-                      icon: Icons.people,
+                    },
+                    loading: () {
+                      // Check if we have previous data to avoid blinking
+                      if (nodeStatus != null) {
+                        final connectedPeers = nodeStatus.connectedPeers;
+                        final totalPeers = nodeStatus.totalPeers;
+                        final peerHealthy =
+                            connectedPeers > 0 && connectedPeers == totalPeers;
+
+                        return _StatusCard(
+                          icon: Symbols.people_sharp,
+                          iconColor: peerHealthy
+                              ? colorScheme.tertiary
+                              : colorScheme.error,
+                          title: 'Peers',
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '$connectedPeers/$totalPeers',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                peerHealthy ? 'All connected' : 'Some offline',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                      // Show default values when no previous data (instead of placeholder)
+                      return _StatusCard(
+                        icon: Symbols.people_sharp,
+                        iconColor: colorScheme.error,
+                        title: 'Peers',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '0/0',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              'No peers',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                    error: (_, __) => _StatusCard(
+                      icon: Symbols.people_sharp,
                       iconColor: colorScheme.error,
                       title: 'Peers',
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '0/0',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            'No peers',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                  error: (_, __) => _StatusCard(
-                    icon: Icons.people,
-                    iconColor: colorScheme.error,
-                    title: 'Peers',
-                    child: Text(
-                      'Error',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.error,
+                      child: Text(
+                        'Error',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.error,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: statusAsync.when(
-                  data: (status) {
-                    final epoch = status?.epoch;
-                    final globalSlot = status?.globalSlot;
-
-                    return _StatusCard(
-                      icon: Icons.access_time,
-                      iconColor: colorScheme.primary,
-                      title: 'Epoch',
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            epoch != null ? '$epoch' : 'N/A',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            globalSlot != null ? 'Slot $globalSlot' : 'N/A',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                  loading: () {
-                    // Check if we have previous data to avoid blinking
-                    if (nodeStatus != null) {
-                      final epoch = nodeStatus.epoch;
-                      final globalSlot = nodeStatus.globalSlot;
+                SizedBox(width: spacing.space12),
+                Expanded(
+                  child: statusAsync.when(
+                    data: (status) {
+                      final epoch = status?.epoch;
+                      final globalSlot = status?.globalSlot;
 
                       return _StatusCard(
-                        icon: Icons.access_time,
+                        icon: Symbols.access_time_sharp,
                         iconColor: colorScheme.primary,
                         title: 'Epoch',
                         child: Column(
@@ -539,63 +505,93 @@ class _NodeStatusSummaryModalState
                           ],
                         ),
                       );
-                    }
-                    // Show default values when no previous data (instead of placeholder)
-                    return _StatusCard(
-                      icon: Icons.access_time,
-                      iconColor: colorScheme.primary,
+                    },
+                    loading: () {
+                      // Check if we have previous data to avoid blinking
+                      if (nodeStatus != null) {
+                        final epoch = nodeStatus.epoch;
+                        final globalSlot = nodeStatus.globalSlot;
+
+                        return _StatusCard(
+                          icon: Symbols.access_time_sharp,
+                          iconColor: colorScheme.primary,
+                          title: 'Epoch',
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                epoch != null ? '$epoch' : 'N/A',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                globalSlot != null ? 'Slot $globalSlot' : 'N/A',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                      // Show default values when no previous data (instead of placeholder)
+                      return _StatusCard(
+                        icon: Symbols.access_time_sharp,
+                        iconColor: colorScheme.primary,
+                        title: 'Epoch',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '0',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              'Slot 0',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                    error: (_, __) => _StatusCard(
+                      icon: Symbols.access_time_sharp,
+                      iconColor: colorScheme.error,
                       title: 'Epoch',
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '0',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            'Slot 0',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                  error: (_, __) => _StatusCard(
-                    icon: Icons.access_time,
-                    iconColor: colorScheme.error,
-                    title: 'Epoch',
-                    child: Text(
-                      'Error',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.error,
+                      child: Text(
+                        'Error',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.error,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-
-          // View Details Button
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: () {
-                Navigator.of(context).pop();
-                context.push(AppRoutes.mainNode);
-              },
-              icon: const Icon(Icons.visibility),
-              label: const Text('View Details'),
+              ],
             ),
-          ),
-          const SizedBox(height: 8),
-        ],
+
+            SizedBox(height: spacing.space16),
+
+            // View Details Button
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  context.push(AppRoutes.mainNode);
+                },
+                icon: const Icon(Symbols.visibility_sharp),
+                label: const Text('View Details'),
+              ),
+            ),
+            SizedBox(height: spacing.space8),
+          ],
+        ),
       ),
     );
   }
@@ -658,12 +654,15 @@ class _StatusCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(spacing.space12),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: radii.borderRadiusMedium,
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.5),
         ),
@@ -673,7 +672,7 @@ class _StatusCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, size: 16, color: iconColor),
+              Icon(icon, size: sizing.iconXSmall, color: iconColor),
               const SizedBox(width: 6),
               Text(
                 title,
@@ -684,7 +683,7 @@ class _StatusCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: spacing.space8),
           child,
         ],
       ),

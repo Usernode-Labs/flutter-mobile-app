@@ -1,26 +1,10 @@
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_symbols_icons/symbols.dart';
+import 'helpers/ds_test_helpers.dart';
 
 void main() {
-  ThemeData themeWithExtensions() {
-    final cieTheme = ColorIsExpensiveTheme(ThemeData.light().textTheme);
-    return cieTheme.light().copyWith(
-          extensions: DesignSystemTheme.standardExtensions(
-            semanticColors: AppSemanticColors.light(),
-          ),
-        );
-  }
-
-  Widget wrap(Widget child) {
-    return MaterialApp(
-      theme: themeWithExtensions(),
-      home: Scaffold(
-        body: Center(child: child),
-      ),
-    );
-  }
-
   group('Button', () {
     testWidgets('renders label text', (tester) async {
       await tester.pumpWidget(wrap(
@@ -47,11 +31,11 @@ void main() {
       await tester.pumpWidget(wrap(
         const Button(
           label: 'With Icon',
-          leadingIcon: Icon(Icons.arrow_forward, size: 20),
+          leadingIcon: Icon(Symbols.arrow_forward_sharp, size: 20),
         ),
       ));
 
-      expect(find.byIcon(Icons.arrow_forward), findsOneWidget);
+      expect(find.byIcon(Symbols.arrow_forward_sharp), findsOneWidget);
       expect(find.text('With Icon'), findsOneWidget);
     });
 

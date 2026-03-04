@@ -3,9 +3,14 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import 'package:crypto_mobile_app/core/widgets/app_card.dart';
+
+import '../tokens/app_borders.dart';
 import '../tokens/app_opacity.dart';
 import '../tokens/app_radii.dart';
+import '../tokens/app_sizing.dart';
 import '../tokens/app_spacing.dart';
+import '../tokens/app_typography.dart';
 
 /// A stats summary card with dot-matrix distribution chart for the leaderboard.
 ///
@@ -130,12 +135,9 @@ class _LeaderboardStatsCardState extends State<LeaderboardStatsCard> {
       effectiveCalloutBody = widget.calloutBody;
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerLowest,
-        borderRadius: radii.borderRadiusLargeIncreased,
-      ),
-      padding: EdgeInsets.all(spacing.space16),
+    return AppCard(
+      color: colors.surfaceContainerLowest,
+      borderRadius: radii.borderRadiusLargeIncreased,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -199,16 +201,21 @@ class _StatBox extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
+    final borders = Theme.of(context).extension<AppBorders>()!;
 
     return Container(
       padding: EdgeInsets.all(spacing.space24),
       decoration: BoxDecoration(
         borderRadius: radii.borderRadiusLarge,
-        border: Border.all(color: colors.surfaceContainerHighest),
+        border: Border.all(
+          color: colors.onSurface.withValues(alpha: borders.opacity),
+          width: borders.width,
+        ),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: spacing.space4,
         children: [
           Text(
             label.toUpperCase(),
@@ -217,11 +224,10 @@ class _StatBox extends StatelessWidget {
             ),
             textAlign: TextAlign.start,
           ),
-          SizedBox(height: spacing.space4),
           Text(
             value,
             style: textTheme.headlineSmall?.copyWith(
-              fontFamily: 'IBMPlexMono',
+              fontFamily: kMonoFontFamily,
               color: colors.onSurface,
             ),
             textAlign: TextAlign.start,
@@ -318,6 +324,7 @@ class _DotMatrixChartState extends State<_DotMatrixChart>
               ? _buildColumns(
                   colors: colors,
                   radii: radii,
+                  spacing: spacing,
                   clampedIndex: clampedIndex,
                   maxCount: maxCount,
                   animationValue: 1.0,
@@ -327,6 +334,7 @@ class _DotMatrixChartState extends State<_DotMatrixChart>
                   builder: (context, _) => _buildColumns(
                     colors: colors,
                     radii: radii,
+                    spacing: spacing,
                     clampedIndex: clampedIndex,
                     maxCount: maxCount,
                     animationValue: _controller.value,
@@ -351,6 +359,7 @@ class _DotMatrixChartState extends State<_DotMatrixChart>
   Widget _buildColumns({
     required ColorScheme colors,
     required AppRadii radii,
+    required AppSpacing spacing,
     required int clampedIndex,
     required int maxCount,
     required double animationValue,
@@ -367,6 +376,7 @@ class _DotMatrixChartState extends State<_DotMatrixChart>
               clampedIndex: clampedIndex,
               colors: colors,
               radii: radii,
+              spacing: spacing,
               animationValue: animationValue,
             ),
           ),
@@ -381,6 +391,7 @@ class _DotMatrixChartState extends State<_DotMatrixChart>
     required int clampedIndex,
     required ColorScheme colors,
     required AppRadii radii,
+    required AppSpacing spacing,
     required double animationValue,
   }) {
     final isUser = index == clampedIndex;
@@ -443,7 +454,7 @@ class _DotMatrixChartState extends State<_DotMatrixChart>
       column = Align(
         alignment: Alignment.bottomCenter,
         child: Container(
-          padding: const EdgeInsets.all(6),
+          padding: EdgeInsets.all(spacing.space8),
           decoration: BoxDecoration(
             color: colors.surfaceContainerHigh,
             borderRadius: radii.borderRadiusFull,
@@ -455,7 +466,7 @@ class _DotMatrixChartState extends State<_DotMatrixChart>
       column = Align(
         alignment: Alignment.bottomCenter,
         child: Padding(
-          padding: const EdgeInsets.only(bottom: 6),
+          padding: EdgeInsets.only(bottom: spacing.space8),
           child: dots,
         ),
       );
@@ -479,11 +490,11 @@ class _DotMatrixChartState extends State<_DotMatrixChart>
     required int clampedIndex,
   }) {
     final labelStyle = textTheme.labelSmall?.copyWith(
-      fontFamily: 'IBMPlexMono',
+      fontFamily: kMonoFontFamily,
       color: colors.onSurfaceVariant,
     );
     final userLabelStyle = textTheme.labelSmall?.copyWith(
-      fontFamily: 'IBMPlexMono',
+      fontFamily: kMonoFontFamily,
       color: colors.onSurface,
       fontWeight: FontWeight.w600,
     );
@@ -537,6 +548,7 @@ class _ExplainerCallout extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
     final opacity = Theme.of(context).extension<AppOpacity>()!;
 
@@ -552,13 +564,13 @@ class _ExplainerCallout extends StatelessWidget {
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: spacing.space16,
         children: [
           Icon(
             Symbols.bar_chart_4_bars,
-            size: 20,
+            size: sizing.iconSmall,
             color: colors.onSurfaceVariant,
           ),
-          SizedBox(width: spacing.space16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

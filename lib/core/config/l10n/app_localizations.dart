@@ -712,6 +712,12 @@ abstract class AppLocalizations {
   /// **'This page refreshes continuously and will display your transactions here.'**
   String get walletNoRecentActivitySubtitle;
 
+  /// Button label on wallet empty state to initiate a send
+  ///
+  /// In en, this message translates to:
+  /// **'Send Transaction'**
+  String get walletEmptyStateSendAction;
+
   /// Node status screen title
   ///
   /// In en, this message translates to:
@@ -723,6 +729,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Peer ID copied to clipboard'**
   String get nodePeerIdCopied;
+
+  /// Chain ID copied snackbar message
+  ///
+  /// In en, this message translates to:
+  /// **'Chain ID copied to clipboard'**
+  String get nodeChainIdCopied;
+
+  /// Best tip hash copied snackbar message
+  ///
+  /// In en, this message translates to:
+  /// **'Best tip hash copied to clipboard'**
+  String get nodeBestTipCopied;
 
   /// Copy peer ID tooltip
   ///
@@ -2007,6 +2025,642 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Last 24h'**
   String get challengeEpochLast24h;
+
+  /// Transaction success screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Sent successfully!'**
+  String get walletSentSuccessfully;
+
+  /// Transaction success screen subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} {tokenSymbol} sent to\n{address}'**
+  String walletSentDetail(String amount, String tokenSymbol, String address);
+
+  /// Transaction failed screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Transaction Failed'**
+  String get walletTransactionFailed;
+
+  /// Generic transaction failure message
+  ///
+  /// In en, this message translates to:
+  /// **'An error occurred while processing your transaction'**
+  String get walletTransactionFailedGeneric;
+
+  /// Snackbar message when wallet address is copied
+  ///
+  /// In en, this message translates to:
+  /// **'Address copied to clipboard'**
+  String get walletAddressCopied;
+
+  /// Wallet screen recent activity section header
+  ///
+  /// In en, this message translates to:
+  /// **'Recent Activity'**
+  String get walletRecentActivity;
+
+  /// Banner when explorer API is down and cached data is shown
+  ///
+  /// In en, this message translates to:
+  /// **'Explorer API unavailable. Showing cached data.'**
+  String get walletExplorerUnavailable;
+
+  /// Error state message for transaction list
+  ///
+  /// In en, this message translates to:
+  /// **'Error loading transactions'**
+  String get walletTransactionsError;
+
+  /// Token balance label on wallet screen
+  ///
+  /// In en, this message translates to:
+  /// **'\$TOKEN Balance'**
+  String get walletTokenBalance;
+
+  /// Message shown when node is syncing on wallet screen
+  ///
+  /// In en, this message translates to:
+  /// **'Sync in progress...'**
+  String get walletSyncInProgress;
+
+  /// Label in the wallet address bar
+  ///
+  /// In en, this message translates to:
+  /// **'My address'**
+  String get walletMyAddress;
+
+  /// Hint text for recipient address field
+  ///
+  /// In en, this message translates to:
+  /// **'Recipient address'**
+  String get walletRecipientAddress;
+
+  /// Title for recent recipients sheet and tooltip
+  ///
+  /// In en, this message translates to:
+  /// **'Recent Recipients'**
+  String get walletRecentRecipients;
+
+  /// Fee field hint text
+  ///
+  /// In en, this message translates to:
+  /// **'Fee'**
+  String get walletFee;
+
+  /// Memo field hint text
+  ///
+  /// In en, this message translates to:
+  /// **'Memo (optional)'**
+  String get walletMemoOptional;
+
+  /// Send button text while transaction is processing
+  ///
+  /// In en, this message translates to:
+  /// **'Sending...'**
+  String get walletSending;
+
+  /// Validation error for required field
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter a {fieldName}'**
+  String walletFieldRequired(String fieldName);
+
+  /// Validation error for field that is too short
+  ///
+  /// In en, this message translates to:
+  /// **'{fieldName} appears to be too short'**
+  String walletFieldTooShort(String fieldName);
+
+  /// Validation error for invalid field value
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter a valid {fieldName}'**
+  String walletFieldInvalid(String fieldName);
+
+  /// Empty state in recent recipients sheet
+  ///
+  /// In en, this message translates to:
+  /// **'No recent addresses'**
+  String get walletNoRecentAddresses;
+
+  /// Node status label when offline
+  ///
+  /// In en, this message translates to:
+  /// **'Offline'**
+  String get nodeOffline;
+
+  /// Node sync progress text while connecting
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting...'**
+  String get nodeConnectingEllipsis;
+
+  /// Node sync text when only genesis block is loaded
+  ///
+  /// In en, this message translates to:
+  /// **'Loaded genesis'**
+  String get nodeLoadedGenesis;
+
+  /// Node sync progress text when chain is synced
+  ///
+  /// In en, this message translates to:
+  /// **'Chain Synced'**
+  String get nodeChainSynced;
+
+  /// Node sync progress text while syncing
+  ///
+  /// In en, this message translates to:
+  /// **'Syncing blocks'**
+  String get nodeSyncingBlocks;
+
+  /// Fetch phase card title
+  ///
+  /// In en, this message translates to:
+  /// **'Fetch'**
+  String get nodeFetchPhase;
+
+  /// Apply phase card title
+  ///
+  /// In en, this message translates to:
+  /// **'Apply'**
+  String get nodeApplyPhase;
+
+  /// Peers list tile title
+  ///
+  /// In en, this message translates to:
+  /// **'Peers'**
+  String get nodePeers;
+
+  /// Mempool list tile title
+  ///
+  /// In en, this message translates to:
+  /// **'Mempool'**
+  String get nodeMempool;
+
+  /// Recent blocks section title
+  ///
+  /// In en, this message translates to:
+  /// **'Recent Blocks'**
+  String get nodeRecentBlocks;
+
+  /// View all blocks link text
+  ///
+  /// In en, this message translates to:
+  /// **'View All'**
+  String get nodeViewAll;
+
+  /// Peers subtitle showing connected/total count
+  ///
+  /// In en, this message translates to:
+  /// **'{connected}/{total} connected'**
+  String nodePeersConnected(int connected, int total);
+
+  /// Epoch list tile title
+  ///
+  /// In en, this message translates to:
+  /// **'Epoch {epoch}'**
+  String nodeEpochN(int epoch);
+
+  /// Epoch subtitle showing current global slot
+  ///
+  /// In en, this message translates to:
+  /// **'Global slot {slot}'**
+  String nodeGlobalSlot(int slot);
+
+  /// Mempool subtitle with transaction count and size
+  ///
+  /// In en, this message translates to:
+  /// **'{count} txns · {sizeKB} KB'**
+  String nodeMempoolSummary(int count, String sizeKB);
+
+  /// Phase card done count
+  ///
+  /// In en, this message translates to:
+  /// **'Done: {count}'**
+  String nodePhaseDone(String count);
+
+  /// Phase card pending count
+  ///
+  /// In en, this message translates to:
+  /// **'Pending: {count}'**
+  String nodePhasePending(String count);
+
+  /// Phase card idle count
+  ///
+  /// In en, this message translates to:
+  /// **'Idle: {count}'**
+  String nodePhaseIdle(String count);
+
+  /// VRF info row label
+  ///
+  /// In en, this message translates to:
+  /// **'VRF'**
+  String get nodeVrf;
+
+  /// VRF evaluation progress
+  ///
+  /// In en, this message translates to:
+  /// **'Evaluated {evaluated}/{total}'**
+  String nodeVrfEvaluated(int evaluated, int total);
+
+  /// VRF evaluation when no data available
+  ///
+  /// In en, this message translates to:
+  /// **'Evaluated ---'**
+  String get nodeVrfEvaluatedNA;
+
+  /// Best tip info row label
+  ///
+  /// In en, this message translates to:
+  /// **'Best Tip'**
+  String get nodeBestTip;
+
+  /// Best tip status badge label
+  ///
+  /// In en, this message translates to:
+  /// **'BEST TIP'**
+  String get nodeBestTipBadge;
+
+  /// VRF evaluation status completed
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get nodeVrfCompleted;
+
+  /// VRF evaluation status evaluating
+  ///
+  /// In en, this message translates to:
+  /// **'Evaluating'**
+  String get nodeVrfEvaluating;
+
+  /// VRF evaluation status pending
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get nodeVrfPendingLabel;
+
+  /// Dismissal button text
+  ///
+  /// In en, this message translates to:
+  /// **'Got it'**
+  String get commonGotIt;
+
+  /// Cancel button text
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get commonCancel;
+
+  /// Enable button text
+  ///
+  /// In en, this message translates to:
+  /// **'Enable'**
+  String get commonEnable;
+
+  /// Fix button text
+  ///
+  /// In en, this message translates to:
+  /// **'Fix'**
+  String get commonFix;
+
+  /// Timestamp label for last check (same day)
+  ///
+  /// In en, this message translates to:
+  /// **'Last checked at {time}'**
+  String commonLastCheckedAt(String time);
+
+  /// Timestamp label for last check (different day)
+  ///
+  /// In en, this message translates to:
+  /// **'Last checked on {date} at {time}'**
+  String commonLastCheckedOnAt(String date, String time);
+
+  /// General settings section header
+  ///
+  /// In en, this message translates to:
+  /// **'General'**
+  String get settingsGeneral;
+
+  /// Appearance settings tile title and sheet title
+  ///
+  /// In en, this message translates to:
+  /// **'Appearance'**
+  String get settingsAppearance;
+
+  /// Quick settings panel header label
+  ///
+  /// In en, this message translates to:
+  /// **'Permissions'**
+  String get settingsPermissions;
+
+  /// Quick settings header when all permissions granted
+  ///
+  /// In en, this message translates to:
+  /// **'All Good'**
+  String get settingsPermAllGood;
+
+  /// Quick settings header when permissions need attention
+  ///
+  /// In en, this message translates to:
+  /// **'Action Needed'**
+  String get settingsPermActionNeeded;
+
+  /// iOS permission tile title
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get settingsNotifications;
+
+  /// iOS keep-alive toggle title
+  ///
+  /// In en, this message translates to:
+  /// **'Foreground Keep-Alive'**
+  String get settingsForegroundKeepAlive;
+
+  /// iOS keep-alive subtitle when active
+  ///
+  /// In en, this message translates to:
+  /// **'Active — 99% reliability'**
+  String get settingsKeepAliveActive;
+
+  /// iOS keep-alive subtitle when inactive
+  ///
+  /// In en, this message translates to:
+  /// **'Enable for critical slots'**
+  String get settingsKeepAliveInactive;
+
+  /// Battery optimization tile title
+  ///
+  /// In en, this message translates to:
+  /// **'Battery Optimization'**
+  String get settingsBatteryOptimization;
+
+  /// Battery optimization subtitle when disabled
+  ///
+  /// In en, this message translates to:
+  /// **'Disabled (recommended)'**
+  String get settingsBatteryOptDisabled;
+
+  /// Battery optimization subtitle when enabled
+  ///
+  /// In en, this message translates to:
+  /// **'May delay or skip alarms'**
+  String get settingsBatteryOptWarning;
+
+  /// Warning for aggressive manufacturer battery management
+  ///
+  /// In en, this message translates to:
+  /// **'{manufacturer} devices have aggressive battery management that may kill apps. Check your device\'\'s battery manager.'**
+  String settingsManufacturerWarning(String manufacturer);
+
+  /// Snackbar message when permissions are granted
+  ///
+  /// In en, this message translates to:
+  /// **'Permissions granted successfully'**
+  String get settingsPermGrantedSnackbar;
+
+  /// Snackbar message when permissions are denied
+  ///
+  /// In en, this message translates to:
+  /// **'Please grant permissions in settings'**
+  String get settingsPermDeniedSnackbar;
+
+  /// FAQ section header
+  ///
+  /// In en, this message translates to:
+  /// **'Help & Info'**
+  String get settingsHelpAndInfo;
+
+  /// Android exact alarms permission subtitle when not granted
+  ///
+  /// In en, this message translates to:
+  /// **'Required for precise block timing'**
+  String get permRequiredBlockTiming;
+
+  /// iOS notifications permission subtitle when not granted
+  ///
+  /// In en, this message translates to:
+  /// **'Required for slot alerts'**
+  String get permRequiredSlotAlerts;
+
+  /// System theme option
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get themeSystem;
+
+  /// System theme option subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Follow your device setting'**
+  String get themeSystemSubtitle;
+
+  /// Light theme option
+  ///
+  /// In en, this message translates to:
+  /// **'Light'**
+  String get themeLight;
+
+  /// Dark theme option
+  ///
+  /// In en, this message translates to:
+  /// **'Dark'**
+  String get themeDark;
+
+  /// App version label in build info sheet
+  ///
+  /// In en, this message translates to:
+  /// **'App Version'**
+  String get buildInfoAppVersion;
+
+  /// Build number label in build info sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Build Number'**
+  String get buildInfoBuildNumber;
+
+  /// Network switcher dialog title
+  ///
+  /// In en, this message translates to:
+  /// **'Network Switcher'**
+  String get networkSwitcherTitle;
+
+  /// Network switcher section label
+  ///
+  /// In en, this message translates to:
+  /// **'SELECT NETWORK'**
+  String get networkSelectNetwork;
+
+  /// Testnet network option description
+  ///
+  /// In en, this message translates to:
+  /// **'Default network'**
+  String get networkTestnetDesc;
+
+  /// Internal network option description
+  ///
+  /// In en, this message translates to:
+  /// **'Development network'**
+  String get networkInternalDesc;
+
+  /// Currently active network badge label
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get networkActive;
+
+  /// Network switcher button when same network selected
+  ///
+  /// In en, this message translates to:
+  /// **'No Change'**
+  String get networkNoChange;
+
+  /// Network switcher confirm button
+  ///
+  /// In en, this message translates to:
+  /// **'Switch Network'**
+  String get networkSwitch;
+
+  /// PIN dialog title for network switcher
+  ///
+  /// In en, this message translates to:
+  /// **'Enter Code'**
+  String get networkEnterCode;
+
+  /// PIN dialog input hint
+  ///
+  /// In en, this message translates to:
+  /// **'4-digit code'**
+  String get networkCodeHint;
+
+  /// Restart dialog title after network switch
+  ///
+  /// In en, this message translates to:
+  /// **'Restart Required'**
+  String get networkRestartRequired;
+
+  /// iOS restart dialog message after network switch
+  ///
+  /// In en, this message translates to:
+  /// **'Network switched to {network}. Please manually close and reopen the app to connect to the new network.'**
+  String networkSwitchedRestartIos(String network);
+
+  /// Android restart dialog message after network switch
+  ///
+  /// In en, this message translates to:
+  /// **'Network switched to {network}. The app will now close. Please reopen it to connect to the new network.'**
+  String networkSwitchedRestartAndroid(String network);
+
+  /// Close app button in restart dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Close App'**
+  String get networkCloseApp;
+
+  /// About section long-form description text
+  ///
+  /// In en, this message translates to:
+  /// **'Your device is part of a new network. It verifies, executes, and contributes compute directly to the network, passively in the background - with no central servers, no hidden infra. As long as users keep the app running, the network will continue to operate, peer to peer, with no external dependencies.\n\nWe\'\'re doing this to enable networks that can be hosted end-to-end by their own communities - both for decentralization, and to enable a natural coordination point around participation, where users who help operate and contribute to systems directly realize the benefits from it.\n\nRight now we are in testnet as we validate the core layer: block production, consensus behavior, and network reliability. As these stabilize, we\'\'ll build upon the unique features of the platform - its decentralization, zero knowledge proofs, and sybil-resistant identity - to introduce new activities, coordination mechanisms, and tools for self-hosted, sybil-resistant communities.\n\nThanks for helping test at this early stage. The app right now is simple, but as we prove out the core functionality, we hope to make possible a new kind of community-owned network, where users can directly run and benefit from the networks they use.'**
+  String get faqAboutDescription;
+
+  /// Platform reliability FAQ tile title
+  ///
+  /// In en, this message translates to:
+  /// **'Platform & Reliability'**
+  String get faqPlatformReliabilityTitle;
+
+  /// Device manufacturer label in platform FAQ
+  ///
+  /// In en, this message translates to:
+  /// **'Device: {manufacturer}'**
+  String faqDeviceLabel(String manufacturer);
+
+  /// VRF FAQ tile title
+  ///
+  /// In en, this message translates to:
+  /// **'Understanding VRF & Slots'**
+  String get faqVrfSlotsTitle;
+
+  /// VRF explanation section title
+  ///
+  /// In en, this message translates to:
+  /// **'What is VRF?'**
+  String get faqVrfWhatIsTitle;
+
+  /// VRF explanation text
+  ///
+  /// In en, this message translates to:
+  /// **'VRF (Verifiable Random Function) is how the network fairly selects block producers. At the start of each epoch, the network runs VRF calculations to determine which validators will produce blocks in upcoming slots.'**
+  String get faqVrfWhatIsDescription;
+
+  /// VRF status meanings section title
+  ///
+  /// In en, this message translates to:
+  /// **'VRF Status Meanings'**
+  String get faqVrfStatusMeaningsTitle;
+
+  /// VRF pending status label
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get faqVrfStatusPending;
+
+  /// VRF pending status description
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for epoch transition to start calculations'**
+  String get faqVrfStatusPendingDesc;
+
+  /// VRF calculating status label
+  ///
+  /// In en, this message translates to:
+  /// **'Calculating'**
+  String get faqVrfStatusCalculating;
+
+  /// VRF calculating status description
+  ///
+  /// In en, this message translates to:
+  /// **'VRF evaluation in progress (takes a few hours)'**
+  String get faqVrfStatusCalculatingDesc;
+
+  /// VRF complete status label
+  ///
+  /// In en, this message translates to:
+  /// **'Complete'**
+  String get faqVrfStatusComplete;
+
+  /// VRF complete status description
+  ///
+  /// In en, this message translates to:
+  /// **'Slot assignments are finalized and scheduled'**
+  String get faqVrfStatusCompleteDesc;
+
+  /// Won slot explanation section title
+  ///
+  /// In en, this message translates to:
+  /// **'What is a \"Won Slot\"?'**
+  String get faqVrfWonSlotTitle;
+
+  /// Won slot explanation text
+  ///
+  /// In en, this message translates to:
+  /// **'When VRF selects your node to produce a block at a specific time, you\'\'ve \"won\" that slot. Your responsibility is to have your device awake and connected so the block can be produced.'**
+  String get faqVrfWonSlotDescription;
+
+  /// Timing explanation section title
+  ///
+  /// In en, this message translates to:
+  /// **'Why Timing Matters'**
+  String get faqVrfTimingTitle;
+
+  /// Timing explanation text
+  ///
+  /// In en, this message translates to:
+  /// **'Each slot has a ~5-seconds window. If your device doesn\'\'t wake up in time or loses network connectivity, the slot is missed and counted as \"failed.\"'**
+  String get faqVrfTimingDescription;
 }
 
 class _AppLocalizationsDelegate

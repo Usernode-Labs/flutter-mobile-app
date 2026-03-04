@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:crypto_mobile_app/core/config/design_tokens.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_sizing.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 
 /// Unified primary button component
 class AppButton extends StatelessWidget {
@@ -49,10 +51,15 @@ class AppButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final sizing = theme.extension<AppSizing>()!;
+    final radii = theme.extension<AppRadii>()!;
+    final spacing = theme.extension<AppSpacing>()!;
+
     final height = switch (size) {
-      AppButtonSize.small => kButtonHeightSmall,
-      AppButtonSize.regular => kButtonHeightRegular,
-      AppButtonSize.large => kButtonHeightLarge,
+      AppButtonSize.small => sizing.buttonHeightSmall,
+      AppButtonSize.regular => sizing.buttonHeightRegular,
+      AppButtonSize.large => sizing.buttonHeightLarge,
     };
 
     final child = isLoading
@@ -63,8 +70,8 @@ class AppButton extends StatelessWidget {
               strokeWidth: 2,
               valueColor: AlwaysStoppedAnimation<Color>(
                 variant == AppButtonVariant.filled
-                    ? Theme.of(context).colorScheme.onPrimary
-                    : Theme.of(context).colorScheme.primary,
+                    ? theme.colorScheme.onPrimary
+                    : theme.colorScheme.primary,
               ),
             ),
           )
@@ -73,41 +80,33 @@ class AppButton extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (icon != null) ...[
-                Icon(icon, size: kIconSmall),
-                const SizedBox(width: kSpace8),
+                Icon(icon, size: sizing.iconSmall),
+                SizedBox(width: spacing.space8),
               ],
               Text(label),
             ],
           );
+
+    final pillShape = RoundedRectangleBorder(
+      borderRadius: radii.borderRadiusFull,
+    );
 
     return SizedBox(
       height: height,
       child: switch (variant) {
         AppButtonVariant.filled => FilledButton(
             onPressed: isLoading ? null : onPressed,
-            style: FilledButton.styleFrom(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(kRadiusFull),
-              ),
-            ),
+            style: FilledButton.styleFrom(shape: pillShape),
             child: child,
           ),
         AppButtonVariant.outlined => OutlinedButton(
             onPressed: isLoading ? null : onPressed,
-            style: OutlinedButton.styleFrom(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(kRadiusFull),
-              ),
-            ),
+            style: OutlinedButton.styleFrom(shape: pillShape),
             child: child,
           ),
         AppButtonVariant.text => TextButton(
             onPressed: isLoading ? null : onPressed,
-            style: TextButton.styleFrom(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(kRadiusFull),
-              ),
-            ),
+            style: TextButton.styleFrom(shape: pillShape),
             child: child,
           ),
       },

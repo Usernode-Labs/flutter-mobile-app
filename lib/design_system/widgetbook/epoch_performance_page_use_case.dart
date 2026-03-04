@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import '../src/epoch_performance_page.dart';
@@ -60,7 +61,7 @@ WidgetbookComponent epochPerformancePageComponent() {
               performanceValue: '95.2%',
               metrics: [
                 EpochMetricData(
-                  icon: Icons.search_outlined,
+                  icon: Symbols.search_sharp,
                   title: 'Checked Slots',
                   subtitle: 'Evaluated 240 of 240',
                   trailingValue: checkedSlots,
@@ -68,7 +69,7 @@ WidgetbookComponent epochPerformancePageComponent() {
                   showChevron: true,
                 ),
                 EpochMetricData(
-                  icon: Icons.check_box_outlined,
+                  icon: Symbols.check_box_sharp,
                   title: 'Produced Blocks',
                   subtitle: '$producedBlocks of 21 won slots',
                   trailingValue: '$producedBlocks',
@@ -76,7 +77,7 @@ WidgetbookComponent epochPerformancePageComponent() {
                   showChevron: producedBlocks > 0,
                 ),
                 EpochMetricData(
-                  icon: Icons.disabled_by_default_outlined,
+                  icon: Symbols.disabled_by_default_sharp,
                   title: 'Missed Blocks',
                   subtitle: '$missedBlocks of 21 won slots missed',
                   trailingValue: '$missedBlocks',
@@ -84,7 +85,7 @@ WidgetbookComponent epochPerformancePageComponent() {
                   showChevron: missedBlocks > 0,
                 ),
                 EpochMetricData(
-                  icon: Icons.schedule_outlined,
+                  icon: Symbols.schedule_sharp,
                   title: 'Upcoming Blocks',
                   subtitle: '$upcomingBlocks upcoming this epoch',
                   trailingValue: '$upcomingBlocks',

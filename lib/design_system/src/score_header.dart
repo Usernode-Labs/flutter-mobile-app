@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../tokens/app_opacity.dart';
 import '../tokens/app_semantic_colors.dart';
 import '../tokens/app_spacing.dart';
+import '../tokens/app_typography.dart';
 import 'button.dart';
 
 /// Which text the countdown row displays.
@@ -133,15 +134,15 @@ class ScoreHeader extends StatelessWidget {
           opacity: countdownOpacity,
           textMode: countdownTextMode,
         ),
-        if (ctaLabel != null) SizedBox(height: spacing.space48),
+        if (ctaLabel != null)
+          SizedBox(height: spacing.space32 + spacing.space8),
         if (ctaLabel != null)
           Button(
             label: ctaLabel!,
             onTap: onCtaTap,
-            size: ButtonSize.small,
-            variant: ButtonVariant.surface,
+            variant: ButtonVariant.primary,
           ),
-        SizedBox(height: spacing.space32),
+        SizedBox(height: spacing.space32 + spacing.space8),
       ],
     );
   }
@@ -212,7 +213,7 @@ class _ScoreCircle extends StatelessWidget {
                 Text(
                   score,
                   style: textTheme.displaySmall?.copyWith(
-                    fontFamily: 'IBMPlexMono',
+                    fontFamily: kMonoFontFamily,
                     color: colors.onSurface,
                   ),
                 ),
@@ -567,6 +568,7 @@ class _CountdownRow extends StatelessWidget {
       case CountdownTextMode.normal:
         content = Row(
           mainAxisSize: MainAxisSize.min,
+          spacing: spacing.space8,
           children: [
             Text(
               label.toUpperCase(),
@@ -574,7 +576,6 @@ class _CountdownRow extends StatelessWidget {
                 color: colors.onSurfaceVariant,
               ),
             ),
-            SizedBox(width: spacing.space8),
             Text(
               time.toUpperCase(),
               style: textTheme.labelSmall?.copyWith(

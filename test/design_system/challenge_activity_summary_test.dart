@@ -3,17 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'helpers/ds_test_helpers.dart';
 
 void main() {
-  ThemeData themeWithExtensions() {
-    final cieTheme = ColorIsExpensiveTheme(ThemeData.light().textTheme);
-    return cieTheme.light().copyWith(
-          extensions: DesignSystemTheme.standardExtensions(
-            semanticColors: AppSemanticColors.light(),
-          ),
-        );
-  }
-
   Widget wrap(Widget child) {
     return MaterialApp(
       theme: themeWithExtensions(),
@@ -156,11 +148,11 @@ void main() {
         ),
       ));
 
-      // Find the SvgPicture that lives inside our 126px SizedBox.
+      // Find the SvgPicture that lives inside our 128px SizedBox.
       final illustrationBox = find.descendant(
         of: find.byType(ChallengeActivitySummary),
         matching: find.byWidgetPredicate(
-          (w) => w is SizedBox && w.height == 126,
+          (w) => w is SizedBox && w.height == 128,
         ),
       );
       expect(illustrationBox, findsOneWidget);

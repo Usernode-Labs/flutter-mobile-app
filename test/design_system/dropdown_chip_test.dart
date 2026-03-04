@@ -1,17 +1,10 @@
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_symbols_icons/symbols.dart';
+import 'helpers/ds_test_helpers.dart';
 
 void main() {
-  ThemeData themeWithExtensions() {
-    final cieTheme = ColorIsExpensiveTheme(ThemeData.light().textTheme);
-    return cieTheme.light().copyWith(
-          extensions: DesignSystemTheme.standardExtensions(
-            semanticColors: AppSemanticColors.light(),
-          ),
-        );
-  }
-
   Widget wrap(Widget child) {
     return MaterialApp(
       theme: themeWithExtensions(),
@@ -37,7 +30,7 @@ void main() {
         const DropdownChip(label: 'Season 2'),
       ));
 
-      expect(find.byIcon(Icons.arrow_drop_down), findsOneWidget);
+      expect(find.byIcon(Symbols.arrow_drop_down_sharp), findsOneWidget);
     });
 
     testWidgets('fires onTap callback', (tester) async {
@@ -83,10 +76,10 @@ void main() {
     });
 
     testWidgets(
-        'selected: true applies surfaceContainerLowest fill and transparent border',
+        'ChipVariant.surface applies surfaceContainerLowest fill and transparent border',
         (tester) async {
       await tester.pumpWidget(wrap(
-        const DropdownChip(label: 'Season 2', selected: true),
+        const DropdownChip(label: 'Season 2', variant: ChipVariant.surface),
       ));
 
       final container = tester.widget<Container>(
@@ -103,7 +96,7 @@ void main() {
       expect(border.top.color, equals(Colors.transparent));
     });
 
-    testWidgets('selected: false has outline border and no fill',
+    testWidgets('default (outlined) has outline border and no fill',
         (tester) async {
       await tester.pumpWidget(wrap(
         const DropdownChip(label: 'Season 2'),

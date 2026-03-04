@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 
 import 'package:crypto_mobile_app/design_system/src/dropdown_chain.dart';
+import 'package:crypto_mobile_app/design_system/src/parallax_surface_layout.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_borders.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
-
-/// Spacer height matching ScoreHeader's natural size.
-const kChallengesSpacerHeight = 344.0;
 
 /// M3 TabBar height.
 const kTabBarHeight = 48.0;
@@ -57,10 +56,10 @@ class ChipBarDelegate extends SliverPersistentHeaderDelegate {
             colors.surfaceContainerLowest.withValues(alpha: 0),
             colors.surfaceContainerLowest,
             scrollFraction)!;
+        final borders = Theme.of(context).extension<AppBorders>()!;
+        final borderColor = colors.onSurface.withValues(alpha: borders.opacity);
         final chipBorder = Color.lerp(
-            colors.outlineVariant.withValues(alpha: 0),
-            colors.outlineVariant,
-            scrollFraction)!;
+            borderColor.withValues(alpha: 0), borderColor, scrollFraction)!;
 
         return ColoredBox(
           color: bgColor,
@@ -131,7 +130,7 @@ class SurfaceTabBarDelegate extends SliverPersistentHeaderDelegate {
     return ValueListenableBuilder<double>(
       valueListenable: scrollFractionNotifier,
       builder: (context, scrollFraction, tabBar) {
-        final cornerRadius = 28.0 * (1.0 - scrollFraction);
+        final cornerRadius = kSurfaceCornerRadius * (1.0 - scrollFraction);
 
         return Container(
           decoration: BoxDecoration(
@@ -154,6 +153,7 @@ class SurfaceTabBarDelegate extends SliverPersistentHeaderDelegate {
   Widget _buildTabBar(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final borders = Theme.of(context).extension<AppBorders>()!;
 
     return TabBar(
       controller: tabController,
@@ -163,8 +163,8 @@ class SurfaceTabBarDelegate extends SliverPersistentHeaderDelegate {
       unselectedLabelStyle: textTheme.titleSmall,
       indicatorColor: colors.primary,
       indicatorWeight: 3,
-      dividerColor: colors.outlineVariant,
-      dividerHeight: 1,
+      dividerColor: colors.onSurface.withValues(alpha: borders.opacity),
+      dividerHeight: borders.width,
       tabs: [
         for (int i = 0; i < kTabLabels.length; i++) _buildTab(context, i),
       ],

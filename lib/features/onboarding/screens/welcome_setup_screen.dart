@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/onboarding/data/onboarding_providers.dart';
 
 class WelcomeSetupScreen extends ConsumerWidget {
@@ -12,6 +13,7 @@ class WelcomeSetupScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final userId = ref.watch(onboardingUserIdProvider) ?? '';
@@ -20,30 +22,27 @@ class WelcomeSetupScreen extends ConsumerWidget {
     return Scaffold(
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(spacing.space16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.onboardingWelcomeSetupTitle(displayUserId),
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.normal,
-                        ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.onboardingWelcomeSetupTitle(displayUserId),
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.normal,
                       ),
-                      const SizedBox(height: 20),
-                      Text(
-                        l10n.onboardingWelcomeSetupBody,
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                    ],
-                  ),
+                    ),
+                    SizedBox(height: spacing.space24),
+                    Text(
+                      l10n.onboardingWelcomeSetupBody,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ],
                 ),
               ),
               SizedBox(

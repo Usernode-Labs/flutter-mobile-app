@@ -81,6 +81,8 @@ Map<String, String> _semanticGroupToMap(SemanticColorGroup g) => {
       'onColor': _hex(g.onColor),
       'colorContainer': _hex(g.colorContainer),
       'onColorContainer': _hex(g.onColorContainer),
+      'colorSurface': _hex(g.colorSurface),
+      'onColorSurface': _hex(g.onColorSurface),
     };
 
 Map<String, dynamic> _extendedColor({

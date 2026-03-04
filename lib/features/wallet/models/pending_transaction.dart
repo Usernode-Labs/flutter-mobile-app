@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:crypto_mobile_app/core/utils/utils.dart';
+
 /// Model for locally stored pending transactions
 /// Used to associate sent amounts with pending transaction hashes
 class PendingTransaction {
@@ -83,13 +85,8 @@ class PendingTransaction {
 
   @override
   String toString() {
-    return 'PendingTransaction(from: ${_shortenAddress(fromAddress)}, '
-        'to: ${_shortenAddress(toAddress)}, amount: $amount, timestamp: $timestamp)';
-  }
-
-  String _shortenAddress(String address) {
-    if (address.length <= 16) return address;
-    return '${address.substring(0, 8)}...${address.substring(address.length - 8)}';
+    return 'PendingTransaction(from: ${Utils.shortenID(fromAddress, head: 8, tail: 8)}, '
+        'to: ${Utils.shortenID(toAddress, head: 8, tail: 8)}, amount: $amount, timestamp: $timestamp)';
   }
 
   @override

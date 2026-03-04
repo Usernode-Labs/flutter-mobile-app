@@ -6,6 +6,7 @@ import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 
 class BatteryPermission2Screen extends ConsumerStatefulWidget {
   const BatteryPermission2Screen({super.key});
@@ -91,6 +92,7 @@ class _BatteryPermission2ScreenState
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final isAndroid = Platform.isAndroid;
@@ -98,64 +100,61 @@ class _BatteryPermission2ScreenState
     return Scaffold(
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(spacing.space16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
                 child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          l10n.permBatteryTitle,
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.normal,
-                          ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.permBatteryTitle,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.normal,
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          isAndroid
-                              ? l10n.permBatteryAndroidExplanation
-                              : l10n.permBatteryIosExplanation,
-                          style: theme.textTheme.bodyMedium,
+                      ),
+                      SizedBox(height: spacing.space16),
+                      Text(
+                        isAndroid
+                            ? l10n.permBatteryAndroidExplanation
+                            : l10n.permBatteryIosExplanation,
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                      if (isAndroid) ...[
+                        SizedBox(height: spacing.space24),
+                        _StepRow(
+                          number: 1,
+                          text: l10n.onboardingBatteryStepAppUsage,
                         ),
-                        if (isAndroid) ...[
-                          const SizedBox(height: 24),
-                          _StepRow(
-                            number: 1,
-                            text: l10n.onboardingBatteryStepAppUsage,
-                          ),
-                          const SizedBox(height: 8),
-                          _StepRow(
-                            number: 2,
-                            text: l10n.onboardingBatteryStepAllowBackground,
-                          ),
-                          const SizedBox(height: 8),
-                          _StepRow(
-                            number: 3,
-                            text: l10n.onboardingBatteryStepTapText,
-                          ),
-                          const SizedBox(height: 8),
-                          _StepRow(
-                            number: 4,
-                            text: l10n.onboardingBatteryStepSelectUnrestricted,
-                          ),
-                          const SizedBox(height: 8),
-                          _StepRow(
-                            number: 5,
-                            text: l10n.onboardingBatteryStepReturnToApp,
-                          ),
-                        ],
+                        SizedBox(height: spacing.space8),
+                        _StepRow(
+                          number: 2,
+                          text: l10n.onboardingBatteryStepAllowBackground,
+                        ),
+                        SizedBox(height: spacing.space8),
+                        _StepRow(
+                          number: 3,
+                          text: l10n.onboardingBatteryStepTapText,
+                        ),
+                        SizedBox(height: spacing.space8),
+                        _StepRow(
+                          number: 4,
+                          text: l10n.onboardingBatteryStepSelectUnrestricted,
+                        ),
+                        SizedBox(height: spacing.space8),
+                        _StepRow(
+                          number: 5,
+                          text: l10n.onboardingBatteryStepReturnToApp,
+                        ),
                       ],
-                    ),
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: spacing.space24),
               if (isAndroid) ...[
                 SizedBox(
                   width: double.infinity,
@@ -173,7 +172,7 @@ class _BatteryPermission2ScreenState
                         : Text(l10n.permOpenBatterySettings),
                   ),
                 ),
-                const SizedBox(height: 6),
+                SizedBox(height: spacing.space8),
               ],
               SizedBox(
                 width: double.infinity,
@@ -213,6 +212,7 @@ class _StepRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -223,7 +223,7 @@ class _StepRow extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(width: 8),
+        SizedBox(width: spacing.space8),
         Expanded(
           child: Text(
             text,

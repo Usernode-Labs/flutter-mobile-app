@@ -38,43 +38,46 @@ class EmptyState extends StatelessWidget {
     final sizing = Theme.of(context).extension<AppSizing>()!;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
 
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: spacing.space16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (icon != null) ...[
-              Icon(
-                icon,
-                size: sizing.iconDisplay,
-                color: colors.onSurfaceVariant,
-              ),
-              SizedBox(height: spacing.space16),
-            ],
-            Text(
-              title,
-              style: textTheme.titleMedium?.copyWith(
-                color: colors.onSurface,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            if (subtitle != null) ...[
-              SizedBox(height: spacing.space8),
-              Text(
-                subtitle!,
-                style: textTheme.bodyMedium?.copyWith(
+    return Semantics(
+      liveRegion: true,
+      child: Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: spacing.space16),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(
+                  icon,
+                  size: sizing.iconDisplay,
                   color: colors.onSurfaceVariant,
+                ),
+                SizedBox(height: spacing.space16),
+              ],
+              Text(
+                title,
+                style: textTheme.titleMedium?.copyWith(
+                  color: colors.onSurface,
                 ),
                 textAlign: TextAlign.center,
               ),
+              if (subtitle != null) ...[
+                SizedBox(height: spacing.space8),
+                Text(
+                  subtitle!,
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+              if (action != null) ...[
+                SizedBox(height: spacing.space24),
+                action!,
+              ],
             ],
-            if (action != null) ...[
-              SizedBox(height: spacing.space24),
-              action!,
-            ],
-          ],
+          ),
         ),
       ),
     );

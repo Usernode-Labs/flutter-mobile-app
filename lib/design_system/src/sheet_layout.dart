@@ -43,9 +43,7 @@ class SheetLayout extends StatelessWidget {
                 ),
                 child: Text(
                   title!,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: theme.textTheme.titleMedium,
                 ),
               ),
               SizedBox(height: spacing.space8),

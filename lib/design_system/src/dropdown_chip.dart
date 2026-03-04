@@ -98,8 +98,8 @@ class DropdownChip extends StatelessWidget {
     final effectiveVariant = _effectiveVariant;
 
     final height = switch (size) {
-      ChipSize.small => 28.0,
-      ChipSize.regular => 32.0,
+      ChipSize.small => sizing.iconLarge,
+      ChipSize.regular => sizing.iconXLarge,
     };
 
     final iconSize = switch (size) {

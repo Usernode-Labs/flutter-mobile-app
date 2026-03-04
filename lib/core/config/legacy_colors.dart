@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 /// These are legacy accent / status colors that predate the design-system
 /// [AppSemanticColors] extension. New code should prefer semantic tokens;
 /// these constants exist only so existing screens compile without change.
+@Deprecated('Use AppSemanticColors tokens instead. '
+    'See lib/design_system/tokens/app_semantic_colors.dart.')
 class LegacyColors {
   LegacyColors._();
 

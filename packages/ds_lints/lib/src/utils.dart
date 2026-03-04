@@ -21,6 +21,7 @@ final Map<double, String> radiiTokens = {
   16: 'large',
   20: 'largeIncreased',
   24: 'xLarge',
+  999: 'full',
 };
 
 final Map<double, String> spacingTokens = {

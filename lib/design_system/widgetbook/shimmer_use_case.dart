@@ -33,11 +33,13 @@ WidgetbookComponent shimmerBlockComponent() {
 
           final radii = Theme.of(context).extension<AppRadii>()!;
 
-          return Center(
-            child: ShimmerBlock(
-              width: width,
-              height: height,
-              borderRadius: circular ? radii.borderRadiusFull : null,
+          return ShimmerHost(
+            child: Center(
+              child: ShimmerBlock(
+                width: width,
+                height: height,
+                borderRadius: circular ? radii.borderRadiusFull : null,
+              ),
             ),
           );
         },
@@ -47,10 +49,12 @@ WidgetbookComponent shimmerBlockComponent() {
         builder: (context) {
           final spacing = Theme.of(context).extension<AppSpacing>()!;
 
-          return Center(
-            child: Padding(
-              padding: EdgeInsets.all(spacing.space16),
-              child: const ShimmerCardSkeleton(),
+          return ShimmerHost(
+            child: Center(
+              child: Padding(
+                padding: EdgeInsets.all(spacing.space16),
+                child: const ShimmerCardSkeleton(),
+              ),
             ),
           );
         },
@@ -81,12 +85,14 @@ WidgetbookComponent shimmerListTileComponent() {
             max: 8,
           );
 
-          return Column(
-            children: List.generate(
-              count,
-              (_) => ShimmerListTile(
-                isThreeLine: isThreeLine,
-                hasTrailing: hasTrailing,
+          return ShimmerHost(
+            child: Column(
+              children: List.generate(
+                count,
+                (_) => ShimmerListTile(
+                  isThreeLine: isThreeLine,
+                  hasTrailing: hasTrailing,
+                ),
               ),
             ),
           );

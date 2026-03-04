@@ -16,7 +16,7 @@ Helpful entry points
 - `lib/core/routing/app_router.dart` — `go_router` configuration and routes.
 - `lib/core/services/github_issue_service.dart` — in-app feedback → GitHub issues (needs `GITHUB_TOKEN`).
 - `lib/core/feature_flags.dart` — feature flags and tags, env/assets overrides.
-- `lib/core/design/design_tokens.dart` — spacing, radii, icons, animation durations.
+- `lib/design_system/tokens/` — AppSpacing, AppRadii, AppSizing, AppBorders, AppOpacity, AppSemanticColors.
 - `lib/core/utils/sentry.dart` — Sentry integration helpers.
 - Rust backend façade — `lib/features/node/data/repositories/rust_backend_service.dart`.
 
@@ -53,7 +53,7 @@ Common flags
 
 ## UI & Styling
 - Reuse shared widgets: `AppAppBar`, `AppDrawer`, `AppActionButton`, etc. under `lib/core/widgets/`.
-- Use design tokens from `core/design/design_tokens.dart` for spacing/radius/sizes instead of literals.
+- Use design tokens from `lib/design_system/tokens/` (AppSpacing, AppRadii, AppSizing, etc.) for spacing/radius/sizes instead of literals.
 - Material 3 theming is configured globally; follow existing typography and component patterns.
 - New design system widgets (`lib/design_system/`) must be presentation-only (`StatelessWidget` or `StatefulWidget`, never `ConsumerWidget`). See `lib/design_system/DESIGN_SYSTEM.md`.
 

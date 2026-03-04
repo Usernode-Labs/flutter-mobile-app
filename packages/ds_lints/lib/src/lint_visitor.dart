@@ -104,6 +104,7 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
   ) {
     switch (typeName) {
       case 'EdgeInsets':
+      case 'EdgeInsetsDirectional':
         _checkEdgeInsets(node, typeName, constructorName, args);
         _checkMatryoshka(node, constructorName, args);
       case 'BorderRadius':

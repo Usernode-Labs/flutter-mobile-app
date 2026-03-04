@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
+import '../tokens/app_spacing.dart';
 
 /// Section header for grouped lists — renders [title] in `labelLarge` /
 /// `onSurfaceVariant` with bottom spacing.

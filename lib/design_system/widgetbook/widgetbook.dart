@@ -9,6 +9,7 @@ import 'bottom_nav_use_case.dart';
 import 'button_use_case.dart';
 import 'challenge_activity_summary_use_case.dart';
 import 'challenge_card_use_case.dart';
+import 'challenge_reward_card_use_case.dart';
 import 'challenge_category_tile_use_case.dart';
 import 'challenge_detail_page_use_case.dart';
 import 'challenges_page_use_case.dart';
@@ -35,6 +36,7 @@ import 'sheet_layout_use_case.dart';
 import 'shimmer_use_case.dart';
 import 'status_badge_use_case.dart';
 import 'tabs_use_case.dart';
+import 'text_chevron_trailing_use_case.dart';
 import 'text_field_use_case.dart';
 import 'top_app_bar_use_case.dart';
 import 'unified_theme_catalog.dart';
@@ -210,6 +212,7 @@ class WidgetbookApp extends StatelessWidget {
                 listTileComponent(),
                 scoreHeaderComponent(),
                 sheetLayoutComponent(),
+                textChevronTrailingComponent(),
               ],
             ),
             WidgetbookFolder(
@@ -231,6 +234,7 @@ class WidgetbookApp extends StatelessWidget {
                 challengeActivitySummaryComponent(),
                 challengeCardComponent(),
                 challengeCategoryTileComponent(),
+                challengeRewardCardComponent(),
               ],
             ),
           ],

@@ -33,7 +33,7 @@ class RankBadge extends StatelessWidget {
         shape: BoxShape.circle,
         color: colors.surfaceContainerLowest,
         border: Border.all(
-          color: colors.onSurface.withValues(alpha: borders.opacity),
+          color: colors.outlineVariant,
           width: borders.width,
         ),
       ),

@@ -36,7 +36,7 @@ class DappCard extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(radii.largeIncreased),
         side: BorderSide(
-          color: colors.onSurface.withValues(alpha: borders.opacity),
+          color: colors.outlineVariant,
           width: borders.width,
         ),
       ),

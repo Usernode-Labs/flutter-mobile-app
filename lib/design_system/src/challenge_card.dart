@@ -151,7 +151,7 @@ class _ChallengeCardState extends State<ChallengeCard>
       shape: RoundedRectangleBorder(
         borderRadius: borderRadius,
         side: BorderSide(
-          color: colors.onSurface.withValues(alpha: borders.opacity),
+          color: colors.outlineVariant,
           width: borders.width,
         ),
       ),

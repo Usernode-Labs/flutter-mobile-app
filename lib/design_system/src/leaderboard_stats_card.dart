@@ -208,7 +208,7 @@ class _StatBox extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: radii.borderRadiusLarge,
         border: Border.all(
-          color: colors.onSurface.withValues(alpha: borders.opacity),
+          color: colors.outlineVariant,
           width: borders.width,
         ),
       ),

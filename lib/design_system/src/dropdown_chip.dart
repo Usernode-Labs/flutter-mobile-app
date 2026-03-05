@@ -121,7 +121,7 @@ class DropdownChip extends StatelessWidget {
         ),
       ChipVariant.outlined => (
           null,
-          colors.onSurface.withValues(alpha: borders.opacity),
+          colors.outlineVariant,
           colors.onSurfaceVariant,
         ),
       ChipVariant.surface => (

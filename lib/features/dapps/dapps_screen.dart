@@ -224,25 +224,29 @@ class _SortBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text('dApps', style: theme.textTheme.titleMedium),
-        DropdownChip(
-          label: _sortLabels[sortMode.index],
-          onTap: () async {
-            final result = await showDropdownSheet(
-              context: context,
-              labels: _sortLabels,
-              title: 'Sort',
-              selectedIndex: sortMode.index,
-            );
-            if (result != null) {
-              onSortChanged(SortMode.values[result]);
-            }
-          },
-        ),
-      ],
+    final sizing = theme.extension<AppSizing>()!;
+    return SizedBox(
+      height: sizing.iconContainerRegular, // 48px content slot
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text('dApps', style: theme.textTheme.titleMedium),
+          DropdownChip(
+            label: _sortLabels[sortMode.index],
+            onTap: () async {
+              final result = await showDropdownSheet(
+                context: context,
+                labels: _sortLabels,
+                title: 'Sort',
+                selectedIndex: sortMode.index,
+              );
+              if (result != null) {
+                onSortChanged(SortMode.values[result]);
+              }
+            },
+          ),
+        ],
+      ),
     );
   }
 }

@@ -164,37 +164,34 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
           final sizing = theme.extension<AppSizing>()!;
           final radii = theme.extension<AppRadii>()!;
 
-          return Padding(
-            padding: EdgeInsets.symmetric(horizontal: spacing.space24),
-            child: Container(
-              margin: EdgeInsets.only(bottom: spacing.space8),
-              padding: EdgeInsets.symmetric(
-                horizontal: spacing.space12,
-                vertical: spacing.space8,
-              ),
-              decoration: BoxDecoration(
-                color: semantic.warning.colorContainer,
-                borderRadius: radii.borderRadiusSmall,
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Symbols.warning_amber_sharp,
-                    color: semantic.warning.color,
-                    size: sizing.iconXSmall,
-                  ),
-                  SizedBox(width: spacing.space8),
-                  Expanded(
-                    child: Text(
-                      AppLocalizations.of(context).walletExplorerUnavailable,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: semantic.warning.color,
-                        fontWeight: FontWeight.w500,
-                      ),
+          return Container(
+            margin: EdgeInsets.only(bottom: spacing.space8),
+            padding: EdgeInsets.symmetric(
+              horizontal: spacing.space12,
+              vertical: spacing.space8,
+            ),
+            decoration: BoxDecoration(
+              color: semantic.warning.colorContainer,
+              borderRadius: radii.borderRadiusSmall,
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Symbols.warning_amber_sharp,
+                  color: semantic.warning.color,
+                  size: sizing.iconXSmall,
+                ),
+                SizedBox(width: spacing.space8),
+                Expanded(
+                  child: Text(
+                    AppLocalizations.of(context).walletExplorerUnavailable,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: semantic.warning.color,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           );
         }
@@ -212,22 +209,26 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     AppSpacing spacing,
   ) {
     return [
-      SliverToBoxAdapter(
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            spacing.space24,
-            spacing.space16,
-            spacing.space24,
-            spacing.space8,
-          ),
-          child: Text(
-            l10n.walletRecentActivity,
-            style: theme.textTheme.titleMedium,
+      SliverPadding(
+        padding: EdgeInsets.symmetric(horizontal: spacing.space24),
+        sliver: SliverToBoxAdapter(
+          child: SizedBox(
+            height: theme.extension<AppSizing>()!.iconContainerRegular,
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: Text(
+                l10n.walletRecentActivity,
+                style: theme.textTheme.titleMedium,
+              ),
+            ),
           ),
         ),
       ),
-      SliverToBoxAdapter(
-        child: _buildCachedDataBanner(walletState, theme, spacing),
+      SliverPadding(
+        padding: EdgeInsets.symmetric(horizontal: spacing.space24),
+        sliver: SliverToBoxAdapter(
+          child: _buildCachedDataBanner(walletState, theme, spacing),
+        ),
       ),
       ...walletState.when(
         loading: () => [

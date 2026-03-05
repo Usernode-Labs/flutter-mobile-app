@@ -234,15 +234,40 @@ skip the auto-sliver because their delegates already include
 
 Non-ListTile content inside a PSL `surfaceSlivers` body uses `space24` horizontal inset from the white surface edge. This aligns section titles, banners, and cards consistently across all PSL screens (Wallet, DApps, Node Status).
 
+**Surface top inset** — PSL injects `kSurfaceTopInset` (8px) before the first surfaceSliver. Screens must NOT add their own top padding to the first sliver. Vertical gaps between slivers remain the screen's responsibility.
+
+### Content Slot System
+
+48px is the natural base height for surface content rows — M3 `IconButton` (48dp), `buttonHeightRegular` (48dp), `iconContainerRegular` (48dp), and `kTabBarHeight` (48dp) all converge on this value. When every first-surface-widget delivers a 48px slot, the title text centers at the same Y (~22px from surface) across all PSL screens.
+
+**Composable layouts expecting slots** — containers whose spacing assumes 48px-height children:
+
+| Layout | Path | Status |
+|--------|------|--------|
+| PSL `surfaceSlivers` | `parallax_surface_layout.dart` | Adopted — `kSurfaceTopInset=8` tuned for 48px first slot |
+| PSL `nestedBody` + `surfacePinnedSlivers` | `parallax_surface_layout.dart` | Prior art — `_kTopInset=8` + `kTabBarHeight=48` |
+
+**Atomic widgets delivering 48px slots** — building blocks that fill a single slot:
+
+| Widget | Mechanism | Slot | Status |
+|--------|-----------|------|--------|
+| M3 TabBar (Challenges) | `kTabBarHeight = 48.0` | 48px natural | Prior art |
+| Title+action row (dApps `_SortBar`) | `SizedBox(height: sizing.iconContainerRegular)` + `Row` | 48px explicit | Adopted |
+| Section title row (Wallet) | `SizedBox(height: sizing.iconContainerRegular)` + `Align(centerStart)` | 48px explicit | Adopted |
+| Title+value row (Node Status) | `SizedBox(height: sizing.iconContainerRegular)` + `Row` | 48px explicit | Adopted |
+| `ListTile` | M3 default 56–72dp | Multi-slot | Compatible |
+
+Multi-slot widgets snap to the 8pt grid — taller is fine, no explicit constraints needed.
+
 **Exemptions:**
 - **ListTile / ExpansionTile** — sit edge-to-edge within the surface; they own their `contentPadding` (16dp from theme).
 - **Challenges** (`nestedBody` / TabBarView) — uses `space16`; different layout path with pinned tab bar.
 
 ```dart
-// Section title inside PSL surface
-SliverToBoxAdapter(
-  child: Padding(
-    padding: EdgeInsets.symmetric(horizontal: spacing.space24),
+// Section title inside PSL surface — use SliverPadding for horizontal inset
+SliverPadding(
+  padding: EdgeInsets.symmetric(horizontal: spacing.space24),
+  sliver: SliverToBoxAdapter(
     child: Text('Section Title', style: textTheme.titleMedium),
   ),
 )

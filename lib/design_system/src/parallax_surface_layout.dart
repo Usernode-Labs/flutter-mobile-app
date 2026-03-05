@@ -19,6 +19,12 @@ const kScreenHeaderHeight = 344.0;
 /// includes this so screens without bars align with screens that have them.
 const kPinnedBarPadding = 48.0;
 
+/// Vertical inset from the surface top edge to the first content sliver.
+/// Tuned for 48px content slots: 8px gap + 48px widget places title text
+/// at ~22px from the surface edge, matching Challenges' prior art
+/// (`_kTopInset=8 + kTabBarHeight=48`).
+const kSurfaceTopInset = 8.0;
+
 /// A layout that places a fixed [header] behind a scrolling surface container.
 ///
 /// As the user scrolls, the header translates upward at [kParallaxRatio] of the
@@ -547,6 +553,9 @@ class _ParallaxSurfaceLayoutState extends State<ParallaxSurfaceLayout> {
         },
         child: SliverMainAxisGroup(
           slivers: [
+            const SliverToBoxAdapter(
+              child: SizedBox(height: kSurfaceTopInset),
+            ),
             ...widget.surfaceSlivers!,
             SliverFillRemaining(
               hasScrollBody: false,

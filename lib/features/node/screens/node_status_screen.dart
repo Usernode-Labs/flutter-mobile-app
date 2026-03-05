@@ -247,7 +247,11 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
           if (_error != null)
             SliverToBoxAdapter(
                 child: _buildErrorSection(theme, colorScheme, l10n)),
-          SliverToBoxAdapter(child: _buildBlockSyncProgressSection(context)),
+          SliverPadding(
+            padding: EdgeInsets.symmetric(horizontal: spacing.space24),
+            sliver: SliverToBoxAdapter(
+                child: _buildBlockSyncProgressSection(context)),
+          ),
           SliverToBoxAdapter(child: _buildSyncDetailsSection(context)),
           if (hasRecentBlocks)
             SliverToBoxAdapter(child: SizedBox(height: spacing.space8)),
@@ -438,36 +442,35 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
                 l10n.nodeSyncingBlocks,
               );
 
+    final sizing = theme.extension<AppSizing>()!;
+
     return Padding(
-      padding: EdgeInsets.fromLTRB(
-        spacing.space24,
-        spacing.space24,
-        spacing.space24,
-        spacing.space16,
-      ),
+      padding: EdgeInsets.only(bottom: spacing.space16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                sync?.isConnecting == true || sync == null
-                    ? displayText
-                    : displayText == l10n.nodeLoadedGenesis
-                        ? displayText
-                        : '$displayText $displayCurrentBlocks/$displayTotalBlocks',
-                style: theme.textTheme.titleMedium,
-              ),
-              Text(
-                '$progressPercent%',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+          SizedBox(
+            height: sizing.iconContainerRegular, // 48px content slot
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  sync?.isConnecting == true || sync == null
+                      ? displayText
+                      : displayText == l10n.nodeLoadedGenesis
+                          ? displayText
+                          : '$displayText $displayCurrentBlocks/$displayTotalBlocks',
+                  style: theme.textTheme.titleMedium,
                 ),
-              ),
-            ],
+                Text(
+                  '$progressPercent%',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
           ),
-          SizedBox(height: spacing.space12),
           AppProgressBar(
             value: mainProgress,
             backgroundColor: colorScheme.surfaceContainerHighest,

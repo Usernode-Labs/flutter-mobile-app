@@ -16,7 +16,7 @@ All values in one place. No source-file reading needed.
 | `space8` | 8dp | Tight gaps, chip padding |
 | `space12` | 12dp | List-item separator, section sub-gap |
 | `space16` | 16dp | Screen horizontal margin, card internal padding, card gap |
-| `space24` | 24dp | Section gap between major content groups |
+| `space24` | 24dp | Section gap between major content groups, PSL surface body inset |
 | `space32` | 32dp | Bottom breathing room |
 | `space48` | 48dp | Hero spacing |
 
@@ -126,6 +126,7 @@ Canvas (Scaffold)
 | Zone | M3 Term | Owner | What it controls | Our token |
 |------|---------|-------|------------------|-----------|
 | **Macro** | Margins + Spacers | Screen body / layout parent | Screen-edge margins, gaps between sibling surfaces and sections | `space16` (margin), `space16` / `space24` (gaps) |
+| **Macro (PSL surface)** | Surface body inset | PSL `surfaceSlivers` content | Horizontal inset from PSL white surface edge for non-ListTile content | `space24` (horizontal) |
 | **Meso** | Inset padding | Surface container (AppCard) | Space between a surface's edge and its content | `AppCard.compact` / `.regular` / `.spacious` |
 | **Micro** | Component padding | Leaf widget (ListTile, etc.) | Space between a widget's boundary and its rendered content | Theme `contentPadding` (16h); vertical spacing is M3's `minVerticalPadding: 8` |
 
@@ -189,6 +190,7 @@ M3 distinguishes two containment strategies. Both follow the same Matryoshka spa
 3. **Widgets** (ListTile, ExpansionTile, etc.) own their content padding via theme. Do not wrap them in extra `Padding`.
 4. **Inter-widget gaps** inside a surface are owned by that surface's layout — use `Column(spacing: ...)`. Avoid `Divider` between homogeneous ListTile items.
 5. **Keyline consistency** — all text in ListTile/ExpansionTile rows must land on K₂ (see LAYOUT.md § Keylines). Never wrap these widgets in extra horizontal Padding.
+6. **PSL surface body inset** — non-ListTile content inside PSL `surfaceSlivers` uses `space24` horizontal inset from the white surface edge. ListTile/ExpansionTile are exempt (they sit edge-to-edge and own their `contentPadding`). Challenges (`nestedBody`/TabBarView) keep `space16` — different layout path.
 
 ### When Zones Collide: The ListTile-in-Card Case
 
@@ -227,10 +229,11 @@ Scaffold and SafeArea handle system insets (status bar, notch, keyboard). These 
 | Screen type | System inset handling |
 |-------------|---------------------|
 | Detail screen with `TopAppBar` | Automatic — `SliverAppBar` consumes top inset |
-| Tab screen in IndexedStack | Wrap body in `SafeArea` — shell provides BottomNav |
+| Tab screen with `ParallaxSurfaceLayout` | Automatic — internal pinned sliver via `safeAreaOverlay` covers status bar + `kPinnedBarPadding` (48 px) for cross-screen alignment; skipped when `pinnedHeaderSlivers` provided (they must include `safeTop + kPinnedBarPadding` in their extent). See [LAYOUT.md § Safe Area Strategies](LAYOUT.md#safe-area-strategies). |
+| Tab screen in IndexedStack (no ParallaxSurfaceLayout) | Wrap body in `SafeArea` — shell provides BottomNav |
 | Full-screen (onboarding) | Explicit `SafeArea` around content |
 
-**Never** nest `SafeArea` inside a screen that already has `TopAppBar` — the AppBar already consumed that inset.
+**Never** nest `SafeArea` inside a screen that already has `TopAppBar` — the AppBar already consumed that inset. Similarly, do not add `SafeArea` to screens using `ParallaxSurfaceLayout` — the layout handles the status bar overlay internally.
 
 ### Anti-Pattern: Raw Container as Surface
 
@@ -355,6 +358,7 @@ RefreshIndicator(
 | Card gap | `space16` | 16dp | Between cards of the same group |
 | List item gap | `space12` | 12dp | `ListView.separated` or Column `spacing` |
 | Bottom breathing room | `space32` | 32dp | Last sliver or bottom padding |
+| PSL surface body inset | `space24` | 24dp | Horizontal inset for non-ListTile content inside PSL `surfaceSlivers` |
 
 **Implementation tips:**
 
@@ -662,6 +666,7 @@ Before submitting a new screen, verify:
 12. **Grid alignment** — all spacing values snap to the 8pt grid (4, 8, 12, 16, 24, 32, 48).
 13. **Keylines** — text offsets from screen edge are consistent across sections (K₀ / K₁ / K₂).
 14. **No inter-item dividers** — homogeneous ListTile lists use padding, not `Divider`.
+15. **PSL surface inset** — non-ListTile content in `surfaceSlivers` uses `space24` horizontal inset (not `space16`).
 
 ### Self-Service Audit Commands
 

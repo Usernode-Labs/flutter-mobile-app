@@ -422,7 +422,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
       addRepaintBoundaries: false,
       padding: EdgeInsets.all(spacing.space16),
       itemCount: challenges.length,
-      separatorBuilder: (_, __) => SizedBox(height: spacing.space12),
+      separatorBuilder: (_, __) => SizedBox(height: spacing.space8),
       itemBuilder: (context, index) => RepaintBoundary(
         key: ValueKey(challenges[index].dto.id),
         child: _buildEnrichedChallengeCard(challenges[index]),

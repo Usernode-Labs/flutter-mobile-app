@@ -122,7 +122,7 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
               padding: EdgeInsets.symmetric(horizontal: spacing.space24),
               sliver: SliverList.separated(
                 itemCount: sorted.length,
-                separatorBuilder: (_, __) => SizedBox(height: spacing.space12),
+                separatorBuilder: (_, __) => SizedBox(height: spacing.space8),
                 itemBuilder: (_, index) =>
                     _buildDappCard(context, sorted[index]),
               ),

@@ -161,8 +161,8 @@ class ParallaxSurfaceLayout extends StatefulWidget {
   /// When true and no [pinnedHeaderSlivers] are provided, the layout injects
   /// an internal pinned [SafeAreaPinnedDelegate] that offsets the surface
   /// downward by the status-bar height plus [kPinnedBarPadding] and lerps
-  /// from [ColorScheme.surface] to [ColorScheme.surfaceContainerLowest] as
-  /// the user scrolls.
+  /// from transparent to [ColorScheme.surfaceContainerLowest] as the user
+  /// scrolls.
   ///
   /// The extra [kPinnedBarPadding] (48px) matches the space that standard
   /// pinned-bar delegates add beyond the safe-area inset, keeping all
@@ -616,7 +616,7 @@ void _debugCheckUnboundedFlexChild(Widget widget) {
 // ---------------------------------------------------------------------------
 
 /// Wraps [child] in a [Stack] with a status-bar-height overlay that lerps
-/// from [ColorScheme.surface] to [ColorScheme.surfaceContainerLowest].
+/// from transparent to [ColorScheme.surfaceContainerLowest].
 ///
 /// Use this for screens that need safe-area color coverage without inserting a
 /// pinned sliver inside [ParallaxSurfaceLayout] (which can conflict with the
@@ -654,7 +654,7 @@ class StatusBarOverlay extends StatelessWidget {
                 height: safeTop,
                 child: ColoredBox(
                   color: Color.lerp(
-                    colors.surface,
+                    Colors.transparent,
                     colors.surfaceContainerLowest,
                     sf,
                   )!,
@@ -672,8 +672,8 @@ class StatusBarOverlay extends StatelessWidget {
 // SafeAreaPinnedDelegate — minimal pinned header for status-bar coverage.
 // ---------------------------------------------------------------------------
 
-/// A [SliverPersistentHeaderDelegate] that paints an opaque background over the
-/// status-bar area, lerping from [ColorScheme.surface] (at rest) to
+/// A [SliverPersistentHeaderDelegate] that paints a background over the
+/// status-bar area, lerping from transparent (at rest) to
 /// [ColorScheme.surfaceContainerLowest] (when scrolled).
 ///
 /// Use this for screens that need safe-area pinning without a functional bar
@@ -709,7 +709,7 @@ class SafeAreaPinnedDelegate extends SliverPersistentHeaderDelegate {
       builder: (context, sf, _) => SizedBox.expand(
         child: ColoredBox(
           color: Color.lerp(
-            colors.surface,
+            Colors.transparent,
             colors.surfaceContainerLowest,
             sf,
           )!,

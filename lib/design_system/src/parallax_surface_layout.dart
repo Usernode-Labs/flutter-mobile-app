@@ -297,7 +297,9 @@ class _ParallaxSurfaceLayoutState extends State<ParallaxSurfaceLayout> {
   // Layer builders
   // ---------------------------------------------------------------------------
 
-  Widget _buildHeaderLayer() {
+  /// Wraps [child] in a parallax transform + optional fade driven by scroll
+  /// fraction. Shared by header and header-overlay layers.
+  Widget _buildParallaxLayer(Widget child) {
     return ValueListenableBuilder<double>(
       valueListenable: _effectiveNotifier,
       builder: (context, sf, child) {
@@ -316,11 +318,17 @@ class _ParallaxSurfaceLayoutState extends State<ParallaxSurfaceLayout> {
       child: Padding(
         padding:
             EdgeInsets.only(top: _effectivePinnedHeight + _autoSliverExtent),
-        child: SizedOverflowBox(
-          size: Size(double.infinity, widget.headerHeight),
-          alignment: Alignment.center,
-          child: widget.header,
-        ),
+        child: child,
+      ),
+    );
+  }
+
+  Widget _buildHeaderLayer() {
+    return _buildParallaxLayer(
+      SizedOverflowBox(
+        size: Size(double.infinity, widget.headerHeight),
+        alignment: Alignment.center,
+        child: widget.header,
       ),
     );
   }
@@ -330,28 +338,10 @@ class _ParallaxSurfaceLayoutState extends State<ParallaxSurfaceLayout> {
   /// Uses [HitTestBehavior.deferToChild] so scroll gestures pass through
   /// non-interactive areas.
   Widget _buildHeaderOverlayLayer() {
-    return ValueListenableBuilder<double>(
-      valueListenable: _effectiveNotifier,
-      builder: (context, sf, child) {
-        Widget result = Transform.translate(
-          offset: Offset(0, -sf * widget.headerHeight * kParallaxRatio),
-          child: child,
-        );
-        if (widget.headerFadesOnScroll) {
-          result = Opacity(
-            opacity: (1 - sf).clamp(0.0, 1.0),
-            child: result,
-          );
-        }
-        return result;
-      },
-      child: Padding(
-        padding:
-            EdgeInsets.only(top: _effectivePinnedHeight + _autoSliverExtent),
-        child: SizedBox(
-          height: widget.headerHeight,
-          child: widget.headerOverlay,
-        ),
+    return _buildParallaxLayer(
+      SizedBox(
+        height: widget.headerHeight,
+        child: widget.headerOverlay,
       ),
     );
   }
@@ -393,32 +383,37 @@ class _ParallaxSurfaceLayoutState extends State<ParallaxSurfaceLayout> {
   // CustomScrollView path (surfaceSlivers / surfaceBody)
   // ---------------------------------------------------------------------------
 
+  /// Shared prefix slivers: pinned headers + auto safe-area bar + spacer.
+  List<Widget> _commonHeaderSlivers() {
+    return [
+      ..._effectivePinned,
+
+      // When no user-provided pinned headers exist, inject a pinned safe-area
+      // bar so the surface starts at the same Y as screens with pinned headers
+      // (safeTop + headerHeight). This keeps scroll fraction based on
+      // headerHeight alone, making parallax rate consistent across all screens.
+      if (_autoSliverExtent > 0)
+        SliverPersistentHeader(
+          pinned: true,
+          delegate: SafeAreaPinnedDelegate(
+            topPadding: _autoSliverExtent,
+            scrollFractionNotifier: _effectiveNotifier,
+          ),
+        ),
+
+      // Transparent spacer — reveals header behind
+      SliverToBoxAdapter(
+        child: SizedBox(height: widget.headerHeight),
+      ),
+    ];
+  }
+
   Widget _buildCustomScrollView(ThemeData theme) {
     return CustomScrollView(
       controller: widget.controller,
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
-        // Pinned headers (if provided)
-        ..._effectivePinned,
-
-        // When no user-provided pinned headers exist, inject a pinned safe-area
-        // bar so the surface starts at the same Y as screens with pinned headers
-        // (safeTop + headerHeight). This keeps scroll fraction based on
-        // headerHeight alone, making parallax rate consistent across all screens.
-        // Removing this sliver will shift the surface upward by safeTop.
-        if (_autoSliverExtent > 0)
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: SafeAreaPinnedDelegate(
-              topPadding: _autoSliverExtent,
-              scrollFractionNotifier: _effectiveNotifier,
-            ),
-          ),
-
-        // Transparent spacer — reveals header behind
-        SliverToBoxAdapter(
-          child: SizedBox(height: widget.headerHeight),
-        ),
+        ..._commonHeaderSlivers(),
 
         // Surface container with animated corner radius
         if (widget.surfaceSlivers != null)
@@ -442,23 +437,7 @@ class _ParallaxSurfaceLayoutState extends State<ParallaxSurfaceLayout> {
       physics: const AlwaysScrollableScrollPhysics(),
       headerSliverBuilder: (context, innerBoxIsScrolled) {
         return [
-          // Pinned headers (if provided)
-          ..._effectivePinned,
-
-          // Auto safe-area sliver
-          if (_autoSliverExtent > 0)
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: SafeAreaPinnedDelegate(
-                topPadding: _autoSliverExtent,
-                scrollFractionNotifier: _effectiveNotifier,
-              ),
-            ),
-
-          // Transparent spacer — reveals header behind
-          SliverToBoxAdapter(
-            child: SizedBox(height: widget.headerHeight),
-          ),
+          ..._commonHeaderSlivers(),
 
           // Surface-pinned slivers (e.g. tab bar with corner radius)
           if (widget.surfacePinnedSlivers != null)

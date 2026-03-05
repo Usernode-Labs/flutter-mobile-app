@@ -5,12 +5,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
-Uri _dappBaseUri() {
-  const raw = String.fromEnvironment(
-    'DAPP_HOMEPAGE',
-    defaultValue: 'http://localhost:8000',
-  );
-
+/// Parses a raw URL string into a [Uri], prepending `http://` if no scheme
+/// is present, and remapping localhost to `10.0.2.2` on Android emulator.
+Uri parseDappUrl(String raw) {
   final withScheme = raw.contains('://') ? raw : 'http://$raw';
   final uri = Uri.tryParse(withScheme) ?? Uri.parse('http://localhost:8000');
 
@@ -21,6 +18,14 @@ Uri _dappBaseUri() {
   }
 
   return uri;
+}
+
+Uri _dappBaseUri() {
+  const raw = String.fromEnvironment(
+    'DAPP_HOMEPAGE',
+    defaultValue: 'http://localhost:8000',
+  );
+  return parseDappUrl(raw);
 }
 
 final dappsProvider = FutureProvider<List<DappItem>>((ref) async {
@@ -49,10 +54,11 @@ final dappStatsProvider = FutureProvider<Map<String, DappStats>>((ref) async {
 
   final result = <String, DappStats>{};
 
-  for (final dapp in dapps) {
-    final pubkey = dapp.pubkey;
-    if (pubkey == null || pubkey.isEmpty) continue;
-
+  // Fetch stats for all dApps concurrently (paginated fetch per-dApp is
+  // sequential since it depends on cursors).
+  final eligible = dapps.where((d) => d.pubkey?.isNotEmpty == true);
+  final entries = await Future.wait(eligible.map((dapp) async {
+    final pubkey = dapp.pubkey!;
     var totalTxns = 0;
     final uniqueSenders = <String>{};
     String? cursor;
@@ -88,9 +94,11 @@ final dappStatsProvider = FutureProvider<Map<String, DappStats>>((ref) async {
       if (cursor == null) break;
     }
 
-    result[pubkey] = DappStats(users: uniqueSenders.length, txns: totalTxns);
-  }
+    return MapEntry(
+        pubkey, DappStats(users: uniqueSenders.length, txns: totalTxns));
+  }));
 
+  result.addEntries(entries);
   return result;
 });
 
@@ -117,8 +125,9 @@ final sortedDappsProvider =
       case SortMode.popular:
         final aStats = stats[a.pubkey] ?? DappStats.zero;
         final bStats = stats[b.pubkey] ?? DappStats.zero;
-        final aScore = aStats.users * 20 + aStats.txns;
-        final bScore = bStats.users * 20 + bStats.txns;
+        const userWeight = 20;
+        final aScore = aStats.users * userWeight + aStats.txns;
+        final bScore = bStats.users * userWeight + bStats.txns;
         return bScore.compareTo(aScore);
     }
   });

@@ -38,6 +38,8 @@ class DappAvatar extends StatelessWidget {
     return hash;
   }
 
+  static final _whitespace = RegExp(r'\s+');
+
   /// Extracts a two-letter monogram from a name.
   ///
   /// Multi-word: first letter of each of the first two words.
@@ -46,7 +48,7 @@ class DappAvatar extends StatelessWidget {
     final trimmed = name.trim();
     if (trimmed.isEmpty) return '??';
 
-    final words = trimmed.split(RegExp(r'\s+'));
+    final words = trimmed.split(_whitespace);
     if (words.length >= 2) {
       return '${words[0][0]}${words[1][0]}'.toUpperCase();
     }
@@ -64,8 +66,9 @@ class DappAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final semantic = Theme.of(context).extension<AppSemanticColors>()!;
-    final textTheme = Theme.of(context).textTheme;
+    final theme = Theme.of(context);
+    final semantic = theme.extension<AppSemanticColors>()!;
+    final textTheme = theme.textTheme;
 
     final groups = [semantic.technical, semantic.flash, semantic.community];
 

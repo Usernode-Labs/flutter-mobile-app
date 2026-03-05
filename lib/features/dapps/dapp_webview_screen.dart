@@ -5,9 +5,10 @@ import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/design_system/src/sheet_layout.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_typography.dart';
+import 'package:crypto_mobile_app/features/dapps/providers/dapps_provider.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -38,7 +39,6 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   final List<DateTime> _secretTaps = <DateTime>[];
   Timer? _secretTapResetTimer;
   bool _showUrlEditor = false;
-  bool _bgColorSet = false;
 
   @override
   void initState() {
@@ -97,7 +97,13 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
           },
         ),
       )
-      ..loadRequest(_parseUrl(widget.url));
+      ..loadRequest(parseDappUrl(widget.url));
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _controller.setBackgroundColor(Theme.of(context).colorScheme.surface);
   }
 
   @override
@@ -106,18 +112,6 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     _urlController.dispose();
     _urlFocusNode.dispose();
     super.dispose();
-  }
-
-  static Uri _parseUrl(String raw) {
-    final withScheme = raw.contains('://') ? raw : 'http://$raw';
-    final uri = Uri.tryParse(withScheme) ?? Uri.parse('http://localhost:8000');
-
-    if (!kIsWeb &&
-        defaultTargetPlatform == TargetPlatform.android &&
-        (uri.host == 'localhost' || uri.host == '127.0.0.1')) {
-      return uri.replace(host: '10.0.2.2');
-    }
-    return uri;
   }
 
   void _onSecretTap() {
@@ -167,7 +161,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   Future<void> _loadUrlFromInput() async {
     final trimmed = _urlController.text.trim();
     if (trimmed.isEmpty) return;
-    final uri = _parseUrl(trimmed);
+    final uri = parseDappUrl(trimmed);
     await _controller.loadRequest(uri);
   }
 
@@ -379,7 +373,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
                           child: Text(
                             formattedMemo,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              fontFamily: 'monospace',
+                              fontFamily: kMonoFontFamily,
                             ),
                           ),
                         ),
@@ -473,11 +467,6 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
     final showLoading = _progress < 100;
     final theme = Theme.of(context);
-
-    if (!_bgColorSet) {
-      _bgColorSet = true;
-      _controller.setBackgroundColor(theme.colorScheme.surface);
-    }
 
     final bottomWidgets = <Widget>[
       if (showLoading)

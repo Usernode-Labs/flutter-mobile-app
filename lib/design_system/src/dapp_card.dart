@@ -7,11 +7,14 @@ import '../tokens/app_sizing.dart';
 import '../tokens/app_spacing.dart';
 
 class DappCard extends StatelessWidget {
+  static const kDefaultDescription =
+      'A decentralized application on the Usernode network.';
+
   const DappCard({
     super.key,
     required this.name,
     required this.author,
-    this.description = 'A decentralized application on the Usernode network.',
+    this.description = kDefaultDescription,
     this.onTap,
   });
 
@@ -22,12 +25,13 @@ class DappCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
-    final radii = Theme.of(context).extension<AppRadii>()!;
-    final sizing = Theme.of(context).extension<AppSizing>()!;
-    final borders = Theme.of(context).extension<AppBorders>()!;
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final textTheme = theme.textTheme;
+    final spacing = theme.extension<AppSpacing>()!;
+    final radii = theme.extension<AppRadii>()!;
+    final sizing = theme.extension<AppSizing>()!;
+    final borders = theme.extension<AppBorders>()!;
 
     return Card(
       color: colors.surfaceContainerLowest,
@@ -45,12 +49,7 @@ class DappCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: EdgeInsets.fromLTRB(
-              spacing.space16,
-              spacing.space16,
-              spacing.space16,
-              spacing.space16,
-            ),
+            padding: EdgeInsets.all(spacing.space16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,

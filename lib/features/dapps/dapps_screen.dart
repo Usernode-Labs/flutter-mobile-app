@@ -25,7 +25,7 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
 
   Future<void> _onRefresh() async {
     ref.invalidate(dappsProvider);
-    ref.invalidate(dappStatsProvider);
+    // dappStatsProvider watches dappsProvider, so it auto-refreshes.
     await ref.read(dappsProvider.future);
   }
 
@@ -141,8 +141,7 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
     return DappCard(
       name: dapp.name,
       author: dapp.author,
-      description: dapp.description ??
-          'A decentralized application on the Usernode network.',
+      description: dapp.description ?? DappCard.kDefaultDescription,
       onTap: () {
         Navigator.of(context).push(
           MaterialPageRoute(

@@ -11,6 +11,8 @@ import 'challenge_activity_summary_use_case.dart';
 import 'challenge_card_use_case.dart';
 import 'challenge_reward_card_use_case.dart';
 import 'challenge_category_tile_use_case.dart';
+import 'dapp_avatar_use_case.dart';
+import 'dapp_card_use_case.dart';
 import 'challenge_detail_page_use_case.dart';
 import 'challenges_page_use_case.dart';
 import 'color_catalog.dart';
@@ -235,6 +237,13 @@ class WidgetbookApp extends StatelessWidget {
                 challengeCardComponent(),
                 challengeCategoryTileComponent(),
                 challengeRewardCardComponent(),
+              ],
+            ),
+            WidgetbookFolder(
+              name: 'dApps',
+              children: [
+                dappAvatarComponent(),
+                dappCardComponent(),
               ],
             ),
           ],

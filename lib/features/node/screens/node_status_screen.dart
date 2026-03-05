@@ -238,26 +238,22 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
 
     return Scaffold(
       drawer: const AppDrawer(),
-      body: StatusBarOverlay(
+      body: ParallaxSurfaceLayout(
+        headerHeight: kScreenHeaderHeight,
         scrollFractionNotifier: _scrollFraction,
-        child: ParallaxSurfaceLayout(
-          headerHeight: kScreenHeaderHeight,
-          scrollFractionNotifier: _scrollFraction,
-          onRefresh: _refresh,
-          header: _buildCentralStatusIndicator(context),
-          surfaceBody: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (_error != null) _buildErrorSection(theme, colorScheme, l10n),
-              _buildBlockSyncProgressSection(context),
-              SizedBox(height: spacing.space24),
-              _buildSyncDetailsSection(context),
-              if (hasRecentBlocks) SizedBox(height: spacing.space8),
-              _buildRecentBlocksSection(context),
-              SizedBox(height: spacing.space32),
-            ],
-          ),
-        ),
+        onRefresh: _refresh,
+        header: _buildCentralStatusIndicator(context),
+        surfaceSlivers: [
+          if (_error != null)
+            SliverToBoxAdapter(
+                child: _buildErrorSection(theme, colorScheme, l10n)),
+          SliverToBoxAdapter(child: _buildBlockSyncProgressSection(context)),
+          SliverToBoxAdapter(child: _buildSyncDetailsSection(context)),
+          if (hasRecentBlocks)
+            SliverToBoxAdapter(child: SizedBox(height: spacing.space8)),
+          SliverToBoxAdapter(child: _buildRecentBlocksSection(context)),
+          SliverToBoxAdapter(child: SizedBox(height: spacing.space32)),
+        ],
       ),
     );
   }
@@ -443,7 +439,12 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
               );
 
     return Padding(
-      padding: EdgeInsets.all(spacing.space24),
+      padding: EdgeInsets.fromLTRB(
+        spacing.space24,
+        spacing.space24,
+        spacing.space24,
+        spacing.space16,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -562,7 +563,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
         // --- Reference/status data ---
         Card(
           elevation: 0,
-          margin: EdgeInsets.symmetric(horizontal: spacing.space16),
+          margin: EdgeInsets.symmetric(horizontal: spacing.space24),
           shape: RoundedRectangleBorder(
             borderRadius: radii.borderRadiusLarge,
             side: BorderSide(color: colorScheme.outlineVariant),
@@ -617,7 +618,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     final radii = theme.extension<AppRadii>()!;
     final colorScheme = theme.colorScheme;
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: spacing.space16),
+      margin: EdgeInsets.symmetric(horizontal: spacing.space24),
       padding: EdgeInsets.symmetric(
           horizontal: spacing.space16, vertical: spacing.space12),
       decoration: BoxDecoration(

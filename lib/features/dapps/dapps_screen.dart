@@ -38,55 +38,53 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
     final statsAsync = ref.watch(dappStatsProvider);
 
     final dappCount = dappsAsync.valueOrNull?.length;
-    final isError = dappsAsync.hasError;
-    final isEmpty =
-        dappsAsync.hasValue && (dappsAsync.valueOrNull?.isEmpty ?? true);
 
     return Scaffold(
-      body: StatusBarOverlay(
+      body: ParallaxSurfaceLayout(
+        headerHeight: kScreenHeaderHeight,
         scrollFractionNotifier: _scrollFraction,
-        child: ParallaxSurfaceLayout(
-          headerHeight: kScreenHeaderHeight,
-          scrollFractionNotifier: _scrollFraction,
-          onRefresh: _onRefresh,
-          surfaceFillsViewport: isError || isEmpty,
-          header: _DappsHeader(
-            count: dappCount,
-            statsAsync: statsAsync,
-          ),
-          surfaceBody: _buildSurfaceBody(
-            dappsAsync,
-            statsAsync,
-            spacing,
-            sizing,
-          ),
+        onRefresh: _onRefresh,
+        header: _DappsHeader(
+          count: dappCount,
+          statsAsync: statsAsync,
+        ),
+        surfaceSlivers: _buildSurfaceSlivers(
+          dappsAsync,
+          statsAsync,
+          spacing,
+          sizing,
         ),
       ),
     );
   }
 
-  Widget _buildSurfaceBody(
+  List<Widget> _buildSurfaceSlivers(
     AsyncValue<List<DappItem>> dappsAsync,
     AsyncValue<Map<String, DappStats>> statsAsync,
     AppSpacing spacing,
     AppSizing sizing,
   ) {
-    return dappsAsync.when(
-      loading: () => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _SortBar(
+    return [
+      SliverPadding(
+        padding: EdgeInsets.symmetric(horizontal: spacing.space24),
+        sliver: SliverToBoxAdapter(
+          child: _SortBar(
             sortMode: _sortMode,
             onSortChanged: (mode) => setState(() => _sortMode = mode),
             spacing: spacing,
             sizing: sizing,
           ),
-          Expanded(
+        ),
+      ),
+      ...dappsAsync.when(
+        loading: () => [
+          SliverToBoxAdapter(
             child: ShimmerHost(
               child: ListView.separated(
+                shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 padding: EdgeInsets.symmetric(
-                  horizontal: spacing.space16,
+                  horizontal: spacing.space24,
                   vertical: spacing.space8,
                 ),
                 itemCount: 5,
@@ -96,43 +94,46 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
             ),
           ),
         ],
-      ),
-      error: (error, _) => FullPageErrorState(
-        message: 'Failed to load dApps',
-        detail: '$error',
-        onRetry: () => ref.invalidate(dappsProvider),
-      ),
-      data: (_) {
-        final sorted = ref.watch(sortedDappsProvider(_sortMode));
-
-        if (sorted.isEmpty) {
-          return const EmptyState(
-            icon: Symbols.apps_sharp,
-            title: 'No dApps available',
-          );
-        }
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _SortBar(
-              sortMode: _sortMode,
-              onSortChanged: (mode) => setState(() => _sortMode = mode),
-              spacing: spacing,
-              sizing: sizing,
+        error: (error, _) => [
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: FullPageErrorState(
+              message: 'Failed to load dApps',
+              detail: '$error',
+              onRetry: () => ref.invalidate(dappsProvider),
             ),
-            for (var i = 0; i < sorted.length; i++) ...[
-              if (i > 0) SizedBox(height: spacing.space12),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: spacing.space16),
-                child: _buildDappCard(context, sorted[i]),
+          ),
+        ],
+        data: (_) {
+          final sorted = ref.watch(sortedDappsProvider(_sortMode));
+
+          if (sorted.isEmpty) {
+            return [
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: EmptyState(
+                  icon: Symbols.apps_sharp,
+                  title: 'No dApps available',
+                ),
               ),
-            ],
-            SizedBox(height: spacing.space32),
-          ],
-        );
-      },
-    );
+            ];
+          }
+
+          return [
+            SliverPadding(
+              padding: EdgeInsets.symmetric(horizontal: spacing.space24),
+              sliver: SliverList.separated(
+                itemCount: sorted.length,
+                separatorBuilder: (_, __) => SizedBox(height: spacing.space12),
+                itemBuilder: (_, index) =>
+                    _buildDappCard(context, sorted[index]),
+              ),
+            ),
+            SliverToBoxAdapter(child: SizedBox(height: spacing.space32)),
+          ];
+        },
+      ),
+    ];
   }
 
   Widget _buildDappCard(
@@ -227,25 +228,22 @@ class _SortBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: spacing.space16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text('dApps', style: theme.textTheme.titleMedium),
-          PopupMenuButton<SortMode>(
-            icon: const Icon(Symbols.sort_sharp),
-            tooltip: 'Sort',
-            onSelected: onSortChanged,
-            itemBuilder: (_) => [
-              _sortMenuItem(SortMode.popular, 'Popular'),
-              _sortMenuItem(SortMode.users, 'Most users'),
-              _sortMenuItem(SortMode.txns, 'Most transactions'),
-              _sortMenuItem(SortMode.alpha, 'A → Z'),
-            ],
-          ),
-        ],
-      ),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text('dApps', style: theme.textTheme.titleMedium),
+        PopupMenuButton<SortMode>(
+          icon: const Icon(Symbols.sort_sharp),
+          tooltip: 'Sort',
+          onSelected: onSortChanged,
+          itemBuilder: (_) => [
+            _sortMenuItem(SortMode.popular, 'Popular'),
+            _sortMenuItem(SortMode.users, 'Most users'),
+            _sortMenuItem(SortMode.txns, 'Most transactions'),
+            _sortMenuItem(SortMode.alpha, 'A → Z'),
+          ],
+        ),
+      ],
     );
   }
 

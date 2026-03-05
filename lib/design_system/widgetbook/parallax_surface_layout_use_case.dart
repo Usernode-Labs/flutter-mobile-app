@@ -9,7 +9,7 @@ WidgetbookComponent parallaxSurfaceLayoutComponent() {
     name: 'ParallaxSurfaceLayout',
     useCases: [
       WidgetbookUseCase(
-        name: 'Playground',
+        name: 'Playground (surfaceBody)',
         builder: (context) {
           final headerHeight = context.knobs.double.slider(
             label: 'Header height',
@@ -21,6 +21,12 @@ WidgetbookComponent parallaxSurfaceLayoutComponent() {
             label: 'RefreshIndicator',
             initialValue: true,
           );
+          final headerFades = context.knobs.boolean(
+            label: 'headerFadesOnScroll',
+          );
+          final edgeFade = context.knobs.boolean(
+            label: 'showEdgeFade',
+          );
 
           return Scaffold(
             body: SafeArea(
@@ -30,7 +36,56 @@ WidgetbookComponent parallaxSurfaceLayoutComponent() {
                     ? () => Future.delayed(const Duration(seconds: 1))
                     : null,
                 header: const _MockHeader(),
+                // ignore: deprecated_member_use_from_same_package
                 surfaceBody: const _MockSurface(),
+                headerFadesOnScroll: headerFades,
+                showEdgeFade: edgeFade,
+              ),
+            ),
+          );
+        },
+      ),
+      WidgetbookUseCase(
+        name: 'Slivers',
+        builder: (context) {
+          final headerHeight = context.knobs.double.slider(
+            label: 'Header height',
+            initialValue: kDefaultHeaderHeight,
+            min: 100,
+            max: 400,
+          );
+          final headerFades = context.knobs.boolean(
+            label: 'headerFadesOnScroll',
+          );
+          final edgeFade = context.knobs.boolean(
+            label: 'showEdgeFade',
+          );
+          final itemCount = context.knobs.double
+              .slider(
+                label: 'Item count',
+                initialValue: 30,
+                min: 5,
+                max: 100,
+              )
+              .toInt();
+
+          return Scaffold(
+            body: SafeArea(
+              child: ParallaxSurfaceLayout(
+                headerHeight: headerHeight,
+                header: const _MockHeader(),
+                headerFadesOnScroll: headerFades,
+                showEdgeFade: edgeFade,
+                surfaceSlivers: [
+                  SliverList.builder(
+                    itemCount: itemCount,
+                    itemBuilder: (context, i) => ListTile(
+                      leading: CircleAvatar(child: Text('${i + 1}')),
+                      title: Text('Lazy Item ${i + 1}'),
+                      subtitle: const Text('Built on demand via SliverList'),
+                    ),
+                  ),
+                ],
               ),
             ),
           );

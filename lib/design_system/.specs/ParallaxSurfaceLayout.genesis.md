@@ -2,7 +2,7 @@
 
 ## What
 
-A layout widget that places a fixed header behind a scrolling surface container. The header translates upward at 40% of scroll speed (parallax), while the surface's top corners animate from rounded to flat. Supports an optional pinned bar sliver and a shared `ValueNotifier<double>` that broadcasts scroll fraction (0–1) so external delegates can drive coordinated animations.
+A layout widget that places a fixed header behind a scrolling surface container. The header translates upward at 40% of scroll speed (parallax), while the surface's top corners animate from rounded to flat. Supports multiple pinned header slivers, sliver-based surface content, NestedScrollView for tabbed content, header opacity fade, edge fade decorations, header overlays, and a shared `ValueNotifier<double>` that broadcasts scroll fraction (0–1) so external delegates can drive coordinated animations.
 
 ## Layer Architecture
 
@@ -11,41 +11,87 @@ Stack
 ├── Layer 1: Header (parallax)
 │   ValueListenableBuilder reads scroll fraction →
 │   Transform.translate shifts header at kParallaxRatio
+│   Optional Opacity wrap when headerFadesOnScroll = true
 │
-└── Layer 2: CustomScrollView
-    ├── [pinnedHeaderSliver]  (optional — e.g. sticky address bar)
-    ├── SliverToBoxAdapter    (transparent spacer = headerHeight)
-    └── SliverToBoxAdapter    (decorated surface with animated corners)
+├── Layer 2: Scroll view (dispatched by content param)
+│   ├── CustomScrollView path (surfaceSlivers / surfaceBody):
+│   │   ├── [...pinnedHeaderSlivers]  (multiple pinned bars)
+│   │   ├── SliverToBoxAdapter         (transparent spacer = headerHeight)
+│   │   └── surfaceSlivers path:
+│   │       │   _SliverDecoratedBox    (animated corner decoration via RenderProxySliver)
+│   │       │   └── SliverMainAxisGroup
+│   │       │       ├── ...surfaceSlivers
+│   │       │       └── SliverFillRemaining (background fill)
+│   │       └── OR deprecated surfaceBody path:
+│   │           └── SliverLayoutBuilder → SliverToBoxAdapter(ConstrainedBox → Container)
+│   │
+│   └── NestedScrollView path (nestedBody):
+│       ├── headerSliverBuilder:
+│       │   ├── [...pinnedHeaderSlivers]
+│       │   ├── auto safe-area sliver (if applicable)
+│       │   ├── SliverToBoxAdapter (transparent spacer = headerHeight)
+│       │   └── [...surfacePinnedSlivers] (e.g. SurfaceTabBarDelegate)
+│       └── body: ColoredBox(surfaceContainerLowest) → nestedBody
+│
+├── Layer 3: Header overlay (optional, headerOverlay)
+│   Parallaxes and fades identically to Layer 1
+│   HitTestBehavior.deferToChild — scroll gestures pass through
+│   Only explicit GestureDetectors consume taps
+│
+└── Layer 4: Edge fade (optional, showEdgeFade)
+    IgnorePointer → LinearGradient overlay at surface junction
+    Opacity driven by scroll fraction — fades in as surface scrolls up
 ```
 
-The scroll view sits on top of the header in the Stack. The transparent spacer lets the header show through; as the user scrolls past it, the surface takes over the full viewport.
+## Content Params (exactly one required)
+
+| Param | Scroll view | Use case |
+|-------|-------------|----------|
+| `surfaceSlivers` | CustomScrollView | Most screens — lazy sliver content |
+| `nestedBody` | NestedScrollView | Tabbed screens (TabBarView) |
+| `surfaceBody` (deprecated) | CustomScrollView | Legacy box-based content |
 
 ## Scroll-Fraction Wiring
 
 A single `ValueNotifier<double>` is the coordination bus:
 
 1. `_onScroll` computes `pixels / headerHeight`, clamped to 0–1, and writes it.
-2. The header's `ValueListenableBuilder` reads it for parallax offset.
+2. The header's `ValueListenableBuilder` reads it for parallax offset (and optional opacity).
 3. The surface's `ValueListenableBuilder` reads it for corner radius interpolation.
-4. External consumers (e.g. `WalletScreen` delegates in `wallet_delegates.dart`) receive the same notifier via `scrollFractionNotifier` and drive their own animations.
+4. The edge fade's `ValueListenableBuilder` reads it for gradient opacity.
+5. External consumers (e.g. `WalletScreen` delegates) receive the same notifier via `scrollFractionNotifier`.
 
 When `scrollFractionNotifier` is null, an internal notifier is created and disposed automatically.
 
-## Constraint Chain (`surfaceFillsViewport`)
+## RefreshIndicator Dispatch
 
-When `surfaceFillsViewport: true`, the surface must fill the viewport (ensuring scroll distance) while centering the body in only the initially-visible portion:
+When `onRefresh` is set:
+- **Standard**: `RefreshIndicator` wrapping the scroll view.
+- **No-spinner** (when `onRefreshStatusChange` is also set): `RefreshIndicator.noSpinner` with `onStatusChange` callback. Used by Challenges for custom pull-to-refresh scale animation on the ScoreHeader.
 
-```
-SliverLayoutBuilder  (reads viewportMainAxisExtent)
-  └── ConstrainedBox (minHeight: viewportHeight — stretches surface)
-        └── Container  (decoration: animated corners)
-              └── Align (loosens minHeight — lets child be smaller)
-                    └── SizedBox (height: visibleSurfaceHeight)
-                          └── surfaceBody
-```
+Both variants support `refreshNotificationPredicate` for custom scroll depth filtering (needed by NestedScrollView screens).
 
-The `Align` widget is key: without it, `ConstrainedBox`'s `minHeight` propagates as a tight constraint, so the body would stretch to the full viewport instead of centering in the visible area.
+## _SliverDecoratedBox
+
+Private render object (`RenderProxySliver`) that paints a `BoxDecoration` behind its sliver child. Used in the `surfaceSlivers` path to paint the surface background with animated corner radius. `ValueListenableBuilder` rebuilds with a new decoration each frame; `updateRenderObject` updates the `BoxPainter` efficiently.
+
+## Debug Assertion (surfaceBody)
+
+`_debugCheckUnboundedFlexChild` walks the deprecated `surfaceBody` widget tree looking for `Expanded`/`Flexible` in a vertical `Flex`. This combination crashes because `SliverToBoxAdapter → ConstrainedBox` provides unbounded maxHeight. The assertion fires in debug mode only, guiding migration to `surfaceSlivers`.
+
+## Deprecation Strategy
+
+Old singular params forward to new plural params internally:
+- `pinnedHeaderSliver` → `pinnedHeaderSlivers`
+- `pinnedHeaderHeight` → `pinnedHeadersHeight`
+- `surfaceBody` → use `surfaceSlivers` instead
+
+Assertions prevent mixing old and new params simultaneously.
 
 ## Reference Integration
 
-`WalletScreen` (`lib/features/wallet/screens/wallet_screen.dart`) is the primary consumer, with scroll-fraction delegates extracted to `wallet_delegates.dart`.
+All four main tab screens use PSL:
+- **Wallet**: `surfaceSlivers` + `pinnedHeaderSlivers` (AddressBarDelegate)
+- **DApps**: `surfaceSlivers` (auto safe-area)
+- **Node Status**: `surfaceSlivers` (auto safe-area)
+- **Challenges**: `nestedBody` + `pinnedHeaderSlivers` (ChipBarDelegate) + `surfacePinnedSlivers` (SurfaceTabBarDelegate) + `headerOverlay` (CTA button) + `onRefreshStatusChange` (pull feedback)

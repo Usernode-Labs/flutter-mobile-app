@@ -14,7 +14,14 @@ class DappsScreen extends ConsumerStatefulWidget {
 }
 
 class _DappsScreenState extends ConsumerState<DappsScreen> {
+  final _scrollFraction = ValueNotifier<double>(0.0);
   SortMode _sortMode = SortMode.popular;
+
+  @override
+  void dispose() {
+    _scrollFraction.dispose();
+    super.dispose();
+  }
 
   Future<void> _onRefresh() async {
     ref.invalidate(dappsProvider);
@@ -36,19 +43,23 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
         dappsAsync.hasValue && (dappsAsync.valueOrNull?.isEmpty ?? true);
 
     return Scaffold(
-      body: ParallaxSurfaceLayout(
-        headerHeight: kScreenHeaderHeight,
-        onRefresh: _onRefresh,
-        surfaceFillsViewport: isError || isEmpty,
-        header: _DappsHeader(
-          count: dappCount,
-          statsAsync: statsAsync,
-        ),
-        surfaceBody: _buildSurfaceBody(
-          dappsAsync,
-          statsAsync,
-          spacing,
-          sizing,
+      body: StatusBarOverlay(
+        scrollFractionNotifier: _scrollFraction,
+        child: ParallaxSurfaceLayout(
+          headerHeight: kScreenHeaderHeight,
+          scrollFractionNotifier: _scrollFraction,
+          onRefresh: _onRefresh,
+          surfaceFillsViewport: isError || isEmpty,
+          header: _DappsHeader(
+            count: dappCount,
+            statsAsync: statsAsync,
+          ),
+          surfaceBody: _buildSurfaceBody(
+            dappsAsync,
+            statsAsync,
+            spacing,
+            sizing,
+          ),
         ),
       ),
     );

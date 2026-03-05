@@ -12,7 +12,6 @@ import 'package:crypto_mobile_app/core/utils/utils.dart';
 import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:crypto_mobile_app/core/widgets/app_progress_bar.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
-import 'package:crypto_mobile_app/features/wallet/screens/wallet_delegates.dart';
 import 'package:crypto_mobile_app/core/providers/node_data_providers.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/providers/epoch_rewards_provider.dart';
@@ -34,6 +33,8 @@ class NodeStatusScreen extends ConsumerStatefulWidget {
 }
 
 class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
+  final _scrollFraction = ValueNotifier<double>(0.0);
+
   // State flags
   bool _refreshing = false;
   String? _error;
@@ -81,6 +82,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
 
   @override
   void dispose() {
+    _scrollFraction.dispose();
     _autoTimer?.cancel();
     super.dispose();
   }
@@ -231,34 +233,30 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
 
-    final safeTop = MediaQuery.of(context).padding.top;
     final hasRecentBlocks =
         ref.read(nodeBlockchainProvider).value?.items.isNotEmpty ?? false;
 
-    final pinnedHeight =
-        safeTop + spacing.space8 + kAddressBarHeight + spacing.space8;
-
     return Scaffold(
       drawer: const AppDrawer(),
-      body: ParallaxSurfaceLayout(
-        headerHeight: kScreenHeaderHeight,
-        pinnedHeaderHeight: pinnedHeight,
-        pinnedHeaderSliver: SliverToBoxAdapter(
-          child: SizedBox(height: pinnedHeight),
-        ),
-        onRefresh: _refresh,
-        header: _buildCentralStatusIndicator(context),
-        surfaceBody: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (_error != null) _buildErrorSection(theme, colorScheme, l10n),
-            _buildBlockSyncProgressSection(context),
-            SizedBox(height: spacing.space24),
-            _buildSyncDetailsSection(context),
-            if (hasRecentBlocks) SizedBox(height: spacing.space8),
-            _buildRecentBlocksSection(context),
-            SizedBox(height: spacing.space32),
-          ],
+      body: StatusBarOverlay(
+        scrollFractionNotifier: _scrollFraction,
+        child: ParallaxSurfaceLayout(
+          headerHeight: kScreenHeaderHeight,
+          scrollFractionNotifier: _scrollFraction,
+          onRefresh: _refresh,
+          header: _buildCentralStatusIndicator(context),
+          surfaceBody: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (_error != null) _buildErrorSection(theme, colorScheme, l10n),
+              _buildBlockSyncProgressSection(context),
+              SizedBox(height: spacing.space24),
+              _buildSyncDetailsSection(context),
+              if (hasRecentBlocks) SizedBox(height: spacing.space8),
+              _buildRecentBlocksSection(context),
+              SizedBox(height: spacing.space32),
+            ],
+          ),
         ),
       ),
     );

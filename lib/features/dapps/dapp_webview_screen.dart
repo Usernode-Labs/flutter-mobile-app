@@ -45,9 +45,6 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     super.initState();
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setOnConsoleMessage((JavaScriptConsoleMessage message) {
-        debugPrint('[WebView ${message.level.name}] ${message.message}');
-      })
       ..addJavaScriptChannel(
         _jsChannelName,
         onMessageReceived: (message) async {

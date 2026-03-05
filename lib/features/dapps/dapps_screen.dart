@@ -71,8 +71,6 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
           child: _SortBar(
             sortMode: _sortMode,
             onSortChanged: (mode) => setState(() => _sortMode = mode),
-            spacing: spacing,
-            sizing: sizing,
           ),
         ),
       ),
@@ -212,18 +210,16 @@ class _DappsHeader extends StatelessWidget {
   }
 }
 
+const _sortLabels = ['Popular', 'Most users', 'Most transactions', 'A → Z'];
+
 class _SortBar extends StatelessWidget {
   const _SortBar({
     required this.sortMode,
     required this.onSortChanged,
-    required this.spacing,
-    required this.sizing,
   });
 
   final SortMode sortMode;
   final ValueChanged<SortMode> onSortChanged;
-  final AppSpacing spacing;
-  final AppSizing sizing;
 
   @override
   Widget build(BuildContext context) {
@@ -232,34 +228,21 @@ class _SortBar extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text('dApps', style: theme.textTheme.titleMedium),
-        PopupMenuButton<SortMode>(
-          icon: const Icon(Symbols.sort_sharp),
-          tooltip: 'Sort',
-          onSelected: onSortChanged,
-          itemBuilder: (_) => [
-            _sortMenuItem(SortMode.popular, 'Popular'),
-            _sortMenuItem(SortMode.users, 'Most users'),
-            _sortMenuItem(SortMode.txns, 'Most transactions'),
-            _sortMenuItem(SortMode.alpha, 'A → Z'),
-          ],
+        DropdownChip(
+          label: _sortLabels[sortMode.index],
+          onTap: () async {
+            final result = await showDropdownSheet(
+              context: context,
+              labels: _sortLabels,
+              title: 'Sort',
+              selectedIndex: sortMode.index,
+            );
+            if (result != null) {
+              onSortChanged(SortMode.values[result]);
+            }
+          },
         ),
       ],
-    );
-  }
-
-  PopupMenuEntry<SortMode> _sortMenuItem(SortMode mode, String label) {
-    return PopupMenuItem<SortMode>(
-      value: mode,
-      child: Row(
-        children: [
-          if (sortMode == mode)
-            Padding(
-              padding: EdgeInsets.only(right: spacing.space8),
-              child: Icon(Symbols.check_sharp, size: sizing.iconSmall),
-            ),
-          Text(label),
-        ],
-      ),
     );
   }
 }

@@ -39,7 +39,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
   bool _refreshing = false;
   String? _error;
   bool _active = true;
-  bool _isRecentBlocksExpanded = false;
 
   // Cached data
   List<RpcPeerInfo> _peers = const [];
@@ -233,9 +232,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
 
-    final hasRecentBlocks =
-        ref.read(nodeBlockchainProvider).value?.items.isNotEmpty ?? false;
-
     return Scaffold(
       drawer: const AppDrawer(),
       body: ParallaxSurfaceLayout(
@@ -253,8 +249,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
                 child: _buildBlockSyncProgressSection(context)),
           ),
           SliverToBoxAdapter(child: _buildSyncDetailsSection(context)),
-          if (hasRecentBlocks)
-            SliverToBoxAdapter(child: SizedBox(height: spacing.space8)),
+          SliverToBoxAdapter(child: SizedBox(height: spacing.space16)),
           SliverToBoxAdapter(child: _buildRecentBlocksSection(context)),
           SliverToBoxAdapter(child: SizedBox(height: spacing.space32)),
         ],
@@ -561,7 +556,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
           onTap: () => context.push(AppRoutes.mainNodeMempool),
         ),
 
-        SizedBox(height: spacing.space4),
+        SizedBox(height: spacing.space16),
 
         // --- Reference/status data ---
         Card(
@@ -612,89 +607,35 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     );
   }
 
-  Widget _buildDiaryCard({
-    required BuildContext context,
-    required List<Widget> children,
-  }) {
+  Widget _buildRecentBlocksSection(BuildContext context) {
     final theme = Theme.of(context);
     final spacing = theme.extension<AppSpacing>()!;
     final radii = theme.extension<AppRadii>()!;
     final colorScheme = theme.colorScheme;
-    return Container(
+    final l10n = AppLocalizations.of(context);
+
+    return Card(
+      elevation: 0,
       margin: EdgeInsets.symmetric(horizontal: spacing.space24),
-      padding: EdgeInsets.symmetric(
-          horizontal: spacing.space16, vertical: spacing.space12),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLowest,
-        borderRadius: radii.borderRadiusLargeIncreased,
-        border: Border.all(color: colorScheme.outlineVariant),
+      shape: RoundedRectangleBorder(
+        borderRadius: radii.borderRadiusLarge,
+        side: BorderSide(color: colorScheme.outlineVariant),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: children,
-      ),
-    );
-  }
-
-  Widget _buildRecentBlocksSection(BuildContext context) {
-    final theme = Theme.of(context);
-    final spacing = theme.extension<AppSpacing>()!;
-    final sizing = theme.extension<AppSizing>()!;
-    final colorScheme = theme.colorScheme;
-
-    return _buildDiaryCard(
-      context: context,
-      children: [
-        InkWell(
-          onTap: () => setState(
-              () => _isRecentBlocksExpanded = !_isRecentBlocksExpanded),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  AppLocalizations.of(context).nodeRecentBlocks,
-                  style: theme.textTheme.bodyLarge,
-                ),
-              ),
-              if (!_isRecentBlocksExpanded)
-                TextButton(
-                  onPressed: () =>
-                      context.push(AppRoutes.nodeStatusProducedBlocks),
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.symmetric(
-                        horizontal: spacing.space8, vertical: spacing.space4),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        AppLocalizations.of(context).nodeViewAll,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.primary,
-                        ),
-                      ),
-                      SizedBox(width: spacing.space4),
-                      Icon(Symbols.arrow_forward_sharp,
-                          size: sizing.iconXSmall, color: colorScheme.primary),
-                    ],
-                  ),
-                ),
-              Icon(
-                _isRecentBlocksExpanded
-                    ? Symbols.expand_less_sharp
-                    : Symbols.expand_more_sharp,
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ],
-          ),
-        ),
-        if (_isRecentBlocksExpanded) ...[
-          SizedBox(height: spacing.space12),
+      clipBehavior: Clip.antiAlias,
+      child: ExpansionTile(
+        shape: const Border(),
+        collapsedShape: const Border(),
+        childrenPadding: EdgeInsets.zero,
+        title: Text(l10n.nodeRecentBlocks),
+        children: [
           _buildProducedBlocksTab(context),
+          ListTile(
+            title: Text(l10n.nodeViewAll),
+            trailing: const Icon(Symbols.arrow_forward_sharp),
+            onTap: () => context.push(AppRoutes.nodeStatusProducedBlocks),
+          ),
         ],
-      ],
+      ),
     );
   }
 

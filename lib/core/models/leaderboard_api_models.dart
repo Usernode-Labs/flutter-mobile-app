@@ -131,10 +131,10 @@ class RankingResult {
   factory RankingResult.fromJson(Map<String, dynamic> json) {
     return RankingResult(
       scope: json['scope'] as String? ?? 'event',
-      rank: _jsonInt(json['rank']),
-      totalPoints: _jsonInt(json['total_points']),
-      offchainPoints: _jsonInt(json['offchain_points']),
-      totalParticipants: _jsonInt(json['total_participants']),
+      rank: _jsonIntN(json['rank']) ?? 0,
+      totalPoints: _jsonIntN(json['total_points']) ?? 0,
+      offchainPoints: _jsonIntN(json['offchain_points']) ?? 0,
+      totalParticipants: _jsonIntN(json['total_participants']) ?? 0,
       eventId: _jsonIntN(json['event_id']),
       eventName: json['event_name'] as String?,
       seasonId: _jsonIntN(json['season_id']),

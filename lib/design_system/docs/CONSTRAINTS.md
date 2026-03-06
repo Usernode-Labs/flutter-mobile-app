@@ -73,6 +73,18 @@ Three slash commands drive design-to-code:
 
 **Where:** Skills: `/figma-inspect`, `/widget-from-figma`, `/verify-widget`.
 
+## Screen Pipeline
+
+Three slash commands drive screen design-to-code:
+
+| Command | Purpose |
+|---------|---------|
+| `/screen-from-figma` | End-to-end: detect screen type, select template, compose widgets, wire state, audit |
+| `/screen-audit` | Quality gate: 13 automated checks (spacing, colors, SafeArea, scroll, PSL, ds_lints) |
+| `/pr-audit` | Pre-push: aggregates `/verify-widget` + `/screen-audit` on changed files + full quality gate |
+
+**Where:** Skills: `/screen-from-figma`, `/screen-audit`, `/pr-audit`.
+
 ## M3 Gap-Proof Checklist
 
 Before creating a custom widget, complete these steps:

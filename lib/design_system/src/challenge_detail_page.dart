@@ -26,6 +26,7 @@ class ChallengeDetailPage extends StatelessWidget {
     required this.dateRange,
     this.rewardCard,
     required this.sections,
+    this.extraCard,
     required this.totalRewardHeading,
     required this.totalRewardBody,
     this.onBackTap,
@@ -46,6 +47,9 @@ class ChallengeDetailPage extends StatelessWidget {
 
   /// Flexible list of description sections (e.g. Why, Task, Requirements).
   final List<ChallengeDetailSection> sections;
+
+  /// Optional widget rendered between the sections card and the total reward card.
+  final Widget? extraCard;
 
   /// Heading for the total reward card, e.g. "Total Reward Up to 6,500 pts".
   final String totalRewardHeading;
@@ -82,6 +86,10 @@ class ChallengeDetailPage extends StatelessWidget {
                     SizedBox(height: spacing.space16),
                   ],
                   _SectionsCard(sections: sections),
+                  if (extraCard != null) ...[
+                    SizedBox(height: spacing.space16),
+                    extraCard!,
+                  ],
                   SizedBox(height: spacing.space16),
                   _TotalRewardCard(
                     heading: totalRewardHeading,

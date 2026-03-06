@@ -92,7 +92,7 @@ class ZkIdentityChallengeConfig {
     this.task =
         'Use the ZK Passport app to create a zero-knowledge proof of your passport.',
     this.reward = '500',
-    this.category = 'technical',
+    this.category = 'community',
     this.subCategory = 'ZK_IDENTITY_VERIFICATION',
   });
 

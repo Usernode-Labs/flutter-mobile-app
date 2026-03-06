@@ -12,6 +12,11 @@ final zkIdentityIsCompleteProvider = Provider<AsyncValue<bool>>((ref) {
   return ref.watch(zkPassportIsRegisteredProvider);
 });
 
+final zkIdentityRegistrationProvider =
+    Provider<AsyncValue<ZkPassportLocalRegistration>>((ref) {
+  return ref.watch(zkPassportRegistrationProvider);
+});
+
 final zkIdentityStepControllerProvider =
     StateNotifierProvider<ZkIdentityStepController, ZkIdentityFlowState>((ref) {
   return ZkIdentityStepController(ref);

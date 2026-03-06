@@ -20,6 +20,7 @@ import 'package:crypto_mobile_app/features/node/screens/block_details_screen.dar
 import 'package:crypto_mobile_app/features/node/screens/mempool_details_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/node_peers_screen.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
+import 'package:crypto_mobile_app/features/zk_identity/screens/zk_identity_detail_screen.dart';
 import 'package:crypto_mobile_app/features/zk_identity/screens/zk_identity_flow_screen.dart';
 import 'package:crypto_mobile_app/features/challenges/screens/challenge_detail_screen.dart';
 import 'package:crypto_mobile_app/features/challenges/screens/epoch_performance_screen.dart';
@@ -67,7 +68,8 @@ class AppRoutes {
   static const leaderboard = '/challenges/leaderboard';
 
   // ZK Identity
-  static const zkIdentityFlow = '/challenges/zk-identity';
+  static const zkIdentityDetail = '/challenges/zk-identity';
+  static const zkIdentityFlow = '/challenges/zk-identity/flow';
 
   // Main shell routes
   static const mainNode = '/main/node';
@@ -241,6 +243,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             errorMessage: extra['errorMessage'] as String,
           );
         },
+      ),
+      GoRoute(
+        path: AppRoutes.zkIdentityDetail,
+        builder: (context, state) => const ZkIdentityDetailScreen(),
       ),
       GoRoute(
         path: AppRoutes.zkIdentityFlow,

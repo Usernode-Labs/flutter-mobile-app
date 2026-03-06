@@ -251,9 +251,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
         (v) => v.maybeWhen(data: (d) => d, orElse: () => false),
       ),
     );
-    return isComplete
-        ? ScoreHeaderVariant.glow
-        : ScoreHeaderVariant.standard;
+    return isComplete ? ScoreHeaderVariant.glow : ScoreHeaderVariant.standard;
   }
 
   /// Resolves the selected season from provider state. Returns null when
@@ -488,7 +486,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
       completedPoints: completedPoints,
       onTap: () {
         if (isZkIdentityChallenge(dto)) {
-          context.push(AppRoutes.zkIdentityFlow);
+          context.push(AppRoutes.zkIdentityDetail);
         } else {
           context.push(AppRoutes.challengeDetail, extra: enriched);
         }

@@ -235,7 +235,12 @@ class _StatPair extends StatelessWidget {
   }
 }
 
-const _sortLabels = ['Popular', 'Most users', 'Most transactions', 'A → Z'];
+const _sortLabels = {
+  SortMode.popular: 'Popular',
+  SortMode.users: 'Most users',
+  SortMode.txns: 'Most transactions',
+  SortMode.alpha: 'A → Z',
+};
 
 class _SortBar extends StatelessWidget {
   const _SortBar({
@@ -257,16 +262,18 @@ class _SortBar extends StatelessWidget {
         children: [
           Text('dApps', style: theme.textTheme.titleMedium),
           DropdownChip(
-            label: _sortLabels[sortMode.index],
+            label: _sortLabels[sortMode]!,
             onTap: () async {
+              final labels = _sortLabels.values.toList();
+              final modes = _sortLabels.keys.toList();
               final result = await showDropdownSheet(
                 context: context,
-                labels: _sortLabels,
+                labels: labels,
                 title: 'Sort',
-                selectedIndex: sortMode.index,
+                selectedIndex: modes.indexOf(sortMode),
               );
               if (result != null) {
-                onSortChanged(SortMode.values[result]);
+                onSortChanged(modes[result]);
               }
             },
           ),

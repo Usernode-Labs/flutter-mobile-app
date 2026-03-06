@@ -17,6 +17,7 @@ import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 import 'package:crypto_mobile_app/features/challenges/heartbeat_animation.dart';
 import 'package:crypto_mobile_app/features/challenges/season_event_pickers.dart';
 import 'package:crypto_mobile_app/features/challenges/screens/challenges_delegates.dart';
+import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
 
 /// Immutable pull-to-refresh feedback values for the ScoreHeader.
 class PullFeedback {
@@ -243,8 +244,17 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
 
   // -- ScoreHeader -----------------------------------------------------------
 
-  /// Current variant for the score header. Will be dynamic when glow is earned.
-  ScoreHeaderVariant get _scoreVariant => ScoreHeaderVariant.glow;
+  /// Glow variant is earned by completing the ZK Identity challenge.
+  ScoreHeaderVariant get _scoreVariant {
+    final isComplete = ref.watch(
+      zkIdentityIsCompleteProvider.select(
+        (v) => v.maybeWhen(data: (d) => d, orElse: () => false),
+      ),
+    );
+    return isComplete
+        ? ScoreHeaderVariant.glow
+        : ScoreHeaderVariant.standard;
+  }
 
   /// Resolves the selected season from provider state. Returns null when
   /// seasons data isn't loaded or the selected season can't be found.
@@ -476,10 +486,13 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
           ? formatRewardText(dto.reward)
           : null,
       completedPoints: completedPoints,
-      onTap: () => context.push(
-        AppRoutes.challengeDetail,
-        extra: enriched,
-      ),
+      onTap: () {
+        if (isZkIdentityChallenge(dto)) {
+          context.push(AppRoutes.zkIdentityFlow);
+        } else {
+          context.push(AppRoutes.challengeDetail, extra: enriched);
+        }
+      },
     );
   }
 }

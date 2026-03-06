@@ -7,9 +7,9 @@ import 'challenge_card.dart';
 /// Renders the abstract geometric icon for a [ChallengeCategory].
 ///
 /// Each category has a unique shape (polygon, blob, circle) rendered as an SVG
-/// with three layers: outer fill at 30% opacity, solid inner fill,
-/// and a stroke outline. Colors are resolved from [AppSemanticColors] at build
-/// time so the icon adapts to light/dark themes automatically.
+/// with three colour layers derived from the category's base semantic colour:
+/// outer fill at 15% opacity, inner fill at 30% opacity, and a fully-saturated
+/// stroke outline.
 ///
 /// When [muted] is `true` the category colour is replaced with neutral surface
 /// tones (`surfaceDim` for fills, `outline` for strokes) — useful for missed
@@ -33,50 +33,49 @@ class ChallengeCategoryIcon extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final semantic = Theme.of(context).extension<AppSemanticColors>()!;
 
-    final Color catColor;
-    final Color surfaceColor;
-    final Color strokeColor;
+    final Color baseColor;
+    final double catOpacity;
+    final double surfaceOpacity;
 
     if (muted) {
-      catColor = colors.surfaceDim;
-      surfaceColor = colors.surfaceDim;
-      strokeColor = colors.outline;
+      baseColor = colors.surfaceDim;
+      catOpacity = 1.0;
+      surfaceOpacity = 1.0;
     } else {
       final group = switch (category) {
         ChallengeCategory.technical => semantic.technical,
         ChallengeCategory.community => semantic.community,
         ChallengeCategory.flash => semantic.flash,
       };
-      catColor = group.colorContainer;
-      surfaceColor = group.colorSurface;
-      strokeColor = group.onColorContainer;
+      baseColor = group.color;
+      catOpacity = 0.3;
+      surfaceOpacity = 0.15;
     }
 
-    final fillHex = _toHex(catColor);
-    final surfaceHex = _toHex(surfaceColor);
+    final strokeColor = muted ? colors.outline : baseColor;
+    final fillHex = _toHex(baseColor);
     final strokeHex = _toHex(strokeColor);
+    final catOpStr = catOpacity.toString();
+    final surfOpStr = surfaceOpacity.toString();
 
     final cacheKey =
-        '${category.index}|${muted ? 'm' : ''}|$fillHex|$surfaceHex|$strokeHex';
+        '${category.index}|${muted ? 'm' : ''}|$fillHex|$strokeHex|$catOpStr|$surfOpStr';
     final cached = _cache[cacheKey];
     if (cached != null) {
       return SizedBox(width: size, height: size, child: cached);
     }
 
-    final svgString = switch (category) {
-      ChallengeCategory.technical => _technicalSvg
-          .replaceAll('{{C}}', fillHex)
-          .replaceAll('{{CS}}', surfaceHex)
-          .replaceAll('{{S}}', strokeHex),
-      ChallengeCategory.community => _communitySvg
-          .replaceAll('{{C}}', fillHex)
-          .replaceAll('{{CS}}', surfaceHex)
-          .replaceAll('{{S}}', strokeHex),
-      ChallengeCategory.flash => _flashSvg
-          .replaceAll('{{C}}', fillHex)
-          .replaceAll('{{CS}}', surfaceHex)
-          .replaceAll('{{S}}', strokeHex),
+    final raw = switch (category) {
+      ChallengeCategory.technical => _technicalSvg,
+      ChallengeCategory.community => _communitySvg,
+      ChallengeCategory.flash => _flashSvg,
     };
+    final svgString = raw
+        .replaceAll('{{C}}', fillHex)
+        .replaceAll('{{CS}}', fillHex)
+        .replaceAll('{{S}}', strokeHex)
+        .replaceAll('{{COP}}', catOpStr)
+        .replaceAll('{{CSOP}}', surfOpStr);
 
     final pic = SvgPicture.string(svgString);
     _cache[cacheKey] = pic;
@@ -93,16 +92,17 @@ class ChallengeCategoryIcon extends StatelessWidget {
   }
 
   // ── SVG templates ──
-  // {{C}} = category fill color, {{CS}} = colorSurface, {{S}} = stroke color
+  // {{C}} = inner fill, {{CS}} = outer fill, {{S}} = stroke
+  // {{COP}} = inner fill opacity, {{CSOP}} = outer fill opacity
 
   static const _technicalSvg = '<svg width="47" height="47" viewBox="0 0 47 47"'
       ' fill="none" xmlns="http://www.w3.org/2000/svg">'
       '<path d="M16.7677 6.66406L34.7677 9.52924L41.3352 26.8642L29.9027'
       ' 41.3341L11.9027 38.4689L5.33521 21.1339L16.7677 6.66406Z"'
-      ' fill="{{C}}"/>'
+      ' fill="{{C}}" fill-opacity="{{COP}}"/>'
       '<path d="M18.7263 46.67L3.57544 36.5763L0 18.7263L10.0937'
       ' 3.57544L27.9437 0L43.0946 10.0937L46.67 27.9437L36.5763'
-      ' 43.0946L18.7263 46.67Z" fill="{{CS}}"/>'
+      ' 43.0946L18.7263 46.67Z" fill="{{CS}}" fill-opacity="{{CSOP}}"/>'
       '<path d="M27.2905 12.0049L34.6652 19.8328L33.1804 30.5137L23.9536'
       ' 36.0049L13.9335 32.1715L10.6652 21.9001L16.6092 12.9249L27.2905'
       ' 12.0049Z" stroke="{{S}}"/>'
@@ -113,14 +113,14 @@ class ChallengeCategoryIcon extends StatelessWidget {
       '<path d="M24.0006 43.4592C34.7489 43.4592 43.4621 34.746 43.4621'
       ' 23.9977C43.4621 13.2494 34.7489 4.53613 24.0006 4.53613C13.2523'
       ' 4.53613 4.53906 13.2494 4.53906 23.9977C4.53906 34.746 13.2523'
-      ' 43.4592 24.0006 43.4592Z" fill="{{C}}"/>'
+      ' 43.4592 24.0006 43.4592Z" fill="{{C}}" fill-opacity="{{COP}}"/>'
       '<path d="M24 48C37.2548 48 48 37.2548 48 24C48 10.7452 37.2548 0'
       ' 24 0C10.7452 0 0 10.7452 0 24C0 37.2548 10.7452 48 24 48Z"'
-      ' fill="{{CS}}"/>'
+      ' fill="{{CS}}" fill-opacity="{{CSOP}}"/>'
       '<path d="M24.3398 36C30.9673 36 36.3398 30.6274 36.3398 24C36.3398'
       ' 17.3726 30.9673 12 24.3398 12C17.7124 12 12.3398 17.3726 12.3398'
       ' 24C12.3398 30.6274 17.7124 36 24.3398 36Z" stroke="{{S}}"'
-      ' stroke-opacity="0.8" stroke-linecap="round" stroke-dasharray="4 4"/>'
+      ' stroke-linecap="round" stroke-dasharray="4 4"/>'
       '</svg>';
 
   static const _communitySvg = '<svg width="48" height="48" viewBox="0 0 48 48"'
@@ -154,7 +154,7 @@ class ChallengeCategoryIcon extends StatelessWidget {
       ' 16.3392 46.3734 16.5039 46.6332 17.2592C46.893 18.0147 47.146'
       ' 18.84 46.9965 19.9791C46.8469 21.1182 45.946 23.4086 45.736'
       ' 24.0946C45.8041 23.7214 45.5259 24.7806 45.736 24.0946Z"'
-      ' fill="{{CS}}"/>'
+      ' fill="{{CS}}" fill-opacity="{{CSOP}}"/>'
       '<path d="M40.9813 24.0696C40.9281 24.3606 40.6883 24.7681 40.6621'
       ' 25.8158C40.6359 26.8636 40.8798 29.3201 40.8241 30.3559C40.7683'
       ' 31.3917 40.5624 31.4831 40.3274 32.0303C40.0924 32.5774 39.8997'
@@ -184,7 +184,7 @@ class ChallengeCategoryIcon extends StatelessWidget {
       ' 18.0228 41.4788 18.1513 41.6816 18.7402C41.8844 19.3292 42.0819'
       ' 19.9727 41.9652 20.8608C41.8484 21.749 41.1452 23.5347 40.9813'
       ' 24.0696C41.0345 23.7786 40.8173 24.6045 40.9813 24.0696Z"'
-      ' fill="{{C}}"/>'
+      ' fill="{{C}}" fill-opacity="{{COP}}"/>'
       '<path d="M34.868 24.0468C34.8339 24.2334 34.6803 24.4948 34.6635'
       ' 25.1667C34.6467 25.8386 34.803 27.4139 34.7673 28.0781C34.7315'
       ' 28.7424 34.5996 28.801 34.4491 29.1519C34.2986 29.5028 34.1751'

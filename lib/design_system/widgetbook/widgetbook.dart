@@ -9,10 +9,12 @@ import 'bottom_nav_use_case.dart';
 import 'button_use_case.dart';
 import 'challenge_activity_summary_use_case.dart';
 import 'challenge_card_use_case.dart';
+import 'challenge_category_icon_use_case.dart';
 import 'challenge_reward_card_use_case.dart';
 import 'challenge_category_tile_use_case.dart';
 import 'dapp_avatar_use_case.dart';
 import 'dapp_card_use_case.dart';
+import 'dapps_page_use_case.dart';
 import 'challenge_detail_page_use_case.dart';
 import 'challenges_page_use_case.dart';
 import 'color_catalog.dart';
@@ -235,6 +237,7 @@ class WidgetbookApp extends StatelessWidget {
               children: [
                 challengeActivitySummaryComponent(),
                 challengeCardComponent(),
+                challengeCategoryIconComponent(),
                 challengeCategoryTileComponent(),
                 challengeRewardCardComponent(),
               ],
@@ -275,6 +278,12 @@ class WidgetbookApp extends StatelessWidget {
               name: 'Settings',
               children: [
                 settingsPageComponent(),
+              ],
+            ),
+            WidgetbookFolder(
+              name: 'dApps',
+              children: [
+                dappsPageComponent(),
               ],
             ),
             WidgetbookFolder(

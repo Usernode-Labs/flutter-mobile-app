@@ -172,38 +172,60 @@ class _DappsHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colors = theme.colorScheme;
     final spacing = theme.extension<AppSpacing>()!;
 
-    final countLabel = count != null ? '$count dApps' : '— dApps';
+    final countValue = count != null ? '$count' : '\u2014';
 
-    // Build subtitle: aggregate stats when available, fallback otherwise.
-    String subtitle;
+    String txnValue;
     if (statsAsync.hasValue) {
       final stats = statsAsync.requireValue;
-      var totalUsers = 0;
       var totalTxns = 0;
       for (final s in stats.values) {
-        totalUsers += s.users;
         totalTxns += s.txns;
       }
-      subtitle = (totalUsers == 0 && totalTxns == 0)
-          ? 'Fetching activity\u2026'
-          : '$totalUsers users · $totalTxns txns';
+      txnValue = totalTxns > 0 ? '$totalTxns' : '\u2014';
     } else {
-      subtitle = 'Fetching activity\u2026';
+      txnValue = '\u2014';
     }
 
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _StatPair(value: countValue, label: 'dApps'),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: spacing.space24),
+          child: Container(
+            width: 1,
+            height: 40,
+            color: colors.outline.withValues(alpha: 0.2),
+          ),
+        ),
+        _StatPair(value: txnValue, label: 'transactions'),
+      ],
+    );
+  }
+}
+
+class _StatPair extends StatelessWidget {
+  const _StatPair({required this.value, required this.label});
+
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          countLabel,
+          value,
           style: theme.textTheme.displaySmall
               ?.copyWith(fontFamily: kMonoFontFamily),
         ),
-        SizedBox(height: spacing.space8),
         Text(
-          subtitle,
+          label,
           style: theme.textTheme.labelSmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),

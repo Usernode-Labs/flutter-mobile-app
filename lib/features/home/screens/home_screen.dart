@@ -24,8 +24,7 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen>
-    with WidgetsBindingObserver {
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _index = 0;
   int _lastTerminalDialogAtMs = 0;
   bool _zkTerminalDialogOpen = false;
@@ -33,7 +32,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     // Initialize current tab
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -44,24 +42,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       if (!mounted) return;
       _showPipelineStatus(ref.read(zkPassportPipelineProvider));
     });
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && mounted) {
-      unawaited(
-        ref
-            .read(zkPassportPipelineProvider.notifier)
-            .recoverPendingSessionOnForeground(),
-      );
-      _showPipelineStatus(ref.read(zkPassportPipelineProvider));
-    }
   }
 
   @override

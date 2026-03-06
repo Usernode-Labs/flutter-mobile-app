@@ -300,15 +300,63 @@ class ZkPassportPipelineController
   Future<void> _resetRuntimeSessionOnStartup() async {
     try {
       final persisted = await _runtimeRepo.load();
-      if (persisted != null) {
-        _log.warn(
-          'Discarding persisted zkPassport runtime session on app startup',
+      if (persisted == null) {
+        _stopServerPollingWorker();
+        _runtimeSession = null;
+        state = ZkPassportPipelineState.idle();
+        return;
+      }
+
+      // If the session already reached a terminal state, discard it.
+      if (persisted.isTerminal) {
+        _log.info(
+          'Clearing terminal zkPassport session on startup',
           context: {
             'requestId': persisted.requestId,
             'phase': persisted.phase.name,
           },
         );
+        _stopServerPollingWorker();
+        _runtimeSession = null;
+        await _runtimeRepo.clear();
+        state = ZkPassportPipelineState.idle();
+        return;
       }
+
+      // If the session is still within the timeout window, preserve it so that
+      // foreground resume (or deep link) can pick it up and resume polling.
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      final timeoutAtMs =
+          persisted.createdAtMs + (_runtimeSessionTimeoutSeconds() * 1000);
+      if (nowMs < timeoutAtMs) {
+        _log.info(
+          'Preserving non-terminal zkPassport session on cold start',
+          context: {
+            'requestId': persisted.requestId,
+            'phase': persisted.phase.name,
+            'remainingSec': ((timeoutAtMs - nowMs) / 1000).round(),
+          },
+        );
+        _runtimeSession = persisted;
+        state = ZkPassportPipelineState(
+          status: ZkPassportPipelineStatus.processing,
+          phase: ZkPassportPipelinePhase.resuming,
+          message: 'Recovering zkPassport session...',
+          requestId: persisted.requestId,
+          resumeAttemptCount: persisted.resumeAttemptCount,
+          updatedAtMs: nowMs,
+        );
+        return;
+      }
+
+      // Session expired while app was killed — discard.
+      _log.warn(
+        'Discarding expired zkPassport session on cold start',
+        context: {
+          'requestId': persisted.requestId,
+          'phase': persisted.phase.name,
+        },
+      );
       _stopServerPollingWorker();
       _runtimeSession = null;
       await _runtimeRepo.clear();

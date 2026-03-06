@@ -7,6 +7,7 @@ import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/feature_flags.dart';
 import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
+import 'package:crypto_mobile_app/core/services/deep_link_service.dart';
 import 'package:crypto_mobile_app/core/utils/lifecycle.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
@@ -14,6 +15,7 @@ import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
+import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 
 class AppBootstrapResult {
   final ProviderContainer container;
@@ -76,7 +78,20 @@ class AppBootstrap {
 
     if (registerLifecycleObserver) {
       AppLifecycleLogger.register();
+      AppLifecycleLogger.onForegroundResume = () {
+        container
+            .read(zkPassportPipelineProvider.notifier)
+            .recoverPendingSessionOnForeground();
+      };
     }
+
+    DeepLinkService.instance.initialize(
+      onZkCallback: () {
+        container
+            .read(zkPassportPipelineProvider.notifier)
+            .recoverPendingSessionOnForeground();
+      },
+    );
 
     _bootstrapBackendAsync(log: log, container: container);
 

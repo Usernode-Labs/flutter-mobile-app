@@ -51,6 +51,7 @@ export 'src/tabs.dart';
 export 'src/text_chevron_trailing.dart';
 export 'src/text_field.dart';
 export 'src/top_app_bar.dart';
+export 'src/zk_identity_flow_page.dart';
 
 // Theme
 export 'theme/color_is_expensive_theme.dart';

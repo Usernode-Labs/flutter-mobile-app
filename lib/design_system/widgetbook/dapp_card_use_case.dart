@@ -26,12 +26,24 @@ WidgetbookComponent dappCardComponent() {
                 'A decentralized application on the Usernode network.',
           );
 
+          final users = context.knobs.intOrNull.input(
+            label: 'Users',
+            initialValue: 1234,
+          );
+
+          final txns = context.knobs.intOrNull.input(
+            label: 'Transactions',
+            initialValue: 5678,
+          );
+
           return Padding(
             padding: const EdgeInsets.all(16),
             child: DappCard(
               name: name,
               author: author,
               description: description,
+              users: users,
+              txns: txns,
               onTap: () {},
             ),
           );

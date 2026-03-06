@@ -244,7 +244,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
   // -- ScoreHeader -----------------------------------------------------------
 
   /// Current variant for the score header. Will be dynamic when glow is earned.
-  ScoreHeaderVariant get _scoreVariant => ScoreHeaderVariant.standard;
+  ScoreHeaderVariant get _scoreVariant => ScoreHeaderVariant.glow;
 
   /// Resolves the selected season from provider state. Returns null when
   /// seasons data isn't loaded or the selected season can't be found.

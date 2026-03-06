@@ -138,10 +138,14 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
     BuildContext context,
     DappItem dapp,
   ) {
+    final statsAsync = ref.watch(dappStatsProvider);
+    final stats = statsAsync.valueOrNull?[dapp.pubkey];
     return DappCard(
       name: dapp.name,
       author: dapp.author,
       description: dapp.description ?? DappCard.kDefaultDescription,
+      users: stats?.users,
+      txns: stats?.txns,
       onTap: () {
         Navigator.of(context).push(
           MaterialPageRoute(

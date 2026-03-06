@@ -77,6 +77,7 @@ WidgetbookComponent challengeCardComponent() {
               earnedPoints: earnedPoints,
               epochPoints: epochPoints,
               completedPoints: completedPoints,
+              onTap: () {},
             ),
           );
         },

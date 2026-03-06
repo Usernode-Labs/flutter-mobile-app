@@ -1,3 +1,5 @@
+// ignore_for_file: library_annotations, no_wildcard_variable_uses
+
 @Tags(['frb', 'contract'])
 
 // Contract tests for FRB-backed Flutter API surface.

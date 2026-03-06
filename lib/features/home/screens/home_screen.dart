@@ -6,7 +6,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/wallet/screens/wallet_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/node_status_screen.dart';
-import 'package:crypto_mobile_app/features/settings/screens/background_production_settings_screen.dart';
+import 'package:crypto_mobile_app/features/settings/screens/settings_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/dapps_screen.dart';
 import 'package:crypto_mobile_app/features/challenges/screens/challenges_screen.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
@@ -15,6 +15,7 @@ import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/config/legacy_colors.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_models.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
+import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -92,7 +93,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           WalletScreen(),
           DappsScreen(),
           NodeStatusScreen(),
-          BackgroundProductionSettingsScreen(),
+          SettingsScreen(),
         ],
       ),
       bottomNavigationBar: Theme(
@@ -176,6 +177,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void _showPipelineStatus(ZkPassportPipelineState state) {
     if (!mounted) return;
 
+    // Skip dialog when pipeline was triggered from the ZK Identity challenge flow.
+    if (ref.read(zkIdentityChallengeActiveProvider)) return;
+
     // Do not spam progress updates. Only surface terminal success/failure states
     // in a persistent modal dialog that the user can dismiss (useful for screenshots).
     if (state.status == ZkPassportPipelineStatus.processing) {
@@ -223,19 +227,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 const SizedBox(height: 8),
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxHeight: 240),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: outerPublicInputs.length,
-                    itemBuilder: (context, index) {
-                      final value = outerPublicInputs[index].trim();
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 6),
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: SelectableText('[$index] $value'),
-                        ),
-                      );
-                    },
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (var i = 0; i < outerPublicInputs.length; i++)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: SelectableText(
+                              '[$i] ${outerPublicInputs[i].trim()}',
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ],

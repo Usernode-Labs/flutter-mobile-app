@@ -16,6 +16,8 @@ import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/providers/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
+import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
+import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 
 final _log =
@@ -445,6 +447,33 @@ class _BackgroundProductionSettingsScreenState
                         fontWeight: FontWeight.w600,
                         color: statusColor,
                       ),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        final controller =
+                            ref.read(zkPassportFlowControllerProvider);
+                        await controller.clearActiveRegistration();
+                        await ref
+                            .read(zkPassportPipelineProvider.notifier)
+                            .discardPendingSession(reason: 'Dev reset');
+                        ref.invalidate(challengesProvider);
+                        ref.invalidate(breakdownProvider);
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content: Text('Challenge state reset')),
+                        );
+                      },
+                      child: const Text('Reset'),
+                    ),
+                  ],
+                ),
+                if (isRegistered) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Nullifier',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   TextButton(

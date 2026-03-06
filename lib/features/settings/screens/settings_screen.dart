@@ -23,6 +23,10 @@ import 'package:crypto_mobile_app/features/settings/widgets/faq_section.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/theme_picker_sheet.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/build_info_sheet.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/network_switcher_dialog.dart';
+import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
+import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
+import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 final _log =
     LoggingService.instance.withTag('usernode/BackgroundProductionSettings');
@@ -388,6 +392,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  // --- Dev: Reset challenge state ---
+
+  Future<void> _resetChallengeState() async {
+    await ref
+        .read(zkPassportFlowControllerProvider)
+        .clearActiveRegistration();
+    await ref
+        .read(zkPassportPipelineProvider.notifier)
+        .discardPendingSession(reason: 'Dev reset');
+    ref.invalidate(challengesProvider);
+    ref.invalidate(breakdownProvider);
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Challenge state reset')),
+    );
+  }
+
   // --- Build info subtitle ---
 
   String get _buildInfoSubtitle {
@@ -506,6 +528,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   vrfTimingDescription: l10n.faqVrfTimingDescription,
                 ),
               ),
+
+              // Dev Tools (debug builds only)
+              if (kDebugMode) ...[
+                SizedBox(height: spacing.space24),
+                const ListSectionHeader(title: 'Dev Tools'),
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Symbols.restart_alt_sharp),
+                    title: const Text('Reset Challenge State'),
+                    subtitle: Text(
+                      'Clears zkPassport registration & cached challenges',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    onTap: _resetChallengeState,
+                  ),
+                ),
+              ],
 
               SizedBox(height: spacing.space32),
             ],

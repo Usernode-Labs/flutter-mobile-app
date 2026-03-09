@@ -2,6 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
+import '../tokens/app_borders.dart';
+import '../tokens/app_spacing.dart';
+
 /// Parallax speed ratio — header moves at 40 % of scroll speed.
 const kParallaxRatio = 0.4;
 
@@ -66,6 +69,7 @@ class ParallaxSurfaceLayout extends StatefulWidget {
     this.showEdgeFade = false,
     this.safeAreaOverlay = true,
     this.headerOverlay,
+    this.title,
   })  : assert(
           pinnedHeaderSlivers == null || pinnedHeaderSliver == null,
           'Cannot use both pinnedHeaderSliver and pinnedHeaderSlivers',
@@ -192,6 +196,12 @@ class ParallaxSurfaceLayout extends StatefulWidget {
   /// Non-interactive areas use [HitTestBehavior.deferToChild] so scroll
   /// gestures pass through; only explicit [GestureDetector]s consume taps.
   final Widget? headerOverlay;
+
+  /// Optional page title displayed in the auto-injected pinned bar.
+  /// Only takes effect when [safeAreaOverlay] is true and no
+  /// [pinnedHeaderSlivers] are provided (i.e. when the auto
+  /// [SafeAreaPinnedDelegate] is used).
+  final String? title;
 
   @override
   State<ParallaxSurfaceLayout> createState() => _ParallaxSurfaceLayoutState();
@@ -429,6 +439,7 @@ class _ParallaxSurfaceLayoutState extends State<ParallaxSurfaceLayout> {
           delegate: SafeAreaPinnedDelegate(
             topPadding: _autoSliverExtent,
             scrollFractionNotifier: _effectiveNotifier,
+            title: widget.title,
           ),
         ),
 
@@ -697,10 +708,14 @@ class SafeAreaPinnedDelegate extends SliverPersistentHeaderDelegate {
   SafeAreaPinnedDelegate({
     required this.topPadding,
     required this.scrollFractionNotifier,
+    this.title,
   });
 
   final double topPadding;
   final ValueNotifier<double> scrollFractionNotifier;
+
+  /// Optional page title displayed bottom-left in the 48px bar zone.
+  final String? title;
 
   @override
   double get maxExtent => topPadding;
@@ -714,15 +729,45 @@ class SafeAreaPinnedDelegate extends SliverPersistentHeaderDelegate {
     bool overlapsContent,
   ) {
     final colors = Theme.of(context).colorScheme;
+    final borders = Theme.of(context).extension<AppBorders>()!;
+    final titleStyle = title != null
+        ? Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: colors.onSurface,
+            )
+        : null;
+    final space24 =
+        title != null ? Theme.of(context).extension<AppSpacing>()!.space24 : 0.0;
     return ValueListenableBuilder<double>(
       valueListenable: scrollFractionNotifier,
       builder: (context, sf, _) => SizedBox.expand(
-        child: ColoredBox(
-          color: Color.lerp(
-            colors.surface,
-            colors.surfaceContainerLowest,
-            sf,
-          )!,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: Color.lerp(
+              colors.surface,
+              colors.surfaceContainerLowest,
+              sf,
+            )!,
+            border: Border(
+              bottom: BorderSide(
+                color: colors.onSurface.withValues(
+                  alpha: sf.clamp(0.0, 1.0) * borders.opacity,
+                ),
+                width: borders.width,
+              ),
+            ),
+          ),
+          child: title != null
+              ? Opacity(
+                  opacity: sf.clamp(0.0, 1.0),
+                  child: Align(
+                    alignment: Alignment.bottomLeft,
+                    child: Padding(
+                      padding: EdgeInsets.only(bottom: 8, left: space24),
+                      child: Text(title!, style: titleStyle),
+                    ),
+                  ),
+                )
+              : null,
         ),
       ),
     );
@@ -730,7 +775,7 @@ class SafeAreaPinnedDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(SafeAreaPinnedDelegate old) =>
-      old.topPadding != topPadding;
+      old.topPadding != topPadding || old.title != title;
 }
 
 // ---------------------------------------------------------------------------

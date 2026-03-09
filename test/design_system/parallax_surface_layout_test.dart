@@ -608,6 +608,202 @@ void main() {
       expect(overlayFlows, findsWidgets);
     });
 
+    // --- title tests ---
+
+    testWidgets('title invisible at rest', (tester) async {
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(padding: EdgeInsets.only(top: 44)),
+          child: wrapLayout(
+            ParallaxSurfaceLayout(
+              header: const SizedBox(height: 200),
+              headerHeight: 200,
+              surfaceSlivers: [
+                SliverList.list(
+                  children: List.generate(
+                    20,
+                    (i) => SizedBox(height: 60, key: ValueKey('item_$i')),
+                  ),
+                ),
+              ],
+              title: 'dApps',
+            ),
+          ),
+        ),
+      );
+
+      // At rest (sf=0), the Opacity wrapping the title should be 0.
+      final opacity = tester.widget<Opacity>(
+        find.ancestor(
+          of: find.text('dApps'),
+          matching: find.byType(Opacity),
+        ),
+      );
+      expect(opacity.opacity, 0.0);
+    });
+
+    testWidgets('title renders when provided', (tester) async {
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(padding: EdgeInsets.only(top: 44)),
+          child: wrapLayout(
+            ParallaxSurfaceLayout(
+              header: const SizedBox(height: 200),
+              headerHeight: 200,
+              surfaceSlivers: [
+                SliverList.list(
+                  children: List.generate(
+                    20,
+                    (i) => SizedBox(height: 60, key: ValueKey('item_$i')),
+                  ),
+                ),
+              ],
+              title: 'dApps',
+            ),
+          ),
+        ),
+      );
+
+      // Scroll fully so title becomes visible (sf→1).
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -200));
+      await tester.pumpAndSettle();
+
+      expect(find.text('dApps'), findsOneWidget);
+      final opacity = tester.widget<Opacity>(
+        find.ancestor(
+          of: find.text('dApps'),
+          matching: find.byType(Opacity),
+        ),
+      );
+      expect(opacity.opacity, 1.0);
+    });
+
+    testWidgets('title absent when null', (tester) async {
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(padding: EdgeInsets.only(top: 44)),
+          child: wrapLayout(
+            ParallaxSurfaceLayout(
+              header: const Text('Header'),
+              surfaceSlivers: [
+                SliverList.list(children: const [Text('Item')]),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // No title text should appear in the pinned bar
+      expect(find.text('dApps'), findsNothing);
+    });
+
+    testWidgets('title uses titleLarge style', (tester) async {
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(padding: EdgeInsets.only(top: 44)),
+          child: wrapLayout(
+            ParallaxSurfaceLayout(
+              header: const SizedBox(height: 200),
+              headerHeight: 200,
+              surfaceSlivers: [
+                SliverList.list(
+                  children: List.generate(
+                    20,
+                    (i) => SizedBox(height: 60, key: ValueKey('item_$i')),
+                  ),
+                ),
+              ],
+              title: 'Node Status',
+            ),
+          ),
+        ),
+      );
+
+      // Scroll so title becomes visible.
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -200));
+      await tester.pumpAndSettle();
+
+      final titleWidget = tester.widget<Text>(find.text('Node Status'));
+      final theme =
+          Theme.of(tester.element(find.byType(ParallaxSurfaceLayout)));
+      expect(titleWidget.style?.fontSize, theme.textTheme.titleMedium?.fontSize);
+    });
+
+    // --- pinned bar border tests ---
+
+    testWidgets('pinned bar border invisible at rest', (tester) async {
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(padding: EdgeInsets.only(top: 44)),
+          child: wrapLayout(
+            ParallaxSurfaceLayout(
+              header: const SizedBox(height: 200),
+              headerHeight: 200,
+              surfaceSlivers: [
+                SliverList.list(
+                  children: List.generate(
+                    20,
+                    (i) => SizedBox(height: 60, key: ValueKey('item_$i')),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // At rest (sf=0), the bottom border alpha should be 0.
+      final db = tester.widget<DecoratedBox>(
+        find.descendant(
+          of: find.byType(SliverPersistentHeader),
+          matching: find.byType(DecoratedBox),
+        ),
+      );
+      final border =
+          (db.decoration as BoxDecoration).border! as Border;
+      expect(border.bottom.color.a, 0.0);
+    });
+
+    testWidgets('pinned bar border appears on scroll', (tester) async {
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(padding: EdgeInsets.only(top: 44)),
+          child: wrapLayout(
+            ParallaxSurfaceLayout(
+              header: const SizedBox(height: 200),
+              headerHeight: 200,
+              surfaceSlivers: [
+                SliverList.list(
+                  children: List.generate(
+                    20,
+                    (i) => SizedBox(height: 60, key: ValueKey('item_$i')),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // Scroll fully so sf→1.
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -200));
+      await tester.pumpAndSettle();
+
+      final theme =
+          Theme.of(tester.element(find.byType(ParallaxSurfaceLayout)));
+      final borders = theme.extension<AppBorders>()!;
+
+      final db = tester.widget<DecoratedBox>(
+        find.descendant(
+          of: find.byType(SliverPersistentHeader),
+          matching: find.byType(DecoratedBox),
+        ),
+      );
+      final border =
+          (db.decoration as BoxDecoration).border! as Border;
+      expect(border.bottom.color.a, closeTo(borders.opacity, 0.001));
+    });
+
     // --- onRefreshStatusChange tests ---
 
     testWidgets('onRefreshStatusChange uses RefreshIndicator.noSpinner',

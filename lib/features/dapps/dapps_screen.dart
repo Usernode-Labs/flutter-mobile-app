@@ -1,3 +1,4 @@
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/models/dapp_item.dart';
@@ -39,11 +40,14 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
 
     final dappCount = dappsAsync.valueOrNull?.length;
 
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       body: ParallaxSurfaceLayout(
         headerHeight: kScreenHeaderHeight,
         scrollFractionNotifier: _scrollFraction,
         onRefresh: _onRefresh,
+        title: l10n.navDapps,
         header: _DappsHeader(
           count: dappCount,
           statsAsync: statsAsync,

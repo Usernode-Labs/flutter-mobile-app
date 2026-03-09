@@ -232,6 +232,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
         headerHeight: kScreenHeaderHeight,
         scrollFractionNotifier: _scrollFraction,
         onRefresh: _refresh,
+        title: l10n.nodeStatusTitle,
         header: _buildCentralStatusIndicator(context),
         surfaceSlivers: [
           if (_error != null)

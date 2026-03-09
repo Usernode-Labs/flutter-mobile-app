@@ -54,7 +54,7 @@ class AddressBarDelegate extends SliverPersistentHeaderDelegate {
       valueListenable: scrollFractionNotifier,
       builder: (context, scrollFraction, child) {
         final bgColor = Color.lerp(
-          colors.surfaceContainerLowest.withValues(alpha: 0),
+          colors.surface,
           colors.surfaceContainerLowest,
           scrollFraction,
         )!;

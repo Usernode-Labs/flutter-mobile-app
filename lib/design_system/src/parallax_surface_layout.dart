@@ -161,8 +161,8 @@ class ParallaxSurfaceLayout extends StatefulWidget {
   /// When true and no [pinnedHeaderSlivers] are provided, the layout injects
   /// an internal pinned [SafeAreaPinnedDelegate] that offsets the surface
   /// downward by the status-bar height plus [kPinnedBarPadding] and lerps
-  /// from transparent to [ColorScheme.surfaceContainerLowest] as the user
-  /// scrolls.
+  /// from [ColorScheme.surface] to [ColorScheme.surfaceContainerLowest] as
+  /// the user scrolls.
   ///
   /// The extra [kPinnedBarPadding] (48px) matches the space that standard
   /// pinned-bar delegates add beyond the safe-area inset, keeping all
@@ -239,56 +239,78 @@ class _ParallaxSurfaceLayoutState extends State<ParallaxSurfaceLayout> {
         ? MediaQuery.of(context).padding.top + kPinnedBarPadding
         : 0.0;
 
-    return ColoredBox(
-      color: theme.colorScheme.surface,
-      child: Stack(
-        alignment: Alignment.topCenter,
-        children: [
-          // Layer 1: Header (parallax)
-          _buildHeaderLayer(),
+    final stackChildren = [
+      // Layer 1: Header (parallax)
+      _buildHeaderLayer(),
 
-          // Layer 2: Scrolling content surface
-          NotificationListener<ScrollNotification>(
-            onNotification: _onScroll,
-            child: _buildScrollView(theme),
-          ),
+      // Layer 2: Scrolling content surface
+      NotificationListener<ScrollNotification>(
+        onNotification: _onScroll,
+        child: _buildScrollView(theme),
+      ),
 
-          // Layer 3: Header overlay (interactive, parallaxes with header)
-          if (widget.headerOverlay != null) _buildHeaderOverlayLayer(),
+      // Layer 3: Header overlay (interactive, parallaxes with header)
+      if (widget.headerOverlay != null) _buildHeaderOverlayLayer(),
 
-          // Layer 4: Edge fade (optional)
-          if (widget.showEdgeFade)
-            Positioned(
-              top: _effectivePinnedHeight +
-                  widget.headerHeight +
-                  _autoSliverExtent,
-              left: 0,
-              right: 0,
-              child: IgnorePointer(
-                child: ValueListenableBuilder<double>(
-                  valueListenable: _effectiveNotifier,
-                  builder: (context, sf, child) => Opacity(
-                    opacity: sf.clamp(0.0, 1.0),
-                    child: child,
-                  ),
-                  child: Container(
-                    height: 24,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          theme.colorScheme.surfaceContainerLowest,
-                          theme.colorScheme.surfaceContainerLowest
-                              .withValues(alpha: 0),
-                        ],
-                      ),
-                    ),
+      // Layer 4: Edge fade (optional)
+      if (widget.showEdgeFade)
+        Positioned(
+          top: _effectivePinnedHeight + widget.headerHeight + _autoSliverExtent,
+          left: 0,
+          right: 0,
+          child: IgnorePointer(
+            child: ValueListenableBuilder<double>(
+              valueListenable: _effectiveNotifier,
+              builder: (context, sf, child) => Opacity(
+                opacity: sf.clamp(0.0, 1.0),
+                child: child,
+              ),
+              child: Container(
+                height: 24,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      theme.colorScheme.surfaceContainerLowest,
+                      theme.colorScheme.surfaceContainerLowest
+                          .withValues(alpha: 0),
+                    ],
                   ),
                 ),
               ),
             ),
-        ],
+          ),
+        ),
+    ];
+
+    // When headerFadesOnScroll is true, lerp the root background from
+    // surface → surfaceContainerLowest so the entire area behind the header
+    // transitions uniformly. This replaces the old multi-layer wash approach
+    // that caused color banding from independent alpha-compositing.
+    if (widget.headerFadesOnScroll) {
+      return ValueListenableBuilder<double>(
+        valueListenable: _effectiveNotifier,
+        builder: (context, sf, child) => ColoredBox(
+          color: Color.lerp(
+            theme.colorScheme.surface,
+            theme.colorScheme.surfaceContainerLowest,
+            sf,
+          )!,
+          child: child,
+        ),
+        child: Stack(
+          alignment: Alignment.topCenter,
+          children: stackChildren,
+        ),
+      );
+    }
+
+    return ColoredBox(
+      color: theme.colorScheme.surface,
+      child: Stack(
+        alignment: Alignment.topCenter,
+        children: stackChildren,
       ),
     );
   }
@@ -662,7 +684,7 @@ class StatusBarOverlay extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 /// A [SliverPersistentHeaderDelegate] that paints a background over the
-/// status-bar area, lerping from transparent (at rest) to
+/// status-bar area, lerping from [ColorScheme.surface] (at rest) to
 /// [ColorScheme.surfaceContainerLowest] (when scrolled).
 ///
 /// Use this for screens that need safe-area pinning without a functional bar
@@ -698,7 +720,7 @@ class SafeAreaPinnedDelegate extends SliverPersistentHeaderDelegate {
       builder: (context, sf, _) => SizedBox.expand(
         child: ColoredBox(
           color: Color.lerp(
-            Colors.transparent,
+            colors.surface,
             colors.surfaceContainerLowest,
             sf,
           )!,

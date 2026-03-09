@@ -190,6 +190,51 @@ void main() {
       );
     });
 
+    testWidgets(
+        'root background lerps from surface to surfaceContainerLowest on scroll',
+        (tester) async {
+      final notifier = ValueNotifier<double>(0.0);
+      addTearDown(notifier.dispose);
+
+      await tester.pumpWidget(wrapLayout(
+        ParallaxSurfaceLayout(
+          header: const SizedBox(height: 200),
+          headerHeight: 200,
+          headerFadesOnScroll: true,
+          scrollFractionNotifier: notifier,
+          surfaceSlivers: [
+            SliverList.list(
+              children: List.generate(
+                20,
+                (i) => SizedBox(height: 60, key: ValueKey('item_$i')),
+              ),
+            ),
+          ],
+        ),
+      ));
+
+      final theme =
+          Theme.of(tester.element(find.byType(ParallaxSurfaceLayout)));
+      final surface = theme.colorScheme.surface;
+      final surfaceLowest = theme.colorScheme.surfaceContainerLowest;
+
+      // At rest (sf=0), root ColoredBox should be surface color.
+      ColoredBox rootBox() => tester.widget<ColoredBox>(
+            find
+                .descendant(
+                  of: find.byType(ParallaxSurfaceLayout),
+                  matching: find.byType(ColoredBox),
+                )
+                .first,
+          );
+      expect(rootBox().color, surface);
+
+      // Scroll fully (sf=1), root should be surfaceContainerLowest.
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -200));
+      await tester.pumpAndSettle();
+      expect(rootBox().color, surfaceLowest);
+    });
+
     testWidgets('passes controller to CustomScrollView', (tester) async {
       final controller = ScrollController();
       addTearDown(controller.dispose);

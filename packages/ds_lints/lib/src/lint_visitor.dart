@@ -95,6 +95,8 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
     'CheckboxListTile',
     'RadioListTile',
     'AppCard',
+    'FilledButton',
+    'OutlinedButton',
   };
 
   void _dispatch(
@@ -124,6 +126,9 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
         _checkListTileLayoutOverrides(node, typeName, args);
       case 'AppCard':
         _checkTileCardVerticalInset(node, args);
+      case 'FilledButton':
+      case 'OutlinedButton':
+        _checkPreferDsButton(node, typeName);
     }
   }
 
@@ -683,6 +688,22 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
         return;
       }
     }
+  }
+
+  // ── Rule 8: require_ds_button ──────────────────────────────────────
+
+  void _checkPreferDsButton(AstNode node, String typeName) {
+    if (isExcludedPath(filePath)) return;
+    // DS Button itself uses FilledButton internally.
+    if (filePath.contains('design_system/src/button.dart')) return;
+    _report(
+      node,
+      'require_ds_button',
+      'Raw $typeName is not allowed — use design_system Button. '
+          'Button enforces tokenized sizing (small/regular/large) and '
+          'consistent styling. See lib/design_system/src/button.dart.',
+      'WARNING',
+    );
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────

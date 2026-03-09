@@ -145,7 +145,7 @@ void main() {
       expect(gradientContainers, isEmpty);
     });
 
-    testWidgets('wraps header in Opacity when headerFadesOnScroll is true',
+    testWidgets('headerFadesOnScroll=true uses fadeOut on header Flow',
         (tester) async {
       await tester.pumpWidget(wrapLayout(
         const ParallaxSurfaceLayout(
@@ -155,39 +155,89 @@ void main() {
         ),
       ));
 
-      // The Opacity widget should be an ancestor of the header text.
-      expect(
-        find.ancestor(
-          of: find.text('Header'),
-          matching: find.byType(Opacity),
-        ),
-        findsWidgets,
+      // The header should be wrapped in a single-child Flow (no wash overlay).
+      final headerFlow = find.ancestor(
+        of: find.text('Header'),
+        matching: find.byType(Flow),
       );
+      expect(headerFlow, findsOneWidget);
+
+      // No ColoredBox wash overlay inside the header Flow — fadeOut handles it.
+      final washOverlay = find.descendant(
+        of: headerFlow,
+        matching: find.byType(ColoredBox),
+      );
+      expect(washOverlay, findsNothing);
     });
 
-    testWidgets('no Opacity on header when headerFadesOnScroll is false',
+    testWidgets('headerFadesOnScroll=false has no wash overlay in header Flow',
         (tester) async {
       await tester.pumpWidget(wrapLayout(
         const ParallaxSurfaceLayout(
           header: Text('Header'),
           surfaceBody: Text('Body'),
+          headerFadesOnScroll: false,
         ),
       ));
 
-      // The header's Transform.translate should NOT be wrapped in Opacity.
-      // Find the Transform that is the parallax wrapper (ancestor of header).
-      final headerTransform = find.ancestor(
+      // The header should still be wrapped in Flow.
+      final headerFlow = find.ancestor(
         of: find.text('Header'),
-        matching: find.byType(Transform),
+        matching: find.byType(Flow),
       );
-      // The direct Opacity parent should not exist.
-      expect(
-        find.ancestor(
-          of: headerTransform.first,
-          matching: find.byType(Opacity),
+      expect(headerFlow, findsWidgets);
+
+      // No ColoredBox wash overlay should be a descendant of the header Flow.
+      final washOverlay = find.descendant(
+        of: headerFlow.first,
+        matching: find.byType(ColoredBox),
+      );
+      expect(washOverlay, findsNothing);
+    });
+
+    testWidgets(
+        'root background lerps from surface to surfaceContainerLowest on scroll',
+        (tester) async {
+      final notifier = ValueNotifier<double>(0.0);
+      addTearDown(notifier.dispose);
+
+      await tester.pumpWidget(wrapLayout(
+        ParallaxSurfaceLayout(
+          header: const SizedBox(height: 200),
+          headerHeight: 200,
+          scrollFractionNotifier: notifier,
+          surfaceSlivers: [
+            SliverList.list(
+              children: List.generate(
+                20,
+                (i) => SizedBox(height: 60, key: ValueKey('item_$i')),
+              ),
+            ),
+          ],
         ),
-        findsNothing,
-      );
+      ));
+
+      final theme =
+          Theme.of(tester.element(find.byType(ParallaxSurfaceLayout)));
+      final surface = theme.colorScheme.surface;
+      final surfaceLowest = theme.colorScheme.surfaceContainerLowest;
+
+      // At rest (sf=0), root ColoredBox should be surface color.
+      // Target the first ColoredBox that is a descendant of PSL itself.
+      ColoredBox rootBox() => tester.widget<ColoredBox>(
+            find
+                .descendant(
+                  of: find.byType(ParallaxSurfaceLayout),
+                  matching: find.byType(ColoredBox),
+                )
+                .first,
+          );
+      expect(rootBox().color, surface);
+
+      // Scroll fully (sf=1), root should be surfaceContainerLowest.
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -200));
+      await tester.pumpAndSettle();
+      expect(rootBox().color, surfaceLowest);
     });
 
     testWidgets(
@@ -544,18 +594,18 @@ void main() {
         ),
       ));
 
-      // Both header and overlay should be wrapped in Transform
-      // (2 separate ValueListenableBuilder → Transform chains)
-      final headerTransforms = find.ancestor(
+      // Both header and overlay should be wrapped in Flow
+      // (2 separate ValueListenableBuilder → Flow chains)
+      final headerFlows = find.ancestor(
         of: find.text('Header'),
-        matching: find.byType(Transform),
+        matching: find.byType(Flow),
       );
-      final overlayTransforms = find.ancestor(
+      final overlayFlows = find.ancestor(
         of: find.text('Overlay'),
-        matching: find.byType(Transform),
+        matching: find.byType(Flow),
       );
-      expect(headerTransforms, findsWidgets);
-      expect(overlayTransforms, findsWidgets);
+      expect(headerFlows, findsWidgets);
+      expect(overlayFlows, findsWidgets);
     });
 
     // --- onRefreshStatusChange tests ---

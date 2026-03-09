@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
@@ -61,7 +62,7 @@ class ParallaxSurfaceLayout extends StatefulWidget {
     this.scrollFractionNotifier,
     this.surfaceFillsViewport = false,
     this.controller,
-    this.headerFadesOnScroll = false,
+    this.headerFadesOnScroll = true,
     this.showEdgeFade = false,
     this.safeAreaOverlay = true,
     this.headerOverlay,
@@ -321,37 +322,37 @@ class _ParallaxSurfaceLayoutState extends State<ParallaxSurfaceLayout> {
 
   /// Wraps [child] in a parallax transform + optional fade driven by scroll
   /// fraction. Shared by header and header-overlay layers.
-  Widget _buildParallaxLayer(Widget child) {
-    return ValueListenableBuilder<double>(
-      valueListenable: _effectiveNotifier,
-      builder: (context, sf, child) {
-        Widget result = Transform.translate(
-          offset: Offset(0, -sf * widget.headerHeight * kParallaxRatio),
-          child: child,
-        );
-        if (widget.headerFadesOnScroll) {
-          result = Opacity(
-            opacity: (1 - sf).clamp(0.0, 1.0),
-            child: result,
-          );
-        }
-        return result;
-      },
-      child: Padding(
-        padding:
-            EdgeInsets.only(top: _effectivePinnedHeight + _autoSliverExtent),
-        child: child,
+  ///
+  /// Uses [Flow] so the child is laid out once; only the paint transform and
+  /// opacity update per scroll tick — no widget allocation or element
+  /// reconciliation on each frame.
+  Widget _buildParallaxLayer(Widget child, {bool fadeOut = false}) {
+    return Flow(
+      delegate: _ParallaxFlowDelegate(
+        scrollNotifier: _effectiveNotifier,
+        headerHeight: widget.headerHeight,
+        fadeOut: fadeOut,
       ),
+      children: [
+        Padding(
+          padding:
+              EdgeInsets.only(top: _effectivePinnedHeight + _autoSliverExtent),
+          child: child,
+        ),
+      ],
     );
   }
 
   Widget _buildHeaderLayer() {
+    final headerChild = SizedOverflowBox(
+      size: Size(double.infinity, widget.headerHeight),
+      alignment: Alignment.center,
+      child: widget.header,
+    );
+
     return _buildParallaxLayer(
-      SizedOverflowBox(
-        size: Size(double.infinity, widget.headerHeight),
-        alignment: Alignment.center,
-        child: widget.header,
-      ),
+      headerChild,
+      fadeOut: widget.headerFadesOnScroll,
     );
   }
 
@@ -370,10 +371,8 @@ class _ParallaxSurfaceLayoutState extends State<ParallaxSurfaceLayout> {
         child: child,
       ),
       child: _buildParallaxLayer(
-        SizedBox(
-          height: widget.headerHeight,
-          child: widget.headerOverlay,
-        ),
+        SizedBox(height: widget.headerHeight, child: widget.headerOverlay),
+        fadeOut: widget.headerFadesOnScroll,
       ),
     );
   }
@@ -732,6 +731,46 @@ class SafeAreaPinnedDelegate extends SliverPersistentHeaderDelegate {
   @override
   bool shouldRebuild(SafeAreaPinnedDelegate old) =>
       old.topPadding != topPadding;
+}
+
+// ---------------------------------------------------------------------------
+// Flow delegate: parallax translation + optional opacity in the paint phase.
+// ---------------------------------------------------------------------------
+
+class _ParallaxFlowDelegate extends FlowDelegate {
+  _ParallaxFlowDelegate({
+    required this.scrollNotifier,
+    required this.headerHeight,
+    this.fadeOut = false,
+  }) : super(repaint: scrollNotifier);
+
+  final ValueListenable<double> scrollNotifier;
+  final double headerHeight;
+
+  /// When true, child-0 fades to invisible as the user scrolls.
+  /// Used for the header overlay layer.
+  final bool fadeOut;
+
+  @override
+  void paintChildren(FlowPaintingContext context) {
+    final sf = scrollNotifier.value;
+    final transform = Matrix4.translationValues(
+      0,
+      -sf * headerHeight * kParallaxRatio,
+      0,
+    );
+    context.paintChild(
+      0,
+      transform: transform,
+      opacity: fadeOut ? (1.0 - sf).clamp(0.0, 1.0) : 1.0,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_ParallaxFlowDelegate old) =>
+      scrollNotifier != old.scrollNotifier ||
+      headerHeight != old.headerHeight ||
+      fadeOut != old.fadeOut;
 }
 
 // ---------------------------------------------------------------------------

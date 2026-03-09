@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:widgetbook/widgetbook.dart';
 
-import '../src/zk_identity_flow_page.dart';
+import '../design_system.dart';
 
 WidgetbookComponent zkIdentityFlowPageComponent() {
   return WidgetbookComponent(
@@ -10,6 +10,8 @@ WidgetbookComponent zkIdentityFlowPageComponent() {
       WidgetbookUseCase(
         name: 'Playground',
         builder: (context) {
+          final spacing = Theme.of(context).extension<AppSpacing>()!;
+
           final stepCount = context.knobs.int.slider(
             label: 'Step Count',
             initialValue: 5,
@@ -26,6 +28,21 @@ WidgetbookComponent zkIdentityFlowPageComponent() {
 
           final hasFailure = context.knobs.boolean(
             label: 'Show Failed Step',
+            initialValue: false,
+          );
+
+          final showContent = context.knobs.boolean(
+            label: 'Show Active Step Content',
+            initialValue: true,
+          );
+
+          final showBottomAction = context.knobs.boolean(
+            label: 'Show Bottom Action',
+            initialValue: true,
+          );
+
+          final centerActiveContent = context.knobs.boolean(
+            label: 'Center Active Content',
             initialValue: false,
           );
 
@@ -49,30 +66,32 @@ WidgetbookComponent zkIdentityFlowPageComponent() {
           });
 
           return ZkIdentityFlowPage(
-            title: 'ZK Identity Verification',
             steps: steps,
             currentStepIndex: currentStepIndex,
-            activeStepContent: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      hasFailure
-                          ? 'Something went wrong'
-                          : 'Action area for step ${currentStepIndex + 1}',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 12),
-                    FilledButton(
-                      onPressed: () {},
-                      child: Text(hasFailure ? 'Retry' : 'Continue'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            centerActiveContent: centerActiveContent,
+            activeStepContent: showContent
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        hasFailure
+                            ? 'Something went wrong'
+                            : 'Action area for step ${currentStepIndex + 1}',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      SizedBox(height: spacing.space12),
+                    ],
+                  )
+                : null,
+            bottomAction: showBottomAction
+                ? Button(
+                    variant: hasFailure
+                        ? ButtonVariant.outlined
+                        : ButtonVariant.primary,
+                    label: hasFailure ? 'Retry' : 'Continue',
+                    onTap: () {},
+                  )
+                : null,
             onBack: () {},
           );
         },

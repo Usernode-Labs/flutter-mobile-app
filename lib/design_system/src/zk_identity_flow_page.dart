@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../tokens/app_radii.dart';
 import '../tokens/app_spacing.dart';
-import 'top_app_bar.dart';
 
 class ZkIdentityStepData {
   const ZkIdentityStepData({
@@ -28,147 +28,153 @@ enum ZkIdentityStepVisualStatus {
 class ZkIdentityFlowPage extends StatelessWidget {
   const ZkIdentityFlowPage({
     super.key,
-    required this.title,
     required this.steps,
     required this.currentStepIndex,
+    this.centerActiveContent = false,
     this.activeStepContent,
+    this.bottomAction,
     this.onBack,
   });
 
-  final String title;
   final List<ZkIdentityStepData> steps;
   final int currentStepIndex;
+
+  /// When true, hides step label/description and centers [activeStepContent]
+  /// vertically — matching [ResultPage] layout.
+  final bool centerActiveContent;
   final Widget? activeStepContent;
+
+  /// Rendered in [Scaffold.bottomNavigationBar] with safe-area padding.
+  final Widget? bottomAction;
   final VoidCallback? onBack;
 
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    final currentStep =
+        currentStepIndex < steps.length ? steps[currentStepIndex] : null;
 
     return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          TopAppBar(
-            title: title,
-            onLeadingTap: onBack,
-          ),
-          SliverPadding(
-            padding: EdgeInsets.symmetric(horizontal: spacing.space24),
-            sliver: SliverList.builder(
-              itemCount: steps.length,
-              itemBuilder: (context, index) {
-                final step = steps[index];
-                return _StepTile(
-                  index: index,
-                  step: step,
-                  isLast: index == steps.length - 1,
-                );
-              },
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SafeArea(
+            bottom: false,
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Symbols.arrow_back_sharp),
+                  onPressed: onBack,
+                ),
+              ],
             ),
           ),
-          if (activeStepContent != null)
-            SliverPadding(
-              padding: EdgeInsets.symmetric(
-                horizontal: spacing.space24,
-                vertical: spacing.space16,
+          _SegmentedProgressBar(steps: steps),
+          if (centerActiveContent)
+            Expanded(
+              child: Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: spacing.space16),
+                  child: activeStepContent ?? const SizedBox.shrink(),
+                ),
               ),
-              sliver: SliverToBoxAdapter(child: activeStepContent!),
+            )
+          else
+            Expanded(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.symmetric(horizontal: spacing.space16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(height: spacing.space24),
+                    if (currentStep != null) ...[
+                      Text(
+                        currentStep.label,
+                        style: textTheme.titleLarge?.copyWith(
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      SizedBox(height: spacing.space4),
+                      Text(
+                        currentStep.description,
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      if (activeStepContent != null) ...[
+                        SizedBox(height: spacing.space24),
+                        activeStepContent!,
+                      ],
+                    ],
+                  ],
+                ),
+              ),
             ),
         ],
       ),
+      bottomNavigationBar: bottomAction != null
+          ? SafeArea(
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: spacing.space16,
+                  vertical: spacing.space12,
+                ),
+                child: bottomAction,
+              ),
+            )
+          : null,
     );
   }
 }
 
-class _StepTile extends StatelessWidget {
-  const _StepTile({
-    required this.index,
-    required this.step,
-    required this.isLast,
-  });
+class _SegmentedProgressBar extends StatelessWidget {
+  const _SegmentedProgressBar({required this.steps});
 
-  final int index;
-  final ZkIdentityStepData step;
-  final bool isLast;
+  final List<ZkIdentityStepData> steps;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
-    final (bgColor, fgColor, icon) = _resolveVisuals(colorScheme);
-    final textTheme = Theme.of(context).textTheme;
+    final radii = Theme.of(context).extension<AppRadii>()!;
+    final colorScheme = Theme.of(context).colorScheme;
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Column(
-          children: [
-            CircleAvatar(
-              radius: 16,
-              backgroundColor: bgColor,
-              child: Icon(icon, size: 16, color: fgColor),
-            ),
-            if (!isLast)
-              Container(
-                width: 2,
-                height: 40,
-                color: colorScheme.outlineVariant,
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: spacing.space16,
+        vertical: spacing.space8,
+      ),
+      child: Row(
+        children: [
+          for (int i = 0; i < steps.length; i++) ...[
+            Expanded(
+              child: Container(
+                height: 4,
+                decoration: BoxDecoration(
+                  color: _segmentColor(steps[i].status, colorScheme),
+                  borderRadius: radii.borderRadiusFull,
+                ),
               ),
-          ],
-        ),
-        SizedBox(width: spacing.space12),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  step.label,
-                  style: textTheme.titleSmall?.copyWith(
-                    color: step.status == ZkIdentityStepVisualStatus.pending
-                        ? colorScheme.onSurfaceVariant
-                        : colorScheme.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  step.description,
-                  style: textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                if (!isLast) SizedBox(height: spacing.space8),
-              ],
             ),
-          ),
-        ),
-      ],
+            if (i < steps.length - 1) SizedBox(width: spacing.space4),
+          ],
+        ],
+      ),
     );
   }
 
-  (Color, Color, IconData) _resolveVisuals(ColorScheme colorScheme) {
-    return switch (step.status) {
-      ZkIdentityStepVisualStatus.completed => (
-          colorScheme.primaryContainer,
-          colorScheme.onPrimaryContainer,
-          Symbols.check_sharp,
-        ),
-      ZkIdentityStepVisualStatus.active => (
-          colorScheme.primary,
-          colorScheme.onPrimary,
-          Symbols.arrow_forward_sharp,
-        ),
-      ZkIdentityStepVisualStatus.failed => (
-          colorScheme.errorContainer,
-          colorScheme.onErrorContainer,
-          Symbols.close_sharp,
-        ),
-      ZkIdentityStepVisualStatus.pending => (
-          colorScheme.surfaceContainerHighest,
-          colorScheme.onSurfaceVariant,
-          Symbols.radio_button_unchecked_sharp,
-        ),
+  Color _segmentColor(
+    ZkIdentityStepVisualStatus status,
+    ColorScheme colorScheme,
+  ) {
+    return switch (status) {
+      ZkIdentityStepVisualStatus.completed ||
+      ZkIdentityStepVisualStatus.active =>
+        colorScheme.primary,
+      ZkIdentityStepVisualStatus.failed => colorScheme.error,
+      ZkIdentityStepVisualStatus.pending => colorScheme.outlineVariant,
     };
   }
 }

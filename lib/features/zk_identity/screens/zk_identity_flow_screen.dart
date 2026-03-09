@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/zk_identity/models/zk_identity_models.dart';
@@ -8,13 +9,42 @@ import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_pro
 import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_models.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 
-class ZkIdentityFlowScreen extends ConsumerWidget {
+class ZkIdentityFlowScreen extends ConsumerStatefulWidget {
   const ZkIdentityFlowScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ZkIdentityFlowScreen> createState() =>
+      _ZkIdentityFlowScreenState();
+}
+
+class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen> {
+  bool _checkingApp = false;
+  bool _appNotInstalled = false;
+
+  Future<void> _checkApp() async {
+    setState(() {
+      _checkingApp = true;
+      _appNotInstalled = false;
+    });
+    final controller = ref.read(zkIdentityStepControllerProvider.notifier);
+    final installed = await controller.checkAppInstalled();
+    if (!mounted) return;
+    setState(() {
+      _checkingApp = false;
+      _appNotInstalled = !installed;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final flowState = ref.watch(zkIdentityStepControllerProvider);
     final pipelineState = ref.watch(zkPassportPipelineProvider);
+
+    // Reset local state when navigating away from checkApp step.
+    if (flowState.currentStep != ZkIdentityStep.checkApp) {
+      _checkingApp = false;
+      _appNotInstalled = false;
+    }
 
     final steps = flowState.steps.map((s) {
       return ZkIdentityStepData(
@@ -25,61 +55,50 @@ class ZkIdentityFlowScreen extends ConsumerWidget {
     }).toList();
 
     return ZkIdentityFlowPage(
-      title: ZkIdentityChallengeConfig.instance.title,
       steps: steps,
       currentStepIndex: flowState.currentStepIndex,
-      activeStepContent: _buildActiveContent(
-        context,
-        ref,
-        flowState,
-        pipelineState,
-      ),
+      centerActiveContent: flowState.currentStep == ZkIdentityStep.result,
+      activeStepContent: _buildBody(context, flowState, pipelineState),
+      bottomAction: _buildBottomAction(context, flowState, pipelineState),
       onBack: () => context.pop(),
     );
   }
 
-  Widget _buildActiveContent(
+  Widget? _buildBody(
     BuildContext context,
-    WidgetRef ref,
     ZkIdentityFlowState flowState,
     ZkPassportPipelineState pipelineState,
   ) {
-    final controller = ref.read(zkIdentityStepControllerProvider.notifier);
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
+    final semantic = Theme.of(context).extension<AppSemanticColors>()!;
 
     return switch (flowState.currentStep) {
-      ZkIdentityStep.checkApp => _CheckAppContent(
-          onCheck: controller.checkAppInstalled,
-          onOpenStore:
-              ref.read(zkPassportLaunchServiceProvider).openStoreListing,
-        ),
-      ZkIdentityStep.confirmScanned => Column(
+      ZkIdentityStep.checkApp => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Have you already scanned your passport in the ZK Passport app?',
+              'First, make sure you have the ZK Passport app installed.',
               style: textTheme.bodyMedium,
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => context.pop(),
-                    child: const Text('No, go back'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: controller.confirmPassportScanned,
-                    child: const Text('Yes'),
-                  ),
-                ),
-              ],
-            ),
+            if (_checkingApp) ...[
+              SizedBox(height: spacing.space12),
+              const Center(child: CircularProgressIndicator()),
+            ],
+            if (_appNotInstalled) ...[
+              SizedBox(height: spacing.space12),
+              Text(
+                'ZK Passport app not found. Please install it first.',
+                style: textTheme.bodySmall?.copyWith(color: colorScheme.error),
+              ),
+            ],
           ],
+        ),
+      ZkIdentityStep.confirmScanned => Text(
+          'Have you already scanned your passport in the ZK Passport app?',
+          style: textTheme.bodyMedium,
         ),
       ZkIdentityStep.readyToVerify => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -88,79 +107,199 @@ class ZkIdentityFlowScreen extends ConsumerWidget {
               'This will open the ZK Passport app and generate a zero-knowledge proof of your passport. The process may take a moment.',
               style: textTheme.bodyMedium,
             ),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: () {
-                controller.confirmReady();
-                controller.triggerVerification();
-              },
-              child: const Text('Start Verification'),
-            ),
+            SizedBox(height: spacing.space16),
+            for (final bullet in [
+              'Your passport data never leaves your device',
+              'Only proof of validity is shared',
+              'No personal information stored on-chain',
+            ])
+              Padding(
+                padding: EdgeInsets.only(bottom: spacing.space12),
+                child: Row(
+                  children: [
+                    Icon(
+                      Symbols.check_circle_sharp,
+                      size: sizing.iconRegular,
+                      color: semantic.success.color,
+                    ),
+                    SizedBox(width: spacing.space12),
+                    Expanded(
+                      child: Text(bullet, style: textTheme.bodyMedium),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
       ZkIdentityStep.verification => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Center(child: CircularProgressIndicator()),
-            const SizedBox(height: 16),
-            Text(
-              _pipelinePhaseText(pipelineState),
-              style: textTheme.bodyMedium,
-              textAlign: TextAlign.center,
-            ),
             if (flowState.resultMessage != null && !flowState.isSuccess) ...[
-              const SizedBox(height: 12),
+              Text(
+                'Your data is safe — no information was shared.',
+                style: textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+              SizedBox(height: spacing.space8),
               Text(
                 flowState.resultMessage!,
                 style: textTheme.bodySmall?.copyWith(
                   color: colorScheme.error,
                 ),
               ),
-              const SizedBox(height: 12),
-              FilledButton(
-                onPressed: () {
-                  controller.reset();
-                },
-                child: const Text('Retry'),
-              ),
-            ],
+            ] else
+              for (final task in _subTasks) ...[
+                _SubTaskRow(
+                  label: task.label,
+                  state: task.stateFor(pipelineState.phase),
+                ),
+                SizedBox(height: spacing.space8),
+              ],
           ],
         ),
       ZkIdentityStep.result => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Icon(
-              flowState.isSuccess
-                  ? Icons.check_circle_outline
-                  : Icons.error_outline,
-              size: 48,
-              color:
-                  flowState.isSuccess ? colorScheme.primary : colorScheme.error,
+            Center(
+              child: Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: flowState.isSuccess
+                      ? semantic.success.colorContainer
+                      : colorScheme.errorContainer,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  flowState.isSuccess
+                      ? Symbols.check_sharp
+                      : Symbols.close_sharp,
+                  size: sizing.iconDisplay,
+                  color: flowState.isSuccess
+                      ? semantic.success.onColorContainer
+                      : colorScheme.onErrorContainer,
+                ),
+              ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: spacing.space16),
             Text(
               flowState.isSuccess
-                  ? 'Identity verified successfully!'
-                  : 'Verification failed',
-              style: textTheme.titleMedium,
+                  ? 'Identity Verified!'
+                  : 'Verification Failed',
+              style: textTheme.titleLarge,
               textAlign: TextAlign.center,
             ),
-            if (flowState.resultMessage != null) ...[
-              const SizedBox(height: 8),
+            SizedBox(height: spacing.space8),
+            if (flowState.isSuccess)
               Text(
-                flowState.resultMessage!,
+                'Your identity was confirmed with zero-knowledge proof — '
+                'no personal data was shared.',
+                style: textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
+              )
+            else ...[
+              Text(
+                'Your data is safe — no information was shared.',
                 style: textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
                 textAlign: TextAlign.center,
               ),
+              if (flowState.resultMessage != null) ...[
+                SizedBox(height: spacing.space8),
+                Text(
+                  flowState.resultMessage!,
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.error,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ],
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: () => context.pop(),
-              child: const Text('Done'),
+          ],
+        ),
+    };
+  }
+
+  Widget? _buildBottomAction(
+    BuildContext context,
+    ZkIdentityFlowState flowState,
+    ZkPassportPipelineState pipelineState,
+  ) {
+    final controller = ref.read(zkIdentityStepControllerProvider.notifier);
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
+
+    return switch (flowState.currentStep) {
+      ZkIdentityStep.checkApp => _appNotInstalled
+          ? Button(
+              variant: ButtonVariant.outlined,
+              size: ButtonSize.large,
+              label: 'Open App Store',
+              onTap: ref.read(zkPassportLaunchServiceProvider).openStoreListing,
+            )
+          : _checkingApp
+              ? null
+              : Button(
+                  variant: ButtonVariant.primary,
+                  size: ButtonSize.large,
+                  label: 'Check ZK Passport App',
+                  onTap: _checkApp,
+                ),
+      ZkIdentityStep.confirmScanned => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Button(
+              variant: ButtonVariant.primary,
+              size: ButtonSize.large,
+              label: 'Yes',
+              onTap: controller.confirmPassportScanned,
+            ),
+            SizedBox(height: spacing.space8),
+            Button(
+              variant: ButtonVariant.outlined,
+              size: ButtonSize.large,
+              label: 'No, go back',
+              onTap: () => context.pop(),
             ),
           ],
+        ),
+      ZkIdentityStep.readyToVerify => Button(
+          variant: ButtonVariant.primary,
+          size: ButtonSize.large,
+          label: 'Start Verification',
+          onTap: () {
+            controller.confirmReady();
+            controller.triggerVerification();
+          },
+        ),
+      ZkIdentityStep.verification =>
+        flowState.resultMessage != null && !flowState.isSuccess
+            ? Button(
+                variant: ButtonVariant.primary,
+                size: ButtonSize.large,
+                label: 'Try Again',
+                onTap: controller.reset,
+              )
+            : (pipelineState.phase == ZkPassportPipelinePhase.waiting ||
+                    pipelineState.phase == ZkPassportPipelinePhase.resuming)
+                ? Button(
+                    variant: ButtonVariant.tonal,
+                    size: ButtonSize.large,
+                    label: 'Go To ZK Passport',
+                    leadingIcon: const Icon(Symbols.open_in_new_sharp),
+                    onTap: ref
+                        .read(zkPassportLaunchServiceProvider)
+                        .openStoreListing,
+                  )
+                : null,
+      ZkIdentityStep.result => Button(
+          variant: ButtonVariant.primary,
+          size: ButtonSize.large,
+          label: flowState.isSuccess ? 'Done' : 'Try Again',
+          onTap: flowState.isSuccess ? () => context.pop() : controller.reset,
         ),
     };
   }
@@ -187,87 +326,125 @@ class ZkIdentityFlowScreen extends ConsumerWidget {
       ZkIdentityStep.result => 'View the outcome of your verification.',
     };
   }
-
-  String _pipelinePhaseText(ZkPassportPipelineState state) {
-    return switch (state.phase) {
-      ZkPassportPipelinePhase.idle => 'Preparing...',
-      ZkPassportPipelinePhase.launching => 'Launching ZK Passport...',
-      ZkPassportPipelinePhase.waiting =>
-        'Waiting for proof from ZK Passport...',
-      ZkPassportPipelinePhase.resuming => 'Resuming session...',
-      ZkPassportPipelinePhase.proofReceived => 'Proof received, processing...',
-      ZkPassportPipelinePhase.verifyingOuter => 'Verifying outer proof...',
-      ZkPassportPipelinePhase.wrapping => 'Wrapping proof...',
-      ZkPassportPipelinePhase.verifyingWrapped => 'Verifying wrapped proof...',
-      ZkPassportPipelinePhase.success => 'Verification complete!',
-      ZkPassportPipelinePhase.failed => 'Verification failed.',
-      ZkPassportPipelinePhase.timedOut => 'Session timed out.',
-    };
-  }
 }
 
-class _CheckAppContent extends StatefulWidget {
-  const _CheckAppContent({
-    required this.onCheck,
-    required this.onOpenStore,
+// ---------------------------------------------------------------------------
+// Sub-task progress model for verification step
+// ---------------------------------------------------------------------------
+
+enum _SubTaskState { pending, active, done }
+
+class _SubTask {
+  const _SubTask({
+    required this.label,
+    required this.activePhases,
+    required this.doneAfter,
   });
 
-  final Future<bool> Function() onCheck;
-  final VoidCallback onOpenStore;
+  final String label;
+  final Set<ZkPassportPipelinePhase> activePhases;
+  final Set<ZkPassportPipelinePhase> doneAfter;
 
-  @override
-  State<_CheckAppContent> createState() => _CheckAppContentState();
+  _SubTaskState stateFor(ZkPassportPipelinePhase current) {
+    if (doneAfter.contains(current) || _isPastAll(current)) {
+      return _SubTaskState.done;
+    }
+    if (activePhases.contains(current)) return _SubTaskState.active;
+    return _SubTaskState.pending;
+  }
+
+  /// A phase is "past" all done-after phases when its index exceeds the max.
+  bool _isPastAll(ZkPassportPipelinePhase current) {
+    final idx = current.index;
+    return doneAfter.every((p) => idx > p.index);
+  }
 }
 
-class _CheckAppContentState extends State<_CheckAppContent> {
-  bool _checking = false;
-  bool _notInstalled = false;
+const _subTasks = [
+  _SubTask(
+    label: 'Opening ZK Passport',
+    activePhases: {
+      ZkPassportPipelinePhase.idle,
+      ZkPassportPipelinePhase.launching
+    },
+    doneAfter: {ZkPassportPipelinePhase.launching},
+  ),
+  _SubTask(
+    label: 'Waiting for proof',
+    activePhases: {
+      ZkPassportPipelinePhase.waiting,
+      ZkPassportPipelinePhase.resuming
+    },
+    doneAfter: {ZkPassportPipelinePhase.proofReceived},
+  ),
+  _SubTask(
+    label: 'Verifying proof',
+    activePhases: {
+      ZkPassportPipelinePhase.proofReceived,
+      ZkPassportPipelinePhase.verifyingOuter
+    },
+    doneAfter: {ZkPassportPipelinePhase.verifyingOuter},
+  ),
+  _SubTask(
+    label: 'Wrapping proof',
+    activePhases: {ZkPassportPipelinePhase.wrapping},
+    doneAfter: {ZkPassportPipelinePhase.wrapping},
+  ),
+  _SubTask(
+    label: 'Final verification',
+    activePhases: {ZkPassportPipelinePhase.verifyingWrapped},
+    doneAfter: {
+      ZkPassportPipelinePhase.verifyingWrapped,
+      ZkPassportPipelinePhase.success
+    },
+  ),
+];
 
-  Future<void> _check() async {
-    setState(() {
-      _checking = true;
-      _notInstalled = false;
-    });
-    final installed = await widget.onCheck();
-    if (!mounted) return;
-    setState(() {
-      _checking = false;
-      _notInstalled = !installed;
-    });
-  }
+class _SubTaskRow extends StatelessWidget {
+  const _SubTaskRow({required this.label, required this.state});
+
+  final String label;
+  final _SubTaskState state;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final semantic = Theme.of(context).extension<AppSemanticColors>()!;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          'First, make sure you have the ZK Passport app installed.',
-          style: textTheme.bodyMedium,
+    final iconSize = sizing.iconSmall;
+    final (Widget indicator, Color textColor) = switch (state) {
+      _SubTaskState.pending => (
+          Icon(Symbols.circle_sharp,
+              size: iconSize, color: colorScheme.outlineVariant),
+          colorScheme.onSurfaceVariant,
         ),
-        const SizedBox(height: 12),
-        if (_checking)
-          const Center(child: CircularProgressIndicator())
-        else
-          FilledButton(
-            onPressed: _check,
-            child: const Text('Check ZK Passport App'),
+      _SubTaskState.active => (
+          SizedBox(
+            width: iconSize,
+            height: iconSize,
+            child: CircularProgressIndicator(
+                strokeWidth: 2, color: colorScheme.primary),
           ),
-        if (_notInstalled) ...[
-          const SizedBox(height: 12),
-          Text(
-            'ZK Passport app not found. Please install it first.',
-            style: textTheme.bodySmall?.copyWith(color: colorScheme.error),
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton(
-            onPressed: widget.onOpenStore,
-            child: const Text('Open App Store'),
-          ),
-        ],
+          colorScheme.onSurface,
+        ),
+      _SubTaskState.done => (
+          Icon(Symbols.check_circle_sharp,
+              size: iconSize, color: semantic.success.color),
+          colorScheme.onSurface,
+        ),
+    };
+
+    return Row(
+      children: [
+        indicator,
+        SizedBox(width: spacing.space12),
+        Expanded(
+          child: Text(label,
+              style: textTheme.bodyMedium?.copyWith(color: textColor)),
+        ),
       ],
     );
   }

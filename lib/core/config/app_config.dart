@@ -54,6 +54,12 @@ class AppConfig {
     defaultValue: 'https://leaderboard.usernodelabs.org/api/v2/mobile/register',
   );
 
+  // zkPassport session server (bridge) base URL.
+  static const String zkPassportBridgeBaseUrl = String.fromEnvironment(
+    'ZKPASSPORT_BRIDGE_BASE_URL',
+    defaultValue: 'https://zkbridge.usernodelabs.org',
+  );
+
   // GitHub configuration
   static const String githubToken =
       String.fromEnvironment('GITHUB_TOKEN', defaultValue: '');

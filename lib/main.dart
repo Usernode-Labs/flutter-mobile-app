@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_reporting_service.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
+import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -246,6 +247,10 @@ class CryptoMobileApp extends ConsumerWidget {
 
     // Initialize metrics lifecycle manager
     ref.watch(metricsLifecycleProvider);
+
+    // Initialize zkPassport pipeline state early so session-server polling
+    // and foreground recovery are active before the registration UI opens.
+    ref.watch(zkPassportPipelineProvider);
 
     return MaterialApp.router(
       onGenerateTitle: (ctx) => AppLocalizations.of(ctx).appName,

@@ -249,6 +249,7 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen> {
                   onTap: _checkApp,
                 ),
       ZkIdentityStep.confirmScanned => Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Button(

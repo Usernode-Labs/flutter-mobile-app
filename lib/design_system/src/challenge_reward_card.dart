@@ -77,6 +77,7 @@ class ChallengeRewardCard extends StatelessWidget {
     this.epochEarned,
     this.epochLabel,
     this.onEpochTap,
+    this.footer,
   });
 
   /// Challenge category — drives background color via [AppSemanticColors].
@@ -101,6 +102,10 @@ class ChallengeRewardCard extends StatelessWidget {
 
   /// Called when the epoch button is tapped.
   final VoidCallback? onEpochTap;
+
+  /// Optional footer widget rendered below the epoch section (or the main
+  /// section when no epoch is present), separated by a divider.
+  final Widget? footer;
 
   SemanticColorGroup _categoryColors(AppSemanticColors semantic) {
     return switch (category) {
@@ -307,6 +312,19 @@ class ChallengeRewardCard extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+          ],
+
+          // Optional footer
+          if (footer != null) ...[
+            Divider(
+              height: borders.width,
+              thickness: borders.width,
+              color: onColor.withValues(alpha: borders.opacity),
+            ),
+            Padding(
+              padding: EdgeInsets.all(spacing.space16),
+              child: footer!,
             ),
           ],
         ],

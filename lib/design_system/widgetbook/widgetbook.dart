@@ -46,6 +46,7 @@ import 'top_app_bar_use_case.dart';
 import 'unified_theme_catalog.dart';
 import 'wallet_page_use_case.dart';
 import 'zk_identity_flow_page_use_case.dart';
+import 'zk_proof_detail_section_use_case.dart';
 
 void main() {
   runApp(const WidgetbookApp());
@@ -241,6 +242,7 @@ class WidgetbookApp extends StatelessWidget {
                 challengeCategoryIconComponent(),
                 challengeCategoryTileComponent(),
                 challengeRewardCardComponent(),
+                zkProofDetailSectionComponent(),
               ],
             ),
             WidgetbookFolder(

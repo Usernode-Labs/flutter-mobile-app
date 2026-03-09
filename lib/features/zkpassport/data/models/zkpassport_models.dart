@@ -194,7 +194,7 @@ class ZkPassportSettings {
 
   final bool facematchStrict;
 
-  static const defaults = ZkPassportSettings(facematchStrict: true);
+  static const defaults = ZkPassportSettings(facematchStrict: false);
 
   Map<String, dynamic> toJson() {
     return {
@@ -224,20 +224,17 @@ class ZkPassportLocalRegistration {
     required this.registered,
     required this.nullifierHex,
     required this.registeredAtMs,
-    this.facematchVerified,
   });
 
   final bool registered;
   final String? nullifierHex;
   final int? registeredAtMs;
-  final bool? facematchVerified;
 
   static ZkPassportLocalRegistration unregistered() {
     return const ZkPassportLocalRegistration(
       registered: false,
       nullifierHex: null,
       registeredAtMs: null,
-      facematchVerified: null,
     );
   }
 
@@ -246,7 +243,6 @@ class ZkPassportLocalRegistration {
       'registered': registered,
       'nullifier_hex': nullifierHex,
       'registered_at_ms': registeredAtMs,
-      if (facematchVerified != null) 'facematch_verified': facematchVerified,
     };
   }
 
@@ -266,14 +262,10 @@ class ZkPassportLocalRegistration {
         ? registeredAtRaw
         : (registeredAtRaw is String ? int.tryParse(registeredAtRaw) : null);
 
-    final facematchRaw = json['facematch_verified'];
-    final facematchVerified = facematchRaw is bool ? facematchRaw : null;
-
     return ZkPassportLocalRegistration(
       registered: registered,
       nullifierHex: nullifier,
       registeredAtMs: registeredAtMs,
-      facematchVerified: facematchVerified,
     );
   }
 }

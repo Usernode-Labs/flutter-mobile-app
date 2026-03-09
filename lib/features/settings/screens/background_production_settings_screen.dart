@@ -17,8 +17,6 @@ import 'package:crypto_mobile_app/core/providers/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
-import 'package:crypto_mobile_app/features/settings/screens/settings_screen.dart'
-    show resetChallengeState;
 
 final _log =
     LoggingService.instance.withTag('usernode/BackgroundProductionSettings');
@@ -402,13 +400,14 @@ class _BackgroundProductionSettingsScreenState
   Widget _buildZkPassportExperimentalCard(
       ThemeData theme, ColorScheme colorScheme) {
     final registrationAsync = ref.watch(zkPassportRegistrationProvider);
+    final settingsAsync = ref.watch(zkPassportSettingsProvider);
 
     return _buildCollapsibleCard(
       theme: theme,
       colorScheme: colorScheme,
       title: 'zkPassport (Experimental)',
       subtitle: 'Launch zkPassport and import the proof into Usernode.',
-      child: registrationAsync.when(
+      child: settingsAsync.when(
         loading: () => Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Text(
@@ -421,118 +420,165 @@ class _BackgroundProductionSettingsScreenState
         error: (e, _) => Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Text(
-            'Unable to load zkPassport status: $e',
+            'Unable to load zkPassport settings: $e',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: colorScheme.error,
             ),
           ),
         ),
-        data: (registration) {
-          final isRegistered = registration.registered;
-          final statusLabel = isRegistered ? 'Registered' : 'Not registered';
-          final statusColor =
-              isRegistered ? colorScheme.primary : colorScheme.onSurface;
-          final nullifier = registration.nullifierHex;
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Status: $statusLabel',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: statusColor,
-                      ),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () => resetChallengeState(ref, context),
-                    child: const Text('Reset'),
-                  ),
-                ],
+        data: (settings) => registrationAsync.when(
+          loading: () => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              'Loading status...',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurface.withValues(alpha: 0.7),
               ),
-              if (isRegistered) ...[
-                const SizedBox(height: 8),
-                Text(
-                  'Nullifier',
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
+            ),
+          ),
+          error: (e, _) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              'Unable to load zkPassport status: $e',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.error,
+              ),
+            ),
+          ),
+          data: (registration) {
+            final isRegistered = registration.registered;
+            final statusLabel = isRegistered ? 'Registered' : 'Not registered';
+            final statusColor =
+                isRegistered ? colorScheme.primary : colorScheme.onSurface;
+            final nullifier = registration.nullifierHex;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 4),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  value: settings.facematchStrict,
+                  title: const Text('Strict facematch'),
+                  subtitle: const Text(
+                    'Request zkPassport facematch proof in strict mode on the next run.',
                   ),
+                  onChanged: (value) async {
+                    final controller =
+                        ref.read(zkPassportFlowControllerProvider);
+                    await controller.setFacematchStrict(value);
+                  },
                 ),
-                const SizedBox(height: 6),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: SelectableText(
-                          nullifier ?? '(unavailable)',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            fontFamily: 'monospace',
-                            color: colorScheme.onSurface.withValues(alpha: 0.8),
-                          ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Status: $statusLabel',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: statusColor,
                         ),
                       ),
-                      IconButton(
-                        tooltip: 'Copy',
-                        onPressed: nullifier == null || nullifier.isEmpty
-                            ? null
-                            : () async {
-                                await Clipboard.setData(
-                                  ClipboardData(text: nullifier),
-                                );
-                                if (!mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Nullifier copied'),
-                                  ),
-                                );
-                              },
-                        icon: const Icon(Icons.copy),
-                      ),
-                    ],
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        final controller =
+                            ref.read(zkPassportFlowControllerProvider);
+                        await controller.clearActiveRegistration();
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content: Text('zkPassport status reset')),
+                        );
+                      },
+                      child: const Text('Reset'),
+                    ),
+                  ],
+                ),
+                if (isRegistered) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Nullifier',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: SelectableText(
+                            nullifier ?? '(unavailable)',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontFamily: 'monospace',
+                              color:
+                                  colorScheme.onSurface.withValues(alpha: 0.8),
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Copy',
+                          onPressed: nullifier == null || nullifier.isEmpty
+                              ? null
+                              : () async {
+                                  await Clipboard.setData(
+                                    ClipboardData(text: nullifier),
+                                  );
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Nullifier copied'),
+                                    ),
+                                  );
+                                },
+                          icon: const Icon(Icons.copy),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                FilledButton(
+                  onPressed: () async {
+                    final controller =
+                        ref.read(zkPassportFlowControllerProvider);
+                    final result =
+                        await controller.startRegistrationNonceZero();
+                    if (!mounted) return;
+                    if (!result.started) {
+                      await showDialog<void>(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('zkPassport launch failed'),
+                          content: Text(result.message),
+                          actions: [
+                            FilledButton(
+                              onPressed: () => Navigator.of(ctx).pop(),
+                              child: const Text('OK'),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                  },
+                  child: Text(
+                    isRegistered ? 'Run zkPassport again' : 'Run zkPassport',
                   ),
                 ),
               ],
-              const SizedBox(height: 12),
-              FilledButton(
-                onPressed: () async {
-                  final controller = ref.read(zkPassportFlowControllerProvider);
-                  final result = await controller.startRegistrationNonceZero();
-                  if (!mounted) return;
-                  if (!result.started) {
-                    await showDialog<void>(
-                      context: context,
-                      barrierDismissible: false,
-                      builder: (ctx) => AlertDialog(
-                        title: const Text('zkPassport launch failed'),
-                        content: Text(result.message),
-                        actions: [
-                          FilledButton(
-                            onPressed: () => Navigator.of(ctx).pop(),
-                            child: const Text('OK'),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-                },
-                child: Text(
-                    isRegistered ? 'Run zkPassport again' : 'Run zkPassport'),
-              ),
-            ],
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }

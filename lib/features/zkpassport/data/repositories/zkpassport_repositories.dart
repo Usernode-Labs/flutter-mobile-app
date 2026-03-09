@@ -96,6 +96,38 @@ class ZkPassportRegistrationRepository {
   }
 }
 
+class ZkPassportSettingsRepository {
+  static const _kSettingsKeyBase = 'zkpassport:settings_v1';
+
+  Future<ZkPassportSettings> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = NetworkPrefs.prefixKey(_kSettingsKeyBase);
+    final raw = prefs.getString(key);
+    if (raw == null || raw.trim().isEmpty) {
+      return ZkPassportSettings.defaults;
+    }
+    try {
+      final decoded = jsonDecode(raw);
+      return ZkPassportSettings.fromJson(decoded) ??
+          ZkPassportSettings.defaults;
+    } catch (_) {
+      await prefs.remove(key);
+      return ZkPassportSettings.defaults;
+    }
+  }
+
+  Future<void> save(ZkPassportSettings settings) async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = NetworkPrefs.prefixKey(_kSettingsKeyBase);
+    await prefs.setString(key, jsonEncode(settings.toJson()));
+  }
+
+  Future<void> setFacematchStrict(bool value) async {
+    final current = await load();
+    await save(current.copyWith(facematchStrict: value));
+  }
+}
+
 class ZkPassportRuntimeSessionRepository {
   static const _kRuntimeSessionKeyBase = 'zkpassport:runtime_session_v1';
 
@@ -166,6 +198,7 @@ class ZkPassportSessionServerRepository {
     required String walletAddress,
     required String chainId,
     required int nonce,
+    required bool facematchStrict,
   }) async {
     final json = await _postJson(
       '/v1/zkp/sessions/start',
@@ -173,6 +206,7 @@ class ZkPassportSessionServerRepository {
         'wallet_address': walletAddress,
         'chain_id': chainId,
         'nonce': nonce,
+        'facematch_strict': facematchStrict,
       },
       timeout: const Duration(seconds: 10),
     );

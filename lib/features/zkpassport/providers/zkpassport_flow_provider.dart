@@ -37,9 +37,20 @@ final zkPassportRegistrationRepositoryProvider =
   return ZkPassportRegistrationRepository();
 });
 
+final zkPassportSettingsRepositoryProvider =
+    Provider<ZkPassportSettingsRepository>((ref) {
+  return ZkPassportSettingsRepository();
+});
+
 final zkPassportRuntimeSessionRepositoryProvider =
     Provider<ZkPassportRuntimeSessionRepository>((ref) {
   return ZkPassportRuntimeSessionRepository();
+});
+
+final zkPassportSettingsProvider =
+    FutureProvider<ZkPassportSettings>((ref) async {
+  final repo = ref.watch(zkPassportSettingsRepositoryProvider);
+  return repo.load();
 });
 
 final zkPassportIsRegisteredProvider = FutureProvider<bool>((ref) async {
@@ -122,6 +133,9 @@ class ZkPassportFlowController {
     }
 
     const chainId = ZkPassportRequestPolicy.boundChainId;
+    final settingsRepo = _ref.read(zkPassportSettingsRepositoryProvider);
+    final settings = await settingsRepo.load();
+    final facematchStrict = settings.facematchStrict;
 
     final sessionServerRepo =
         _ref.read(zkPassportSessionServerRepositoryProvider);
@@ -141,6 +155,7 @@ class ZkPassportFlowController {
         walletAddress: active.address,
         chainId: chainId,
         nonce: 0,
+        facematchStrict: facematchStrict,
       );
       final nextRequestId = started.sessionId.trim();
       if (previousRequestId != null &&
@@ -156,6 +171,7 @@ class ZkPassportFlowController {
           walletAddress: active.address,
           chainId: chainId,
           nonce: 0,
+          facematchStrict: facematchStrict,
         );
       }
       final normalizedRequestId = started.sessionId.trim();
@@ -179,7 +195,10 @@ class ZkPassportFlowController {
       );
     }
 
-    await pipelineController.markLaunchStarted(requestId: requestId);
+    await pipelineController.markLaunchStarted(
+      requestId: requestId,
+      facematchStrict: facematchStrict,
+    );
 
     final launchService = _ref.read(zkPassportLaunchServiceProvider);
     final launched = await launchService.launchOrOpenStore(launchUri);
@@ -238,6 +257,12 @@ class ZkPassportFlowController {
     _ref.invalidate(zkPassportIsRegisteredProvider);
     _ref.invalidate(zkPassportRegistrationProvider);
   }
+
+  Future<void> setFacematchStrict(bool value) async {
+    final repo = _ref.read(zkPassportSettingsRepositoryProvider);
+    await repo.setFacematchStrict(value);
+    _ref.invalidate(zkPassportSettingsProvider);
+  }
 }
 
 class ZkPassportPipelineController
@@ -249,8 +274,7 @@ class ZkPassportPipelineController
       Duration(milliseconds: 100);
   static const Duration _serverStatusBurstWindow = Duration(seconds: 2);
   static const int _zkPassportOuterCount4SemanticPublicInputCount = 8;
-  static const int _zkPassportOuterCount4ScopedNullifierIndex =
-      _zkPassportOuterCount4SemanticPublicInputCount - 1;
+  static const int _zkPassportOuterCount5SemanticPublicInputCount = 9;
 
   ZkPassportPipelineController(this._ref)
       : super(ZkPassportPipelineState.idle()) {
@@ -326,11 +350,13 @@ class ZkPassportPipelineController
 
   Future<void> markLaunchStarted({
     required String requestId,
+    required bool facematchStrict,
   }) async {
     await _startupResetFuture;
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     final session = ZkPassportRuntimeSession(
       requestId: requestId,
+      facematchStrict: facematchStrict,
       phase: ZkPassportPipelinePhase.launching,
       createdAtMs: nowMs,
       lastProgressAtMs: nowMs,
@@ -437,6 +463,9 @@ class ZkPassportPipelineController
         : nowMs;
     final next = ZkPassportRuntimeSession(
       requestId: requestId,
+      facematchStrict: current != null && current.requestId == requestId
+          ? current.facematchStrict
+          : false,
       phase: phase,
       createdAtMs: createdAtMs,
       lastProgressAtMs: nowMs,
@@ -801,6 +830,7 @@ class ZkPassportPipelineController
 
       final outerProofPrefixedBytes =
           _ensurePrefixedBbHonkProofBlobBytes(outerProof);
+      final facematchStrict = _runtimeSession?.facematchStrict ?? false;
 
       if (requestId.isNotEmpty) {
         await _updateRuntimeSession(
@@ -818,6 +848,7 @@ class ZkPassportPipelineController
       );
       final verifyOuter = await rpc.zkpassportVerifyOuter(
         outerProof: outerProofPrefixedBytes,
+        facematchStrict: facematchStrict,
       );
       if (verifyOuter == null) {
         await _finalizeRuntimeSession(
@@ -851,8 +882,10 @@ class ZkPassportPipelineController
         return normalized.toLowerCase();
       }
 
-      final verifierNullifierHex =
-          _deriveNullifierHex(verifyOuter.publicInputsHex);
+      final verifierNullifierHex = _deriveNullifierHex(
+        verifyOuter.publicInputsHex,
+        facematchStrict: facematchStrict,
+      );
       final normalizedServerNullifierHex =
           normalizeServerNullifier(serverNullifierHex);
 
@@ -906,6 +939,7 @@ class ZkPassportPipelineController
       );
       final wrapOuter = await rpc.zkpassportWrapOuter(
         outerProof: outerProofPrefixedBytes,
+        facematchStrict: facematchStrict,
       );
       if (wrapOuter == null) {
         await _finalizeRuntimeSession(
@@ -953,6 +987,7 @@ class ZkPassportPipelineController
       );
       final verifyWrapped = await rpc.zkpassportVerifyWrapped(
         wrappedProof: _decodeB64UrlToBytes(wrappedProof),
+        facematchStrict: facematchStrict,
       );
       if (verifyWrapped == null) {
         await _finalizeRuntimeSession(
@@ -1060,26 +1095,33 @@ class ZkPassportPipelineController
     return out;
   }
 
-  String? _deriveNullifierHex(List<String>? publicInputsHex) {
+  String? _deriveNullifierHex(
+    List<String>? publicInputsHex, {
+    required bool facematchStrict,
+  }) {
     // Demo: surface a stable identifier to the user after a successful run.
     //
-    // The current integration is pinned to zkPassport `outer_count_4`.
     // zkPassport's packaged utility reports 8 semantic public inputs for
-    // `outer_count_4`, with the final two semantic fields being
+    // `outer_count_4` and 9 for `outer_count_5`, with the final two semantic fields being
     // `nullifier_type` and `scoped_nullifier`.
     //
     // `zkpassportVerifyOuter` returns the full recursive verifier public input
     // list, so recursive/default-IO fields appear after the semantic zkPassport
     // slice. Reading `inputs.last` therefore picks the wrong field; we want the
-    // final element of the 8-field semantic prefix.
+    // final element of the semantic zkPassport prefix selected by the explicit
+    // request mode that produced this proof.
     final inputs = publicInputsHex;
     if (inputs == null || inputs.isEmpty) {
       return null;
     }
-    if (inputs.length <= _zkPassportOuterCount4ScopedNullifierIndex) {
+    final semanticInputCount = facematchStrict
+        ? _zkPassportOuterCount5SemanticPublicInputCount
+        : _zkPassportOuterCount4SemanticPublicInputCount;
+    final scopedNullifierIndex = semanticInputCount - 1;
+    if (inputs.length <= scopedNullifierIndex) {
       return null;
     }
-    final raw = inputs[_zkPassportOuterCount4ScopedNullifierIndex].trim();
+    final raw = inputs[scopedNullifierIndex].trim();
     if (raw.isEmpty) {
       return null;
     }

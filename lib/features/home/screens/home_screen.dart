@@ -77,12 +77,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final index = ref.watch(currentHomeTabProvider);
     final isInternal = currentNetwork == 'internal';
 
-    final textTheme = theme.textTheme;
-    final dsTheme = ColorIsExpensiveTheme(textTheme).light().copyWith(
-          extensions: DesignSystemTheme.standardExtensions(
-            semanticColors: AppSemanticColors.light(),
-          ),
-        );
+    final semantic = theme.extension<AppSemanticColors>()!;
 
     return Scaffold(
       body: IndexedStack(
@@ -95,82 +90,81 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           BackgroundProductionSettingsScreen(),
         ],
       ),
-      bottomNavigationBar: Theme(
-        data: dsTheme,
-        child: Builder(
-          builder: (context) {
-            final semantic = Theme.of(context).extension<AppSemanticColors>()!;
-
-            final items = [
-              BottomNavItem(
-                icon: Symbols.cards_star_sharp,
-                label: l10n.navChallenges,
-                indicatorShape: NavIndicatorShape.circle,
-                indicatorColor: semantic.flash.color,
-                indicatorFillColor: semantic.flash.colorContainer,
-              ),
-              BottomNavItem(
-                icon: Symbols.account_balance_wallet_sharp,
-                label: l10n.navWallet,
-                indicatorShape: NavIndicatorShape.circle,
-                indicatorColor: semantic.flash.color,
-                indicatorFillColor: semantic.flash.colorContainer,
-              ),
-              BottomNavItem(
-                icon: Symbols.action_key_sharp,
-                label: l10n.navDapps,
-                indicatorShape: NavIndicatorShape.blob,
-                indicatorColor: semantic.community.color,
-                indicatorFillColor: semantic.community.colorContainer,
-              ),
-              BottomNavItem(
-                icon: Symbols.check_circle_sharp,
-                label: l10n.navNodeStatus,
-                indicatorShape: NavIndicatorShape.hexagon,
-                indicatorColor: semantic.technical.color,
-                indicatorFillColor: semantic.technical.colorContainer,
-              ),
-              BottomNavItem(
-                icon: Symbols.settings_sharp,
-                label: l10n.navSettings,
-                indicatorShape: NavIndicatorShape.hexagon,
-                indicatorColor: semantic.technical.color,
-                indicatorFillColor: semantic.technical.colorContainer,
-              ),
-            ];
-
-            Widget bottomNav = BottomNav(
-              items: items,
-              selectedIndex: index,
-              onItemSelected: (i) {
-                ref.read(currentHomeTabProvider.notifier).state = i;
-              },
-              topBorder: !isInternal,
-            );
-
-            if (isInternal) {
-              bottomNav = Container(
-                decoration: BoxDecoration(
-                  color: LegacyColors.getInternalNetworkBackgroundColor(
-                    isDark,
-                  ),
-                  border: Border(
-                    top: BorderSide(
-                      color: LegacyColors.getInternalNetworkBorderColor(
-                        isDark,
-                      ),
-                    ),
-                  ),
-                ),
-                child: bottomNav,
-              );
-            }
-
-            return bottomNav;
-          },
-        ),
+      bottomNavigationBar: _buildBottomNav(
+        l10n, semantic, index, isInternal, isDark,
       ),
     );
+  }
+
+  Widget _buildBottomNav(
+    AppLocalizations l10n,
+    AppSemanticColors semantic,
+    int index,
+    bool isInternal,
+    bool isDark,
+  ) {
+    final items = [
+      BottomNavItem(
+        icon: Symbols.cards_star_sharp,
+        label: l10n.navChallenges,
+        indicatorShape: NavIndicatorShape.circle,
+        indicatorColor: semantic.flash.color,
+        indicatorFillColor: semantic.flash.colorContainer,
+      ),
+      BottomNavItem(
+        icon: Symbols.account_balance_wallet_sharp,
+        label: l10n.navWallet,
+        indicatorShape: NavIndicatorShape.circle,
+        indicatorColor: semantic.flash.color,
+        indicatorFillColor: semantic.flash.colorContainer,
+      ),
+      BottomNavItem(
+        icon: Symbols.action_key_sharp,
+        label: l10n.navDapps,
+        indicatorShape: NavIndicatorShape.blob,
+        indicatorColor: semantic.community.color,
+        indicatorFillColor: semantic.community.colorContainer,
+      ),
+      BottomNavItem(
+        icon: Symbols.check_circle_sharp,
+        label: l10n.navNodeStatus,
+        indicatorShape: NavIndicatorShape.hexagon,
+        indicatorColor: semantic.technical.color,
+        indicatorFillColor: semantic.technical.colorContainer,
+      ),
+      BottomNavItem(
+        icon: Symbols.settings_sharp,
+        label: l10n.navSettings,
+        indicatorShape: NavIndicatorShape.hexagon,
+        indicatorColor: semantic.technical.color,
+        indicatorFillColor: semantic.technical.colorContainer,
+      ),
+    ];
+
+    Widget bottomNav = BottomNav(
+      items: items,
+      selectedIndex: index,
+      onItemSelected: (i) {
+        ref.read(currentHomeTabProvider.notifier).state = i;
+      },
+      topBorder: !isInternal,
+    );
+
+    if (isInternal) {
+      bottomNav = Container(
+        decoration: BoxDecoration(
+          color: LegacyColors.getInternalNetworkBackgroundColor(isDark),
+          border: Border(
+            top: BorderSide(
+              color: LegacyColors.getInternalNetworkBorderColor(isDark),
+            ),
+          ),
+        ),
+        child: bottomNav,
+      );
+    }
+
+    return bottomNav;
   }
 
   void _showPipelineStatus(ZkPassportPipelineState state) {

@@ -54,7 +54,9 @@ class ChipBarDelegate extends SliverPersistentHeaderDelegate {
       valueListenable: scrollFractionNotifier,
       builder: (context, scrollFraction, child) {
         final bgColor = Color.lerp(
-            colors.surface, colors.surfaceContainerLowest, scrollFraction)!;
+            colors.surfaceContainerLowest.withValues(alpha: 0),
+            colors.surfaceContainerLowest,
+            scrollFraction)!;
         final borderColor = colors.outlineVariant;
         final chipBorder = Color.lerp(
             borderColor.withValues(alpha: 0), borderColor, scrollFraction)!;

@@ -63,14 +63,6 @@ class ZkIdentityDetailScreen extends ConsumerWidget {
                 monospace: false,
                 onTap: null,
               ),
-              if (reg.facematchVerified != null)
-                (
-                  icon: Symbols.face_sharp,
-                  label: 'Face Match',
-                  value: reg.facematchVerified! ? 'Verified' : 'Not requested',
-                  monospace: false,
-                  onTap: null,
-                ),
               (
                 icon: Symbols.shield_sharp,
                 label: 'Privacy',

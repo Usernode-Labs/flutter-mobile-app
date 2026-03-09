@@ -27,8 +27,8 @@ class ChallengeDetailPage extends StatelessWidget {
     this.rewardCard,
     required this.sections,
     this.extraCard,
-    required this.totalRewardHeading,
-    required this.totalRewardBody,
+    this.totalRewardHeading,
+    this.totalRewardBody,
     this.onBackTap,
   });
 
@@ -52,10 +52,11 @@ class ChallengeDetailPage extends StatelessWidget {
   final Widget? extraCard;
 
   /// Heading for the total reward card, e.g. "Total Reward Up to 6,500 pts".
-  final String totalRewardHeading;
+  /// When null the total reward card is hidden.
+  final String? totalRewardHeading;
 
   /// Body text for the total reward card.
-  final String totalRewardBody;
+  final String? totalRewardBody;
 
   /// Called when the back button is tapped.
   final VoidCallback? onBackTap;
@@ -90,11 +91,13 @@ class ChallengeDetailPage extends StatelessWidget {
                     SizedBox(height: spacing.space16),
                     extraCard!,
                   ],
-                  SizedBox(height: spacing.space16),
-                  _TotalRewardCard(
-                    heading: totalRewardHeading,
-                    body: totalRewardBody,
-                  ),
+                  if (totalRewardHeading != null) ...[
+                    SizedBox(height: spacing.space16),
+                    _TotalRewardCard(
+                      heading: totalRewardHeading!,
+                      body: totalRewardBody ?? '',
+                    ),
+                  ],
                 ],
               ),
             ),

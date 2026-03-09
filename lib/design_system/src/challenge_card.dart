@@ -151,89 +151,93 @@ class _ChallengeCardState extends State<ChallengeCard>
       shape: RoundedRectangleBorder(
         borderRadius: borderRadius,
         side: BorderSide(
-          color: colors.onSurface.withValues(alpha: borders.opacity),
+          color: colors.outlineVariant,
           width: borders.width,
         ),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Content section
-          Padding(
-            padding: EdgeInsets.only(
-              top: spacing.space16,
-              bottom: spacing.space24,
-              left: spacing.space16,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              spacing: spacing.space8,
-              children: [
-                // Header row: date range | category + icon
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        widget.dateRange.toUpperCase(),
-                        style: textTheme.labelSmall?.copyWith(
-                          color: colors.onSurfaceVariant,
-                          letterSpacing: 0.28,
+      child: InkWell(
+        onTap: widget.onTap,
+        borderRadius: borderRadius,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Content section
+            Padding(
+              padding: EdgeInsets.only(
+                top: spacing.space16,
+                bottom: spacing.space24,
+                left: spacing.space16,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: spacing.space8,
+                children: [
+                  // Header row: date range | category + icon
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          widget.dateRange.toUpperCase(),
+                          style: textTheme.labelSmall?.copyWith(
+                            color: colors.onSurfaceVariant,
+                            letterSpacing: 0.28,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                    Padding(
-                      padding: EdgeInsets.only(right: spacing.space16),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            widget.category.name.toUpperCase(),
-                            style: textTheme.labelSmall?.copyWith(
-                              color: colors.onSurfaceVariant,
-                              letterSpacing: 0.28,
+                      Padding(
+                        padding: EdgeInsets.only(right: spacing.space16),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              widget.category.name.toUpperCase(),
+                              style: textTheme.labelSmall?.copyWith(
+                                color: colors.onSurfaceVariant,
+                                letterSpacing: 0.28,
+                              ),
                             ),
-                          ),
-                          SizedBox(width: spacing.space8),
-                          SizedBox(
-                            width: sizing.iconContainerRegular,
-                            height: sizing.iconContainerRegular,
-                            child: widget.categoryIcon,
-                          ),
-                        ],
+                            SizedBox(width: spacing.space8),
+                            SizedBox(
+                              width: sizing.iconContainerRegular,
+                              height: sizing.iconContainerRegular,
+                              child: widget.categoryIcon,
+                            ),
+                          ],
+                        ),
                       ),
+                    ],
+                  ),
+                  // Title
+                  Text(
+                    widget.title,
+                    style: textTheme.titleMedium?.copyWith(
+                      color: _contentColor(colors),
                     ),
-                  ],
-                ),
-                // Title
-                Text(
-                  widget.title,
-                  style: textTheme.titleMedium?.copyWith(
-                    color: _contentColor(colors),
                   ),
-                ),
-                // Description
-                Text(
-                  widget.description,
-                  style: textTheme.bodyMedium?.copyWith(
-                    color: _contentColor(colors),
+                  // Description
+                  Text(
+                    widget.description,
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: _contentColor(colors),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          // Reward bar
-          _buildRewardBar(
-            colors: colors,
-            textTheme: textTheme,
-            spacing: spacing,
-            sizing: sizing,
-            catColors: catColors,
-          ),
-        ],
+            // Reward bar
+            _buildRewardBar(
+              colors: colors,
+              textTheme: textTheme,
+              spacing: spacing,
+              sizing: sizing,
+              catColors: catColors,
+            ),
+          ],
+        ),
       ),
     );
 
@@ -247,11 +251,6 @@ class _ChallengeCardState extends State<ChallengeCard>
         borderRadius: radii.largeIncreased,
         child: card,
       );
-    }
-
-    // Tap handler
-    if (widget.onTap != null) {
-      card = GestureDetector(onTap: widget.onTap, child: card);
     }
 
     return card;
@@ -300,7 +299,7 @@ class _ChallengeCardState extends State<ChallengeCard>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      Symbols.check_circle_sharp,
+                      Symbols.trending_up_sharp,
                       size: sizing.iconSmall,
                       color: catColors.onColor,
                     ),

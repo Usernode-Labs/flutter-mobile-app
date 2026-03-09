@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -248,9 +247,9 @@ class _ScoreCircle extends StatelessWidget {
       final semantic = Theme.of(context).extension<AppSemanticColors>()!;
       return CustomPaint(
         painter: _GlowPainter(
-          communityColor: _neonify(semantic.community.color),
+          communityColor: _neonify(semantic.community.color, hueOverride: 120),
           flashColor: _neonify(semantic.flash.color),
-          technicalColor: _neonify(semantic.technical.color),
+          technicalColor: _neonify(semantic.technical.color, hueOverride: 230),
           intensity: isGlow ? glowIntensity.clamp(0.0, 1.0) : 0.0,
           technicalIntensity: technicalGlowIntensity,
           flashIntensity: flashGlowIntensity,
@@ -324,9 +323,9 @@ class _ScoreArcPainter extends CustomPainter {
 // _neonify — derive neon variant from semantic token
 // ---------------------------------------------------------------------------
 
-Color _neonify(Color base) {
+Color _neonify(Color base, {double? hueOverride}) {
   final hsl = HSLColor.fromColor(base);
-  return hsl.withSaturation(1.0).withLightness(0.55).toColor();
+  return HSLColor.fromAHSL(1, hueOverride ?? hsl.hue, 1.0, 0.55).toColor();
 }
 
 // ---------------------------------------------------------------------------
@@ -367,68 +366,13 @@ class _GlowPainter extends CustomPainter {
 
     final center = Offset(size.width / 2, size.height / 2);
 
-    // Oversized bounds so radial gradients can extend beyond the child widget.
-    final layerBounds = Rect.fromCenter(
-      center: center,
-      width: size.width + 600 * maxI,
-      height: size.height + 600 * maxI,
-    );
-
-    canvas.saveLayer(layerBounds, Paint());
-
-    // -- Layer 0: Sweep gradient base (angular continuity) --
-    // Cycles green→amber→blue→green with dwell zones for organic mesh feel.
-    // Each color zone uses its own per-lobe alpha.
-    final flashSweepAlpha = 0.45 * flashI;
-    final commSweepAlpha = 0.45 * commI;
-    final techSweepAlpha = 0.45 * techI;
-    final sweepRadius = 300 * maxI;
-    final sweepPaint = Paint()
-      ..blendMode = BlendMode.srcOver
-      ..shader = ui.Gradient.sweep(
-        center,
-        [
-          flashColor.withValues(alpha: flashSweepAlpha),
-          flashColor.withValues(alpha: flashSweepAlpha),
-          communityColor.withValues(alpha: commSweepAlpha),
-          communityColor.withValues(alpha: commSweepAlpha),
-          technicalColor.withValues(alpha: techSweepAlpha),
-          technicalColor.withValues(alpha: techSweepAlpha),
-          flashColor.withValues(alpha: flashSweepAlpha),
-        ],
-        [0.0, 0.083, 0.333, 0.417, 0.667, 0.750, 1.0],
-        TileMode.clamp,
-        0.0,
-        math.pi * 2,
-        _rotationMatrix(center, math.pi / 2),
-      );
-    canvas.drawCircle(center, sweepRadius, sweepPaint);
-
-    // -- Layer 1: Radial fade mask (dstIn) --
-    final maskRadius = 330 * maxI;
-    final maskPaint = Paint()
-      ..blendMode = BlendMode.dstIn
-      ..shader = ui.Gradient.radial(
-        center,
-        maskRadius,
-        [
-          const Color.fromRGBO(255, 255, 255, 1.0),
-          const Color.fromRGBO(255, 255, 255, 0.75),
-          const Color.fromRGBO(255, 255, 255, 0.40),
-          const Color.fromRGBO(255, 255, 255, 0.10),
-          const Color.fromRGBO(255, 255, 255, 0.0),
-        ],
-        [0.0, 0.30, 0.60, 0.85, 1.0],
-      );
-    canvas.drawCircle(center, maskRadius, maskPaint);
-
-    // -- Layer 2: Three offset radial lobes (organic asymmetry) --
+    // -- Three offset radial lobes (organic asymmetry) --
     _drawLobe(
       canvas,
       center + Offset(-130 * commI, -75 * commI),
       communityColor,
       220,
-      0.35,
+      0.50,
       commI,
     );
     _drawLobe(
@@ -436,7 +380,7 @@ class _GlowPainter extends CustomPainter {
       center + Offset(0, 150 * flashI),
       flashColor,
       220,
-      0.35,
+      0.50,
       flashI,
     );
     _drawLobe(
@@ -444,11 +388,11 @@ class _GlowPainter extends CustomPainter {
       center + Offset(130 * techI, -75 * techI),
       technicalColor,
       220,
-      0.35,
+      0.50,
       techI,
     );
 
-    // -- Layer 3: Center white lift (subtle luminance boost) --
+    // -- Center white lift (subtle luminance boost) --
     final liftRadius = 100 * maxI;
     final liftAlpha = 0.12 * maxI;
     final liftPaint = Paint()
@@ -463,22 +407,6 @@ class _GlowPainter extends CustomPainter {
         [0.0, 1.0],
       );
     canvas.drawCircle(center, liftRadius, liftPaint);
-
-    canvas.restore();
-  }
-
-  /// Rotation matrix for sweep gradient alignment.
-  Float64List _rotationMatrix(Offset center, double radians) {
-    final cos = math.cos(radians);
-    final sin = math.sin(radians);
-    final tx = center.dx - cos * center.dx + sin * center.dy;
-    final ty = center.dy - sin * center.dx - cos * center.dy;
-    return Float64List.fromList([
-      cos, sin, 0, 0, // column 0
-      -sin, cos, 0, 0, // column 1
-      0, 0, 1, 0, // column 2
-      tx, ty, 0, 1, // column 3
-    ]);
   }
 
   /// Draws a single radial lobe with 6-stop Gaussian falloff.

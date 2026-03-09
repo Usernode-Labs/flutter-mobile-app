@@ -352,9 +352,12 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
       }
 
       // Section-gap token (space24) in horizontal positions.
+      // Exempt: SliverPadding(padding: symmetric(horizontal: space24)) is
+      // the correct PSL surface body inset pattern.
       if (token == sectionGapToken) {
         if (_isHorizontalParam(
-            paramName, constructorName, arg, args.arguments)) {
+                paramName, constructorName, arg, args.arguments) &&
+            !_isSliverPaddingAncestor(node)) {
           _report(
             node,
             'matryoshka_section_gap_horizontal',
@@ -380,6 +383,27 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
     // legitimate for K₂ keyline alignment and balanced padding.
     if (constructorName == 'symmetric') {
       return paramName == 'horizontal';
+    }
+    return false;
+  }
+
+  /// Returns true when the EdgeInsets is a `padding:` argument of
+  /// `SliverPadding` — the correct PSL surface body inset pattern.
+  bool _isSliverPaddingAncestor(AstNode node) {
+    // Walk: EdgeInsets → NamedExpression(padding:) → ArgumentList →
+    //       InstanceCreationExpression or MethodInvocation (SliverPadding)
+    var current = node.parent;
+    // Skip NamedExpression wrapper
+    if (current is NamedExpression) current = current.parent;
+    // Skip ArgumentList
+    if (current is ArgumentList) current = current.parent;
+    // const/new SliverPadding(...)
+    if (current is InstanceCreationExpression) {
+      return current.constructorName.type.name2.lexeme == 'SliverPadding';
+    }
+    // SliverPadding(...) without const/new — parsed as MethodInvocation
+    if (current is MethodInvocation && current.target == null) {
+      return current.methodName.name == 'SliverPadding';
     }
     return false;
   }

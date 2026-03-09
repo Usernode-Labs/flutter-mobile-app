@@ -146,12 +146,12 @@ void main() {
         ),
       ));
 
-      // Find the outermost Container (the card background)
+      // Find the outermost DecoratedBox (the card background)
       final semantic = AppSemanticColors.light();
-      final container = tester.widget<Container>(
-        find.byType(Container).first,
+      final box = tester.widget<DecoratedBox>(
+        find.byType(DecoratedBox).first,
       );
-      final decoration = container.decoration! as BoxDecoration;
+      final decoration = box.decoration as BoxDecoration;
       expect(decoration.color, equals(semantic.technical.color));
     });
 

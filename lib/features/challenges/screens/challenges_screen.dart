@@ -65,16 +65,6 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
     super.dispose();
   }
 
-  bool _onScroll(ScrollNotification notification) {
-    if (notification.depth != 0) return false;
-    final fraction =
-        (notification.metrics.pixels / kScreenHeaderHeight).clamp(0.0, 1.0);
-    if (fraction != _scrollFraction.value) {
-      _scrollFraction.value = fraction;
-    }
-    return false;
-  }
-
   void _onRefreshStatusChange(RefreshIndicatorStatus? status) {
     final feedback = PullFeedback.fromStatus(status);
     if (feedback.scale != _pullFeedback.value.scale ||
@@ -102,6 +92,20 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
     ref.watch(leaderboardBootstrapProvider);
 
     return _buildBody(context);
+  }
+
+  /// Custom refresh predicate for NestedScrollView: accepts outer scroll
+  /// (depth 0) unconditionally and inner overscroll at the top edge (Android).
+  bool _challengesRefreshPredicate(ScrollNotification notification) {
+    if (notification.depth == 0) return true;
+    // On Android (ClampingScrollPhysics) NestedScrollView dispatches
+    // overscroll from the inner body at depth > 0. Accept it only when
+    // at the top edge so normal inner-list scroll-up doesn't false-trigger.
+    if (notification is OverscrollNotification &&
+        notification.metrics.pixels <= 0.0) {
+      return true;
+    }
+    return false;
   }
 
   Widget _buildBody(BuildContext context) {
@@ -132,151 +136,106 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
       categorized.missed.length,
     ];
 
-    final colors = Theme.of(context).colorScheme;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
     final safeTop = MediaQuery.of(context).padding.top;
 
     return Scaffold(
-      body: ColoredBox(
-        color: colors.surface,
-        child: Stack(
-          alignment: Alignment.topCenter,
+      body: ParallaxSurfaceLayout(
+        headerHeight: kScreenHeaderHeight,
+        scrollFractionNotifier: _scrollFraction,
+        onRefresh: _onRefresh,
+        onRefreshStatusChange: _onRefreshStatusChange,
+        refreshNotificationPredicate: _challengesRefreshPredicate,
+        pinnedHeaderSlivers: [
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: ChipBarDelegate(
+              topPadding: safeTop,
+              spacing: spacing,
+              scrollFractionNotifier: _scrollFraction,
+              onSeasonTap: () => showSeasonPicker(context, ref),
+              onEventTap: () => showEventPicker(context, ref),
+              seasonLabel: seasonLabel(context, ref),
+              eventLabel: eventLabel(context, ref),
+            ),
+          ),
+        ],
+        pinnedHeadersHeight:
+            safeTop + spacing.space8 + kChipHeight + spacing.space8,
+        header: _buildHeaderWithPullFeedback(breakdown, ranking, spacing),
+        headerOverlay: _buildCtaOverlay(spacing),
+        surfacePinnedSlivers: [
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: SurfaceTabBarDelegate(
+              tabController: _tabController,
+              scrollFractionNotifier: _scrollFraction,
+              badgeCounts: badgeCounts,
+            ),
+          ),
+        ],
+        surfacePinnedHeight: 8.0 + kTabBarHeight,
+        nestedBody: TabBarView(
+          physics: const NeverScrollableScrollPhysics(),
+          controller: _tabController,
           children: [
-            // Layer 1 — parallax ScoreHeader behind scroll surface
-            ValueListenableBuilder<double>(
-              valueListenable: _scrollFraction,
-              builder: (context, sf, pullAndGlow) {
-                return ValueListenableBuilder<PullFeedback>(
-                  valueListenable: _pullFeedback,
-                  builder: (context, pf, scoreHeader) {
-                    return Transform.translate(
-                      offset: Offset(
-                        0,
-                        -sf * kScreenHeaderHeight * kParallaxRatio + pf.offset,
-                      ),
-                      child: Padding(
-                        padding: EdgeInsets.only(
-                          top: safeTop +
-                              spacing.space8 +
-                              kChipHeight +
-                              spacing.space8,
-                          left: spacing.space16,
-                          right: spacing.space16,
-                        ),
-                        child: AnimatedScale(
-                          scale: pf.scale,
-                          duration: const Duration(milliseconds: 200),
-                          curve: Curves.easeInOut,
-                          child: scoreHeader,
-                        ),
-                      ),
-                    );
-                  },
-                  child: pullAndGlow,
-                );
-              },
-              child: ValueListenableBuilder<GlowValues>(
-                valueListenable: _heartbeat.glowValues,
-                builder: (context, glow, _) {
-                  return _buildScoreHeader(breakdown, ranking, glow);
-                },
-              ),
-            ),
-
-            // Layer 2 — scrolling surface
-            NotificationListener<ScrollNotification>(
-              onNotification: _onScroll,
-              child: RefreshIndicator.noSpinner(
-                notificationPredicate: (notification) {
-                  // Accept outer scroll (depth 0) unconditionally.
-                  if (notification.depth == 0) return true;
-                  // On Android (ClampingScrollPhysics) NestedScrollView
-                  // dispatches overscroll from the inner body at depth > 0.
-                  // Accept it only when at the top edge so normal inner-
-                  // list scroll-up doesn't false-trigger.
-                  if (notification is OverscrollNotification &&
-                      notification.metrics.pixels <= 0.0) {
-                    return true;
-                  }
-                  return false;
-                },
-                onRefresh: _onRefresh,
-                onStatusChange: _onRefreshStatusChange,
-                child: NestedScrollView(
-                  headerSliverBuilder: (context, innerBoxIsScrolled) {
-                    return [
-                      // Pinned chip bar
-                      SliverPersistentHeader(
-                        pinned: true,
-                        delegate: ChipBarDelegate(
-                          topPadding: safeTop,
-                          spacing: spacing,
-                          scrollFractionNotifier: _scrollFraction,
-                          onSeasonTap: () => showSeasonPicker(context, ref),
-                          onEventTap: () => showEventPicker(context, ref),
-                          seasonLabel: seasonLabel(context, ref),
-                          eventLabel: eventLabel(context, ref),
-                        ),
-                      ),
-                      // Transparent spacer revealing ScoreHeader.
-                      // The CTA button is rendered visually by ScoreHeader
-                      // in Layer 1, but that layer sits behind the scroll
-                      // surface and can't receive taps. This invisible tap
-                      // target overlays the button's position so taps land
-                      // in Layer 2 directly.
-                      SliverToBoxAdapter(
-                        child: SizedBox(
-                          height: kScreenHeaderHeight,
-                          child: Align(
-                            alignment: Alignment.bottomCenter,
-                            child: Padding(
-                              padding: EdgeInsets.only(bottom: spacing.space24),
-                              child: GestureDetector(
-                                behavior: HitTestBehavior.translucent,
-                                onTap: () =>
-                                    context.push(AppRoutes.leaderboard),
-                                child: SizedBox(
-                                    width: 200, height: spacing.space48),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      // Pinned surface tab bar
-                      SliverPersistentHeader(
-                        pinned: true,
-                        delegate: SurfaceTabBarDelegate(
-                          tabController: _tabController,
-                          scrollFractionNotifier: _scrollFraction,
-                          badgeCounts: badgeCounts,
-                        ),
-                      ),
-                    ];
-                  },
-                  body: ColoredBox(
-                    color: colors.surfaceContainerLowest,
-                    child: TabBarView(
-                      physics: const NeverScrollableScrollPhysics(),
-                      controller: _tabController,
-                      children: [
-                        _buildActiveTabContent(
-                            categorized.active, categorized, spacing,
-                            isLoading: isLoading),
-                        _buildEnrichedChallengeList(
-                            categorized.completed,
-                            spacing,
-                            AppLocalizations.of(context).challengeNoCompleted,
-                            isLoading: isLoading),
-                        _buildEnrichedChallengeList(categorized.missed, spacing,
-                            AppLocalizations.of(context).challengeNoMissed,
-                            isLoading: isLoading),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
+            _buildActiveTabContent(categorized.active, categorized, spacing,
+                isLoading: isLoading),
+            _buildEnrichedChallengeList(categorized.completed, spacing,
+                AppLocalizations.of(context).challengeNoCompleted,
+                isLoading: isLoading),
+            _buildEnrichedChallengeList(categorized.missed, spacing,
+                AppLocalizations.of(context).challengeNoMissed,
+                isLoading: isLoading),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// Header with PullFeedback scale animation and heartbeat glow.
+  Widget _buildHeaderWithPullFeedback(
+    BreakdownResult? breakdown,
+    RankingResult? ranking,
+    AppSpacing spacing,
+  ) {
+    return ValueListenableBuilder<PullFeedback>(
+      valueListenable: _pullFeedback,
+      builder: (context, pf, child) {
+        return Padding(
+          padding: EdgeInsets.only(
+            top: pf.offset,
+            left: spacing.space16,
+            right: spacing.space16,
+          ),
+          child: AnimatedScale(
+            scale: pf.scale,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            child: child,
+          ),
+        );
+      },
+      child: ValueListenableBuilder<GlowValues>(
+        valueListenable: _heartbeat.glowValues,
+        builder: (context, glow, _) {
+          return _buildScoreHeader(breakdown, ranking, glow);
+        },
+      ),
+    );
+  }
+
+  /// CTA button overlay — rendered in PSL Layer 3 above the scroll surface.
+  /// Uses opaque hit testing so the childless SizedBox accepts taps.
+  Widget _buildCtaOverlay(AppSpacing spacing) {
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: spacing.space24),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => context.push(AppRoutes.leaderboard),
+          child: SizedBox(width: 200, height: spacing.space48),
         ),
       ),
     );
@@ -285,7 +244,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
   // -- ScoreHeader -----------------------------------------------------------
 
   /// Current variant for the score header. Will be dynamic when glow is earned.
-  ScoreHeaderVariant get _scoreVariant => ScoreHeaderVariant.standard;
+  ScoreHeaderVariant get _scoreVariant => ScoreHeaderVariant.glow;
 
   /// Resolves the selected season from provider state. Returns null when
   /// seasons data isn't loaded or the selected season can't be found.
@@ -463,7 +422,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
       addRepaintBoundaries: false,
       padding: EdgeInsets.all(spacing.space16),
       itemCount: challenges.length,
-      separatorBuilder: (_, __) => SizedBox(height: spacing.space12),
+      separatorBuilder: (_, __) => SizedBox(height: spacing.space8),
       itemBuilder: (context, index) => RepaintBoundary(
         key: ValueKey(challenges[index].dto.id),
         child: _buildEnrichedChallengeCard(challenges[index]),

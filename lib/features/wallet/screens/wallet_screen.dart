@@ -96,7 +96,6 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     final l10n = AppLocalizations.of(context);
     final walletState = ref.watch(walletProvider);
     final nodeStatus = ref.watch(nodeStatusProvider);
-
     final isEmpty = walletState.valueOrNull?.recent.isEmpty ?? false;
 
     final safeTop = MediaQuery.of(context).padding.top;
@@ -107,23 +106,24 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
         headerHeight: kScreenHeaderHeight,
         onRefresh: _onRefresh,
         scrollFractionNotifier: _scrollFraction,
-        surfaceFillsViewport: isEmpty,
-        pinnedHeaderHeight: pinnedHeight,
-        pinnedHeaderSliver: SliverPersistentHeader(
-          pinned: true,
-          delegate: AddressBarDelegate(
-            topPadding: safeTop,
-            spacing: spacing,
-            scrollFractionNotifier: _scrollFraction,
-            address: _address,
-            onCopy: () {
-              Clipboard.setData(ClipboardData(text: _address));
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(l10n.walletAddressCopied)),
-              );
-            },
-          ),
-        ),
+        pinnedHeadersHeight: pinnedHeight,
+        pinnedHeaderSlivers: [
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: AddressBarDelegate(
+              topPadding: safeTop,
+              spacing: spacing,
+              scrollFractionNotifier: _scrollFraction,
+              address: _address,
+              onCopy: () {
+                Clipboard.setData(ClipboardData(text: _address));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(l10n.walletAddressCopied)),
+                );
+              },
+            ),
+          )
+        ],
         header: Padding(
           padding: EdgeInsets.only(top: spacing.space32),
           child: _BalanceSection(
@@ -132,36 +132,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             l10n: l10n,
           ),
         ),
-        surfaceBody: isEmpty
-            ? EmptyState(
-                title: l10n.walletNoRecentActivity,
-                subtitle: l10n.walletNoRecentActivitySubtitle,
-                action: Button(
-                  variant: ButtonVariant.primary,
-                  label: l10n.walletEmptyStateSendAction,
-                  onTap: () => context.push(AppRoutes.walletSend),
-                ),
-              )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      spacing.space16,
-                      spacing.space16,
-                      spacing.space16,
-                      spacing.space8,
-                    ),
-                    child: Text(
-                      l10n.walletRecentActivity,
-                      style: theme.textTheme.titleMedium,
-                    ),
-                  ),
-                  _buildCachedDataBanner(walletState, theme, spacing),
-                  _buildTransactionContent(walletState, l10n, spacing),
-                  SizedBox(height: spacing.space32),
-                ],
-              ),
+        surfaceSlivers: _buildSurfaceSlivers(walletState, l10n, theme, spacing),
       ),
       floatingActionButton: isEmpty
           ? null
@@ -193,37 +164,34 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
           final sizing = theme.extension<AppSizing>()!;
           final radii = theme.extension<AppRadii>()!;
 
-          return Padding(
-            padding: EdgeInsets.symmetric(horizontal: spacing.space16),
-            child: Container(
-              margin: EdgeInsets.only(bottom: spacing.space8),
-              padding: EdgeInsets.symmetric(
-                horizontal: spacing.space12,
-                vertical: spacing.space8,
-              ),
-              decoration: BoxDecoration(
-                color: semantic.warning.colorContainer,
-                borderRadius: radii.borderRadiusSmall,
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Symbols.warning_amber_sharp,
-                    color: semantic.warning.color,
-                    size: sizing.iconXSmall,
-                  ),
-                  SizedBox(width: spacing.space8),
-                  Expanded(
-                    child: Text(
-                      AppLocalizations.of(context).walletExplorerUnavailable,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: semantic.warning.color,
-                        fontWeight: FontWeight.w500,
-                      ),
+          return Container(
+            margin: EdgeInsets.only(bottom: spacing.space8),
+            padding: EdgeInsets.symmetric(
+              horizontal: spacing.space12,
+              vertical: spacing.space8,
+            ),
+            decoration: BoxDecoration(
+              color: semantic.warning.colorContainer,
+              borderRadius: radii.borderRadiusSmall,
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Symbols.warning_amber_sharp,
+                  color: semantic.warning.color,
+                  size: sizing.iconXSmall,
+                ),
+                SizedBox(width: spacing.space8),
+                Expanded(
+                  child: Text(
+                    AppLocalizations.of(context).walletExplorerUnavailable,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: semantic.warning.color,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           );
         }
@@ -234,37 +202,79 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     );
   }
 
-  Widget _buildTransactionContent(
-      AsyncValue walletState, AppLocalizations l10n, AppSpacing spacing) {
-    return walletState.when(
-      data: (state) {
-        if (state.recent.isEmpty) {
-          return Padding(
-            padding: EdgeInsets.symmetric(
-              vertical: spacing.space48,
+  List<Widget> _buildSurfaceSlivers(
+    AsyncValue walletState,
+    AppLocalizations l10n,
+    ThemeData theme,
+    AppSpacing spacing,
+  ) {
+    return [
+      SliverPadding(
+        padding: EdgeInsets.symmetric(horizontal: spacing.space24),
+        sliver: SliverToBoxAdapter(
+          child: SizedBox(
+            height: theme.extension<AppSizing>()!.iconContainerRegular,
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: Text(
+                l10n.walletRecentActivity,
+                style: theme.textTheme.titleMedium,
+              ),
             ),
-            child: EmptyState(
-              icon: Symbols.receipt_long_sharp,
-              title: l10n.walletNoRecentActivity,
-              subtitle: l10n.walletNoRecentActivitySubtitle,
-            ),
-          );
-        }
-        return Column(
-          children: [
-            for (final tx in state.recent) _TransactionTile(tx),
-          ],
-        );
-      },
-      loading: () => ShimmerHost(
-        child: Column(
-          children: List.generate(4, (_) => const ShimmerListTile()),
+          ),
         ),
       ),
-      error: (_, __) => FullPageErrorState(
-        message: l10n.walletTransactionsError,
+      SliverPadding(
+        padding: EdgeInsets.symmetric(horizontal: spacing.space24),
+        sliver: SliverToBoxAdapter(
+          child: _buildCachedDataBanner(walletState, theme, spacing),
+        ),
       ),
-    );
+      ...walletState.when(
+        loading: () => [
+          SliverToBoxAdapter(
+            child: ShimmerHost(
+              child: Column(
+                children: List.generate(4, (_) => const ShimmerListTile()),
+              ),
+            ),
+          ),
+        ],
+        error: (_, __) => [
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: FullPageErrorState(
+              message: l10n.walletTransactionsError,
+            ),
+          ),
+        ],
+        data: (state) {
+          if (state.recent.isEmpty) {
+            return [
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: EmptyState(
+                  title: l10n.walletNoRecentActivity,
+                  subtitle: l10n.walletNoRecentActivitySubtitle,
+                  action: Button(
+                    variant: ButtonVariant.primary,
+                    label: l10n.walletEmptyStateSendAction,
+                    onTap: () => context.push(AppRoutes.walletSend),
+                  ),
+                ),
+              ),
+            ];
+          }
+          return [
+            SliverList.builder(
+              itemCount: state.recent.length,
+              itemBuilder: (_, index) => _TransactionTile(state.recent[index]),
+            ),
+            SliverToBoxAdapter(child: SizedBox(height: spacing.space32)),
+          ];
+        },
+      ),
+    ];
   }
 }
 

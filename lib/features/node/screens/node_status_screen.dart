@@ -12,7 +12,6 @@ import 'package:crypto_mobile_app/core/utils/utils.dart';
 import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:crypto_mobile_app/core/widgets/app_progress_bar.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
-import 'package:crypto_mobile_app/features/wallet/screens/wallet_delegates.dart';
 import 'package:crypto_mobile_app/core/providers/node_data_providers.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/providers/epoch_rewards_provider.dart';
@@ -34,11 +33,12 @@ class NodeStatusScreen extends ConsumerStatefulWidget {
 }
 
 class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
+  final _scrollFraction = ValueNotifier<double>(0.0);
+
   // State flags
   bool _refreshing = false;
   String? _error;
   bool _active = true;
-  bool _isRecentBlocksExpanded = false;
 
   // Cached data
   List<RpcPeerInfo> _peers = const [];
@@ -81,6 +81,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
 
   @override
   void dispose() {
+    _scrollFraction.dispose();
     _autoTimer?.cancel();
     super.dispose();
   }
@@ -231,35 +232,27 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
 
-    final safeTop = MediaQuery.of(context).padding.top;
-    final hasRecentBlocks =
-        ref.read(nodeBlockchainProvider).value?.items.isNotEmpty ?? false;
-
-    final pinnedHeight =
-        safeTop + spacing.space8 + kAddressBarHeight + spacing.space8;
-
     return Scaffold(
       drawer: const AppDrawer(),
       body: ParallaxSurfaceLayout(
         headerHeight: kScreenHeaderHeight,
-        pinnedHeaderHeight: pinnedHeight,
-        pinnedHeaderSliver: SliverToBoxAdapter(
-          child: SizedBox(height: pinnedHeight),
-        ),
+        scrollFractionNotifier: _scrollFraction,
         onRefresh: _refresh,
         header: _buildCentralStatusIndicator(context),
-        surfaceBody: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (_error != null) _buildErrorSection(theme, colorScheme, l10n),
-            _buildBlockSyncProgressSection(context),
-            SizedBox(height: spacing.space24),
-            _buildSyncDetailsSection(context),
-            if (hasRecentBlocks) SizedBox(height: spacing.space8),
-            _buildRecentBlocksSection(context),
-            SizedBox(height: spacing.space32),
-          ],
-        ),
+        surfaceSlivers: [
+          if (_error != null)
+            SliverToBoxAdapter(
+                child: _buildErrorSection(theme, colorScheme, l10n)),
+          SliverPadding(
+            padding: EdgeInsets.symmetric(horizontal: spacing.space24),
+            sliver: SliverToBoxAdapter(
+                child: _buildBlockSyncProgressSection(context)),
+          ),
+          SliverToBoxAdapter(child: _buildSyncDetailsSection(context)),
+          SliverToBoxAdapter(child: SizedBox(height: spacing.space16)),
+          SliverToBoxAdapter(child: _buildRecentBlocksSection(context)),
+          SliverToBoxAdapter(child: SizedBox(height: spacing.space32)),
+        ],
       ),
     );
   }
@@ -444,31 +437,35 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
                 l10n.nodeSyncingBlocks,
               );
 
+    final sizing = theme.extension<AppSizing>()!;
+
     return Padding(
-      padding: EdgeInsets.all(spacing.space24),
+      padding: EdgeInsets.only(bottom: spacing.space16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                sync?.isConnecting == true || sync == null
-                    ? displayText
-                    : displayText == l10n.nodeLoadedGenesis
-                        ? displayText
-                        : '$displayText $displayCurrentBlocks/$displayTotalBlocks',
-                style: theme.textTheme.titleMedium,
-              ),
-              Text(
-                '$progressPercent%',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+          SizedBox(
+            height: sizing.iconContainerRegular, // 48px content slot
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  sync?.isConnecting == true || sync == null
+                      ? displayText
+                      : displayText == l10n.nodeLoadedGenesis
+                          ? displayText
+                          : '$displayText $displayCurrentBlocks/$displayTotalBlocks',
+                  style: theme.textTheme.titleMedium,
                 ),
-              ),
-            ],
+                Text(
+                  '$progressPercent%',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
           ),
-          SizedBox(height: spacing.space12),
           AppProgressBar(
             value: mainProgress,
             backgroundColor: colorScheme.surfaceContainerHighest,
@@ -559,12 +556,12 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
           onTap: () => context.push(AppRoutes.mainNodeMempool),
         ),
 
-        SizedBox(height: spacing.space4),
+        SizedBox(height: spacing.space16),
 
         // --- Reference/status data ---
         Card(
           elevation: 0,
-          margin: EdgeInsets.symmetric(horizontal: spacing.space16),
+          margin: EdgeInsets.symmetric(horizontal: spacing.space24),
           shape: RoundedRectangleBorder(
             borderRadius: radii.borderRadiusLarge,
             side: BorderSide(color: colorScheme.outlineVariant),
@@ -610,89 +607,35 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     );
   }
 
-  Widget _buildDiaryCard({
-    required BuildContext context,
-    required List<Widget> children,
-  }) {
+  Widget _buildRecentBlocksSection(BuildContext context) {
     final theme = Theme.of(context);
     final spacing = theme.extension<AppSpacing>()!;
     final radii = theme.extension<AppRadii>()!;
     final colorScheme = theme.colorScheme;
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: spacing.space16),
-      padding: EdgeInsets.symmetric(
-          horizontal: spacing.space16, vertical: spacing.space12),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLowest,
-        borderRadius: radii.borderRadiusLargeIncreased,
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: children,
-      ),
-    );
-  }
+    final l10n = AppLocalizations.of(context);
 
-  Widget _buildRecentBlocksSection(BuildContext context) {
-    final theme = Theme.of(context);
-    final spacing = theme.extension<AppSpacing>()!;
-    final sizing = theme.extension<AppSizing>()!;
-    final colorScheme = theme.colorScheme;
-
-    return _buildDiaryCard(
-      context: context,
-      children: [
-        InkWell(
-          onTap: () => setState(
-              () => _isRecentBlocksExpanded = !_isRecentBlocksExpanded),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  AppLocalizations.of(context).nodeRecentBlocks,
-                  style: theme.textTheme.bodyLarge,
-                ),
-              ),
-              if (!_isRecentBlocksExpanded)
-                TextButton(
-                  onPressed: () =>
-                      context.push(AppRoutes.nodeStatusProducedBlocks),
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.symmetric(
-                        horizontal: spacing.space8, vertical: spacing.space4),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        AppLocalizations.of(context).nodeViewAll,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.primary,
-                        ),
-                      ),
-                      SizedBox(width: spacing.space4),
-                      Icon(Symbols.arrow_forward_sharp,
-                          size: sizing.iconXSmall, color: colorScheme.primary),
-                    ],
-                  ),
-                ),
-              Icon(
-                _isRecentBlocksExpanded
-                    ? Symbols.expand_less_sharp
-                    : Symbols.expand_more_sharp,
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ],
-          ),
-        ),
-        if (_isRecentBlocksExpanded) ...[
-          SizedBox(height: spacing.space12),
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.symmetric(horizontal: spacing.space24),
+      shape: RoundedRectangleBorder(
+        borderRadius: radii.borderRadiusLarge,
+        side: BorderSide(color: colorScheme.outlineVariant),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: ExpansionTile(
+        shape: const Border(),
+        collapsedShape: const Border(),
+        childrenPadding: EdgeInsets.zero,
+        title: Text(l10n.nodeRecentBlocks),
+        children: [
           _buildProducedBlocksTab(context),
+          ListTile(
+            title: Text(l10n.nodeViewAll),
+            trailing: const Icon(Symbols.arrow_forward_sharp),
+            onTap: () => context.push(AppRoutes.nodeStatusProducedBlocks),
+          ),
         ],
-      ],
+      ),
     );
   }
 

@@ -41,6 +41,7 @@ final textTheme = Theme.of(context).textTheme;                // typography
 | `docs/LAYOUT.md` | Screen anatomy, spacing roles, scroll patterns |
 | `docs/TYPOGRAPHY.md` | Display Mono rule and type scale usage |
 | `docs/DECISIONS.md` | Design decisions organized by topic |
+| `docs/AGENT_ARCHITECTURE.md` | Agent-POV Mermaid diagrams of the harness |
 
 ## Widget Catalog
 

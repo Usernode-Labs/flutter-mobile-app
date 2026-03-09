@@ -57,8 +57,7 @@ class ChipBarDelegate extends SliverPersistentHeaderDelegate {
             colors.surfaceContainerLowest.withValues(alpha: 0),
             colors.surfaceContainerLowest,
             scrollFraction)!;
-        final borders = Theme.of(context).extension<AppBorders>()!;
-        final borderColor = colors.onSurface.withValues(alpha: borders.opacity);
+        final borderColor = colors.outlineVariant;
         final chipBorder = Color.lerp(
             borderColor.withValues(alpha: 0), borderColor, scrollFraction)!;
 

@@ -337,11 +337,21 @@ class _ParallaxSurfaceLayoutState extends State<ParallaxSurfaceLayout> {
   /// header, but rendered above the scroll surface so taps land naturally.
   /// Uses [HitTestBehavior.deferToChild] so scroll gestures pass through
   /// non-interactive areas.
+  ///
+  /// Hit-test gating: once the surface scrolls over the overlay (`sf > 0`),
+  /// [IgnorePointer] disables hit-testing so surface content receives taps.
   Widget _buildHeaderOverlayLayer() {
-    return _buildParallaxLayer(
-      SizedBox(
-        height: widget.headerHeight,
-        child: widget.headerOverlay,
+    return ValueListenableBuilder<double>(
+      valueListenable: _effectiveNotifier,
+      builder: (context, sf, child) => IgnorePointer(
+        ignoring: sf > 0.0,
+        child: child,
+      ),
+      child: _buildParallaxLayer(
+        SizedBox(
+          height: widget.headerHeight,
+          child: widget.headerOverlay,
+        ),
       ),
     );
   }

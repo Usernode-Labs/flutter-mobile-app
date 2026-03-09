@@ -453,6 +453,41 @@ void main() {
       expect(find.text('Header'), findsOneWidget);
     });
 
+    testWidgets('headerOverlay IgnorePointer activates after scroll',
+        (tester) async {
+      await tester.pumpWidget(wrapLayout(
+        ParallaxSurfaceLayout(
+          header: const SizedBox(height: 200),
+          headerHeight: 200,
+          surfaceSlivers: [
+            SliverList.list(
+              children: List.generate(
+                20,
+                (i) => SizedBox(height: 60, key: ValueKey('item_$i')),
+              ),
+            ),
+          ],
+          headerOverlay: const Text('CTA'),
+        ),
+      ));
+
+      // Before scroll: IgnorePointer should not be ignoring.
+      final ipFinder = find.ancestor(
+        of: find.text('CTA'),
+        matching: find.byType(IgnorePointer),
+      );
+      var ip = tester.widget<IgnorePointer>(ipFinder.first);
+      expect(ip.ignoring, isFalse);
+
+      // Scroll down so surface covers the overlay.
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -100));
+      await tester.pumpAndSettle();
+
+      // After scroll: IgnorePointer should be ignoring.
+      ip = tester.widget<IgnorePointer>(ipFinder.first);
+      expect(ip.ignoring, isTrue);
+    });
+
     testWidgets('headerOverlay parallaxes with header', (tester) async {
       await tester.pumpWidget(wrapLayout(
         ParallaxSurfaceLayout(

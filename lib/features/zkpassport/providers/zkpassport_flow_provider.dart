@@ -222,11 +222,13 @@ class ZkPassportFlowController {
 
   Future<void> storeSuccessfulRegistration({
     required String? nullifierHex,
+    bool? facematchVerified,
   }) async {
     final repo = _ref.read(zkPassportRegistrationRepositoryProvider);
     await repo.storeActiveRegistration(
       registered: true,
       nullifierHex: nullifierHex,
+      facematchVerified: facematchVerified,
     );
     _ref.invalidate(zkPassportIsRegisteredProvider);
     _ref.invalidate(zkPassportRegistrationProvider);
@@ -1033,7 +1035,10 @@ class ZkPassportPipelineController
 
       await _ref
           .read(zkPassportFlowControllerProvider)
-          .storeSuccessfulRegistration(nullifierHex: derivedNullifierHex);
+          .storeSuccessfulRegistration(
+            nullifierHex: derivedNullifierHex,
+            facematchVerified: _runtimeSession?.facematchStrict,
+          );
       const baseMessage = 'zkPassport proof accepted and wrapped successfully.';
       final message = nullifierMismatchWarning != null
           ? '$baseMessage\n\n$nullifierMismatchWarning'

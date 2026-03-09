@@ -29,6 +29,7 @@ class ZkPassportRegistrationRepository {
   Future<void> storeActiveRegistration({
     required bool registered,
     required String? nullifierHex,
+    bool? facematchVerified,
   }) async {
     final accounts = await AccountsRepository.create();
     final active = await accounts.getActive();
@@ -42,6 +43,7 @@ class ZkPassportRegistrationRepository {
       registered: registered,
       nullifierHex: nullifierHex,
       registeredAtMs: registered ? DateTime.now().millisecondsSinceEpoch : null,
+      facematchVerified: facematchVerified,
     );
     await prefs.setString(key, jsonEncode(payload.toJson()));
   }

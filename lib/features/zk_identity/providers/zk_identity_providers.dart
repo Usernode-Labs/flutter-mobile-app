@@ -32,8 +32,7 @@ class ZkIdentityStepController extends StateNotifier<ZkIdentityFlowState> {
     try {
       final canLaunch = await canLaunchUrl(Uri.parse('zkpassport://'));
       if (canLaunch) {
-        state = state
-            .advanceTo(ZkIdentityStep.indexOf(ZkIdentityStep.confirmScanned));
+        state = state.advanceTo(ZkIdentityStep.confirmScanned.index);
         return true;
       }
       return false;
@@ -44,15 +43,13 @@ class ZkIdentityStepController extends StateNotifier<ZkIdentityFlowState> {
 
   void confirmPassportScanned() {
     if (state.currentStep == ZkIdentityStep.confirmScanned) {
-      state =
-          state.advanceTo(ZkIdentityStep.indexOf(ZkIdentityStep.readyToVerify));
+      state = state.advanceTo(ZkIdentityStep.readyToVerify.index);
     }
   }
 
   void confirmReady() {
     if (state.currentStep == ZkIdentityStep.readyToVerify) {
-      state =
-          state.advanceTo(ZkIdentityStep.indexOf(ZkIdentityStep.verification));
+      state = state.advanceTo(ZkIdentityStep.verification.index);
     }
   }
 
@@ -65,18 +62,7 @@ class ZkIdentityStepController extends StateNotifier<ZkIdentityFlowState> {
     final result = await flowController.startRegistrationNonceZero();
 
     if (!result.started) {
-      final verificationIndex =
-          ZkIdentityStep.indexOf(ZkIdentityStep.verification);
-      final failedSteps = List<ZkIdentityStepState>.from(state.steps);
-      failedSteps[verificationIndex] = failedSteps[verificationIndex]
-          .copyWith(status: ZkIdentityStepVisualStatus.failed);
-      state = ZkIdentityFlowState(
-        steps: failedSteps,
-        currentStepIndex: verificationIndex,
-        resultMessage: result.message,
-        isSuccess: false,
-      );
-      _ref.read(zkIdentityChallengeActiveProvider.notifier).state = false;
+      _failVerification(result.message);
       return;
     }
 
@@ -100,7 +86,7 @@ class ZkIdentityStepController extends StateNotifier<ZkIdentityFlowState> {
     _ref.read(zkIdentityChallengeActiveProvider.notifier).state = false;
 
     if (success) {
-      final resultIndex = ZkIdentityStep.indexOf(ZkIdentityStep.result);
+      final resultIndex = ZkIdentityStep.result.index;
       final updated = List<ZkIdentityStepState>.from(state.steps);
       updated[state.currentStepIndex] = updated[state.currentStepIndex]
           .copyWith(status: ZkIdentityStepVisualStatus.completed);
@@ -113,18 +99,22 @@ class ZkIdentityStepController extends StateNotifier<ZkIdentityFlowState> {
         isSuccess: true,
       );
     } else {
-      final verificationIndex =
-          ZkIdentityStep.indexOf(ZkIdentityStep.verification);
-      final failedSteps = List<ZkIdentityStepState>.from(state.steps);
-      failedSteps[verificationIndex] = failedSteps[verificationIndex]
-          .copyWith(status: ZkIdentityStepVisualStatus.failed);
-      state = ZkIdentityFlowState(
-        steps: failedSteps,
-        currentStepIndex: verificationIndex,
-        resultMessage: message,
-        isSuccess: false,
-      );
+      _failVerification(message);
     }
+  }
+
+  void _failVerification(String message) {
+    final idx = ZkIdentityStep.verification.index;
+    final updated = List<ZkIdentityStepState>.from(state.steps);
+    updated[idx] =
+        updated[idx].copyWith(status: ZkIdentityStepVisualStatus.failed);
+    state = ZkIdentityFlowState(
+      steps: updated,
+      currentStepIndex: idx,
+      resultMessage: message,
+      isSuccess: false,
+    );
+    _ref.read(zkIdentityChallengeActiveProvider.notifier).state = false;
   }
 
   void reset() {

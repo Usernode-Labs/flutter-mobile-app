@@ -5,9 +5,7 @@ enum ZkIdentityStep {
   confirmScanned,
   readyToVerify,
   verification,
-  result;
-
-  static int indexOf(ZkIdentityStep step) => step.index;
+  result,
 }
 
 class ZkIdentityStepState {

@@ -31,6 +31,22 @@ import 'package:material_symbols_icons/symbols.dart';
 final _log =
     LoggingService.instance.withTag('usernode/BackgroundProductionSettings');
 
+/// Clears zkPassport registration, discards any pending pipeline session,
+/// and invalidates cached challenge data. Shared by both settings screens.
+Future<void> devResetChallengeState(WidgetRef ref, BuildContext context) async {
+  await ref.read(zkPassportFlowControllerProvider).clearActiveRegistration();
+  await ref
+      .read(zkPassportPipelineProvider.notifier)
+      .discardPendingSession(reason: 'Dev reset');
+  ref.invalidate(challengesProvider);
+  ref.invalidate(breakdownProvider);
+
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('Challenge state reset')),
+  );
+}
+
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
@@ -392,23 +408,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  // --- Dev: Reset challenge state ---
-
-  Future<void> _resetChallengeState() async {
-    await ref
-        .read(zkPassportFlowControllerProvider)
-        .clearActiveRegistration();
-    await ref
-        .read(zkPassportPipelineProvider.notifier)
-        .discardPendingSession(reason: 'Dev reset');
-    ref.invalidate(challengesProvider);
-    ref.invalidate(breakdownProvider);
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Challenge state reset')),
-    );
-  }
+  Future<void> _resetChallengeState() =>
+      devResetChallengeState(ref, context);
 
   // --- Build info subtitle ---
 

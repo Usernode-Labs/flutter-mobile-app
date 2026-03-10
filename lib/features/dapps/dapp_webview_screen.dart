@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
-import 'package:crypto_mobile_app/design_system/src/sheet_layout.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_typography.dart';
@@ -40,6 +39,12 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   Timer? _secretTapResetTimer;
   bool _showUrlEditor = false;
 
+  // Transaction confirmation uses Navigator.push with an opaque route instead
+  // of showModalBottomSheet. A known Flutter engine bug (fixed in 3.41.0)
+  // corrupts WKWebView's gesture recognizer when a translucent modal barrier
+  // overlaps the platform view. An opaque route fully obscures the WebView,
+  // so Flutter doesn't coordinate gestures with it during the confirmation.
+
   @override
   void initState() {
     super.initState();
@@ -49,7 +54,8 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
         _jsChannelName,
         onMessageReceived: (message) async {
           try {
-            final payload = jsonDecode(message.message) as Map<String, dynamic>;
+            final payload =
+                jsonDecode(message.message) as Map<String, dynamic>;
             final method = payload['method'] as String?;
             final id = payload['id'] as String?;
             if (method == null || id == null) return;
@@ -232,7 +238,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
       return;
     }
 
-    final userConfirmed = await _showTransactionConfirmation(
+    final userConfirmed = await _requestTransactionConfirmation(
       from: fromAddress,
       to: destinationPubkey,
       amount: amount,
@@ -278,6 +284,47 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     );
   }
 
+  /// Pushes a full-screen opaque route for transaction confirmation.
+  /// Returns `true` if confirmed, `false` if denied.
+  Future<bool> _requestTransactionConfirmation({
+    required String from,
+    required String to,
+    required BigInt amount,
+    required String memo,
+  }) async {
+    if (!mounted) return false;
+
+    final confirmed = await Navigator.push<bool>(
+      context,
+      PageRouteBuilder<bool>(
+        opaque: true,
+        transitionDuration: const Duration(milliseconds: 300),
+        reverseTransitionDuration: const Duration(milliseconds: 250),
+        pageBuilder: (_, __, ___) => _TxConfirmationPage(
+          from: from,
+          to: to,
+          amount: amount,
+          memo: memo,
+        ),
+        transitionsBuilder: (_, animation, __, child) {
+          return SlideTransition(
+            position: Tween(
+              begin: const Offset(0, 1),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+              reverseCurve: Curves.easeInCubic,
+            )),
+            child: child,
+          );
+        },
+      ),
+    );
+
+    return confirmed ?? false;
+  }
+
   BigInt? _parseAmountToBigInt(Object? amountRaw) {
     if (amountRaw is num) return BigInt.from(amountRaw.round());
     if (amountRaw is String) {
@@ -294,172 +341,6 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     if (memoRaw is String) return memoRaw.trim();
     if (memoRaw == null) return '';
     return null;
-  }
-
-  Future<bool> _showTransactionConfirmation({
-    required String from,
-    required String to,
-    required BigInt amount,
-    required String memo,
-  }) async {
-    if (!mounted) return false;
-
-    final confirmed = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.75,
-      ),
-      builder: (ctx) {
-        final theme = Theme.of(ctx);
-        final spacing = theme.extension<AppSpacing>()!;
-        final radii = theme.extension<AppRadii>()!;
-        final muted = theme.colorScheme.onSurfaceVariant;
-
-        Widget detailRow(String label, String value, {bool mono = false}) {
-          return Padding(
-            padding: EdgeInsets.symmetric(vertical: spacing.space8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: theme.textTheme.labelSmall?.copyWith(color: muted),
-                ),
-                SizedBox(height: spacing.space4),
-                Text(
-                  value,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontFamily: mono ? 'monospace' : null,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-
-        String formattedMemo = memo;
-        if (memo.isNotEmpty) {
-          try {
-            final parsed = jsonDecode(memo);
-            const encoder = JsonEncoder.withIndent('  ');
-            formattedMemo = encoder.convert(parsed);
-          } catch (_) {
-            // Not valid JSON — show raw string.
-          }
-        }
-
-        final memoBox = formattedMemo.isEmpty
-            ? const SizedBox.shrink()
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Divider(height: 1),
-                  Padding(
-                    padding: EdgeInsets.only(top: spacing.space8),
-                    child: Text(
-                      'Memo',
-                      style: theme.textTheme.labelSmall?.copyWith(color: muted),
-                    ),
-                  ),
-                  SizedBox(height: spacing.space4),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 150),
-                    child: Scrollbar(
-                      thumbVisibility: true,
-                      child: SingleChildScrollView(
-                        child: SizedBox(
-                          width: double.infinity,
-                          child: Text(
-                            formattedMemo,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              fontFamily: kMonoFontFamily,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              );
-
-        return SheetLayout(
-          title: 'Confirm Transaction',
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: spacing.space16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'A dapp is requesting to send a transaction.',
-                  style: theme.textTheme.bodySmall?.copyWith(color: muted),
-                ),
-                SizedBox(height: spacing.space16),
-                Flexible(
-                  child: Container(
-                    padding: EdgeInsets.all(spacing.space16),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest
-                          .withAlpha(100),
-                      borderRadius: radii.borderRadiusMedium,
-                      border: Border.all(
-                        color: theme.colorScheme.outlineVariant.withAlpha(80),
-                      ),
-                    ),
-                    child: SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          detailRow('From', from, mono: true),
-                          const Divider(height: 1),
-                          detailRow('To', to, mono: true),
-                          const Divider(height: 1),
-                          detailRow('Amount', amount.toString()),
-                          const Divider(height: 1),
-                          detailRow('Fee', '0'),
-                          memoBox,
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                SizedBox(height: spacing.space24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(ctx, false),
-                        style: OutlinedButton.styleFrom(
-                          padding: EdgeInsets.symmetric(
-                            vertical: spacing.space12,
-                          ),
-                        ),
-                        child: const Text('Deny'),
-                      ),
-                    ),
-                    SizedBox(width: spacing.space12),
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: () => Navigator.pop(ctx, true),
-                        style: FilledButton.styleFrom(
-                          padding: EdgeInsets.symmetric(
-                            vertical: spacing.space12,
-                          ),
-                        ),
-                        child: const Text('Confirm'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-
-    return confirmed ?? false;
   }
 
   @override
@@ -544,6 +425,184 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
               ),
       ),
       body: WebViewWidget(controller: _controller),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Full-screen confirmation page (opaque route — no WebView overlap)
+// ---------------------------------------------------------------------------
+
+/// Pushed as a full opaque [MaterialPageRoute] so no Flutter widget ever
+/// overlaps the WKWebView platform view, avoiding the gesture recognizer bug.
+class _TxConfirmationPage extends StatelessWidget {
+  const _TxConfirmationPage({
+    required this.from,
+    required this.to,
+    required this.amount,
+    required this.memo,
+  });
+
+  final String from;
+  final String to;
+  final BigInt amount;
+  final String memo;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final spacing = theme.extension<AppSpacing>()!;
+    final radii = theme.extension<AppRadii>()!;
+    final muted = theme.colorScheme.onSurfaceVariant;
+
+    String formattedMemo = memo;
+    if (memo.isNotEmpty) {
+      try {
+        final parsed = jsonDecode(memo);
+        const encoder = JsonEncoder.withIndent('  ');
+        formattedMemo = encoder.convert(parsed);
+      } catch (_) {
+        // Not valid JSON — show raw string.
+      }
+    }
+
+    final memoBox = formattedMemo.isEmpty
+        ? const SizedBox.shrink()
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Divider(height: 1),
+              Padding(
+                padding: EdgeInsets.only(top: spacing.space8),
+                child: Text(
+                  'Memo',
+                  style: theme.textTheme.labelSmall?.copyWith(color: muted),
+                ),
+              ),
+              SizedBox(height: spacing.space4),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 200),
+                child: Scrollbar(
+                  thumbVisibility: true,
+                  child: SingleChildScrollView(
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: Text(
+                        formattedMemo,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontFamily: kMonoFontFamily,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+
+    Widget detailRow(String label, String value, {bool mono = false}) {
+      return Padding(
+        padding: EdgeInsets.symmetric(vertical: spacing.space8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: theme.textTheme.labelSmall?.copyWith(color: muted),
+            ),
+            SizedBox(height: spacing.space4),
+            Text(
+              value,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontFamily: mono ? 'monospace' : null,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          tooltip: 'Back',
+          onPressed: () => Navigator.pop(context, false),
+          icon: const Icon(Symbols.arrow_back_sharp),
+        ),
+        title: const Text('Confirm Transaction'),
+        titleSpacing: 0,
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.all(spacing.space16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'A dapp is requesting to send a transaction.',
+                style: theme.textTheme.bodySmall?.copyWith(color: muted),
+              ),
+              SizedBox(height: spacing.space16),
+              Expanded(
+                child: Container(
+                  padding: EdgeInsets.all(spacing.space16),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest
+                        .withAlpha(100),
+                    borderRadius: radii.borderRadiusMedium,
+                    border: Border.all(
+                      color: theme.colorScheme.outlineVariant.withAlpha(80),
+                    ),
+                  ),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        detailRow('From', from, mono: true),
+                        const Divider(height: 1),
+                        detailRow('To', to, mono: true),
+                        const Divider(height: 1),
+                        detailRow('Amount', amount.toString()),
+                        const Divider(height: 1),
+                        detailRow('Fee', '0'),
+                        memoBox,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(height: spacing.space24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      style: OutlinedButton.styleFrom(
+                        padding: EdgeInsets.symmetric(
+                          vertical: spacing.space12,
+                        ),
+                      ),
+                      child: const Text('Deny'),
+                    ),
+                  ),
+                  SizedBox(width: spacing.space12),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      style: FilledButton.styleFrom(
+                        padding: EdgeInsets.symmetric(
+                          vertical: spacing.space12,
+                        ),
+                      ),
+                      child: const Text('Confirm'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

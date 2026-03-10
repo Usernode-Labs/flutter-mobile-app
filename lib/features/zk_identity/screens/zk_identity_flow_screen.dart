@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/zk_identity/models/zk_identity_models.dart';
@@ -17,9 +18,29 @@ class ZkIdentityFlowScreen extends ConsumerStatefulWidget {
       _ZkIdentityFlowScreenState();
 }
 
-class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen> {
+class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
+    with WidgetsBindingObserver {
   bool _checkingApp = false;
   bool _appNotInstalled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _appNotInstalled) {
+      _checkApp();
+    }
+  }
 
   Future<void> _checkApp() async {
     setState(() {
@@ -57,7 +78,8 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen> {
     return ZkIdentityFlowPage(
       steps: steps,
       currentStepIndex: flowState.currentStepIndex,
-      centerActiveContent: flowState.currentStep == ZkIdentityStep.result,
+      centerActiveContent: flowState.currentStep == ZkIdentityStep.result ||
+          (flowState.currentStep == ZkIdentityStep.checkApp && _appNotInstalled),
       activeStepContent: _buildBody(context, flowState, pipelineState),
       bottomAction: _buildBottomAction(context, flowState, pipelineState),
       onBack: () => context.pop(),
@@ -76,26 +98,24 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen> {
     final semantic = Theme.of(context).extension<AppSemanticColors>()!;
 
     return switch (flowState.currentStep) {
-      ZkIdentityStep.checkApp => Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'First, make sure you have the ZK Passport app installed.',
-              style: textTheme.bodyMedium,
+      ZkIdentityStep.checkApp => _appNotInstalled
+          ? const FullPageErrorState(
+              message: 'ZK Passport app not found',
+              detail: 'Please install the ZK Passport app first to continue.',
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'First, make sure you have the ZK Passport app installed.',
+                  style: textTheme.bodyMedium,
+                ),
+                if (_checkingApp) ...[
+                  SizedBox(height: spacing.space12),
+                  const Center(child: CircularProgressIndicator()),
+                ],
+              ],
             ),
-            if (_checkingApp) ...[
-              SizedBox(height: spacing.space12),
-              const Center(child: CircularProgressIndicator()),
-            ],
-            if (_appNotInstalled) ...[
-              SizedBox(height: spacing.space12),
-              Text(
-                'ZK Passport app not found. Please install it first.',
-                style: textTheme.bodySmall?.copyWith(color: colorScheme.error),
-              ),
-            ],
-          ],
-        ),
       ZkIdentityStep.confirmScanned => Text(
           'Have you already scanned your passport in the ZK Passport app?',
           style: textTheme.bodyMedium,
@@ -159,6 +179,7 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen> {
           ],
         ),
       ZkIdentityStep.result => Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Center(
@@ -235,7 +256,7 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen> {
     return switch (flowState.currentStep) {
       ZkIdentityStep.checkApp => _appNotInstalled
           ? Button(
-              variant: ButtonVariant.outlined,
+              variant: ButtonVariant.primary,
               size: ButtonSize.large,
               label: 'Open App Store',
               onTap: ref.read(zkPassportLaunchServiceProvider).openStoreListing,
@@ -290,10 +311,10 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen> {
                     variant: ButtonVariant.tonal,
                     size: ButtonSize.large,
                     label: 'Go To ZK Passport',
-                    leadingIcon: const Icon(Symbols.open_in_new_sharp),
-                    onTap: ref
-                        .read(zkPassportLaunchServiceProvider)
-                        .openStoreListing,
+                    onTap: () => launchUrl(
+                      Uri.parse('zkpassport://'),
+                      mode: LaunchMode.externalApplication,
+                    ),
                   )
                 : null,
       ZkIdentityStep.result => Button(

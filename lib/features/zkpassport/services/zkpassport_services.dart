@@ -7,10 +7,10 @@ import 'package:url_launcher/url_launcher.dart';
 final _log = LoggingService.instance.withTag('usernode/ZkPassportLaunch');
 const _iosAlarmChannel = MethodChannel('com.usernode.app/alarm');
 
-const _androidMarketUrl = 'market://details?id=org.zkpassport.app';
+const _androidMarketUrl = 'market://details?id=app.zkpassport.zkpassport';
 const _androidWebUrl =
-    'https://play.google.com/store/apps/details?id=org.zkpassport.app';
-const _iosStoreUrl = 'https://apps.apple.com';
+    'https://play.google.com/store/apps/details?id=app.zkpassport.zkpassport';
+const _iosStoreUrl = 'https://apps.apple.com/us/app/zkpassport/id6477371975';
 
 class ZkPassportLaunchService {
   ZkPassportLaunchService();

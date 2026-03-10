@@ -40,6 +40,8 @@ Never add a "type" field to .mcp.json — schema validation rejects it.
 
 - Before stashing or switching branches with staged changes, commit current work first or confirm with user.
 - When pre-commit hooks fail on issues unrelated to current changes, diagnose once. If the failure is environmental (missing node_modules, unrelated lint), use --no-verify and note it.
+- **Pre-commit hook**: `.githooks/pre-commit` runs `flutter analyze` on staged `.dart` files. Activate with `git config core.hooksPath .githooks`.
+- **Analyze-before-commit rule (Claude)**: After modifying any `.dart` file, run `flutter analyze` on the changed files before considering the task done. This catches compile errors that the editor would normally surface.
 
 ## Design System Boundary
 

@@ -3,6 +3,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../tokens/app_radii.dart';
 import '../tokens/app_spacing.dart';
+import 'zk_identity_step_illustration.dart';
 
 class ZkIdentityStepData {
   const ZkIdentityStepData({
@@ -73,6 +74,14 @@ class ZkIdentityFlowPage extends StatelessWidget {
             ),
           ),
           _SegmentedProgressBar(steps: steps),
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: spacing.space48),
+            child: Center(
+              child: ZkIdentityStepIllustration(
+                stepIndex: currentStepIndex,
+              ),
+            ),
+          ),
           if (centerActiveContent)
             Expanded(
               child: Center(
@@ -89,7 +98,7 @@ class ZkIdentityFlowPage extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(height: spacing.space24),
+                    SizedBox(height: spacing.space12),
                     if (currentStep != null) ...[
                       Text(
                         currentStep.label,

@@ -37,7 +37,6 @@ final Map<double, String> spacingTokens = {
 /// Macro-tier tokens (space32, space48) — too large for padding.
 const Set<String> macroTokens = {'space32', 'space48'};
 
-
 /// Paths excluded from lint enforcement.
 const List<String> excludedPathSegments = ['/widgetbook/', '/test/'];
 

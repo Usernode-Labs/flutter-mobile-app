@@ -96,16 +96,11 @@ class _ExactAlarmPermission1ScreenState
                     ),
                     SizedBox(height: spacing.space16),
                     if (isAndroid && !_hasExactAlarm)
-                      FilledButton.tonal(
-                        onPressed: _requesting ? null : _requestExactAlarm,
-                        child: _requesting
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : Text(l10n.permGrantExactAlarm),
+                      Button(
+                        label: l10n.permGrantExactAlarm,
+                        variant: ButtonVariant.tonal,
+                        isLoading: _requesting,
+                        onTap: _requestExactAlarm,
                       ),
                     SizedBox(height: spacing.space24),
                     Align(
@@ -129,12 +124,13 @@ class _ExactAlarmPermission1ScreenState
                       ),
                     ),
                     const Spacer(),
-                    FilledButton(
-                      onPressed: (_hasExactAlarm || !isAndroid)
+                    Button(
+                      label: l10n.commonNext,
+                      variant: ButtonVariant.primary,
+                      onTap: (_hasExactAlarm || !isAndroid)
                           ? () => context
                               .go(AppRoutes.onboardingNotificationPermission3)
                           : null,
-                      child: Text(l10n.commonNext),
                     ),
                   ],
                 ),

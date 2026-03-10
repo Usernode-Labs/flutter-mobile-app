@@ -166,7 +166,7 @@ cd packages/ds_lints && dart run bin/lint.dart /path/to/project/root
 | `avoid_hardcoded_border_radius` | WARNING | `BorderRadius.circular(12)`, `Radius.circular(8)` with literals. Zero values pass. |
 | `avoid_hardcoded_sized_box_spacing` | INFO | Childless `SizedBox(height: 16)` matching grid values {4,8,12,16,24,32,48}. SizedBox with `child:` not flagged. |
 | `avoid_hardcoded_icon_size` | INFO | `Icon(..., size: 20)` with literal size. Icons without `size:` use theme default. |
-| `matryoshka_zone_violation` | WARNING | Macro tokens (space32/space48) as padding; space24 in horizontal EdgeInsets. Exception: `EdgeInsets.only(bottom: spacing.space32)` allowed per LAYOUT.md. |
+| `matryoshka_zone_violation` | WARNING | Macro tokens (space32/space48) as padding. Exception: `EdgeInsets.only(bottom: spacing.space32)` allowed per LAYOUT.md. space24 is dual-purpose (vertical section gap + horizontal PSL body keyline) so horizontal space24 is not flagged. |
 | `avoid_frb_imports` | WARNING | `import 'package:flutter_rust_bridge/...'` or `frb_generated` in `lib/design_system/`. FRB types break Widgetbook web. |
 | `avoid_padding_around_tiles` | WARNING | `Padding` with horizontal insets wrapping a ListTile-family widget (`ListTile`, `SwitchListTile`, `CheckboxListTile`, `RadioListTile`, `ExpansionTile`). These widgets get `contentPadding` from the theme — outer horizontal Padding causes double-indenting. |
 | `avoid_listtile_layout_overrides` | WARNING | Per-widget `visualDensity`, `minVerticalPadding`, `minTileHeight`, `titleAlignment`, or `contentPadding` on `ListTile`/`SwitchListTile`/`CheckboxListTile`/`RadioListTile`. These layout properties should come from the theme — per-widget overrides break M3's baseline alignment. |

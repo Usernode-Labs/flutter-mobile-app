@@ -6,6 +6,7 @@ import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart'
 import 'package:crypto_mobile_app/core/providers/categorized_challenges_provider.dart';
 import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
 import 'package:crypto_mobile_app/core/utils/leaderboard_cache.dart';
+import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
 
 // ---------------------------------------------------------------------------
 // Mock controllers
@@ -106,6 +107,8 @@ void main() {
           challengesProvider
               .overrideWith(() => _MockChallengesController(null)),
           breakdownProvider.overrideWith(() => _MockBreakdownController(null)),
+          zkIdentityIsCompleteProvider
+              .overrideWithValue(const AsyncValue.data(false)),
         ],
       );
       addTearDown(container.dispose);
@@ -124,6 +127,8 @@ void main() {
                 const CachedData(data: _challenges, isCached: false),
               )),
           breakdownProvider.overrideWith(() => _MockBreakdownController(null)),
+          zkIdentityIsCompleteProvider
+              .overrideWithValue(const AsyncValue.data(false)),
         ],
       );
       addTearDown(container.dispose);
@@ -141,7 +146,7 @@ void main() {
       //   id=1: enabled=true, participantCompleted=false → active
       //   id=2: enabled=true, participantCompleted=false → active (no activity match!)
       //   id=3: enabled=false, participantCompleted=false → missed
-      expect(result!.active.length, 2);
+      expect(result!.active.length, 3); // 2 API + 1 synthetic ZK Identity
       expect(result.completed.length, 0);
       expect(result.missed.length, 1);
     });
@@ -155,6 +160,8 @@ void main() {
           breakdownProvider.overrideWith(() => _MockBreakdownController(
                 const CachedData(data: _breakdown, isCached: false),
               )),
+          zkIdentityIsCompleteProvider
+              .overrideWithValue(const AsyncValue.data(false)),
         ],
       );
       addTearDown(container.dispose);
@@ -169,8 +176,9 @@ void main() {
       //   id=1: active (no activity match, enabled)
       //   id=2: completed (activity match)
       //   id=3: missed (not enabled, no activity)
-      expect(result!.active.length, 1);
-      expect(result.active.first.dto.goal, 'Produce Every Block');
+      expect(result!.active.length, 2); // 1 API + 1 synthetic ZK Identity
+      // ZK Identity challenge is prepended; API challenge follows.
+      expect(result.active[1].dto.goal, 'Produce Every Block');
       expect(result.completed.length, 1);
       expect(result.completed.first.dto.goal, 'Prove Humanity');
       expect(result.completed.first.earnedPoints, 1000);

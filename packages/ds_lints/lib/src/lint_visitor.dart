@@ -359,61 +359,12 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
         return;
       }
 
-      // Section-gap token (space24) in horizontal positions.
-      // Exempt: SliverPadding(padding: symmetric(horizontal: space24)) is
-      // the correct PSL surface body inset pattern.
-      if (token == sectionGapToken) {
-        if (_isHorizontalParam(
-                paramName, constructorName, arg, args.arguments) &&
-            !_isSliverPaddingAncestor(node)) {
-          _report(
-            node,
-            'matryoshka_section_gap_horizontal',
-            'Section-gap token (space24) used in horizontal EdgeInsets. '
-                'space24 is a vertical section gap — use space16 for '
-                'horizontal margins.',
-            'WARNING',
-          );
-          return;
-        }
-      }
+      // space24 is dual-purpose: vertical section gap AND the canonical
+      // PSL body keyline inset (horizontal). SliverPadding, Card margin,
+      // ListView padding, etc. all legitimately use symmetric(horizontal:
+      // space24) to align with the pinned bar title. No horizontal check
+      // here — matryoshka_zone_violation still guards space32/space48.
     }
-  }
-
-  bool _isHorizontalParam(
-    String? paramName,
-    String? constructorName,
-    Expression arg,
-    NodeList<Expression> args,
-  ) {
-    // Only flag the purely-horizontal case.
-    // `all()`, `only(left/right)`, and `fromLTRB` mix axes — space24 is
-    // legitimate for K₂ keyline alignment and balanced padding.
-    if (constructorName == 'symmetric') {
-      return paramName == 'horizontal';
-    }
-    return false;
-  }
-
-  /// Returns true when the EdgeInsets is a `padding:` argument of
-  /// `SliverPadding` — the correct PSL surface body inset pattern.
-  bool _isSliverPaddingAncestor(AstNode node) {
-    // Walk: EdgeInsets → NamedExpression(padding:) → ArgumentList →
-    //       InstanceCreationExpression or MethodInvocation (SliverPadding)
-    var current = node.parent;
-    // Skip NamedExpression wrapper
-    if (current is NamedExpression) current = current.parent;
-    // Skip ArgumentList
-    if (current is ArgumentList) current = current.parent;
-    // const/new SliverPadding(...)
-    if (current is InstanceCreationExpression) {
-      return current.constructorName.type.name2.lexeme == 'SliverPadding';
-    }
-    // SliverPadding(...) without const/new — parsed as MethodInvocation
-    if (current is MethodInvocation && current.target == null) {
-      return current.methodName.name == 'SliverPadding';
-    }
-    return false;
   }
 
   // ── Rule 6: avoid_padding_around_tiles ──────────────────────────────

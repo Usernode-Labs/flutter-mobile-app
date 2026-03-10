@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import 'button.dart';
 import 'empty_state.dart';
 
 /// A centered error display for use as a full-page body.
@@ -37,9 +38,10 @@ class FullPageErrorState extends StatelessWidget {
       title: message,
       subtitle: detail,
       action: onRetry != null
-          ? FilledButton(
-              onPressed: onRetry,
-              child: Text(retryLabel),
+          ? Button(
+              label: retryLabel,
+              variant: ButtonVariant.primary,
+              onTap: onRetry,
             )
           : null,
     );

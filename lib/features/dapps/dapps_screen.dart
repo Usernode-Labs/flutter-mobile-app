@@ -198,7 +198,7 @@ class _DappsHeader extends StatelessWidget {
       children: [
         _StatPair(value: countValue, label: 'dApps'),
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: spacing.space24),
+          padding: EdgeInsets.symmetric(horizontal: spacing.space16),
           child: Container(
             width: 1,
             height: 40,

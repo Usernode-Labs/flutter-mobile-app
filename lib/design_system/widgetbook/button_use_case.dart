@@ -35,6 +35,11 @@ WidgetbookComponent buttonComponent() {
             labelBuilder: (v) => v.name,
           );
 
+          final isLoading = context.knobs.boolean(
+            label: 'Loading',
+            initialValue: false,
+          );
+
           final darkBackground = context.knobs.boolean(
             label: 'Dark background',
             initialValue: false,
@@ -47,6 +52,7 @@ WidgetbookComponent buttonComponent() {
                 : null,
             size: size,
             variant: variant,
+            isLoading: isLoading,
             onTap: () {},
           );
 

@@ -236,13 +236,14 @@ class _NetworkSwitcherDialogState extends State<NetworkSwitcherDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: Text(l10n.commonCancel),
         ),
-        FilledButton(
-          onPressed: selectedNetwork == widget.currentNetwork
+        Button(
+          label: selectedNetwork == widget.currentNetwork
+              ? l10n.networkNoChange
+              : l10n.networkSwitch,
+          variant: ButtonVariant.primary,
+          onTap: selectedNetwork == widget.currentNetwork
               ? null
               : () => Navigator.of(context).pop(selectedNetwork),
-          child: Text(selectedNetwork == widget.currentNetwork
-              ? l10n.networkNoChange
-              : l10n.networkSwitch),
         ),
       ],
     );

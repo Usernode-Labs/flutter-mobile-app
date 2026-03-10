@@ -10,9 +10,8 @@ import 'package:crypto_mobile_app/core/providers/recipient_history_provider.dart
 import 'package:crypto_mobile_app/features/wallet/transaction_limits_service.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:crypto_mobile_app/design_system/src/button.dart';
 import 'package:crypto_mobile_app/design_system/src/sheet_layout.dart';
-import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
-import 'package:crypto_mobile_app/design_system/tokens/app_sizing.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 
 class SendScreen extends ConsumerStatefulWidget {
@@ -253,47 +252,16 @@ class _SendScreenState extends ConsumerState<SendScreen> {
   }
 
   Widget _buildSendButton(ThemeData theme) {
-    final spacing = theme.extension<AppSpacing>()!;
-    final radii = theme.extension<AppRadii>()!;
-    final sizing = theme.extension<AppSizing>()!;
-    final onPrimary = theme.colorScheme.onPrimary;
-
     return SizedBox(
       width: double.infinity,
-      height: sizing.buttonHeightLarge,
-      child: FilledButton(
-        onPressed: _isSending ? null : _onSend,
-        style: FilledButton.styleFrom(
-          shape: RoundedRectangleBorder(
-            borderRadius: radii.borderRadiusFull,
-          ),
-        ),
-        child: _isSending
-            ? Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox.square(
-                    dimension: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(onPrimary),
-                    ),
-                  ),
-                  SizedBox(width: spacing.space12),
-                  Text(
-                    AppLocalizations.of(context).walletSending,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: onPrimary,
-                    ),
-                  ),
-                ],
-              )
-            : Text(
-                AppLocalizations.of(context).walletSend,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: onPrimary,
-                ),
-              ),
+      child: Button(
+        label: _isSending
+            ? AppLocalizations.of(context).walletSending
+            : AppLocalizations.of(context).walletSend,
+        variant: ButtonVariant.primary,
+        size: ButtonSize.large,
+        isLoading: _isSending,
+        onTap: _onSend,
       ),
     );
   }

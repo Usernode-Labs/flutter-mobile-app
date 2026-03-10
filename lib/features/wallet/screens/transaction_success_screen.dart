@@ -26,9 +26,10 @@ class TransactionSuccessScreen extends StatelessWidget {
         variant: ResultPageVariant.success,
         title: l10n.walletSentSuccessfully,
         subtitle: l10n.walletSentDetail(amount, tokenSymbol, displayAddress),
-        primaryAction: FilledButton(
-          onPressed: () => context.go('/home'),
-          child: Text(l10n.walletDone),
+        primaryAction: Button(
+          label: l10n.walletDone,
+          variant: ButtonVariant.primary,
+          onTap: () => context.go('/home'),
         ),
       ),
     );

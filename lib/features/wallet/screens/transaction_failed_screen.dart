@@ -21,9 +21,10 @@ class TransactionFailedScreen extends StatelessWidget {
         subtitle: errorMessage.isNotEmpty
             ? errorMessage
             : l10n.walletTransactionFailedGeneric,
-        primaryAction: FilledButton(
-          onPressed: () => context.pop(),
-          child: Text(l10n.commonGotIt),
+        primaryAction: Button(
+          label: l10n.commonGotIt,
+          variant: ButtonVariant.primary,
+          onTap: () => context.pop(),
         ),
       ),
     );

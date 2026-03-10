@@ -735,8 +735,8 @@ class SafeAreaPinnedDelegate extends SliverPersistentHeaderDelegate {
               color: colors.onSurface,
             )
         : null;
-    final space24 =
-        title != null ? Theme.of(context).extension<AppSpacing>()!.space24 : 0.0;
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final space24 = title != null ? spacing.space24 : 0.0;
     return ValueListenableBuilder<double>(
       valueListenable: scrollFractionNotifier,
       builder: (context, sf, _) => SizedBox.expand(
@@ -762,7 +762,8 @@ class SafeAreaPinnedDelegate extends SliverPersistentHeaderDelegate {
                   child: Align(
                     alignment: Alignment.bottomLeft,
                     child: Padding(
-                      padding: EdgeInsets.only(bottom: 8, left: space24),
+                      padding: EdgeInsets.only(
+                          bottom: spacing.space8, left: space24),
                       child: Text(title!, style: titleStyle),
                     ),
                   ),

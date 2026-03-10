@@ -25,7 +25,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen>
     with WidgetsBindingObserver {
-  int _index = 0;
+  final int _index = 0;
   int _lastTerminalDialogAtMs = 0;
   bool _zkTerminalDialogOpen = false;
 
@@ -151,7 +151,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
 
     if (isInternal) {
-      bottomNav = Container(
+      bottomNav = DecoratedBox(
         decoration: BoxDecoration(
           color: LegacyColors.getInternalNetworkBackgroundColor(isDark),
           border: Border(
@@ -203,56 +203,60 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       showDialog<void>(
         context: context,
         barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
-          title: Text(title),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(state.message),
-              if (outerPublicInputs != null &&
-                  outerPublicInputs.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Text('Outer public inputs (${outerPublicInputs.length}):'),
-                const SizedBox(height: 8),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 240),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: outerPublicInputs.length,
-                    itemBuilder: (context, index) {
-                      final value = outerPublicInputs[index].trim();
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 6),
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: SelectableText('[$index] $value'),
-                        ),
-                      );
-                    },
+        builder: (ctx) {
+          final spacing = Theme.of(ctx).extension<AppSpacing>()!;
+          return AlertDialog(
+            title: Text(title),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(state.message),
+                if (outerPublicInputs != null &&
+                    outerPublicInputs.isNotEmpty) ...[
+                  SizedBox(height: spacing.space12),
+                  Text('Outer public inputs (${outerPublicInputs.length}):'),
+                  SizedBox(height: spacing.space8),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 240),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          for (var i = 0; i < outerPublicInputs.length; i++)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 6),
+                              child: SelectableText(
+                                '[$i] ${outerPublicInputs[i].trim()}',
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
+                ],
+                if (timings.isNotEmpty) ...[
+                  SizedBox(height: spacing.space12),
+                  for (final line in timings) Text(line),
+                ],
               ],
-              if (timings.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                for (final line in timings) Text(line),
-              ],
-            ],
-          ),
-          actions: [
-            FilledButton(
-              onPressed: () {
-                Navigator.of(ctx).pop();
-                unawaited(
-                  ref
-                      .read(zkPassportPipelineProvider.notifier)
-                      .discardPendingSession(),
-                );
-              },
-              child: const Text('OK'),
             ),
-          ],
-        ),
+            actions: [
+              Button(
+                label: 'OK',
+                variant: ButtonVariant.primary,
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  unawaited(
+                    ref
+                        .read(zkPassportPipelineProvider.notifier)
+                        .discardPendingSession(),
+                  );
+                },
+              ),
+            ],
+          );
+        },
       ).whenComplete(() {
         if (mounted) {
           _zkTerminalDialogOpen = false;

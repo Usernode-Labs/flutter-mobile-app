@@ -728,14 +728,15 @@ class SafeAreaPinnedDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    final colors = Theme.of(context).colorScheme;
-    final borders = Theme.of(context).extension<AppBorders>()!;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final borders = theme.extension<AppBorders>()!;
     final titleStyle = title != null
-        ? Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: colors.onSurface,
-            )
+        ? theme.textTheme.titleMedium?.copyWith(
+            color: colorScheme.onSurface,
+          )
         : null;
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final spacing = theme.extension<AppSpacing>()!;
     final space24 = title != null ? spacing.space24 : 0.0;
     return ValueListenableBuilder<double>(
       valueListenable: scrollFractionNotifier,
@@ -743,13 +744,13 @@ class SafeAreaPinnedDelegate extends SliverPersistentHeaderDelegate {
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: Color.lerp(
-              colors.surface,
-              colors.surfaceContainerLowest,
+              colorScheme.surface,
+              colorScheme.surfaceContainerLowest,
               sf,
             )!,
             border: Border(
               bottom: BorderSide(
-                color: colors.onSurface.withValues(
+                color: colorScheme.onSurface.withValues(
                   alpha: sf.clamp(0.0, 1.0) * borders.opacity,
                 ),
                 width: borders.width,
@@ -775,8 +776,7 @@ class SafeAreaPinnedDelegate extends SliverPersistentHeaderDelegate {
   }
 
   @override
-  bool shouldRebuild(SafeAreaPinnedDelegate old) =>
-      old.topPadding != topPadding || old.title != title;
+  bool shouldRebuild(SafeAreaPinnedDelegate old) => true;
 }
 
 // ---------------------------------------------------------------------------

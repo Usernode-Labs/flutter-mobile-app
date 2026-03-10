@@ -48,14 +48,13 @@ class AddressBarDelegate extends SliverPersistentHeaderDelegate {
   @override
   Widget build(
       BuildContext context, double shrinkOffset, bool overlapsContent) {
-    final colors = Theme.of(context).colorScheme;
-
+    final colorScheme = Theme.of(context).colorScheme;
     return ValueListenableBuilder<double>(
       valueListenable: scrollFractionNotifier,
       builder: (context, scrollFraction, child) {
         final bgColor = Color.lerp(
-          colors.surface,
-          colors.surfaceContainerLowest,
+          colorScheme.surface,
+          colorScheme.surfaceContainerLowest,
           scrollFraction,
         )!;
 
@@ -79,8 +78,7 @@ class AddressBarDelegate extends SliverPersistentHeaderDelegate {
   }
 
   @override
-  bool shouldRebuild(AddressBarDelegate oldDelegate) =>
-      oldDelegate.topPadding != topPadding || oldDelegate.address != address;
+  bool shouldRebuild(AddressBarDelegate oldDelegate) => true;
 }
 
 // ---------------------------------------------------------------------------

@@ -105,7 +105,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsBuildInfo => 'Build Info';
 
   @override
-  String get bgProdWhatIs => 'What is Background Block Production?';
+  String get bgProdWhatIs => 'What is Block Production?';
 
   @override
   String get bgProdDescription =>

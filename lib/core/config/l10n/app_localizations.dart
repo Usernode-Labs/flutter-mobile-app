@@ -283,7 +283,7 @@ abstract class AppLocalizations {
   /// Background production explanation title
   ///
   /// In en, this message translates to:
-  /// **'What is Background Block Production?'**
+  /// **'What is Block Production?'**
   String get bgProdWhatIs;
 
   /// Background production explanation

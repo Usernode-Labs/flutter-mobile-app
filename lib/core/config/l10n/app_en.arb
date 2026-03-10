@@ -130,7 +130,7 @@
     "description": "Build info setting label"
   },
 
-  "bgProdWhatIs": "What is Background Block Production?",
+  "bgProdWhatIs": "What is Block Production?",
   "@bgProdWhatIs": {
     "description": "Background production explanation title"
   },

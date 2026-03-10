@@ -79,7 +79,8 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
       steps: steps,
       currentStepIndex: flowState.currentStepIndex,
       centerActiveContent: flowState.currentStep == ZkIdentityStep.result ||
-          (flowState.currentStep == ZkIdentityStep.checkApp && _appNotInstalled),
+          (flowState.currentStep == ZkIdentityStep.checkApp &&
+              _appNotInstalled),
       activeStepContent: _buildBody(context, flowState, pipelineState),
       bottomAction: _buildBottomAction(context, flowState, pipelineState),
       onBack: () => context.pop(),
@@ -182,28 +183,6 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Center(
-              child: Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: flowState.isSuccess
-                      ? semantic.success.colorContainer
-                      : colorScheme.errorContainer,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  flowState.isSuccess
-                      ? Symbols.check_sharp
-                      : Symbols.close_sharp,
-                  size: sizing.iconDisplay,
-                  color: flowState.isSuccess
-                      ? semantic.success.onColorContainer
-                      : colorScheme.onErrorContainer,
-                ),
-              ),
-            ),
-            SizedBox(height: spacing.space16),
             Text(
               flowState.isSuccess
                   ? 'Identity Verified!'

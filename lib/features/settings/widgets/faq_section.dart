@@ -106,13 +106,16 @@ class FaqSection extends StatelessWidget {
         ListSectionHeader(title: localizations.helpAndInfoTitle),
         Card(
           clipBehavior: Clip.antiAlias,
-          child: Column(
-            children: [
-              _buildAboutTile(context),
-              _buildHowItWorksTile(context),
-              _buildPlatformTile(context),
-              _buildVrfTile(context),
-            ],
+          child: ListTileTheme(
+            minTileHeight: 48,
+            child: Column(
+              children: [
+                _buildAboutTile(context),
+                _buildHowItWorksTile(context),
+                _buildPlatformTile(context),
+                _buildVrfTile(context),
+              ],
+            ),
           ),
         ),
       ],

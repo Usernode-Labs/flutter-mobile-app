@@ -19,7 +19,6 @@ import 'package:crypto_mobile_app/design_system/theme/color_is_expensive_theme.d
 import 'package:crypto_mobile_app/design_system/theme/design_system_theme.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_semantic_colors.dart';
 import 'package:crypto_mobile_app/features/challenges/screens/challenges_screen.dart';
-import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
 
 // ---------------------------------------------------------------------------
 // Mock controllers
@@ -190,8 +189,6 @@ Widget _buildTestApp({
           .overrideWith(() => _MockBreakdownController(breakdownData)),
       leaderboardBootstrapProvider.overrideWith((ref) async {}),
       seasonEventContextProvider.overrideWith((ref) => seasonContext),
-      zkIdentityIsCompleteProvider
-          .overrideWithValue(const AsyncValue.data(false)),
       seasonsProvider.overrideWith(() => _MockSeasonsController(
             seasonsData ??
                 const CachedData(data: _testSeasons, isCached: false),
@@ -245,9 +242,10 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      // Active tab is default — ZK Identity challenge is first, then API ones
-      expect(find.text('Verify your identity with ZK Passport'), findsOneWidget);
+      // Active tab is default — shows the one active challenge
+      expect(find.text('Produce Every Block'), findsOneWidget);
       // Completed and missed challenges should not appear in active tab
+      expect(find.text('Prove Humanity'), findsNothing);
       expect(find.text('Quick Challenge'), findsNothing);
     });
 
@@ -456,8 +454,7 @@ void main() {
       expect(find.text('Rank 44'), findsOneWidget);
 
       // Challenges still categorized (v1 fallback: all activity: null)
-      // ZK Identity challenge is prepended as the first active card
-      expect(find.text('Verify your identity with ZK Passport'), findsOneWidget);
+      expect(find.text('Produce Every Block'), findsOneWidget);
     });
   });
 }

@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -7,6 +5,7 @@ import '../tokens/app_radii.dart';
 import '../tokens/app_semantic_colors.dart';
 import '../tokens/app_sizing.dart';
 import '../tokens/app_spacing.dart';
+import 'paint_helpers.dart';
 
 class ChallengeActivitySummary extends StatelessWidget {
   const ChallengeActivitySummary({
@@ -40,12 +39,13 @@ class ChallengeActivitySummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
-    final radii = Theme.of(context).extension<AppRadii>()!;
-    final sizing = Theme.of(context).extension<AppSizing>()!;
-    final semantic = Theme.of(context).extension<AppSemanticColors>()!;
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final textTheme = theme.textTheme;
+    final spacing = theme.extension<AppSpacing>()!;
+    final radii = theme.extension<AppRadii>()!;
+    final sizing = theme.extension<AppSizing>()!;
+    final semantic = theme.extension<AppSemanticColors>()!;
 
     final illustration = CustomPaint(
       size: const Size(210, 118),
@@ -172,7 +172,7 @@ class _TrioIllustrationPainter extends CustomPainter {
       ..addOval(
         Rect.fromCircle(center: const Offset(129.222, 85.334), radius: 16.167),
       );
-    _drawDashedPath(
+    drawDashedPath(
       canvas,
       dashPath,
       Paint()
@@ -188,7 +188,7 @@ class _TrioIllustrationPainter extends CustomPainter {
   void _paintTechnical(Canvas canvas) {
     // Group opacity 0.6
     canvas.saveLayer(
-      null,
+      const Rect.fromLTWH(0, 0, 97, 97),
       Paint()..color = const Color.fromRGBO(0, 0, 0, 0.6),
     );
 
@@ -243,24 +243,24 @@ class _TrioIllustrationPainter extends CustomPainter {
   void _paintCommunity(Canvas canvas) {
     // Group opacity 0.5
     canvas.saveLayer(
-      null,
+      const Rect.fromLTWH(149, 0, 61, 61),
       Paint()..color = const Color.fromRGBO(0, 0, 0, 0.5),
     );
 
     const center = Offset(179, 30);
     // Outer cookie (0.3 opacity)
     canvas.drawPath(
-      _cookiePath(center, 29.5),
+      cookiePath(center, 29.5),
       Paint()..color = communityFill.withValues(alpha: 0.3),
     );
     // Inner cookie (solid)
     canvas.drawPath(
-      _cookiePath(center, 25.1),
+      cookiePath(center, 25.1),
       Paint()..color = communityFill,
     );
     // Stroke cookie
     canvas.drawPath(
-      _cookiePath(center, 21.2),
+      cookiePath(center, 21.2),
       Paint()
         ..color = communityStroke
         ..style = PaintingStyle.stroke
@@ -280,47 +280,6 @@ class _TrioIllustrationPainter extends CustomPainter {
       technicalStroke != old.technicalStroke ||
       communityFill != old.communityFill ||
       communityStroke != old.communityStroke;
-}
-
-// ── Shared path helpers ──
-
-Path _cookiePath(Offset center, double radius, {double scallop = 0.15}) {
-  const n = 7;
-  const startAngle = -math.pi / 2;
-  const segments = 70;
-
-  final path = Path();
-  for (var i = 0; i <= segments; i++) {
-    final theta = startAngle + 2 * math.pi * i / segments;
-    final r =
-        radius * (1 - scallop / 2 * (1 - math.cos(n * (theta - startAngle))));
-    final x = center.dx + r * math.cos(theta);
-    final y = center.dy + r * math.sin(theta);
-    if (i == 0) {
-      path.moveTo(x, y);
-    } else {
-      path.lineTo(x, y);
-    }
-  }
-  path.close();
-  return path;
-}
-
-void _drawDashedPath(
-  Canvas canvas,
-  Path path,
-  Paint paint, {
-  required double dash,
-  required double gap,
-}) {
-  for (final metric in path.computeMetrics()) {
-    var distance = 0.0;
-    while (distance < metric.length) {
-      final end = math.min(distance + dash, metric.length);
-      canvas.drawPath(metric.extractPath(distance, end), paint);
-      distance += dash + gap;
-    }
-  }
 }
 
 // ── Pill widget ──

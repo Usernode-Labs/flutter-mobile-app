@@ -1,9 +1,8 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 import '../tokens/app_semantic_colors.dart';
 import 'challenge_card.dart';
+import 'paint_helpers.dart';
 
 /// Renders the abstract geometric icon for a [ChallengeCategory].
 ///
@@ -79,45 +78,6 @@ Path _polygon(double size, List<Offset> vertices) {
   }
   path.close();
   return path;
-}
-
-Path _cookiePath(Offset center, double radius, {double scallop = 0.15}) {
-  const n = 7;
-  const startAngle = -math.pi / 2;
-  const segments = 70;
-
-  final path = Path();
-  for (var i = 0; i <= segments; i++) {
-    final theta = startAngle + 2 * math.pi * i / segments;
-    final r =
-        radius * (1 - scallop / 2 * (1 - math.cos(n * (theta - startAngle))));
-    final x = center.dx + r * math.cos(theta);
-    final y = center.dy + r * math.sin(theta);
-    if (i == 0) {
-      path.moveTo(x, y);
-    } else {
-      path.lineTo(x, y);
-    }
-  }
-  path.close();
-  return path;
-}
-
-void _drawDashedPath(
-  Canvas canvas,
-  Path path,
-  Paint paint, {
-  required double dash,
-  required double gap,
-}) {
-  for (final metric in path.computeMetrics()) {
-    var distance = 0.0;
-    while (distance < metric.length) {
-      final end = math.min(distance + dash, metric.length);
-      canvas.drawPath(metric.extractPath(distance, end), paint);
-      distance += dash + gap;
-    }
-  }
 }
 
 // ── Normalized vertex data (from 47×47 SVG viewBox) ──
@@ -220,7 +180,7 @@ class _CategoryIconPainter extends CustomPainter {
     // Dashed stroke circle
     final dashOval = Path()
       ..addOval(Rect.fromCircle(center: center, radius: s * 0.25));
-    _drawDashedPath(
+    drawDashedPath(
       canvas,
       dashOval,
       Paint()
@@ -238,15 +198,15 @@ class _CategoryIconPainter extends CustomPainter {
     final center = size.center(Offset.zero);
     // Drawing order: outer fill → inner fill → stroke
     canvas.drawPath(
-      _cookiePath(center, s * 0.5),
+      cookiePath(center, s * 0.5),
       Paint()..color = outerColor,
     );
     canvas.drawPath(
-      _cookiePath(center, s * 0.425),
+      cookiePath(center, s * 0.425),
       Paint()..color = innerColor,
     );
     canvas.drawPath(
-      _cookiePath(center, s * 0.275),
+      cookiePath(center, s * 0.275),
       Paint()
         ..color = strokeColor
         ..style = PaintingStyle.stroke

@@ -19,6 +19,7 @@ import 'package:crypto_mobile_app/design_system/theme/color_is_expensive_theme.d
 import 'package:crypto_mobile_app/design_system/theme/design_system_theme.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_semantic_colors.dart';
 import 'package:crypto_mobile_app/features/challenges/screens/challenges_screen.dart';
+import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
 
 // ---------------------------------------------------------------------------
 // Mock controllers
@@ -188,6 +189,8 @@ Widget _buildTestApp({
       breakdownProvider
           .overrideWith(() => _MockBreakdownController(breakdownData)),
       leaderboardBootstrapProvider.overrideWith((ref) async {}),
+      zkIdentityIsCompleteProvider
+          .overrideWithValue(const AsyncValue.data(false)),
       seasonEventContextProvider.overrideWith((ref) => seasonContext),
       seasonsProvider.overrideWith(() => _MockSeasonsController(
             seasonsData ??
@@ -242,10 +245,17 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      // Active tab is default — shows the one active challenge
+      // Active tab — ZK Identity challenge is injected first, then api challenges.
+      // ListView is lazy so we drag to ensure "Produce Every Block" is built.
+      expect(
+        find.text('Verify your identity with ZK Passport'),
+        findsOneWidget,
+      );
+      await tester.drag(find.byType(ListView), const Offset(0, -400));
+      await tester.pumpAndSettle();
       expect(find.text('Produce Every Block'), findsOneWidget);
-      // Completed and missed challenges should not appear in active tab
-      expect(find.text('Prove Humanity'), findsNothing);
+      // Without breakdown, "Prove Humanity" (enabled=true) is also active.
+      // Missed challenges should not appear in active tab.
       expect(find.text('Quick Challenge'), findsNothing);
     });
 
@@ -453,7 +463,10 @@ void main() {
       expect(find.text('8,000'), findsOneWidget);
       expect(find.text('Rank 44'), findsOneWidget);
 
-      // Challenges still categorized (v1 fallback: all activity: null)
+      // Challenges still categorized (v1 fallback: all activity: null).
+      // Drag past injected ZK Identity card to find the api challenge.
+      await tester.drag(find.byType(ListView), const Offset(0, -400));
+      await tester.pumpAndSettle();
       expect(find.text('Produce Every Block'), findsOneWidget);
     });
   });

@@ -23,8 +23,10 @@ import 'package:crypto_mobile_app/features/settings/widgets/faq_section.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/theme_picker_sheet.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/build_info_sheet.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/network_switcher_dialog.dart';
+import 'package:crypto_mobile_app/core/providers/categorized_challenges_provider.dart';
 import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
 import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
+import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -33,13 +35,18 @@ final _log =
 
 /// Clears zkPassport registration, discards any pending pipeline session,
 /// and invalidates cached challenge data. Shared by both settings screens.
-Future<void> devResetChallengeState(WidgetRef ref, BuildContext context) async {
+Future<void> resetChallengeState(WidgetRef ref, BuildContext context) async {
+  // Reset the ZK Identity step flow (closes pipeline subscription too).
+  ref.read(zkIdentityStepControllerProvider.notifier).reset();
+
   await ref.read(zkPassportFlowControllerProvider).clearActiveRegistration();
   await ref
       .read(zkPassportPipelineProvider.notifier)
-      .discardPendingSession(reason: 'Dev reset');
+      .discardPendingSession(reason: 'Reset');
+
   ref.invalidate(challengesProvider);
   ref.invalidate(breakdownProvider);
+  ref.invalidate(categorizedChallengesProvider);
 
   if (!context.mounted) return;
   ScaffoldMessenger.of(context).showSnackBar(
@@ -408,8 +415,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  Future<void> _resetChallengeState() =>
-      devResetChallengeState(ref, context);
+  Future<void> _resetChallengeState() => resetChallengeState(ref, context);
 
   // --- Build info subtitle ---
 
@@ -429,6 +435,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final l10n = AppLocalizations.of(context);
 
     final themeMode = ref.watch(themeModeProvider);
+    final zkSettings = ref.watch(zkPassportSettingsProvider);
+    final facematchStrict = zkSettings.whenOrNull(data: (s) => s.facematchStrict) ?? true;
 
     return Scaffold(
       body: SafeArea(
@@ -530,24 +538,36 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ),
 
-              // Dev Tools (debug builds only)
-              if (kDebugMode) ...[
-                SizedBox(height: spacing.space24),
-                const ListSectionHeader(title: 'Dev Tools'),
-                Card(
-                  child: ListTile(
-                    leading: const Icon(Symbols.restart_alt_sharp),
-                    title: const Text('Reset Challenge State'),
-                    subtitle: Text(
-                      'Clears zkPassport registration & cached challenges',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+              // ZK Identity
+              SizedBox(height: spacing.space24),
+              const ListSectionHeader(title: 'ZK Identity'),
+              Card(
+                child: Column(
+                  children: [
+                    SwitchListTile(
+                      secondary: const Icon(Symbols.face_sharp),
+                      title: const Text('Strict Facematch'),
+                      value: facematchStrict,
+                      onChanged: (value) {
+                        ref
+                            .read(zkPassportFlowControllerProvider)
+                            .setFacematchStrict(value);
+                      },
                     ),
-                    onTap: _resetChallengeState,
-                  ),
+                    ListTile(
+                      leading: const Icon(Symbols.restart_alt_sharp),
+                      title: const Text('Restart Challenge'),
+                      subtitle: Text(
+                        'Clears zkPassport registration & cached challenges',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      onTap: _resetChallengeState,
+                    ),
+                  ],
                 ),
-              ],
+              ),
 
               SizedBox(height: spacing.space32),
             ],

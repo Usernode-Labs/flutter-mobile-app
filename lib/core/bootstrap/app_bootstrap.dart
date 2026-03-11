@@ -76,22 +76,18 @@ class AppBootstrap {
     // Metrics collector needs the container before any lifecycle/service starts
     MetricsCollectorService.instance.initialize(container);
 
-    if (registerLifecycleObserver) {
-      AppLifecycleLogger.register();
-      AppLifecycleLogger.onForegroundResume = () {
-        container
-            .read(zkPassportPipelineProvider.notifier)
-            .recoverPendingSessionOnForeground();
-      };
+    void recoverZkSession() {
+      container
+          .read(zkPassportPipelineProvider.notifier)
+          .recoverPendingSessionOnForeground();
     }
 
-    DeepLinkService.instance.initialize(
-      onZkCallback: () {
-        container
-            .read(zkPassportPipelineProvider.notifier)
-            .recoverPendingSessionOnForeground();
-      },
-    );
+    if (registerLifecycleObserver) {
+      AppLifecycleLogger.register();
+      AppLifecycleLogger.onForegroundResume = recoverZkSession;
+    }
+
+    DeepLinkService.instance.initialize(onZkCallback: recoverZkSession);
 
     _bootstrapBackendAsync(log: log, container: container);
 

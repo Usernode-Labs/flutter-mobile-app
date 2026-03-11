@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'paint_helpers.dart';
+
 /// Animated line-art illustration for each step of the ZK Identity flow.
 ///
 /// Ultra-minimal technical drawing style: thin strokes, simple geometry,
@@ -229,7 +231,7 @@ class _StepPainter extends CustomPainter {
     final orbitR = 40.0 * s;
     final orbit = Path()
       ..addOval(Rect.fromCircle(center: center, radius: orbitR));
-    _drawDashed(canvas, orbit, _stroke(dimColor), dash: 4 * s, gap: 4 * s);
+    drawDashedPath(canvas, orbit, _stroke(dimColor), dash: 4 * s, gap: 4 * s);
 
     // Orbiting dot (6s period).
     final angle = -math.pi / 2 + progress * 2 * math.pi * 8 / 6;
@@ -280,23 +282,6 @@ class _StepPainter extends CustomPainter {
     ..color = color
     ..style = PaintingStyle.stroke
     ..strokeWidth = 1;
-
-  static void _drawDashed(
-    Canvas canvas,
-    Path path,
-    Paint paint, {
-    required double dash,
-    required double gap,
-  }) {
-    for (final metric in path.computeMetrics()) {
-      var d = 0.0;
-      while (d < metric.length) {
-        final end = math.min(d + dash, metric.length);
-        canvas.drawPath(metric.extractPath(d, end), paint);
-        d += dash + gap;
-      }
-    }
-  }
 
   @override
   bool shouldRepaint(_StepPainter old) =>

@@ -92,11 +92,12 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
     ZkIdentityFlowState flowState,
     ZkPassportPipelineState pipelineState,
   ) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
-    final sizing = Theme.of(context).extension<AppSizing>()!;
-    final semantic = Theme.of(context).extension<AppSemanticColors>()!;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+    final spacing = theme.extension<AppSpacing>()!;
+    final sizing = theme.extension<AppSizing>()!;
+    final semantic = theme.extension<AppSemanticColors>()!;
 
     return switch (flowState.currentStep) {
       ZkIdentityStep.checkApp => _appNotInstalled
@@ -409,11 +410,12 @@ class _SubTaskRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final colorScheme = Theme.of(context).colorScheme;
-    final sizing = Theme.of(context).extension<AppSizing>()!;
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
-    final semantic = Theme.of(context).extension<AppSemanticColors>()!;
+    final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
+    final colorScheme = theme.colorScheme;
+    final sizing = theme.extension<AppSizing>()!;
+    final spacing = theme.extension<AppSpacing>()!;
+    final semantic = theme.extension<AppSemanticColors>()!;
 
     final iconSize = sizing.iconSmall;
     final (Widget indicator, Color textColor) = switch (state) {

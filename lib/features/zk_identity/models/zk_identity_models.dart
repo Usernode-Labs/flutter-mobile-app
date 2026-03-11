@@ -83,6 +83,7 @@ class ZkIdentityFlowState {
   }
 }
 
+// TODO(zk-identity): Remove once API serves ZK Identity challenge data.
 class ZkIdentityChallengeConfig {
   const ZkIdentityChallengeConfig({
     this.title = 'ZK Identity Verification',

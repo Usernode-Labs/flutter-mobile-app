@@ -18,7 +18,7 @@ import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 import 'package:crypto_mobile_app/features/settings/screens/settings_screen.dart'
-    show devResetChallengeState;
+    show resetChallengeState;
 
 final _log =
     LoggingService.instance.withTag('usernode/BackgroundProductionSettings');
@@ -448,31 +448,9 @@ class _BackgroundProductionSettingsScreenState
                         color: statusColor,
                       ),
                     ),
-                    TextButton(
-                      onPressed: () => devResetChallengeState(ref, context),
-                      child: const Text('Reset'),
-                    ),
-                  ],
-                ),
-                if (isRegistered) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    'Nullifier',
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
                   ),
                   TextButton(
-                    onPressed: () async {
-                      final controller =
-                          ref.read(zkPassportFlowControllerProvider);
-                      await controller.clearActiveRegistration();
-                      if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text('zkPassport status reset')),
-                      );
-                    },
+                    onPressed: () => resetChallengeState(ref, context),
                     child: const Text('Reset'),
                   ),
                 ],

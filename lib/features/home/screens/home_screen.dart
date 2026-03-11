@@ -25,7 +25,6 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen>
     with WidgetsBindingObserver {
-  final int _index = 0;
   int _lastTerminalDialogAtMs = 0;
   bool _zkTerminalDialogOpen = false;
 
@@ -36,7 +35,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     // Initialize current tab
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        ref.read(currentHomeTabProvider.notifier).state = _index;
+        ref.read(currentHomeTabProvider.notifier).state = 0;
       }
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {

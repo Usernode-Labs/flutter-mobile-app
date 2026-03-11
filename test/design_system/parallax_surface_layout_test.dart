@@ -240,8 +240,7 @@ void main() {
       expect(rootBox().color, surfaceLowest);
     });
 
-    testWidgets(
-        'root background lerps from surface to surfaceContainerLowest on scroll',
+    testWidgets('root background lerps with headerFadesOnScroll',
         (tester) async {
       final notifier = ValueNotifier<double>(0.0);
       addTearDown(notifier.dispose);
@@ -522,8 +521,8 @@ void main() {
           surfaceSlivers: [
             SliverList.list(children: const [Text('Item')]),
           ],
-          surfacePinnedSlivers: [
-            const SliverToBoxAdapter(child: SizedBox(height: 56)),
+          surfacePinnedSlivers: const [
+            SliverToBoxAdapter(child: SizedBox(height: 56)),
           ],
           surfacePinnedHeight: 56,
         ),
@@ -726,7 +725,8 @@ void main() {
       final titleWidget = tester.widget<Text>(find.text('Node Status'));
       final theme =
           Theme.of(tester.element(find.byType(ParallaxSurfaceLayout)));
-      expect(titleWidget.style?.fontSize, theme.textTheme.titleMedium?.fontSize);
+      expect(
+          titleWidget.style?.fontSize, theme.textTheme.titleMedium?.fontSize);
     });
 
     // --- pinned bar border tests ---
@@ -759,8 +759,7 @@ void main() {
           matching: find.byType(DecoratedBox),
         ),
       );
-      final border =
-          (db.decoration as BoxDecoration).border! as Border;
+      final border = (db.decoration as BoxDecoration).border! as Border;
       expect(border.bottom.color.a, 0.0);
     });
 
@@ -799,8 +798,7 @@ void main() {
           matching: find.byType(DecoratedBox),
         ),
       );
-      final border =
-          (db.decoration as BoxDecoration).border! as Border;
+      final border = (db.decoration as BoxDecoration).border! as Border;
       expect(border.bottom.color.a, closeTo(borders.opacity, 0.001));
     });
 
@@ -868,9 +866,9 @@ void main() {
         (tester) async {
           // Path 1: auto-sliver (no pinnedHeaderSlivers, safeAreaOverlay=true)
           await tester.pumpWidget(wrapWithSafeArea(
-            ParallaxSurfaceLayout(
-              header: const Text('Header'),
-              surfaceBody: const SizedBox(
+            const ParallaxSurfaceLayout(
+              header: Text('Header'),
+              surfaceBody: SizedBox(
                 key: ValueKey('surface_auto'),
                 height: 100,
               ),
@@ -915,9 +913,9 @@ void main() {
       testWidgets('surface Y equals safeTop + kPinnedBarPadding + headerHeight',
           (tester) async {
         await tester.pumpWidget(wrapWithSafeArea(
-          ParallaxSurfaceLayout(
-            header: const Text('Header'),
-            surfaceBody: const SizedBox(
+          const ParallaxSurfaceLayout(
+            header: Text('Header'),
+            surfaceBody: SizedBox(
               key: ValueKey('surface_marker'),
               height: 100,
             ),

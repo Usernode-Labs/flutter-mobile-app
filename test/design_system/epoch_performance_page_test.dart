@@ -57,6 +57,8 @@ void main() {
     String epochLabel = 'Epoch 176',
     double progress = 0.72,
     List<EpochMetricData>? metrics,
+    VoidCallback? onPrev,
+    VoidCallback? onNext,
     VoidCallback? onBackTap,
   }) {
     return EpochPerformancePage(
@@ -67,6 +69,8 @@ void main() {
       performanceLabel: 'Epoch Performance',
       performanceValue: '95.2%',
       metrics: metrics ?? buildMetrics(),
+      onPrev: onPrev,
+      onNext: onNext,
       onPickEpoch: (_) {},
       maxEpoch: 200,
       selectedEpoch: 176,
@@ -79,12 +83,6 @@ void main() {
       await tester.pumpWidget(wrap(buildPage()));
 
       expect(find.text('Epoch 176'), findsWidgets);
-    });
-
-    testWidgets('renders epoch picker action in AppBar', (tester) async {
-      await tester.pumpWidget(wrap(buildPage()));
-
-      expect(find.byIcon(Symbols.arrow_drop_down_sharp), findsOneWidget);
     });
 
     testWidgets('renders progress bar', (tester) async {
@@ -123,6 +121,54 @@ void main() {
       expect(find.text('16 of 21 won slots'), findsOneWidget);
     });
 
+    testWidgets('renders All filter chip', (tester) async {
+      await tester.pumpWidget(wrap(buildPage()));
+
+      expect(find.widgetWithText(FilterChip, 'All'), findsOneWidget);
+    });
+
+    testWidgets('prev button fires callback', (tester) async {
+      var prevTapped = false;
+      await tester.pumpWidget(wrap(buildPage(
+        onPrev: () => prevTapped = true,
+      )));
+
+      await tester.tap(find.byIcon(Symbols.chevron_left_sharp));
+      expect(prevTapped, isTrue);
+    });
+
+    testWidgets('next button fires callback', (tester) async {
+      var nextTapped = false;
+      await tester.pumpWidget(wrap(buildPage(
+        onNext: () => nextTapped = true,
+      )));
+
+      // Find the IconButton.filledTonal with chevron_right (not the metric trailing)
+      final nextButtons = find.ancestor(
+        of: find.byIcon(Symbols.chevron_right_sharp),
+        matching: find.byType(IconButton),
+      );
+      await tester.tap(nextButtons.first);
+      expect(nextTapped, isTrue);
+    });
+
+    testWidgets('prev/next buttons disabled when callbacks null',
+        (tester) async {
+      await tester.pumpWidget(wrap(buildPage(
+        onPrev: null,
+        onNext: null,
+      )));
+
+      final prevButton = tester.widget<IconButton>(
+        find.widgetWithIcon(IconButton, Symbols.chevron_left_sharp),
+      );
+      final nextButton = tester.widget<IconButton>(
+        find.widgetWithIcon(IconButton, Symbols.chevron_right_sharp),
+      );
+      expect(prevButton.onPressed, isNull);
+      expect(nextButton.onPressed, isNull);
+    });
+
     testWidgets('metric tile onTap fires', (tester) async {
       var checkedSlotsTapped = false;
       await tester.pumpWidget(wrap(buildPage(
@@ -148,6 +194,7 @@ void main() {
     testWidgets('renders leading icon containers for metrics', (tester) async {
       await tester.pumpWidget(wrap(buildPage()));
 
+      // Each metric tile has a leading icon container (4 metrics)
       expect(find.byType(ListTile), findsNWidgets(4));
     });
 
@@ -171,6 +218,8 @@ void main() {
         ],
       )));
 
+      // One chevron_right in the epoch panel next button + one in the metric trailing
+      // Verify the metric-specific chevron by finding it within a ListTile
       final metricChevrons = find.descendant(
         of: find.byType(ListTile),
         matching: find.byIcon(Symbols.chevron_right_sharp),

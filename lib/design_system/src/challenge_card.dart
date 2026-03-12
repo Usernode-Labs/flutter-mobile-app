@@ -449,19 +449,6 @@ class _SweepBorderPainter extends CustomPainter {
   final double borderRadius;
   final double strokeWidth;
 
-  SweepGradient _cometGradient(double alphaScale) => SweepGradient(
-        colors: [
-          color.withValues(alpha: 0),
-          color.withValues(alpha: 0),
-          color.withValues(alpha: 0.15 * alphaScale),
-          color.withValues(alpha: 0.5 * alphaScale),
-          color.withValues(alpha: 1.0 * alphaScale),
-          color.withValues(alpha: 0),
-        ],
-        stops: const [0.0, 0.70, 0.80, 0.90, 0.97, 1.0],
-        transform: GradientRotation(progress * math.pi * 2),
-      );
-
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
@@ -470,38 +457,36 @@ class _SweepBorderPainter extends CustomPainter {
       Radius.circular(borderRadius),
     );
 
-    // 1. Base track — subtle "rail" the comet runs on
+    // Subtle base track — the "rail" the comet runs on
     final trackPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..color = color.withValues(alpha: 0.12);
     canvas.drawRRect(rrect, trackPaint);
 
-    // Clip glow layers to the widget bounds so card size stays unchanged
-    canvas.save();
-    canvas.clipRect(rect);
+    // Comet trail — a tight ~20% arc with a fading tail and bright head
+    // 0%–70%: transparent (most of the perimeter)
+    // 70%–85%: faint glow building up
+    // 85%–97%: bright head
+    // 97%–100%: sharp cutoff back to transparent
+    final sweep = SweepGradient(
+      colors: [
+        color.withValues(alpha: 0),
+        color.withValues(alpha: 0),
+        color.withValues(alpha: 0.15),
+        color.withValues(alpha: 0.5),
+        color,
+        color.withValues(alpha: 0),
+      ],
+      stops: const [0.0, 0.70, 0.80, 0.90, 0.97, 1.0],
+      transform: GradientRotation(progress * math.pi * 2),
+    );
 
-    // 2. Outer glow — diffuse bloom
-    final outerGlowPaint = Paint()
-      ..shader = _cometGradient(0.15).createShader(rect)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth * 5;
-    canvas.drawRRect(rrect, outerGlowPaint);
-
-    // 3. Inner glow — tighter bloom
-    final innerGlowPaint = Paint()
-      ..shader = _cometGradient(0.35).createShader(rect)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth * 3;
-    canvas.drawRRect(rrect, innerGlowPaint);
-
-    canvas.restore();
-
-    // 4. Comet — sharp bright head (no clip needed, same width as track)
     final cometPaint = Paint()
-      ..shader = _cometGradient(1.0).createShader(rect)
+      ..shader = sweep.createShader(rect)
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth;
+
     canvas.drawRRect(rrect, cometPaint);
   }
 

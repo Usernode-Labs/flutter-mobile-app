@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ZkPassportRegistrationRepository {
   static const _kRegisteredKeyBase = 'zkpassport:registered';
   static const _kRegistrationKeyBase = 'zkpassport:registration';
+  static const _kPendingCompletionKey = 'zkpassport:pending_completion';
 
   Future<bool> isRegistered() async {
     final registration = await getActiveRegistration();
@@ -46,6 +47,48 @@ class ZkPassportRegistrationRepository {
       facematchVerified: facematchVerified,
     );
     await prefs.setString(key, jsonEncode(payload.toJson()));
+  }
+
+  /// Stores a pending backend completion for retry on next cold start.
+  Future<void> storePendingCompletion({
+    required int participantId,
+    required int challengeId,
+    required String walletAddress,
+    required String sessionId,
+    required String nullifierHex,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = NetworkPrefs.prefixKey(_kPendingCompletionKey);
+    await prefs.setString(key, jsonEncode({
+      'participant_id': participantId,
+      'challenge_id': challengeId,
+      'wallet_address': walletAddress,
+      'session_id': sessionId,
+      'nullifier_hex': nullifierHex,
+    }));
+  }
+
+  /// Returns a pending completion if one exists, or null.
+  Future<Map<String, dynamic>?> getPendingCompletion() async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = NetworkPrefs.prefixKey(_kPendingCompletionKey);
+    final raw = prefs.getString(key);
+    if (raw == null || raw.trim().isEmpty) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map<String, dynamic>) return decoded;
+    } catch (_) {
+      // Corrupt data — clear it.
+      await prefs.remove(key);
+    }
+    return null;
+  }
+
+  /// Clears a stored pending completion after successful retry.
+  Future<void> clearPendingCompletion() async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = NetworkPrefs.prefixKey(_kPendingCompletionKey);
+    await prefs.remove(key);
   }
 
   Future<void> clearActiveRegistration() async {

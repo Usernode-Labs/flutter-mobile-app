@@ -1,12 +1,31 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
+import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
 import 'package:crypto_mobile_app/design_system/src/zk_identity_flow_page.dart';
+import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 import 'package:crypto_mobile_app/features/zk_identity/models/zk_identity_models.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_models.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 
 final zkIdentityChallengeActiveProvider = StateProvider<bool>((ref) => false);
+
+/// Resolves the real challenge ID for the ZK Identity challenge from the
+/// already-loaded challenges list by matching subCategory.
+final zkIdentityChallengeIdProvider = Provider<int?>((ref) {
+  return ref.watch(zkIdentityChallengeDtoProvider)?.id;
+});
+
+/// Resolves the full [ChallengeDto] for the ZK Identity challenge.
+final zkIdentityChallengeDtoProvider = Provider<ChallengeDto?>((ref) {
+  final challenges = ref.watch(challengesProvider.select((s) => s.value?.data));
+  if (challenges == null) return null;
+  for (final c in challenges) {
+    if (c.subCategory == zkIdentitySubCategory) return c;
+  }
+  return null;
+});
 
 final zkIdentityIsCompleteProvider = Provider<AsyncValue<bool>>((ref) {
   return ref.watch(zkPassportIsRegisteredProvider);

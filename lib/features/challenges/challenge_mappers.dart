@@ -2,7 +2,6 @@ import 'package:intl/intl.dart';
 
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/design_system/src/challenge_card.dart';
-import 'package:crypto_mobile_app/features/zk_identity/models/zk_identity_models.dart';
 
 /// Maps [ChallengeDto.category] string to [ChallengeCategory] enum.
 ///
@@ -282,10 +281,12 @@ bool isProduceBlocksChallenge(ChallengeDto dto) {
   return dto.subCategory == 'PRODUCE_BLOCKS_CHALLENGE';
 }
 
-/// Returns true when the challenge is the synthetic ZK Identity challenge.
+/// SubCategory identifier for the ZK Identity challenge.
+const String zkIdentitySubCategory = 'ZK_IDENTITY_VERIFICATION';
+
+/// Returns true when the challenge is the ZK Identity challenge.
 bool isZkIdentityChallenge(ChallengeDto dto) {
-  return dto.id == ZkIdentityChallengeConfig.syntheticId &&
-      dto.subCategory == ZkIdentityChallengeConfig.instance.subCategory;
+  return dto.subCategory == zkIdentitySubCategory;
 }
 
 /// Formats rank as an ordinal: 1 → "1st", 2 → "2nd", 3 → "3rd".

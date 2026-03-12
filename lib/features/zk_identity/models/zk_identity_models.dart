@@ -83,25 +83,3 @@ class ZkIdentityFlowState {
   }
 }
 
-// TODO(zk-identity): Remove once API serves ZK Identity challenge data.
-class ZkIdentityChallengeConfig {
-  const ZkIdentityChallengeConfig({
-    this.title = 'ZK Identity Verification',
-    this.goal = 'Verify your identity with ZK Passport',
-    this.task =
-        'Use the ZK Passport app to create a zero-knowledge proof of your passport.',
-    this.reward = '500',
-    this.category = 'community',
-    this.subCategory = 'ZK_IDENTITY_VERIFICATION',
-  });
-
-  final String title;
-  final String goal;
-  final String task;
-  final String reward;
-  final String category;
-  final String subCategory;
-
-  static const instance = ZkIdentityChallengeConfig();
-  static const syntheticId = -1;
-}

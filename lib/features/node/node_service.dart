@@ -263,6 +263,15 @@ class RustBackendService {
         'Configuring block producer with user secret key (length: ${secretKey.length})',
       );
       builder.blockProducerSecretKey(secretKey: secretKey);
+      if (AppConfig.observabilityHubBaseUrl.isNotEmpty) {
+        _log.info(
+          'Enabling observability hub HTTP intake',
+          context: {'base_url': AppConfig.observabilityHubBaseUrl},
+        );
+        builder.enableObservabilityHubHttp(
+          baseUrl: AppConfig.observabilityHubBaseUrl,
+        );
+      }
       if (AppConfig.enableRealProver) {
         _log.info('Forcing real prover mode');
         builder.enableRealProver();

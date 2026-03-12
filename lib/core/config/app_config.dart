@@ -54,6 +54,13 @@ class AppConfig {
     defaultValue: 'https://leaderboard.usernodelabs.org/api/v2/mobile/register',
   );
 
+  // Observability hub intake base URL for node startup.
+  // Leave empty to disable HTTP observability export from the mobile node.
+  static const String observabilityHubBaseUrl = String.fromEnvironment(
+    'OBSERVABILITY_HUB_BASE_URL',
+    defaultValue: '',
+  );
+
   // zkPassport session server (bridge) base URL.
   static const String zkPassportBridgeBaseUrl = String.fromEnvironment(
     'ZKPASSPORT_BRIDGE_BASE_URL',

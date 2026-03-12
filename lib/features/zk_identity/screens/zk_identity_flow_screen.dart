@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -27,6 +29,16 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Reset local checkApp state when navigating away from that step.
+    ref.listenManual(zkIdentityStepControllerProvider, (prev, next) {
+      if (next.currentStep != ZkIdentityStep.checkApp &&
+          (_checkingApp || _appNotInstalled)) {
+        setState(() {
+          _checkingApp = false;
+          _appNotInstalled = false;
+        });
+      }
+    });
   }
 
   @override
@@ -60,12 +72,6 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
   Widget build(BuildContext context) {
     final flowState = ref.watch(zkIdentityStepControllerProvider);
     final pipelineState = ref.watch(zkPassportPipelineProvider);
-
-    // Reset local state when navigating away from checkApp step.
-    if (flowState.currentStep != ZkIdentityStep.checkApp) {
-      _checkingApp = false;
-      _appNotInstalled = false;
-    }
 
     final steps = flowState.steps.map((s) {
       return ZkIdentityStepData(
@@ -274,7 +280,7 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
           label: 'Start Verification',
           onTap: () {
             controller.confirmReady();
-            controller.triggerVerification();
+            unawaited(controller.triggerVerification());
           },
         ),
       ZkIdentityStep.verification =>

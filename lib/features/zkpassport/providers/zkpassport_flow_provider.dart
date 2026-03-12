@@ -4,8 +4,11 @@ import 'dart:typed_data';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
+import 'package:crypto_mobile_app/core/providers/categorized_challenges_provider.dart';
+import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
+import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
@@ -265,6 +268,19 @@ class ZkPassportFlowController {
     _ref.invalidate(zkPassportRegistrationProvider);
   }
 
+  /// Resets all challenge-related state: ZK identity flow, pipeline session,
+  /// registration, and cached challenge data. Called from settings.
+  Future<void> resetChallengeData() async {
+    _ref.read(zkIdentityStepControllerProvider.notifier).reset();
+    await clearActiveRegistration();
+    await _ref
+        .read(zkPassportPipelineProvider.notifier)
+        .discardPendingSession(reason: 'Reset');
+    _ref.invalidate(challengesProvider);
+    _ref.invalidate(breakdownProvider);
+    _ref.invalidate(categorizedChallengesProvider);
+  }
+
   Future<void> setFacematchStrict(bool value) async {
     final repo = _ref.read(zkPassportSettingsRepositoryProvider);
     await repo.setFacematchStrict(value);
@@ -400,10 +416,11 @@ class ZkPassportPipelineController
           'stackTrace': _truncateMessage(st.toString(), maxChars: 1200),
         },
       );
+    } finally {
+      // Retry any pending backend completion from a previous session.
+      // Must run unconditionally — even when a non-expired session is preserved.
+      unawaited(_retryPendingCompletion());
     }
-
-    // Retry any pending backend completion from a previous session.
-    unawaited(_retryPendingCompletion());
   }
 
   Future<void> markLaunchStarted({
@@ -1261,18 +1278,35 @@ class ZkPassportPipelineController
 
   /// Retries any stored pending completion. Called on cold start.
   Future<void> _retryPendingCompletion() async {
+    final repo = _ref.read(zkPassportRegistrationRepositoryProvider);
     try {
-      final repo = _ref.read(zkPassportRegistrationRepositoryProvider);
       final pending = await repo.getPendingCompletion();
       if (pending == null) return;
 
+      // Validate types before casting — corrupt data should be cleared, not
+      // retried forever.
+      final participantId = pending['participant_id'];
+      final challengeId = pending['challenge_id'];
+      final walletAddress = pending['wallet_address'];
+      final sessionId = pending['session_id'];
+      final nullifierHex = pending['nullifier_hex'];
+      if (participantId is! int ||
+          challengeId is! int ||
+          walletAddress is! String ||
+          sessionId is! String ||
+          nullifierHex is! String) {
+        _log.warn('Clearing corrupt pending completion data');
+        await repo.clearPendingCompletion();
+        return;
+      }
+
       final api = _ref.read(leaderboardApiServiceProvider);
       final ok = await api.completeZkPassport(
-        participantId: pending['participant_id'] as int,
-        challengeId: pending['challenge_id'] as int,
-        walletAddress: pending['wallet_address'] as String,
-        sessionId: pending['session_id'] as String,
-        nullifierHex: pending['nullifier_hex'] as String,
+        participantId: participantId,
+        challengeId: challengeId,
+        walletAddress: walletAddress,
+        sessionId: sessionId,
+        nullifierHex: nullifierHex,
       );
 
       if (ok) {

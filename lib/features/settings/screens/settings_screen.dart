@@ -23,30 +23,15 @@ import 'package:crypto_mobile_app/features/settings/widgets/faq_section.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/theme_picker_sheet.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/build_info_sheet.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/network_switcher_dialog.dart';
-import 'package:crypto_mobile_app/core/providers/categorized_challenges_provider.dart';
-import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
-import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
-import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 final _log =
     LoggingService.instance.withTag('usernode/BackgroundProductionSettings');
 
-/// Clears zkPassport registration, discards any pending pipeline session,
-/// and invalidates cached challenge data. Shared by both settings screens.
+/// Resets challenge state and shows a confirmation snackbar.
 Future<void> resetChallengeState(WidgetRef ref, BuildContext context) async {
-  // Reset the ZK Identity step flow (closes pipeline subscription too).
-  ref.read(zkIdentityStepControllerProvider.notifier).reset();
-
-  await ref.read(zkPassportFlowControllerProvider).clearActiveRegistration();
-  await ref
-      .read(zkPassportPipelineProvider.notifier)
-      .discardPendingSession(reason: 'Reset');
-
-  ref.invalidate(challengesProvider);
-  ref.invalidate(breakdownProvider);
-  ref.invalidate(categorizedChallengesProvider);
+  await ref.read(zkPassportFlowControllerProvider).resetChallengeData();
 
   if (!context.mounted) return;
   ScaffoldMessenger.of(context).showSnackBar(

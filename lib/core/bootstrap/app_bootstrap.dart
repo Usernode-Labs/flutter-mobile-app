@@ -7,7 +7,6 @@ import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/feature_flags.dart';
 import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
-import 'package:crypto_mobile_app/core/services/deep_link_service.dart';
 import 'package:crypto_mobile_app/core/utils/lifecycle.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
@@ -86,8 +85,6 @@ class AppBootstrap {
       AppLifecycleLogger.register();
       AppLifecycleLogger.onForegroundResume = recoverZkSession;
     }
-
-    DeepLinkService.instance.initialize(onZkCallback: recoverZkSession);
 
     _bootstrapBackendAsync(log: log, container: container);
 

@@ -162,12 +162,6 @@ class _EpochPerformanceScreenState
       performanceLabel: l10n.producedBlocksEpochPerformance,
       performanceValue: perfStr,
       metrics: _buildMetrics(context, data, viewedEpoch, currentEpoch, l10n),
-      onPrev: viewedEpoch > 0
-          ? () => setState(() => _viewedEpoch = viewedEpoch - 1)
-          : null,
-      onNext: viewedEpoch < maxEpochWithData
-          ? () => setState(() => _viewedEpoch = viewedEpoch + 1)
-          : null,
       onPickEpoch: (e) => setState(() => _viewedEpoch = e),
       maxEpoch: maxEpochWithData,
       selectedEpoch: viewedEpoch,

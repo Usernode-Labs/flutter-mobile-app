@@ -62,4 +62,3 @@ final textTheme = Theme.of(context).textTheme;                // typography
 | `FullPageErrorState` | — | [genesis](.specs/FullPageErrorState.genesis.md) |
 | `FullPageLoadingState` | — | [genesis](.specs/FullPageLoadingState.genesis.md) |
 | `ParallaxSurfaceLayout` | — | [genesis](.specs/ParallaxSurfaceLayout.genesis.md) |
-| `ZkProofDetailSection` | — | [genesis](.specs/ZkProofDetailSection.genesis.md) |

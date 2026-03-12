@@ -13,10 +13,10 @@ packages:
     dependency: transitive
     description:
       name: accessibility_tools
-      sha256: "088cfe6d3520dbe86bb5259059c0d5f478fe113e09311023b0485e68879b34b2"
+      sha256: c29732e423175a51e0a6ace7df1255f5d77812c7c7b7101d8ba0186a43d533aa
       url: "https://pub.dev"
     source: hosted
-    version: "2.7.1"
+    version: "2.8.0"
   analyzer:
     dependency: transitive
     description:
@@ -1477,18 +1477,18 @@ packages:
     dependency: "direct main"
     description:
       name: widgetbook
-      sha256: "1877019a90c514c69be049255801487ef22fe0a86c33f81fd82c80cabe86d886"
+      sha256: d4723df880c59e5df00da7ee02c5e29faf230d860319547e8fea011821ae93a9
       url: "https://pub.dev"
     source: hosted
-    version: "3.21.0"
+    version: "3.22.0"
   widgetbook_annotation:
     dependency: transitive
     description:
       name: widgetbook_annotation
-      sha256: c074bcb262e32bfd62038557fd5ed51e88f4d14e24447ed60fa5e57854941dbb
+      sha256: ec98130f23579f14e304b6b45516612676ae4e0b0e6bb1debe9dba4ea604ab42
       url: "https://pub.dev"
     source: hosted
-    version: "3.10.0"
+    version: "3.11.0"
   win32:
     dependency: transitive
     description:
@@ -1530,5 +1530,5 @@ packages:
     source: hosted
     version: "3.1.3"
 sdks:
-  dart: ">=3.9.0 <4.0.0"
-  flutter: ">=3.35.0"
+  dart: ">=3.10.0 <4.0.0"
+  flutter: ">=3.38.0"

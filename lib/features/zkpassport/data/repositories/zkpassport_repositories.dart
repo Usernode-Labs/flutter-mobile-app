@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ZkPassportRegistrationRepository {
   static const _kRegisteredKeyBase = 'zkpassport:registered';
   static const _kRegistrationKeyBase = 'zkpassport:registration';
+  static const _kPendingCompletionKey = 'zkpassport:pending_completion';
 
   Future<bool> isRegistered() async {
     final registration = await getActiveRegistration();
@@ -29,6 +30,7 @@ class ZkPassportRegistrationRepository {
   Future<void> storeActiveRegistration({
     required bool registered,
     required String? nullifierHex,
+    bool? facematchVerified,
   }) async {
     final accounts = await AccountsRepository.create();
     final active = await accounts.getActive();
@@ -42,8 +44,51 @@ class ZkPassportRegistrationRepository {
       registered: registered,
       nullifierHex: nullifierHex,
       registeredAtMs: registered ? DateTime.now().millisecondsSinceEpoch : null,
+      facematchVerified: facematchVerified,
     );
     await prefs.setString(key, jsonEncode(payload.toJson()));
+  }
+
+  /// Stores a pending backend completion for retry on next cold start.
+  Future<void> storePendingCompletion({
+    required int participantId,
+    required int challengeId,
+    required String walletAddress,
+    required String sessionId,
+    required String nullifierHex,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = NetworkPrefs.prefixKey(_kPendingCompletionKey);
+    await prefs.setString(key, jsonEncode({
+      'participant_id': participantId,
+      'challenge_id': challengeId,
+      'wallet_address': walletAddress,
+      'session_id': sessionId,
+      'nullifier_hex': nullifierHex,
+    }));
+  }
+
+  /// Returns a pending completion if one exists, or null.
+  Future<Map<String, dynamic>?> getPendingCompletion() async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = NetworkPrefs.prefixKey(_kPendingCompletionKey);
+    final raw = prefs.getString(key);
+    if (raw == null || raw.trim().isEmpty) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map<String, dynamic>) return decoded;
+    } catch (_) {
+      // Corrupt data — clear it.
+      await prefs.remove(key);
+    }
+    return null;
+  }
+
+  /// Clears a stored pending completion after successful retry.
+  Future<void> clearPendingCompletion() async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = NetworkPrefs.prefixKey(_kPendingCompletionKey);
+    await prefs.remove(key);
   }
 
   Future<void> clearActiveRegistration() async {
@@ -93,6 +138,38 @@ class ZkPassportRegistrationRepository {
     );
     await prefs.setString(key, jsonEncode(migrated.toJson()));
     return migrated;
+  }
+}
+
+class ZkPassportSettingsRepository {
+  static const _kSettingsKeyBase = 'zkpassport:settings_v1';
+
+  Future<ZkPassportSettings> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = NetworkPrefs.prefixKey(_kSettingsKeyBase);
+    final raw = prefs.getString(key);
+    if (raw == null || raw.trim().isEmpty) {
+      return ZkPassportSettings.defaults;
+    }
+    try {
+      final decoded = jsonDecode(raw);
+      return ZkPassportSettings.fromJson(decoded) ??
+          ZkPassportSettings.defaults;
+    } catch (_) {
+      await prefs.remove(key);
+      return ZkPassportSettings.defaults;
+    }
+  }
+
+  Future<void> save(ZkPassportSettings settings) async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = NetworkPrefs.prefixKey(_kSettingsKeyBase);
+    await prefs.setString(key, jsonEncode(settings.toJson()));
+  }
+
+  Future<void> setFacematchStrict(bool value) async {
+    final current = await load();
+    await save(current.copyWith(facematchStrict: value));
   }
 }
 
@@ -166,6 +243,7 @@ class ZkPassportSessionServerRepository {
     required String walletAddress,
     required String chainId,
     required int nonce,
+    required bool facematchStrict,
   }) async {
     final json = await _postJson(
       '/v1/zkp/sessions/start',
@@ -173,6 +251,7 @@ class ZkPassportSessionServerRepository {
         'wallet_address': walletAddress,
         'chain_id': chainId,
         'nonce': nonce,
+        'facematch_strict': facematchStrict,
       },
       timeout: const Duration(seconds: 10),
     );

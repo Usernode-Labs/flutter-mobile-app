@@ -17,6 +17,10 @@ final _log = LoggingService.instance.withTag('usernode/Lifecycle');
 class AppLifecycleLogger with WidgetsBindingObserver {
   static AppLifecycleLogger? _instance;
 
+  /// Called after each foreground resume completes. Set by bootstrap to trigger
+  /// actions (e.g. ZK session recovery) from any screen.
+  static VoidCallback? onForegroundResume;
+
   // Track if we're currently handling resume to avoid concurrent processing
   bool _isHandlingResume = false;
 
@@ -79,6 +83,9 @@ class AppLifecycleLogger with WidgetsBindingObserver {
       await _verifyScheduledAlarms();
 
       _log.info('App resume handling complete');
+
+      // Notify listeners (e.g. ZK session recovery) after core resume is done
+      onForegroundResume?.call();
     } catch (e) {
       _log.error('Error handling app resume: $e');
     } finally {

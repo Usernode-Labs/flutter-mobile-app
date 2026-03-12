@@ -281,6 +281,14 @@ bool isProduceBlocksChallenge(ChallengeDto dto) {
   return dto.subCategory == 'PRODUCE_BLOCKS_CHALLENGE';
 }
 
+/// SubCategory identifier for the ZK Identity challenge.
+const String zkIdentitySubCategory = 'ZK_IDENTITY_VERIFICATION';
+
+/// Returns true when the challenge is the ZK Identity challenge.
+bool isZkIdentityChallenge(ChallengeDto dto) {
+  return dto.subCategory == zkIdentitySubCategory;
+}
+
 /// Formats rank as an ordinal: 1 → "1st", 2 → "2nd", 3 → "3rd".
 ///
 /// Returns null for null input or ranks outside 1–3.

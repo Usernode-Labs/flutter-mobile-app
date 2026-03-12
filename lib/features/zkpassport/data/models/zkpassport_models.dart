@@ -90,6 +90,7 @@ class ZkPassportPipelineState {
 class ZkPassportRuntimeSession {
   const ZkPassportRuntimeSession({
     required this.requestId,
+    required this.facematchStrict,
     required this.phase,
     required this.createdAtMs,
     required this.lastProgressAtMs,
@@ -97,6 +98,7 @@ class ZkPassportRuntimeSession {
   });
 
   final String requestId;
+  final bool facematchStrict;
   final ZkPassportPipelinePhase phase;
   final int createdAtMs;
   final int lastProgressAtMs;
@@ -110,6 +112,7 @@ class ZkPassportRuntimeSession {
   Map<String, dynamic> toJson() {
     return {
       'requestId': requestId,
+      'facematchStrict': facematchStrict,
       'phase': phase.name,
       'createdAtMs': createdAtMs,
       'lastProgressAtMs': lastProgressAtMs,
@@ -119,6 +122,7 @@ class ZkPassportRuntimeSession {
 
   static ZkPassportRuntimeSession? fromJson(Map<String, dynamic> json) {
     final requestIdRaw = json['requestId'];
+    final facematchStrict = json['facematchStrict'] == true;
     final phaseRaw = json['phase'];
     final createdAtRaw = json['createdAtMs'];
     final lastProgressRaw = json['lastProgressAtMs'];
@@ -156,6 +160,7 @@ class ZkPassportRuntimeSession {
 
     return ZkPassportRuntimeSession(
       requestId: requestIdRaw.trim(),
+      facematchStrict: facematchStrict,
       phase: phase,
       createdAtMs: createdAtMs,
       lastProgressAtMs: lastProgressAtMs,
@@ -165,6 +170,7 @@ class ZkPassportRuntimeSession {
 
   ZkPassportRuntimeSession copyWith({
     String? requestId,
+    bool? facematchStrict,
     ZkPassportPipelinePhase? phase,
     int? createdAtMs,
     int? lastProgressAtMs,
@@ -172,10 +178,43 @@ class ZkPassportRuntimeSession {
   }) {
     return ZkPassportRuntimeSession(
       requestId: requestId ?? this.requestId,
+      facematchStrict: facematchStrict ?? this.facematchStrict,
       phase: phase ?? this.phase,
       createdAtMs: createdAtMs ?? this.createdAtMs,
       lastProgressAtMs: lastProgressAtMs ?? this.lastProgressAtMs,
       resumeAttemptCount: resumeAttemptCount ?? this.resumeAttemptCount,
+    );
+  }
+}
+
+class ZkPassportSettings {
+  const ZkPassportSettings({
+    required this.facematchStrict,
+  });
+
+  final bool facematchStrict;
+
+  static const defaults = ZkPassportSettings(facematchStrict: true);
+
+  Map<String, dynamic> toJson() {
+    return {
+      'facematch_strict': facematchStrict,
+    };
+  }
+
+  static ZkPassportSettings? fromJson(dynamic raw) {
+    if (raw is! Map) return null;
+    final json = Map<String, dynamic>.from(raw);
+    return ZkPassportSettings(
+      facematchStrict: json['facematch_strict'] == true,
+    );
+  }
+
+  ZkPassportSettings copyWith({
+    bool? facematchStrict,
+  }) {
+    return ZkPassportSettings(
+      facematchStrict: facematchStrict ?? this.facematchStrict,
     );
   }
 }
@@ -185,11 +224,13 @@ class ZkPassportLocalRegistration {
     required this.registered,
     required this.nullifierHex,
     required this.registeredAtMs,
+    this.facematchVerified,
   });
 
   final bool registered;
   final String? nullifierHex;
   final int? registeredAtMs;
+  final bool? facematchVerified;
 
   static ZkPassportLocalRegistration unregistered() {
     return const ZkPassportLocalRegistration(
@@ -204,6 +245,7 @@ class ZkPassportLocalRegistration {
       'registered': registered,
       'nullifier_hex': nullifierHex,
       'registered_at_ms': registeredAtMs,
+      if (facematchVerified != null) 'facematch_verified': facematchVerified,
     };
   }
 
@@ -223,10 +265,14 @@ class ZkPassportLocalRegistration {
         ? registeredAtRaw
         : (registeredAtRaw is String ? int.tryParse(registeredAtRaw) : null);
 
+    final facematchRaw = json['facematch_verified'];
+    final facematchVerified = facematchRaw is bool ? facematchRaw : null;
+
     return ZkPassportLocalRegistration(
       registered: registered,
       nullifierHex: nullifier,
       registeredAtMs: registeredAtMs,
+      facematchVerified: facematchVerified,
     );
   }
 }

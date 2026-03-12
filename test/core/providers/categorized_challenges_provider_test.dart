@@ -133,10 +133,7 @@ void main() {
 
       final result = container.read(categorizedChallengesProvider);
       expect(result, isNotNull);
-      // Without breakdown, categorization falls back to dto.completed/enabled:
-      // id=1 active, id=2 completed (dto.completed=true but no activity match
-      // so enriched.participantCompleted is false → it's enabled → active).
-      // Actually: without breakdown, activity is null for all, so
+      // Without breakdown, activity is null for all, so
       // participantCompleted is false for all. Categorization:
       //   id=1: enabled=true, participantCompleted=false → active
       //   id=2: enabled=true, participantCompleted=false → active (no activity match!)
@@ -170,7 +167,7 @@ void main() {
       //   id=2: completed (activity match)
       //   id=3: missed (not enabled, no activity)
       expect(result!.active.length, 1);
-      expect(result.active.first.dto.goal, 'Produce Every Block');
+      expect(result.active[0].dto.goal, 'Produce Every Block');
       expect(result.completed.length, 1);
       expect(result.completed.first.dto.goal, 'Prove Humanity');
       expect(result.completed.first.earnedPoints, 1000);

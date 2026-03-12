@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import '../tokens/app_semantic_colors.dart';
 import 'challenge_card.dart';
+import 'paint_helpers.dart';
 
 /// Renders the abstract geometric icon for a [ChallengeCategory].
 ///
-/// Each category has a unique shape (polygon, blob, circle) rendered as an SVG
-/// with three colour layers derived from the category's base semantic colour:
-/// outer fill at 15% opacity, inner fill at 30% opacity, and a fully-saturated
-/// stroke outline.
+/// Each category has a unique shape (polygon, cookie, circle) rendered via
+/// [CustomPainter] with three colour layers derived from the category's
+/// semantic colour group: outer fill at [SemanticColorGroup.colorSurface],
+/// inner fill at [SemanticColorGroup.colorContainer], and a fully-saturated
+/// stroke outline at [SemanticColorGroup.color].
 ///
 /// When [muted] is `true` the category colour is replaced with neutral surface
 /// tones (`surfaceDim` for fills, `outline` for strokes) — useful for missed
@@ -26,195 +27,199 @@ class ChallengeCategoryIcon extends StatelessWidget {
   final double? size;
   final bool muted;
 
-  static final _cache = <String, SvgPicture>{};
-
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final semantic = Theme.of(context).extension<AppSemanticColors>()!;
 
-    final Color baseColor;
-    final double catOpacity;
-    final double surfaceOpacity;
+    final Color innerColor;
+    final Color outerColor;
+    final Color strokeColor;
 
     if (muted) {
-      baseColor = colors.surfaceDim;
-      catOpacity = 1.0;
-      surfaceOpacity = 1.0;
+      innerColor = colors.surfaceDim;
+      outerColor = colors.surfaceDim;
+      strokeColor = colors.outline;
     } else {
       final group = switch (category) {
         ChallengeCategory.technical => semantic.technical,
         ChallengeCategory.community => semantic.community,
         ChallengeCategory.flash => semantic.flash,
       };
-      baseColor = group.color;
-      catOpacity = 0.3;
-      surfaceOpacity = 0.15;
+      innerColor = group.colorContainer;
+      outerColor = group.colorSurface;
+      strokeColor = group.color;
     }
 
-    final strokeColor = muted ? colors.outline : baseColor;
-    final fillHex = _toHex(baseColor);
-    final strokeHex = _toHex(strokeColor);
-    final catOpStr = catOpacity.toString();
-    final surfOpStr = surfaceOpacity.toString();
+    return CustomPaint(
+      size: Size.square(size ?? 48),
+      painter: _CategoryIconPainter(
+        category: category,
+        innerColor: innerColor,
+        outerColor: outerColor,
+        strokeColor: strokeColor,
+      ),
+    );
+  }
+}
 
-    final cacheKey =
-        '${category.index}|${muted ? 'm' : ''}|$fillHex|$strokeHex|$catOpStr|$surfOpStr';
-    final cached = _cache[cacheKey];
-    if (cached != null) {
-      return SizedBox(width: size, height: size, child: cached);
+// ── Shared path helpers ──
+
+Path _polygon(double size, List<Offset> vertices) {
+  final path = Path();
+  for (var i = 0; i < vertices.length; i++) {
+    final x = vertices[i].dx * size;
+    final y = vertices[i].dy * size;
+    if (i == 0) {
+      path.moveTo(x, y);
+    } else {
+      path.lineTo(x, y);
     }
+  }
+  path.close();
+  return path;
+}
 
-    final raw = switch (category) {
-      ChallengeCategory.technical => _technicalSvg,
-      ChallengeCategory.community => _communitySvg,
-      ChallengeCategory.flash => _flashSvg,
-    };
-    final svgString = raw
-        .replaceAll('{{C}}', fillHex)
-        .replaceAll('{{CS}}', fillHex)
-        .replaceAll('{{S}}', strokeHex)
-        .replaceAll('{{COP}}', catOpStr)
-        .replaceAll('{{CSOP}}', surfOpStr);
+// ── Normalized vertex data (from 47×47 SVG viewBox) ──
 
-    final pic = SvgPicture.string(svgString);
-    _cache[cacheKey] = pic;
-    return SizedBox(width: size, height: size, child: pic);
+// Inner fill polygon (6 vertices)
+const _kTechInner = [
+  Offset(0.35676, 0.14179),
+  Offset(0.73974, 0.20275),
+  Offset(0.87947, 0.57158),
+  Offset(0.63622, 0.87945),
+  Offset(0.25325, 0.81849),
+  Offset(0.11352, 0.44966),
+];
+
+// Outer/surface fill polygon (8 vertices)
+const _kTechOuter = [
+  Offset(0.39843, 0.99298),
+  Offset(0.07607, 0.77822),
+  Offset(0.00000, 0.39843),
+  Offset(0.21476, 0.07607),
+  Offset(0.59455, 0.00000),
+  Offset(0.91691, 0.21476),
+  Offset(0.99298, 0.59455),
+  Offset(0.77822, 0.91691),
+];
+
+// Stroke polygon (7 vertices)
+const _kTechStroke = [
+  Offset(0.58065, 0.25543),
+  Offset(0.73756, 0.42198),
+  Offset(0.70597, 0.64923),
+  Offset(0.50965, 0.76606),
+  Offset(0.29646, 0.68450),
+  Offset(0.22692, 0.46596),
+  Offset(0.35339, 0.27500),
+];
+
+// ── Painter ──
+
+class _CategoryIconPainter extends CustomPainter {
+  const _CategoryIconPainter({
+    required this.category,
+    required this.innerColor,
+    required this.outerColor,
+    required this.strokeColor,
+  });
+
+  final ChallengeCategory category;
+  final Color innerColor;
+  final Color outerColor;
+  final Color strokeColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    switch (category) {
+      case ChallengeCategory.technical:
+        _paintTechnical(canvas, size);
+      case ChallengeCategory.flash:
+        _paintFlash(canvas, size);
+      case ChallengeCategory.community:
+        _paintCommunity(canvas, size);
+    }
   }
 
-  static String _toHex(Color color) {
-    final r = (color.r * 255).round();
-    final g = (color.g * 255).round();
-    final b = (color.b * 255).round();
-    return '#${r.toRadixString(16).padLeft(2, '0')}'
-        '${g.toRadixString(16).padLeft(2, '0')}'
-        '${b.toRadixString(16).padLeft(2, '0')}';
+  void _paintTechnical(Canvas canvas, Size size) {
+    final s = size.shortestSide;
+    // Drawing order matches original SVG: outer fill → inner fill → stroke
+    canvas.drawPath(
+      _polygon(s, _kTechOuter),
+      Paint()..color = outerColor,
+    );
+    canvas.drawPath(
+      _polygon(s, _kTechInner),
+      Paint()..color = innerColor,
+    );
+    canvas.drawPath(
+      _polygon(s, _kTechStroke),
+      Paint()
+        ..color = strokeColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = s / 47,
+    );
   }
 
-  // ── SVG templates ──
-  // {{C}} = inner fill, {{CS}} = outer fill, {{S}} = stroke
-  // {{COP}} = inner fill opacity, {{CSOP}} = outer fill opacity
+  void _paintFlash(Canvas canvas, Size size) {
+    final s = size.shortestSide;
+    final center = size.center(Offset.zero);
+    // Outer fill circle
+    canvas.drawCircle(
+      center,
+      s * 0.5,
+      Paint()..color = outerColor,
+    );
+    // Inner fill circle
+    canvas.drawCircle(
+      center,
+      s * 0.405,
+      Paint()..color = innerColor,
+    );
+    // Dashed stroke circle
+    final dashOval = Path()
+      ..addOval(Rect.fromCircle(center: center, radius: s * 0.25));
+    drawDashedPath(
+      canvas,
+      dashOval,
+      Paint()
+        ..color = strokeColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = s / 48
+        ..strokeCap = StrokeCap.round,
+      dash: s * 4 / 48,
+      gap: s * 4 / 48,
+    );
+  }
 
-  static const _technicalSvg = '<svg width="47" height="47" viewBox="0 0 47 47"'
-      ' fill="none" xmlns="http://www.w3.org/2000/svg">'
-      '<path d="M16.7677 6.66406L34.7677 9.52924L41.3352 26.8642L29.9027'
-      ' 41.3341L11.9027 38.4689L5.33521 21.1339L16.7677 6.66406Z"'
-      ' fill="{{C}}" fill-opacity="{{COP}}"/>'
-      '<path d="M18.7263 46.67L3.57544 36.5763L0 18.7263L10.0937'
-      ' 3.57544L27.9437 0L43.0946 10.0937L46.67 27.9437L36.5763'
-      ' 43.0946L18.7263 46.67Z" fill="{{CS}}" fill-opacity="{{CSOP}}"/>'
-      '<path d="M27.2905 12.0049L34.6652 19.8328L33.1804 30.5137L23.9536'
-      ' 36.0049L13.9335 32.1715L10.6652 21.9001L16.6092 12.9249L27.2905'
-      ' 12.0049Z" stroke="{{S}}"/>'
-      '</svg>';
+  void _paintCommunity(Canvas canvas, Size size) {
+    final s = size.shortestSide;
+    final center = size.center(Offset.zero);
+    // Drawing order: outer fill → inner fill → stroke
+    canvas.drawPath(
+      cookiePath(center, s * 0.5),
+      Paint()..color = outerColor,
+    );
+    canvas.drawPath(
+      cookiePath(center, s * 0.425),
+      Paint()..color = innerColor,
+    );
+    canvas.drawPath(
+      cookiePath(center, s * 0.275),
+      Paint()
+        ..color = strokeColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = s / 48
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+  }
 
-  static const _flashSvg = '<svg width="48" height="48" viewBox="0 0 48 48"'
-      ' fill="none" xmlns="http://www.w3.org/2000/svg">'
-      '<path d="M24.0006 43.4592C34.7489 43.4592 43.4621 34.746 43.4621'
-      ' 23.9977C43.4621 13.2494 34.7489 4.53613 24.0006 4.53613C13.2523'
-      ' 4.53613 4.53906 13.2494 4.53906 23.9977C4.53906 34.746 13.2523'
-      ' 43.4592 24.0006 43.4592Z" fill="{{C}}" fill-opacity="{{COP}}"/>'
-      '<path d="M24 48C37.2548 48 48 37.2548 48 24C48 10.7452 37.2548 0'
-      ' 24 0C10.7452 0 0 10.7452 0 24C0 37.2548 10.7452 48 24 48Z"'
-      ' fill="{{CS}}" fill-opacity="{{CSOP}}"/>'
-      '<path d="M24.3398 36C30.9673 36 36.3398 30.6274 36.3398 24C36.3398'
-      ' 17.3726 30.9673 12 24.3398 12C17.7124 12 12.3398 17.3726 12.3398'
-      ' 24C12.3398 30.6274 17.7124 36 24.3398 36Z" stroke="{{S}}"'
-      ' stroke-linecap="round" stroke-dasharray="4 4"/>'
-      '</svg>';
-
-  static const _communitySvg = '<svg width="48" height="48" viewBox="0 0 48 48"'
-      ' fill="none" xmlns="http://www.w3.org/2000/svg">'
-      '<path d="M45.736 24.0946C45.6678 24.4679 45.3606 24.9905 45.327'
-      ' 26.3343C45.2934 27.6781 45.606 30.8288 45.5346 32.1573C45.4632'
-      ' 33.4857 45.1993 33.603 44.8983 34.3048C44.5972 35.0065 44.3503'
-      ' 35.5908 43.7284 36.3676C43.1065 37.1445 42.472 38.0211 41.167'
-      ' 38.9656C39.8619 39.9098 37.4352 40.8727 35.8985 42.0337C34.3617'
-      ' 43.1948 33.0383 45.1031 31.9464 45.9315C30.8544 46.7598 30.1419'
-      ' 46.8522 29.3469 47.004C28.552 47.1559 28.3531 47.1156 27.1765'
-      ' 46.8432C25.9999 46.5707 24.1874 45.5896 22.287 45.3696C20.3866'
-      ' 45.1495 17.4467 45.7278 15.7746 45.5228C14.1025 45.3177 13.351'
-      ' 44.8293 12.2543 44.1398C11.1576 43.4503 10.2039 42.7094 9.19435'
-      ' 41.3856C8.18482 40.0617 7.41221 37.8084 6.19723 36.1966C4.98226'
-      ' 34.5847 2.77138 32.8561 1.9045 31.7145C1.03743 30.5729 1.12018'
-      ' 30.1027 0.995378 29.3462C0.87077 28.5897 0.883826 28.3524 1.15627'
-      ' 27.1758C1.42872 25.9992 2.41176 24.1754 2.62987 22.2864C2.84818'
-      ' 20.3973 2.26642 17.504 2.46552 15.8415C2.66443 14.179 3.38962'
-      ' 13.1811 3.82392 12.311C4.25803 11.441 4.60594 11.1408 5.07096'
-      ' 10.6212C5.53599 10.1017 5.49183 9.93096 6.61387 9.19368C7.73592'
-      ' 8.45621 10.191 7.41154 11.8029 6.19656C13.4147 4.98159 15.1431'
-      ' 2.77071 16.2849 1.90363C17.4265 1.03675 17.8968 1.11951 18.6532'
-      ' 0.994707C19.4097 0.870099 19.647 0.883154 20.8236 1.1556C22.0002'
-      ' 1.42805 24.0864 2.42952 25.7131 2.6292C27.3397 2.82907 29.4419'
-      ' 2.36943 30.5833 2.35464C31.725 2.33986 31.8396 2.36731 32.5623'
-      ' 2.54011C33.285 2.71291 34.1423 2.99227 34.9193 3.39183C35.6963'
-      ' 3.79119 36.5113 4.3069 37.2246 4.93666C37.9377 5.56623 38.4227'
-      ' 6.00859 39.1984 7.16962C39.9741 8.33064 40.8388 10.5233 41.8787'
-      ' 11.9026C42.9186 13.2821 44.6454 14.5537 45.4378 15.4464C46.2302'
-      ' 16.3392 46.3734 16.5039 46.6332 17.2592C46.893 18.0147 47.146'
-      ' 18.84 46.9965 19.9791C46.8469 21.1182 45.946 23.4086 45.736'
-      ' 24.0946C45.8041 23.7214 45.5259 24.7806 45.736 24.0946Z"'
-      ' fill="{{CS}}" fill-opacity="{{CSOP}}"/>'
-      '<path d="M40.9813 24.0696C40.9281 24.3606 40.6883 24.7681 40.6621'
-      ' 25.8158C40.6359 26.8636 40.8798 29.3201 40.8241 30.3559C40.7683'
-      ' 31.3917 40.5624 31.4831 40.3274 32.0303C40.0924 32.5774 39.8997'
-      ' 33.033 39.4143 33.6386C38.9289 34.2443 38.4336 34.9278 37.415'
-      ' 35.6642C36.3963 36.4004 34.5022 37.1512 33.3027 38.0564C32.1031'
-      ' 38.9616 31.0701 40.4495 30.2178 41.0954C29.3656 41.7412 28.8094'
-      ' 41.8132 28.1888 41.9316C27.5684 42.05 27.4131 42.0186 26.4947'
-      ' 41.8062C25.5764 41.5938 24.1616 40.8288 22.6783 40.6573C21.1949'
-      ' 40.4857 18.9002 40.9366 17.595 40.7767C16.2898 40.6168 15.7033'
-      ' 40.236 14.8472 39.6984C13.9912 39.1609 13.2468 38.5832 12.4588'
-      ' 37.551C11.6708 36.5188 11.0678 34.762 10.1194 33.5052C9.17108'
-      ' 32.2485 7.44539 30.9008 6.76875 30.0107C6.09196 29.1206 6.15655'
-      ' 28.754 6.05914 28.1642C5.96187 27.5743 5.97206 27.3893 6.18472'
-      ' 26.472C6.39738 25.5546 7.16469 24.1326 7.33494 22.6597C7.50533'
-      ' 21.1869 7.05124 18.931 7.20665 17.6348C7.36191 16.3386 7.92795'
-      ' 15.5606 8.26695 14.8822C8.60579 14.2039 8.87735 13.9697 9.24032'
-      ' 13.5647C9.60329 13.1596 9.56883 13.0265 10.4446 12.4516C11.3204'
-      ' 11.8767 13.2368 11.0621 14.4949 10.1149C15.753 9.16756 17.1021'
-      ' 7.44378 17.9933 6.76774C18.8844 6.09185 19.2515 6.15637 19.8419'
-      ' 6.05907C20.4324 5.96192 20.6176 5.97209 21.536 6.18452C22.4544'
-      ' 6.39694 24.0828 7.17777 25.3525 7.33345C26.6221 7.48929 28.263'
-      ' 7.13091 29.1539 7.11938C30.045 7.10786 30.1345 7.12926 30.6986'
-      ' 7.26399C31.2627 7.39872 31.9318 7.61653 32.5383 7.92806C33.1448'
-      ' 8.23943 33.781 8.64152 34.3378 9.13253C34.8944 9.62339 35.2729'
-      ' 9.9683 35.8784 10.8735C36.4838 11.7788 37.1588 13.4883 37.9705'
-      ' 14.5637C38.7822 15.6393 40.1301 16.6308 40.7486 17.3267C41.367'
-      ' 18.0228 41.4788 18.1513 41.6816 18.7402C41.8844 19.3292 42.0819'
-      ' 19.9727 41.9652 20.8608C41.8484 21.749 41.1452 23.5347 40.9813'
-      ' 24.0696C41.0345 23.7786 40.8173 24.6045 40.9813 24.0696Z"'
-      ' fill="{{C}}" fill-opacity="{{COP}}"/>'
-      '<path d="M34.868 24.0468C34.8339 24.2334 34.6803 24.4948 34.6635'
-      ' 25.1667C34.6467 25.8386 34.803 27.4139 34.7673 28.0781C34.7315'
-      ' 28.7424 34.5996 28.801 34.4491 29.1519C34.2986 29.5028 34.1751'
-      ' 29.7949 33.8642 30.1833C33.5532 30.5717 33.236 31.0101 32.5834'
-      ' 31.4823C31.9309 31.9544 30.7176 32.4359 29.9492 33.0164C29.1808'
-      ' 33.5969 28.5191 34.551 27.9731 34.9653C27.4272 35.3794 27.0709'
-      ' 35.4256 26.6734 35.5015C26.276 35.5775 26.1765 35.5573 25.5882'
-      ' 35.4211C24.9999 35.2849 24.0937 34.7943 23.1435 34.6843C22.1933'
-      ' 34.5743 20.7233 34.8634 19.8873 34.7609C19.0512 34.6584 18.6755'
-      ' 34.4141 18.1271 34.0694C17.5787 33.7247 17.1019 33.3542 16.5971'
-      ' 32.6923C16.0924 32.0304 15.7061 30.9037 15.0986 30.0978C14.4911'
-      ' 29.2919 13.3857 28.4276 12.9522 27.8568C12.5187 27.286 12.5601'
-      ' 27.0508 12.4977 26.6726C12.4354 26.2944 12.4419 26.1757 12.5781'
-      ' 25.5874C12.7143 24.9991 13.2059 24.0872 13.3149 23.1427C13.4241'
-      ' 22.1981 13.1332 20.7515 13.2327 19.9203C13.3322 19.089 13.6948'
-      ' 18.5901 13.9119 18.155C14.129 17.72 14.3029 17.5699 14.5355'
-      ' 17.3101C14.768 17.0503 14.7459 16.965 15.3069 16.5964C15.8679'
-      ' 16.2276 17.0955 15.7053 17.9014 15.0978C18.7073 14.4903 19.5715'
-      ' 13.3849 20.1424 12.9513C20.7132 12.5179 20.9483 12.5593 21.3266'
-      ' 12.4969C21.7048 12.4346 21.8235 12.4411 22.4118 12.5773C23.0001'
-      ' 12.7135 24.0432 13.2143 24.8565 13.3141C25.6698 13.414 26.7209'
-      ' 13.1842 27.2916 13.1768C27.8625 13.1694 27.9198 13.1832 28.2811'
-      ' 13.2696C28.6425 13.356 29.0711 13.4956 29.4596 13.6954C29.8481'
-      ' 13.8951 30.2556 14.153 30.6123 14.4678C30.9688 14.7826 31.2113'
-      ' 15.0038 31.5992 15.5843C31.987 16.1648 32.4194 17.2612 32.9393'
-      ' 17.9508C33.4593 18.6406 34.3227 19.2764 34.7189 19.7227C35.1151'
-      ' 20.1691 35.1867 20.2515 35.3166 20.6291C35.4465 21.0069 35.573'
-      ' 21.4195 35.4982 21.9891C35.4234 22.5586 34.973 23.7038 34.868'
-      ' 24.0468ZM34.868 24.0468C34.7629 24.3898 34.902 23.8602 34.868'
-      ' 24.0468Z" stroke="{{S}}" stroke-width="0.96"'
-      ' stroke-linecap="round" stroke-linejoin="round"/>'
-      '</svg>';
+  @override
+  bool shouldRepaint(_CategoryIconPainter old) =>
+      category != old.category ||
+      innerColor != old.innerColor ||
+      outerColor != old.outerColor ||
+      strokeColor != old.strokeColor;
 }

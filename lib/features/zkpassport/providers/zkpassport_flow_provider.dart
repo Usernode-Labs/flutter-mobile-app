@@ -4,8 +4,16 @@ import 'dart:typed_data';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
+import 'package:crypto_mobile_app/core/providers/categorized_challenges_provider.dart';
+import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
+import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
+import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
+import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
+import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
+import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_models.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/repositories/zkpassport_repositories.dart';
 import 'package:crypto_mobile_app/features/zkpassport/services/zkpassport_services.dart';
@@ -37,9 +45,20 @@ final zkPassportRegistrationRepositoryProvider =
   return ZkPassportRegistrationRepository();
 });
 
+final zkPassportSettingsRepositoryProvider =
+    Provider<ZkPassportSettingsRepository>((ref) {
+  return ZkPassportSettingsRepository();
+});
+
 final zkPassportRuntimeSessionRepositoryProvider =
     Provider<ZkPassportRuntimeSessionRepository>((ref) {
   return ZkPassportRuntimeSessionRepository();
+});
+
+final zkPassportSettingsProvider =
+    FutureProvider<ZkPassportSettings>((ref) async {
+  final repo = ref.watch(zkPassportSettingsRepositoryProvider);
+  return repo.load();
 });
 
 final zkPassportIsRegisteredProvider = FutureProvider<bool>((ref) async {
@@ -122,6 +141,9 @@ class ZkPassportFlowController {
     }
 
     const chainId = ZkPassportRequestPolicy.boundChainId;
+    final settingsRepo = _ref.read(zkPassportSettingsRepositoryProvider);
+    final settings = await settingsRepo.load();
+    final facematchStrict = settings.facematchStrict;
 
     final sessionServerRepo =
         _ref.read(zkPassportSessionServerRepositoryProvider);
@@ -141,6 +163,7 @@ class ZkPassportFlowController {
         walletAddress: active.address,
         chainId: chainId,
         nonce: 0,
+        facematchStrict: facematchStrict,
       );
       final nextRequestId = started.sessionId.trim();
       if (previousRequestId != null &&
@@ -156,6 +179,7 @@ class ZkPassportFlowController {
           walletAddress: active.address,
           chainId: chainId,
           nonce: 0,
+          facematchStrict: facematchStrict,
         );
       }
       final normalizedRequestId = started.sessionId.trim();
@@ -179,7 +203,10 @@ class ZkPassportFlowController {
       );
     }
 
-    await pipelineController.markLaunchStarted(requestId: requestId);
+    await pipelineController.markLaunchStarted(
+      requestId: requestId,
+      facematchStrict: facematchStrict,
+    );
 
     final launchService = _ref.read(zkPassportLaunchServiceProvider);
     final launched = await launchService.launchOrOpenStore(launchUri);
@@ -222,11 +249,13 @@ class ZkPassportFlowController {
 
   Future<void> storeSuccessfulRegistration({
     required String? nullifierHex,
+    bool? facematchVerified,
   }) async {
     final repo = _ref.read(zkPassportRegistrationRepositoryProvider);
     await repo.storeActiveRegistration(
       registered: true,
       nullifierHex: nullifierHex,
+      facematchVerified: facematchVerified,
     );
     _ref.invalidate(zkPassportIsRegisteredProvider);
     _ref.invalidate(zkPassportRegistrationProvider);
@@ -237,6 +266,25 @@ class ZkPassportFlowController {
     await repo.clearActiveRegistration();
     _ref.invalidate(zkPassportIsRegisteredProvider);
     _ref.invalidate(zkPassportRegistrationProvider);
+  }
+
+  /// Resets all challenge-related state: ZK identity flow, pipeline session,
+  /// registration, and cached challenge data. Called from settings.
+  Future<void> resetChallengeData() async {
+    _ref.read(zkIdentityStepControllerProvider.notifier).reset();
+    await clearActiveRegistration();
+    await _ref
+        .read(zkPassportPipelineProvider.notifier)
+        .discardPendingSession(reason: 'Reset');
+    _ref.invalidate(challengesProvider);
+    _ref.invalidate(breakdownProvider);
+    _ref.invalidate(categorizedChallengesProvider);
+  }
+
+  Future<void> setFacematchStrict(bool value) async {
+    final repo = _ref.read(zkPassportSettingsRepositoryProvider);
+    await repo.setFacematchStrict(value);
+    _ref.invalidate(zkPassportSettingsProvider);
   }
 }
 
@@ -249,8 +297,7 @@ class ZkPassportPipelineController
       Duration(milliseconds: 100);
   static const Duration _serverStatusBurstWindow = Duration(seconds: 2);
   static const int _zkPassportOuterCount4SemanticPublicInputCount = 8;
-  static const int _zkPassportOuterCount4ScopedNullifierIndex =
-      _zkPassportOuterCount4SemanticPublicInputCount - 1;
+  static const int _zkPassportOuterCount5SemanticPublicInputCount = 9;
 
   ZkPassportPipelineController(this._ref)
       : super(ZkPassportPipelineState.idle()) {
@@ -300,15 +347,63 @@ class ZkPassportPipelineController
   Future<void> _resetRuntimeSessionOnStartup() async {
     try {
       final persisted = await _runtimeRepo.load();
-      if (persisted != null) {
-        _log.warn(
-          'Discarding persisted zkPassport runtime session on app startup',
+      if (persisted == null) {
+        _stopServerPollingWorker();
+        _runtimeSession = null;
+        state = ZkPassportPipelineState.idle();
+        return;
+      }
+
+      // If the session already reached a terminal state, discard it.
+      if (persisted.isTerminal) {
+        _log.info(
+          'Clearing terminal zkPassport session on startup',
           context: {
             'requestId': persisted.requestId,
             'phase': persisted.phase.name,
           },
         );
+        _stopServerPollingWorker();
+        _runtimeSession = null;
+        await _runtimeRepo.clear();
+        state = ZkPassportPipelineState.idle();
+        return;
       }
+
+      // If the session is still within the timeout window, preserve it so that
+      // foreground resume (or deep link) can pick it up and resume polling.
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      final timeoutAtMs =
+          persisted.createdAtMs + (_runtimeSessionTimeoutSeconds() * 1000);
+      if (nowMs < timeoutAtMs) {
+        _log.info(
+          'Preserving non-terminal zkPassport session on cold start',
+          context: {
+            'requestId': persisted.requestId,
+            'phase': persisted.phase.name,
+            'remainingSec': ((timeoutAtMs - nowMs) / 1000).round(),
+          },
+        );
+        _runtimeSession = persisted;
+        state = ZkPassportPipelineState(
+          status: ZkPassportPipelineStatus.processing,
+          phase: ZkPassportPipelinePhase.resuming,
+          message: 'Recovering zkPassport session...',
+          requestId: persisted.requestId,
+          resumeAttemptCount: persisted.resumeAttemptCount,
+          updatedAtMs: nowMs,
+        );
+        return;
+      }
+
+      // Session expired while app was killed — discard.
+      _log.warn(
+        'Discarding expired zkPassport session on cold start',
+        context: {
+          'requestId': persisted.requestId,
+          'phase': persisted.phase.name,
+        },
+      );
       _stopServerPollingWorker();
       _runtimeSession = null;
       await _runtimeRepo.clear();
@@ -321,16 +416,22 @@ class ZkPassportPipelineController
           'stackTrace': _truncateMessage(st.toString(), maxChars: 1200),
         },
       );
+    } finally {
+      // Retry any pending backend completion from a previous session.
+      // Must run unconditionally — even when a non-expired session is preserved.
+      unawaited(_retryPendingCompletion());
     }
   }
 
   Future<void> markLaunchStarted({
     required String requestId,
+    required bool facematchStrict,
   }) async {
     await _startupResetFuture;
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     final session = ZkPassportRuntimeSession(
       requestId: requestId,
+      facematchStrict: facematchStrict,
       phase: ZkPassportPipelinePhase.launching,
       createdAtMs: nowMs,
       lastProgressAtMs: nowMs,
@@ -437,6 +538,9 @@ class ZkPassportPipelineController
         : nowMs;
     final next = ZkPassportRuntimeSession(
       requestId: requestId,
+      facematchStrict: current != null && current.requestId == requestId
+          ? current.facematchStrict
+          : false,
       phase: phase,
       createdAtMs: createdAtMs,
       lastProgressAtMs: nowMs,
@@ -801,6 +905,7 @@ class ZkPassportPipelineController
 
       final outerProofPrefixedBytes =
           _ensurePrefixedBbHonkProofBlobBytes(outerProof);
+      final facematchStrict = _runtimeSession?.facematchStrict ?? false;
 
       if (requestId.isNotEmpty) {
         await _updateRuntimeSession(
@@ -818,6 +923,7 @@ class ZkPassportPipelineController
       );
       final verifyOuter = await rpc.zkpassportVerifyOuter(
         outerProof: outerProofPrefixedBytes,
+        facematchStrict: facematchStrict,
       );
       if (verifyOuter == null) {
         await _finalizeRuntimeSession(
@@ -851,8 +957,10 @@ class ZkPassportPipelineController
         return normalized.toLowerCase();
       }
 
-      final verifierNullifierHex =
-          _deriveNullifierHex(verifyOuter.publicInputsHex);
+      final verifierNullifierHex = _deriveNullifierHex(
+        verifyOuter.publicInputsHex,
+        facematchStrict: facematchStrict,
+      );
       final normalizedServerNullifierHex =
           normalizeServerNullifier(serverNullifierHex);
 
@@ -906,6 +1014,7 @@ class ZkPassportPipelineController
       );
       final wrapOuter = await rpc.zkpassportWrapOuter(
         outerProof: outerProofPrefixedBytes,
+        facematchStrict: facematchStrict,
       );
       if (wrapOuter == null) {
         await _finalizeRuntimeSession(
@@ -953,6 +1062,7 @@ class ZkPassportPipelineController
       );
       final verifyWrapped = await rpc.zkpassportVerifyWrapped(
         wrappedProof: _decodeB64UrlToBytes(wrappedProof),
+        facematchStrict: facematchStrict,
       );
       if (verifyWrapped == null) {
         await _finalizeRuntimeSession(
@@ -985,7 +1095,17 @@ class ZkPassportPipelineController
 
       await _ref
           .read(zkPassportFlowControllerProvider)
-          .storeSuccessfulRegistration(nullifierHex: derivedNullifierHex);
+          .storeSuccessfulRegistration(
+            nullifierHex: derivedNullifierHex,
+            facematchVerified: _runtimeSession?.facematchStrict,
+          );
+
+      // Non-blocking: notify backend of completion.
+      unawaited(_attemptBackendCompletion(
+        sessionId: requestId,
+        nullifierHex: derivedNullifierHex,
+      ));
+
       const baseMessage = 'zkPassport proof accepted and wrapped successfully.';
       final message = nullifierMismatchWarning != null
           ? '$baseMessage\n\n$nullifierMismatchWarning'
@@ -1060,31 +1180,143 @@ class ZkPassportPipelineController
     return out;
   }
 
-  String? _deriveNullifierHex(List<String>? publicInputsHex) {
+  String? _deriveNullifierHex(
+    List<String>? publicInputsHex, {
+    required bool facematchStrict,
+  }) {
     // Demo: surface a stable identifier to the user after a successful run.
     //
-    // The current integration is pinned to zkPassport `outer_count_4`.
     // zkPassport's packaged utility reports 8 semantic public inputs for
-    // `outer_count_4`, with the final two semantic fields being
+    // `outer_count_4` and 9 for `outer_count_5`, with the final two semantic fields being
     // `nullifier_type` and `scoped_nullifier`.
     //
     // `zkpassportVerifyOuter` returns the full recursive verifier public input
     // list, so recursive/default-IO fields appear after the semantic zkPassport
     // slice. Reading `inputs.last` therefore picks the wrong field; we want the
-    // final element of the 8-field semantic prefix.
+    // final element of the semantic zkPassport prefix selected by the explicit
+    // request mode that produced this proof.
     final inputs = publicInputsHex;
     if (inputs == null || inputs.isEmpty) {
       return null;
     }
-    if (inputs.length <= _zkPassportOuterCount4ScopedNullifierIndex) {
+    final semanticInputCount = facematchStrict
+        ? _zkPassportOuterCount5SemanticPublicInputCount
+        : _zkPassportOuterCount4SemanticPublicInputCount;
+    final scopedNullifierIndex = semanticInputCount - 1;
+    if (inputs.length <= scopedNullifierIndex) {
       return null;
     }
-    final raw = inputs[_zkPassportOuterCount4ScopedNullifierIndex].trim();
+    final raw = inputs[scopedNullifierIndex].trim();
     if (raw.isEmpty) {
       return null;
     }
     final normalized = raw.startsWith('0x') ? raw : '0x$raw';
     return normalized.toLowerCase();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Backend completion
+  // ---------------------------------------------------------------------------
+
+  Future<void> _attemptBackendCompletion({
+    required String sessionId,
+    required String? nullifierHex,
+  }) async {
+    final participantId = await _ref.read(participantIdProvider.future);
+    final challengeId = _ref.read(zkIdentityChallengeIdProvider);
+    if (participantId == null || challengeId == null || nullifierHex == null) {
+      _log.warn('Skipping backend completion: missing data', context: {
+        'participantId': participantId,
+        'challengeId': challengeId,
+        'nullifierHex': nullifierHex != null,
+      });
+      return;
+    }
+
+    final accounts = await AccountsRepository.create();
+    final active = await accounts.getActive();
+    if (active == null) return;
+
+    try {
+      final api = _ref.read(leaderboardApiServiceProvider);
+      final ok = await api.completeZkPassport(
+        participantId: participantId,
+        challengeId: challengeId,
+        walletAddress: active.address,
+        sessionId: sessionId,
+        nullifierHex: nullifierHex,
+      );
+
+      if (ok) {
+        _log.info('Backend completion succeeded');
+        final repo = _ref.read(zkPassportRegistrationRepositoryProvider);
+        await repo.clearPendingCompletion();
+        // Silently refresh leaderboard so the challenge shows as completed.
+        unawaited(refreshAllLeaderboardData(_ref));
+      }
+    } catch (e, st) {
+      _log.warn('Backend completion failed, storing for retry', context: {
+        'error': e.toString(),
+      });
+      await SentryUtil.captureError(e, st, tag: 'zkpassport_completion');
+
+      // Persist for cold-start retry using already-resolved values.
+      try {
+        final repo = _ref.read(zkPassportRegistrationRepositoryProvider);
+        await repo.storePendingCompletion(
+          participantId: participantId,
+          challengeId: challengeId,
+          walletAddress: active.address,
+          sessionId: sessionId,
+          nullifierHex: nullifierHex,
+        );
+      } catch (_) {
+        // Best-effort.
+      }
+    }
+  }
+
+  /// Retries any stored pending completion. Called on cold start.
+  Future<void> _retryPendingCompletion() async {
+    final repo = _ref.read(zkPassportRegistrationRepositoryProvider);
+    try {
+      final pending = await repo.getPendingCompletion();
+      if (pending == null) return;
+
+      // Validate types before casting — corrupt data should be cleared, not
+      // retried forever.
+      final participantId = pending['participant_id'];
+      final challengeId = pending['challenge_id'];
+      final walletAddress = pending['wallet_address'];
+      final sessionId = pending['session_id'];
+      final nullifierHex = pending['nullifier_hex'];
+      if (participantId is! int ||
+          challengeId is! int ||
+          walletAddress is! String ||
+          sessionId is! String ||
+          nullifierHex is! String) {
+        _log.warn('Clearing corrupt pending completion data');
+        await repo.clearPendingCompletion();
+        return;
+      }
+
+      final api = _ref.read(leaderboardApiServiceProvider);
+      final ok = await api.completeZkPassport(
+        participantId: participantId,
+        challengeId: challengeId,
+        walletAddress: walletAddress,
+        sessionId: sessionId,
+        nullifierHex: nullifierHex,
+      );
+
+      if (ok) {
+        _log.info('Pending completion retry succeeded');
+        await repo.clearPendingCompletion();
+        unawaited(refreshAllLeaderboardData(_ref));
+      }
+    } catch (e) {
+      _log.warn('Pending completion retry failed: $e');
+    }
   }
 
   void _setState({

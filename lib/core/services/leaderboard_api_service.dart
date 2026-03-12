@@ -149,6 +149,32 @@ class LeaderboardApiService {
         .toList();
   }
 
+  /// Notifies the backend that a ZK Passport verification completed.
+  ///
+  /// Returns `true` on success. Treats HTTP 409 (duplicate) as success since
+  /// the backend prevents duplicate claims.
+  Future<bool> completeZkPassport({
+    required int participantId,
+    required int challengeId,
+    required String walletAddress,
+    required String sessionId,
+    required String nullifierHex,
+  }) async {
+    try {
+      await _post('/zkpassport/complete', body: {
+        'participant_id': participantId,
+        'challenge_id': challengeId,
+        'wallet_address': walletAddress,
+        'session_id': sessionId,
+        'nullifier_hex': nullifierHex,
+      });
+      return true;
+    } on LeaderboardApiException catch (e) {
+      if (e.statusCode == 409) return true; // duplicate — already claimed
+      rethrow;
+    }
+  }
+
   void dispose() => _http.close();
 
   // ---------------------------------------------------------------------------

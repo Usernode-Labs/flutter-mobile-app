@@ -23,9 +23,21 @@ import 'package:crypto_mobile_app/features/settings/widgets/faq_section.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/theme_picker_sheet.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/build_info_sheet.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/network_switcher_dialog.dart';
+import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 final _log =
     LoggingService.instance.withTag('usernode/BackgroundProductionSettings');
+
+/// Resets challenge state and shows a confirmation snackbar.
+Future<void> resetChallengeState(WidgetRef ref, BuildContext context) async {
+  await ref.read(zkPassportFlowControllerProvider).resetChallengeData();
+
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('Challenge state reset')),
+  );
+}
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -388,6 +400,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  Future<void> _resetChallengeState() => resetChallengeState(ref, context);
+
   // --- Build info subtitle ---
 
   String get _buildInfoSubtitle {
@@ -406,6 +420,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final l10n = AppLocalizations.of(context);
 
     final themeMode = ref.watch(themeModeProvider);
+    final zkSettings = ref.watch(zkPassportSettingsProvider);
+    final facematchStrict = zkSettings.whenOrNull(data: (s) => s.facematchStrict) ?? true;
 
     return Scaffold(
       body: SafeArea(
@@ -504,6 +520,37 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   vrfWonSlotDescription: l10n.faqVrfWonSlotDescription,
                   vrfTimingTitle: l10n.faqVrfTimingTitle,
                   vrfTimingDescription: l10n.faqVrfTimingDescription,
+                ),
+              ),
+
+              // ZK Identity
+              SizedBox(height: spacing.space24),
+              const ListSectionHeader(title: 'ZK Identity'),
+              Card(
+                child: Column(
+                  children: [
+                    SwitchListTile(
+                      secondary: const Icon(Symbols.face_sharp),
+                      title: const Text('Strict Facematch'),
+                      value: facematchStrict,
+                      onChanged: (value) {
+                        ref
+                            .read(zkPassportFlowControllerProvider)
+                            .setFacematchStrict(value);
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(Symbols.restart_alt_sharp),
+                      title: const Text('Restart Challenge'),
+                      subtitle: Text(
+                        'Clears zkPassport registration & cached challenges',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      onTap: _resetChallengeState,
+                    ),
+                  ],
                 ),
               ),
 

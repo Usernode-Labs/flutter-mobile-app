@@ -191,6 +191,55 @@ void main() {
     });
   });
 
+  group('ChallengeRewardCard – footer slot', () {
+    testWidgets('no footer content when footer is null', (tester) async {
+      await tester.pumpWidget(wrap(
+        const ChallengeRewardCard(
+          category: ChallengeCategory.community,
+          totalEarned: '500',
+          data: SimpleRewardData(),
+        ),
+      ));
+
+      // Only one Divider could come from epoch; with no epoch and no footer
+      // there should be no Divider at all.
+      expect(find.byType(Divider), findsNothing);
+      expect(find.text('Footer text'), findsNothing);
+    });
+
+    testWidgets('renders divider and footer content when footer is provided',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        const ChallengeRewardCard(
+          category: ChallengeCategory.community,
+          totalEarned: '500',
+          data: SimpleRewardData(),
+          footer: Text('Footer text'),
+        ),
+      ));
+
+      expect(find.byType(Divider), findsOneWidget);
+      expect(find.text('Footer text'), findsOneWidget);
+    });
+
+    testWidgets('footer and epoch section can coexist', (tester) async {
+      await tester.pumpWidget(wrap(
+        const ChallengeRewardCard(
+          category: ChallengeCategory.community,
+          totalEarned: '500',
+          data: SimpleRewardData(),
+          epochEarned: '+25',
+          footer: Text('Footer text'),
+        ),
+      ));
+
+      // Two dividers: one for epoch, one for footer
+      expect(find.byType(Divider), findsNWidgets(2));
+      expect(find.text('This Epoch Earned'), findsOneWidget);
+      expect(find.text('Footer text'), findsOneWidget);
+    });
+  });
+
   group('ChallengeRewardCard – SimpleRewardData', () {
     testWidgets('renders "Total Earned" label and points, no calculation row',
         (tester) async {

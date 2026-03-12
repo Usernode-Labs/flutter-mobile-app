@@ -93,8 +93,6 @@ WidgetbookComponent epochPerformancePageComponent() {
                   showChevron: upcomingBlocks > 0,
                 ),
               ],
-              onPrev: () {},
-              onNext: () {},
               onPickEpoch: (_) {},
               maxEpoch: 200,
               selectedEpoch: epochNumber,

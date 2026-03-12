@@ -6,7 +6,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/wallet/screens/wallet_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/node_status_screen.dart';
-import 'package:crypto_mobile_app/features/settings/screens/background_production_settings_screen.dart';
+import 'package:crypto_mobile_app/features/settings/screens/settings_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/dapps_screen.dart';
 import 'package:crypto_mobile_app/features/challenges/screens/challenges_screen.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
@@ -15,6 +15,7 @@ import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/config/legacy_colors.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_models.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
+import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -23,8 +24,7 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen>
-    with WidgetsBindingObserver {
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _index = 0;
   int _lastTerminalDialogAtMs = 0;
   bool _zkTerminalDialogOpen = false;
@@ -32,7 +32,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     // Initialize current tab
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -43,24 +42,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       if (!mounted) return;
       _showPipelineStatus(ref.read(zkPassportPipelineProvider));
     });
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && mounted) {
-      unawaited(
-        ref
-            .read(zkPassportPipelineProvider.notifier)
-            .recoverPendingSessionOnForeground(),
-      );
-      _showPipelineStatus(ref.read(zkPassportPipelineProvider));
-    }
   }
 
   @override
@@ -77,12 +58,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final index = ref.watch(currentHomeTabProvider);
     final isInternal = currentNetwork == 'internal';
 
-    final textTheme = theme.textTheme;
-    final dsTheme = ColorIsExpensiveTheme(textTheme).light().copyWith(
-          extensions: DesignSystemTheme.standardExtensions(
-            semanticColors: AppSemanticColors.light(),
-          ),
-        );
+    final semantic = theme.extension<AppSemanticColors>()!;
 
     return Scaffold(
       body: IndexedStack(
@@ -92,89 +68,95 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           WalletScreen(),
           DappsScreen(),
           NodeStatusScreen(),
-          BackgroundProductionSettingsScreen(),
+          SettingsScreen(),
         ],
       ),
-      bottomNavigationBar: Theme(
-        data: dsTheme,
-        child: Builder(
-          builder: (context) {
-            final semantic = Theme.of(context).extension<AppSemanticColors>()!;
-
-            final items = [
-              BottomNavItem(
-                icon: Symbols.cards_star_sharp,
-                label: l10n.navChallenges,
-                indicatorShape: NavIndicatorShape.circle,
-                indicatorColor: semantic.flash.color,
-                indicatorFillColor: semantic.flash.colorContainer,
-              ),
-              BottomNavItem(
-                icon: Symbols.account_balance_wallet_sharp,
-                label: l10n.navWallet,
-                indicatorShape: NavIndicatorShape.circle,
-                indicatorColor: semantic.flash.color,
-                indicatorFillColor: semantic.flash.colorContainer,
-              ),
-              BottomNavItem(
-                icon: Symbols.action_key_sharp,
-                label: l10n.navDapps,
-                indicatorShape: NavIndicatorShape.blob,
-                indicatorColor: semantic.community.color,
-                indicatorFillColor: semantic.community.colorContainer,
-              ),
-              BottomNavItem(
-                icon: Symbols.check_circle_sharp,
-                label: l10n.navNodeStatus,
-                indicatorShape: NavIndicatorShape.hexagon,
-                indicatorColor: semantic.technical.color,
-                indicatorFillColor: semantic.technical.colorContainer,
-              ),
-              BottomNavItem(
-                icon: Symbols.settings_sharp,
-                label: l10n.navSettings,
-                indicatorShape: NavIndicatorShape.hexagon,
-                indicatorColor: semantic.technical.color,
-                indicatorFillColor: semantic.technical.colorContainer,
-              ),
-            ];
-
-            Widget bottomNav = BottomNav(
-              items: items,
-              selectedIndex: index,
-              onItemSelected: (i) {
-                ref.read(currentHomeTabProvider.notifier).state = i;
-              },
-              topBorder: !isInternal,
-            );
-
-            if (isInternal) {
-              bottomNav = Container(
-                decoration: BoxDecoration(
-                  color: LegacyColors.getInternalNetworkBackgroundColor(
-                    isDark,
-                  ),
-                  border: Border(
-                    top: BorderSide(
-                      color: LegacyColors.getInternalNetworkBorderColor(
-                        isDark,
-                      ),
-                    ),
-                  ),
-                ),
-                child: bottomNav,
-              );
-            }
-
-            return bottomNav;
-          },
-        ),
+      bottomNavigationBar: _buildBottomNav(
+        l10n,
+        semantic,
+        index,
+        isInternal,
+        isDark,
       ),
     );
   }
 
+  Widget _buildBottomNav(
+    AppLocalizations l10n,
+    AppSemanticColors semantic,
+    int index,
+    bool isInternal,
+    bool isDark,
+  ) {
+    final items = [
+      BottomNavItem(
+        icon: Symbols.cards_star_sharp,
+        label: l10n.navChallenges,
+        indicatorShape: NavIndicatorShape.circle,
+        indicatorColor: semantic.flash.color,
+        indicatorFillColor: semantic.flash.colorContainer,
+      ),
+      BottomNavItem(
+        icon: Symbols.account_balance_wallet_sharp,
+        label: l10n.navWallet,
+        indicatorShape: NavIndicatorShape.circle,
+        indicatorColor: semantic.flash.color,
+        indicatorFillColor: semantic.flash.colorContainer,
+      ),
+      BottomNavItem(
+        icon: Symbols.action_key_sharp,
+        label: l10n.navDapps,
+        indicatorShape: NavIndicatorShape.blob,
+        indicatorColor: semantic.community.color,
+        indicatorFillColor: semantic.community.colorContainer,
+      ),
+      BottomNavItem(
+        icon: Symbols.check_circle_sharp,
+        label: l10n.navNodeStatus,
+        indicatorShape: NavIndicatorShape.hexagon,
+        indicatorColor: semantic.technical.color,
+        indicatorFillColor: semantic.technical.colorContainer,
+      ),
+      BottomNavItem(
+        icon: Symbols.settings_sharp,
+        label: l10n.navSettings,
+        indicatorShape: NavIndicatorShape.hexagon,
+        indicatorColor: semantic.technical.color,
+        indicatorFillColor: semantic.technical.colorContainer,
+      ),
+    ];
+
+    Widget bottomNav = BottomNav(
+      items: items,
+      selectedIndex: index,
+      onItemSelected: (i) {
+        ref.read(currentHomeTabProvider.notifier).state = i;
+      },
+      topBorder: !isInternal,
+    );
+
+    if (isInternal) {
+      bottomNav = Container(
+        decoration: BoxDecoration(
+          color: LegacyColors.getInternalNetworkBackgroundColor(isDark),
+          border: Border(
+            top: BorderSide(
+              color: LegacyColors.getInternalNetworkBorderColor(isDark),
+            ),
+          ),
+        ),
+        child: bottomNav,
+      );
+    }
+
+    return bottomNav;
+  }
+
   void _showPipelineStatus(ZkPassportPipelineState state) {
     if (!mounted) return;
+
+    // Skip dialog when pipeline was triggered from the ZK Identity challenge flow.
+    if (ref.read(zkIdentityChallengeActiveProvider)) return;
 
     // Do not spam progress updates. Only surface terminal success/failure states
     // in a persistent modal dialog that the user can dismiss (useful for screenshots).
@@ -223,19 +205,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 const SizedBox(height: 8),
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxHeight: 240),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: outerPublicInputs.length,
-                    itemBuilder: (context, index) {
-                      final value = outerPublicInputs[index].trim();
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 6),
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: SelectableText('[$index] $value'),
-                        ),
-                      );
-                    },
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (var i = 0; i < outerPublicInputs.length; i++)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: SelectableText(
+                              '[$i] ${outerPublicInputs[i].trim()}',
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ],

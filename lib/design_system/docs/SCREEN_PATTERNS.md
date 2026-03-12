@@ -195,12 +195,12 @@ M3 distinguishes two containment strategies. Both follow the same Matryoshka spa
 
 ### When Zones Collide: The ListTile-in-Card Case
 
-When a surface contains only padding-aware widgets (ListTile, SwitchListTile), the Meso and Micro zones overlap — both want to add horizontal padding. Resolution: **zero out the surface inset** and let the widget's content padding do the work.
+When a surface contains only padding-aware widgets (ListTile, SwitchListTile), the Meso and Micro zones overlap — both want to add horizontal padding. Resolution: **zero horizontal, keep vertical** — let the widget's content padding handle horizontal spacing, but keep `space8` vertical inset so the first and last tiles aren't flush against the card boundary.
 
 ```dart
-// Card with ONLY ListTiles → zero surface padding, ListTile owns spacing
+// Card with ONLY ListTiles → zero horizontal, space8 vertical inset
 AppCard(
-  padding: EdgeInsets.zero,
+  padding: EdgeInsets.symmetric(vertical: spacing.space8),
   child: Column(
     children: [
       ListTile(title: Text('Item 1'), trailing: Text('Value 1')),
@@ -467,7 +467,7 @@ radii.borderRadiusTopLargeIncreased
 
 | Constructor | Internal padding | Use for |
 |-------------|-----------------|---------|
-| `AppCard(padding: EdgeInsets.zero)` | None | Cards containing only ListTiles |
+| `AppCard(padding: EdgeInsets.symmetric(vertical: spacing.space8))` | 8dp vertical only | Cards containing only ListTiles |
 | `AppCard.compact(child: ...)` | `space12` all sides | Tight content like badges |
 | `AppCard.regular(child: ...)` | `space16` all sides | Standard mixed content |
 | `AppCard.spacious(child: ...)` | `space24` all sides | Hero sections |

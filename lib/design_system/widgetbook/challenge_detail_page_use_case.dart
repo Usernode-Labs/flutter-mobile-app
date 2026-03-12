@@ -80,6 +80,11 @@ WidgetbookComponent challengeDetailPageComponent() {
                   )
                 : null;
 
+            final rateLabel = context.knobs.string(
+              label: 'Rate Label',
+              initialValue: 'BLOCK RATE',
+            );
+
             rewardData = ProduceBlocksRewardData(
               progressFraction: progressFraction,
               successRate: successRate,
@@ -87,6 +92,7 @@ WidgetbookComponent challengeDetailPageComponent() {
               totalPoints: totalPoints,
               rankLabel: rankLabel,
               rankReward: rankReward,
+              rateLabel: rateLabel,
             );
           } else {
             rewardData = const SimpleRewardData();
@@ -109,7 +115,7 @@ WidgetbookComponent challengeDetailPageComponent() {
 
           final epochLabel = context.knobs.string(
             label: 'Epoch Button Label',
-            initialValue: 'View Epoch 176',
+            initialValue: 'View Details',
           );
 
           final showRewardCard = context.knobs.boolean(

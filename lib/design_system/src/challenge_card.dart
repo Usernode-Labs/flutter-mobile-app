@@ -400,8 +400,6 @@ class _OngoingBorderWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
-
     // Reduced motion fallback: solid border
     if (animation == null) {
       return DecoratedBox(
@@ -417,16 +415,13 @@ class _OngoingBorderWrapper extends StatelessWidget {
       animation: animation!,
       builder: (context, child) {
         return CustomPaint(
-          painter: _SweepBorderPainter(
+          foregroundPainter: _SweepBorderPainter(
             progress: animation!.value,
             color: categoryColor,
             borderRadius: borderRadius,
             strokeWidth: 2,
           ),
-          child: Padding(
-            padding: EdgeInsets.all(spacing.space4),
-            child: child,
-          ),
+          child: child,
         );
       },
       child: child,
@@ -457,36 +452,30 @@ class _SweepBorderPainter extends CustomPainter {
       Radius.circular(borderRadius),
     );
 
-    // Subtle base track — the "rail" the comet runs on
+    // Base track — subtle "rail" the comet runs on
     final trackPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..color = color.withValues(alpha: 0.12);
     canvas.drawRRect(rrect, trackPaint);
 
-    // Comet trail — a tight ~20% arc with a fading tail and bright head
-    // 0%–70%: transparent (most of the perimeter)
-    // 70%–85%: faint glow building up
-    // 85%–97%: bright head
-    // 97%–100%: sharp cutoff back to transparent
-    final sweep = SweepGradient(
+    // Comet — single sweep, no bloom layers
+    final cometGradient = SweepGradient(
       colors: [
         color.withValues(alpha: 0),
         color.withValues(alpha: 0),
         color.withValues(alpha: 0.15),
         color.withValues(alpha: 0.5),
-        color,
+        color.withValues(alpha: 1.0),
         color.withValues(alpha: 0),
       ],
       stops: const [0.0, 0.70, 0.80, 0.90, 0.97, 1.0],
       transform: GradientRotation(progress * math.pi * 2),
     );
-
     final cometPaint = Paint()
-      ..shader = sweep.createShader(rect)
+      ..shader = cometGradient.createShader(rect)
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth;
-
     canvas.drawRRect(rrect, cometPaint);
   }
 

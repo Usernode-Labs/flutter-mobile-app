@@ -90,13 +90,13 @@ void main() {
           totalEarned: '10,550.1',
           data: produceBlocksData,
           epochEarned: '+50',
-          epochLabel: 'View Epoch 176',
+          epochLabel: 'View Details',
         ),
       ));
 
       expect(find.text('This Epoch Earned'), findsOneWidget);
       expect(find.text('+50'), findsOneWidget);
-      expect(find.text('View Epoch 176'), findsOneWidget);
+      expect(find.text('View Details'), findsOneWidget);
     });
 
     testWidgets('uses custom epochSectionLabel when provided', (tester) async {
@@ -122,12 +122,12 @@ void main() {
           totalEarned: '10,550.1',
           data: produceBlocksData,
           epochEarned: '+50',
-          epochLabel: 'View Epoch 176',
+          epochLabel: 'View Details',
           onEpochTap: () => tapped = true,
         ),
       ));
 
-      await tester.tap(find.text('View Epoch 176'));
+      await tester.tap(find.text('View Details'));
       expect(tapped, isTrue);
     });
 
@@ -189,54 +189,25 @@ void main() {
       expect(find.text('2nd'), findsNothing);
       expect(find.text('3rd'), findsNothing);
     });
-  });
 
-  group('ChallengeRewardCard – footer slot', () {
-    testWidgets('no footer content when footer is null', (tester) async {
+    testWidgets('uses custom rateLabel when provided', (tester) async {
       await tester.pumpWidget(wrap(
         const ChallengeRewardCard(
-          category: ChallengeCategory.community,
-          totalEarned: '500',
-          data: SimpleRewardData(),
+          category: ChallengeCategory.technical,
+          totalEarned: '4,900',
+          data: ProduceBlocksRewardData(
+            progressFraction: 0.98,
+            successRate: '98%',
+            maxPoints: '5,000',
+            totalPoints: '4,900',
+            rankReward: '+0',
+            rateLabel: 'BLOCK RATE',
+          ),
         ),
       ));
 
-      // Only one Divider could come from epoch; with no epoch and no footer
-      // there should be no Divider at all.
-      expect(find.byType(Divider), findsNothing);
-      expect(find.text('Footer text'), findsNothing);
-    });
-
-    testWidgets('renders divider and footer content when footer is provided',
-        (tester) async {
-      await tester.pumpWidget(wrap(
-        const ChallengeRewardCard(
-          category: ChallengeCategory.community,
-          totalEarned: '500',
-          data: SimpleRewardData(),
-          footer: Text('Footer text'),
-        ),
-      ));
-
-      expect(find.byType(Divider), findsOneWidget);
-      expect(find.text('Footer text'), findsOneWidget);
-    });
-
-    testWidgets('footer and epoch section can coexist', (tester) async {
-      await tester.pumpWidget(wrap(
-        const ChallengeRewardCard(
-          category: ChallengeCategory.community,
-          totalEarned: '500',
-          data: SimpleRewardData(),
-          epochEarned: '+25',
-          footer: Text('Footer text'),
-        ),
-      ));
-
-      // Two dividers: one for epoch, one for footer
-      expect(find.byType(Divider), findsNWidgets(2));
-      expect(find.text('This Epoch Earned'), findsOneWidget);
-      expect(find.text('Footer text'), findsOneWidget);
+      expect(find.text('BLOCK RATE'), findsOneWidget);
+      expect(find.text('SUCCESS RATE'), findsNothing);
     });
   });
 

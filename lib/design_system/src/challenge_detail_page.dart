@@ -25,10 +25,10 @@ class ChallengeDetailPage extends StatelessWidget {
     required this.category,
     required this.dateRange,
     this.rewardCard,
+    this.statusSection,
     required this.sections,
-    this.extraCard,
-    this.totalRewardHeading,
-    this.totalRewardBody,
+    required this.totalRewardHeading,
+    required this.totalRewardBody,
     this.onBackTap,
   });
 
@@ -45,18 +45,18 @@ class ChallengeDetailPage extends StatelessWidget {
   /// When null the reward section is hidden (e.g. missed / active challenges).
   final Widget? rewardCard;
 
+  /// Optional status section inserted between reward card and text sections.
+  /// Typically a [BlockProductionStatusCard] for produce-blocks challenges.
+  final Widget? statusSection;
+
   /// Flexible list of description sections (e.g. Why, Task, Requirements).
   final List<ChallengeDetailSection> sections;
 
-  /// Optional widget rendered between the sections card and the total reward card.
-  final Widget? extraCard;
-
   /// Heading for the total reward card, e.g. "Total Reward Up to 6,500 pts".
-  /// When null the total reward card is hidden.
-  final String? totalRewardHeading;
+  final String totalRewardHeading;
 
   /// Body text for the total reward card.
-  final String? totalRewardBody;
+  final String totalRewardBody;
 
   /// Called when the back button is tapped.
   final VoidCallback? onBackTap;
@@ -86,18 +86,16 @@ class ChallengeDetailPage extends StatelessWidget {
                     rewardCard!,
                     SizedBox(height: spacing.space16),
                   ],
+                  if (statusSection != null) ...[
+                    statusSection!,
+                    SizedBox(height: spacing.space16),
+                  ],
                   _SectionsCard(sections: sections),
-                  if (extraCard != null) ...[
-                    SizedBox(height: spacing.space16),
-                    extraCard!,
-                  ],
-                  if (totalRewardHeading != null) ...[
-                    SizedBox(height: spacing.space16),
-                    _TotalRewardCard(
-                      heading: totalRewardHeading!,
-                      body: totalRewardBody ?? '',
-                    ),
-                  ],
+                  SizedBox(height: spacing.space16),
+                  _TotalRewardCard(
+                    heading: totalRewardHeading,
+                    body: totalRewardBody,
+                  ),
                 ],
               ),
             ),

@@ -12,7 +12,7 @@ import 'package:crypto_mobile_app/design_system/design_system.dart';
 /// Feature screen that wires live block-production data to
 /// [EpochPerformancePage].
 ///
-/// Navigated to from the "View Epoch" CTA in the challenge detail page.
+/// Navigated to from the "View Details" CTA in the challenge detail page.
 /// Receives an [initialEpoch] from the route extra.
 class EpochPerformanceScreen extends ConsumerStatefulWidget {
   const EpochPerformanceScreen({super.key, required this.initialEpoch});
@@ -162,12 +162,6 @@ class _EpochPerformanceScreenState
       performanceLabel: l10n.producedBlocksEpochPerformance,
       performanceValue: perfStr,
       metrics: _buildMetrics(context, data, viewedEpoch, currentEpoch, l10n),
-      onPrev: viewedEpoch > 0
-          ? () => setState(() => _viewedEpoch = viewedEpoch - 1)
-          : null,
-      onNext: viewedEpoch < maxEpochWithData
-          ? () => setState(() => _viewedEpoch = viewedEpoch + 1)
-          : null,
       onPickEpoch: (e) => setState(() => _viewedEpoch = e),
       maxEpoch: maxEpochWithData,
       selectedEpoch: viewedEpoch,

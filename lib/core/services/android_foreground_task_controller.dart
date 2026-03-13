@@ -26,6 +26,7 @@ class AndroidForegroundTaskController {
   bool _initialized = false;
   bool _wakelockHeld = false;
   bool _isPolling = false;
+  bool _isStartingMonitoring = false;
   AccountPublicKey? _cachedOurPubKey;
   ({int height, DateTime since})? _awaitingOtherProducerState;
 
@@ -75,29 +76,45 @@ class AndroidForegroundTaskController {
 
   Future<void> startMonitoring({String reason = 'manual'}) async {
     if (!Platform.isAndroid) return;
-    await initialize();
 
-    // Ensure the Rust node is running before polling VRF or scheduling alarms.
-    final nodeOk = await _ensureNodeRunning();
-    if (!nodeOk) {
-      _log.error('Cannot start monitoring: node failed to start');
+    // Guard against the ANR cascade: each ANR-dismiss triggers a resume →
+    // startMonitoring → heavy FRB work → another ANR. Skip if either:
+    // - poll timer is already running (monitoring fully set up), or
+    // - a previous startMonitoring call is still executing (mid-bootstrap)
+    if (_pollTimer != null || _isStartingMonitoring) {
+      _log.info(
+          'startMonitoring($reason) skipped: already active');
       return;
     }
+    _isStartingMonitoring = true;
+    try {
+      await initialize();
 
-    await _acquireWakelock();
+      // Ensure the Rust node is running before polling VRF or scheduling alarms.
+      final nodeOk = await _ensureNodeRunning();
+      if (!nodeOk) {
+        _log.error('Cannot start monitoring: node failed to start');
+        return;
+      }
 
-    final running =
-        await PlatformAlarmService.instance.isForegroundServiceRunning();
-    if (!running) {
-      final result = await PlatformAlarmService.instance.startForegroundService(
-        title: 'Usernode',
-        message: 'Evaluating VRF slots',
-        slotNumber: 0,
-      );
-      _log.info('Foreground service start result: $result');
+      await _acquireWakelock();
+
+      final running =
+          await PlatformAlarmService.instance.isForegroundServiceRunning();
+
+      if (!running) {
+        await PlatformAlarmService.instance.startForegroundService(
+          title: 'Usernode',
+          message: 'Evaluating VRF slots',
+          slotNumber: 0,
+        );
+      }
+
+      _startPollTimer();
+      _log.info('startMonitoring($reason) complete');
+    } finally {
+      _isStartingMonitoring = false;
     }
-
-    _startPollTimer();
   }
 
   Future<void> stopMonitoring({String reason = 'stopped'}) async {

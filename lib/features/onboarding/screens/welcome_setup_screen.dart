@@ -47,18 +47,17 @@ class WelcomeSetupScreen extends ConsumerWidget {
               ),
               SizedBox(
                 width: double.infinity,
-                child: FilledButton(
-                  onPressed: () {
+                child: Button(
+                  label: l10n.onboardingWelcomeSetupStartButton,
+                  variant: ButtonVariant.primary,
+                  size: ButtonSize.large,
+                  onTap: () {
                     context.go(
                       Platform.isIOS
                           ? AppRoutes.onboardingNotificationPermission3
                           : AppRoutes.onboardingExactAlarmPermission1,
                     );
                   },
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(52),
-                  ),
-                  child: Text(l10n.onboardingWelcomeSetupStartButton),
                 ),
               ),
             ],

@@ -94,6 +94,9 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
     'SwitchListTile',
     'CheckboxListTile',
     'RadioListTile',
+    'AppCard',
+    'FilledButton',
+    'OutlinedButton',
   };
 
   void _dispatch(
@@ -121,6 +124,11 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
       case 'CheckboxListTile':
       case 'RadioListTile':
         _checkListTileLayoutOverrides(node, typeName, args);
+      case 'AppCard':
+        _checkTileCardVerticalInset(node, args);
+      case 'FilledButton':
+      case 'OutlinedButton':
+        _checkPreferDsButton(node, typeName);
     }
   }
 
@@ -351,61 +359,12 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
         return;
       }
 
-      // Section-gap token (space24) in horizontal positions.
-      // Exempt: SliverPadding(padding: symmetric(horizontal: space24)) is
-      // the correct PSL surface body inset pattern.
-      if (token == sectionGapToken) {
-        if (_isHorizontalParam(
-                paramName, constructorName, arg, args.arguments) &&
-            !_isSliverPaddingAncestor(node)) {
-          _report(
-            node,
-            'matryoshka_section_gap_horizontal',
-            'Section-gap token (space24) used in horizontal EdgeInsets. '
-                'space24 is a vertical section gap — use space16 for '
-                'horizontal margins.',
-            'WARNING',
-          );
-          return;
-        }
-      }
+      // space24 is dual-purpose: vertical section gap AND the canonical
+      // PSL body keyline inset (horizontal). SliverPadding, Card margin,
+      // ListView padding, etc. all legitimately use symmetric(horizontal:
+      // space24) to align with the pinned bar title. No horizontal check
+      // here — matryoshka_zone_violation still guards space32/space48.
     }
-  }
-
-  bool _isHorizontalParam(
-    String? paramName,
-    String? constructorName,
-    Expression arg,
-    NodeList<Expression> args,
-  ) {
-    // Only flag the purely-horizontal case.
-    // `all()`, `only(left/right)`, and `fromLTRB` mix axes — space24 is
-    // legitimate for K₂ keyline alignment and balanced padding.
-    if (constructorName == 'symmetric') {
-      return paramName == 'horizontal';
-    }
-    return false;
-  }
-
-  /// Returns true when the EdgeInsets is a `padding:` argument of
-  /// `SliverPadding` — the correct PSL surface body inset pattern.
-  bool _isSliverPaddingAncestor(AstNode node) {
-    // Walk: EdgeInsets → NamedExpression(padding:) → ArgumentList →
-    //       InstanceCreationExpression or MethodInvocation (SliverPadding)
-    var current = node.parent;
-    // Skip NamedExpression wrapper
-    if (current is NamedExpression) current = current.parent;
-    // Skip ArgumentList
-    if (current is ArgumentList) current = current.parent;
-    // const/new SliverPadding(...)
-    if (current is InstanceCreationExpression) {
-      return current.constructorName.type.name2.lexeme == 'SliverPadding';
-    }
-    // SliverPadding(...) without const/new — parsed as MethodInvocation
-    if (current is MethodInvocation && current.target == null) {
-      return current.methodName.name == 'SliverPadding';
-    }
-    return false;
   }
 
   // ── Rule 6: avoid_padding_around_tiles ──────────────────────────────
@@ -549,6 +508,23 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
             _containsTileWidget(element.expression)) {
           return true;
         }
+        if (element is ForElement) {
+          final body = element.body;
+          if (body is Expression && _containsTileWidget(body)) return true;
+          if (body is IfElement) {
+            if (body.thenElement is Expression &&
+                _containsTileWidget(body.thenElement as Expression)) {
+              return true;
+            }
+            if (body.elseElement is Expression &&
+                _containsTileWidget(body.elseElement as Expression)) {
+              return true;
+            }
+          }
+          if (body is SpreadElement && _containsTileWidget(body.expression)) {
+            return true;
+          }
+        }
       }
     }
 
@@ -571,6 +547,60 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
         value = arg;
       }
       if (_containsTileWidget(value)) return true;
+    }
+    return false;
+  }
+
+  // ── Rule 8: require_tile_card_vertical_inset ────────────────────────
+
+  void _checkTileCardVerticalInset(AstNode node, ArgumentList args) {
+    // Find padding: named argument.
+    Expression? paddingExpr;
+    for (final arg in args.arguments) {
+      if (arg is NamedExpression && arg.name.label.name == 'padding') {
+        paddingExpr = arg.expression;
+        break;
+      }
+    }
+    if (paddingExpr == null) return;
+
+    // Check if padding is EdgeInsets.zero (PropertyAccess or PrefixedIdentifier).
+    if (!_isEdgeInsetsZero(paddingExpr)) return;
+
+    // Find child: named argument and check for tile widgets.
+    for (final arg in args.arguments) {
+      if (arg is NamedExpression && arg.name.label.name == 'child') {
+        if (_containsTileWidget(arg.expression)) {
+          _report(
+            node,
+            'require_tile_card_vertical_inset',
+            'AppCard with EdgeInsets.zero contains tile widgets. '
+                'Use EdgeInsets.symmetric(vertical: spacing.space8) '
+                'for list surface inset.',
+            'WARNING',
+          );
+        }
+        return;
+      }
+    }
+  }
+
+  /// Returns true if [expr] is `EdgeInsets.zero`.
+  bool _isEdgeInsetsZero(Expression expr) {
+    // PropertyAccess: EdgeInsets.zero (when parsed as property access)
+    if (expr is PropertyAccess) {
+      final target = expr.target;
+      if (target is SimpleIdentifier &&
+          target.name == 'EdgeInsets' &&
+          expr.propertyName.name == 'zero') {
+        return true;
+      }
+    }
+    // PrefixedIdentifier: EdgeInsets.zero (when parsed as prefixed identifier)
+    if (expr is PrefixedIdentifier) {
+      if (expr.prefix.name == 'EdgeInsets' && expr.identifier.name == 'zero') {
+        return true;
+      }
     }
     return false;
   }
@@ -609,6 +639,22 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
         return;
       }
     }
+  }
+
+  // ── Rule 8: require_ds_button ──────────────────────────────────────
+
+  void _checkPreferDsButton(AstNode node, String typeName) {
+    if (isExcludedPath(filePath)) return;
+    // DS Button itself uses FilledButton internally.
+    if (filePath.contains('design_system/src/button.dart')) return;
+    _report(
+      node,
+      'require_ds_button',
+      'Raw $typeName is not allowed — use design_system Button. '
+          'Button enforces tokenized sizing (small/regular/large) and '
+          'consistent styling. See lib/design_system/src/button.dart.',
+      'WARNING',
+    );
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────

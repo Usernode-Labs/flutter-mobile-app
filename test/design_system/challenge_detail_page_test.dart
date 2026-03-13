@@ -24,7 +24,7 @@ void main() {
         rankReward: '+0',
       ),
       epochEarned: '+50',
-      epochLabel: 'View Epoch 176',
+      epochLabel: 'View Details',
     );
   }
 

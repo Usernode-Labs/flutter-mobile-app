@@ -33,7 +33,7 @@ class _OnboardingBatteryCompleteScreenState
     await markOnboardingComplete();
     ref.invalidate(hasCompletedOnboardingProvider);
     if (!mounted) return;
-    context.go(AppRoutes.nodeStatusProducedBlocks);
+    context.go(AppRoutes.mainNode);
   }
 
   Future<void> _checkBatteryStatus() async {
@@ -114,17 +114,11 @@ class _OnboardingBatteryCompleteScreenState
               SizedBox(height: spacing.space24),
               SizedBox(
                 width: double.infinity,
-                child: FilledButton(
-                  onPressed: _onContinue,
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(52),
-                  ),
-                  child: Text(
-                    'Continue',
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      color: theme.colorScheme.onPrimary,
-                    ),
-                  ),
+                child: Button(
+                  label: 'Continue',
+                  variant: ButtonVariant.primary,
+                  size: ButtonSize.large,
+                  onTap: _onContinue,
                 ),
               ),
             ],

@@ -48,10 +48,9 @@ CategorizedChallenges categorizeChallenges(List<ChallengeDto> challenges) {
   final missed = <ChallengeDto>[];
 
   for (final dto in challenges) {
+    if (!dto.enabled) continue;
     if (dto.completed) {
       completed.add(dto);
-    } else if (!dto.enabled) {
-      missed.add(dto);
     } else {
       active.add(dto);
     }
@@ -152,12 +151,25 @@ class CategorizedEnrichedChallenges {
   });
 }
 
+/// Parses a datetime string, treating bare (non-UTC) values as UTC.
+///
+/// The leaderboard API sends schedule dates without timezone info
+/// (e.g. "2026-01-30 12:00:00"). Dart parses these as local time,
+/// but the server intends UTC.
+DateTime? _parseAsUtc(String? value) {
+  if (value == null) return null;
+  final dt = DateTime.tryParse(value);
+  if (dt == null) return null;
+  return dt.isUtc
+      ? dt
+      : DateTime.utc(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second);
+}
+
 /// Whether [dto.scheduleEnd] is in the past.
 bool _isScheduleExpired(ChallengeDto dto) {
-  if (dto.scheduleEnd == null) return false;
-  final end = DateTime.tryParse(dto.scheduleEnd!);
+  final end = _parseAsUtc(dto.scheduleEnd);
   if (end == null) return false;
-  return DateTime.now().toUtc().isAfter(end.toUtc());
+  return DateTime.now().toUtc().isAfter(end);
 }
 
 /// Categorizes enriched challenges using participant-specific completion.
@@ -173,9 +185,19 @@ CategorizedEnrichedChallenges categorizeEnrichedChallenges(
   final missed = <EnrichedChallenge>[];
 
   for (final c in challenges) {
-    if (c.participantCompleted) {
+    if (!c.dto.enabled) continue;
+    // Produce-blocks earns incrementally — activity ≠ completed.
+    if (isProduceBlocksChallenge(c.dto)) {
+      if (c.dto.completed) {
+        completed.add(c);
+      } else if (_isScheduleExpired(c.dto)) {
+        missed.add(c);
+      } else {
+        active.add(c);
+      }
+    } else if (c.participantCompleted) {
       completed.add(c);
-    } else if (!c.dto.enabled || _isScheduleExpired(c.dto)) {
+    } else if (_isScheduleExpired(c.dto)) {
       missed.add(c);
     } else {
       active.add(c);
@@ -183,15 +205,41 @@ CategorizedEnrichedChallenges categorizeEnrichedChallenges(
   }
 
   return CategorizedEnrichedChallenges(
-    active: active,
-    completed: completed,
-    missed: missed,
+    active: _pinProduceBlocks(active),
+    completed: _pinProduceBlocks(completed),
+    missed: _pinProduceBlocks(missed),
   );
+}
+
+/// Moves produce-blocks challenges to the front, preserving relative order.
+List<EnrichedChallenge> _pinProduceBlocks(List<EnrichedChallenge> list) {
+  final pb = list.where((c) => isProduceBlocksChallenge(c.dto));
+  final rest = list.where((c) => !isProduceBlocksChallenge(c.dto));
+  return [...pb, ...rest];
 }
 
 /// Maps an [EnrichedChallenge] to [ChallengeCardVariant] using
 /// participant-specific completion data.
-ChallengeCardVariant mapEnrichedVariant(EnrichedChallenge c) {
+///
+/// For produce-blocks challenges, [eventSuccessRate] provides a fallback for
+/// ongoing detection when there is no per-challenge activity match but the
+/// event-level breakdown shows a non-zero success rate.
+ChallengeCardVariant mapEnrichedVariant(
+  EnrichedChallenge c, {
+  double? eventSuccessRate,
+}) {
+  // Produce-blocks earns points incrementally — activity ≠ completed.
+  if (isProduceBlocksChallenge(c.dto)) {
+    if (c.dto.completed) return ChallengeCardVariant.completed;
+    if (!c.dto.enabled || _isScheduleExpired(c.dto)) {
+      return ChallengeCardVariant.missed;
+    }
+    if (c.earnedPoints != null) return ChallengeCardVariant.ongoing;
+    if (eventSuccessRate != null && eventSuccessRate > 0) {
+      return ChallengeCardVariant.ongoing;
+    }
+    return ChallengeCardVariant.active;
+  }
   if (c.participantCompleted) return ChallengeCardVariant.completed;
   if (!c.dto.enabled || _isScheduleExpired(c.dto)) {
     return ChallengeCardVariant.missed;
@@ -204,22 +252,16 @@ String formatEarnedPoints(int points) {
   return '${formatPoints(points)} pts';
 }
 
-/// Formats an ISO 8601 date range as "Jan 15 - Feb 15".
+/// Formats a date range as "Jan 15 - Feb 15", converting UTC to local time.
 ///
 /// Returns an empty string if both dates are null.
 String formatDateRange(String? start, String? end) {
   final fmt = DateFormat('MMM d');
   final parts = <String>[];
-  if (start != null) {
-    try {
-      parts.add(fmt.format(DateTime.parse(start)));
-    } catch (_) {}
-  }
-  if (end != null) {
-    try {
-      parts.add(fmt.format(DateTime.parse(end)));
-    } catch (_) {}
-  }
+  final s = _parseAsUtc(start)?.toLocal();
+  if (s != null) parts.add(fmt.format(s));
+  final e = _parseAsUtc(end)?.toLocal();
+  if (e != null) parts.add(fmt.format(e));
   return parts.join(' - ');
 }
 
@@ -266,6 +308,16 @@ String formatDiffLabel(Duration since) {
 // Reward-type detection & parsing
 // ---------------------------------------------------------------------------
 
+/// The subcategory value that identifies produce-blocks challenges.
+const String kProduceBlocksSubCategory = 'PRODUCE_BLOCKS_CHALLENGE';
+
+/// Points reserved for top-3 rank bonus in the reward ceiling.
+///
+/// The API returns a single ceiling (e.g. 6,500) that includes both the
+/// success-rate component and the top-3 bonus. Until the API splits these,
+/// we subtract this constant to derive maxSuccessRatePoints.
+const int kTop3RankBonusPoints = 1500;
+
 /// Parses the ceiling value from reward strings like "Up to 6,500 pts" → 6500.
 ///
 /// Returns null when the string does not match the "Up to" pattern (e.g. plain
@@ -278,7 +330,37 @@ int? parseRewardCeiling(String reward) {
 
 /// Returns true when the challenge is the produce-blocks challenge.
 bool isProduceBlocksChallenge(ChallengeDto dto) {
-  return dto.subCategory == 'PRODUCE_BLOCKS_CHALLENGE';
+  return dto.subCategory == kProduceBlocksSubCategory;
+}
+
+/// SubCategory identifier for the ZK Identity challenge.
+const String zkIdentitySubCategory = 'ZK_IDENTITY_VERIFICATION';
+
+/// Returns true when the challenge is the ZK Identity challenge.
+bool isZkIdentityChallenge(ChallengeDto dto) {
+  return dto.subCategory == zkIdentitySubCategory;
+}
+
+/// Computes effective earned points for produce-blocks challenges.
+///
+/// When [earnedPoints] (from per-challenge breakdown) is available, returns it
+/// directly. Otherwise, derives from event-level [successRate] × max pts
+/// (ceiling minus [kTop3RankBonusPoints]).
+///
+/// Returns null when neither source is available or [rewardText] can't be
+/// parsed.
+int? computeEffectiveEarnedPoints({
+  int? earnedPoints,
+  double? successRate,
+  String? rewardText,
+}) {
+  if (earnedPoints != null) return earnedPoints;
+  final sr = successRate ?? 0;
+  if (sr <= 0 || rewardText == null) return null;
+  final ceiling = parseRewardCeiling(formatRewardText(rewardText));
+  if (ceiling == null) return null;
+  final maxPts = ceiling - kTop3RankBonusPoints;
+  return (sr * maxPts / 100).round();
 }
 
 /// Formats rank as an ordinal: 1 → "1st", 2 → "2nd", 3 → "3rd".

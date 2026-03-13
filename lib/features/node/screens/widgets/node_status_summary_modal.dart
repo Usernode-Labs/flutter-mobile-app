@@ -580,13 +580,14 @@ class _NodeStatusSummaryModalState
             // View Details Button
             SizedBox(
               width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: () {
+              child: Button(
+                label: 'View Details',
+                variant: ButtonVariant.primary,
+                leadingIcon: const Icon(Symbols.visibility_sharp),
+                onTap: () {
                   Navigator.of(context).pop();
                   context.push(AppRoutes.mainNode);
                 },
-                icon: const Icon(Symbols.visibility_sharp),
-                label: const Text('View Details'),
               ),
             ),
             SizedBox(height: spacing.space8),

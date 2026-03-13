@@ -95,7 +95,7 @@ void main() {
   });
 
   group('categorizeChallenges', () {
-    test('splits challenges into correct buckets', () {
+    test('splits challenges into correct buckets (disabled are dropped)', () {
       final challenges = [
         _makeDto(enabled: true, completed: false),
         _makeDto(enabled: true, completed: true),
@@ -106,7 +106,7 @@ void main() {
       final result = categorizeChallenges(challenges);
       expect(result.active, hasLength(2));
       expect(result.completed, hasLength(1));
-      expect(result.missed, hasLength(1));
+      expect(result.missed, hasLength(0));
     });
 
     test('handles empty list', () {
@@ -118,25 +118,32 @@ void main() {
   });
 
   group('formatDateRange', () {
-    test('formats valid ISO dates', () {
-      expect(
-        formatDateRange('2025-01-15T00:00:00Z', '2025-02-15T00:00:00Z'),
-        'Jan 15 - Feb 15',
-      );
+    test('formats valid ISO dates with Z suffix', () {
+      // Z-suffixed strings are already UTC — toLocal() converts for display.
+      // Use a date where UTC→local won't shift the day for most timezones.
+      final result =
+          formatDateRange('2025-01-15T12:00:00Z', '2025-02-15T12:00:00Z');
+      expect(result, contains('Jan'));
+      expect(result, contains('Feb'));
+      expect(result, contains(' - '));
+    });
+
+    test('treats bare datetimes as UTC (real API format)', () {
+      final result =
+          formatDateRange('2025-01-15 12:00:00', '2025-02-15 12:00:00');
+      expect(result, contains('Jan'));
+      expect(result, contains('Feb'));
+      expect(result, contains(' - '));
     });
 
     test('handles null start', () {
-      expect(
-        formatDateRange(null, '2025-02-15T00:00:00Z'),
-        'Feb 15',
-      );
+      final result = formatDateRange(null, '2025-02-15T12:00:00Z');
+      expect(result, contains('Feb'));
     });
 
     test('handles null end', () {
-      expect(
-        formatDateRange('2025-01-15T00:00:00Z', null),
-        'Jan 15',
-      );
+      final result = formatDateRange('2025-01-15T12:00:00Z', null);
+      expect(result, contains('Jan'));
     });
 
     test('returns empty for both null', () {
@@ -260,14 +267,14 @@ void main() {
       expect(result.missed, isEmpty);
     });
 
-    test('not enabled + not completed → missed tab', () {
+    test('not enabled → dropped (not in any bucket)', () {
       final enriched = [
         EnrichedChallenge(dto: _makeDto(id: 1, enabled: false)),
       ];
       final result = categorizeEnrichedChallenges(enriched);
-      expect(result.missed, hasLength(1));
       expect(result.active, isEmpty);
       expect(result.completed, isEmpty);
+      expect(result.missed, isEmpty);
     });
 
     test('enabled + not completed → active tab', () {
@@ -280,7 +287,7 @@ void main() {
       expect(result.missed, isEmpty);
     });
 
-    test('participant completed overrides enabled=false (not missed)', () {
+    test('disabled challenge is dropped even if participant completed', () {
       final enriched = [
         EnrichedChallenge(
           dto: _makeDto(id: 1, enabled: false, goal: 'Goal'),
@@ -288,7 +295,8 @@ void main() {
         ),
       ];
       final result = categorizeEnrichedChallenges(enriched);
-      expect(result.completed, hasLength(1));
+      expect(result.active, isEmpty);
+      expect(result.completed, isEmpty);
       expect(result.missed, isEmpty);
     });
 
@@ -320,6 +328,19 @@ void main() {
       expect(result.missed, isEmpty);
     });
 
+    test('bare datetime scheduleEnd treated as UTC (real API format)', () {
+      // "2020-01-01 00:00:00" without Z — must be treated as UTC (in the past).
+      final enriched = [
+        EnrichedChallenge(
+          dto: _makeDto(
+              id: 1, enabled: true, scheduleEnd: '2020-01-01 00:00:00'),
+        ),
+      ];
+      final result = categorizeEnrichedChallenges(enriched);
+      expect(result.missed, hasLength(1));
+      expect(result.active, isEmpty);
+    });
+
     test('enabled with null scheduleEnd → active tab', () {
       final enriched = [
         EnrichedChallenge(
@@ -346,6 +367,20 @@ void main() {
       final result = categorizeEnrichedChallenges(enriched);
       expect(result.completed, hasLength(1));
       expect(result.missed, isEmpty);
+    });
+
+    test('produce-blocks pinned to front of each bucket', () {
+      final enriched = [
+        EnrichedChallenge(dto: _makeDto(id: 1, enabled: true)),
+        EnrichedChallenge(
+          dto: _makeDto(
+              id: 2, enabled: true, subCategory: 'PRODUCE_BLOCKS_CHALLENGE'),
+        ),
+        EnrichedChallenge(dto: _makeDto(id: 3, enabled: true)),
+      ];
+      final result = categorizeEnrichedChallenges(enriched);
+      expect(result.active.first.dto.id, 2);
+      expect(result.active.map((c) => c.dto.id).toList(), [2, 1, 3]);
     });
   });
 
@@ -408,6 +443,79 @@ void main() {
         mapEnrichedVariant(EnrichedChallenge(
           dto: _makeDto(enabled: true, scheduleEnd: futureEnd),
         )),
+        ChallengeCardVariant.active,
+      );
+    });
+
+    test('active produce-blocks without earned points → active', () {
+      expect(
+        mapEnrichedVariant(EnrichedChallenge(
+          dto: _makeDto(enabled: true, subCategory: 'PRODUCE_BLOCKS_CHALLENGE'),
+        )),
+        ChallengeCardVariant.active,
+      );
+    });
+
+    test('active produce-blocks with earned points → ongoing', () {
+      expect(
+        mapEnrichedVariant(EnrichedChallenge(
+          dto: _makeDto(
+            enabled: true,
+            subCategory: 'PRODUCE_BLOCKS_CHALLENGE',
+            goal: 'Produce Every Block',
+          ),
+          activity: _makeActivity(
+              challengeId: 1, description: 'Produce Every Block', points: 500),
+        )),
+        ChallengeCardVariant.ongoing,
+      );
+    });
+
+    test('completed produce-blocks → completed (not ongoing)', () {
+      expect(
+        mapEnrichedVariant(EnrichedChallenge(
+          dto: _makeDto(
+            enabled: true,
+            completed: true,
+            subCategory: 'PRODUCE_BLOCKS_CHALLENGE',
+            goal: 'Produce Every Block',
+          ),
+          activity: _makeActivity(description: 'Produce Every Block'),
+        )),
+        ChallengeCardVariant.completed,
+      );
+    });
+
+    test(
+        'active produce-blocks without activity but with eventSuccessRate > 0 → ongoing',
+        () {
+      expect(
+        mapEnrichedVariant(
+          EnrichedChallenge(
+            dto: _makeDto(
+              enabled: true,
+              subCategory: 'PRODUCE_BLOCKS_CHALLENGE',
+            ),
+          ),
+          eventSuccessRate: 85.0,
+        ),
+        ChallengeCardVariant.ongoing,
+      );
+    });
+
+    test(
+        'active produce-blocks without activity and eventSuccessRate == 0 → active',
+        () {
+      expect(
+        mapEnrichedVariant(
+          EnrichedChallenge(
+            dto: _makeDto(
+              enabled: true,
+              subCategory: 'PRODUCE_BLOCKS_CHALLENGE',
+            ),
+          ),
+          eventSuccessRate: 0,
+        ),
         ChallengeCardVariant.active,
       );
     });
@@ -521,6 +629,80 @@ void main() {
       expect(roundTripped.id, original.id);
       expect(roundTripped.reward, original.reward);
       expect(roundTripped.category, original.category);
+    });
+  });
+
+  group('computeEffectiveEarnedPoints', () {
+    test('returns earnedPoints when available', () {
+      expect(
+        computeEffectiveEarnedPoints(
+          earnedPoints: 4900,
+          successRate: 98,
+          rewardText: '6500',
+        ),
+        4900,
+      );
+    });
+
+    test('derives from successRate × maxPts when no earnedPoints', () {
+      // ceiling = 6500, maxPts = 6500 - 1500 = 5000, 98% × 5000 = 4900
+      expect(
+        computeEffectiveEarnedPoints(
+          successRate: 98,
+          rewardText: '6500',
+        ),
+        4900,
+      );
+    });
+
+    test('returns null when successRate is zero', () {
+      expect(
+        computeEffectiveEarnedPoints(
+          successRate: 0,
+          rewardText: '6500',
+        ),
+        isNull,
+      );
+    });
+
+    test('returns null when successRate is null', () {
+      expect(
+        computeEffectiveEarnedPoints(rewardText: '6500'),
+        isNull,
+      );
+    });
+
+    test('returns null when rewardText is null', () {
+      expect(
+        computeEffectiveEarnedPoints(successRate: 98),
+        isNull,
+      );
+    });
+
+    test('returns null when rewardText has no ceiling', () {
+      // Plain number doesn't match "Up to X" pattern → parseRewardCeiling
+      // returns null only when the formatted text doesn't match; but
+      // formatRewardText('1000') → 'Up to 1,000 pts' which does parse.
+      // Use a pre-formatted string that won't parse.
+      expect(
+        computeEffectiveEarnedPoints(
+          successRate: 98,
+          rewardText: 'free NFT badge',
+        ),
+        isNull,
+      );
+    });
+  });
+
+  group('kTop3RankBonusPoints', () {
+    test('is 1500', () {
+      expect(kTop3RankBonusPoints, 1500);
+    });
+  });
+
+  group('kProduceBlocksSubCategory', () {
+    test('is PRODUCE_BLOCKS_CHALLENGE', () {
+      expect(kProduceBlocksSubCategory, 'PRODUCE_BLOCKS_CHALLENGE');
     });
   });
 

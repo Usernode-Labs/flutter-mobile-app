@@ -26,7 +26,7 @@ class _NotificationPermission3ScreenState
     await markOnboardingComplete();
     ref.invalidate(hasCompletedOnboardingProvider);
     if (!mounted) return;
-    context.go(AppRoutes.nodeStatusProducedBlocks);
+    context.go(AppRoutes.mainNode);
   }
 
   @override
@@ -124,26 +124,23 @@ class _NotificationPermission3ScreenState
               if (_granted != true) ...[
                 SizedBox(
                   width: double.infinity,
-                  child: FilledButton(
-                    onPressed: _requesting ? null : _requestNotifications,
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(52),
-                    ),
-                    child: _requesting
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(l10n.permAllowNotifications),
+                  child: Button(
+                    label: l10n.permAllowNotifications,
+                    variant: ButtonVariant.primary,
+                    size: ButtonSize.large,
+                    isLoading: _requesting,
+                    onTap: _requestNotifications,
                   ),
                 ),
                 SizedBox(height: spacing.space8),
               ],
               SizedBox(
                 width: double.infinity,
-                child: FilledButton(
-                  onPressed: () async {
+                child: Button(
+                  label: l10n.permNotificationsSkip,
+                  variant: ButtonVariant.tonal,
+                  size: ButtonSize.large,
+                  onTap: () async {
                     if (Platform.isIOS) {
                       await _completeOnboardingAndGoToProducedBlocks();
                     } else {
@@ -151,13 +148,6 @@ class _NotificationPermission3ScreenState
                       context.go(AppRoutes.onboardingBatteryPermission2);
                     }
                   },
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(52),
-                    backgroundColor: theme
-                        .colorScheme.surfaceContainerHighest, // darker gray
-                    foregroundColor: theme.colorScheme.onSurface,
-                  ),
-                  child: Text(l10n.permNotificationsSkip),
                 ),
               ),
             ],

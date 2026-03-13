@@ -5,6 +5,7 @@ import 'package:crypto_mobile_app/design_system/theme/color_is_expensive_theme.d
 import 'package:crypto_mobile_app/design_system/theme/design_system_theme.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_semantic_colors.dart';
 
+import 'block_production_status_card_use_case.dart';
 import 'bottom_nav_use_case.dart';
 import 'button_use_case.dart';
 import 'challenge_activity_summary_use_case.dart';
@@ -39,12 +40,16 @@ import 'settings_page_use_case.dart';
 import 'sheet_layout_use_case.dart';
 import 'shimmer_use_case.dart';
 import 'status_badge_use_case.dart';
+import 'status_text_trailing_use_case.dart';
 import 'tabs_use_case.dart';
 import 'text_chevron_trailing_use_case.dart';
 import 'text_field_use_case.dart';
 import 'top_app_bar_use_case.dart';
 import 'unified_theme_catalog.dart';
 import 'wallet_page_use_case.dart';
+import 'zk_identity_flow_page_use_case.dart';
+import 'zk_identity_status_card_use_case.dart';
+import 'zk_identity_step_illustration_use_case.dart';
 
 void main() {
   runApp(const WidgetbookApp());
@@ -216,6 +221,7 @@ class WidgetbookApp extends StatelessWidget {
                 listTileComponent(),
                 scoreHeaderComponent(),
                 sheetLayoutComponent(),
+                statusTextTrailingComponent(),
                 textChevronTrailingComponent(),
               ],
             ),
@@ -235,11 +241,13 @@ class WidgetbookApp extends StatelessWidget {
             WidgetbookFolder(
               name: 'Challenges',
               children: [
+                blockProductionStatusCardComponent(),
                 challengeActivitySummaryComponent(),
                 challengeCardComponent(),
                 challengeCategoryIconComponent(),
                 challengeCategoryTileComponent(),
                 challengeRewardCardComponent(),
+                zkIdentityStatusCardComponent(),
               ],
             ),
             WidgetbookFolder(
@@ -266,6 +274,13 @@ class WidgetbookApp extends StatelessWidget {
               children: [
                 epochPerformancePageComponent(),
                 leaderboardPageComponent(),
+              ],
+            ),
+            WidgetbookFolder(
+              name: 'ZK Identity',
+              children: [
+                zkIdentityFlowPageComponent(),
+                zkIdentityStepIllustrationComponent(),
               ],
             ),
             WidgetbookFolder(

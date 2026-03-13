@@ -90,13 +90,13 @@ void main() {
           totalEarned: '10,550.1',
           data: produceBlocksData,
           epochEarned: '+50',
-          epochLabel: 'View Epoch 176',
+          epochLabel: 'View Details',
         ),
       ));
 
       expect(find.text('This Epoch Earned'), findsOneWidget);
       expect(find.text('+50'), findsOneWidget);
-      expect(find.text('View Epoch 176'), findsOneWidget);
+      expect(find.text('View Details'), findsOneWidget);
     });
 
     testWidgets('uses custom epochSectionLabel when provided', (tester) async {
@@ -122,12 +122,12 @@ void main() {
           totalEarned: '10,550.1',
           data: produceBlocksData,
           epochEarned: '+50',
-          epochLabel: 'View Epoch 176',
+          epochLabel: 'View Details',
           onEpochTap: () => tapped = true,
         ),
       ));
 
-      await tester.tap(find.text('View Epoch 176'));
+      await tester.tap(find.text('View Details'));
       expect(tapped, isTrue);
     });
 
@@ -188,6 +188,26 @@ void main() {
       expect(find.text('1st'), findsNothing);
       expect(find.text('2nd'), findsNothing);
       expect(find.text('3rd'), findsNothing);
+    });
+
+    testWidgets('uses custom rateLabel when provided', (tester) async {
+      await tester.pumpWidget(wrap(
+        const ChallengeRewardCard(
+          category: ChallengeCategory.technical,
+          totalEarned: '4,900',
+          data: ProduceBlocksRewardData(
+            progressFraction: 0.98,
+            successRate: '98%',
+            maxPoints: '5,000',
+            totalPoints: '4,900',
+            rankReward: '+0',
+            rateLabel: 'BLOCK RATE',
+          ),
+        ),
+      ));
+
+      expect(find.text('BLOCK RATE'), findsOneWidget);
+      expect(find.text('SUCCESS RATE'), findsNothing);
     });
   });
 

@@ -152,6 +152,14 @@ sufficient visual separation, especially inside Cards where the border groups it
 Dividers are appropriate only between semantically different content sections
 within the same surface (e.g., address section above a transaction list).
 
+### List Surface Vertical Inset (2026-03-11)
+
+Tile-in-card surfaces now use `EdgeInsets.symmetric(vertical: spacing.space8)`
+instead of `EdgeInsets.zero`. The vertical inset creates balanced framing
+between the card boundary and first/last tile. ListTile's theme
+`contentPadding` (horizontal-only) is unaffected — the zones don't conflict
+on the vertical axis. Enforced by `require_tile_card_vertical_inset` lint.
+
 ### ListTile: M3 Layout Properties Are Interdependent (2026-03-03)
 
 We tried overriding `visualDensity`, `minVerticalPadding`, `minTileHeight`, and

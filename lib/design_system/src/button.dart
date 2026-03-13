@@ -45,6 +45,7 @@ class Button extends StatelessWidget {
     this.leadingIcon,
     this.size = ButtonSize.regular,
     this.variant = ButtonVariant.tonal,
+    this.isLoading = false,
   });
 
   /// The button label text.
@@ -62,6 +63,9 @@ class Button extends StatelessWidget {
   /// Visual variant. Defaults to [ButtonVariant.tonal].
   final ButtonVariant variant;
 
+  /// When true, replaces the label with a spinner and disables tap.
+  final bool isLoading;
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
@@ -78,6 +82,19 @@ class Button extends StatelessWidget {
     final shape = RoundedRectangleBorder(borderRadius: radii.borderRadiusFull);
     final padding = EdgeInsets.symmetric(horizontal: spacing.space16);
 
+    final effectiveOnTap = isLoading ? null : onTap;
+    final child = isLoading
+        ? SizedBox.square(
+            dimension: sizing.iconSmall,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: variant == ButtonVariant.primary
+                  ? colors.onPrimary
+                  : colors.onSurface,
+            ),
+          )
+        : Text(label);
+
     final baseStyle = ButtonStyle(
       shape: WidgetStatePropertyAll(shape),
       fixedSize: WidgetStatePropertyAll(Size.fromHeight(height)),
@@ -93,35 +110,35 @@ class Button extends StatelessWidget {
           backgroundColor: WidgetStatePropertyAll(colors.primary),
           foregroundColor: WidgetStatePropertyAll(colors.onPrimary),
         );
-        if (leadingIcon != null) {
+        if (!isLoading && leadingIcon != null) {
           return FilledButton.icon(
-            onPressed: onTap,
+            onPressed: effectiveOnTap,
             style: style,
             icon: leadingIcon!,
-            label: Text(label),
+            label: child,
           );
         }
         return FilledButton(
-          onPressed: onTap,
+          onPressed: effectiveOnTap,
           style: style,
-          child: Text(label),
+          child: child,
         );
 
       case ButtonVariant.tonal:
         // FilledButton.tonal defaults match our tonal spec — no overrides.
         final style = baseStyle;
-        if (leadingIcon != null) {
+        if (!isLoading && leadingIcon != null) {
           return FilledButton.tonalIcon(
-            onPressed: onTap,
+            onPressed: effectiveOnTap,
             style: style,
             icon: leadingIcon!,
-            label: Text(label),
+            label: child,
           );
         }
         return FilledButton.tonal(
-          onPressed: onTap,
+          onPressed: effectiveOnTap,
           style: style,
-          child: Text(label),
+          child: child,
         );
 
       case ButtonVariant.outlined:
@@ -131,18 +148,18 @@ class Button extends StatelessWidget {
             BorderSide(color: colors.outlineVariant),
           ),
         );
-        if (leadingIcon != null) {
+        if (!isLoading && leadingIcon != null) {
           return OutlinedButton.icon(
-            onPressed: onTap,
+            onPressed: effectiveOnTap,
             style: style,
             icon: leadingIcon!,
-            label: Text(label),
+            label: child,
           );
         }
         return OutlinedButton(
-          onPressed: onTap,
+          onPressed: effectiveOnTap,
           style: style,
-          child: Text(label),
+          child: child,
         );
 
       case ButtonVariant.surface:
@@ -151,18 +168,18 @@ class Button extends StatelessWidget {
               WidgetStatePropertyAll(colors.surfaceContainerLowest),
           foregroundColor: WidgetStatePropertyAll(colors.onSurface),
         );
-        if (leadingIcon != null) {
+        if (!isLoading && leadingIcon != null) {
           return FilledButton.icon(
-            onPressed: onTap,
+            onPressed: effectiveOnTap,
             style: style,
             icon: leadingIcon!,
-            label: Text(label),
+            label: child,
           );
         }
         return FilledButton(
-          onPressed: onTap,
+          onPressed: effectiveOnTap,
           style: style,
-          child: Text(label),
+          child: child,
         );
     }
   }

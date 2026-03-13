@@ -133,17 +133,14 @@ void main() {
 
       final result = container.read(categorizedChallengesProvider);
       expect(result, isNotNull);
-      // Without breakdown, categorization falls back to dto.completed/enabled:
-      // id=1 active, id=2 completed (dto.completed=true but no activity match
-      // so enriched.participantCompleted is false → it's enabled → active).
-      // Actually: without breakdown, activity is null for all, so
+      // id=3 (enabled=false) is filtered out before enrichment.
+      // Without breakdown, activity is null for all, so
       // participantCompleted is false for all. Categorization:
       //   id=1: enabled=true, participantCompleted=false → active
       //   id=2: enabled=true, participantCompleted=false → active (no activity match!)
-      //   id=3: enabled=false, participantCompleted=false → missed
       expect(result!.active.length, 2);
       expect(result.completed.length, 0);
-      expect(result.missed.length, 1);
+      expect(result.missed.length, 0);
     });
 
     test('categorizes with breakdown (enriched)', () async {
@@ -164,18 +161,17 @@ void main() {
 
       final result = container.read(categorizedChallengesProvider);
       expect(result, isNotNull);
+      // id=3 (enabled=false) is filtered out before enrichment.
       // With breakdown: "Prove Humanity" matches activity description →
       // participantCompleted=true → completed.
       //   id=1: active (no activity match, enabled)
       //   id=2: completed (activity match)
-      //   id=3: missed (not enabled, no activity)
       expect(result!.active.length, 1);
       expect(result.active.first.dto.goal, 'Produce Every Block');
       expect(result.completed.length, 1);
       expect(result.completed.first.dto.goal, 'Prove Humanity');
       expect(result.completed.first.earnedPoints, 1000);
-      expect(result.missed.length, 1);
-      expect(result.missed.first.dto.goal, 'Quick Challenge');
+      expect(result.missed.length, 0);
     });
   });
 }

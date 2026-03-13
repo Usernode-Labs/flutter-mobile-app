@@ -33,6 +33,7 @@ class ProduceBlocksRewardData extends ChallengeRewardData {
     required this.totalPoints,
     this.rankLabel,
     required this.rankReward,
+    this.rateLabel = 'SUCCESS RATE',
   });
 
   /// Progress bar fill fraction, 0.0–1.0.
@@ -52,6 +53,10 @@ class ProduceBlocksRewardData extends ChallengeRewardData {
 
   /// Formatted rank reward, e.g. "+0".
   final String rankReward;
+
+  /// Label for the rate row, e.g. "BLOCK RATE" mid-event or "SUCCESS RATE"
+  /// when the event is completed.
+  final String rateLabel;
 }
 
 // ---------------------------------------------------------------------------
@@ -96,7 +101,7 @@ class ChallengeRewardCard extends StatelessWidget {
   /// (divider + bottom half) is hidden.
   final String? epochEarned;
 
-  /// Label for the epoch button, e.g. "View Epoch 176".
+  /// Label for the epoch button, e.g. "View Details".
   final String? epochLabel;
 
   /// Called when the epoch button is tapped.
@@ -174,30 +179,24 @@ class ChallengeRewardCard extends StatelessWidget {
                       :final maxPoints,
                       :final totalPoints,
                       :final rankLabel,
-                      :final rankReward
+                      :final rankReward,
+                      :final rateLabel,
                     )) ...[
                   SizedBox(height: spacing.space24),
                   // Progress bar
                   ClipRRect(
                     borderRadius: radii.borderRadiusFull,
-                    child: SizedBox(
-                      height: 6.0,
-                      child: Stack(
-                        children: [
-                          Container(
-                            color: onColor.withValues(alpha: 0.5),
-                          ),
-                          FractionallySizedBox(
-                            widthFactor: progressFraction.clamp(0.0, 1.0),
-                            child: Container(color: onColor),
-                          ),
-                        ],
-                      ),
+                    child: LinearProgressIndicator(
+                      value: progressFraction.clamp(0.0, 1.0),
+                      minHeight: 6.0,
+                      backgroundColor: onColor.withValues(alpha: 0.5),
+                      valueColor: AlwaysStoppedAnimation<Color>(onColor),
                     ),
                   ),
                   SizedBox(height: spacing.space16),
                   // Calculation row
                   _CalculationRow(
+                    rateLabel: rateLabel,
                     successRate: successRate,
                     maxPoints: maxPoints,
                     totalPoints: totalPoints,
@@ -315,9 +314,10 @@ class ChallengeRewardCard extends StatelessWidget {
   }
 }
 
-/// Internal widget: the "SUCCESS RATE × MAX PTS = TOTAL" calculation row.
+/// Internal widget: the "BLOCK RATE × MAX PTS = TOTAL" calculation row.
 class _CalculationRow extends StatelessWidget {
   const _CalculationRow({
+    required this.rateLabel,
     required this.successRate,
     required this.maxPoints,
     required this.totalPoints,
@@ -325,6 +325,7 @@ class _CalculationRow extends StatelessWidget {
     required this.dimOnColor,
   });
 
+  final String rateLabel;
   final String successRate;
   final String maxPoints;
   final String totalPoints;
@@ -355,7 +356,7 @@ class _CalculationRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'SUCCESS RATE',
+                      rateLabel,
                       style: labelStyle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,

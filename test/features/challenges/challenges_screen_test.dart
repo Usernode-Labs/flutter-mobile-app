@@ -129,7 +129,7 @@ const _testChallenges = [
     goal: 'Quick Challenge',
     task: 'A missed flash challenge.',
     reward: '500',
-    enabled: false,
+    enabled: true,
     completed: false,
     scheduleStart: '2025-01-01T00:00:00Z',
     scheduleEnd: '2025-01-14T00:00:00Z',

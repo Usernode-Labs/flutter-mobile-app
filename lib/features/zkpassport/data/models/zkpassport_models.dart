@@ -225,12 +225,18 @@ class ZkPassportLocalRegistration {
     required this.nullifierHex,
     required this.registeredAtMs,
     this.facematchVerified,
+    this.verifyOuterMs,
+    this.wrapOuterMs,
+    this.verifyWrappedMs,
   });
 
   final bool registered;
   final String? nullifierHex;
   final int? registeredAtMs;
   final bool? facematchVerified;
+  final int? verifyOuterMs;
+  final int? wrapOuterMs;
+  final int? verifyWrappedMs;
 
   static ZkPassportLocalRegistration unregistered() {
     return const ZkPassportLocalRegistration(
@@ -246,6 +252,9 @@ class ZkPassportLocalRegistration {
       'nullifier_hex': nullifierHex,
       'registered_at_ms': registeredAtMs,
       if (facematchVerified != null) 'facematch_verified': facematchVerified,
+      if (verifyOuterMs != null) 'verify_outer_ms': verifyOuterMs,
+      if (wrapOuterMs != null) 'wrap_outer_ms': wrapOuterMs,
+      if (verifyWrappedMs != null) 'verify_wrapped_ms': verifyWrappedMs,
     };
   }
 
@@ -268,12 +277,25 @@ class ZkPassportLocalRegistration {
     final facematchRaw = json['facematch_verified'];
     final facematchVerified = facematchRaw is bool ? facematchRaw : null;
 
+    final verifyOuterMs = _parseOptionalInt(json['verify_outer_ms']);
+    final wrapOuterMs = _parseOptionalInt(json['wrap_outer_ms']);
+    final verifyWrappedMs = _parseOptionalInt(json['verify_wrapped_ms']);
+
     return ZkPassportLocalRegistration(
       registered: registered,
       nullifierHex: nullifier,
       registeredAtMs: registeredAtMs,
       facematchVerified: facematchVerified,
+      verifyOuterMs: verifyOuterMs,
+      wrapOuterMs: wrapOuterMs,
+      verifyWrappedMs: verifyWrappedMs,
     );
+  }
+
+  static int? _parseOptionalInt(dynamic raw) {
+    if (raw is int) return raw;
+    if (raw is String) return int.tryParse(raw);
+    return null;
   }
 }
 

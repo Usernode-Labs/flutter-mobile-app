@@ -1,12 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/wallet/screens/wallet_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/node_status_screen.dart';
-import 'package:crypto_mobile_app/features/settings/screens/background_production_settings_screen.dart';
+import 'package:crypto_mobile_app/features/settings/screens/settings_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/dapps_screen.dart';
 import 'package:crypto_mobile_app/features/challenges/screens/challenges_screen.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
@@ -15,6 +16,8 @@ import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/config/legacy_colors.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_models.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
+import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
+import 'package:crypto_mobile_app/features/zk_identity/zk_identity_status_mapper.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -86,11 +89,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           WalletScreen(),
           DappsScreen(),
           NodeStatusScreen(),
-          BackgroundProductionSettingsScreen(),
+          SettingsScreen(),
         ],
       ),
       bottomNavigationBar: _buildBottomNav(
-        l10n, semantic, index, isInternal, isDark,
+        l10n,
+        semantic,
+        index,
+        isInternal,
+        isDark,
       ),
     );
   }
@@ -169,6 +176,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void _showPipelineStatus(ZkPassportPipelineState state) {
     if (!mounted) return;
 
+    // Skip dialog when pipeline was triggered from the ZK Identity challenge flow.
+    if (ref.read(zkIdentityChallengeActiveProvider)) return;
+
     // Do not spam progress updates. Only surface terminal success/failure states
     // in a persistent modal dialog that the user can dismiss (useful for screenshots).
     if (state.status == ZkPassportPipelineStatus.processing) {
@@ -186,17 +196,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     _lastTerminalDialogAtMs = state.updatedAtMs;
     _zkTerminalDialogOpen = true;
 
-    final timings = <String>[
-      if (state.verifyOuterMs != null)
-        'Verify outer: ${state.verifyOuterMs} ms',
-      if (state.wrapOuterMs != null) 'Wrap outer: ${state.wrapOuterMs} ms',
-      if (state.verifyWrappedMs != null)
-        'Verify wrapped: ${state.verifyWrappedMs} ms',
-    ];
-    final outerPublicInputs = state.outerPublicInputsHex;
-
     final isFailure = state.status == ZkPassportPipelineStatus.failure;
-    final title = isFailure ? 'zkPassport failed' : 'zkPassport complete';
 
     unawaited(
       showDialog<void>(
@@ -204,45 +204,86 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         barrierDismissible: false,
         builder: (ctx) {
           final spacing = Theme.of(ctx).extension<AppSpacing>()!;
+          final textTheme = Theme.of(ctx).textTheme;
+          final colorScheme = Theme.of(ctx).colorScheme;
+
+          if (isFailure) {
+            return AlertDialog(
+              title: const Text('Verification Failed'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Your data is safe \u2014 no information was shared.',
+                  ),
+                  if (state.message.isNotEmpty) ...[
+                    SizedBox(height: spacing.space8),
+                    Text(
+                      state.message,
+                      style: textTheme.bodySmall?.copyWith(
+                        color: colorScheme.error,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                Button(
+                  label: 'OK',
+                  variant: ButtonVariant.primary,
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    unawaited(
+                      ref
+                          .read(zkPassportPipelineProvider.notifier)
+                          .discardPendingSession(),
+                    );
+                  },
+                ),
+              ],
+            );
+          }
+
+          // Success dialog — show status card from registration data.
+          final registration =
+              ref.read(zkIdentityRegistrationProvider).valueOrNull;
+
           return AlertDialog(
-            title: Text(title),
+            title: const Text('Identity Verified'),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(state.message),
-                if (outerPublicInputs != null &&
-                    outerPublicInputs.isNotEmpty) ...[
-                  SizedBox(height: spacing.space12),
-                  Text('Outer public inputs (${outerPublicInputs.length}):'),
-                  SizedBox(height: spacing.space8),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 240),
-                    child: SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          for (var i = 0; i < outerPublicInputs.length; i++)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 6),
-                              child: SelectableText(
-                                '[$i] ${outerPublicInputs[i].trim()}',
-                              ),
-                            ),
-                        ],
-                      ),
+                const Text(
+                  'Your passport was verified with a zero-knowledge '
+                  'proof \u2014 no personal data was shared.',
+                ),
+                if (registration != null && registration.registered) ...[
+                  SizedBox(height: spacing.space16),
+                  ZkIdentityStatusCard(
+                    data: buildZkIdentityStatusData(
+                      registration,
+                      onCopyProofId: registration.nullifierHex != null
+                          ? () {
+                              Clipboard.setData(
+                                ClipboardData(
+                                  text: registration.nullifierHex!,
+                                ),
+                              );
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                const SnackBar(content: Text('Copied')),
+                              );
+                            }
+                          : null,
                     ),
                   ),
-                ],
-                if (timings.isNotEmpty) ...[
-                  SizedBox(height: spacing.space12),
-                  for (final line in timings) Text(line),
                 ],
               ],
             ),
             actions: [
               Button(
-                label: 'OK',
+                label: 'Done',
                 variant: ButtonVariant.primary,
                 onTap: () {
                   Navigator.of(ctx).pop();

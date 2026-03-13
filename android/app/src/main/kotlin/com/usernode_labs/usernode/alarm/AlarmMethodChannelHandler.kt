@@ -2,7 +2,6 @@ package com.usernode_labs.usernode.alarm
 
 import android.Manifest
 import android.app.Activity
-import android.app.ActivityManager
 import android.app.AlarmManager
 import android.content.Context
 import android.content.Intent
@@ -460,14 +459,7 @@ class AlarmMethodChannelHandler(context: Context) {
     }
 
     private fun isForegroundServiceRunning(): Boolean {
-        val activityManager = appContext.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-        @Suppress("DEPRECATION")
-        for (service in activityManager.getRunningServices(Int.MAX_VALUE)) {
-            if (SlotMonitoringService::class.java.name == service.service.className) {
-                return true
-            }
-        }
-        return false
+        return SlotMonitoringService.isForegroundServiceActive
     }
 
     private fun isWakelockHeld(): Boolean {

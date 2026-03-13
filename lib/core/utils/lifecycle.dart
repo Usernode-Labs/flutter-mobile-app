@@ -1,8 +1,6 @@
-import 'dart:async';
 import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
-import '../../features/node/node_service.dart';
 import '../../features/metrics/metrics_collector_service.dart';
 import '../services/android_foreground_task_controller.dart';
 
@@ -66,18 +64,7 @@ class AppLifecycleLogger with WidgetsBindingObserver {
 
     try {
       _log.info('Handling app resume...');
-
-      // 1. Check and restart node if needed (Android only)
-      if (Platform.isAndroid) {
-        await _ensureNodeRunning();
-      }
-
-      // 2. Check for epoch transition and reschedule if needed
       await _checkEpochTransition();
-
-      // 3. Verify scheduled alarms still exist
-      await _verifyScheduledAlarms();
-
       _log.info('App resume handling complete');
     } catch (e) {
       _log.error('Error handling app resume: $e');
@@ -89,24 +76,6 @@ class AppLifecycleLogger with WidgetsBindingObserver {
   /// Handle app paused
   Future<void> _handleAppPaused() async {
     // Rust Node will be paused by the foreground service or MainActivity destructor.
-  }
-
-  /// Ensure node is running (Android only)
-  Future<void> _ensureNodeRunning() async {
-    try {
-      final rustBackend = RustBackendService.instance;
-
-      await rustBackend.startNode();
-      await rustBackend.resumeNode();
-
-      if (rustBackend.isRunning) {
-        _log.info('✓ Node successfully ensured running');
-      } else {
-        _log.error('✗ Failed to start and resume node');
-      }
-    } catch (e) {
-      _log.error('Error ensuring node running: $e');
-    }
   }
 
   /// Check if epoch has changed and reschedule slots if needed
@@ -123,14 +92,4 @@ class AppLifecycleLogger with WidgetsBindingObserver {
     }
   }
 
-  /// Verify that scheduled alarms still exist (could be cleared by system)
-  ///
-  Future<void> _verifyScheduledAlarms() async {
-    try {
-      _log.debug(
-          'Alarm verification no-op (handled by AlarmManager scheduling)');
-    } catch (e) {
-      _log.error('Error verifying scheduled alarms: $e');
-    }
-  }
 }

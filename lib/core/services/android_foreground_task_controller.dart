@@ -25,6 +25,7 @@ class AndroidForegroundTaskController {
   Timer? _pollTimer;
   bool _initialized = false;
   bool _wakelockHeld = false;
+  bool _isPolling = false;
   AccountPublicKey? _cachedOurPubKey;
   ({int height, DateTime since})? _awaitingOtherProducerState;
 
@@ -142,6 +143,18 @@ class AndroidForegroundTaskController {
   }
 
   Future<void> _pollVrf() async {
+    if (_isPolling) {
+      _log.warn('_pollVrf overlap detected, skipping');
+      return;
+    }
+
+    final lifecycleState = WidgetsBinding.instance.lifecycleState;
+    if (lifecycleState == AppLifecycleState.resumed) {
+      _log.debug('Skipping VRF poll: app is in foreground');
+      return;
+    }
+
+    _isPolling = true;
     try {
       final info = await RustBackendService.instance.getEpochInfo();
       if (info == null) {
@@ -193,6 +206,8 @@ class AndroidForegroundTaskController {
       }
     } catch (e, st) {
       _log.error('VRF poll failed', error: e, stackTrace: st);
+    } finally {
+      _isPolling = false;
     }
   }
 

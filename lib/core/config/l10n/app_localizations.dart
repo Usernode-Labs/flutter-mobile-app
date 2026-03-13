@@ -838,12 +838,6 @@ abstract class AppLocalizations {
   /// **'Loading produced blocks...'**
   String get producedBlocksLoading;
 
-  /// No produced blocks message
-  ///
-  /// In en, this message translates to:
-  /// **'No produced blocks available'**
-  String get producedBlocksNoData;
-
   /// Label for block success rate over the last 10 epochs
   ///
   /// In en, this message translates to:
@@ -1558,156 +1552,6 @@ abstract class AppLocalizations {
   /// **'{days} days ago'**
   String timeDaysAgo(int days);
 
-  /// Block details screen title
-  ///
-  /// In en, this message translates to:
-  /// **'Block Details'**
-  String get blockDetailsTitle;
-
-  /// Timeline item title
-  ///
-  /// In en, this message translates to:
-  /// **'VRF Slot Discovered'**
-  String get blockVrfSlotDiscovered;
-
-  /// Timeline item subtitle for slot won
-  ///
-  /// In en, this message translates to:
-  /// **'Slot {slot} won'**
-  String blockSlotWon(int slot);
-
-  /// Timeline item title
-  ///
-  /// In en, this message translates to:
-  /// **'Block Production Scheduled'**
-  String get blockProductionScheduled;
-
-  /// Timeline item subtitle for epoch and slot
-  ///
-  /// In en, this message translates to:
-  /// **'Epoch {epoch}, Slot {slot}'**
-  String blockEpochSlot(int epoch, int slot);
-
-  /// Timeline item title
-  ///
-  /// In en, this message translates to:
-  /// **'Transaction Batches Included'**
-  String get blockTxBatchesIncluded;
-
-  /// Timeline item subtitle for batches and transactions
-  ///
-  /// In en, this message translates to:
-  /// **'Included {batches} batches / {transactions} transactions'**
-  String blockIncludedBatchesTx(int batches, int transactions);
-
-  /// Timeline item subtitle when batch info unavailable
-  ///
-  /// In en, this message translates to:
-  /// **'Included batches / transactions'**
-  String get blockIncludedBatchesTxGeneric;
-
-  /// Timeline item title
-  ///
-  /// In en, this message translates to:
-  /// **'State Transition.'**
-  String get blockStateTransition;
-
-  /// Timeline item subtitle for state transition
-  ///
-  /// In en, this message translates to:
-  /// **'Protocol and Consensus states updated'**
-  String get blockStatesUpdated;
-
-  /// Timeline item title
-  ///
-  /// In en, this message translates to:
-  /// **'Applied Locally'**
-  String get blockAppliedLocally;
-
-  /// Timeline item subtitle for applied locally
-  ///
-  /// In en, this message translates to:
-  /// **'UTXOs updated'**
-  String get blockUtxosUpdated;
-
-  /// Timeline item title
-  ///
-  /// In en, this message translates to:
-  /// **'Block Committed'**
-  String get blockCommitted;
-
-  /// Block number label
-  ///
-  /// In en, this message translates to:
-  /// **'Block #{height}'**
-  String blockNumber(int height);
-
-  /// Timeline item title
-  ///
-  /// In en, this message translates to:
-  /// **'Block Confirmed'**
-  String get blockConfirmed;
-
-  /// Block hash with prefix
-  ///
-  /// In en, this message translates to:
-  /// **'Hash: {hash}...'**
-  String blockHashPrefix(String hash);
-
-  /// Block information card title
-  ///
-  /// In en, this message translates to:
-  /// **'Block Information'**
-  String get blockInformation;
-
-  /// Block hash label
-  ///
-  /// In en, this message translates to:
-  /// **'Block Hash'**
-  String get blockHash;
-
-  /// Block height label
-  ///
-  /// In en, this message translates to:
-  /// **'Height'**
-  String get blockHeight;
-
-  /// Global slot label
-  ///
-  /// In en, this message translates to:
-  /// **'Global Slot'**
-  String get blockGlobalSlot;
-
-  /// Epoch label
-  ///
-  /// In en, this message translates to:
-  /// **'Epoch'**
-  String get blockEpoch;
-
-  /// Producer label
-  ///
-  /// In en, this message translates to:
-  /// **'Producer'**
-  String get blockProducer;
-
-  /// Transactions label
-  ///
-  /// In en, this message translates to:
-  /// **'Transactions'**
-  String get blockTransactions;
-
-  /// Batches label
-  ///
-  /// In en, this message translates to:
-  /// **'Batches'**
-  String get blockBatches;
-
-  /// Block at slot header
-  ///
-  /// In en, this message translates to:
-  /// **'Block #{height} at Slot {slot}'**
-  String blockAtSlot(int height, int slot);
-
   /// Mempool total stat label
   ///
   /// In en, this message translates to:
@@ -2026,6 +1870,12 @@ abstract class AppLocalizations {
   /// **'Last 24h'**
   String get challengeEpochLast24h;
 
+  /// Button label to view epoch performance details
+  ///
+  /// In en, this message translates to:
+  /// **'View Details'**
+  String get challengeViewEpochDetails;
+
   /// Transaction success screen title
   ///
   /// In en, this message translates to:
@@ -2200,18 +2050,6 @@ abstract class AppLocalizations {
   /// **'Mempool'**
   String get nodeMempool;
 
-  /// Recent blocks section title
-  ///
-  /// In en, this message translates to:
-  /// **'Recent Blocks'**
-  String get nodeRecentBlocks;
-
-  /// View all blocks link text
-  ///
-  /// In en, this message translates to:
-  /// **'View All'**
-  String get nodeViewAll;
-
   /// Peers subtitle showing connected/total count
   ///
   /// In en, this message translates to:
@@ -2277,12 +2115,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Best Tip'**
   String get nodeBestTip;
-
-  /// Best tip status badge label
-  ///
-  /// In en, this message translates to:
-  /// **'BEST TIP'**
-  String get nodeBestTipBadge;
 
   /// VRF evaluation status completed
   ///

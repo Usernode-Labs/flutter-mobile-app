@@ -137,6 +137,21 @@ See [DECISIONS.md](DECISIONS.md) "Selective M3 Adoption" for a worked example.
 
 **Where:** `theme/color_is_expensive_theme.dart` (ListTileThemeData); enforced by `avoid_listtile_layout_overrides` lint.
 
+## List Surface Vertical Inset
+
+**Constraint:** When a card contains only ListTile-family widgets, use
+`EdgeInsets.symmetric(vertical: spacing.space8)` — not `EdgeInsets.zero`.
+ListTile's theme `contentPadding` handles horizontal; the card surface
+owns vertical breathing room.
+
+**Why:** `EdgeInsets.zero` eliminates all surface inset, making the first
+and last tiles flush against the card boundary. The 8dp vertical inset
+matches M3's internal `minVerticalPadding` rhythm, creating balanced
+framing.
+
+**Where:** `SCREEN_PATTERNS.md` § "When Zones Collide"; enforced by
+`require_tile_card_vertical_inset` lint.
+
 ## Automated Lint Rules (`ds_lints`)
 
 The following audits are automated via `packages/ds_lints/`. Run from the project root:
@@ -155,6 +170,7 @@ cd packages/ds_lints && dart run bin/lint.dart /path/to/project/root
 | `avoid_frb_imports` | WARNING | `import 'package:flutter_rust_bridge/...'` or `frb_generated` in `lib/design_system/`. FRB types break Widgetbook web. |
 | `avoid_padding_around_tiles` | WARNING | `Padding` with horizontal insets wrapping a ListTile-family widget (`ListTile`, `SwitchListTile`, `CheckboxListTile`, `RadioListTile`, `ExpansionTile`). These widgets get `contentPadding` from the theme — outer horizontal Padding causes double-indenting. |
 | `avoid_listtile_layout_overrides` | WARNING | Per-widget `visualDensity`, `minVerticalPadding`, `minTileHeight`, `titleAlignment`, or `contentPadding` on `ListTile`/`SwitchListTile`/`CheckboxListTile`/`RadioListTile`. These layout properties should come from the theme — per-widget overrides break M3's baseline alignment. |
+| `require_tile_card_vertical_inset` | WARNING | `AppCard(padding: EdgeInsets.zero)` whose child subtree contains tile widgets. Use `EdgeInsets.symmetric(vertical: spacing.space8)` for list surface inset. |
 
 Excluded paths: `/widgetbook/`, `/test/`.
 

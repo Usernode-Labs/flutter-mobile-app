@@ -94,6 +94,7 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
     'SwitchListTile',
     'CheckboxListTile',
     'RadioListTile',
+    'AppCard',
   };
 
   void _dispatch(
@@ -121,6 +122,8 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
       case 'CheckboxListTile':
       case 'RadioListTile':
         _checkListTileLayoutOverrides(node, typeName, args);
+      case 'AppCard':
+        _checkTileCardVerticalInset(node, args);
     }
   }
 
@@ -549,6 +552,23 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
             _containsTileWidget(element.expression)) {
           return true;
         }
+        if (element is ForElement) {
+          final body = element.body;
+          if (body is Expression && _containsTileWidget(body)) return true;
+          if (body is IfElement) {
+            if (body.thenElement is Expression &&
+                _containsTileWidget(body.thenElement as Expression)) {
+              return true;
+            }
+            if (body.elseElement is Expression &&
+                _containsTileWidget(body.elseElement as Expression)) {
+              return true;
+            }
+          }
+          if (body is SpreadElement && _containsTileWidget(body.expression)) {
+            return true;
+          }
+        }
       }
     }
 
@@ -571,6 +591,60 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
         value = arg;
       }
       if (_containsTileWidget(value)) return true;
+    }
+    return false;
+  }
+
+  // ── Rule 8: require_tile_card_vertical_inset ────────────────────────
+
+  void _checkTileCardVerticalInset(AstNode node, ArgumentList args) {
+    // Find padding: named argument.
+    Expression? paddingExpr;
+    for (final arg in args.arguments) {
+      if (arg is NamedExpression && arg.name.label.name == 'padding') {
+        paddingExpr = arg.expression;
+        break;
+      }
+    }
+    if (paddingExpr == null) return;
+
+    // Check if padding is EdgeInsets.zero (PropertyAccess or PrefixedIdentifier).
+    if (!_isEdgeInsetsZero(paddingExpr)) return;
+
+    // Find child: named argument and check for tile widgets.
+    for (final arg in args.arguments) {
+      if (arg is NamedExpression && arg.name.label.name == 'child') {
+        if (_containsTileWidget(arg.expression)) {
+          _report(
+            node,
+            'require_tile_card_vertical_inset',
+            'AppCard with EdgeInsets.zero contains tile widgets. '
+                'Use EdgeInsets.symmetric(vertical: spacing.space8) '
+                'for list surface inset.',
+            'WARNING',
+          );
+        }
+        return;
+      }
+    }
+  }
+
+  /// Returns true if [expr] is `EdgeInsets.zero`.
+  bool _isEdgeInsetsZero(Expression expr) {
+    // PropertyAccess: EdgeInsets.zero (when parsed as property access)
+    if (expr is PropertyAccess) {
+      final target = expr.target;
+      if (target is SimpleIdentifier &&
+          target.name == 'EdgeInsets' &&
+          expr.propertyName.name == 'zero') {
+        return true;
+      }
+    }
+    // PrefixedIdentifier: EdgeInsets.zero (when parsed as prefixed identifier)
+    if (expr is PrefixedIdentifier) {
+      if (expr.prefix.name == 'EdgeInsets' && expr.identifier.name == 'zero') {
+        return true;
+      }
     }
     return false;
   }

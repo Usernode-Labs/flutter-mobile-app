@@ -1,5 +1,6 @@
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'helpers/ds_test_helpers.dart';
@@ -147,7 +148,7 @@ void main() {
         ),
       ));
 
-      // Find the CustomPaint that lives inside our 128px SizedBox.
+      // Find the SvgPicture that lives inside our 128px SizedBox.
       final illustrationBox = find.descendant(
         of: find.byType(ChallengeActivitySummary),
         matching: find.byWidgetPredicate(
@@ -158,7 +159,7 @@ void main() {
       expect(
         find.descendant(
           of: illustrationBox,
-          matching: find.byType(CustomPaint),
+          matching: find.byType(SvgPicture),
         ),
         findsOneWidget,
       );

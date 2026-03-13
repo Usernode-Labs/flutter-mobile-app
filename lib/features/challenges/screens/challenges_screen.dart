@@ -17,7 +17,6 @@ import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 import 'package:crypto_mobile_app/features/challenges/heartbeat_animation.dart';
 import 'package:crypto_mobile_app/features/challenges/season_event_pickers.dart';
 import 'package:crypto_mobile_app/features/challenges/screens/challenges_delegates.dart';
-import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
 
 /// Immutable pull-to-refresh feedback values for the ScoreHeader.
 class PullFeedback {
@@ -112,6 +111,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
   Widget _buildBody(BuildContext context) {
     final ranking = ref.watch(rankingProvider.select((s) => s.value?.data));
     final breakdown = ref.watch(breakdownProvider.select((s) => s.value?.data));
+    final eb = breakdown?.eventBreakdown;
     final isLoading = ref.watch(
         challengesProvider.select((s) => s.isLoading && s.value?.data == null));
     final hasError = ref.watch(
@@ -181,13 +181,13 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
           controller: _tabController,
           children: [
             _buildActiveTabContent(categorized.active, categorized, spacing,
-                isLoading: isLoading),
+                isLoading: isLoading, eb: eb),
             _buildEnrichedChallengeList(categorized.completed, spacing,
                 AppLocalizations.of(context).challengeNoCompleted,
-                isLoading: isLoading),
+                isLoading: isLoading, eb: eb),
             _buildEnrichedChallengeList(categorized.missed, spacing,
                 AppLocalizations.of(context).challengeNoMissed,
-                isLoading: isLoading),
+                isLoading: isLoading, eb: eb),
           ],
         ),
       ),
@@ -244,15 +244,8 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
 
   // -- ScoreHeader -----------------------------------------------------------
 
-  /// Glow variant is earned by completing the ZK Identity challenge.
-  ScoreHeaderVariant get _scoreVariant {
-    final isComplete = ref.watch(
-      zkIdentityIsCompleteProvider.select(
-        (v) => v.maybeWhen(data: (d) => d, orElse: () => false),
-      ),
-    );
-    return isComplete ? ScoreHeaderVariant.glow : ScoreHeaderVariant.standard;
-  }
+  /// Current variant for the score header. Will be dynamic when glow is earned.
+  ScoreHeaderVariant get _scoreVariant => ScoreHeaderVariant.glow;
 
   /// Resolves the selected season from provider state. Returns null when
   /// seasons data isn't loaded or the selected season can't be found.
@@ -360,13 +353,14 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
     CategorizedEnrichedChallenges categorized,
     AppSpacing spacing, {
     bool isLoading = false,
+    EventBreakdown? eb,
   }) {
     if (isLoading) {
       return _buildShimmerCards(spacing);
     }
 
     if (active.isNotEmpty) {
-      return _buildEnrichedChallengeList(active, spacing, '');
+      return _buildEnrichedChallengeList(active, spacing, '', eb: eb);
     }
 
     final completedCount = categorized.completed.length;
@@ -402,6 +396,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
     AppSpacing spacing,
     String emptyMessage, {
     bool isLoading = false,
+    EventBreakdown? eb,
   }) {
     if (isLoading) {
       return _buildShimmerCards(spacing);
@@ -433,7 +428,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
       separatorBuilder: (_, __) => SizedBox(height: spacing.space8),
       itemBuilder: (context, index) => RepaintBoundary(
         key: ValueKey(challenges[index].dto.id),
-        child: _buildEnrichedChallengeCard(challenges[index]),
+        child: _buildEnrichedChallengeCard(challenges[index], eb: eb),
       ),
     );
   }
@@ -456,15 +451,32 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
     );
   }
 
-  Widget _buildEnrichedChallengeCard(EnrichedChallenge enriched) {
+  Widget _buildEnrichedChallengeCard(
+    EnrichedChallenge enriched, {
+    EventBreakdown? eb,
+  }) {
     final dto = enriched.dto;
     final category = mapCategory(dto.category);
-    final variant = mapEnrichedVariant(enriched);
+    final isProduceBlocks = isProduceBlocksChallenge(dto);
+    final variant = mapEnrichedVariant(
+      enriched,
+      eventSuccessRate: isProduceBlocks ? eb?.successRate : null,
+    );
+
+    // For produce-blocks without a per-challenge activity, compute earned
+    // points from event-level successRate × maxPts.
+    final effectiveEarned = isProduceBlocks
+        ? computeEffectiveEarnedPoints(
+            earnedPoints: enriched.earnedPoints,
+            successRate: eb?.successRate,
+            rewardText: dto.reward,
+          )
+        : enriched.earnedPoints;
 
     String? completedPoints;
     if (variant == ChallengeCardVariant.completed) {
-      completedPoints = enriched.earnedPoints != null
-          ? formatEarnedPoints(enriched.earnedPoints!)
+      completedPoints = effectiveEarned != null
+          ? formatEarnedPoints(effectiveEarned)
           : formatCompletedPoints(dto.reward);
     } else if (variant == ChallengeCardVariant.missed) {
       completedPoints = formatCompletedPoints(dto.reward);
@@ -483,14 +495,15 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
       rewardText: variant == ChallengeCardVariant.active
           ? formatRewardText(dto.reward)
           : null,
+      earnedPoints:
+          variant == ChallengeCardVariant.ongoing && effectiveEarned != null
+              ? formatEarnedPoints(effectiveEarned)
+              : null,
       completedPoints: completedPoints,
-      onTap: () {
-        if (isZkIdentityChallenge(dto)) {
-          context.push(AppRoutes.zkIdentityDetail);
-        } else {
-          context.push(AppRoutes.challengeDetail, extra: enriched);
-        }
-      },
+      onTap: () => context.push(
+        AppRoutes.challengeDetail,
+        extra: enriched,
+      ),
     );
   }
 }

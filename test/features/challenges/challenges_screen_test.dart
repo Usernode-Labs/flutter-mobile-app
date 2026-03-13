@@ -242,10 +242,10 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      // Active tab — challenges from API only (no synthetic injection).
+      // Active tab is default — shows the one active challenge
       expect(find.text('Produce Every Block'), findsOneWidget);
-      // Without breakdown, "Prove Humanity" (enabled=true) is also active.
-      // Missed challenges should not appear in active tab.
+      // Completed and missed challenges should not appear in active tab
+      expect(find.text('Prove Humanity'), findsNothing);
       expect(find.text('Quick Challenge'), findsNothing);
     });
 
@@ -453,7 +453,7 @@ void main() {
       expect(find.text('8,000'), findsOneWidget);
       expect(find.text('Rank 44'), findsOneWidget);
 
-      // Challenges still categorized (v1 fallback: all activity: null).
+      // Challenges still categorized (v1 fallback: all activity: null)
       expect(find.text('Produce Every Block'), findsOneWidget);
     });
   });

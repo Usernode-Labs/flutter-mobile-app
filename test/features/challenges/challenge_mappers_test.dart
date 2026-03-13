@@ -347,6 +347,20 @@ void main() {
       expect(result.completed, hasLength(1));
       expect(result.missed, isEmpty);
     });
+
+    test('produce-blocks pinned to front of each bucket', () {
+      final enriched = [
+        EnrichedChallenge(dto: _makeDto(id: 1, enabled: true)),
+        EnrichedChallenge(
+          dto: _makeDto(
+              id: 2, enabled: true, subCategory: 'PRODUCE_BLOCKS_CHALLENGE'),
+        ),
+        EnrichedChallenge(dto: _makeDto(id: 3, enabled: true)),
+      ];
+      final result = categorizeEnrichedChallenges(enriched);
+      expect(result.active.first.dto.id, 2);
+      expect(result.active.map((c) => c.dto.id).toList(), [2, 1, 3]);
+    });
   });
 
   group('mapEnrichedVariant', () {
@@ -408,6 +422,80 @@ void main() {
         mapEnrichedVariant(EnrichedChallenge(
           dto: _makeDto(enabled: true, scheduleEnd: futureEnd),
         )),
+        ChallengeCardVariant.active,
+      );
+    });
+
+    test('active produce-blocks without earned points → active', () {
+      expect(
+        mapEnrichedVariant(EnrichedChallenge(
+          dto: _makeDto(
+              enabled: true, subCategory: 'PRODUCE_BLOCKS_CHALLENGE'),
+        )),
+        ChallengeCardVariant.active,
+      );
+    });
+
+    test('active produce-blocks with earned points → ongoing', () {
+      expect(
+        mapEnrichedVariant(EnrichedChallenge(
+          dto: _makeDto(
+            enabled: true,
+            subCategory: 'PRODUCE_BLOCKS_CHALLENGE',
+            goal: 'Produce Every Block',
+          ),
+          activity: _makeActivity(
+              challengeId: 1, description: 'Produce Every Block', points: 500),
+        )),
+        ChallengeCardVariant.ongoing,
+      );
+    });
+
+    test('completed produce-blocks → completed (not ongoing)', () {
+      expect(
+        mapEnrichedVariant(EnrichedChallenge(
+          dto: _makeDto(
+            enabled: true,
+            completed: true,
+            subCategory: 'PRODUCE_BLOCKS_CHALLENGE',
+            goal: 'Produce Every Block',
+          ),
+          activity: _makeActivity(description: 'Produce Every Block'),
+        )),
+        ChallengeCardVariant.completed,
+      );
+    });
+
+    test(
+        'active produce-blocks without activity but with eventSuccessRate > 0 → ongoing',
+        () {
+      expect(
+        mapEnrichedVariant(
+          EnrichedChallenge(
+            dto: _makeDto(
+              enabled: true,
+              subCategory: 'PRODUCE_BLOCKS_CHALLENGE',
+            ),
+          ),
+          eventSuccessRate: 85.0,
+        ),
+        ChallengeCardVariant.ongoing,
+      );
+    });
+
+    test(
+        'active produce-blocks without activity and eventSuccessRate == 0 → active',
+        () {
+      expect(
+        mapEnrichedVariant(
+          EnrichedChallenge(
+            dto: _makeDto(
+              enabled: true,
+              subCategory: 'PRODUCE_BLOCKS_CHALLENGE',
+            ),
+          ),
+          eventSuccessRate: 0,
+        ),
         ChallengeCardVariant.active,
       );
     });
@@ -521,6 +609,80 @@ void main() {
       expect(roundTripped.id, original.id);
       expect(roundTripped.reward, original.reward);
       expect(roundTripped.category, original.category);
+    });
+  });
+
+  group('computeEffectiveEarnedPoints', () {
+    test('returns earnedPoints when available', () {
+      expect(
+        computeEffectiveEarnedPoints(
+          earnedPoints: 4900,
+          successRate: 98,
+          rewardText: '6500',
+        ),
+        4900,
+      );
+    });
+
+    test('derives from successRate × maxPts when no earnedPoints', () {
+      // ceiling = 6500, maxPts = 6500 - 1500 = 5000, 98% × 5000 = 4900
+      expect(
+        computeEffectiveEarnedPoints(
+          successRate: 98,
+          rewardText: '6500',
+        ),
+        4900,
+      );
+    });
+
+    test('returns null when successRate is zero', () {
+      expect(
+        computeEffectiveEarnedPoints(
+          successRate: 0,
+          rewardText: '6500',
+        ),
+        isNull,
+      );
+    });
+
+    test('returns null when successRate is null', () {
+      expect(
+        computeEffectiveEarnedPoints(rewardText: '6500'),
+        isNull,
+      );
+    });
+
+    test('returns null when rewardText is null', () {
+      expect(
+        computeEffectiveEarnedPoints(successRate: 98),
+        isNull,
+      );
+    });
+
+    test('returns null when rewardText has no ceiling', () {
+      // Plain number doesn't match "Up to X" pattern → parseRewardCeiling
+      // returns null only when the formatted text doesn't match; but
+      // formatRewardText('1000') → 'Up to 1,000 pts' which does parse.
+      // Use a pre-formatted string that won't parse.
+      expect(
+        computeEffectiveEarnedPoints(
+          successRate: 98,
+          rewardText: 'free NFT badge',
+        ),
+        isNull,
+      );
+    });
+  });
+
+  group('kTop3RankBonusPoints', () {
+    test('is 1500', () {
+      expect(kTop3RankBonusPoints, 1500);
+    });
+  });
+
+  group('kProduceBlocksSubCategory', () {
+    test('is PRODUCE_BLOCKS_CHALLENGE', () {
+      expect(kProduceBlocksSubCategory, 'PRODUCE_BLOCKS_CHALLENGE');
     });
   });
 

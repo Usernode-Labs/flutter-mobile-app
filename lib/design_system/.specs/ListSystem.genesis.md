@@ -98,15 +98,17 @@ Slot widgets are identified but built only when screens need them:
 | `RankBadge` | B | Leaderboard UI |
 | `TextChevronTrailing` | A, C | First screen needing value + chevron trailing |
 
-### 7. ListTileTheme eliminates repeated boilerplate
+### 7. ListTileTheme + list surface vertical inset
 
 Added `listTileTheme` to `ColorIsExpensiveTheme.theme()` with:
-- `contentPadding: 16h / 4v` (AppSpacing.space16, AppSpacing.space4)
-- `dense: true`, `visualDensity: compact`
+- `contentPadding: EdgeInsets.symmetric(horizontal: 16)` (AppSpacing.space16)
 - `shape: RoundedRectangleBorder(borderRadius: 12)` (AppRadii.medium)
 - Text styles: bodyMedium/onSurface for title, bodySmall/onSurfaceVariant for subtitle, bodyMedium/w500 for trailing
+- Layout properties (`minVerticalPadding`, `visualDensity`, `minTileHeight`, `titleAlignment`) left at M3 defaults — see CONSTRAINTS.md § ListTile Layout Constraint
 
-This eliminates the boilerplate currently repeated across 8+ screens. Category 3 per Surface Architecture: ListTile inherits parent surface — no background override.
+**List surface vertical inset:** Cards containing only ListTile-family widgets use `EdgeInsets.symmetric(vertical: spacing.space8)` instead of `EdgeInsets.zero`. The 8dp vertical inset provides balanced framing between card boundary and first/last tile without conflicting with ListTile's horizontal `contentPadding`. Enforced by `require_tile_card_vertical_inset` lint.
+
+Category 3 per Surface Architecture: ListTile inherits parent surface — no background override.
 
 ### 8. Section header — noted, out of scope
 

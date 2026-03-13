@@ -418,9 +418,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get producedBlocksLoading => 'Loading produced blocks...';
 
   @override
-  String get producedBlocksNoData => 'No produced blocks available';
-
-  @override
   String get producedBlocksSuccessRateLast10Epochs =>
       'Block Success Rate · Last 10 Epochs';
 
@@ -838,93 +835,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get blockDetailsTitle => 'Block Details';
-
-  @override
-  String get blockVrfSlotDiscovered => 'VRF Slot Discovered';
-
-  @override
-  String blockSlotWon(int slot) {
-    return 'Slot $slot won';
-  }
-
-  @override
-  String get blockProductionScheduled => 'Block Production Scheduled';
-
-  @override
-  String blockEpochSlot(int epoch, int slot) {
-    return 'Epoch $epoch, Slot $slot';
-  }
-
-  @override
-  String get blockTxBatchesIncluded => 'Transaction Batches Included';
-
-  @override
-  String blockIncludedBatchesTx(int batches, int transactions) {
-    return 'Included $batches batches / $transactions transactions';
-  }
-
-  @override
-  String get blockIncludedBatchesTxGeneric => 'Included batches / transactions';
-
-  @override
-  String get blockStateTransition => 'State Transition.';
-
-  @override
-  String get blockStatesUpdated => 'Protocol and Consensus states updated';
-
-  @override
-  String get blockAppliedLocally => 'Applied Locally';
-
-  @override
-  String get blockUtxosUpdated => 'UTXOs updated';
-
-  @override
-  String get blockCommitted => 'Block Committed';
-
-  @override
-  String blockNumber(int height) {
-    return 'Block #$height';
-  }
-
-  @override
-  String get blockConfirmed => 'Block Confirmed';
-
-  @override
-  String blockHashPrefix(String hash) {
-    return 'Hash: $hash...';
-  }
-
-  @override
-  String get blockInformation => 'Block Information';
-
-  @override
-  String get blockHash => 'Block Hash';
-
-  @override
-  String get blockHeight => 'Height';
-
-  @override
-  String get blockGlobalSlot => 'Global Slot';
-
-  @override
-  String get blockEpoch => 'Epoch';
-
-  @override
-  String get blockProducer => 'Producer';
-
-  @override
-  String get blockTransactions => 'Transactions';
-
-  @override
-  String get blockBatches => 'Batches';
-
-  @override
-  String blockAtSlot(int height, int slot) {
-    return 'Block #$height at Slot $slot';
-  }
-
-  @override
   String get mempoolTotal => 'Total';
 
   @override
@@ -1112,6 +1022,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get challengeEpochLast24h => 'Last 24h';
 
   @override
+  String get challengeViewEpochDetails => 'View Details';
+
+  @override
   String get walletSentSuccessfully => 'Sent successfully!';
 
   @override
@@ -1209,12 +1122,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get nodeMempool => 'Mempool';
 
   @override
-  String get nodeRecentBlocks => 'Recent Blocks';
-
-  @override
-  String get nodeViewAll => 'View All';
-
-  @override
   String nodePeersConnected(int connected, int total) {
     return '$connected/$total connected';
   }
@@ -1262,9 +1169,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get nodeBestTip => 'Best Tip';
-
-  @override
-  String get nodeBestTipBadge => 'BEST TIP';
 
   @override
   String get nodeVrfCompleted => 'Completed';

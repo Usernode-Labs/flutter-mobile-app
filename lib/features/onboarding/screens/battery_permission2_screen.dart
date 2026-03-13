@@ -67,7 +67,7 @@ class _BatteryPermission2ScreenState
       await markOnboardingComplete();
       ref.invalidate(hasCompletedOnboardingProvider);
       if (!mounted) return;
-      context.go(AppRoutes.nodeStatusProducedBlocks);
+      context.go(AppRoutes.mainNode);
     }
   }
 

@@ -530,10 +530,6 @@
   "@producedBlocksLoading": {
     "description": "Loading produced blocks message"
   },
-  "producedBlocksNoData": "No produced blocks available",
-  "@producedBlocksNoData": {
-    "description": "No produced blocks message"
-  },
   "producedBlocksSuccessRateLast10Epochs": "Block Success Rate · Last 10 Epochs",
   "@producedBlocksSuccessRateLast10Epochs": {
     "description": "Label for block success rate over the last 10 epochs"
@@ -1095,128 +1091,6 @@
     }
   },
 
-  "blockDetailsTitle": "Block Details",
-  "@blockDetailsTitle": {
-    "description": "Block details screen title"
-  },
-  "blockVrfSlotDiscovered": "VRF Slot Discovered",
-  "@blockVrfSlotDiscovered": {
-    "description": "Timeline item title"
-  },
-  "blockSlotWon": "Slot {slot} won",
-  "@blockSlotWon": {
-    "description": "Timeline item subtitle for slot won",
-    "placeholders": {
-      "slot": {"type": "int"}
-    }
-  },
-  "blockProductionScheduled": "Block Production Scheduled",
-  "@blockProductionScheduled": {
-    "description": "Timeline item title"
-  },
-  "blockEpochSlot": "Epoch {epoch}, Slot {slot}",
-  "@blockEpochSlot": {
-    "description": "Timeline item subtitle for epoch and slot",
-    "placeholders": {
-      "epoch": {"type": "int"},
-      "slot": {"type": "int"}
-    }
-  },
-  "blockTxBatchesIncluded": "Transaction Batches Included",
-  "@blockTxBatchesIncluded": {
-    "description": "Timeline item title"
-  },
-  "blockIncludedBatchesTx": "Included {batches} batches / {transactions} transactions",
-  "@blockIncludedBatchesTx": {
-    "description": "Timeline item subtitle for batches and transactions",
-    "placeholders": {
-      "batches": {"type": "int"},
-      "transactions": {"type": "int"}
-    }
-  },
-  "blockIncludedBatchesTxGeneric": "Included batches / transactions",
-  "@blockIncludedBatchesTxGeneric": {
-    "description": "Timeline item subtitle when batch info unavailable"
-  },
-  "blockStateTransition": "State Transition.",
-  "@blockStateTransition": {
-    "description": "Timeline item title"
-  },
-  "blockStatesUpdated": "Protocol and Consensus states updated",
-  "@blockStatesUpdated": {
-    "description": "Timeline item subtitle for state transition"
-  },
-  "blockAppliedLocally": "Applied Locally",
-  "@blockAppliedLocally": {
-    "description": "Timeline item title"
-  },
-  "blockUtxosUpdated": "UTXOs updated",
-  "@blockUtxosUpdated": {
-    "description": "Timeline item subtitle for applied locally"
-  },
-  "blockCommitted": "Block Committed",
-  "@blockCommitted": {
-    "description": "Timeline item title"
-  },
-  "blockNumber": "Block #{height}",
-  "@blockNumber": {
-    "description": "Block number label",
-    "placeholders": {
-      "height": {"type": "int"}
-    }
-  },
-  "blockConfirmed": "Block Confirmed",
-  "@blockConfirmed": {
-    "description": "Timeline item title"
-  },
-  "blockHashPrefix": "Hash: {hash}...",
-  "@blockHashPrefix": {
-    "description": "Block hash with prefix",
-    "placeholders": {
-      "hash": {"type": "String"}
-    }
-  },
-  "blockInformation": "Block Information",
-  "@blockInformation": {
-    "description": "Block information card title"
-  },
-  "blockHash": "Block Hash",
-  "@blockHash": {
-    "description": "Block hash label"
-  },
-  "blockHeight": "Height",
-  "@blockHeight": {
-    "description": "Block height label"
-  },
-  "blockGlobalSlot": "Global Slot",
-  "@blockGlobalSlot": {
-    "description": "Global slot label"
-  },
-  "blockEpoch": "Epoch",
-  "@blockEpoch": {
-    "description": "Epoch label"
-  },
-  "blockProducer": "Producer",
-  "@blockProducer": {
-    "description": "Producer label"
-  },
-  "blockTransactions": "Transactions",
-  "@blockTransactions": {
-    "description": "Transactions label"
-  },
-  "blockBatches": "Batches",
-  "@blockBatches": {
-    "description": "Batches label"
-  },
-  "blockAtSlot": "Block #{height} at Slot {slot}",
-  "@blockAtSlot": {
-    "description": "Block at slot header",
-    "placeholders": {
-      "height": {"type": "int"},
-      "slot": {"type": "int"}
-    }
-  },
-
   "mempoolTotal": "Total",
   "@mempoolTotal": {
     "description": "Mempool total stat label"
@@ -1476,6 +1350,10 @@
   "@challengeEpochLast24h": {
     "description": "Fallback epoch section label"
   },
+  "challengeViewEpochDetails": "View Details",
+  "@challengeViewEpochDetails": {
+    "description": "Button label to view epoch performance details"
+  },
 
   "walletSentSuccessfully": "Sent successfully!",
   "@walletSentSuccessfully": {
@@ -1608,14 +1486,6 @@
   "@nodeMempool": {
     "description": "Mempool list tile title"
   },
-  "nodeRecentBlocks": "Recent Blocks",
-  "@nodeRecentBlocks": {
-    "description": "Recent blocks section title"
-  },
-  "nodeViewAll": "View All",
-  "@nodeViewAll": {
-    "description": "View all blocks link text"
-  },
   "nodePeersConnected": "{connected}/{total} connected",
   "@nodePeersConnected": {
     "description": "Peers subtitle showing connected/total count",
@@ -1686,10 +1556,6 @@
   "nodeBestTip": "Best Tip",
   "@nodeBestTip": {
     "description": "Best tip info row label"
-  },
-  "nodeBestTipBadge": "BEST TIP",
-  "@nodeBestTipBadge": {
-    "description": "Best tip status badge label"
   },
   "nodeVrfCompleted": "Completed",
   "@nodeVrfCompleted": {

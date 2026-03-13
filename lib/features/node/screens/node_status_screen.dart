@@ -14,7 +14,6 @@ import 'package:crypto_mobile_app/core/widgets/app_progress_bar.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/core/providers/node_data_providers.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
-import 'package:crypto_mobile_app/core/providers/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -42,8 +41,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
 
   // Cached data
   List<RpcPeerInfo> _peers = const [];
-  int? _bestTipGlobalSlot;
-
   DateTime _lastChecked = DateTime.now();
   String? _deviceId;
   String? _chainId;
@@ -179,7 +176,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
       await Future.wait([
         ref.read(nodeStatusProvider.notifier).refresh(),
         ref.read(nodeMempoolProvider.notifier).refresh(),
-        ref.read(nodeBlockchainProvider.notifier).refresh(),
       ]);
 
       await _loadChainMetadata();
@@ -188,9 +184,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
 
       final status = ref.read(nodeStatusProvider).value;
       if (status != null) {
-        final displayBestTip = status.networkBest ?? status.localBest;
         _peers = status.peers;
-        _bestTipGlobalSlot = displayBestTip?.globalSlot;
       }
     } on StateError {
       // Provider disposed during refresh — ignore.
@@ -249,8 +243,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
                 child: _buildBlockSyncProgressSection(context)),
           ),
           SliverToBoxAdapter(child: _buildSyncDetailsSection(context)),
-          SliverToBoxAdapter(child: SizedBox(height: spacing.space16)),
-          SliverToBoxAdapter(child: _buildRecentBlocksSection(context)),
           SliverToBoxAdapter(child: SizedBox(height: spacing.space32)),
         ],
       ),
@@ -603,91 +595,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
             ],
           ),
         ),
-      ],
-    );
-  }
-
-  Widget _buildRecentBlocksSection(BuildContext context) {
-    final theme = Theme.of(context);
-    final spacing = theme.extension<AppSpacing>()!;
-    final radii = theme.extension<AppRadii>()!;
-    final colorScheme = theme.colorScheme;
-    final l10n = AppLocalizations.of(context);
-
-    return Card(
-      elevation: 0,
-      margin: EdgeInsets.symmetric(horizontal: spacing.space24),
-      shape: RoundedRectangleBorder(
-        borderRadius: radii.borderRadiusLarge,
-        side: BorderSide(color: colorScheme.outlineVariant),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: ExpansionTile(
-        shape: const Border(),
-        collapsedShape: const Border(),
-        childrenPadding: EdgeInsets.zero,
-        title: Text(l10n.nodeRecentBlocks),
-        children: [
-          _buildProducedBlocksTab(context),
-          ListTile(
-            title: Text(l10n.nodeViewAll),
-            trailing: const Icon(Symbols.arrow_forward_sharp),
-            onTap: () => context.push(AppRoutes.nodeStatusProducedBlocks),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProducedBlocksTab(BuildContext context) {
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final blockchain = ref.read(nodeBlockchainProvider).value;
-    final status = ref.read(nodeStatusProvider).value;
-
-    if (blockchain == null || blockchain.items.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    final blocks = blockchain.items.take(10).toList();
-    final bestTipSlot = status?.globalSlot ?? _bestTipGlobalSlot;
-    final rewardsAsync = ref.read(epochRewardsProvider);
-    final rewardPerBlock = rewardsAsync.value?.rewardPerBlock ?? BigInt.zero;
-    final rewardText = '+${Utils.formatBigInt(rewardPerBlock)} TKN';
-
-    return Column(
-      children: [
-        for (final block in blocks)
-          ListTile(
-            title: Row(
-              children: [
-                Text('Block #${block.height}'),
-                if (bestTipSlot != null && block.globalSlot == bestTipSlot) ...[
-                  SizedBox(width: spacing.space8),
-                  StatusBadge(
-                    label: AppLocalizations.of(context).nodeBestTipBadge,
-                    variant: StatusBadgeVariant.info,
-                  ),
-                ],
-              ],
-            ),
-            subtitle: Text(
-              '${Utils.timestampToTimeAgo(block.timestamp)} · '
-              'Epoch ${block.epoch} · Slot ${block.globalSlot}',
-            ),
-            trailing: Text(
-              rewardText,
-              style: theme.textTheme.bodyLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: colorScheme.tertiary,
-              ),
-            ),
-            onTap: () => context.push(
-              AppRoutes.mainNodeBlockDetails,
-              extra: block,
-            ),
-          ),
       ],
     );
   }

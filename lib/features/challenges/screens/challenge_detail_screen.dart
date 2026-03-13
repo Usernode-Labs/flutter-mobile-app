@@ -1,17 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
+import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
 import 'package:crypto_mobile_app/core/providers/produced_blocks_provider.dart';
 import 'package:crypto_mobile_app/core/utils/challenge_point_tracker.dart';
+import 'package:crypto_mobile_app/design_system/src/block_production_status_card.dart';
 import 'package:crypto_mobile_app/design_system/src/challenge_card.dart';
 import 'package:crypto_mobile_app/design_system/src/challenge_detail_page.dart';
 import 'package:crypto_mobile_app/design_system/src/challenge_reward_card.dart';
+import 'package:crypto_mobile_app/design_system/src/status_badge.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_slots.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 
 /// Feature screen that wires live API data to [ChallengeDetailPage].
 ///
@@ -32,7 +38,8 @@ class ChallengeDetailScreen extends ConsumerWidget {
     final breakdown = breakdownAsync.value?.data;
     final eb = breakdown?.eventBreakdown;
     final blocksSummary = ref.watch(producedBlocksSummaryProvider);
-    final latestEpoch = blocksSummary.asData?.value.maxEpochWithData;
+    final latestEpoch = nodeStatus?.currentEpoch;
+    final nodeStatus = ref.watch(nodeStatusProvider).asData?.value;
 
     // Record point snapshot on each successful data load
     if (challenge.earnedPoints != null) {
@@ -43,7 +50,14 @@ class ChallengeDetailScreen extends ConsumerWidget {
       body: FutureBuilder<PointDiff?>(
         future: ChallengePointTracker.getDiffBestEffort(_trackerKey),
         builder: (context, diffSnapshot) {
-          return _buildPage(context, eb, diffSnapshot.data, latestEpoch);
+          return _buildPage(
+            context,
+            eb,
+            diffSnapshot.data,
+            latestEpoch,
+            nodeStatus,
+            blocksSummary.asData?.value,
+          );
         },
       ),
     );
@@ -54,10 +68,15 @@ class ChallengeDetailScreen extends ConsumerWidget {
     EventBreakdown? eb,
     PointDiff? diff,
     int? latestEpoch,
+    NodeStatusState? nodeStatus,
+    ProducedBlocksSummary? blocksSummaryData,
   ) {
     final dto = challenge.dto;
     final category = mapCategory(dto.category);
-    final variant = mapEnrichedVariant(challenge);
+    final variant = mapEnrichedVariant(
+      challenge,
+      eventSuccessRate: eb?.successRate,
+    );
     final isProduceBlocks = isProduceBlocksChallenge(dto);
 
     // Reward card visibility rules:
@@ -80,6 +99,9 @@ class ChallengeDetailScreen extends ConsumerWidget {
       rewardCard: showRewardCard
           ? _buildRewardCard(context, category, eb, diff, latestEpoch)
           : null,
+      statusSection: isProduceBlocks
+          ? _buildStatusSection(nodeStatus, blocksSummaryData)
+          : null,
       sections: _buildSections(context, dto),
       totalRewardHeading: AppLocalizations.of(context)
           .challengeTotalReward(formatRewardText(dto.reward)),
@@ -98,10 +120,28 @@ class ChallengeDetailScreen extends ConsumerWidget {
     final dto = challenge.dto;
     final isProduceBlocks = isProduceBlocksChallenge(dto);
 
+    // Compute maxPts early so it's available for the reward card breakdown.
+    final ceiling = isProduceBlocks
+        ? parseRewardCeiling(formatRewardText(dto.reward))
+        : null;
+    // TODO(challenges): The API should return maxSuccessRatePoints and
+    // top3Bonus separately so the client doesn't embed reward-formula
+    // constants. See kTop3RankBonusPoints.
+    final maxPts = ceiling != null ? ceiling - kTop3RankBonusPoints : 0;
+    final successRate = eb?.successRate ?? 0;
+
     // Use per-challenge earned points from breakdown activity, not event total.
-    final totalEarned = challenge.earnedPoints != null
-        ? formatPoints(challenge.earnedPoints!)
-        : '--';
+    // For produce-blocks, fall back to event-level successRate × maxPts when
+    // no per-challenge activity match exists.
+    final effectiveEarned = isProduceBlocks
+        ? computeEffectiveEarnedPoints(
+            earnedPoints: challenge.earnedPoints,
+            successRate: successRate,
+            rewardText: dto.reward,
+          )
+        : challenge.earnedPoints;
+    final totalEarned =
+        effectiveEarned != null ? formatPoints(effectiveEarned) : '--';
 
     // Epoch section: only for produce-blocks challenges.
     final String? epochEarned;
@@ -110,7 +150,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
       if (diff != null) {
         epochEarned = '+${formatPoints(diff.points)}';
         epochSectionLabel = formatDiffLabel(diff.since);
-      } else if (challenge.earnedPoints != null) {
+      } else if (challenge.earnedPoints != null || successRate > 0) {
         epochEarned = AppLocalizations.of(context).challengeEpochNoChange;
         epochSectionLabel = AppLocalizations.of(context).challengeEpochLast24h;
       } else {
@@ -124,16 +164,6 @@ class ChallengeDetailScreen extends ConsumerWidget {
 
     final ChallengeRewardData data;
     if (isProduceBlocks) {
-      final ceiling = parseRewardCeiling(formatRewardText(dto.reward));
-      // TODO(challenges): The 1500 assumes the top-3 rank bonus is always
-      // 1500 pts. The API should return maxSuccessRatePoints and top3Bonus
-      // separately so the client doesn't embed reward-formula constants.
-      final maxPts = ceiling != null ? ceiling - 1500 : 0;
-      // TODO(challenges): successRate, rank, and top3Points are event-level
-      // fields being used as challenge-scoped values. A per-challenge
-      // breakdown API would make this explicit.
-      final successRate = eb?.successRate ?? 0;
-
       data = ProduceBlocksRewardData(
         progressFraction: successRate / 100.0,
         successRate: '${successRate.round()}%',
@@ -143,6 +173,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
         totalPoints: formatPoints((successRate * maxPts / 100).round()),
         rankLabel: formatRankOrdinal(eb?.rank),
         rankReward: '+${formatPoints(eb?.top3Points ?? 0)}',
+        rateLabel: dto.completed ? 'SUCCESS RATE' : 'BLOCK RATE',
       );
     } else {
       data = const SimpleRewardData();
@@ -155,7 +186,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
       epochSectionLabel: epochSectionLabel,
       epochEarned: epochEarned,
       epochLabel: isProduceBlocks && latestEpoch != null
-          ? 'View Epoch $latestEpoch'
+          ? AppLocalizations.of(context).challengeViewEpochDetails
           : null,
       onEpochTap: isProduceBlocks && latestEpoch != null
           ? () => context.push(
@@ -182,6 +213,188 @@ class ChallengeDetailScreen extends ConsumerWidget {
           (title: l10n.challengeSectionRequirements, body: dto.requirements!));
     }
     return sections;
+  }
+
+  Widget _buildStatusSection(
+    NodeStatusState? nodeStatus,
+    ProducedBlocksSummary? summary,
+  ) {
+    // Network step
+    final PipelineStepStatus networkStep;
+    if (nodeStatus == null) {
+      networkStep = const PipelineStepStatus(
+        label: 'Network',
+        icon: Symbols.wifi_sharp,
+        trailing: StepTrailingBadge(
+          label: 'Loading',
+          variant: StatusBadgeVariant.neutral,
+        ),
+      );
+    } else if (nodeStatus.connectedPeers > 0) {
+      networkStep = const PipelineStepStatus(
+        label: 'Network',
+        icon: Symbols.wifi_sharp,
+        trailing: StepTrailingBadge(
+          label: 'Connected',
+          variant: StatusBadgeVariant.success,
+        ),
+      );
+    } else {
+      networkStep = const PipelineStepStatus(
+        label: 'Network',
+        icon: Symbols.wifi_sharp,
+        trailing: StepTrailingBadge(
+          label: 'Disconnected',
+          variant: StatusBadgeVariant.error,
+        ),
+      );
+    }
+
+    // VRF step
+    final PipelineStepStatus vrfStep;
+    final vrfStatus = nodeStatus?.vrfEvaluator?.currentEpochVrfEvaluationStatus;
+    vrfStep = PipelineStepStatus(
+      label: 'VRF Calculation',
+      icon: Symbols.casino_sharp,
+      trailing: switch (vrfStatus) {
+        RpcStatusVrfEvaluationStatus.completed => const StepTrailingBadge(
+            label: 'Complete',
+            variant: StatusBadgeVariant.success,
+          ),
+        RpcStatusVrfEvaluationStatus.evaluating => const StepTrailingBadge(
+            label: 'Evaluating',
+            variant: StatusBadgeVariant.info,
+          ),
+        RpcStatusVrfEvaluationStatus.pending => const StepTrailingBadge(
+            label: 'Pending',
+            variant: StatusBadgeVariant.neutral,
+          ),
+        null => const StepTrailingBadge(
+            label: 'Unknown',
+            variant: StatusBadgeVariant.neutral,
+          ),
+      },
+    );
+
+    // Next Block step — find first scheduled slot with future time
+    final PipelineStepStatus nextBlockStep;
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    String? nextBlockText;
+
+    if (summary != null) {
+      // Search current epoch first, then look ahead
+      for (final epochScore in summary.epochScores.reversed) {
+        final slots = epochScore.epochData.slotData;
+        if (slots == null) continue;
+        for (final slot in slots) {
+          if (slot.result == RpcSlotResult.scheduled &&
+              slot.slotTimeMs != null &&
+              slot.slotTimeMs!.toInt() > nowMs) {
+            final diffMs = slot.slotTimeMs!.toInt() - nowMs;
+            nextBlockText = _formatRelativeTime(diffMs);
+            break;
+          }
+        }
+        if (nextBlockText != null) break;
+      }
+    }
+
+    if (nextBlockText != null) {
+      nextBlockStep = PipelineStepStatus(
+        label: 'Next Block',
+        icon: Symbols.schedule_sharp,
+        trailing: StepTrailingText(text: nextBlockText),
+      );
+    } else if (vrfStatus == RpcStatusVrfEvaluationStatus.completed) {
+      nextBlockStep = const PipelineStepStatus(
+        label: 'Next Block',
+        icon: Symbols.schedule_sharp,
+        trailing: StepTrailingBadge(
+          label: 'None this epoch',
+          variant: StatusBadgeVariant.neutral,
+        ),
+      );
+    } else {
+      nextBlockStep = const PipelineStepStatus(
+        label: 'Next Block',
+        icon: Symbols.schedule_sharp,
+        trailing: StepTrailingBadge(
+          label: 'Waiting for VRF',
+          variant: StatusBadgeVariant.neutral,
+        ),
+      );
+    }
+
+    // Last Produced step — find most recent produced slot across all epochs
+    final PipelineStepStatus lastProducedStep;
+    BigInt? lastProducedTimeMs;
+
+    if (summary != null) {
+      for (final epochScore in summary.epochScores.reversed) {
+        final slots = epochScore.epochData.slotData;
+        if (slots == null) continue;
+        for (final slot in slots.reversed) {
+          if (slot.result == RpcSlotResult.produced &&
+              slot.slotTimeMs != null) {
+            if (lastProducedTimeMs == null ||
+                slot.slotTimeMs! > lastProducedTimeMs) {
+              lastProducedTimeMs = slot.slotTimeMs;
+            }
+            break; // Found latest in this epoch, check earlier epochs
+          }
+        }
+        if (lastProducedTimeMs != null) break;
+      }
+    }
+
+    if (lastProducedTimeMs != null) {
+      final agoMs = nowMs - lastProducedTimeMs.toInt();
+      lastProducedStep = PipelineStepStatus(
+        label: 'Last Produced',
+        icon: Symbols.check_circle_sharp,
+        trailing: StepTrailingText(text: _formatTimeAgo(agoMs)),
+      );
+    } else {
+      lastProducedStep = const PipelineStepStatus(
+        label: 'Last Produced',
+        icon: Symbols.check_circle_sharp,
+        trailing: StepTrailingBadge(
+          label: 'None yet',
+          variant: StatusBadgeVariant.neutral,
+        ),
+      );
+    }
+
+    return BlockProductionStatusCard(
+      data: BlockProductionStatusData(
+        network: networkStep,
+        vrf: vrfStep,
+        nextBlock: nextBlockStep,
+        lastProduced: lastProducedStep,
+      ),
+    );
+  }
+
+  /// Formats a future time difference as "in ~X min" or "in ~X h".
+  static String _formatRelativeTime(int diffMs) {
+    final minutes = diffMs ~/ 60000;
+    if (minutes < 1) return 'in < 1 min';
+    if (minutes < 60) return 'in ~$minutes min';
+    final hours = minutes ~/ 60;
+    final remainingMin = minutes % 60;
+    if (remainingMin == 0) return 'in ~$hours h';
+    return 'in ~$hours h $remainingMin min';
+  }
+
+  /// Formats a past time difference as "X min ago", "X h ago", etc.
+  static String _formatTimeAgo(int agoMs) {
+    final minutes = agoMs ~/ 60000;
+    if (minutes < 1) return 'just now';
+    if (minutes < 60) return '$minutes min ago';
+    final hours = minutes ~/ 60;
+    if (hours < 24) return '$hours h ago';
+    final days = hours ~/ 24;
+    return '$days d ago';
   }
 
   String _categoryDisplayName(ChallengeCategory category) {

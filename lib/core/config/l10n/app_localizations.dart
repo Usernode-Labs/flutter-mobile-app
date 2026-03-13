@@ -2026,17 +2026,11 @@ abstract class AppLocalizations {
   /// **'Syncing blocks'**
   String get nodeSyncingBlocks;
 
-  /// Fetch phase card title
+  /// Fetch and apply progress subtitle below block sync bar
   ///
   /// In en, this message translates to:
-  /// **'Fetch'**
-  String get nodeFetchPhase;
-
-  /// Apply phase card title
-  ///
-  /// In en, this message translates to:
-  /// **'Apply'**
-  String get nodeApplyPhase;
+  /// **'{fetchPct} % Fetched  ·  {applyPct} % Applied'**
+  String nodeFetchApplyProgress(int fetchPct, int applyPct);
 
   /// Peers list tile title
   ///
@@ -2073,24 +2067,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count} txns · {sizeKB} KB'**
   String nodeMempoolSummary(int count, String sizeKB);
-
-  /// Phase card done count
-  ///
-  /// In en, this message translates to:
-  /// **'Done: {count}'**
-  String nodePhaseDone(String count);
-
-  /// Phase card pending count
-  ///
-  /// In en, this message translates to:
-  /// **'Pending: {count}'**
-  String nodePhasePending(String count);
-
-  /// Phase card idle count
-  ///
-  /// In en, this message translates to:
-  /// **'Idle: {count}'**
-  String nodePhaseIdle(String count);
 
   /// VRF info row label
   ///

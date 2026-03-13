@@ -1470,13 +1470,13 @@
   "@nodeSyncingBlocks": {
     "description": "Node sync progress text while syncing"
   },
-  "nodeFetchPhase": "Fetch",
-  "@nodeFetchPhase": {
-    "description": "Fetch phase card title"
-  },
-  "nodeApplyPhase": "Apply",
-  "@nodeApplyPhase": {
-    "description": "Apply phase card title"
+  "nodeFetchApplyProgress": "{fetchPct} % Fetched  \u00b7  {applyPct} % Applied",
+  "@nodeFetchApplyProgress": {
+    "description": "Fetch and apply progress subtitle below block sync bar",
+    "placeholders": {
+      "fetchPct": { "type": "int" },
+      "applyPct": { "type": "int" }
+    }
   },
   "nodePeers": "Peers",
   "@nodePeers": {
@@ -1514,27 +1514,6 @@
     "placeholders": {
       "count": {"type": "int"},
       "sizeKB": {"type": "String"}
-    }
-  },
-  "nodePhaseDone": "Done: {count}",
-  "@nodePhaseDone": {
-    "description": "Phase card done count",
-    "placeholders": {
-      "count": {"type": "String"}
-    }
-  },
-  "nodePhasePending": "Pending: {count}",
-  "@nodePhasePending": {
-    "description": "Phase card pending count",
-    "placeholders": {
-      "count": {"type": "String"}
-    }
-  },
-  "nodePhaseIdle": "Idle: {count}",
-  "@nodePhaseIdle": {
-    "description": "Phase card idle count",
-    "placeholders": {
-      "count": {"type": "String"}
     }
   },
   "nodeVrf": "VRF",

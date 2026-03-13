@@ -48,10 +48,9 @@ CategorizedChallenges categorizeChallenges(List<ChallengeDto> challenges) {
   final missed = <ChallengeDto>[];
 
   for (final dto in challenges) {
+    if (!dto.enabled) continue;
     if (dto.completed) {
       completed.add(dto);
-    } else if (!dto.enabled) {
-      missed.add(dto);
     } else {
       active.add(dto);
     }
@@ -152,12 +151,25 @@ class CategorizedEnrichedChallenges {
   });
 }
 
+/// Parses a datetime string, treating bare (non-UTC) values as UTC.
+///
+/// The leaderboard API sends schedule dates without timezone info
+/// (e.g. "2026-01-30 12:00:00"). Dart parses these as local time,
+/// but the server intends UTC.
+DateTime? _parseAsUtc(String? value) {
+  if (value == null) return null;
+  final dt = DateTime.tryParse(value);
+  if (dt == null) return null;
+  return dt.isUtc
+      ? dt
+      : DateTime.utc(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second);
+}
+
 /// Whether [dto.scheduleEnd] is in the past.
 bool _isScheduleExpired(ChallengeDto dto) {
-  if (dto.scheduleEnd == null) return false;
-  final end = DateTime.tryParse(dto.scheduleEnd!);
+  final end = _parseAsUtc(dto.scheduleEnd);
   if (end == null) return false;
-  return DateTime.now().toUtc().isAfter(end.toUtc());
+  return DateTime.now().toUtc().isAfter(end);
 }
 
 /// Categorizes enriched challenges using participant-specific completion.
@@ -173,18 +185,19 @@ CategorizedEnrichedChallenges categorizeEnrichedChallenges(
   final missed = <EnrichedChallenge>[];
 
   for (final c in challenges) {
+    if (!c.dto.enabled) continue;
     // Produce-blocks earns incrementally — activity ≠ completed.
     if (isProduceBlocksChallenge(c.dto)) {
       if (c.dto.completed) {
         completed.add(c);
-      } else if (!c.dto.enabled || _isScheduleExpired(c.dto)) {
+      } else if (_isScheduleExpired(c.dto)) {
         missed.add(c);
       } else {
         active.add(c);
       }
     } else if (c.participantCompleted) {
       completed.add(c);
-    } else if (!c.dto.enabled || _isScheduleExpired(c.dto)) {
+    } else if (_isScheduleExpired(c.dto)) {
       missed.add(c);
     } else {
       active.add(c);
@@ -239,22 +252,16 @@ String formatEarnedPoints(int points) {
   return '${formatPoints(points)} pts';
 }
 
-/// Formats an ISO 8601 date range as "Jan 15 - Feb 15".
+/// Formats a date range as "Jan 15 - Feb 15", converting UTC to local time.
 ///
 /// Returns an empty string if both dates are null.
 String formatDateRange(String? start, String? end) {
   final fmt = DateFormat('MMM d');
   final parts = <String>[];
-  if (start != null) {
-    try {
-      parts.add(fmt.format(DateTime.parse(start)));
-    } catch (_) {}
-  }
-  if (end != null) {
-    try {
-      parts.add(fmt.format(DateTime.parse(end)));
-    } catch (_) {}
-  }
+  final s = _parseAsUtc(start)?.toLocal();
+  if (s != null) parts.add(fmt.format(s));
+  final e = _parseAsUtc(end)?.toLocal();
+  if (e != null) parts.add(fmt.format(e));
   return parts.join(' - ');
 }
 
@@ -324,6 +331,14 @@ int? parseRewardCeiling(String reward) {
 /// Returns true when the challenge is the produce-blocks challenge.
 bool isProduceBlocksChallenge(ChallengeDto dto) {
   return dto.subCategory == kProduceBlocksSubCategory;
+}
+
+/// SubCategory identifier for the ZK Identity challenge.
+const String zkIdentitySubCategory = 'ZK_IDENTITY_VERIFICATION';
+
+/// Returns true when the challenge is the ZK Identity challenge.
+bool isZkIdentityChallenge(ChallengeDto dto) {
+  return dto.subCategory == zkIdentitySubCategory;
 }
 
 /// Computes effective earned points for produce-blocks challenges.

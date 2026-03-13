@@ -232,6 +232,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
         headerHeight: kScreenHeaderHeight,
         scrollFractionNotifier: _scrollFraction,
         onRefresh: _refresh,
+        title: l10n.nodeStatusTitle,
         header: _buildCentralStatusIndicator(context),
         surfaceSlivers: [
           if (_error != null)
@@ -387,11 +388,11 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     final sync = statusFromProvider?.syncStatus;
     final isNodeSynced = sync?.isSynced == true;
 
-    // Get fetch and apply progress percentages and counts
+    // Get fetch and apply progress percentages
     final fetchProgress = statusFromProvider?.fetchProgress;
     final applyProgress = statusFromProvider?.applyProgress;
-    final (fetchPct, fetchCounts) = _calculateProgress(fetchProgress);
-    final (applyPct, applyCounts) = _calculateProgress(applyProgress);
+    final (fetchPct, _) = _calculateProgress(fetchProgress);
+    final (applyPct, _) = _calculateProgress(applyProgress);
 
     // Use only applied blocks progress for main progress bar
     final mainProgress = sync?.progress ?? 0.0;
@@ -464,34 +465,13 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
             valueColor: colorScheme.primary,
             height: spacing.space8,
           ),
-          if (sync?.isSyncing == true) ...[
-            SizedBox(height: spacing.space12),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildPhaseCard(
-                    context: context,
-                    title: l10n.nodeFetchPhase,
-                    progress: fetchPct,
-                    done: fetchProgress?.done ?? BigInt.zero,
-                    pending: fetchProgress?.pending ?? BigInt.zero,
-                    idle: fetchProgress?.idle ?? BigInt.zero,
-                  ),
-                ),
-                SizedBox(width: spacing.space8),
-                Expanded(
-                  child: _buildPhaseCard(
-                    context: context,
-                    title: l10n.nodeApplyPhase,
-                    progress: applyPct,
-                    done: applyProgress?.done ?? BigInt.zero,
-                    pending: applyProgress?.pending ?? BigInt.zero,
-                    idle: applyProgress?.idle ?? BigInt.zero,
-                  ),
-                ),
-              ],
+          SizedBox(height: spacing.space4),
+          Text(
+            l10n.nodeFetchApplyProgress(fetchPct.round(), applyPct.round()),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
             ),
-          ],
+          ),
         ],
       ),
     );
@@ -499,10 +479,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
 
   Widget _buildSyncDetailsSection(BuildContext context) {
     final theme = Theme.of(context);
-    final spacing = theme.extension<AppSpacing>()!;
-    final sizing = theme.extension<AppSizing>()!;
-    final radii = theme.extension<AppRadii>()!;
-    final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
 
     final status = ref.read(nodeStatusProvider).value;
@@ -548,52 +524,51 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
           onTap: () => context.push(AppRoutes.mainNodeMempool),
         ),
 
-        SizedBox(height: spacing.space16),
-
-        // --- Reference/status data ---
-        Card(
-          elevation: 0,
-          margin: EdgeInsets.symmetric(horizontal: spacing.space24),
-          shape: RoundedRectangleBorder(
-            borderRadius: radii.borderRadiusLarge,
-            side: BorderSide(color: colorScheme.outlineVariant),
+        // --- Reference/status rows ---
+        ListTile(
+          leading: const IconBadge(icon: Symbols.casino_sharp),
+          title: Text(l10n.nodeVrf),
+          subtitle: Text(vrf != null
+              ? l10n.nodeVrfEvaluated(
+                  vrf.details?.evaluatedCurrentEpoch ?? 0,
+                  status?.slotsInEpoch ?? 0)
+              : l10n.nodeVrfEvaluatedNA),
+          trailing: StatusTextTrailing(
+            text: vrf != null
+                ? _mapVrfEvaluationLabel(
+                    vrf.currentEpochVrfEvaluationStatus)
+                : l10n.nodeNotAvailable,
+            variant: _vrfEvaluationVariant(
+                vrf?.currentEpochVrfEvaluationStatus),
           ),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            children: [
-              InfoRow(
-                label: l10n.nodeVrf,
-                value: vrf != null
-                    ? l10n.nodeVrfEvaluated(
-                        vrf.details?.evaluatedCurrentEpoch ?? 0,
-                        status?.slotsInEpoch ?? 0)
-                    : l10n.nodeVrfEvaluatedNA,
-                trailing: StatusBadge(
-                  label: vrf != null
-                      ? _mapVrfEvaluationLabel(
-                          vrf.currentEpochVrfEvaluationStatus)
-                      : l10n.nodeNotAvailable,
-                  variant: _vrfEvaluationVariant(
-                      vrf?.currentEpochVrfEvaluationStatus),
-                ),
-              ),
-              InfoRow(
-                label: l10n.nodeBestTip,
-                value: bestTipHash.isNotEmpty
-                    ? Utils.shortenID(bestTipHash, head: 8, tail: 6)
-                    : l10n.nodeNotAvailable,
-                valueStyle: theme.textTheme.bodyMedium?.copyWith(
-                  fontFamily: kMonoFontFamily,
-                ),
-                trailing: _buildCopyButton(
-                  text: bestTipHash,
-                  message: l10n.nodeBestTipCopied,
-                  iconSize: sizing.iconSmall,
-                ),
-                showDivider: false,
-              ),
-            ],
+        ),
+        ListTile(
+          leading: const IconBadge(icon: Symbols.tag_sharp),
+          title: Text(l10n.nodeBestTip),
+          subtitle: Text(
+            bestTipHash.isNotEmpty
+                ? Utils.shortenID(bestTipHash, head: 8, tail: 6)
+                : l10n.nodeNotAvailable,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontFamily: kMonoFontFamily,
+            ),
           ),
+          trailing: StatusTextTrailing(
+            text: bestTipHash.isNotEmpty
+                ? l10n.nodeSynced
+                : l10n.nodeNotAvailable,
+            variant: bestTipHash.isNotEmpty
+                ? StatusBadgeVariant.success
+                : StatusBadgeVariant.neutral,
+          ),
+          onTap: bestTipHash.isNotEmpty
+              ? () {
+                  Clipboard.setData(ClipboardData(text: bestTipHash));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(l10n.nodeBestTipCopied)),
+                  );
+                }
+              : null,
         ),
       ],
     );
@@ -687,44 +662,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     );
   }
 
-  Widget _buildPhaseCard({
-    required BuildContext context,
-    required String title,
-    required double progress,
-    required BigInt done,
-    required BigInt pending,
-    required BigInt idle,
-  }) {
-    final theme = Theme.of(context);
-    final spacing = theme.extension<AppSpacing>()!;
-    final radii = theme.extension<AppRadii>()!;
-    final colorScheme = theme.colorScheme;
-
-    return Card(
-      elevation: 0,
-      color: colorScheme.surfaceContainer,
-      shape: RoundedRectangleBorder(
-        borderRadius: radii.borderRadiusSmall,
-        side: BorderSide(color: colorScheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(spacing.space12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: theme.textTheme.bodyLarge),
-            SizedBox(height: spacing.space8),
-            Text(AppLocalizations.of(context).nodePhaseDone('$done'),
-                style: theme.textTheme.bodySmall),
-            Text(AppLocalizations.of(context).nodePhasePending('$pending'),
-                style: theme.textTheme.bodySmall),
-            Text(AppLocalizations.of(context).nodePhaseIdle('$idle'),
-                style: theme.textTheme.bodySmall),
-          ],
-        ),
-      ),
-    );
-  }
 
   // ============== UTILITY METHODS ==============
 

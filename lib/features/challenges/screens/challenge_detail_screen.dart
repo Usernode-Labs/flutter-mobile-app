@@ -38,8 +38,8 @@ class ChallengeDetailScreen extends ConsumerWidget {
     final breakdown = breakdownAsync.value?.data;
     final eb = breakdown?.eventBreakdown;
     final blocksSummary = ref.watch(producedBlocksSummaryProvider);
-    final latestEpoch = nodeStatus?.currentEpoch;
     final nodeStatus = ref.watch(nodeStatusProvider).asData?.value;
+    final latestEpoch = nodeStatus?.currentEpoch;
 
     // Record point snapshot on each successful data load
     if (challenge.earnedPoints != null) {
@@ -103,9 +103,11 @@ class ChallengeDetailScreen extends ConsumerWidget {
           ? _buildStatusSection(nodeStatus, blocksSummaryData)
           : null,
       sections: _buildSections(context, dto),
-      totalRewardHeading: AppLocalizations.of(context)
-          .challengeTotalReward(formatRewardText(dto.reward)),
-      totalRewardBody: dto.rewardLogic ?? '',
+      totalRewardHeading: showRewardCard
+          ? null
+          : AppLocalizations.of(context)
+              .challengeTotalReward(formatRewardText(dto.reward)),
+      totalRewardBody: showRewardCard ? null : (dto.rewardLogic ?? ''),
       onBackTap: () => context.pop(),
     );
   }

@@ -14,6 +14,7 @@ import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
+import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 
 class AppBootstrapResult {
   final ProviderContainer container;
@@ -74,8 +75,15 @@ class AppBootstrap {
     // Metrics collector needs the container before any lifecycle/service starts
     MetricsCollectorService.instance.initialize(container);
 
+    void recoverZkSession() {
+      container
+          .read(zkPassportPipelineProvider.notifier)
+          .recoverPendingSessionOnForeground();
+    }
+
     if (registerLifecycleObserver) {
       AppLifecycleLogger.register();
+      AppLifecycleLogger.onForegroundResume = recoverZkSession;
     }
 
     _bootstrapBackendAsync(log: log, container: container);

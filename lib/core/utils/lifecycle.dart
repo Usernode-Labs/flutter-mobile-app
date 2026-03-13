@@ -16,6 +16,7 @@ final _log = LoggingService.instance.withTag('usernode/Lifecycle');
 /// - Node restart on Android if not running
 class AppLifecycleLogger with WidgetsBindingObserver {
   static AppLifecycleLogger? _instance;
+  static VoidCallback? onForegroundResume;
 
   // Track if we're currently handling resume to avoid concurrent processing
   bool _isHandlingResume = false;
@@ -79,6 +80,7 @@ class AppLifecycleLogger with WidgetsBindingObserver {
       await _verifyScheduledAlarms();
 
       _log.info('App resume handling complete');
+      onForegroundResume?.call();
     } catch (e) {
       _log.error('Error handling app resume: $e');
     } finally {

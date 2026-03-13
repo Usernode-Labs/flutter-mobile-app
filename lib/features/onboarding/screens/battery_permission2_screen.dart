@@ -158,39 +158,26 @@ class _BatteryPermission2ScreenState
               if (isAndroid) ...[
                 SizedBox(
                   width: double.infinity,
-                  child: FilledButton(
-                    onPressed: _requesting ? null : _openSettings,
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(52),
-                    ),
-                    child: _requesting
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(l10n.permOpenBatterySettings),
+                  child: Button(
+                    label: l10n.permOpenBatterySettings,
+                    variant: ButtonVariant.primary,
+                    size: ButtonSize.large,
+                    isLoading: _requesting,
+                    onTap: _openSettings,
                   ),
                 ),
                 SizedBox(height: spacing.space8),
               ],
               SizedBox(
                 width: double.infinity,
-                child: FilledButton(
-                  onPressed: _goToCompletionScreen,
-                  style: isAndroid
-                      ? FilledButton.styleFrom(
-                          minimumSize: const Size.fromHeight(52),
-                          backgroundColor:
-                              theme.colorScheme.surfaceContainerHighest,
-                          foregroundColor: theme.colorScheme.onSurface,
-                        )
-                      : FilledButton.styleFrom(
-                          minimumSize: const Size.fromHeight(52),
-                        ),
-                  child: Text(
-                    isAndroid ? l10n.permNotificationsSkip : l10n.commonFinish,
-                  ),
+                child: Button(
+                  label: isAndroid
+                      ? l10n.permNotificationsSkip
+                      : l10n.commonFinish,
+                  variant:
+                      isAndroid ? ButtonVariant.tonal : ButtonVariant.primary,
+                  size: ButtonSize.large,
+                  onTap: _goToCompletionScreen,
                 ),
               ),
             ],

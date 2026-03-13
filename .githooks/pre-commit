@@ -1,0 +1,12 @@
+#!/bin/sh
+# Pre-commit hook: run flutter analyze on staged .dart files.
+# Catches compile errors (e.g. invalid constructor params) before they're committed.
+#
+# Activate with: git config core.hooksPath .githooks
+
+changed_dart=$(git diff --cached --name-only --diff-filter=ACM -- '*.dart')
+if [ -n "$changed_dart" ]; then
+  echo "Running flutter analyze on staged .dart files..."
+  flutter analyze --no-pub $changed_dart
+  exit $?
+fi

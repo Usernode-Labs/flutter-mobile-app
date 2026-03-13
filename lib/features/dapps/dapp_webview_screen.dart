@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
+import 'package:crypto_mobile_app/design_system/src/button.dart';
 import 'package:crypto_mobile_app/design_system/src/sheet_layout.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
@@ -428,26 +429,18 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
                 Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(ctx, false),
-                        style: OutlinedButton.styleFrom(
-                          padding: EdgeInsets.symmetric(
-                            vertical: spacing.space12,
-                          ),
-                        ),
-                        child: const Text('Deny'),
+                      child: Button(
+                        label: 'Deny',
+                        variant: ButtonVariant.outlined,
+                        onTap: () => Navigator.pop(ctx, false),
                       ),
                     ),
                     SizedBox(width: spacing.space12),
                     Expanded(
-                      child: FilledButton(
-                        onPressed: () => Navigator.pop(ctx, true),
-                        style: FilledButton.styleFrom(
-                          padding: EdgeInsets.symmetric(
-                            vertical: spacing.space12,
-                          ),
-                        ),
-                        child: const Text('Confirm'),
+                      child: Button(
+                        label: 'Confirm',
+                        variant: ButtonVariant.primary,
+                        onTap: () => Navigator.pop(ctx, true),
                       ),
                     ),
                   ],
@@ -494,9 +487,11 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
                 ),
               ),
               SizedBox(width: spacing.space12),
-              FilledButton(
-                onPressed: _loadUrlFromInput,
-                child: const Text('Go'),
+              Button(
+                label: 'Go',
+                variant: ButtonVariant.primary,
+                size: ButtonSize.small,
+                onTap: _loadUrlFromInput,
               ),
               SizedBox(width: spacing.space8),
               IconButton(

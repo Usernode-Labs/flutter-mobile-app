@@ -44,12 +44,11 @@ class WelcomeClaimScreen extends StatelessWidget {
               ),
               SizedBox(
                 width: double.infinity,
-                child: FilledButton(
-                  onPressed: () => context.go(AppRoutes.onboardingImportApi),
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(52),
-                  ),
-                  child: Text(l10n.welcomeAlphaClaimSpot),
+                child: Button(
+                  label: l10n.welcomeAlphaClaimSpot,
+                  variant: ButtonVariant.primary,
+                  size: ButtonSize.large,
+                  onTap: () => context.go(AppRoutes.onboardingImportApi),
                 ),
               ),
             ],

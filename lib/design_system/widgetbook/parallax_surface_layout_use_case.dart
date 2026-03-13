@@ -60,6 +60,10 @@ WidgetbookComponent parallaxSurfaceLayoutComponent() {
           final edgeFade = context.knobs.boolean(
             label: 'showEdgeFade',
           );
+          final title = context.knobs.stringOrNull(
+            label: 'title',
+            initialValue: 'dApps',
+          );
           final itemCount = context.knobs.double
               .slider(
                 label: 'Item count',
@@ -76,6 +80,7 @@ WidgetbookComponent parallaxSurfaceLayoutComponent() {
                 header: const _MockHeader(),
                 headerFadesOnScroll: headerFades,
                 showEdgeFade: edgeFade,
+                title: title,
                 surfaceSlivers: [
                   SliverList.builder(
                     itemCount: itemCount,

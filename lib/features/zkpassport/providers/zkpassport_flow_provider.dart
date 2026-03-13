@@ -250,12 +250,18 @@ class ZkPassportFlowController {
   Future<void> storeSuccessfulRegistration({
     required String? nullifierHex,
     bool? facematchVerified,
+    int? verifyOuterMs,
+    int? wrapOuterMs,
+    int? verifyWrappedMs,
   }) async {
     final repo = _ref.read(zkPassportRegistrationRepositoryProvider);
     await repo.storeActiveRegistration(
       registered: true,
       nullifierHex: nullifierHex,
       facematchVerified: facematchVerified,
+      verifyOuterMs: verifyOuterMs,
+      wrapOuterMs: wrapOuterMs,
+      verifyWrappedMs: verifyWrappedMs,
     );
     _ref.invalidate(zkPassportIsRegisteredProvider);
     _ref.invalidate(zkPassportRegistrationProvider);
@@ -1098,6 +1104,9 @@ class ZkPassportPipelineController
           .storeSuccessfulRegistration(
             nullifierHex: derivedNullifierHex,
             facematchVerified: _runtimeSession?.facematchStrict,
+            verifyOuterMs: verifyOuterMs,
+            wrapOuterMs: wrapOuterMs,
+            verifyWrappedMs: verifyWrappedMs,
           );
 
       // Non-blocking: notify backend of completion.

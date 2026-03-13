@@ -31,6 +31,9 @@ class ZkPassportRegistrationRepository {
     required bool registered,
     required String? nullifierHex,
     bool? facematchVerified,
+    int? verifyOuterMs,
+    int? wrapOuterMs,
+    int? verifyWrappedMs,
   }) async {
     final accounts = await AccountsRepository.create();
     final active = await accounts.getActive();
@@ -45,6 +48,9 @@ class ZkPassportRegistrationRepository {
       nullifierHex: nullifierHex,
       registeredAtMs: registered ? DateTime.now().millisecondsSinceEpoch : null,
       facematchVerified: facematchVerified,
+      verifyOuterMs: verifyOuterMs,
+      wrapOuterMs: wrapOuterMs,
+      verifyWrappedMs: verifyWrappedMs,
     );
     await prefs.setString(key, jsonEncode(payload.toJson()));
   }
@@ -59,13 +65,15 @@ class ZkPassportRegistrationRepository {
   }) async {
     final prefs = await SharedPreferences.getInstance();
     final key = NetworkPrefs.prefixKey(_kPendingCompletionKey);
-    await prefs.setString(key, jsonEncode({
-      'participant_id': participantId,
-      'challenge_id': challengeId,
-      'wallet_address': walletAddress,
-      'session_id': sessionId,
-      'nullifier_hex': nullifierHex,
-    }));
+    await prefs.setString(
+        key,
+        jsonEncode({
+          'participant_id': participantId,
+          'challenge_id': challengeId,
+          'wallet_address': walletAddress,
+          'session_id': sessionId,
+          'nullifier_hex': nullifierHex,
+        }));
   }
 
   /// Returns a pending completion if one exists, or null.

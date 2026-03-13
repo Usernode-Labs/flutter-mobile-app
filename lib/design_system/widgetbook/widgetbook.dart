@@ -47,6 +47,9 @@ import 'text_field_use_case.dart';
 import 'top_app_bar_use_case.dart';
 import 'unified_theme_catalog.dart';
 import 'wallet_page_use_case.dart';
+import 'zk_identity_flow_page_use_case.dart';
+import 'zk_identity_status_card_use_case.dart';
+import 'zk_identity_step_illustration_use_case.dart';
 
 void main() {
   runApp(const WidgetbookApp());
@@ -244,6 +247,7 @@ class WidgetbookApp extends StatelessWidget {
                 challengeCategoryIconComponent(),
                 challengeCategoryTileComponent(),
                 challengeRewardCardComponent(),
+                zkIdentityStatusCardComponent(),
               ],
             ),
             WidgetbookFolder(
@@ -270,6 +274,13 @@ class WidgetbookApp extends StatelessWidget {
               children: [
                 epochPerformancePageComponent(),
                 leaderboardPageComponent(),
+              ],
+            ),
+            WidgetbookFolder(
+              name: 'ZK Identity',
+              children: [
+                zkIdentityFlowPageComponent(),
+                zkIdentityStepIllustrationComponent(),
               ],
             ),
             WidgetbookFolder(

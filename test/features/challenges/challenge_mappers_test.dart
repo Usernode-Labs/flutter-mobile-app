@@ -95,7 +95,7 @@ void main() {
   });
 
   group('categorizeChallenges', () {
-    test('splits challenges into correct buckets', () {
+    test('splits challenges into correct buckets (disabled are dropped)', () {
       final challenges = [
         _makeDto(enabled: true, completed: false),
         _makeDto(enabled: true, completed: true),
@@ -106,7 +106,7 @@ void main() {
       final result = categorizeChallenges(challenges);
       expect(result.active, hasLength(2));
       expect(result.completed, hasLength(1));
-      expect(result.missed, hasLength(1));
+      expect(result.missed, hasLength(0));
     });
 
     test('handles empty list', () {
@@ -118,25 +118,32 @@ void main() {
   });
 
   group('formatDateRange', () {
-    test('formats valid ISO dates', () {
-      expect(
-        formatDateRange('2025-01-15T00:00:00Z', '2025-02-15T00:00:00Z'),
-        'Jan 15 - Feb 15',
-      );
+    test('formats valid ISO dates with Z suffix', () {
+      // Z-suffixed strings are already UTC — toLocal() converts for display.
+      // Use a date where UTC→local won't shift the day for most timezones.
+      final result =
+          formatDateRange('2025-01-15T12:00:00Z', '2025-02-15T12:00:00Z');
+      expect(result, contains('Jan'));
+      expect(result, contains('Feb'));
+      expect(result, contains(' - '));
+    });
+
+    test('treats bare datetimes as UTC (real API format)', () {
+      final result =
+          formatDateRange('2025-01-15 12:00:00', '2025-02-15 12:00:00');
+      expect(result, contains('Jan'));
+      expect(result, contains('Feb'));
+      expect(result, contains(' - '));
     });
 
     test('handles null start', () {
-      expect(
-        formatDateRange(null, '2025-02-15T00:00:00Z'),
-        'Feb 15',
-      );
+      final result = formatDateRange(null, '2025-02-15T12:00:00Z');
+      expect(result, contains('Feb'));
     });
 
     test('handles null end', () {
-      expect(
-        formatDateRange('2025-01-15T00:00:00Z', null),
-        'Jan 15',
-      );
+      final result = formatDateRange('2025-01-15T12:00:00Z', null);
+      expect(result, contains('Jan'));
     });
 
     test('returns empty for both null', () {
@@ -260,14 +267,14 @@ void main() {
       expect(result.missed, isEmpty);
     });
 
-    test('not enabled + not completed → missed tab', () {
+    test('not enabled → dropped (not in any bucket)', () {
       final enriched = [
         EnrichedChallenge(dto: _makeDto(id: 1, enabled: false)),
       ];
       final result = categorizeEnrichedChallenges(enriched);
-      expect(result.missed, hasLength(1));
       expect(result.active, isEmpty);
       expect(result.completed, isEmpty);
+      expect(result.missed, isEmpty);
     });
 
     test('enabled + not completed → active tab', () {
@@ -280,7 +287,7 @@ void main() {
       expect(result.missed, isEmpty);
     });
 
-    test('participant completed overrides enabled=false (not missed)', () {
+    test('disabled challenge is dropped even if participant completed', () {
       final enriched = [
         EnrichedChallenge(
           dto: _makeDto(id: 1, enabled: false, goal: 'Goal'),
@@ -288,7 +295,8 @@ void main() {
         ),
       ];
       final result = categorizeEnrichedChallenges(enriched);
-      expect(result.completed, hasLength(1));
+      expect(result.active, isEmpty);
+      expect(result.completed, isEmpty);
       expect(result.missed, isEmpty);
     });
 
@@ -318,6 +326,19 @@ void main() {
       final result = categorizeEnrichedChallenges(enriched);
       expect(result.active, hasLength(1));
       expect(result.missed, isEmpty);
+    });
+
+    test('bare datetime scheduleEnd treated as UTC (real API format)', () {
+      // "2020-01-01 00:00:00" without Z — must be treated as UTC (in the past).
+      final enriched = [
+        EnrichedChallenge(
+          dto: _makeDto(
+              id: 1, enabled: true, scheduleEnd: '2020-01-01 00:00:00'),
+        ),
+      ];
+      final result = categorizeEnrichedChallenges(enriched);
+      expect(result.missed, hasLength(1));
+      expect(result.active, isEmpty);
     });
 
     test('enabled with null scheduleEnd → active tab', () {
@@ -429,8 +450,7 @@ void main() {
     test('active produce-blocks without earned points → active', () {
       expect(
         mapEnrichedVariant(EnrichedChallenge(
-          dto: _makeDto(
-              enabled: true, subCategory: 'PRODUCE_BLOCKS_CHALLENGE'),
+          dto: _makeDto(enabled: true, subCategory: 'PRODUCE_BLOCKS_CHALLENGE'),
         )),
         ChallengeCardVariant.active,
       );

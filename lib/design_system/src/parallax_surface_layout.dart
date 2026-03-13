@@ -1,5 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+
+import '../tokens/app_borders.dart';
+import '../tokens/app_spacing.dart';
 
 /// Parallax speed ratio — header moves at 40 % of scroll speed.
 const kParallaxRatio = 0.4;
@@ -61,10 +65,11 @@ class ParallaxSurfaceLayout extends StatefulWidget {
     this.scrollFractionNotifier,
     this.surfaceFillsViewport = false,
     this.controller,
-    this.headerFadesOnScroll = false,
+    this.headerFadesOnScroll = true,
     this.showEdgeFade = false,
     this.safeAreaOverlay = true,
     this.headerOverlay,
+    this.title,
   })  : assert(
           pinnedHeaderSlivers == null || pinnedHeaderSliver == null,
           'Cannot use both pinnedHeaderSliver and pinnedHeaderSlivers',
@@ -161,8 +166,8 @@ class ParallaxSurfaceLayout extends StatefulWidget {
   /// When true and no [pinnedHeaderSlivers] are provided, the layout injects
   /// an internal pinned [SafeAreaPinnedDelegate] that offsets the surface
   /// downward by the status-bar height plus [kPinnedBarPadding] and lerps
-  /// from transparent to [ColorScheme.surfaceContainerLowest] as the user
-  /// scrolls.
+  /// from [ColorScheme.surface] to [ColorScheme.surfaceContainerLowest] as
+  /// the user scrolls.
   ///
   /// The extra [kPinnedBarPadding] (48px) matches the space that standard
   /// pinned-bar delegates add beyond the safe-area inset, keeping all
@@ -191,6 +196,12 @@ class ParallaxSurfaceLayout extends StatefulWidget {
   /// Non-interactive areas use [HitTestBehavior.deferToChild] so scroll
   /// gestures pass through; only explicit [GestureDetector]s consume taps.
   final Widget? headerOverlay;
+
+  /// Optional page title displayed in the auto-injected pinned bar.
+  /// Only takes effect when [safeAreaOverlay] is true and no
+  /// [pinnedHeaderSlivers] are provided (i.e. when the auto
+  /// [SafeAreaPinnedDelegate] is used).
+  final String? title;
 
   @override
   State<ParallaxSurfaceLayout> createState() => _ParallaxSurfaceLayoutState();
@@ -239,56 +250,78 @@ class _ParallaxSurfaceLayoutState extends State<ParallaxSurfaceLayout> {
         ? MediaQuery.of(context).padding.top + kPinnedBarPadding
         : 0.0;
 
-    return ColoredBox(
-      color: theme.colorScheme.surface,
-      child: Stack(
-        alignment: Alignment.topCenter,
-        children: [
-          // Layer 1: Header (parallax)
-          _buildHeaderLayer(),
+    final stackChildren = [
+      // Layer 1: Header (parallax)
+      _buildHeaderLayer(),
 
-          // Layer 2: Scrolling content surface
-          NotificationListener<ScrollNotification>(
-            onNotification: _onScroll,
-            child: _buildScrollView(theme),
-          ),
+      // Layer 2: Scrolling content surface
+      NotificationListener<ScrollNotification>(
+        onNotification: _onScroll,
+        child: _buildScrollView(theme),
+      ),
 
-          // Layer 3: Header overlay (interactive, parallaxes with header)
-          if (widget.headerOverlay != null) _buildHeaderOverlayLayer(),
+      // Layer 3: Header overlay (interactive, parallaxes with header)
+      if (widget.headerOverlay != null) _buildHeaderOverlayLayer(),
 
-          // Layer 4: Edge fade (optional)
-          if (widget.showEdgeFade)
-            Positioned(
-              top: _effectivePinnedHeight +
-                  widget.headerHeight +
-                  _autoSliverExtent,
-              left: 0,
-              right: 0,
-              child: IgnorePointer(
-                child: ValueListenableBuilder<double>(
-                  valueListenable: _effectiveNotifier,
-                  builder: (context, sf, child) => Opacity(
-                    opacity: sf.clamp(0.0, 1.0),
-                    child: child,
-                  ),
-                  child: Container(
-                    height: 24,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          theme.colorScheme.surfaceContainerLowest,
-                          theme.colorScheme.surfaceContainerLowest
-                              .withValues(alpha: 0),
-                        ],
-                      ),
-                    ),
+      // Layer 4: Edge fade (optional)
+      if (widget.showEdgeFade)
+        Positioned(
+          top: _effectivePinnedHeight + widget.headerHeight + _autoSliverExtent,
+          left: 0,
+          right: 0,
+          child: IgnorePointer(
+            child: ValueListenableBuilder<double>(
+              valueListenable: _effectiveNotifier,
+              builder: (context, sf, child) => Opacity(
+                opacity: sf.clamp(0.0, 1.0),
+                child: child,
+              ),
+              child: Container(
+                height: 24,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      theme.colorScheme.surfaceContainerLowest,
+                      theme.colorScheme.surfaceContainerLowest
+                          .withValues(alpha: 0),
+                    ],
                   ),
                 ),
               ),
             ),
-        ],
+          ),
+        ),
+    ];
+
+    // When headerFadesOnScroll is true, lerp the root background from
+    // surface → surfaceContainerLowest so the entire area behind the header
+    // transitions uniformly. This replaces the old multi-layer wash approach
+    // that caused color banding from independent alpha-compositing.
+    if (widget.headerFadesOnScroll) {
+      return ValueListenableBuilder<double>(
+        valueListenable: _effectiveNotifier,
+        builder: (context, sf, child) => ColoredBox(
+          color: Color.lerp(
+            theme.colorScheme.surface,
+            theme.colorScheme.surfaceContainerLowest,
+            sf,
+          )!,
+          child: child,
+        ),
+        child: Stack(
+          alignment: Alignment.topCenter,
+          children: stackChildren,
+        ),
+      );
+    }
+
+    return ColoredBox(
+      color: theme.colorScheme.surface,
+      child: Stack(
+        alignment: Alignment.topCenter,
+        children: stackChildren,
       ),
     );
   }
@@ -299,37 +332,37 @@ class _ParallaxSurfaceLayoutState extends State<ParallaxSurfaceLayout> {
 
   /// Wraps [child] in a parallax transform + optional fade driven by scroll
   /// fraction. Shared by header and header-overlay layers.
-  Widget _buildParallaxLayer(Widget child) {
-    return ValueListenableBuilder<double>(
-      valueListenable: _effectiveNotifier,
-      builder: (context, sf, child) {
-        Widget result = Transform.translate(
-          offset: Offset(0, -sf * widget.headerHeight * kParallaxRatio),
-          child: child,
-        );
-        if (widget.headerFadesOnScroll) {
-          result = Opacity(
-            opacity: (1 - sf).clamp(0.0, 1.0),
-            child: result,
-          );
-        }
-        return result;
-      },
-      child: Padding(
-        padding:
-            EdgeInsets.only(top: _effectivePinnedHeight + _autoSliverExtent),
-        child: child,
+  ///
+  /// Uses [Flow] so the child is laid out once; only the paint transform and
+  /// opacity update per scroll tick — no widget allocation or element
+  /// reconciliation on each frame.
+  Widget _buildParallaxLayer(Widget child, {bool fadeOut = false}) {
+    return Flow(
+      delegate: _ParallaxFlowDelegate(
+        scrollNotifier: _effectiveNotifier,
+        headerHeight: widget.headerHeight,
+        fadeOut: fadeOut,
       ),
+      children: [
+        Padding(
+          padding:
+              EdgeInsets.only(top: _effectivePinnedHeight + _autoSliverExtent),
+          child: child,
+        ),
+      ],
     );
   }
 
   Widget _buildHeaderLayer() {
+    final headerChild = SizedOverflowBox(
+      size: Size(double.infinity, widget.headerHeight),
+      alignment: Alignment.center,
+      child: widget.header,
+    );
+
     return _buildParallaxLayer(
-      SizedOverflowBox(
-        size: Size(double.infinity, widget.headerHeight),
-        alignment: Alignment.center,
-        child: widget.header,
-      ),
+      headerChild,
+      fadeOut: widget.headerFadesOnScroll,
     );
   }
 
@@ -337,11 +370,19 @@ class _ParallaxSurfaceLayoutState extends State<ParallaxSurfaceLayout> {
   /// header, but rendered above the scroll surface so taps land naturally.
   /// Uses [HitTestBehavior.deferToChild] so scroll gestures pass through
   /// non-interactive areas.
+  ///
+  /// Hit-test gating: once the surface scrolls over the overlay (`sf > 0`),
+  /// [IgnorePointer] disables hit-testing so surface content receives taps.
   Widget _buildHeaderOverlayLayer() {
-    return _buildParallaxLayer(
-      SizedBox(
-        height: widget.headerHeight,
-        child: widget.headerOverlay,
+    return ValueListenableBuilder<double>(
+      valueListenable: _effectiveNotifier,
+      builder: (context, sf, child) => IgnorePointer(
+        ignoring: sf > 0.0,
+        child: child,
+      ),
+      child: _buildParallaxLayer(
+        SizedBox(height: widget.headerHeight, child: widget.headerOverlay),
+        fadeOut: widget.headerFadesOnScroll,
       ),
     );
   }
@@ -398,6 +439,7 @@ class _ParallaxSurfaceLayoutState extends State<ParallaxSurfaceLayout> {
           delegate: SafeAreaPinnedDelegate(
             topPadding: _autoSliverExtent,
             scrollFractionNotifier: _effectiveNotifier,
+            title: widget.title,
           ),
         ),
 
@@ -652,7 +694,7 @@ class StatusBarOverlay extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 /// A [SliverPersistentHeaderDelegate] that paints a background over the
-/// status-bar area, lerping from transparent (at rest) to
+/// status-bar area, lerping from [ColorScheme.surface] (at rest) to
 /// [ColorScheme.surfaceContainerLowest] (when scrolled).
 ///
 /// Use this for screens that need safe-area pinning without a functional bar
@@ -666,10 +708,14 @@ class SafeAreaPinnedDelegate extends SliverPersistentHeaderDelegate {
   SafeAreaPinnedDelegate({
     required this.topPadding,
     required this.scrollFractionNotifier,
+    this.title,
   });
 
   final double topPadding;
   final ValueNotifier<double> scrollFractionNotifier;
+
+  /// Optional page title displayed bottom-left in the 48px bar zone.
+  final String? title;
 
   @override
   double get maxExtent => topPadding;
@@ -682,24 +728,95 @@ class SafeAreaPinnedDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    final colors = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final borders = theme.extension<AppBorders>()!;
+    final titleStyle = title != null
+        ? theme.textTheme.titleMedium?.copyWith(
+            color: colorScheme.onSurface,
+          )
+        : null;
+    final spacing = theme.extension<AppSpacing>()!;
+    final space24 = title != null ? spacing.space24 : 0.0;
     return ValueListenableBuilder<double>(
       valueListenable: scrollFractionNotifier,
       builder: (context, sf, _) => SizedBox.expand(
-        child: ColoredBox(
-          color: Color.lerp(
-            Colors.transparent,
-            colors.surfaceContainerLowest,
-            sf,
-          )!,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: Color.lerp(
+              colorScheme.surface,
+              colorScheme.surfaceContainerLowest,
+              sf,
+            )!,
+            border: Border(
+              bottom: BorderSide(
+                color: colorScheme.onSurface.withValues(
+                  alpha: sf.clamp(0.0, 1.0) * borders.opacity,
+                ),
+                width: borders.width,
+              ),
+            ),
+          ),
+          child: title != null
+              ? Opacity(
+                  opacity: sf.clamp(0.0, 1.0),
+                  child: Align(
+                    alignment: Alignment.bottomLeft,
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                          bottom: spacing.space8, left: space24),
+                      child: Text(title!, style: titleStyle),
+                    ),
+                  ),
+                )
+              : null,
         ),
       ),
     );
   }
 
   @override
-  bool shouldRebuild(SafeAreaPinnedDelegate old) =>
-      old.topPadding != topPadding;
+  bool shouldRebuild(SafeAreaPinnedDelegate old) => true;
+}
+
+// ---------------------------------------------------------------------------
+// Flow delegate: parallax translation + optional opacity in the paint phase.
+// ---------------------------------------------------------------------------
+
+class _ParallaxFlowDelegate extends FlowDelegate {
+  _ParallaxFlowDelegate({
+    required this.scrollNotifier,
+    required this.headerHeight,
+    this.fadeOut = false,
+  }) : super(repaint: scrollNotifier);
+
+  final ValueListenable<double> scrollNotifier;
+  final double headerHeight;
+
+  /// When true, child-0 fades to invisible as the user scrolls.
+  /// Used for the header overlay layer.
+  final bool fadeOut;
+
+  @override
+  void paintChildren(FlowPaintingContext context) {
+    final sf = scrollNotifier.value;
+    final transform = Matrix4.translationValues(
+      0,
+      -sf * headerHeight * kParallaxRatio,
+      0,
+    );
+    context.paintChild(
+      0,
+      transform: transform,
+      opacity: fadeOut ? (1.0 - sf).clamp(0.0, 1.0) : 1.0,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_ParallaxFlowDelegate old) =>
+      scrollNotifier != old.scrollNotifier ||
+      headerHeight != old.headerHeight ||
+      fadeOut != old.fadeOut;
 }
 
 // ---------------------------------------------------------------------------

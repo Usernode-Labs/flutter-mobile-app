@@ -396,7 +396,6 @@ class _GlowPainter extends CustomPainter {
     final liftRadius = 100 * maxI;
     final liftAlpha = 0.12 * maxI;
     final liftPaint = Paint()
-      ..blendMode = BlendMode.plus
       ..shader = ui.Gradient.radial(
         center,
         liftRadius,
@@ -422,7 +421,6 @@ class _GlowPainter extends CustomPainter {
     final radius = baseRadius * lobeIntensity;
     final alpha = peakAlpha * lobeIntensity;
     final paint = Paint()
-      ..blendMode = BlendMode.plus
       ..shader = ui.Gradient.radial(center, radius, [
         color.withValues(alpha: alpha),
         color.withValues(alpha: alpha * 0.85),

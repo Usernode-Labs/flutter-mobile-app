@@ -48,16 +48,15 @@ class ChipBarDelegate extends SliverPersistentHeaderDelegate {
   @override
   Widget build(
       BuildContext context, double shrinkOffset, bool overlapsContent) {
-    final colors = Theme.of(context).colorScheme;
-
+    final colorScheme = Theme.of(context).colorScheme;
     return ValueListenableBuilder<double>(
       valueListenable: scrollFractionNotifier,
       builder: (context, scrollFraction, child) {
         final bgColor = Color.lerp(
-            colors.surfaceContainerLowest.withValues(alpha: 0),
-            colors.surfaceContainerLowest,
+            colorScheme.surfaceContainerLowest.withValues(alpha: 0),
+            colorScheme.surfaceContainerLowest,
             scrollFraction)!;
-        final borderColor = colors.outlineVariant;
+        final borderColor = colorScheme.outlineVariant;
         final chipBorder = Color.lerp(
             borderColor.withValues(alpha: 0), borderColor, scrollFraction)!;
 
@@ -93,10 +92,7 @@ class ChipBarDelegate extends SliverPersistentHeaderDelegate {
   }
 
   @override
-  bool shouldRebuild(ChipBarDelegate oldDelegate) =>
-      oldDelegate.topPadding != topPadding ||
-      oldDelegate.seasonLabel != seasonLabel ||
-      oldDelegate.eventLabel != eventLabel;
+  bool shouldRebuild(ChipBarDelegate oldDelegate) => true;
 }
 
 // ---------------------------------------------------------------------------
@@ -125,8 +121,7 @@ class SurfaceTabBarDelegate extends SliverPersistentHeaderDelegate {
   @override
   Widget build(
       BuildContext context, double shrinkOffset, bool overlapsContent) {
-    final colors = Theme.of(context).colorScheme;
-
+    final colorScheme = Theme.of(context).colorScheme;
     return ValueListenableBuilder<double>(
       valueListenable: scrollFractionNotifier,
       builder: (context, scrollFraction, tabBar) {
@@ -134,7 +129,7 @@ class SurfaceTabBarDelegate extends SliverPersistentHeaderDelegate {
 
         return Container(
           decoration: BoxDecoration(
-            color: colors.surfaceContainerLowest,
+            color: colorScheme.surfaceContainerLowest,
             borderRadius: BorderRadius.vertical(
               top: Radius.circular(cornerRadius),
             ),
@@ -151,19 +146,19 @@ class SurfaceTabBarDelegate extends SliverPersistentHeaderDelegate {
   }
 
   Widget _buildTabBar(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final borders = Theme.of(context).extension<AppBorders>()!;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final borders = theme.extension<AppBorders>()!;
 
     return TabBar(
       controller: tabController,
-      labelColor: colors.onSurface,
-      unselectedLabelColor: colors.outline,
-      labelStyle: textTheme.titleSmall,
-      unselectedLabelStyle: textTheme.titleSmall,
-      indicatorColor: colors.primary,
+      labelColor: colorScheme.onSurface,
+      unselectedLabelColor: colorScheme.outline,
+      labelStyle: theme.textTheme.titleSmall,
+      unselectedLabelStyle: theme.textTheme.titleSmall,
+      indicatorColor: colorScheme.primary,
       indicatorWeight: 3,
-      dividerColor: colors.onSurface.withValues(alpha: borders.opacity),
+      dividerColor: colorScheme.onSurface.withValues(alpha: borders.opacity),
       dividerHeight: borders.width,
       tabs: [
         for (int i = 0; i < kTabLabels.length; i++) _buildTab(context, i),
@@ -222,7 +217,5 @@ class SurfaceTabBarDelegate extends SliverPersistentHeaderDelegate {
   }
 
   @override
-  bool shouldRebuild(SurfaceTabBarDelegate oldDelegate) =>
-      oldDelegate.tabController != tabController ||
-      oldDelegate.badgeCounts != badgeCounts;
+  bool shouldRebuild(SurfaceTabBarDelegate oldDelegate) => true;
 }

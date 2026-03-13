@@ -105,7 +105,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsBuildInfo => 'Build Info';
 
   @override
-  String get bgProdWhatIs => 'What is Background Block Production?';
+  String get bgProdWhatIs => 'What is Block Production?';
 
   @override
   String get bgProdDescription =>
@@ -1110,10 +1110,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get nodeSyncingBlocks => 'Syncing blocks';
 
   @override
-  String get nodeFetchPhase => 'Fetch';
-
-  @override
-  String get nodeApplyPhase => 'Apply';
+  String nodeFetchApplyProgress(int fetchPct, int applyPct) {
+    return '$fetchPct % Fetched  ·  $applyPct % Applied';
+  }
 
   @override
   String get nodePeers => 'Peers';
@@ -1139,21 +1138,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String nodeMempoolSummary(int count, String sizeKB) {
     return '$count txns · $sizeKB KB';
-  }
-
-  @override
-  String nodePhaseDone(String count) {
-    return 'Done: $count';
-  }
-
-  @override
-  String nodePhasePending(String count) {
-    return 'Pending: $count';
-  }
-
-  @override
-  String nodePhaseIdle(String count) {
-    return 'Idle: $count';
   }
 
   @override

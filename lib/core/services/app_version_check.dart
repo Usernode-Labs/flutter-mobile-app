@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -221,9 +222,10 @@ class _UpdateDialog extends StatelessWidget {
               onPressed: () => Navigator.of(context).pop(),
               child: const Text('Later'),
             ),
-          FilledButton(
-            onPressed: () => _openStore(),
-            child: const Text('Update'),
+          Button(
+            label: 'Update',
+            variant: ButtonVariant.primary,
+            onTap: () => _openStore(),
           ),
         ],
       ),

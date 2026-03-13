@@ -176,18 +176,12 @@ class _OnboardingImportApiAccountScreenState
               SizedBox(height: spacing.space24),
               SizedBox(
                 width: double.infinity,
-                child: FilledButton(
-                  onPressed: _submitting ? null : _onSubmit,
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(52),
-                  ),
-                  child: _submitting
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(l10n.importApiAccountSubmit),
+                child: Button(
+                  label: l10n.importApiAccountSubmit,
+                  variant: ButtonVariant.primary,
+                  size: ButtonSize.large,
+                  isLoading: _submitting,
+                  onTap: _onSubmit,
                 ),
               ),
             ],

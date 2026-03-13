@@ -145,7 +145,7 @@ void main() {
       expect(gradientContainers, isEmpty);
     });
 
-    testWidgets('wraps header in Opacity when headerFadesOnScroll is true',
+    testWidgets('headerFadesOnScroll=true uses fadeOut on header Flow',
         (tester) async {
       await tester.pumpWidget(wrapLayout(
         const ParallaxSurfaceLayout(
@@ -155,39 +155,133 @@ void main() {
         ),
       ));
 
-      // The Opacity widget should be an ancestor of the header text.
-      expect(
-        find.ancestor(
-          of: find.text('Header'),
-          matching: find.byType(Opacity),
-        ),
-        findsWidgets,
+      // The header should be wrapped in a single-child Flow (no wash overlay).
+      final headerFlow = find.ancestor(
+        of: find.text('Header'),
+        matching: find.byType(Flow),
       );
+      expect(headerFlow, findsOneWidget);
+
+      // No ColoredBox wash overlay inside the header Flow — fadeOut handles it.
+      final washOverlay = find.descendant(
+        of: headerFlow,
+        matching: find.byType(ColoredBox),
+      );
+      expect(washOverlay, findsNothing);
     });
 
-    testWidgets('no Opacity on header when headerFadesOnScroll is false',
+    testWidgets('headerFadesOnScroll=false has no wash overlay in header Flow',
         (tester) async {
       await tester.pumpWidget(wrapLayout(
         const ParallaxSurfaceLayout(
           header: Text('Header'),
           surfaceBody: Text('Body'),
+          headerFadesOnScroll: false,
         ),
       ));
 
-      // The header's Transform.translate should NOT be wrapped in Opacity.
-      // Find the Transform that is the parallax wrapper (ancestor of header).
-      final headerTransform = find.ancestor(
+      // The header should still be wrapped in Flow.
+      final headerFlow = find.ancestor(
         of: find.text('Header'),
-        matching: find.byType(Transform),
+        matching: find.byType(Flow),
       );
-      // The direct Opacity parent should not exist.
-      expect(
-        find.ancestor(
-          of: headerTransform.first,
-          matching: find.byType(Opacity),
+      expect(headerFlow, findsWidgets);
+
+      // No ColoredBox wash overlay should be a descendant of the header Flow.
+      final washOverlay = find.descendant(
+        of: headerFlow.first,
+        matching: find.byType(ColoredBox),
+      );
+      expect(washOverlay, findsNothing);
+    });
+
+    testWidgets(
+        'root background lerps from surface to surfaceContainerLowest on scroll',
+        (tester) async {
+      final notifier = ValueNotifier<double>(0.0);
+      addTearDown(notifier.dispose);
+
+      await tester.pumpWidget(wrapLayout(
+        ParallaxSurfaceLayout(
+          header: const SizedBox(height: 200),
+          headerHeight: 200,
+          scrollFractionNotifier: notifier,
+          surfaceSlivers: [
+            SliverList.list(
+              children: List.generate(
+                20,
+                (i) => SizedBox(height: 60, key: ValueKey('item_$i')),
+              ),
+            ),
+          ],
         ),
-        findsNothing,
-      );
+      ));
+
+      final theme =
+          Theme.of(tester.element(find.byType(ParallaxSurfaceLayout)));
+      final surface = theme.colorScheme.surface;
+      final surfaceLowest = theme.colorScheme.surfaceContainerLowest;
+
+      // At rest (sf=0), root ColoredBox should be surface color.
+      // Target the first ColoredBox that is a descendant of PSL itself.
+      ColoredBox rootBox() => tester.widget<ColoredBox>(
+            find
+                .descendant(
+                  of: find.byType(ParallaxSurfaceLayout),
+                  matching: find.byType(ColoredBox),
+                )
+                .first,
+          );
+      expect(rootBox().color, surface);
+
+      // Scroll fully (sf=1), root should be surfaceContainerLowest.
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -200));
+      await tester.pumpAndSettle();
+      expect(rootBox().color, surfaceLowest);
+    });
+
+    testWidgets('root background lerps with headerFadesOnScroll',
+        (tester) async {
+      final notifier = ValueNotifier<double>(0.0);
+      addTearDown(notifier.dispose);
+
+      await tester.pumpWidget(wrapLayout(
+        ParallaxSurfaceLayout(
+          header: const SizedBox(height: 200),
+          headerHeight: 200,
+          headerFadesOnScroll: true,
+          scrollFractionNotifier: notifier,
+          surfaceSlivers: [
+            SliverList.list(
+              children: List.generate(
+                20,
+                (i) => SizedBox(height: 60, key: ValueKey('item_$i')),
+              ),
+            ),
+          ],
+        ),
+      ));
+
+      final theme =
+          Theme.of(tester.element(find.byType(ParallaxSurfaceLayout)));
+      final surface = theme.colorScheme.surface;
+      final surfaceLowest = theme.colorScheme.surfaceContainerLowest;
+
+      // At rest (sf=0), root ColoredBox should be surface color.
+      ColoredBox rootBox() => tester.widget<ColoredBox>(
+            find
+                .descendant(
+                  of: find.byType(ParallaxSurfaceLayout),
+                  matching: find.byType(ColoredBox),
+                )
+                .first,
+          );
+      expect(rootBox().color, surface);
+
+      // Scroll fully (sf=1), root should be surfaceContainerLowest.
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -200));
+      await tester.pumpAndSettle();
+      expect(rootBox().color, surfaceLowest);
     });
 
     testWidgets('passes controller to CustomScrollView', (tester) async {
@@ -427,8 +521,8 @@ void main() {
           surfaceSlivers: [
             SliverList.list(children: const [Text('Item')]),
           ],
-          surfacePinnedSlivers: [
-            const SliverToBoxAdapter(child: SizedBox(height: 56)),
+          surfacePinnedSlivers: const [
+            SliverToBoxAdapter(child: SizedBox(height: 56)),
           ],
           surfacePinnedHeight: 56,
         ),
@@ -453,6 +547,41 @@ void main() {
       expect(find.text('Header'), findsOneWidget);
     });
 
+    testWidgets('headerOverlay IgnorePointer activates after scroll',
+        (tester) async {
+      await tester.pumpWidget(wrapLayout(
+        ParallaxSurfaceLayout(
+          header: const SizedBox(height: 200),
+          headerHeight: 200,
+          surfaceSlivers: [
+            SliverList.list(
+              children: List.generate(
+                20,
+                (i) => SizedBox(height: 60, key: ValueKey('item_$i')),
+              ),
+            ),
+          ],
+          headerOverlay: const Text('CTA'),
+        ),
+      ));
+
+      // Before scroll: IgnorePointer should not be ignoring.
+      final ipFinder = find.ancestor(
+        of: find.text('CTA'),
+        matching: find.byType(IgnorePointer),
+      );
+      var ip = tester.widget<IgnorePointer>(ipFinder.first);
+      expect(ip.ignoring, isFalse);
+
+      // Scroll down so surface covers the overlay.
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -100));
+      await tester.pumpAndSettle();
+
+      // After scroll: IgnorePointer should be ignoring.
+      ip = tester.widget<IgnorePointer>(ipFinder.first);
+      expect(ip.ignoring, isTrue);
+    });
+
     testWidgets('headerOverlay parallaxes with header', (tester) async {
       await tester.pumpWidget(wrapLayout(
         ParallaxSurfaceLayout(
@@ -464,18 +593,213 @@ void main() {
         ),
       ));
 
-      // Both header and overlay should be wrapped in Transform
-      // (2 separate ValueListenableBuilder → Transform chains)
-      final headerTransforms = find.ancestor(
+      // Both header and overlay should be wrapped in Flow
+      // (2 separate ValueListenableBuilder → Flow chains)
+      final headerFlows = find.ancestor(
         of: find.text('Header'),
-        matching: find.byType(Transform),
+        matching: find.byType(Flow),
       );
-      final overlayTransforms = find.ancestor(
+      final overlayFlows = find.ancestor(
         of: find.text('Overlay'),
-        matching: find.byType(Transform),
+        matching: find.byType(Flow),
       );
-      expect(headerTransforms, findsWidgets);
-      expect(overlayTransforms, findsWidgets);
+      expect(headerFlows, findsWidgets);
+      expect(overlayFlows, findsWidgets);
+    });
+
+    // --- title tests ---
+
+    testWidgets('title invisible at rest', (tester) async {
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(padding: EdgeInsets.only(top: 44)),
+          child: wrapLayout(
+            ParallaxSurfaceLayout(
+              header: const SizedBox(height: 200),
+              headerHeight: 200,
+              surfaceSlivers: [
+                SliverList.list(
+                  children: List.generate(
+                    20,
+                    (i) => SizedBox(height: 60, key: ValueKey('item_$i')),
+                  ),
+                ),
+              ],
+              title: 'dApps',
+            ),
+          ),
+        ),
+      );
+
+      // At rest (sf=0), the Opacity wrapping the title should be 0.
+      final opacity = tester.widget<Opacity>(
+        find.ancestor(
+          of: find.text('dApps'),
+          matching: find.byType(Opacity),
+        ),
+      );
+      expect(opacity.opacity, 0.0);
+    });
+
+    testWidgets('title renders when provided', (tester) async {
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(padding: EdgeInsets.only(top: 44)),
+          child: wrapLayout(
+            ParallaxSurfaceLayout(
+              header: const SizedBox(height: 200),
+              headerHeight: 200,
+              surfaceSlivers: [
+                SliverList.list(
+                  children: List.generate(
+                    20,
+                    (i) => SizedBox(height: 60, key: ValueKey('item_$i')),
+                  ),
+                ),
+              ],
+              title: 'dApps',
+            ),
+          ),
+        ),
+      );
+
+      // Scroll fully so title becomes visible (sf→1).
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -200));
+      await tester.pumpAndSettle();
+
+      expect(find.text('dApps'), findsOneWidget);
+      final opacity = tester.widget<Opacity>(
+        find.ancestor(
+          of: find.text('dApps'),
+          matching: find.byType(Opacity),
+        ),
+      );
+      expect(opacity.opacity, 1.0);
+    });
+
+    testWidgets('title absent when null', (tester) async {
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(padding: EdgeInsets.only(top: 44)),
+          child: wrapLayout(
+            ParallaxSurfaceLayout(
+              header: const Text('Header'),
+              surfaceSlivers: [
+                SliverList.list(children: const [Text('Item')]),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // No title text should appear in the pinned bar
+      expect(find.text('dApps'), findsNothing);
+    });
+
+    testWidgets('title uses titleLarge style', (tester) async {
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(padding: EdgeInsets.only(top: 44)),
+          child: wrapLayout(
+            ParallaxSurfaceLayout(
+              header: const SizedBox(height: 200),
+              headerHeight: 200,
+              surfaceSlivers: [
+                SliverList.list(
+                  children: List.generate(
+                    20,
+                    (i) => SizedBox(height: 60, key: ValueKey('item_$i')),
+                  ),
+                ),
+              ],
+              title: 'Node Status',
+            ),
+          ),
+        ),
+      );
+
+      // Scroll so title becomes visible.
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -200));
+      await tester.pumpAndSettle();
+
+      final titleWidget = tester.widget<Text>(find.text('Node Status'));
+      final theme =
+          Theme.of(tester.element(find.byType(ParallaxSurfaceLayout)));
+      expect(
+          titleWidget.style?.fontSize, theme.textTheme.titleMedium?.fontSize);
+    });
+
+    // --- pinned bar border tests ---
+
+    testWidgets('pinned bar border invisible at rest', (tester) async {
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(padding: EdgeInsets.only(top: 44)),
+          child: wrapLayout(
+            ParallaxSurfaceLayout(
+              header: const SizedBox(height: 200),
+              headerHeight: 200,
+              surfaceSlivers: [
+                SliverList.list(
+                  children: List.generate(
+                    20,
+                    (i) => SizedBox(height: 60, key: ValueKey('item_$i')),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // At rest (sf=0), the bottom border alpha should be 0.
+      final db = tester.widget<DecoratedBox>(
+        find.descendant(
+          of: find.byType(SliverPersistentHeader),
+          matching: find.byType(DecoratedBox),
+        ),
+      );
+      final border = (db.decoration as BoxDecoration).border! as Border;
+      expect(border.bottom.color.a, 0.0);
+    });
+
+    testWidgets('pinned bar border appears on scroll', (tester) async {
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(padding: EdgeInsets.only(top: 44)),
+          child: wrapLayout(
+            ParallaxSurfaceLayout(
+              header: const SizedBox(height: 200),
+              headerHeight: 200,
+              surfaceSlivers: [
+                SliverList.list(
+                  children: List.generate(
+                    20,
+                    (i) => SizedBox(height: 60, key: ValueKey('item_$i')),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // Scroll fully so sf→1.
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -200));
+      await tester.pumpAndSettle();
+
+      final theme =
+          Theme.of(tester.element(find.byType(ParallaxSurfaceLayout)));
+      final borders = theme.extension<AppBorders>()!;
+
+      final db = tester.widget<DecoratedBox>(
+        find.descendant(
+          of: find.byType(SliverPersistentHeader),
+          matching: find.byType(DecoratedBox),
+        ),
+      );
+      final border = (db.decoration as BoxDecoration).border! as Border;
+      expect(border.bottom.color.a, closeTo(borders.opacity, 0.001));
     });
 
     // --- onRefreshStatusChange tests ---
@@ -542,9 +866,9 @@ void main() {
         (tester) async {
           // Path 1: auto-sliver (no pinnedHeaderSlivers, safeAreaOverlay=true)
           await tester.pumpWidget(wrapWithSafeArea(
-            ParallaxSurfaceLayout(
-              header: const Text('Header'),
-              surfaceBody: const SizedBox(
+            const ParallaxSurfaceLayout(
+              header: Text('Header'),
+              surfaceBody: SizedBox(
                 key: ValueKey('surface_auto'),
                 height: 100,
               ),
@@ -589,9 +913,9 @@ void main() {
       testWidgets('surface Y equals safeTop + kPinnedBarPadding + headerHeight',
           (tester) async {
         await tester.pumpWidget(wrapWithSafeArea(
-          ParallaxSurfaceLayout(
-            header: const Text('Header'),
-            surfaceBody: const SizedBox(
+          const ParallaxSurfaceLayout(
+            header: Text('Header'),
+            surfaceBody: SizedBox(
               key: ValueKey('surface_marker'),
               height: 100,
             ),

@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
-import 'empty_state.dart';
+import '../tokens/app_sizing.dart';
+import '../tokens/app_spacing.dart';
+import 'button.dart';
 
 /// A centered error display for use as a full-page body.
 ///
-/// Shows an error icon, a primary message, an optional detail line,
-/// and an optional retry button. Delegates to [EmptyState] internally.
+/// Shows a prominent error icon inside a colored circle, a primary message,
+/// an optional detail line, and an optional retry button.
 ///
 /// Presentation-only — takes all state via constructor params.
 class FullPageErrorState extends StatelessWidget {
@@ -32,16 +34,57 @@ class FullPageErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return EmptyState(
-      icon: Symbols.error_sharp,
-      title: message,
-      subtitle: detail,
-      action: onRetry != null
-          ? FilledButton(
-              onPressed: onRetry,
-              child: Text(retryLabel),
-            )
-          : null,
+    final colors = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
+
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: spacing.space16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: colors.errorContainer,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Symbols.error_sharp,
+                size: sizing.iconDisplay,
+                color: colors.onErrorContainer,
+              ),
+            ),
+            SizedBox(height: spacing.space16),
+            Text(
+              message,
+              style: textTheme.titleLarge,
+              textAlign: TextAlign.center,
+            ),
+            if (detail != null) ...[
+              SizedBox(height: spacing.space8),
+              Text(
+                detail!,
+                style: textTheme.bodyMedium?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+            if (onRetry != null) ...[
+              SizedBox(height: spacing.space24),
+              Button(
+                label: retryLabel,
+                variant: ButtonVariant.primary,
+                onTap: onRetry,
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

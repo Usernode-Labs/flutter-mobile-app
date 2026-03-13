@@ -62,6 +62,7 @@ app.*.map.json
 .env.beta
 .env.internal
 .env.production
+.env.*.backup
 service-account*.json
 AuthKey_*.p8
 

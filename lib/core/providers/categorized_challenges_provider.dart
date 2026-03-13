@@ -12,8 +12,9 @@ final categorizedChallengesProvider =
     Provider<CategorizedEnrichedChallenges?>((ref) {
   final challenges = ref.watch(challengesProvider.select((s) => s.value?.data));
   if (challenges == null) return null;
+  final enabled = challenges.where((c) => c.enabled).toList();
   final breakdown = ref.watch(breakdownProvider.select((s) => s.value?.data));
   final activities = extractActivities(breakdown);
-  final enriched = enrichChallenges(challenges, activities);
+  final enriched = enrichChallenges(enabled, activities);
   return categorizeEnrichedChallenges(enriched);
 });

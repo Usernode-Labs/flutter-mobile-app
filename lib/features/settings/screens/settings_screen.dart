@@ -6,6 +6,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:crypto_mobile_app/core/providers/categorized_challenges_provider.dart';
+import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
+import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
@@ -23,9 +26,27 @@ import 'package:crypto_mobile_app/features/settings/widgets/faq_section.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/theme_picker_sheet.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/build_info_sheet.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/network_switcher_dialog.dart';
+import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
+import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 final _log =
     LoggingService.instance.withTag('usernode/BackgroundProductionSettings');
+
+Future<void> resetChallengeState(WidgetRef ref, BuildContext context) async {
+  ref.read(zkIdentityStepControllerProvider.notifier).reset();
+  await ref.read(zkPassportFlowControllerProvider).clearActiveRegistration();
+  await ref
+      .read(zkPassportPipelineProvider.notifier)
+      .discardPendingSession(reason: 'Reset');
+  ref.invalidate(challengesProvider);
+  ref.invalidate(breakdownProvider);
+  ref.invalidate(categorizedChallengesProvider);
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('Challenge state reset')),
+  );
+}
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -399,6 +420,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return sc;
   }
 
+  Future<void> _resetChallengeState() => resetChallengeState(ref, context);
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -406,6 +429,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final l10n = AppLocalizations.of(context);
 
     final themeMode = ref.watch(themeModeProvider);
+    final zkSettings = ref.watch(zkPassportSettingsProvider);
+    final facematchStrict =
+        zkSettings.whenOrNull(data: (s) => s.facematchStrict) ?? true;
 
     return Scaffold(
       body: SafeArea(
@@ -504,6 +530,36 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   vrfWonSlotDescription: l10n.faqVrfWonSlotDescription,
                   vrfTimingTitle: l10n.faqVrfTimingTitle,
                   vrfTimingDescription: l10n.faqVrfTimingDescription,
+                ),
+              ),
+
+              SizedBox(height: spacing.space24),
+              const ListSectionHeader(title: 'ZK Identity'),
+              Card(
+                child: Column(
+                  children: [
+                    SwitchListTile(
+                      secondary: const Icon(Symbols.face_sharp),
+                      title: const Text('Strict Facematch'),
+                      value: facematchStrict,
+                      onChanged: (value) {
+                        ref
+                            .read(zkPassportFlowControllerProvider)
+                            .setFacematchStrict(value);
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(Symbols.restart_alt_sharp),
+                      title: const Text('Restart Challenge'),
+                      subtitle: Text(
+                        'Clears zkPassport registration & cached challenges',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      onTap: _resetChallengeState,
+                    ),
+                  ],
                 ),
               ),
 

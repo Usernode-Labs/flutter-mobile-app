@@ -41,65 +41,22 @@ final dappsProvider = FutureProvider<List<DappItem>>((ref) async {
 });
 
 final dappStatsProvider = FutureProvider<Map<String, DappStats>>((ref) async {
-  final dapps = await ref.watch(dappsProvider.future);
   final base = _dappBaseUri();
-
-  // Get chain ID.
-  final chainRes = await http.get(base.resolve('/explorer-api/active_chain'));
-  if (chainRes.statusCode != 200) {
-    throw Exception('Failed to fetch active chain');
+  final response = await http.get(base.resolve('/api/stats'));
+  if (response.statusCode != 200) {
+    throw Exception('Failed to load dApp stats (${response.statusCode})');
   }
-  final chainData = jsonDecode(chainRes.body) as Map<String, dynamic>;
-  final chainId = chainData['chain_id'] as String;
-
-  final result = <String, DappStats>{};
-
-  // Fetch stats for all dApps concurrently (paginated fetch per-dApp is
-  // sequential since it depends on cursors).
-  final eligible = dapps.where((d) => d.pubkey?.isNotEmpty == true);
-  final entries = await Future.wait(eligible.map((dapp) async {
-    final pubkey = dapp.pubkey!;
-    var totalTxns = 0;
-    final uniqueSenders = <String>{};
-    String? cursor;
-    const maxPages = 20;
-
-    for (var page = 0; page < maxPages; page++) {
-      final body = <String, dynamic>{
-        'recipient': pubkey,
-        'limit': 50,
-      };
-      if (cursor != null) body['cursor'] = cursor;
-
-      final txRes = await http.post(
-        base.resolve('/explorer-api/$chainId/transactions'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(body),
-      );
-
-      if (txRes.statusCode != 200) break;
-
-      final txData = jsonDecode(txRes.body) as Map<String, dynamic>;
-      final items = txData['items'] as List<dynamic>? ?? [];
-      totalTxns += items.length;
-
-      for (final item in items) {
-        final sender = (item as Map<String, dynamic>)['source'] as String?;
-        if (sender != null) uniqueSenders.add(sender);
-      }
-
-      final hasMore = txData['has_more'] as bool? ?? false;
-      if (!hasMore || items.isEmpty) break;
-      cursor = txData['next_cursor'] as String?;
-      if (cursor == null) break;
-    }
-
+  final data = jsonDecode(response.body) as Map<String, dynamic>;
+  return data.map((pubkey, value) {
+    final m = value as Map<String, dynamic>;
     return MapEntry(
-        pubkey, DappStats(users: uniqueSenders.length, txns: totalTxns));
-  }));
-
-  result.addEntries(entries);
-  return result;
+      pubkey,
+      DappStats(
+        users: (m['users'] as num?)?.toInt() ?? 0,
+        txns: (m['txns'] as num?)?.toInt() ?? 0,
+      ),
+    );
+  });
 });
 
 enum SortMode { popular, users, txns, alpha }

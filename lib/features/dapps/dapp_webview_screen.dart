@@ -64,6 +64,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   Timer? _secretTapResetTimer;
   bool _showUrlEditor = false;
   final List<_TxLogEntry> _txLog = [];
+  List<_OnChainTx> _onChainTxCache = [];
 
   // Transaction confirmation uses Navigator.push with an opaque route instead
   // of showModalBottomSheet. A known Flutter engine bug (fixed in 3.41.0)
@@ -417,6 +418,8 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
           txLog: _txLog,
           userAddress: userAddress,
           explorerOrigin: explorerOrigin,
+          initialOnChainTxs: _onChainTxCache,
+          onOnChainTxsUpdated: (txs) => _onChainTxCache = txs,
         ),
         transitionsBuilder: (_, animation, __, child) {
           return SlideTransition(
@@ -873,6 +876,7 @@ class _OnChainTx {
   final int? amount;
   final int? blockHeight;
   final int? timestampMs;
+  final int? inclusionLatencyMs;
 
   const _OnChainTx({
     required this.txId,
@@ -883,6 +887,7 @@ class _OnChainTx {
     this.amount,
     this.blockHeight,
     this.timestampMs,
+    this.inclusionLatencyMs,
   });
 
   factory _OnChainTx.fromJson(Map<String, dynamic> j) {
@@ -896,6 +901,7 @@ class _OnChainTx {
       amount: (j['amount'] as num?)?.toInt(),
       blockHeight: (j['block_height'] as num?)?.toInt(),
       timestampMs: (j['timestamp_ms'] as num?)?.toInt(),
+      inclusionLatencyMs: (j['inclusion_latency_ms'] as num?)?.toInt(),
     );
   }
 }
@@ -903,19 +909,28 @@ class _OnChainTx {
 class _MergedEntry {
   final _TxLogEntry local;
   final _OnChainTx? onChain;
+  final bool isHistorical;
 
-  const _MergedEntry({required this.local, this.onChain});
+  const _MergedEntry({
+    required this.local,
+    this.onChain,
+    this.isHistorical = false,
+  });
 }
 
 class _TxDebugPanel extends StatefulWidget {
   final List<_TxLogEntry> txLog;
   final String? userAddress;
   final Uri explorerOrigin;
+  final List<_OnChainTx> initialOnChainTxs;
+  final ValueChanged<List<_OnChainTx>> onOnChainTxsUpdated;
 
   const _TxDebugPanel({
     required this.txLog,
     required this.userAddress,
     required this.explorerOrigin,
+    required this.initialOnChainTxs,
+    required this.onOnChainTxsUpdated,
   });
 
   @override
@@ -923,15 +938,27 @@ class _TxDebugPanel extends StatefulWidget {
 }
 
 class _TxDebugPanelState extends State<_TxDebugPanel> {
-  List<_OnChainTx> _onChainTxs = [];
-  bool _loading = true;
+  late List<_OnChainTx> _onChainTxs;
+  late bool _loading;
   String? _fetchError;
   int? _expandedIndex;
+  late final Timer _ageTicker;
 
   @override
   void initState() {
     super.initState();
+    _onChainTxs = List.of(widget.initialOnChainTxs);
+    _loading = _onChainTxs.isEmpty;
+    _ageTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
     _fetchExplorerData();
+  }
+
+  @override
+  void dispose() {
+    _ageTicker.cancel();
+    super.dispose();
   }
 
   Future<void> _fetchExplorerData() async {
@@ -939,6 +966,37 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
     if (address == null || address.isEmpty) {
       if (mounted) setState(() => _loading = false);
       return;
+    }
+
+    // Narrow the time window: only query from the oldest queued entry that
+    // hasn't been matched yet, minus 60 s buffer for clock skew.
+    int? fromTimestamp;
+    for (final local in widget.txLog) {
+      if (local.status != _TxStatus.queued) continue;
+      final alreadyResolved = _onChainTxs.any(
+        (oc) => oc.destination == local.to && oc.memo == local.memo,
+      );
+      if (alreadyResolved) continue;
+      final ms = local.timestamp.millisecondsSinceEpoch - 60000;
+      if (fromTimestamp == null || ms < fromTimestamp) fromTimestamp = ms;
+    }
+
+    // Nothing unresolved — skip the network call entirely.
+    if (fromTimestamp == null && _onChainTxs.isNotEmpty) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+
+    // Build the set of (destination, memo) pairs we still need to resolve.
+    final unresolvedPairs = <(String, String)>{};
+    for (final local in widget.txLog) {
+      if (local.status != _TxStatus.queued) continue;
+      final alreadyResolved = _onChainTxs.any(
+        (oc) => oc.destination == local.to && oc.memo == local.memo,
+      );
+      if (!alreadyResolved) {
+        unresolvedPairs.add((local.to, local.memo));
+      }
     }
 
     try {
@@ -952,24 +1010,59 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
       final chainId = chainData['chain_id'] as String?;
       if (chainId == null) throw Exception('No chain_id in response');
 
-      final txRes = await http.post(
-        base.resolve('/explorer-api/$chainId/transactions'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'sender': address, 'limit': 50}),
-      );
-      if (txRes.statusCode != 200) {
-        throw Exception('Transaction fetch failed (${txRes.statusCode})');
+      final txUrl = base.resolve('/explorer-api/$chainId/transactions');
+      final headers = {'Content-Type': 'application/json'};
+
+      final merged = <String, _OnChainTx>{};
+      for (final tx in _onChainTxs) {
+        merged[tx.txId] = tx;
       }
-      final txData = jsonDecode(txRes.body) as Map<String, dynamic>;
-      final items = (txData['items'] as List<dynamic>?) ?? [];
-      final txs =
-          items.map((e) => _OnChainTx.fromJson(e as Map<String, dynamic>));
+
+      String? cursor;
+      const maxPages = 20;
+
+      for (var page = 0; page < maxPages; page++) {
+        final query = <String, dynamic>{'sender': address, 'limit': 200};
+        if (fromTimestamp != null) query['from_timestamp'] = fromTimestamp;
+        if (cursor != null) query['cursor'] = cursor;
+
+        final txRes = await http.post(
+          txUrl,
+          headers: headers,
+          body: jsonEncode(query),
+        );
+        if (txRes.statusCode != 200) {
+          throw Exception('Transaction fetch failed (${txRes.statusCode})');
+        }
+        final txData = jsonDecode(txRes.body) as Map<String, dynamic>;
+        final items = (txData['items'] as List<dynamic>?) ?? [];
+
+        for (final item in items) {
+          final tx = _OnChainTx.fromJson(item as Map<String, dynamic>);
+          merged[tx.txId] = tx;
+
+          // Check off resolved pairs for early exit.
+          if (tx.destination != null && tx.memo != null) {
+            unresolvedPairs.remove((tx.destination!, tx.memo!));
+          }
+        }
+
+        // Stop if all pending entries are resolved.
+        if (unresolvedPairs.isEmpty) break;
+
+        final hasMore = txData['has_more'] as bool? ?? false;
+        final nextCursor = txData['next_cursor'] as String?;
+        if (!hasMore || nextCursor == null) break;
+        cursor = nextCursor;
+      }
 
       if (mounted) {
+        final mergedList = merged.values.toList();
         setState(() {
-          _onChainTxs = txs.toList();
+          _onChainTxs = mergedList;
           _loading = false;
         });
+        widget.onOnChainTxsUpdated(mergedList);
       }
     } catch (e) {
       if (mounted) {
@@ -983,22 +1076,50 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
 
   List<_MergedEntry> _buildMergedList() {
     final matched = <String>{};
+    final results = <_MergedEntry>[];
 
-    return widget.txLog.map((local) {
+    // First pass: merge local entries with on-chain matches.
+    for (final local in widget.txLog) {
       if (local.status != _TxStatus.queued) {
-        return _MergedEntry(local: local);
+        results.add(_MergedEntry(local: local));
+        continue;
       }
 
+      _OnChainTx? match;
       for (final oc in _onChainTxs) {
         if (matched.contains(oc.txId)) continue;
         if (oc.destination == local.to && oc.memo == local.memo) {
           matched.add(oc.txId);
-          return _MergedEntry(local: local, onChain: oc);
+          match = oc;
+          break;
         }
       }
+      results.add(_MergedEntry(local: local, onChain: match));
+    }
 
-      return _MergedEntry(local: local);
-    }).toList();
+    // Second pass: append historical on-chain txs not matched to any local
+    // entry (e.g. from previous app sessions).
+    for (final oc in _onChainTxs) {
+      if (matched.contains(oc.txId)) continue;
+      if (oc.source == null) continue;
+      final ts = oc.timestampMs != null
+          ? DateTime.fromMillisecondsSinceEpoch(oc.timestampMs!)
+          : DateTime.now();
+      results.add(_MergedEntry(
+        local: _TxLogEntry(
+          timestamp: ts,
+          from: oc.source!,
+          to: oc.destination ?? '',
+          amount: BigInt.from(oc.amount ?? 0),
+          memo: oc.memo ?? '',
+          status: _TxStatus.queued,
+        ),
+        onChain: oc,
+        isHistorical: true,
+      ));
+    }
+
+    return results;
   }
 
   @override
@@ -1090,13 +1211,49 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                         } catch (_) {}
 
                         final age = DateTime.now().difference(local.timestamp);
-                        final ageStr = age.inMinutes < 1
-                            ? '${age.inSeconds}s ago'
-                            : age.inHours < 1
-                                ? '${age.inMinutes}m ago'
-                                : age.inDays < 1
-                                    ? '${age.inHours}h ago'
-                                    : '${age.inDays}d ago';
+                        final String ageStr;
+                        if (entry.isHistorical) {
+                          ageStr = age.inMinutes < 1
+                              ? '${age.inSeconds}s ago'
+                              : age.inHours < 1
+                                  ? '${age.inMinutes}m ago'
+                                  : age.inDays < 1
+                                      ? '${age.inHours}h ago'
+                                      : '${age.inDays}d ago';
+                        } else {
+                          ageStr = age.inMinutes < 1
+                              ? 'sent ${age.inSeconds}s ago'
+                              : age.inHours < 1
+                                  ? 'sent ${age.inMinutes}m ago'
+                                  : age.inDays < 1
+                                      ? 'sent ${age.inHours}h ago'
+                                      : 'sent ${age.inDays}d ago';
+                        }
+
+                        final bool isConfirmed =
+                            local.status == _TxStatus.queued &&
+                                oc?.status == 'confirmed';
+                        String? confirmTimeStr;
+                        if (isConfirmed) {
+                          int? latencyMs;
+                          // Prefer the explorer's inclusion_latency_ms (tx
+                          // timestamp vs block timestamp, computed server-side).
+                          // Fall back to local send time vs block timestamp,
+                          // which can be negative due to clock skew.
+                          if (oc?.inclusionLatencyMs != null) {
+                            latencyMs = oc!.inclusionLatencyMs!;
+                          } else if (!entry.isHistorical &&
+                              oc?.timestampMs != null) {
+                            latencyMs = oc!.timestampMs! -
+                                local.timestamp.millisecondsSinceEpoch;
+                          }
+                          if (latencyMs != null && latencyMs >= 0) {
+                            final secs = latencyMs ~/ 1000;
+                            confirmTimeStr = secs < 60
+                                ? '${secs}s'
+                                : '${secs ~/ 60}m ${secs % 60}s';
+                          }
+                        }
 
                         final txHash = oc?.txId;
 
@@ -1158,6 +1315,25 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                                         ),
                                       ),
                                       const Spacer(),
+                                      if (confirmTimeStr != null)
+                                        Padding(
+                                          padding:
+                                              const EdgeInsets.only(
+                                                  right: 6),
+                                          child: Text(
+                                            '⏱ $confirmTimeStr',
+                                            style: theme
+                                                .textTheme
+                                                .labelSmall
+                                                ?.copyWith(
+                                              color:
+                                                  const Color(
+                                                      0xFF4CAF50),
+                                              fontWeight:
+                                                  FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
                                       Text(
                                         ageStr,
                                         style: theme

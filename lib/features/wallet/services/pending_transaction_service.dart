@@ -7,7 +7,7 @@ import 'package:crypto_mobile_app/core/utils/logger.dart';
 /// Used to associate sent amounts with pending mempool transactions
 class PendingTransactionService {
   static const String _keyBase = 'wallet:pending_transactions';
-  static const int _maxEntries = 20; // Limit stored pending transactions
+  static const int _maxEntries = 100; // Limit stored pending transactions
   static const Duration _defaultMaxAge = Duration(hours: 24);
 
   static String get _key => NetworkPrefs.prefixKey(_keyBase);

@@ -280,6 +280,7 @@ IconData _statusIcon(SlotStatus status) => switch (status) {
 ) =>
     switch (status) {
       SlotStatus.missed => (colors.errorContainer, colors.onErrorContainer),
+      SlotStatus.orphaned => (colors.errorContainer, colors.onErrorContainer),
       SlotStatus.upcoming => (
           semantic.technical.colorContainer,
           semantic.technical.onColorContainer,

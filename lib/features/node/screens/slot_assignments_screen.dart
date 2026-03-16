@@ -39,7 +39,7 @@ class _ParsedItem {
 }
 
 class _SlotAssignmentsScreenState extends ConsumerState<SlotAssignmentsScreen> {
-  _Filter? _selected;
+  _Filter _selected = _Filter.wonSlots;
   late final List<_ParsedItem> _items =
       _buildItemsFromArgs(widget.args) ?? const <_ParsedItem>[];
 
@@ -105,7 +105,8 @@ class _SlotAssignmentsScreenState extends ConsumerState<SlotAssignmentsScreen> {
           producedMeta: i < producedMeta.length ? producedMeta[i] : null,
         );
       }).toList();
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint('SlotAssignmentsScreen: failed to parse args: $e\n$st');
       return null;
     }
   }
@@ -144,8 +145,7 @@ class _SlotAssignmentsScreenState extends ConsumerState<SlotAssignmentsScreen> {
   // ---------------------------------------------------------------------------
 
   bool _matchesFilter(_ParsedItem item) {
-    if (_selected == null) return true;
-    return switch (_selected!) {
+    return switch (_selected) {
       _Filter.wonSlots => item.result == RpcSlotResult.produced ||
           item.result == RpcSlotResult.orphaned ||
           item.result == RpcSlotResult.missed ||
@@ -160,7 +160,7 @@ class _SlotAssignmentsScreenState extends ConsumerState<SlotAssignmentsScreen> {
   void _onFilterTap(int index) {
     final tapped = _chipOrder[index];
     setState(() {
-      _selected = _selected == tapped ? null : tapped;
+      _selected = _selected == tapped ? _Filter.wonSlots : tapped;
     });
   }
 
@@ -219,8 +219,6 @@ class _SlotAssignmentsScreenState extends ConsumerState<SlotAssignmentsScreen> {
     final List<_ParsedItem> filtered;
     if (_selected == _Filter.upcoming) {
       filtered = _items.where(_matchesFilter).toList(growable: false);
-    } else if (_selected == null) {
-      filtered = _items;
     } else {
       filtered = _items.reversed.where(_matchesFilter).toList(growable: false);
     }

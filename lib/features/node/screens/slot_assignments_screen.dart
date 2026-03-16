@@ -40,6 +40,7 @@ class _ParsedItem {
 
 class _SlotAssignmentsScreenState extends ConsumerState<SlotAssignmentsScreen> {
   _Filter _selected = _Filter.wonSlots;
+  bool _isInitialFilter = true;
   late final List<_ParsedItem> _items =
       _buildItemsFromArgs(widget.args) ?? const <_ParsedItem>[];
 
@@ -159,6 +160,7 @@ class _SlotAssignmentsScreenState extends ConsumerState<SlotAssignmentsScreen> {
 
   void _onFilterTap(int index) {
     final tapped = _chipOrder[index];
+    _isInitialFilter = false;
     setState(() {
       _selected = _selected == tapped ? _Filter.wonSlots : tapped;
     });
@@ -234,11 +236,20 @@ class _SlotAssignmentsScreenState extends ConsumerState<SlotAssignmentsScreen> {
       );
     }).toList(growable: false);
 
+    final highlightIndex = _isInitialFilter &&
+            filtered.isNotEmpty &&
+            (_selected == _Filter.produced ||
+                _selected == _Filter.missed ||
+                _selected == _Filter.upcoming)
+        ? 0
+        : null;
+
     return SlotAssignmentsPage(
       title: 'Slot Assignments',
       epochLabel: 'Epoch $epoch',
       slotProgressLeftLabel: '$curr / $total slots',
       slotProgress: progress,
+      highlightIndex: highlightIndex,
       filters: [
         SlotFilterData(
           label: 'Won Slots',

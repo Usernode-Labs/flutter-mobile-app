@@ -1,8 +1,11 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../tokens/app_semantic_colors.dart';
 import '../tokens/app_sizing.dart';
+import '../tokens/app_radii.dart';
 import '../tokens/app_spacing.dart';
 import 'icon_badge.dart';
 
@@ -46,7 +49,7 @@ class SlotFilterData {
 ///
 /// Presentation-only: all data comes through constructor parameters.
 /// The feature screen in `lib/features/` wires state to this widget.
-class SlotAssignmentsPage extends StatelessWidget {
+class SlotAssignmentsPage extends StatefulWidget {
   const SlotAssignmentsPage({
     super.key,
     required this.title,
@@ -59,6 +62,7 @@ class SlotAssignmentsPage extends StatelessWidget {
     this.slotProgressRightLabel,
     this.onItemTap,
     this.onBackTap,
+    this.highlightIndex,
   });
 
   /// AppBar title, e.g. "Slot Assignments".
@@ -91,6 +95,34 @@ class SlotAssignmentsPage extends StatelessWidget {
   /// Called when the back button is tapped.
   final VoidCallback? onBackTap;
 
+  /// Index of the item to highlight with a heartbeat pulse animation.
+  final int? highlightIndex;
+
+  @override
+  State<SlotAssignmentsPage> createState() => _SlotAssignmentsPageState();
+}
+
+class _SlotAssignmentsPageState extends State<SlotAssignmentsPage> {
+  int? _activeHighlightIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _activeHighlightIndex = widget.highlightIndex;
+  }
+
+  @override
+  void didUpdateWidget(SlotAssignmentsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.highlightIndex != oldWidget.highlightIndex) {
+      _activeHighlightIndex = widget.highlightIndex;
+    }
+  }
+
+  void _onHighlightComplete() {
+    setState(() => _activeHighlightIndex = null);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -98,13 +130,13 @@ class SlotAssignmentsPage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        leading: onBackTap != null
+        leading: widget.onBackTap != null
             ? IconButton(
                 icon: const Icon(Symbols.arrow_back_sharp),
-                onPressed: onBackTap,
+                onPressed: widget.onBackTap,
               )
             : null,
-        title: Text(title),
+        title: Text(widget.title),
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -116,23 +148,23 @@ class SlotAssignmentsPage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(epochLabel, style: theme.textTheme.titleMedium),
+                Text(widget.epochLabel, style: theme.textTheme.titleMedium),
                 SizedBox(height: spacing.space8),
-                LinearProgressIndicator(value: slotProgress),
+                LinearProgressIndicator(value: widget.slotProgress),
                 SizedBox(height: spacing.space4),
                 Row(
                   children: [
                     Expanded(
                       child: Text(
-                        slotProgressLeftLabel,
+                        widget.slotProgressLeftLabel,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ),
-                    if (slotProgressRightLabel != null)
+                    if (widget.slotProgressRightLabel != null)
                       Text(
-                        slotProgressRightLabel!,
+                        widget.slotProgressRightLabel!,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -145,16 +177,16 @@ class SlotAssignmentsPage extends StatelessWidget {
           SizedBox(height: spacing.space12),
           // Filter row
           _FilterRow(
-            filters: filters,
-            onFilterTap: onFilterTap,
+            filters: widget.filters,
+            onFilterTap: widget.onFilterTap,
           ),
           SizedBox(height: spacing.space8),
           // Item list
           Expanded(
             child: ListView.builder(
-              itemCount: items.length,
+              itemCount: widget.items.length,
               itemBuilder: (context, index) {
-                final item = items[index];
+                final item = widget.items[index];
                 return _buildItemTile(context, item, index);
               },
             ),
@@ -198,7 +230,7 @@ class SlotAssignmentsPage extends StatelessWidget {
           )
         : trailingText;
 
-    return ListTile(
+    Widget tile = ListTile(
       leading: IconBadge(
         icon: _statusIcon(item.status),
         size: sizing.iconContainerSmall,
@@ -208,14 +240,104 @@ class SlotAssignmentsPage extends StatelessWidget {
       title: Text('Slot ${item.slot}'),
       subtitle: item.timeLabel != null ? Text(item.timeLabel!) : null,
       trailing: trailing,
-      onTap: item.isTappable ? () => onItemTap?.call(index) : null,
+      onTap: item.isTappable ? () => widget.onItemTap?.call(index) : null,
     );
+
+    if (index == _activeHighlightIndex) {
+      tile = _HeartbeatHighlight(
+        onComplete: _onHighlightComplete,
+        child: tile,
+      );
+    }
+
+    return tile;
   }
 }
 
 // ---------------------------------------------------------------------------
 // Private sub-widgets
 // ---------------------------------------------------------------------------
+
+class _HeartbeatHighlight extends StatefulWidget {
+  const _HeartbeatHighlight({
+    required this.onComplete,
+    required this.child,
+  });
+
+  final VoidCallback onComplete;
+  final Widget child;
+
+  @override
+  State<_HeartbeatHighlight> createState() => _HeartbeatHighlightState();
+}
+
+class _HeartbeatHighlightState extends State<_HeartbeatHighlight>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  bool _completed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    )..addStatusListener((status) {
+        if (status == AnimationStatus.completed) {
+          widget.onComplete();
+        }
+      });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_completed) return;
+    if (MediaQuery.of(context).disableAnimations) {
+      _completed = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.onComplete();
+      });
+    } else if (!_controller.isAnimating) {
+      _controller.forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_completed) return widget.child;
+
+    final highlightColor = Theme.of(context)
+        .colorScheme
+        .surfaceContainerHighest
+        .withAlpha((255 * 0.35).round());
+
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        // 3 smooth sin pulses over the animation duration
+        final pulse = math.sin(_controller.value * math.pi * 3).clamp(0.0, 1.0);
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            color: Color.lerp(
+              Colors.transparent,
+              highlightColor,
+              pulse,
+            ),
+          ),
+          child: child,
+        );
+      },
+      child: widget.child,
+    );
+  }
+}
 
 class _FilterRow extends StatelessWidget {
   const _FilterRow({
@@ -231,6 +353,7 @@ class _FilterRow extends StatelessWidget {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
     final colorScheme = Theme.of(context).colorScheme;
     final labelSmall = Theme.of(context).textTheme.labelSmall!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -240,15 +363,28 @@ class _FilterRow extends StatelessWidget {
         children: [
           for (int i = 0; i < filters.length; i++)
             FilterChip(
-              avatar: CircleAvatar(
-                backgroundColor: colorScheme.onSurfaceVariant,
-                child: Text(
-                  '${filters[i].count}',
-                  style: labelSmall.copyWith(color: colorScheme.surface),
-                ),
-              ),
               showCheckmark: false,
-              label: Text(filters[i].label),
+              label: Row(
+                mainAxisSize: MainAxisSize.min,
+                spacing: spacing.space8,
+                children: [
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: spacing.space8,
+                      vertical: spacing.space4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colorScheme.onSurfaceVariant,
+                      borderRadius: radii.borderRadiusFull,
+                    ),
+                    child: Text(
+                      '${filters[i].count}',
+                      style: labelSmall.copyWith(color: colorScheme.surface),
+                    ),
+                  ),
+                  Text(filters[i].label),
+                ],
+              ),
               selected: filters[i].selected,
               onSelected: (_) => onFilterTap(i),
             ),

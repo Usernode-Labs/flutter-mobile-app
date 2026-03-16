@@ -144,6 +144,61 @@ WidgetbookComponent slotAssignmentsPageComponent() {
         },
       ),
       WidgetbookUseCase(
+        name: 'Heartbeat Highlight',
+        builder: (context) {
+          final items = [
+            const SlotAssignmentItemData(
+              slot: 5012,
+              status: SlotStatus.produced,
+              timeLabel: 'Today, 14:21',
+              isTappable: true,
+            ),
+            const SlotAssignmentItemData(
+              slot: 5011,
+              status: SlotStatus.produced,
+              timeLabel: 'Today, 13:05',
+              isTappable: true,
+            ),
+            const SlotAssignmentItemData(
+              slot: 5010,
+              status: SlotStatus.missed,
+              timeLabel: 'Today, 12:42',
+            ),
+            const SlotAssignmentItemData(
+              slot: 5009,
+              status: SlotStatus.orphaned,
+              timeLabel: 'Today, 11:18',
+              isTappable: true,
+            ),
+            const SlotAssignmentItemData(
+              slot: 5008,
+              status: SlotStatus.produced,
+              timeLabel: 'Yesterday, 23:55',
+              isTappable: true,
+            ),
+          ];
+
+          return SlotAssignmentsPage(
+            title: 'Slot Assignments',
+            epochLabel: 'Epoch 176',
+            slotProgressLeftLabel: '5012 / 7140 slots',
+            slotProgressRightLabel: '7h 14min left',
+            slotProgress: 0.70,
+            filters: const [
+              SlotFilterData(label: 'Won Slots', count: 5, selected: false),
+              SlotFilterData(label: 'Produced', count: 4, selected: true),
+              SlotFilterData(label: 'Missed', count: 1),
+              SlotFilterData(label: 'Upcoming', count: 0),
+            ],
+            highlightIndex: 0,
+            onFilterTap: (_) {},
+            items: items,
+            onItemTap: (_) {},
+            onBackTap: () {},
+          );
+        },
+      ),
+      WidgetbookUseCase(
         name: 'Empty State',
         builder: (context) {
           return SlotAssignmentsPage(

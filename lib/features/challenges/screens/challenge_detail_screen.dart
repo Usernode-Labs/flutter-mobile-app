@@ -290,11 +290,8 @@ class ChallengeDetailScreen extends ConsumerWidget {
             variant: StatusBadgeVariant.neutral,
           ),
       },
-      onTap: currentEpoch != null
-          ? () => context.push(
-                AppRoutes.epochPerformance,
-                extra: {'initialEpoch': currentEpoch},
-              )
+      onTap: currentEpoch != null && summary != null
+          ? () => _navigateToSlots(context, summary, currentEpoch, ['all'])
           : null,
     );
 
@@ -402,10 +399,10 @@ class ChallengeDetailScreen extends ConsumerWidget {
     // Missed Blocks step — count from current epoch
     final PipelineStepStatus? missedBlocksStep;
     if (summary != null && currentEpoch != null) {
-      final currentScore = summary.epochScores.cast<EpochScore?>().firstWhere(
-            (s) => s!.epochData.slotData != null,
-            orElse: () => null,
-          );
+      final currentScore =
+          (currentEpoch >= 0 && currentEpoch < summary.epochScores.length)
+              ? summary.epochScores[currentEpoch]
+              : null;
       final missed = currentScore?.missed ?? 0;
       missedBlocksStep = PipelineStepStatus(
         label: 'Missed Blocks',
@@ -466,10 +463,9 @@ class ChallengeDetailScreen extends ConsumerWidget {
     List<String> filters,
   ) {
     if (currentEpoch == null) return;
-    final score = data.epochScores.cast<EpochScore?>().firstWhere(
-          (s) => s!.epochData.slotData != null,
-          orElse: () => null,
-        );
+    final score = (currentEpoch >= 0 && currentEpoch < data.epochScores.length)
+        ? data.epochScores[currentEpoch]
+        : null;
     final epochData = score?.epochData.slotData;
     final results = epochData == null
         ? <int>[]

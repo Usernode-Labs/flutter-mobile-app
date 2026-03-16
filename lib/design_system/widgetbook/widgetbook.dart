@@ -6,6 +6,7 @@ import 'package:crypto_mobile_app/design_system/theme/design_system_theme.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_semantic_colors.dart';
 
 import 'block_production_status_card_use_case.dart';
+import 'burst_pulse_illustration_use_case.dart';
 import 'bottom_nav_use_case.dart';
 import 'button_use_case.dart';
 import 'challenge_activity_summary_use_case.dart';
@@ -304,6 +305,7 @@ class WidgetbookApp extends StatelessWidget {
             WidgetbookFolder(
               name: 'Wallet',
               children: [
+                burstPulseIllustrationComponent(),
                 walletPageComponent(),
               ],
             ),

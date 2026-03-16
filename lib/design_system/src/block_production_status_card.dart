@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import 'package:crypto_mobile_app/core/widgets/app_card.dart';
 
@@ -35,29 +36,38 @@ class PipelineStepStatus {
     required this.label,
     required this.icon,
     required this.trailing,
+    this.onTap,
   });
 
   final String label;
   final IconData icon;
   final StepTrailing trailing;
+  final VoidCallback? onTap;
 }
 
-/// Data for the four pipeline steps in [BlockProductionStatusCard].
+/// Data for the pipeline steps in [BlockProductionStatusCard].
 class BlockProductionStatusData {
   const BlockProductionStatusData({
     required this.network,
     required this.vrf,
     required this.nextBlock,
     required this.lastProduced,
+    this.missedBlocks,
   });
 
   final PipelineStepStatus network;
   final PipelineStepStatus vrf;
   final PipelineStepStatus nextBlock;
   final PipelineStepStatus lastProduced;
+  final PipelineStepStatus? missedBlocks;
 
-  List<PipelineStepStatus> get _steps =>
-      [network, vrf, nextBlock, lastProduced];
+  List<PipelineStepStatus> get _steps => [
+        network,
+        vrf,
+        nextBlock,
+        lastProduced,
+        if (missedBlocks != null) missedBlocks!,
+      ];
 }
 
 /// A card showing 4 [ListTile] rows for block production pipeline readiness.
@@ -102,7 +112,7 @@ class _StepRow extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final sizing = Theme.of(context).extension<AppSizing>()!;
 
-    final trailing = switch (step.trailing) {
+    final trailingWidget = switch (step.trailing) {
       StepTrailingBadge(:final label, :final variant) => StatusTextTrailing(
           text: label,
           variant: variant,
@@ -115,6 +125,23 @@ class _StepRow extends StatelessWidget {
         ),
     };
 
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
+
+    final trailing = step.onTap != null
+        ? Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              trailingWidget,
+              SizedBox(width: spacing.space4),
+              Icon(
+                Symbols.chevron_right_sharp,
+                size: sizing.iconSmall,
+                color: colors.onSurfaceVariant,
+              ),
+            ],
+          )
+        : trailingWidget;
+
     return ListTile(
       leading: IconBadge(
         icon: step.icon,
@@ -125,6 +152,7 @@ class _StepRow extends StatelessWidget {
         style: textTheme.bodyMedium?.copyWith(color: colors.onSurface),
       ),
       trailing: trailing,
+      onTap: step.onTap,
     );
   }
 }

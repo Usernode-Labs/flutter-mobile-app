@@ -38,6 +38,7 @@ import 'result_page_use_case.dart';
 import 'score_header_use_case.dart';
 import 'settings_page_use_case.dart';
 import 'sheet_layout_use_case.dart';
+import 'slot_assignments_page_use_case.dart';
 import 'shimmer_use_case.dart';
 import 'status_badge_use_case.dart';
 import 'status_text_trailing_use_case.dart';
@@ -274,6 +275,7 @@ class WidgetbookApp extends StatelessWidget {
               children: [
                 epochPerformancePageComponent(),
                 leaderboardPageComponent(),
+                slotAssignmentsPageComponent(),
               ],
             ),
             WidgetbookFolder(

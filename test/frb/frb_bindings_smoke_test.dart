@@ -1,3 +1,5 @@
+// ignore_for_file: invalid_annotation_target
+
 // FRB bindings smoke tests
 //
 // Goal: verify that the generated flutter_rust_bridge bindings load and a few

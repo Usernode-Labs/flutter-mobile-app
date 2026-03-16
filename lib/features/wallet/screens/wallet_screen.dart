@@ -27,14 +27,21 @@ class WalletScreen extends ConsumerStatefulWidget {
 
 final _log = LoggingService.instance.withTag('usernode/WalletScreen');
 
-class _WalletScreenState extends ConsumerState<WalletScreen> {
+class _WalletScreenState extends ConsumerState<WalletScreen>
+    with SingleTickerProviderStateMixin {
   Timer? _refreshTimer;
   final _scrollFraction = ValueNotifier<double>(0.0);
   String _address = 'Loading...';
+  late final AnimationController _fabAnimController;
+  bool _fabOpen = false;
 
   @override
   void initState() {
     super.initState();
+    _fabAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    );
     _startAutoRefresh();
 
     // Resolve address when accounts provider loads or changes.
@@ -61,9 +68,77 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
 
   @override
   void dispose() {
+    _fabAnimController.dispose();
     _scrollFraction.dispose();
     _refreshTimer?.cancel();
     super.dispose();
+  }
+
+  void _toggleFab() {
+    setState(() => _fabOpen = !_fabOpen);
+    if (_fabOpen) {
+      _fabAnimController.forward();
+    } else {
+      _fabAnimController.reverse();
+    }
+  }
+
+  void _onBurstTap() {
+    if (_fabOpen) _toggleFab();
+    final balance =
+        ref.read(walletProvider).valueOrNull?.balance.tokenAmount ?? 0;
+    final l10n = AppLocalizations.of(context);
+    // Pre-check: need at least 100 tokens (50 × 1 token + fees buffer)
+    if (balance < 100) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.burstInsufficientBalance)),
+      );
+      return;
+    }
+    context.push(AppRoutes.walletBurst);
+  }
+
+  Widget _buildSpeedDial(
+      ThemeData theme, AppLocalizations l10n, AppSpacing spacing) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        // Mini-FABs revealed when open
+        if (_fabOpen) ...[
+          _SpeedDialOption(
+            label: l10n.burstLabel,
+            icon: Symbols.bolt_sharp,
+            onTap: _onBurstTap,
+          ),
+          SizedBox(height: spacing.space12),
+          _SpeedDialOption(
+            label: l10n.walletSend,
+            icon: Symbols.north_east_sharp,
+            onTap: () {
+              _toggleFab();
+              context.push(AppRoutes.walletSend);
+            },
+          ),
+          SizedBox(height: spacing.space16),
+        ],
+        // Main FAB
+        FloatingActionButton(
+          onPressed: _toggleFab,
+          backgroundColor: theme.colorScheme.primary,
+          foregroundColor: theme.colorScheme.onPrimary,
+          child: AnimatedBuilder(
+            animation: _fabAnimController,
+            builder: (context, child) => Transform.rotate(
+              angle: _fabAnimController.value * 0.75, // ~43°
+              child: Icon(
+                _fabOpen ? Symbols.close_sharp : Symbols.north_east_sharp,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   void _startAutoRefresh() {
@@ -134,15 +209,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
         ),
         surfaceSlivers: _buildSurfaceSlivers(walletState, l10n, theme, spacing),
       ),
-      floatingActionButton: isEmpty
-          ? null
-          : FloatingActionButton.extended(
-              onPressed: () => context.push(AppRoutes.walletSend),
-              backgroundColor: theme.colorScheme.primary,
-              foregroundColor: theme.colorScheme.onPrimary,
-              icon: const Icon(Symbols.north_east_sharp),
-              label: Text(l10n.walletSend),
-            ),
+      floatingActionButton: isEmpty ? null : _buildSpeedDial(theme, l10n, spacing),
     );
   }
 
@@ -256,10 +323,21 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                 child: EmptyState(
                   title: l10n.walletNoRecentActivity,
                   subtitle: l10n.walletNoRecentActivitySubtitle,
-                  action: Button(
-                    variant: ButtonVariant.primary,
-                    label: l10n.walletEmptyStateSendAction,
-                    onTap: () => context.push(AppRoutes.walletSend),
+                  action: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Button(
+                        variant: ButtonVariant.primary,
+                        label: l10n.walletEmptyStateSendAction,
+                        onTap: () => context.push(AppRoutes.walletSend),
+                      ),
+                      SizedBox(width: spacing.space8),
+                      Button(
+                        variant: ButtonVariant.tonal,
+                        label: l10n.burstLabel,
+                        onTap: _onBurstTap,
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -431,6 +509,55 @@ class _TransactionTile extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _SpeedDialOption extends StatelessWidget {
+  const _SpeedDialOption({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final spacing = theme.extension<AppSpacing>()!;
+    final radii = theme.extension<AppRadii>()!;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Material(
+          elevation: 2,
+          borderRadius: radii.borderRadiusXSmall,
+          color: theme.colorScheme.surfaceContainerHigh,
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: spacing.space8,
+              vertical: spacing.space4,
+            ),
+            child: Text(
+              label,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+          ),
+        ),
+        SizedBox(width: spacing.space12),
+        FloatingActionButton.small(
+          heroTag: label,
+          onPressed: onTap,
+          backgroundColor: theme.colorScheme.secondaryContainer,
+          foregroundColor: theme.colorScheme.onSecondaryContainer,
+          child: Icon(icon),
+        ),
+      ],
     );
   }
 }

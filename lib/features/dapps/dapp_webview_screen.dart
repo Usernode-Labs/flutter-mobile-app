@@ -12,8 +12,31 @@ import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+
+enum _TxStatus { denied, error, queued }
+
+class _TxLogEntry {
+  final DateTime timestamp;
+  final String from;
+  final String to;
+  final BigInt amount;
+  final String memo;
+  final _TxStatus status;
+  final String? errorMessage;
+
+  const _TxLogEntry({
+    required this.timestamp,
+    required this.from,
+    required this.to,
+    required this.amount,
+    required this.memo,
+    required this.status,
+    this.errorMessage,
+  });
+}
 
 class DappWebViewScreen extends ConsumerStatefulWidget {
   final String url;
@@ -40,6 +63,8 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   final List<DateTime> _secretTaps = <DateTime>[];
   Timer? _secretTapResetTimer;
   bool _showUrlEditor = false;
+  final List<_TxLogEntry> _txLog = [];
+  List<_OnChainTx> _onChainTxCache = [];
 
   // Transaction confirmation uses Navigator.push with an opaque route instead
   // of showModalBottomSheet. A known Flutter engine bug (fixed in 3.41.0)
@@ -248,6 +273,17 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     );
 
     if (!userConfirmed) {
+      _txLog.insert(
+        0,
+        _TxLogEntry(
+          timestamp: DateTime.now(),
+          from: fromAddress,
+          to: destinationPubkey,
+          amount: amount,
+          memo: memoString,
+          status: _TxStatus.denied,
+        ),
+      );
       await _resolveJsPromise(
         id: id,
         value: null,
@@ -276,11 +312,27 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
           memo: memo,
         );
 
+    final rpcError = resp?.error;
+    _txLog.insert(
+      0,
+      _TxLogEntry(
+        timestamp: DateTime.now(),
+        from: fromAddress,
+        to: destinationPubkey,
+        amount: amount,
+        memo: memoString,
+        status: (rpcError != null && rpcError.isNotEmpty)
+            ? _TxStatus.error
+            : _TxStatus.queued,
+        errorMessage: rpcError,
+      ),
+    );
+
     await _resolveJsPromise(
       id: id,
       value: <String, dynamic>{
         'queued': resp?.queued ?? false,
-        'error': resp?.error,
+        'error': rpcError,
       },
       error: null,
     );
@@ -343,6 +395,47 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     if (memoRaw is String) return memoRaw.trim();
     if (memoRaw == null) return '';
     return null;
+  }
+
+  Future<void> _openTxDebugPanel() async {
+    final userAddress = await _getActiveNodeAddress();
+    final dappUri = parseDappUrl(widget.url);
+    final explorerOrigin = Uri(
+      scheme: dappUri.scheme,
+      host: dappUri.host,
+      port: dappUri.port,
+    );
+
+    if (!mounted) return;
+
+    await Navigator.push(
+      context,
+      PageRouteBuilder<void>(
+        opaque: true,
+        transitionDuration: const Duration(milliseconds: 300),
+        reverseTransitionDuration: const Duration(milliseconds: 250),
+        pageBuilder: (_, __, ___) => _TxDebugPanel(
+          txLog: _txLog,
+          userAddress: userAddress,
+          explorerOrigin: explorerOrigin,
+          initialOnChainTxs: _onChainTxCache,
+          onOnChainTxsUpdated: (txs) => _onChainTxCache = txs,
+        ),
+        transitionsBuilder: (_, animation, __, child) {
+          return SlideTransition(
+            position: Tween(
+              begin: const Offset(0, 1),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+              reverseCurve: Curves.easeInCubic,
+            )),
+            child: child,
+          );
+        },
+      ),
+    );
   }
 
   Future<bool> _showTransactionConfirmation({
@@ -559,16 +652,17 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
           onPressed: () => Navigator.of(context).pop(),
           icon: const Icon(Symbols.arrow_back_sharp),
         ),
-        title: Text(widget.name),
+        title: GestureDetector(
+          onTap: _onSecretTap,
+          behavior: HitTestBehavior.opaque,
+          child: Text(widget.name),
+        ),
         titleSpacing: 0,
         actions: [
-          Opacity(
-            opacity: 0,
-            child: IconButton(
-              tooltip: 'Hidden',
-              onPressed: _onSecretTap,
-              icon: const Icon(Symbols.more_horiz_sharp),
-            ),
+          IconButton(
+            tooltip: 'Transaction log',
+            onPressed: _openTxDebugPanel,
+            icon: const Icon(Symbols.receipt_long),
           ),
         ],
         bottom: bottomWidgets.isEmpty
@@ -766,5 +860,652 @@ class _TxConfirmationPage extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Transaction debug panel (opaque route — no WebView overlap)
+// ---------------------------------------------------------------------------
+
+class _OnChainTx {
+  final String txId;
+  final String? source;
+  final String? destination;
+  final String? memo;
+  final String? status;
+  final int? amount;
+  final int? blockHeight;
+  final int? timestampMs;
+  final int? inclusionLatencyMs;
+
+  const _OnChainTx({
+    required this.txId,
+    this.source,
+    this.destination,
+    this.memo,
+    this.status,
+    this.amount,
+    this.blockHeight,
+    this.timestampMs,
+    this.inclusionLatencyMs,
+  });
+
+  factory _OnChainTx.fromJson(Map<String, dynamic> j) {
+    return _OnChainTx(
+      txId: (j['tx_id'] ?? j['id'] ?? j['txid'] ?? j['hash'] ?? '') as String,
+      source: j['source'] as String? ?? j['from_pubkey'] as String?,
+      destination:
+          j['destination'] as String? ?? j['destination_pubkey'] as String?,
+      memo: j['memo'] as String?,
+      status: j['status'] as String?,
+      amount: (j['amount'] as num?)?.toInt(),
+      blockHeight: (j['block_height'] as num?)?.toInt(),
+      timestampMs: (j['timestamp_ms'] as num?)?.toInt(),
+      inclusionLatencyMs: (j['inclusion_latency_ms'] as num?)?.toInt(),
+    );
+  }
+}
+
+class _MergedEntry {
+  final _TxLogEntry local;
+  final _OnChainTx? onChain;
+  final bool isHistorical;
+
+  const _MergedEntry({
+    required this.local,
+    this.onChain,
+    this.isHistorical = false,
+  });
+}
+
+class _TxDebugPanel extends StatefulWidget {
+  final List<_TxLogEntry> txLog;
+  final String? userAddress;
+  final Uri explorerOrigin;
+  final List<_OnChainTx> initialOnChainTxs;
+  final ValueChanged<List<_OnChainTx>> onOnChainTxsUpdated;
+
+  const _TxDebugPanel({
+    required this.txLog,
+    required this.userAddress,
+    required this.explorerOrigin,
+    required this.initialOnChainTxs,
+    required this.onOnChainTxsUpdated,
+  });
+
+  @override
+  State<_TxDebugPanel> createState() => _TxDebugPanelState();
+}
+
+class _TxDebugPanelState extends State<_TxDebugPanel> {
+  late List<_OnChainTx> _onChainTxs;
+  late bool _loading;
+  String? _fetchError;
+  int? _expandedIndex;
+  late final Timer _ageTicker;
+
+  @override
+  void initState() {
+    super.initState();
+    _onChainTxs = List.of(widget.initialOnChainTxs);
+    _loading = _onChainTxs.isEmpty;
+    _ageTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+    _fetchExplorerData();
+  }
+
+  @override
+  void dispose() {
+    _ageTicker.cancel();
+    super.dispose();
+  }
+
+  Future<void> _fetchExplorerData() async {
+    final address = widget.userAddress;
+    if (address == null || address.isEmpty) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+
+    // Narrow the time window: only query from the oldest queued entry that
+    // hasn't been matched yet, minus 60 s buffer for clock skew.
+    int? fromTimestamp;
+    for (final local in widget.txLog) {
+      if (local.status != _TxStatus.queued) continue;
+      final alreadyResolved = _onChainTxs.any(
+        (oc) => oc.destination == local.to && oc.memo == local.memo,
+      );
+      if (alreadyResolved) continue;
+      final ms = local.timestamp.millisecondsSinceEpoch - 60000;
+      if (fromTimestamp == null || ms < fromTimestamp) fromTimestamp = ms;
+    }
+
+    // Nothing unresolved — skip the network call entirely.
+    if (fromTimestamp == null && _onChainTxs.isNotEmpty) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+
+    // Build the set of (destination, memo) pairs we still need to resolve.
+    final unresolvedPairs = <(String, String)>{};
+    for (final local in widget.txLog) {
+      if (local.status != _TxStatus.queued) continue;
+      final alreadyResolved = _onChainTxs.any(
+        (oc) => oc.destination == local.to && oc.memo == local.memo,
+      );
+      if (!alreadyResolved) {
+        unresolvedPairs.add((local.to, local.memo));
+      }
+    }
+
+    try {
+      final base = widget.explorerOrigin;
+      final chainRes =
+          await http.get(base.resolve('/explorer-api/active_chain'));
+      if (chainRes.statusCode != 200) {
+        throw Exception('Chain discovery failed (${chainRes.statusCode})');
+      }
+      final chainData = jsonDecode(chainRes.body) as Map<String, dynamic>;
+      final chainId = chainData['chain_id'] as String?;
+      if (chainId == null) throw Exception('No chain_id in response');
+
+      final txUrl = base.resolve('/explorer-api/$chainId/transactions');
+      final headers = {'Content-Type': 'application/json'};
+
+      final merged = <String, _OnChainTx>{};
+      for (final tx in _onChainTxs) {
+        merged[tx.txId] = tx;
+      }
+
+      String? cursor;
+      const maxPages = 20;
+
+      for (var page = 0; page < maxPages; page++) {
+        final query = <String, dynamic>{'sender': address, 'limit': 200};
+        if (fromTimestamp != null) query['from_timestamp'] = fromTimestamp;
+        if (cursor != null) query['cursor'] = cursor;
+
+        final txRes = await http.post(
+          txUrl,
+          headers: headers,
+          body: jsonEncode(query),
+        );
+        if (txRes.statusCode != 200) {
+          throw Exception('Transaction fetch failed (${txRes.statusCode})');
+        }
+        final txData = jsonDecode(txRes.body) as Map<String, dynamic>;
+        final items = (txData['items'] as List<dynamic>?) ?? [];
+
+        for (final item in items) {
+          final tx = _OnChainTx.fromJson(item as Map<String, dynamic>);
+          merged[tx.txId] = tx;
+
+          // Check off resolved pairs for early exit.
+          if (tx.destination != null && tx.memo != null) {
+            unresolvedPairs.remove((tx.destination!, tx.memo!));
+          }
+        }
+
+        // Stop if all pending entries are resolved.
+        if (unresolvedPairs.isEmpty) break;
+
+        final hasMore = txData['has_more'] as bool? ?? false;
+        final nextCursor = txData['next_cursor'] as String?;
+        if (!hasMore || nextCursor == null) break;
+        cursor = nextCursor;
+      }
+
+      if (mounted) {
+        final mergedList = merged.values.toList();
+        setState(() {
+          _onChainTxs = mergedList;
+          _loading = false;
+        });
+        widget.onOnChainTxsUpdated(mergedList);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _fetchError = e.toString();
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  List<_MergedEntry> _buildMergedList() {
+    final matched = <String>{};
+    final results = <_MergedEntry>[];
+
+    // First pass: merge local entries with on-chain matches.
+    for (final local in widget.txLog) {
+      if (local.status != _TxStatus.queued) {
+        results.add(_MergedEntry(local: local));
+        continue;
+      }
+
+      _OnChainTx? match;
+      for (final oc in _onChainTxs) {
+        if (matched.contains(oc.txId)) continue;
+        if (oc.destination == local.to && oc.memo == local.memo) {
+          matched.add(oc.txId);
+          match = oc;
+          break;
+        }
+      }
+      results.add(_MergedEntry(local: local, onChain: match));
+    }
+
+    // Second pass: append historical on-chain txs not matched to any local
+    // entry (e.g. from previous app sessions).
+    for (final oc in _onChainTxs) {
+      if (matched.contains(oc.txId)) continue;
+      if (oc.source == null) continue;
+      final ts = oc.timestampMs != null
+          ? DateTime.fromMillisecondsSinceEpoch(oc.timestampMs!)
+          : DateTime.now();
+      results.add(_MergedEntry(
+        local: _TxLogEntry(
+          timestamp: ts,
+          from: oc.source!,
+          to: oc.destination ?? '',
+          amount: BigInt.from(oc.amount ?? 0),
+          memo: oc.memo ?? '',
+          status: _TxStatus.queued,
+        ),
+        onChain: oc,
+        isHistorical: true,
+      ));
+    }
+
+    return results;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final spacing = theme.extension<AppSpacing>()!;
+    final radii = theme.extension<AppRadii>()!;
+    final muted = theme.colorScheme.onSurfaceVariant;
+    final merged = _buildMergedList();
+
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          tooltip: 'Back',
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Symbols.arrow_back_sharp),
+        ),
+        title: const Text('Transaction Log'),
+        titleSpacing: 0,
+      ),
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_loading)
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: LinearProgressIndicator(minHeight: 2),
+              ),
+            if (_fetchError != null)
+              Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: spacing.space16,
+                  vertical: spacing.space8,
+                ),
+                child: Text(
+                  'Explorer fetch failed: $_fetchError',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.error),
+                ),
+              ),
+            Expanded(
+              child: merged.isEmpty
+                  ? Center(
+                      child: Text(
+                        'No transactions yet',
+                        style: theme.textTheme.bodyMedium
+                            ?.copyWith(color: muted),
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: EdgeInsets.all(spacing.space16),
+                      itemCount: merged.length,
+                      itemBuilder: (ctx, index) {
+                        final entry = merged[index];
+                        final local = entry.local;
+                        final oc = entry.onChain;
+                        final isExpanded = _expandedIndex == index;
+
+                        final (Color badgeColor, String badgeLabel) =
+                            switch (local.status) {
+                          _TxStatus.denied => (
+                              theme.colorScheme.error,
+                              'Denied'
+                            ),
+                          _TxStatus.error => (
+                              theme.colorScheme.error,
+                              'Error'
+                            ),
+                          _TxStatus.queued when oc?.status == 'confirmed' => (
+                              const Color(0xFF4CAF50),
+                              'Confirmed'
+                            ),
+                          _TxStatus.queued when oc?.status == 'orphaned' => (
+                              theme.colorScheme.error,
+                              'Orphaned'
+                            ),
+                          _TxStatus.queued => (
+                              const Color(0xFFFFA726),
+                              'Pending'
+                            ),
+                        };
+
+                        String memoType = '';
+                        try {
+                          final parsed =
+                              jsonDecode(local.memo) as Map<String, dynamic>;
+                          memoType = parsed['type'] as String? ?? '';
+                        } catch (_) {}
+
+                        final age = DateTime.now().difference(local.timestamp);
+                        final String ageStr;
+                        if (entry.isHistorical) {
+                          ageStr = age.inMinutes < 1
+                              ? '${age.inSeconds}s ago'
+                              : age.inHours < 1
+                                  ? '${age.inMinutes}m ago'
+                                  : age.inDays < 1
+                                      ? '${age.inHours}h ago'
+                                      : '${age.inDays}d ago';
+                        } else {
+                          ageStr = age.inMinutes < 1
+                              ? 'sent ${age.inSeconds}s ago'
+                              : age.inHours < 1
+                                  ? 'sent ${age.inMinutes}m ago'
+                                  : age.inDays < 1
+                                      ? 'sent ${age.inHours}h ago'
+                                      : 'sent ${age.inDays}d ago';
+                        }
+
+                        final bool isConfirmed =
+                            local.status == _TxStatus.queued &&
+                                oc?.status == 'confirmed';
+                        String? confirmTimeStr;
+                        if (isConfirmed) {
+                          int? latencyMs;
+                          // Prefer the explorer's inclusion_latency_ms (tx
+                          // timestamp vs block timestamp, computed server-side).
+                          // Fall back to local send time vs block timestamp,
+                          // which can be negative due to clock skew.
+                          if (oc?.inclusionLatencyMs != null) {
+                            latencyMs = oc!.inclusionLatencyMs!;
+                          } else if (!entry.isHistorical &&
+                              oc?.timestampMs != null) {
+                            latencyMs = oc!.timestampMs! -
+                                local.timestamp.millisecondsSinceEpoch;
+                          }
+                          if (latencyMs != null && latencyMs >= 0) {
+                            final secs = latencyMs ~/ 1000;
+                            confirmTimeStr = secs < 60
+                                ? '${secs}s'
+                                : '${secs ~/ 60}m ${secs % 60}s';
+                          }
+                        }
+
+                        final txHash = oc?.txId;
+
+                        return Padding(
+                          padding:
+                              EdgeInsets.only(bottom: spacing.space8),
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _expandedIndex =
+                                    isExpanded ? null : index;
+                              });
+                            },
+                            child: Container(
+                              padding:
+                                  EdgeInsets.all(spacing.space12),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme
+                                    .surfaceContainerHighest
+                                    .withAlpha(100),
+                                borderRadius:
+                                    radii.borderRadiusMedium,
+                                border: Border.all(
+                                  color: theme
+                                      .colorScheme.outlineVariant
+                                      .withAlpha(80),
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding:
+                                            const EdgeInsets
+                                                .symmetric(
+                                          horizontal: 8,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: badgeColor
+                                              .withAlpha(30),
+                                          borderRadius:
+                                              BorderRadius
+                                                  .circular(4),
+                                        ),
+                                        child: Text(
+                                          badgeLabel,
+                                          style: theme
+                                              .textTheme
+                                              .labelSmall
+                                              ?.copyWith(
+                                            color: badgeColor,
+                                            fontWeight:
+                                                FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      if (confirmTimeStr != null)
+                                        Padding(
+                                          padding:
+                                              const EdgeInsets.only(
+                                                  right: 6),
+                                          child: Text(
+                                            '⏱ $confirmTimeStr',
+                                            style: theme
+                                                .textTheme
+                                                .labelSmall
+                                                ?.copyWith(
+                                              color:
+                                                  const Color(
+                                                      0xFF4CAF50),
+                                              fontWeight:
+                                                  FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                      Text(
+                                        ageStr,
+                                        style: theme
+                                            .textTheme
+                                            .labelSmall
+                                            ?.copyWith(
+                                          color: muted,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(
+                                      height: spacing.space8),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          'To: ${_truncate(local.to, 20)}',
+                                          style: theme
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                            fontFamily:
+                                                kMonoFontFamily,
+                                          ),
+                                        ),
+                                      ),
+                                      Text(
+                                        'Amt: ${local.amount}',
+                                        style: theme
+                                            .textTheme.bodySmall,
+                                      ),
+                                    ],
+                                  ),
+                                  if (memoType.isNotEmpty)
+                                    Padding(
+                                      padding: EdgeInsets.only(
+                                          top: spacing.space4),
+                                      child: Text(
+                                        'type: $memoType',
+                                        style: theme
+                                            .textTheme
+                                            .labelSmall
+                                            ?.copyWith(
+                                          color: muted,
+                                        ),
+                                      ),
+                                    ),
+                                  if (txHash != null &&
+                                      txHash.isNotEmpty)
+                                    Padding(
+                                      padding: EdgeInsets.only(
+                                          top: spacing.space4),
+                                      child: Text(
+                                        'tx: ${_truncate(txHash, 24)}',
+                                        style: theme
+                                            .textTheme
+                                            .labelSmall
+                                            ?.copyWith(
+                                          fontFamily:
+                                              kMonoFontFamily,
+                                          color: muted,
+                                        ),
+                                      ),
+                                    ),
+                                  if (local.status ==
+                                          _TxStatus.error &&
+                                      local.errorMessage != null)
+                                    Padding(
+                                      padding: EdgeInsets.only(
+                                          top: spacing.space4),
+                                      child: Text(
+                                        local.errorMessage!,
+                                        style: theme
+                                            .textTheme
+                                            .labelSmall
+                                            ?.copyWith(
+                                          color: theme
+                                              .colorScheme.error,
+                                        ),
+                                      ),
+                                    ),
+                                  if (isExpanded) ...[
+                                    const Divider(height: 16),
+                                    _detailRow(
+                                        theme, muted, 'From',
+                                        local.from,
+                                        mono: true),
+                                    _detailRow(
+                                        theme, muted, 'To',
+                                        local.to,
+                                        mono: true),
+                                    _detailRow(
+                                        theme,
+                                        muted,
+                                        'Amount',
+                                        local.amount
+                                            .toString()),
+                                    if (txHash != null &&
+                                        txHash.isNotEmpty)
+                                      _detailRow(
+                                          theme,
+                                          muted,
+                                          'Tx Hash',
+                                          txHash,
+                                          mono: true),
+                                    if (oc?.blockHeight != null)
+                                      _detailRow(
+                                          theme,
+                                          muted,
+                                          'Block',
+                                          oc!.blockHeight
+                                              .toString()),
+                                    _detailRow(
+                                        theme,
+                                        muted,
+                                        'Memo',
+                                        _formatMemo(
+                                            local.memo)),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static Widget _detailRow(
+    ThemeData theme,
+    Color muted,
+    String label,
+    String value, {
+    bool mono = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label,
+              style: theme.textTheme.labelSmall?.copyWith(color: muted)),
+          const SizedBox(height: 2),
+          SelectableText(
+            value,
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontFamily: mono ? kMonoFontFamily : null,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _truncate(String s, int maxLen) {
+    if (s.length <= maxLen) return s;
+    final half = (maxLen - 1) ~/ 2;
+    return '${s.substring(0, half)}…${s.substring(s.length - half)}';
+  }
+
+  static String _formatMemo(String memo) {
+    try {
+      final parsed = jsonDecode(memo);
+      return const JsonEncoder.withIndent('  ').convert(parsed);
+    } catch (_) {
+      return memo;
+    }
   }
 }

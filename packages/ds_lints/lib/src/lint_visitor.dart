@@ -554,7 +554,7 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
     return false;
   }
 
-  // ── Rule 9: avoid_card_margin ──────────────────────────────────────
+  // ── Rule 10: avoid_card_margin ─────────────────────────────────────
 
   void _checkCardMargin(AstNode node, ArgumentList args) {
     if (isExcludedPath(filePath)) return;
@@ -574,7 +574,7 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
     }
   }
 
-  // ── Rule 8: require_tile_card_vertical_inset ────────────────────────
+  // ── Rule 9: require_tile_card_vertical_inset ────────────────────────
 
   void _checkTileCardVerticalInset(AstNode node, ArgumentList args) {
     // Find padding: named argument.
@@ -664,7 +664,7 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
     }
   }
 
-  // ── Rule 8: require_ds_button ──────────────────────────────────────
+  // ── Rule 11: require_ds_button ─────────────────────────────────────
 
   void _checkPreferDsButton(AstNode node, String typeName) {
     if (isExcludedPath(filePath)) return;

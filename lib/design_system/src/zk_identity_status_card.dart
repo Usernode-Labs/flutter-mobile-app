@@ -76,6 +76,7 @@ class _StepRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final colors = Theme.of(context).colorScheme;
+    final radii = Theme.of(context).extension<AppRadii>()!;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
     final sizing = Theme.of(context).extension<AppSizing>()!;
 
@@ -119,7 +120,11 @@ class _StepRow extends StatelessWidget {
     );
 
     return step.onTap != null
-        ? InkWell(onTap: step.onTap, child: content)
+        ? InkWell(
+            onTap: step.onTap,
+            borderRadius: radii.borderRadiusMedium,
+            child: content,
+          )
         : content;
   }
 }

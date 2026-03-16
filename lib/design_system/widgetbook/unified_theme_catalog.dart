@@ -2436,6 +2436,7 @@ class _ThemeSwitchingDemo extends StatelessWidget {
       cardTheme: CardThemeData(
         color: comparisonScheme.surfaceContainerLowest,
         elevation: 0,
+        margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
           side: BorderSide(color: comparisonScheme.outlineVariant),

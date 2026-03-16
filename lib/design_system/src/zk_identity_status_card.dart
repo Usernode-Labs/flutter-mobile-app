@@ -76,6 +76,7 @@ class _StepRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final colors = Theme.of(context).colorScheme;
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final sizing = Theme.of(context).extension<AppSizing>()!;
 
     final valueStyle = step.monospace
@@ -87,17 +88,38 @@ class _StepRow extends StatelessWidget {
             color: colors.onSurfaceVariant,
           );
 
-    return ListTile(
-      leading: IconBadge(
-        icon: step.icon,
-        size: sizing.iconContainerSmall,
+    final content = Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: spacing.space16,
+        vertical: spacing.space12,
       ),
-      title: Text(
-        step.label,
-        style: textTheme.bodyMedium?.copyWith(color: colors.onSurface),
+      child: Row(
+        children: [
+          IconBadge(
+            icon: step.icon,
+            size: sizing.iconContainerSmall,
+          ),
+          SizedBox(width: spacing.space12),
+          Text(
+            step.label,
+            style: textTheme.bodyMedium?.copyWith(color: colors.onSurface),
+          ),
+          SizedBox(width: spacing.space16),
+          Expanded(
+            child: Text(
+              step.value,
+              style: valueStyle,
+              textAlign: TextAlign.end,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
       ),
-      trailing: Text(step.value, style: valueStyle),
-      onTap: step.onTap,
     );
+
+    return step.onTap != null
+        ? InkWell(onTap: step.onTap, child: content)
+        : content;
   }
 }

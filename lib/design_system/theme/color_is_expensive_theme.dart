@@ -391,6 +391,7 @@ class ColorIsExpensiveTheme {
         cardTheme: CardThemeData(
           color: colorScheme.surfaceContainerLowest,
           elevation: 0,
+          margin: EdgeInsets.zero,
           surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: _radii.borderRadiusLarge,

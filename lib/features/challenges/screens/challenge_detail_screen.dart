@@ -5,6 +5,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
@@ -52,6 +53,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
         builder: (context, diffSnapshot) {
           return _buildPage(
             context,
+            ref,
             eb,
             diffSnapshot.data,
             latestEpoch,
@@ -65,6 +67,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
 
   Widget _buildPage(
     BuildContext context,
+    WidgetRef ref,
     EventBreakdown? eb,
     PointDiff? diff,
     int? latestEpoch,
@@ -101,7 +104,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
           : null,
       statusSection: isProduceBlocks
           ? _buildStatusSection(
-              context, nodeStatus, blocksSummaryData, latestEpoch)
+              context, ref, nodeStatus, blocksSummaryData, latestEpoch)
           : null,
       sections: _buildSections(context, dto),
       totalRewardHeading: showRewardCard
@@ -220,12 +223,16 @@ class ChallengeDetailScreen extends ConsumerWidget {
 
   Widget _buildStatusSection(
     BuildContext context,
+    WidgetRef ref,
     NodeStatusState? nodeStatus,
     ProducedBlocksSummary? summary,
     int? currentEpoch,
   ) {
-    // Network step — always tappable, navigates to Node Status
-    void networkOnTap() => context.push(AppRoutes.mainNode);
+    // Network step — always tappable, navigates to Node Status tab
+    void networkOnTap() {
+      ref.read(currentHomeTabProvider.notifier).state = HomeTab.nodeStatus;
+      context.go(AppRoutes.home);
+    }
     final PipelineStepStatus networkStep;
     if (nodeStatus == null) {
       networkStep = PipelineStepStatus(

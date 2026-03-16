@@ -8,6 +8,7 @@ import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/utils/time_format.dart';
 import 'package:crypto_mobile_app/core/utils/utils.dart';
 import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:crypto_mobile_app/core/widgets/app_progress_bar.dart';
@@ -695,8 +696,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     final now = DateTime.now();
     final checked = _lastChecked;
     final l10n = AppLocalizations.of(context);
-    final timeStr =
-        '${checked.hour.toString().padLeft(2, '0')}:${checked.minute.toString().padLeft(2, '0')}:${checked.second.toString().padLeft(2, '0')}';
+    final timeStr = formatHHMMSS(checked);
 
     final isToday = now.year == checked.year &&
         now.month == checked.month &&

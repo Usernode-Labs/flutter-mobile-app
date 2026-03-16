@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_semantic_colors.dart';
+import 'package:crypto_mobile_app/core/utils/time_format.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_sizing.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
@@ -283,10 +284,7 @@ class WonSlotItem extends StatelessWidget {
 
       // If it's today, show time only
       if (now.year == dt.year && now.month == dt.month && now.day == dt.day) {
-        final hour = dt.hour.toString().padLeft(2, '0');
-        final minute = dt.minute.toString().padLeft(2, '0');
-        final second = dt.second.toString().padLeft(2, '0');
-        return 'Today at $hour:$minute:$second';
+        return 'Today at ${formatHHMMSS(dt)}';
       }
 
       // If it's tomorrow
@@ -294,17 +292,13 @@ class WonSlotItem extends StatelessWidget {
       if (tomorrow.year == dt.year &&
           tomorrow.month == dt.month &&
           tomorrow.day == dt.day) {
-        final hour = dt.hour.toString().padLeft(2, '0');
-        final minute = dt.minute.toString().padLeft(2, '0');
-        return 'Tomorrow at $hour:$minute';
+        return 'Tomorrow at ${formatHHMM(dt)}';
       }
 
       // Otherwise show full date
       final month = dt.month.toString().padLeft(2, '0');
       final day = dt.day.toString().padLeft(2, '0');
-      final hour = dt.hour.toString().padLeft(2, '0');
-      final minute = dt.minute.toString().padLeft(2, '0');
-      return '${dt.year}-$month-$day $hour:$minute';
+      return '${dt.year}-$month-$day ${formatHHMM(dt)}';
     } catch (e) {
       return 'Invalid time';
     }

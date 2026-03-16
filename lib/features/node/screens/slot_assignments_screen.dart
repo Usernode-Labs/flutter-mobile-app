@@ -6,6 +6,7 @@ import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/widgets/app_card.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:go_router/go_router.dart';
+import 'package:crypto_mobile_app/core/utils/time_format.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_slots.dart';
 
 class SlotAssignmentsScreen extends StatefulWidget {
@@ -313,10 +314,7 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
                         (isScheduled || isProduced || isMissed || isOrphaned)) {
                       final dt =
                           DateTime.fromMillisecondsSinceEpoch(item.slotTimeMs!);
-                      final hh = dt.hour.toString().padLeft(2, '0');
-                      final mm = dt.minute.toString().padLeft(2, '0');
-                      final ss = dt.second.toString().padLeft(2, '0');
-                      final timeStr = '$hh:$mm:$ss';
+                      final timeStr = formatHHMMSS(dt);
                       if (isScheduled) {
                         subtitleText = 'Scheduled for $timeStr';
                       } else if (isProduced) {

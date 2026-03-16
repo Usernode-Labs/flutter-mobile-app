@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/services/explorer_service.dart';
+import 'package:crypto_mobile_app/core/utils/time_format.dart';
 import 'package:crypto_mobile_app/core/utils/utils.dart';
 
 enum TransactionType {
@@ -84,11 +85,8 @@ class TransactionModel {
     final year = timestamp.year.toString();
     final month = timestamp.month.toString().padLeft(2, '0');
     final day = timestamp.day.toString().padLeft(2, '0');
-    final hour = timestamp.hour.toString().padLeft(2, '0');
-    final minute = timestamp.minute.toString().padLeft(2, '0');
-    final second = timestamp.second.toString().padLeft(2, '0');
 
-    return '$year-$month-$day $hour:$minute:$second';
+    return '$year-$month-$day ${formatHHMMSS(timestamp)}';
   }
 
   String get fullSubtitle => shortHash;

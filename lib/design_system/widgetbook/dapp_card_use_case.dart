@@ -50,6 +50,7 @@ WidgetbookComponent dappCardComponent() {
               users: users,
               txns: txns,
               enabled: enabled,
+              disabledLabel: enabled ? null : 'Coming',
               onTap: () {},
             ),
           );

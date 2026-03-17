@@ -375,23 +375,26 @@ class _SlotProductionStatsScreenState
     AppLocalizations l10n,
     AppSpacing spacing,
   ) {
-    return Card(
-      margin: EdgeInsets.only(bottom: spacing.space12),
-      child: ExpansionTile(
-        leading: Icon(Symbols.calendar_today_sharp, color: colorScheme.primary),
-        title: Text(
-          l10n.statsEpoch(epoch),
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
+    return Padding(
+      padding: EdgeInsets.only(bottom: spacing.space12),
+      child: Card(
+        child: ExpansionTile(
+          leading:
+              Icon(Symbols.calendar_today_sharp, color: colorScheme.primary),
+          title: Text(
+            l10n.statsEpoch(epoch),
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
           ),
+          subtitle: Text(
+            '${records.length} slot${records.length != 1 ? 's' : ''}',
+            style: theme.textTheme.bodySmall,
+          ),
+          children: records.map((record) {
+            return _buildRecordTile(record, theme, colorScheme, l10n);
+          }).toList(),
         ),
-        subtitle: Text(
-          '${records.length} slot${records.length != 1 ? 's' : ''}',
-          style: theme.textTheme.bodySmall,
-        ),
-        children: records.map((record) {
-          return _buildRecordTile(record, theme, colorScheme, l10n);
-        }).toList(),
       ),
     );
   }

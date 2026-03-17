@@ -463,7 +463,7 @@ radii.borderRadiusTopLargeIncreased
 
 ### AppCard Is the Canonical Meso Container
 
-`AppCard` provides the standard surface: `surfaceContainerLowest` background, `outlineVariant` border, `large` (16dp) radius, and configurable padding.
+`AppCard` provides the standard surface: `surfaceContainerLowest` background, `outlineVariant` border, `large` (16dp) radius, and configurable padding. Note: `CardThemeData` zeroes Flutter's hidden default 4px margin — Cards sit flush within screen margins with no invisible offset.
 
 | Constructor | Internal padding | Use for |
 |-------------|-----------------|---------|

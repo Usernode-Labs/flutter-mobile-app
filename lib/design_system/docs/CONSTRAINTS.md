@@ -114,6 +114,14 @@ See [DECISIONS.md](DECISIONS.md) "Selective M3 Adoption" for a worked example.
 
 **Where:** `/verify-widget` checks all 10 items.
 
+## Card Zero-Margin Rule
+
+**Constraint:** `CardThemeData` sets `margin: EdgeInsets.zero`, overriding Flutter's hidden default `margin: EdgeInsets.all(4.0)`. Cards never own their external spacing — parent widgets (Padding, SizedBox, Column spacing) provide inter-card gaps following the Matryoshka model.
+
+**Why:** Flutter's `Card` has a built-in 4px margin that breaks token-based keyline alignment. When a screen applies `space16` horizontal padding and a Card adds 4px margin, the visual inset becomes 20px instead of 16px — an invisible off-grid drift. Zeroing at the theme level fixes every Card globally.
+
+**Where:** `theme/color_is_expensive_theme.dart` (CardThemeData); enforced by `avoid_card_margin` lint.
+
 ## Known Architecture Issues
 
 1. ~~**Dual theme.**~~ **Resolved (2026-03-02).** `ColorIsExpensiveTheme` is now the
@@ -171,6 +179,7 @@ cd packages/ds_lints && dart run bin/lint.dart /path/to/project/root
 | `avoid_padding_around_tiles` | WARNING | `Padding` with horizontal insets wrapping a ListTile-family widget (`ListTile`, `SwitchListTile`, `CheckboxListTile`, `RadioListTile`, `ExpansionTile`). These widgets get `contentPadding` from the theme — outer horizontal Padding causes double-indenting. |
 | `avoid_listtile_layout_overrides` | WARNING | Per-widget `visualDensity`, `minVerticalPadding`, `minTileHeight`, `titleAlignment`, or `contentPadding` on `ListTile`/`SwitchListTile`/`CheckboxListTile`/`RadioListTile`. These layout properties should come from the theme — per-widget overrides break M3's baseline alignment. |
 | `require_tile_card_vertical_inset` | WARNING | `AppCard(padding: EdgeInsets.zero)` whose child subtree contains tile widgets. Use `EdgeInsets.symmetric(vertical: spacing.space8)` for list surface inset. |
+| `avoid_card_margin` | WARNING | `Card(margin: ...)` with an explicit margin argument. CardThemeData zeroes the default 4px margin — use a parent `Padding` or `SizedBox` for spacing instead. |
 
 Excluded paths: `/widgetbook/`, `/test/`.
 

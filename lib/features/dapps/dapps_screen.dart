@@ -2,6 +2,7 @@ import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/models/dapp_item.dart';
+import 'package:crypto_mobile_app/features/dapps/providers/dapps_challenge_provider.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/dapps_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,11 +27,12 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
 
   Future<void> _onRefresh() async {
     ref.invalidate(dappsProvider);
-    ref.invalidate(dappStatsProvider);
-    await Future.wait([
-      ref.read(dappsProvider.future),
-      ref.read(dappStatsProvider.future),
-    ]);
+    final futures = <Future<Object>>[ref.read(dappsProvider.future)];
+    if (ref.read(dappsLiveProvider)) {
+      ref.invalidate(dappStatsProvider);
+      futures.add(ref.read(dappStatsProvider.future));
+    }
+    await Future.wait(futures);
   }
 
   @override
@@ -39,7 +41,8 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
     final spacing = theme.extension<AppSpacing>()!;
     final sizing = theme.extension<AppSizing>()!;
     final dappsAsync = ref.watch(dappsProvider);
-    final statsAsync = ref.watch(dappStatsProvider);
+    final dappsLive = ref.watch(dappsLiveProvider);
+    final statsAsync = dappsLive ? ref.watch(dappStatsProvider) : null;
 
     final dappCount = dappsAsync.valueOrNull?.length;
 
@@ -54,12 +57,14 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
         header: _DappsHeader(
           count: dappCount,
           statsAsync: statsAsync,
+          dappsLive: dappsLive,
         ),
         surfaceSlivers: _buildSurfaceSlivers(
           dappsAsync,
           statsAsync,
           spacing,
           sizing,
+          dappsLive,
         ),
       ),
     );
@@ -67,16 +72,20 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
 
   List<Widget> _buildSurfaceSlivers(
     AsyncValue<List<DappItem>> dappsAsync,
-    AsyncValue<Map<String, DappStats>> statsAsync,
+    AsyncValue<Map<String, DappStats>>? statsAsync,
     AppSpacing spacing,
     AppSizing sizing,
+    bool dappsLive,
   ) {
+    final effectiveSort = dappsLive ? _sortMode : SortMode.alpha;
+
     return [
       SliverPadding(
         padding: EdgeInsets.symmetric(horizontal: spacing.space24),
         sliver: SliverToBoxAdapter(
           child: _SortBar(
-            sortMode: _sortMode,
+            sortMode: effectiveSort,
+            enabled: dappsLive,
             onSortChanged: (mode) => setState(() => _sortMode = mode),
           ),
         ),
@@ -110,7 +119,7 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
           ),
         ],
         data: (_) {
-          final sorted = ref.watch(sortedDappsProvider(_sortMode));
+          final sorted = ref.watch(sortedDappsProvider(effectiveSort));
 
           if (sorted.isEmpty) {
             return [
@@ -131,7 +140,7 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
                 itemCount: sorted.length,
                 separatorBuilder: (_, __) => SizedBox(height: spacing.space8),
                 itemBuilder: (_, index) =>
-                    _buildDappCard(context, sorted[index]),
+                    _buildDappCard(context, sorted[index], dappsLive),
               ),
             ),
             SliverToBoxAdapter(child: SizedBox(height: spacing.space32)),
@@ -144,25 +153,31 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
   Widget _buildDappCard(
     BuildContext context,
     DappItem dapp,
+    bool dappsLive,
   ) {
-    final statsAsync = ref.watch(dappStatsProvider);
-    final stats = statsAsync.valueOrNull?[dapp.pubkey];
+    final DappStats? stats = dappsLive
+        ? (ref.watch(dappStatsProvider).valueOrNull?[dapp.pubkey])
+        : null;
     return DappCard(
       name: dapp.name,
       author: dapp.author,
       description: dapp.description ?? DappCard.kDefaultDescription,
       users: stats?.users,
       txns: stats?.txns,
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => DappWebViewScreen(
-              url: dapp.url,
-              name: dapp.name,
-            ),
-          ),
-        );
-      },
+      enabled: dappsLive,
+      disabledLabel: dappsLive ? null : 'Coming',
+      onTap: dappsLive
+          ? () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => DappWebViewScreen(
+                    url: dapp.url,
+                    name: dapp.name,
+                  ),
+                ),
+              );
+            }
+          : null,
     );
   }
 }
@@ -171,10 +186,12 @@ class _DappsHeader extends StatelessWidget {
   const _DappsHeader({
     required this.count,
     required this.statsAsync,
+    required this.dappsLive,
   });
 
   final int? count;
-  final AsyncValue<Map<String, DappStats>> statsAsync;
+  final AsyncValue<Map<String, DappStats>>? statsAsync;
+  final bool dappsLive;
 
   @override
   Widget build(BuildContext context) {
@@ -184,9 +201,13 @@ class _DappsHeader extends StatelessWidget {
 
     final countValue = count != null ? '$count' : '\u2014';
 
+    if (!dappsLive) {
+      return _StatPair(value: countValue, label: 'dApps Coming');
+    }
+
     String txnValue;
-    if (statsAsync.hasValue) {
-      final stats = statsAsync.requireValue;
+    if (statsAsync != null && statsAsync!.hasValue) {
+      final stats = statsAsync!.requireValue;
       var totalTxns = 0;
       for (final s in stats.values) {
         totalTxns += s.txns;
@@ -253,10 +274,12 @@ class _SortBar extends StatelessWidget {
   const _SortBar({
     required this.sortMode,
     required this.onSortChanged,
+    this.enabled = true,
   });
 
   final SortMode sortMode;
   final ValueChanged<SortMode> onSortChanged;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -270,6 +293,7 @@ class _SortBar extends StatelessWidget {
           Text('dApps', style: theme.textTheme.titleMedium),
           DropdownChip(
             label: _sortLabels[sortMode]!,
+            enabled: enabled,
             onTap: () async {
               final labels = _sortLabels.values.toList();
               final modes = _sortLabels.keys.toList();

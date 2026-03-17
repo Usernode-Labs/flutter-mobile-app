@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:crypto_mobile_app/core/utils/time_format.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_typography.dart';
@@ -351,10 +352,7 @@ class ProducedBlockCard extends StatelessWidget {
       final millis = timestampMs.toInt();
       final blockTime =
           DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true).toLocal();
-      final hour = blockTime.hour.toString().padLeft(2, '0');
-      final minute = blockTime.minute.toString().padLeft(2, '0');
-      final second = blockTime.second.toString().padLeft(2, '0');
-      return '$hour:$minute:$second';
+      return formatHHMMSS(blockTime);
     } catch (e) {
       return 'Invalid time';
     }
@@ -385,11 +383,7 @@ class ProducedBlockCard extends StatelessWidget {
             '${(diff.inDays / 7).floor()} week${(diff.inDays / 7).floor() == 1 ? '' : 's'} ago';
       }
 
-      // Format absolute time
-      final hour = blockTime.hour.toString().padLeft(2, '0');
-      final minute = blockTime.minute.toString().padLeft(2, '0');
-      final second = blockTime.second.toString().padLeft(2, '0');
-      final absoluteTime = '$hour:$minute:$second';
+      final absoluteTime = formatHHMMSS(blockTime);
 
       return '$relativeTime • $absoluteTime';
     } catch (e) {

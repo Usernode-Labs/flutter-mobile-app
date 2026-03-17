@@ -4,6 +4,7 @@ import 'package:crypto_mobile_app/core/providers/produced_blocks_provider.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:go_router/go_router.dart';
+import 'package:crypto_mobile_app/core/utils/time_format.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_slots.dart';
 
 class SlotAssignmentsScreen extends ConsumerStatefulWidget {
@@ -128,10 +129,7 @@ class _SlotAssignmentsScreenState extends ConsumerState<SlotAssignmentsScreen> {
   static String? _formatTimeLabel(RpcSlotResult result, int? slotTimeMs) {
     if (slotTimeMs == null) return null;
     final dt = DateTime.fromMillisecondsSinceEpoch(slotTimeMs);
-    final hh = dt.hour.toString().padLeft(2, '0');
-    final mm = dt.minute.toString().padLeft(2, '0');
-    final ss = dt.second.toString().padLeft(2, '0');
-    final timeStr = '$hh:$mm:$ss';
+    final timeStr = formatHHMMSS(dt);
     return switch (result) {
       RpcSlotResult.scheduled => 'Scheduled for $timeStr',
       RpcSlotResult.produced => 'Produced at $timeStr',

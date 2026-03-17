@@ -103,7 +103,7 @@ class ExplorerService {
     }
 
     try {
-      final url = '$baseUrl/api/$chainId/blocks/best_tip/$account/balance';
+      final url = '$baseUrl/$chainId/blocks/best_tip/$account/balance';
       _log.debug('Requesting balance from: $url');
 
       final response =
@@ -151,7 +151,7 @@ class ExplorerService {
     }
 
     try {
-      final url = '$baseUrl/api/$chainId/accounts/$account/txs?limit=25';
+      final url = '$baseUrl/$chainId/accounts/$account/txs?limit=25';
       _log.debug('Requesting transactions from: $url');
 
       final response =

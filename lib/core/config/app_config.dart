@@ -222,11 +222,11 @@ class AppConfig {
   // Explorer API configuration
   static const String primaryExplorerUrl = String.fromEnvironment(
     'EXPLORER_PRIMARY_URL',
-    defaultValue: 'https://alpha1.usernodelabs.org',
+    defaultValue: 'https://alpha1.usernodelabs.org/api',
   );
   static const String secondaryExplorerUrl = String.fromEnvironment(
     'EXPLORER_SECONDARY_URL',
-    defaultValue: 'https://alpha2.usernodelabs.org',
+    defaultValue: 'https://alpha2.usernodelabs.org/api',
   );
   static const int explorerTimeoutSeconds = int.fromEnvironment(
     'EXPLORER_TIMEOUT_SECONDS',

@@ -17,6 +17,7 @@ import 'package:crypto_mobile_app/features/node/screens/node_status_screen.dart'
 import 'package:crypto_mobile_app/features/node/screens/node_won_slots_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/mempool_details_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/node_peers_screen.dart';
+import 'package:crypto_mobile_app/features/node/screens/block_details_screen.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 import 'package:crypto_mobile_app/features/zk_identity/screens/zk_identity_detail_screen.dart';
 import 'package:crypto_mobile_app/features/zk_identity/screens/zk_identity_flow_screen.dart';
@@ -74,6 +75,7 @@ class AppRoutes {
   // Main shell routes
   static const mainNode = '/main/node';
   static const mainNodeWonSlots = '/main/node/won-slots';
+  static const mainNodeBlockDetails = '/main/node/block-details';
   static const mainNodeMempool = '/main/node/mempool';
   static const mainNodePeers = '/main/node/peers';
 }
@@ -193,6 +195,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.mainNode,
         builder: (context, state) => const NodeStatusScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.mainNodeBlockDetails,
+        builder: (context, state) {
+          final block = state.extra as RpcStatusBlockInfo;
+          return BlockDetailsScreen(block: block);
+        },
       ),
       GoRoute(
         path: AppRoutes.mainNodeMempool,

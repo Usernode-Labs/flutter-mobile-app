@@ -2547,6 +2547,210 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Done'**
   String get burstDone;
+
+  /// Timeline item title
+  ///
+  /// In en, this message translates to:
+  /// **'Applied Locally'**
+  String get blockAppliedLocally;
+
+  /// Block at slot header
+  ///
+  /// In en, this message translates to:
+  /// **'Block #{height} at Slot {slot}'**
+  String blockAtSlot(int height, int slot);
+
+  /// Batches label
+  ///
+  /// In en, this message translates to:
+  /// **'Batches'**
+  String get blockBatches;
+
+  /// Timeline item title
+  ///
+  /// In en, this message translates to:
+  /// **'Block Committed'**
+  String get blockCommitted;
+
+  /// Timeline item title
+  ///
+  /// In en, this message translates to:
+  /// **'Block Confirmed'**
+  String get blockConfirmed;
+
+  /// Block details screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Block Details'**
+  String get blockDetailsTitle;
+
+  /// Epoch label
+  ///
+  /// In en, this message translates to:
+  /// **'Epoch'**
+  String get blockEpoch;
+
+  /// Timeline item subtitle for epoch and slot
+  ///
+  /// In en, this message translates to:
+  /// **'Epoch {epoch}, Slot {slot}'**
+  String blockEpochSlot(int epoch, int slot);
+
+  /// Global slot label
+  ///
+  /// In en, this message translates to:
+  /// **'Global Slot'**
+  String get blockGlobalSlot;
+
+  /// Block hash label
+  ///
+  /// In en, this message translates to:
+  /// **'Block Hash'**
+  String get blockHash;
+
+  /// Block hash with prefix
+  ///
+  /// In en, this message translates to:
+  /// **'Hash: {hash}...'**
+  String blockHashPrefix(String hash);
+
+  /// Block height label
+  ///
+  /// In en, this message translates to:
+  /// **'Height'**
+  String get blockHeight;
+
+  /// Timeline item subtitle for batches and transactions
+  ///
+  /// In en, this message translates to:
+  /// **'Included {batches} batches / {transactions} transactions'**
+  String blockIncludedBatchesTx(int batches, int transactions);
+
+  /// Timeline item subtitle when batch info unavailable
+  ///
+  /// In en, this message translates to:
+  /// **'Included batches / transactions'**
+  String get blockIncludedBatchesTxGeneric;
+
+  /// Block information card title
+  ///
+  /// In en, this message translates to:
+  /// **'Block Information'**
+  String get blockInformation;
+
+  /// Block number label
+  ///
+  /// In en, this message translates to:
+  /// **'Block #{height}'**
+  String blockNumber(int height);
+
+  /// Producer label
+  ///
+  /// In en, this message translates to:
+  /// **'Producer'**
+  String get blockProducer;
+
+  /// Timeline item title
+  ///
+  /// In en, this message translates to:
+  /// **'Block Production Scheduled'**
+  String get blockProductionScheduled;
+
+  /// Timeline item subtitle for slot won
+  ///
+  /// In en, this message translates to:
+  /// **'Slot {slot} won'**
+  String blockSlotWon(int slot);
+
+  /// Timeline item title
+  ///
+  /// In en, this message translates to:
+  /// **'State Transition.'**
+  String get blockStateTransition;
+
+  /// Timeline item subtitle for state transition
+  ///
+  /// In en, this message translates to:
+  /// **'Protocol and Consensus states updated'**
+  String get blockStatesUpdated;
+
+  /// Transactions label
+  ///
+  /// In en, this message translates to:
+  /// **'Transactions'**
+  String get blockTransactions;
+
+  /// Timeline item title
+  ///
+  /// In en, this message translates to:
+  /// **'Transaction Batches Included'**
+  String get blockTxBatchesIncluded;
+
+  /// Timeline item subtitle for applied locally
+  ///
+  /// In en, this message translates to:
+  /// **'UTXOs updated'**
+  String get blockUtxosUpdated;
+
+  /// Timeline item title
+  ///
+  /// In en, this message translates to:
+  /// **'VRF Slot Discovered'**
+  String get blockVrfSlotDiscovered;
+
+  /// Apply phase card title
+  ///
+  /// In en, this message translates to:
+  /// **'Apply'**
+  String get nodeApplyPhase;
+
+  /// Best tip status badge label
+  ///
+  /// In en, this message translates to:
+  /// **'BEST TIP'**
+  String get nodeBestTipBadge;
+
+  /// Fetch phase card title
+  ///
+  /// In en, this message translates to:
+  /// **'Fetch'**
+  String get nodeFetchPhase;
+
+  /// Phase card done count
+  ///
+  /// In en, this message translates to:
+  /// **'Done: {count}'**
+  String nodePhaseDone(String count);
+
+  /// Phase card idle count
+  ///
+  /// In en, this message translates to:
+  /// **'Idle: {count}'**
+  String nodePhaseIdle(String count);
+
+  /// Phase card pending count
+  ///
+  /// In en, this message translates to:
+  /// **'Pending: {count}'**
+  String nodePhasePending(String count);
+
+  /// Recent blocks section title
+  ///
+  /// In en, this message translates to:
+  /// **'Recent Blocks'**
+  String get nodeRecentBlocks;
+
+  /// View all blocks link text
+  ///
+  /// In en, this message translates to:
+  /// **'View All'**
+  String get nodeViewAll;
+
+  /// No produced blocks message
+  ///
+  /// In en, this message translates to:
+  /// **'No produced blocks available'**
+  String get producedBlocksNoData;
 }
 
 class _AppLocalizationsDelegate

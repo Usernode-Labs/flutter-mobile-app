@@ -1884,5 +1884,172 @@
   "burstDone": "Done",
   "@burstDone": {
     "description": "Done button on burst result screen"
+  },
+
+  "blockAppliedLocally": "Applied Locally",
+  "@blockAppliedLocally": {
+    "description": "Timeline item title"
+  },
+  "blockAtSlot": "Block #{height} at Slot {slot}",
+  "@blockAtSlot": {
+    "description": "Block at slot header",
+    "placeholders": {
+      "height": {"type": "int"},
+      "slot": {"type": "int"}
+    }
+  },
+  "blockBatches": "Batches",
+  "@blockBatches": {
+    "description": "Batches label"
+  },
+  "blockCommitted": "Block Committed",
+  "@blockCommitted": {
+    "description": "Timeline item title"
+  },
+  "blockConfirmed": "Block Confirmed",
+  "@blockConfirmed": {
+    "description": "Timeline item title"
+  },
+  "blockDetailsTitle": "Block Details",
+  "@blockDetailsTitle": {
+    "description": "Block details screen title"
+  },
+  "blockEpoch": "Epoch",
+  "@blockEpoch": {
+    "description": "Epoch label"
+  },
+  "blockEpochSlot": "Epoch {epoch}, Slot {slot}",
+  "@blockEpochSlot": {
+    "description": "Timeline item subtitle for epoch and slot",
+    "placeholders": {
+      "epoch": {"type": "int"},
+      "slot": {"type": "int"}
+    }
+  },
+  "blockGlobalSlot": "Global Slot",
+  "@blockGlobalSlot": {
+    "description": "Global slot label"
+  },
+  "blockHash": "Block Hash",
+  "@blockHash": {
+    "description": "Block hash label"
+  },
+  "blockHashPrefix": "Hash: {hash}...",
+  "@blockHashPrefix": {
+    "description": "Block hash with prefix",
+    "placeholders": {
+      "hash": {"type": "String"}
+    }
+  },
+  "blockHeight": "Height",
+  "@blockHeight": {
+    "description": "Block height label"
+  },
+  "blockIncludedBatchesTx": "Included {batches} batches / {transactions} transactions",
+  "@blockIncludedBatchesTx": {
+    "description": "Timeline item subtitle for batches and transactions",
+    "placeholders": {
+      "batches": {"type": "int"},
+      "transactions": {"type": "int"}
+    }
+  },
+  "blockIncludedBatchesTxGeneric": "Included batches / transactions",
+  "@blockIncludedBatchesTxGeneric": {
+    "description": "Timeline item subtitle when batch info unavailable"
+  },
+  "blockInformation": "Block Information",
+  "@blockInformation": {
+    "description": "Block information card title"
+  },
+  "blockNumber": "Block #{height}",
+  "@blockNumber": {
+    "description": "Block number label",
+    "placeholders": {
+      "height": {"type": "int"}
+    }
+  },
+  "blockProducer": "Producer",
+  "@blockProducer": {
+    "description": "Producer label"
+  },
+  "blockProductionScheduled": "Block Production Scheduled",
+  "@blockProductionScheduled": {
+    "description": "Timeline item title"
+  },
+  "blockSlotWon": "Slot {slot} won",
+  "@blockSlotWon": {
+    "description": "Timeline item subtitle for slot won",
+    "placeholders": {
+      "slot": {"type": "int"}
+    }
+  },
+  "blockStateTransition": "State Transition.",
+  "@blockStateTransition": {
+    "description": "Timeline item title"
+  },
+  "blockStatesUpdated": "Protocol and Consensus states updated",
+  "@blockStatesUpdated": {
+    "description": "Timeline item subtitle for state transition"
+  },
+  "blockTransactions": "Transactions",
+  "@blockTransactions": {
+    "description": "Transactions label"
+  },
+  "blockTxBatchesIncluded": "Transaction Batches Included",
+  "@blockTxBatchesIncluded": {
+    "description": "Timeline item title"
+  },
+  "blockUtxosUpdated": "UTXOs updated",
+  "@blockUtxosUpdated": {
+    "description": "Timeline item subtitle for applied locally"
+  },
+  "blockVrfSlotDiscovered": "VRF Slot Discovered",
+  "@blockVrfSlotDiscovered": {
+    "description": "Timeline item title"
+  },
+  "nodeApplyPhase": "Apply",
+  "@nodeApplyPhase": {
+    "description": "Apply phase card title"
+  },
+  "nodeBestTipBadge": "BEST TIP",
+  "@nodeBestTipBadge": {
+    "description": "Best tip status badge label"
+  },
+  "nodeFetchPhase": "Fetch",
+  "@nodeFetchPhase": {
+    "description": "Fetch phase card title"
+  },
+  "nodePhaseDone": "Done: {count}",
+  "@nodePhaseDone": {
+    "description": "Phase card done count",
+    "placeholders": {
+      "count": {"type": "String"}
+    }
+  },
+  "nodePhaseIdle": "Idle: {count}",
+  "@nodePhaseIdle": {
+    "description": "Phase card idle count",
+    "placeholders": {
+      "count": {"type": "String"}
+    }
+  },
+  "nodePhasePending": "Pending: {count}",
+  "@nodePhasePending": {
+    "description": "Phase card pending count",
+    "placeholders": {
+      "count": {"type": "String"}
+    }
+  },
+  "nodeRecentBlocks": "Recent Blocks",
+  "@nodeRecentBlocks": {
+    "description": "Recent blocks section title"
+  },
+  "nodeViewAll": "View All",
+  "@nodeViewAll": {
+    "description": "View all blocks link text"
+  },
+  "producedBlocksNoData": "No produced blocks available",
+  "@producedBlocksNoData": {
+    "description": "No produced blocks message"
   }
 }

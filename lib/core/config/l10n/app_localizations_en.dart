@@ -1412,4 +1412,124 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get burstDone => 'Done';
+
+  @override
+  String get blockAppliedLocally => 'Applied Locally';
+
+  @override
+  String blockAtSlot(int height, int slot) {
+    return 'Block #$height at Slot $slot';
+  }
+
+  @override
+  String get blockBatches => 'Batches';
+
+  @override
+  String get blockCommitted => 'Block Committed';
+
+  @override
+  String get blockConfirmed => 'Block Confirmed';
+
+  @override
+  String get blockDetailsTitle => 'Block Details';
+
+  @override
+  String get blockEpoch => 'Epoch';
+
+  @override
+  String blockEpochSlot(int epoch, int slot) {
+    return 'Epoch $epoch, Slot $slot';
+  }
+
+  @override
+  String get blockGlobalSlot => 'Global Slot';
+
+  @override
+  String get blockHash => 'Block Hash';
+
+  @override
+  String blockHashPrefix(String hash) {
+    return 'Hash: $hash...';
+  }
+
+  @override
+  String get blockHeight => 'Height';
+
+  @override
+  String blockIncludedBatchesTx(int batches, int transactions) {
+    return 'Included $batches batches / $transactions transactions';
+  }
+
+  @override
+  String get blockIncludedBatchesTxGeneric => 'Included batches / transactions';
+
+  @override
+  String get blockInformation => 'Block Information';
+
+  @override
+  String blockNumber(int height) {
+    return 'Block #$height';
+  }
+
+  @override
+  String get blockProducer => 'Producer';
+
+  @override
+  String get blockProductionScheduled => 'Block Production Scheduled';
+
+  @override
+  String blockSlotWon(int slot) {
+    return 'Slot $slot won';
+  }
+
+  @override
+  String get blockStateTransition => 'State Transition.';
+
+  @override
+  String get blockStatesUpdated => 'Protocol and Consensus states updated';
+
+  @override
+  String get blockTransactions => 'Transactions';
+
+  @override
+  String get blockTxBatchesIncluded => 'Transaction Batches Included';
+
+  @override
+  String get blockUtxosUpdated => 'UTXOs updated';
+
+  @override
+  String get blockVrfSlotDiscovered => 'VRF Slot Discovered';
+
+  @override
+  String get nodeApplyPhase => 'Apply';
+
+  @override
+  String get nodeBestTipBadge => 'BEST TIP';
+
+  @override
+  String get nodeFetchPhase => 'Fetch';
+
+  @override
+  String nodePhaseDone(String count) {
+    return 'Done: $count';
+  }
+
+  @override
+  String nodePhaseIdle(String count) {
+    return 'Idle: $count';
+  }
+
+  @override
+  String nodePhasePending(String count) {
+    return 'Pending: $count';
+  }
+
+  @override
+  String get nodeRecentBlocks => 'Recent Blocks';
+
+  @override
+  String get nodeViewAll => 'View All';
+
+  @override
+  String get producedBlocksNoData => 'No produced blocks available';
 }

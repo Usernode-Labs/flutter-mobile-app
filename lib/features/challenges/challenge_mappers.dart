@@ -341,6 +341,12 @@ bool isZkIdentityChallenge(ChallengeDto dto) {
   return dto.subCategory == zkIdentitySubCategory;
 }
 
+/// SubCategory identifier for the dApps challenge.
+const String kDappsSubCategory = 'DAPPS_CHALLENGE';
+
+/// Returns true when the challenge is the dApps challenge.
+bool isDappsChallenge(ChallengeDto dto) => dto.subCategory == kDappsSubCategory;
+
 /// Computes effective earned points for produce-blocks challenges.
 ///
 /// When [earnedPoints] (from per-challenge breakdown) is available, returns it

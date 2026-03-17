@@ -6,6 +6,7 @@ import '../tokens/app_borders.dart';
 import '../tokens/app_radii.dart';
 import '../tokens/app_sizing.dart';
 import '../tokens/app_spacing.dart';
+import 'status_badge.dart';
 
 class DappCard extends StatelessWidget {
   static const kDefaultDescription =
@@ -19,6 +20,8 @@ class DappCard extends StatelessWidget {
     this.users,
     this.txns,
     this.onTap,
+    this.enabled = true,
+    this.disabledLabel,
   });
 
   final String name;
@@ -27,6 +30,8 @@ class DappCard extends StatelessWidget {
   final int? users;
   final int? txns;
   final VoidCallback? onTap;
+  final bool enabled;
+  final String? disabledLabel;
 
   static final _compactFormat = NumberFormat.compact();
 
@@ -42,8 +47,12 @@ class DappCard extends StatelessWidget {
 
     final borderRadius = BorderRadius.circular(radii.largeIncreased);
 
+    final cardBg =
+        enabled ? colors.surfaceContainerLowest : colors.surfaceContainerLow;
+    final titleColor = enabled ? null : colors.onSurfaceVariant;
+
     return Card(
-      color: colors.surfaceContainerLowest,
+      color: cardBg,
       elevation: 0,
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
@@ -54,7 +63,7 @@ class DappCard extends StatelessWidget {
         ),
       ),
       child: InkWell(
-        onTap: onTap,
+        onTap: enabled ? onTap : null,
         borderRadius: borderRadius,
         child: Padding(
           padding: EdgeInsets.all(spacing.space16),
@@ -72,7 +81,7 @@ class DappCard extends StatelessWidget {
               SizedBox(height: spacing.space16),
               Text(
                 name,
-                style: textTheme.titleMedium,
+                style: textTheme.titleMedium?.copyWith(color: titleColor),
                 overflow: TextOverflow.ellipsis,
                 maxLines: 2,
               ),
@@ -86,26 +95,32 @@ class DappCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
               SizedBox(height: spacing.space8),
-              Row(
-                children: [
-                  if (users != null || txns != null)
-                    _StatsRow(
-                      users: users,
-                      txns: txns,
-                      style: textTheme.labelSmall!
-                          .copyWith(color: colors.onSurfaceVariant),
-                      iconSize: sizing.iconSmall,
-                      iconColor: colors.onSurfaceVariant,
-                      gap: spacing.space8,
+              if (enabled)
+                Row(
+                  children: [
+                    if (users != null || txns != null)
+                      _StatsRow(
+                        users: users,
+                        txns: txns,
+                        style: textTheme.labelSmall!
+                            .copyWith(color: colors.onSurfaceVariant),
+                        iconSize: sizing.iconSmall,
+                        iconColor: colors.onSurfaceVariant,
+                        gap: spacing.space8,
+                      ),
+                    const Spacer(),
+                    Icon(
+                      Symbols.arrow_forward_sharp,
+                      size: sizing.iconSmall,
+                      color: colors.primary,
                     ),
-                  const Spacer(),
-                  Icon(
-                    Symbols.arrow_forward_sharp,
-                    size: sizing.iconSmall,
-                    color: colors.primary,
-                  ),
-                ],
-              ),
+                  ],
+                )
+              else if (disabledLabel != null)
+                StatusBadge(
+                  label: disabledLabel!,
+                  variant: StatusBadgeVariant.neutral,
+                ),
             ],
           ),
         ),

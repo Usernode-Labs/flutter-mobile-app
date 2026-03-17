@@ -36,6 +36,11 @@ WidgetbookComponent dappCardComponent() {
             initialValue: 5678,
           );
 
+          final enabled = context.knobs.boolean(
+            label: 'Enabled',
+            initialValue: true,
+          );
+
           return Padding(
             padding: const EdgeInsets.all(16),
             child: DappCard(
@@ -44,6 +49,8 @@ WidgetbookComponent dappCardComponent() {
               description: description,
               users: users,
               txns: txns,
+              enabled: enabled,
+              disabledLabel: enabled ? null : 'Coming',
               onTap: () {},
             ),
           );

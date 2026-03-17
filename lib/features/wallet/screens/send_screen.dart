@@ -7,7 +7,7 @@ import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/providers/recipient_history_provider.dart';
-import 'package:crypto_mobile_app/features/wallet/transaction_limits_service.dart';
+
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/design_system/src/button.dart';
@@ -29,17 +29,6 @@ class _SendScreenState extends ConsumerState<SendScreen> {
   final _memoController = TextEditingController();
 
   bool _isSending = false;
-  TransactionLimitsService? _limitsService;
-
-  @override
-  void initState() {
-    super.initState();
-    _initLimitsService();
-  }
-
-  Future<void> _initLimitsService() async {
-    _limitsService = await TransactionLimitsService.getInstance();
-  }
 
   @override
   void dispose() {
@@ -53,20 +42,6 @@ class _SendScreenState extends ConsumerState<SendScreen> {
   Future<void> _onSend() async {
     if (!_formKey.currentState!.validate()) return;
     if (_isSending) return; // Prevent double submission
-
-    // Check transaction limits
-    if (_limitsService != null) {
-      final canSend = await _limitsService!.canSendTransaction();
-      if (!canSend) {
-        final error = await _limitsService!.getTransactionCountError();
-        if (mounted) {
-          context.push(AppRoutes.walletSendFailed, extra: {
-            'errorMessage': error,
-          });
-        }
-        return;
-      }
-    }
 
     setState(() {
       _isSending = true;
@@ -102,9 +77,6 @@ class _SendScreenState extends ConsumerState<SendScreen> {
 
       if (mounted) {
         if (response != null && response.queued) {
-          // Increment transaction count after successful transaction
-          await _limitsService?.incrementTransactionCount();
-
           await ref
               .read(recipientHistoryProvider.notifier)
               .addRecipient(recipientAddress);
@@ -292,14 +264,6 @@ class _SendScreenState extends ConsumerState<SendScreen> {
       final number = double.tryParse(value.trim());
       if (number == null || (allowZero ? number < 0 : number <= 0)) {
         return l10n.walletFieldInvalid(fieldName);
-      }
-
-      // Check amount limit for amount field
-      if (fieldName == 'amount' && _limitsService != null) {
-        final amountError = _limitsService!.getAmountError(number);
-        if (amountError != null) {
-          return amountError;
-        }
       }
 
       return null;

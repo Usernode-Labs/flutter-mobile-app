@@ -26,8 +26,11 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
 
   Future<void> _onRefresh() async {
     ref.invalidate(dappsProvider);
-    // dappStatsProvider watches dappsProvider, so it auto-refreshes.
-    await ref.read(dappsProvider.future);
+    ref.invalidate(dappStatsProvider);
+    await Future.wait([
+      ref.read(dappsProvider.future),
+      ref.read(dappStatsProvider.future),
+    ]);
   }
 
   @override

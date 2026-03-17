@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:crypto_mobile_app/features/dapps/models/dapp_item.dart';
@@ -40,7 +41,12 @@ final dappsProvider = FutureProvider<List<DappItem>>((ref) async {
   return apps.map((e) => DappItem.fromJson(e as Map<String, dynamic>)).toList();
 });
 
+const _statsRefreshInterval = Duration(seconds: 30);
+
 final dappStatsProvider = FutureProvider<Map<String, DappStats>>((ref) async {
+  final timer = Timer(_statsRefreshInterval, () => ref.invalidateSelf());
+  ref.onDispose(timer.cancel);
+
   final base = _dappBaseUri();
   final response = await http.get(base.resolve('/api/stats'));
   if (response.statusCode != 200) {

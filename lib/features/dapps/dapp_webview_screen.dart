@@ -26,6 +26,7 @@ class _TxLogEntry {
   final String memo;
   final _TxStatus status;
   final String? errorMessage;
+  final String? txHash;
 
   const _TxLogEntry({
     required this.timestamp,
@@ -35,6 +36,7 @@ class _TxLogEntry {
     required this.memo,
     required this.status,
     this.errorMessage,
+    this.txHash,
   });
 }
 
@@ -325,6 +327,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
             ? _TxStatus.error
             : _TxStatus.queued,
         errorMessage: rpcError,
+        txHash: resp?.txId,
       ),
     );
 
@@ -968,36 +971,57 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
       return;
     }
 
-    // Narrow the time window: only query from the oldest queued entry that
-    // hasn't been matched yet, minus 60 s buffer for clock skew.
-    int? fromTimestamp;
+    // Build a set of on-chain tx IDs for quick lookup.
+    final onChainIds = <String>{};
+    for (final oc in _onChainTxs) {
+      onChainIds.add(oc.txId);
+    }
+
+    // Entries with a txHash are resolved by exact ID match.  Entries without
+    // a hash fall back to count-based (destination, memo) matching.
+    final queuedCounts = <(String, String), int>{};
+    final onChainCounts = <(String, String), int>{};
     for (final local in widget.txLog) {
       if (local.status != _TxStatus.queued) continue;
-      final alreadyResolved = _onChainTxs.any(
-        (oc) => oc.destination == local.to && oc.memo == local.memo,
-      );
-      if (alreadyResolved) continue;
+      if (local.txHash != null) continue; // resolved by exact match below
+      final key = (local.to, local.memo);
+      queuedCounts[key] = (queuedCounts[key] ?? 0) + 1;
+    }
+    for (final oc in _onChainTxs) {
+      if (oc.destination == null || oc.memo == null) continue;
+      final key = (oc.destination!, oc.memo!);
+      if (queuedCounts.containsKey(key)) {
+        onChainCounts[key] = (onChainCounts[key] ?? 0) + 1;
+      }
+    }
+
+    int? fromTimestamp;
+    int unresolvedCount = 0;
+    for (final local in widget.txLog) {
+      if (local.status != _TxStatus.queued) continue;
+      // Exact-hash entries: resolved if the hash appears in on-chain set.
+      if (local.txHash != null) {
+        if (onChainIds.contains(local.txHash)) continue;
+        unresolvedCount++;
+        final ms = local.timestamp.millisecondsSinceEpoch - 60000;
+        if (fromTimestamp == null || ms < fromTimestamp) fromTimestamp = ms;
+        continue;
+      }
+      // Count-based entries: resolved if on-chain count covers queued count.
+      final key = (local.to, local.memo);
+      final needed = queuedCounts[key] ?? 0;
+      final have = onChainCounts[key] ?? 0;
+      if (have >= needed) continue;
+      unresolvedCount++;
       final ms = local.timestamp.millisecondsSinceEpoch - 60000;
       if (fromTimestamp == null || ms < fromTimestamp) fromTimestamp = ms;
     }
 
-    // Nothing unresolved — skip the network call entirely.
     if (fromTimestamp == null && _onChainTxs.isNotEmpty) {
       if (mounted) setState(() => _loading = false);
       return;
     }
-
-    // Build the set of (destination, memo) pairs we still need to resolve.
-    final unresolvedPairs = <(String, String)>{};
-    for (final local in widget.txLog) {
-      if (local.status != _TxStatus.queued) continue;
-      final alreadyResolved = _onChainTxs.any(
-        (oc) => oc.destination == local.to && oc.memo == local.memo,
-      );
-      if (!alreadyResolved) {
-        unresolvedPairs.add((local.to, local.memo));
-      }
-    }
+    final hadUnresolved = unresolvedCount > 0;
 
     try {
       final base = widget.explorerOrigin;
@@ -1023,7 +1047,9 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
 
       for (var page = 0; page < maxPages; page++) {
         final query = <String, dynamic>{'sender': address, 'limit': 200};
-        if (fromTimestamp != null) query['from_timestamp'] = fromTimestamp;
+        if (fromTimestamp != null && merged.isNotEmpty) {
+          query['from_timestamp'] = fromTimestamp;
+        }
         if (cursor != null) query['cursor'] = cursor;
 
         final txRes = await http.post(
@@ -1039,16 +1065,37 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
 
         for (final item in items) {
           final tx = _OnChainTx.fromJson(item as Map<String, dynamic>);
-          merged[tx.txId] = tx;
-
-          // Check off resolved pairs for early exit.
-          if (tx.destination != null && tx.memo != null) {
-            unresolvedPairs.remove((tx.destination!, tx.memo!));
+          if (!merged.containsKey(tx.txId)) {
+            onChainIds.add(tx.txId);
+            if (tx.destination != null && tx.memo != null) {
+              final key = (tx.destination!, tx.memo!);
+              onChainCounts[key] = (onChainCounts[key] ?? 0) + 1;
+            }
           }
+          merged[tx.txId] = tx;
         }
 
-        // Stop if all pending entries are resolved.
-        if (unresolvedPairs.isEmpty) break;
+        // Recount unresolved: check both exact-hash and count-based entries.
+        if (hadUnresolved) {
+          var stillUnresolved = false;
+          for (final local in widget.txLog) {
+            if (local.status != _TxStatus.queued) continue;
+            if (local.txHash != null) {
+              if (!onChainIds.contains(local.txHash)) {
+                stillUnresolved = true;
+                break;
+              }
+            } else {
+              final key = (local.to, local.memo);
+              final needed = queuedCounts[key] ?? 0;
+              if (needed > 0 && (onChainCounts[key] ?? 0) < needed) {
+                stillUnresolved = true;
+                break;
+              }
+            }
+          }
+          if (!stillUnresolved) break;
+        }
 
         final hasMore = txData['has_more'] as bool? ?? false;
         final nextCursor = txData['next_cursor'] as String?;
@@ -1078,27 +1125,67 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
     final matched = <String>{};
     final results = <_MergedEntry>[];
 
-    // First pass: merge local entries with on-chain matches.
-    for (final local in widget.txLog) {
-      if (local.status != _TxStatus.queued) {
-        results.add(_MergedEntry(local: local));
-        continue;
-      }
+    final queuedIndices = <int>[];
+    for (var i = 0; i < widget.txLog.length; i++) {
+      if (widget.txLog[i].status == _TxStatus.queued) queuedIndices.add(i);
+    }
+    queuedIndices.sort((a, b) =>
+        widget.txLog[a].timestamp.compareTo(widget.txLog[b].timestamp));
 
-      _OnChainTx? match;
-      for (final oc in _onChainTxs) {
-        if (matched.contains(oc.txId)) continue;
-        if (oc.destination == local.to && oc.memo == local.memo) {
-          matched.add(oc.txId);
-          match = oc;
-          break;
-        }
-      }
-      results.add(_MergedEntry(local: local, onChain: match));
+    // Build an index of on-chain txs by txId for O(1) exact matching.
+    final onChainById = <String, _OnChainTx>{};
+    for (final oc in _onChainTxs) {
+      onChainById[oc.txId] = oc;
     }
 
-    // Second pass: append historical on-chain txs not matched to any local
-    // entry (e.g. from previous app sessions).
+    final matchByIndex = <int, _OnChainTx>{};
+    for (final i in queuedIndices) {
+      final local = widget.txLog[i];
+
+      // Primary: exact match by tx hash (available for txs sent in this session).
+      if (local.txHash != null) {
+        final oc = onChainById[local.txHash];
+        if (oc != null && !matched.contains(oc.txId)) {
+          matched.add(oc.txId);
+          matchByIndex[i] = oc;
+          continue;
+        }
+      }
+
+      // Fallback: closest-timestamp heuristic for entries without a hash
+      // (e.g. historical entries synthesized from on-chain data).
+      _OnChainTx? bestMatch;
+      int bestDelta = 0x7FFFFFFFFFFFFFFF;
+      final localMs = local.timestamp.millisecondsSinceEpoch;
+
+      for (final oc in _onChainTxs) {
+        if (matched.contains(oc.txId)) continue;
+        if (oc.destination != local.to || oc.memo != local.memo) continue;
+        final delta = (oc.timestampMs != null)
+            ? (oc.timestampMs! - localMs).abs()
+            : 0x7FFFFFFFFFFFFFFF;
+        if (delta < bestDelta) {
+          bestDelta = delta;
+          bestMatch = oc;
+        }
+      }
+
+      if (bestMatch != null) {
+        matched.add(bestMatch.txId);
+        matchByIndex[i] = bestMatch;
+      }
+    }
+
+    for (var i = 0; i < widget.txLog.length; i++) {
+      final local = widget.txLog[i];
+      if (local.status != _TxStatus.queued) {
+        results.add(_MergedEntry(local: local));
+      } else {
+        results.add(_MergedEntry(local: local, onChain: matchByIndex[i]));
+      }
+    }
+
+    // Append historical on-chain txs not matched to any local entry.
     for (final oc in _onChainTxs) {
       if (matched.contains(oc.txId)) continue;
       if (oc.source == null) continue;
@@ -1255,7 +1342,7 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                           }
                         }
 
-                        final txHash = oc?.txId;
+                        final txHash = local.txHash ?? oc?.txId;
 
                         return Padding(
                           padding:

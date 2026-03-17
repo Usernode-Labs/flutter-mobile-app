@@ -341,11 +341,17 @@ class ColorIsExpensiveTheme {
   // ThemeData builders
   // ---------------------------------------------------------------------------
 
-  ThemeData theme(ColorScheme colorScheme) => ThemeData(
+  ThemeData theme(ColorScheme colorScheme) {
+    // Platform text themes (blackRedwoodCity, etc.) only carry font-family
+    // and color — no geometry. Pre-merge M3 geometry so that explicit style
+    // references (listTileTheme, etc.) get concrete font sizes.
+    final resolved = Typography.englishLike2021.merge(textTheme);
+
+    return ThemeData(
         useMaterial3: true,
         brightness: colorScheme.brightness,
         colorScheme: colorScheme,
-        textTheme: textTheme.apply(
+        textTheme: resolved.apply(
           bodyColor: colorScheme.onSurface,
           displayColor: colorScheme.onSurface,
         ),
@@ -364,6 +370,7 @@ class ColorIsExpensiveTheme {
         // --- Surface architecture: two-tier grey scaffold / white content ---
 
         appBarTheme: AppBarTheme(
+          centerTitle: false,
           backgroundColor: colorScheme.surface,
           foregroundColor: colorScheme.onSurface,
           elevation: 0,
@@ -391,6 +398,7 @@ class ColorIsExpensiveTheme {
         cardTheme: CardThemeData(
           color: colorScheme.surfaceContainerLowest,
           elevation: 0,
+          margin: EdgeInsets.zero,
           surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: _radii.borderRadiusLarge,
@@ -502,18 +510,19 @@ class ColorIsExpensiveTheme {
           shape: RoundedRectangleBorder(
             borderRadius: _radii.borderRadiusMedium,
           ),
-          titleTextStyle: textTheme.bodyMedium?.copyWith(
+          titleTextStyle: resolved.bodyMedium?.copyWith(
             color: colorScheme.onSurface,
           ),
-          subtitleTextStyle: textTheme.bodySmall?.copyWith(
+          subtitleTextStyle: resolved.bodySmall?.copyWith(
             color: colorScheme.onSurfaceVariant,
           ),
-          leadingAndTrailingTextStyle: textTheme.bodyMedium?.copyWith(
+          leadingAndTrailingTextStyle: resolved.bodyMedium?.copyWith(
             color: colorScheme.onSurface,
             fontWeight: FontWeight.w500,
           ),
         ),
       );
+  }
 
   ThemeData light() => theme(lightScheme());
   ThemeData lightMediumContrast() => theme(lightMediumContrastScheme());

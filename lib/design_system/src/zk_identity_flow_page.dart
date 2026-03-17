@@ -84,11 +84,19 @@ class ZkIdentityFlowPage extends StatelessWidget {
           ),
           if (centerActiveContent)
             Expanded(
-              child: Center(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: spacing.space16),
-                  child: activeStepContent ?? const SizedBox.shrink(),
-                ),
+              child: CustomScrollView(
+                slivers: [
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(
+                      child: Padding(
+                        padding:
+                            EdgeInsets.symmetric(horizontal: spacing.space16),
+                        child: activeStepContent ?? const SizedBox.shrink(),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             )
           else

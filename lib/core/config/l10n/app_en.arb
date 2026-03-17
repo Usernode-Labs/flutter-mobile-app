@@ -1812,5 +1812,77 @@
   "faqVrfTimingDescription": "Each slot has a ~5-seconds window. If your device doesn''t wake up in time or loses network connectivity, the slot is missed and counted as \"failed.\"",
   "@faqVrfTimingDescription": {
     "description": "Timing explanation text"
+  },
+
+  "burstTitle": "Burst Transactions",
+  "@burstTitle": {
+    "description": "Burst screen title"
+  },
+  "burstLabel": "Burst",
+  "@burstLabel": {
+    "description": "Speed dial label for burst action"
+  },
+  "burstInsufficientBalance": "Insufficient balance for burst (need ≥100 tokens)",
+  "@burstInsufficientBalance": {
+    "description": "Snackbar message when balance is too low for burst"
+  },
+  "burstProgress": "Sending {completed}/{total}...",
+  "@burstProgress": {
+    "description": "Burst progress text",
+    "placeholders": {
+      "completed": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "burstElapsed": "Elapsed: {time}",
+  "@burstElapsed": {
+    "description": "Elapsed time during burst",
+    "placeholders": {
+      "time": { "type": "String" }
+    }
+  },
+  "burstFailedCount": "{count} failed",
+  "@burstFailedCount": {
+    "description": "Count of failed transactions during burst",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "burstCancel": "Cancel",
+  "@burstCancel": {
+    "description": "Cancel button during burst"
+  },
+  "burstSuccessTitle": "Burst Complete",
+  "@burstSuccessTitle": {
+    "description": "Title when all burst transactions succeed"
+  },
+  "burstSuccessSubtitle": "{count} transactions sent in {time}",
+  "@burstSuccessSubtitle": {
+    "description": "Subtitle when all burst transactions succeed",
+    "placeholders": {
+      "count": { "type": "int" },
+      "time": { "type": "String" }
+    }
+  },
+  "burstFailureTitle": "Burst Failed",
+  "@burstFailureTitle": {
+    "description": "Title when all burst transactions fail"
+  },
+  "burstMixedTitle": "Burst Partially Complete",
+  "@burstMixedTitle": {
+    "description": "Title when some burst transactions fail"
+  },
+  "burstMixedSubtitle": "{succeeded} succeeded, {failed} failed in {time}",
+  "@burstMixedSubtitle": {
+    "description": "Subtitle when some burst transactions fail",
+    "placeholders": {
+      "succeeded": { "type": "int" },
+      "failed": { "type": "int" },
+      "time": { "type": "String" }
+    }
+  },
+  "burstDone": "Done",
+  "@burstDone": {
+    "description": "Done button on burst result screen"
   }
 }

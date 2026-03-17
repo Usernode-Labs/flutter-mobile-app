@@ -90,6 +90,7 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
     'SizedBox',
     'Icon',
     'Padding',
+    'Card',
     'ListTile',
     'SwitchListTile',
     'CheckboxListTile',
@@ -124,6 +125,8 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
       case 'CheckboxListTile':
       case 'RadioListTile':
         _checkListTileLayoutOverrides(node, typeName, args);
+      case 'Card':
+        _checkCardMargin(node, args);
       case 'AppCard':
         _checkTileCardVerticalInset(node, args);
       case 'FilledButton':
@@ -551,7 +554,27 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
     return false;
   }
 
-  // ── Rule 8: require_tile_card_vertical_inset ────────────────────────
+  // ── Rule 10: avoid_card_margin ─────────────────────────────────────
+
+  void _checkCardMargin(AstNode node, ArgumentList args) {
+    if (isExcludedPath(filePath)) return;
+
+    for (final arg in args.arguments) {
+      if (arg is NamedExpression && arg.name.label.name == 'margin') {
+        _report(
+          node,
+          'avoid_card_margin',
+          'Card margin is zeroed by CardThemeData. '
+              'Use a parent Padding or SizedBox for spacing '
+              'instead of Card(margin:).',
+          'WARNING',
+        );
+        return;
+      }
+    }
+  }
+
+  // ── Rule 9: require_tile_card_vertical_inset ────────────────────────
 
   void _checkTileCardVerticalInset(AstNode node, ArgumentList args) {
     // Find padding: named argument.
@@ -641,7 +664,7 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
     }
   }
 
-  // ── Rule 8: require_ds_button ──────────────────────────────────────
+  // ── Rule 11: require_ds_button ─────────────────────────────────────
 
   void _checkPreferDsButton(AstNode node, String typeName) {
     if (isExcludedPath(filePath)) return;

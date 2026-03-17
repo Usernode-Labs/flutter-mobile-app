@@ -1,30 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/providers/produced_blocks_provider.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
-import 'package:crypto_mobile_app/core/widgets/app_card.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/utils/time_format.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_slots.dart';
 
-class SlotAssignmentsScreen extends StatefulWidget {
+class SlotAssignmentsScreen extends ConsumerStatefulWidget {
   const SlotAssignmentsScreen({super.key, this.args});
   final Map<String, dynamic>? args;
 
   @override
-  State<SlotAssignmentsScreen> createState() => _SlotAssignmentsScreenState();
+  ConsumerState<SlotAssignmentsScreen> createState() =>
+      _SlotAssignmentsScreenState();
 }
 
-enum _Filter { all, produced, missed, upcoming }
+enum _Filter { wonSlots, produced, missed, upcoming }
 
-class _AssignmentItem {
+/// Chip order — used for both building chips and resolving tap indices.
+const _chipOrder = [
+  _Filter.wonSlots,
+  _Filter.produced,
+  _Filter.missed,
+  _Filter.upcoming
+];
+
+class _ParsedItem {
   final int slot;
   final RpcSlotResult result;
   final int? slotTimeMs;
   final Map<String, dynamic>? producedMeta;
-  const _AssignmentItem({
+  const _ParsedItem({
     required this.slot,
     required this.result,
     this.slotTimeMs,
@@ -32,33 +39,38 @@ class _AssignmentItem {
   });
 }
 
-class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
-  final Set<_Filter> _selected = {_Filter.all};
-  late final List<_AssignmentItem> _items =
-      _buildItemsFromArgs(widget.args) ?? const <_AssignmentItem>[];
+class _SlotAssignmentsScreenState extends ConsumerState<SlotAssignmentsScreen> {
+  _Filter _selected = _Filter.wonSlots;
+  bool _isInitialFilter = true;
+  late final List<_ParsedItem> _items =
+      _buildItemsFromArgs(widget.args) ?? const <_ParsedItem>[];
 
   @override
   void initState() {
     super.initState();
-    // Initialize selected filters from args if provided
     final filters = (widget.args?['filters'] as List?)?.cast<String>();
     if (filters != null && filters.isNotEmpty) {
-      final Set<_Filter> initial = {};
       if (filters.contains('all')) {
-        initial.add(_Filter.all);
+        _selected = _Filter.wonSlots;
+      } else if (filters.contains('produced')) {
+        _selected = _Filter.produced;
+      } else if (filters.contains('missed')) {
+        _selected = _Filter.missed;
+      } else if (filters.contains('upcoming')) {
+        _selected = _Filter.upcoming;
       } else {
-        if (filters.contains('produced')) initial.add(_Filter.produced);
-        if (filters.contains('missed')) initial.add(_Filter.missed);
-        if (filters.contains('upcoming')) initial.add(_Filter.upcoming);
-        if (initial.isEmpty) initial.add(_Filter.all);
+        _selected = _Filter.wonSlots;
       }
-      _selected
-        ..clear()
-        ..addAll(initial);
+    } else {
+      _selected = _Filter.wonSlots;
     }
   }
 
-  List<_AssignmentItem>? _buildItemsFromArgs(Map<String, dynamic>? args) {
+  // ---------------------------------------------------------------------------
+  // Args parsing (reused from old screen)
+  // ---------------------------------------------------------------------------
+
+  List<_ParsedItem>? _buildItemsFromArgs(Map<String, dynamic>? args) {
     if (args == null) return null;
     try {
       final epoch = args['epoch'] as int?;
@@ -81,84 +93,117 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
               .map((e) => e == null ? null : (e as Map).cast<String, dynamic>())
               .toList();
       if (epoch == null || slotsInEpoch == null || results == null) return null;
-      return List<_AssignmentItem>.generate(slotsInEpoch, (i) {
+      return List<_ParsedItem>.generate(slotsInEpoch, (i) {
         RpcSlotResult r;
         if (i < results.length) {
           r = RpcSlotResult.values[results[i]];
         } else {
           r = RpcSlotResult.notCalculated;
         }
-        return _AssignmentItem(
+        return _ParsedItem(
           slot: i,
           result: r,
           slotTimeMs: i < slotTimesMs.length ? slotTimesMs[i] : null,
           producedMeta: i < producedMeta.length ? producedMeta[i] : null,
         );
       }).toList();
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint('SlotAssignmentsScreen: failed to parse args: $e\n$st');
       return null;
     }
   }
 
-  bool _matchesFilters(_AssignmentItem item) {
-    // When no filters are selected, show everything.
-    if (_selected.isEmpty) {
-      return true;
-    }
+  // ---------------------------------------------------------------------------
+  // Data mapping helpers
+  // ---------------------------------------------------------------------------
 
-    final wantsWonSlots = _selected.contains(_Filter.all) &&
-        (item.result == RpcSlotResult.produced ||
-            item.result == RpcSlotResult.orphaned ||
-            item.result == RpcSlotResult.missed ||
-            item.result == RpcSlotResult.scheduled);
-    final wantsProduced = _selected.contains(_Filter.produced) &&
-        (item.result == RpcSlotResult.produced ||
-            item.result == RpcSlotResult.orphaned);
-    final wantsMissed = _selected.contains(_Filter.missed) &&
-        item.result == RpcSlotResult.missed;
-    final wantsUpcoming = _selected.contains(_Filter.upcoming) &&
-        item.result == RpcSlotResult.scheduled;
-    return wantsWonSlots || wantsProduced || wantsMissed || wantsUpcoming;
+  static SlotStatus _mapStatus(RpcSlotResult r) => switch (r) {
+        RpcSlotResult.produced => SlotStatus.produced,
+        RpcSlotResult.orphaned => SlotStatus.orphaned,
+        RpcSlotResult.missed => SlotStatus.missed,
+        RpcSlotResult.scheduled => SlotStatus.upcoming,
+        RpcSlotResult.notCalculated => SlotStatus.notCalculated,
+        RpcSlotResult.notWon => SlotStatus.notWon,
+      };
+
+  static String? _formatTimeLabel(RpcSlotResult result, int? slotTimeMs) {
+    if (slotTimeMs == null) return null;
+    final dt = DateTime.fromMillisecondsSinceEpoch(slotTimeMs);
+    final timeStr = formatHHMMSS(dt);
+    return switch (result) {
+      RpcSlotResult.scheduled => 'Scheduled for $timeStr',
+      RpcSlotResult.produced => 'Produced at $timeStr',
+      RpcSlotResult.missed => 'Missed at $timeStr',
+      RpcSlotResult.orphaned => 'Orphaned at $timeStr',
+      _ => null,
+    };
   }
 
-  void _toggleFilter(_Filter filter) {
+  // ---------------------------------------------------------------------------
+  // Filter logic
+  // ---------------------------------------------------------------------------
+
+  bool _matchesFilter(_ParsedItem item) {
+    return switch (_selected) {
+      _Filter.wonSlots => item.result == RpcSlotResult.produced ||
+          item.result == RpcSlotResult.orphaned ||
+          item.result == RpcSlotResult.missed ||
+          item.result == RpcSlotResult.scheduled,
+      _Filter.produced => item.result == RpcSlotResult.produced ||
+          item.result == RpcSlotResult.orphaned,
+      _Filter.missed => item.result == RpcSlotResult.missed,
+      _Filter.upcoming => item.result == RpcSlotResult.scheduled,
+    };
+  }
+
+  void _onFilterTap(int index) {
+    final tapped = _chipOrder[index];
+    _isInitialFilter = false;
     setState(() {
-      // Single-select behavior:
-      // - Tapping an already-selected filter clears all (shows everything).
-      // - Tapping a different filter selects only that one.
-      if (_selected.contains(filter)) {
-        _selected.clear();
-      } else {
-        _selected
-          ..clear()
-          ..add(filter);
-      }
+      _selected = _selected == tapped ? _Filter.wonSlots : tapped;
     });
   }
 
+  // ---------------------------------------------------------------------------
+  // Slot progress from live provider
+  // ---------------------------------------------------------------------------
+
+  (int current, int total, double fraction) _slotProgress(
+    ProducedBlocksSummary? data,
+    int epoch,
+    int fallbackSlotsInEpoch,
+  ) {
+    final total = data?.slotsInEpoch ?? fallbackSlotsInEpoch;
+    if (data == null || total <= 0) return (0, total, 0.0);
+
+    final currentEpoch = data.currentEpoch;
+    int curr;
+    if (currentEpoch == epoch) {
+      curr = data.currentEpochSlot;
+    } else if (epoch > currentEpoch) {
+      curr = 0;
+    } else {
+      curr = total; // past epoch
+    }
+    return (curr, total, curr / total);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
+
   @override
   Widget build(BuildContext context) {
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
-    final radii = Theme.of(context).extension<AppRadii>()!;
-    final theme = Theme.of(context);
-    final secondary = theme.colorScheme.secondary;
-
-    // Build the filtered list
-    final List<_AssignmentItem> filtered;
-    if (_selected.contains(_Filter.upcoming)) {
-      // Sort upcoming slots ascending (chronological)
-      filtered = _items.where(_matchesFilters).toList(growable: false);
-    } else {
-      // Sort all, produced and missed views descending (newest first)
-      filtered = _items.reversed.where(_matchesFilters).toList(growable: false);
-    }
-
     final args = widget.args ?? const <String, dynamic>{};
     final epoch = (args['epoch'] as int?) ?? 0;
     final slotsInEpoch = (args['slotsInEpoch'] as int?) ?? 0;
-    // Progress now driven by live node status; results not needed here
 
-    // Precompute counts for each filter for display in chips.
+    // Live slot progress
+    final summary = ref.watch(producedBlocksSummaryProvider);
+    final data = summary.asData?.value;
+    final (curr, total, progress) = _slotProgress(data, epoch, slotsInEpoch);
+
+    // Filter counts
     final producedCount = _items
         .where((i) =>
             i.result == RpcSlotResult.produced ||
@@ -170,384 +215,76 @@ class _SlotAssignmentsScreenState extends State<SlotAssignmentsScreen> {
         _items.where((i) => i.result == RpcSlotResult.scheduled).length;
     final wonSlotsCount = producedCount + missedCount + upcomingCount;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Slot Assignments'),
-        centerTitle: true,
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.all(spacing.space16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Header KPI card
-              AppCard(
-                color: theme.colorScheme.surfaceBright,
-                borderRadius: radii.borderRadiusLargeIncreased,
-                padding: EdgeInsets.all(spacing.space16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Epoch $epoch',
-                          style: theme.textTheme.bodyLarge
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                        Consumer(builder: (context, ref, _) {
-                          final summary =
-                              ref.watch(producedBlocksSummaryProvider);
-                          final data = summary.asData?.value;
-                          final total = data?.slotsInEpoch ?? slotsInEpoch;
-                          final currentEpoch = data?.currentEpoch;
-                          final isCurrentEpoch =
-                              currentEpoch != null && currentEpoch == epoch;
-                          final isFutureEpoch =
-                              currentEpoch != null && epoch > currentEpoch;
+    // Build filtered + sorted item list
+    final List<_ParsedItem> filtered;
+    if (_selected == _Filter.upcoming) {
+      filtered = _items.where(_matchesFilter).toList(growable: false);
+    } else {
+      filtered = _items.reversed.where(_matchesFilter).toList(growable: false);
+    }
 
-                          int curr;
-                          if (data == null || total <= 0) {
-                            curr = 0;
-                          } else if (isCurrentEpoch) {
-                            curr = data.currentEpochSlot;
-                          } else if (isFutureEpoch) {
-                            curr = 0;
-                          } else {
-                            // Past epoch: fully completed
-                            curr = total;
-                          }
+    final dsItems = filtered.map((item) {
+      final isTappable = item.result == RpcSlotResult.produced ||
+          item.result == RpcSlotResult.orphaned;
+      return SlotAssignmentItemData(
+        slot: item.slot,
+        status: _mapStatus(item.result),
+        timeLabel: _formatTimeLabel(item.result, item.slotTimeMs),
+        isTappable: isTappable,
+      );
+    }).toList(growable: false);
 
-                          return Text(
-                            'Slot Progress: $curr / $total',
-                            style: theme.textTheme.bodyMedium
-                                ?.copyWith(color: secondary),
-                          );
-                        }),
-                      ],
-                    ),
-                    SizedBox(height: spacing.space12),
-                    Consumer(builder: (context, ref, _) {
-                      final summary = ref.watch(producedBlocksSummaryProvider);
-                      final data = summary.asData?.value;
-                      final total = data?.slotsInEpoch ?? slotsInEpoch;
-                      final currentEpoch = data?.currentEpoch;
-                      final isCurrentEpoch =
-                          currentEpoch != null && currentEpoch == epoch;
-                      final isFutureEpoch =
-                          currentEpoch != null && epoch > currentEpoch;
+    final highlightIndex = _isInitialFilter &&
+            filtered.isNotEmpty &&
+            (_selected == _Filter.produced ||
+                _selected == _Filter.missed ||
+                _selected == _Filter.upcoming)
+        ? 0
+        : null;
 
-                      int curr;
-                      if (data == null || total <= 0) {
-                        curr = 0;
-                      } else if (isCurrentEpoch) {
-                        curr = data.currentEpochSlot;
-                      } else if (isFutureEpoch) {
-                        curr = 0;
-                      } else {
-                        // Past epoch: fully completed
-                        curr = total;
-                      }
-
-                      final p = total > 0 ? (curr / total) : 0.0;
-                      return _ProgressBar(progress: p);
-                    }),
-                  ],
-                ),
-              ),
-              SizedBox(height: spacing.space12),
-              // Filters row
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  spacing: spacing.space8,
-                  children: [
-                    _FilterChip(
-                      label: 'Won Slots',
-                      count: wonSlotsCount,
-                      selected: _selected.contains(_Filter.all),
-                      onTap: () => _toggleFilter(_Filter.all),
-                    ),
-                    _FilterChip(
-                      label: 'Produced',
-                      count: producedCount,
-                      selected: _selected.contains(_Filter.produced),
-                      onTap: () => _toggleFilter(_Filter.produced),
-                    ),
-                    _FilterChip(
-                      label: 'Missed',
-                      count: missedCount,
-                      selected: _selected.contains(_Filter.missed),
-                      onTap: () => _toggleFilter(_Filter.missed),
-                    ),
-                    _FilterChip(
-                      label: 'Upcoming',
-                      count: upcomingCount,
-                      selected: _selected.contains(_Filter.upcoming),
-                      onTap: () => _toggleFilter(_Filter.upcoming),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(height: spacing.space12),
-              // List title
-              Text(
-                'Assignments',
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              SizedBox(height: spacing.space8),
-              // Filtered list of slots (demo data)
-              Expanded(
-                child: ListView.separated(
-                  padding: EdgeInsets.only(bottom: spacing.space32),
-                  itemBuilder: (context, index) {
-                    final item = filtered[index];
-                    final isScheduled = item.result == RpcSlotResult.scheduled;
-                    final isProduced = item.result == RpcSlotResult.produced;
-                    final isMissed = item.result == RpcSlotResult.missed;
-                    final isOrphaned = item.result == RpcSlotResult.orphaned;
-                    String subtitleText = '';
-                    if (item.slotTimeMs != null &&
-                        (isScheduled || isProduced || isMissed || isOrphaned)) {
-                      final dt =
-                          DateTime.fromMillisecondsSinceEpoch(item.slotTimeMs!);
-                      final timeStr = formatHHMMSS(dt);
-                      if (isScheduled) {
-                        subtitleText = 'Scheduled for $timeStr';
-                      } else if (isProduced) {
-                        subtitleText = 'Produced at $timeStr';
-                      } else if (isMissed) {
-                        subtitleText = 'Missed at $timeStr';
-                      } else if (isOrphaned) {
-                        subtitleText = 'Orphaned at $timeStr';
-                      }
-                    }
-                    final VoidCallback? onTap = (isProduced || isOrphaned)
-                        ? () {
-                            context.push(
-                              AppRoutes.producedBlockDetails,
-                              extra: {
-                                'epoch': epoch,
-                                'slot': item.slot,
-                                'metadata': item.producedMeta,
-                                'slotsInEpoch': slotsInEpoch,
-                              },
-                            );
-                          }
-                        : null;
-                    // Calculate global slot: globalSlot = epoch * slotsInEpoch + slot
-                    final globalSlot = epoch * slotsInEpoch + item.slot;
-                    return _SlotRow(
-                      icon: Symbols.layers_sharp,
-                      title: 'Epoch Slot ${item.slot}',
-                      subtitle: subtitleText,
-                      result: item.result,
-                      globalSlot: globalSlot,
-                      onTap: onTap,
-                    );
-                  },
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemCount: filtered.length,
-                ),
-              ),
-            ],
-          ),
+    return SlotAssignmentsPage(
+      title: 'Slot Assignments',
+      epochLabel: 'Epoch $epoch',
+      slotProgressLeftLabel: '$curr / $total slots',
+      slotProgress: progress,
+      highlightIndex: highlightIndex,
+      filters: [
+        SlotFilterData(
+          label: 'Won Slots',
+          count: wonSlotsCount,
+          selected: _selected == _Filter.wonSlots,
         ),
-      ),
-    );
-  }
-}
-
-class _ProgressBar extends StatelessWidget {
-  const _ProgressBar({required this.progress});
-  final double progress;
-
-  @override
-  Widget build(BuildContext context) {
-    final radii = Theme.of(context).extension<AppRadii>()!;
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final isDark = colorScheme.brightness == Brightness.dark;
-
-    // Match ProducedBlocksScreen epoch panel colors:
-    // - Light: grey track + black active
-    // - Dark: surfaceVariant track + primary active
-    final trackColor = colorScheme.surfaceContainerHighest;
-    final activeColor = isDark ? colorScheme.primary : colorScheme.onSurface;
-
-    final p = progress.clamp(0.0, 1.0);
-    return SizedBox(
-      height: 12,
-      child: Stack(
-        alignment: Alignment.centerLeft,
-        children: [
-          Container(
-            height: 4,
-            decoration: BoxDecoration(
-              color: trackColor,
-              borderRadius: radii.borderRadiusXSmall,
-            ),
-          ),
-          FractionallySizedBox(
-            widthFactor: p,
-            child: Container(
-              height: 4,
-              decoration: BoxDecoration(
-                color: activeColor,
-                borderRadius: radii.borderRadiusXSmall,
-              ),
-            ),
-          ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Container(
-              width: 4,
-              height: 8,
-              decoration: BoxDecoration(
-                color: activeColor,
-                borderRadius: radii.borderRadiusXLarge,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SlotRow extends StatelessWidget {
-  const _SlotRow({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.result,
-    required this.globalSlot,
-    this.onTap,
-  });
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final RpcSlotResult result;
-  final int globalSlot;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
-    final sizing = Theme.of(context).extension<AppSizing>()!;
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final resultLabel = switch (result) {
-      RpcSlotResult.produced => 'Produced',
-      RpcSlotResult.orphaned => 'Orphaned',
-      RpcSlotResult.missed => 'Missed',
-      RpcSlotResult.scheduled => 'Upcoming',
-      RpcSlotResult.notCalculated => 'Not Calculated',
-      RpcSlotResult.notWon => 'Not Won',
-    };
-    final showChevron =
-        result == RpcSlotResult.produced || result == RpcSlotResult.orphaned;
-    final resultColor = result == RpcSlotResult.orphaned
-        ? colorScheme.error
-        : colorScheme.onSurface;
-
-    return ListTile(
-      leading: IconBadge(icon: icon),
-      title: Text(title),
-      subtitle: Text('Global Slot $globalSlot · $subtitle'),
-      trailing: showChevron
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  resultLabel,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: resultColor,
-                  ),
-                ),
-                SizedBox(width: spacing.space4),
-                Icon(Symbols.chevron_right_sharp,
-                    size: sizing.iconSmall,
-                    color: colorScheme.onSurfaceVariant),
-              ],
-            )
-          : Text(
-              resultLabel,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: resultColor,
-              ),
-            ),
-      onTap: onTap,
-    );
-  }
-}
-
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({
-    required this.label,
-    required this.count,
-    required this.selected,
-    required this.onTap,
-  });
-  final String label;
-  final int count;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
-    final radii = Theme.of(context).extension<AppRadii>()!;
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final bg = selected ? colorScheme.onSurface : colorScheme.surface;
-    final fg = selected ? colorScheme.surface : colorScheme.onSurface;
-    final border = selected ? colorScheme.onSurface : colorScheme.outline;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: radii.borderRadiusLargeIncreased,
-      child: Container(
-        padding: EdgeInsets.symmetric(
-            horizontal: spacing.space8, vertical: spacing.space8),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: radii.borderRadiusLarge,
-          border: Border.all(color: border),
+        SlotFilterData(
+          label: 'Produced',
+          count: producedCount,
+          selected: _selected == _Filter.produced,
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: EdgeInsets.symmetric(
-                  horizontal: spacing.space8, vertical: spacing.space4),
-              decoration: BoxDecoration(
-                color: colorScheme.onSurfaceVariant,
-                borderRadius: radii.borderRadiusFull,
-              ),
-              child: Text(
-                '$count',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: colorScheme.surface,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            SizedBox(width: spacing.space8),
-            Text(
-              label,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: fg,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
+        SlotFilterData(
+          label: 'Missed',
+          count: missedCount,
+          selected: _selected == _Filter.missed,
         ),
-      ),
+        SlotFilterData(
+          label: 'Upcoming',
+          count: upcomingCount,
+          selected: _selected == _Filter.upcoming,
+        ),
+      ],
+      onFilterTap: _onFilterTap,
+      items: dsItems,
+      onItemTap: (index) {
+        final item = filtered[index];
+        context.push(
+          AppRoutes.producedBlockDetails,
+          extra: {
+            'epoch': epoch,
+            'slot': item.slot,
+            'metadata': item.producedMeta,
+            'slotsInEpoch': slotsInEpoch,
+          },
+        );
+      },
+      onBackTap: () => context.pop(),
     );
   }
 }

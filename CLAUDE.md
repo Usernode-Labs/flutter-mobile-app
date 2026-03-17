@@ -51,7 +51,7 @@ All new design system work lives in `lib/design_system/`. Existing code is untou
 - **New widgets**: When M3 doesn't cover the need, build from core primitives with M3 alignment in mind.
 - **Composing existing `lib/core/widgets/`** (AppButton, AppCard, etc.) is allowed.
 - **Tokens**: Access via `Theme.of(context).extension<T>()!` (e.g., `AppSpacing`, `AppRadii`, `AppElevation`)
-- **Colors**: `Theme.of(context).colorScheme`
+- **Colors**: `Theme.of(context).colorScheme` — **all structural roles are achromatic grey** (primary, secondary, tertiary, containers). Only `error*` has hue. To introduce chromatic color, use `Theme.of(context).extension<AppSemanticColors>()!` (technical/flash/community/success/warning). Never assume a `ColorScheme` role carries color.
 - **Typography**: `Theme.of(context).textTheme`
 - **Presentation-only**: Design system widgets take all state via constructor params (data + callbacks). No providers, no `ConsumerWidget`, no services. No FRB-generated types in constructor params (they transitively import native FFI). Screens in `lib/features/` wire state to widgets.
 - **Widgetbook rule**: Every new design system widget gets a use case that imports the **real widget** with mock data via knobs — never hand-built replicas.

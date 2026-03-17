@@ -17,6 +17,7 @@ export 'tokens/app_typography.dart';
 
 // Widgets
 export 'src/block_production_status_card.dart';
+export 'src/burst_pulse_illustration.dart';
 export 'src/bottom_nav.dart';
 export 'src/empty_state.dart';
 export 'src/full_page_error_state.dart';
@@ -47,6 +48,7 @@ export 'src/sheet_layout.dart';
 export 'src/shimmer_block.dart';
 export 'src/shimmer_card_skeleton.dart';
 export 'src/shimmer_list_tile.dart';
+export 'src/slot_assignments_page.dart';
 export 'src/status_badge.dart';
 export 'src/status_text_trailing.dart';
 export 'src/tabs.dart';

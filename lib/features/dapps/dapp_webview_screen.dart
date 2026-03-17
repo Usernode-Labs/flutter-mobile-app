@@ -13,6 +13,7 @@ import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -67,6 +68,34 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   bool _showUrlEditor = false;
   final List<_TxLogEntry> _txLog = [];
   List<_OnChainTx> _onChainTxCache = [];
+  final Map<String, DateTime> _txConfirmedAt = {};
+  Timer? _confirmPoller;
+  String? _cachedChainId;
+
+  String get _confirmedAtPrefsKey =>
+      'dapp_tx_confirmed_at:${widget.url}';
+
+  Future<void> _loadConfirmedAt() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_confirmedAtPrefsKey);
+    if (raw == null) return;
+    try {
+      final map = jsonDecode(raw) as Map<String, dynamic>;
+      for (final e in map.entries) {
+        _txConfirmedAt[e.key] =
+            DateTime.fromMillisecondsSinceEpoch(e.value as int);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _saveConfirmedAt() async {
+    final prefs = await SharedPreferences.getInstance();
+    final map = <String, int>{};
+    for (final e in _txConfirmedAt.entries) {
+      map[e.key] = e.value.millisecondsSinceEpoch;
+    }
+    await prefs.setString(_confirmedAtPrefsKey, jsonEncode(map));
+  }
 
   // Transaction confirmation uses Navigator.push with an opaque route instead
   // of showModalBottomSheet. A known Flutter engine bug (fixed in 3.41.0)
@@ -133,6 +162,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
         ),
       )
       ..loadRequest(parseDappUrl(widget.url));
+    _loadConfirmedAt();
   }
 
   @override
@@ -143,6 +173,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
 
   @override
   void dispose() {
+    _confirmPoller?.cancel();
     _secretTapResetTimer?.cancel();
     _urlController.dispose();
     _urlFocusNode.dispose();
@@ -315,6 +346,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
         );
 
     final rpcError = resp?.error;
+    final isQueued = rpcError == null || rpcError.isEmpty;
     _txLog.insert(
       0,
       _TxLogEntry(
@@ -323,13 +355,15 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
         to: destinationPubkey,
         amount: amount,
         memo: memoString,
-        status: (rpcError != null && rpcError.isNotEmpty)
-            ? _TxStatus.error
-            : _TxStatus.queued,
+        status: isQueued ? _TxStatus.queued : _TxStatus.error,
         errorMessage: rpcError,
         txHash: resp?.txId,
       ),
     );
+
+    if (isQueued && resp?.txId != null) {
+      _ensureConfirmPoller();
+    }
 
     await _resolveJsPromise(
       id: id,
@@ -339,6 +373,97 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
       },
       error: null,
     );
+  }
+
+  void _ensureConfirmPoller() {
+    if (_confirmPoller != null) return;
+    _confirmPoller = Timer.periodic(const Duration(seconds: 3), (_) {
+      _pollForConfirmations();
+    });
+  }
+
+  Future<void> _pollForConfirmations() async {
+    final pending = <String, DateTime>{};
+    for (final entry in _txLog) {
+      if (entry.status != _TxStatus.queued) continue;
+      if (entry.txHash == null) continue;
+      if (_txConfirmedAt.containsKey(entry.txHash)) continue;
+      pending[entry.txHash!] = entry.timestamp;
+    }
+
+    if (pending.isEmpty) {
+      _confirmPoller?.cancel();
+      _confirmPoller = null;
+      return;
+    }
+
+    final address = await _getActiveNodeAddress();
+    if (address == null || address.isEmpty) return;
+
+    final dappUri = parseDappUrl(widget.url);
+    final base = Uri(
+      scheme: dappUri.scheme,
+      host: dappUri.host,
+      port: dappUri.port,
+    );
+
+    try {
+      if (_cachedChainId == null) {
+        final chainRes =
+            await http.get(base.resolve('/explorer-api/active_chain'));
+        if (chainRes.statusCode != 200) return;
+        final chainData = jsonDecode(chainRes.body) as Map<String, dynamic>;
+        _cachedChainId = chainData['chain_id'] as String?;
+        if (_cachedChainId == null) return;
+      }
+
+      final earliest = pending.values.reduce(
+        (a, b) => a.isBefore(b) ? a : b,
+      );
+      final fromTs = earliest.millisecondsSinceEpoch - 60000;
+
+      final txUrl =
+          base.resolve('/explorer-api/$_cachedChainId/transactions');
+      final txRes = await http.post(
+        txUrl,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'sender': address,
+          'from_timestamp': fromTs,
+          'limit': 50,
+        }),
+      );
+      if (txRes.statusCode != 200) return;
+
+      final txData = jsonDecode(txRes.body) as Map<String, dynamic>;
+      final items = (txData['items'] as List<dynamic>?) ?? [];
+      final now = DateTime.now();
+      var found = false;
+
+      for (final item in items) {
+        final j = item as Map<String, dynamic>;
+        final txId =
+            (j['tx_id'] ?? j['id'] ?? j['txid'] ?? j['hash'] ?? '') as String;
+        final status = j['status'] as String?;
+        if (txId.isNotEmpty &&
+            status == 'confirmed' &&
+            pending.containsKey(txId) &&
+            !_txConfirmedAt.containsKey(txId)) {
+          _txConfirmedAt[txId] = now;
+          final oc = _OnChainTx.fromJson(j);
+          _onChainTxCache =
+              _onChainTxCache.where((c) => c.txId != txId).toList()..add(oc);
+          found = true;
+        }
+      }
+
+      if (found) {
+        _saveConfirmedAt();
+        if (mounted) setState(() {});
+      }
+    } catch (_) {
+      // Silently ignore — will retry on next tick.
+    }
   }
 
   /// Pushes a full-screen opaque route for transaction confirmation.
@@ -423,6 +548,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
           explorerOrigin: explorerOrigin,
           initialOnChainTxs: _onChainTxCache,
           onOnChainTxsUpdated: (txs) => _onChainTxCache = txs,
+          confirmedAt: _txConfirmedAt,
         ),
         transitionsBuilder: (_, animation, __, child) {
           return SlideTransition(
@@ -927,6 +1053,7 @@ class _TxDebugPanel extends StatefulWidget {
   final Uri explorerOrigin;
   final List<_OnChainTx> initialOnChainTxs;
   final ValueChanged<List<_OnChainTx>> onOnChainTxsUpdated;
+  final Map<String, DateTime> confirmedAt;
 
   const _TxDebugPanel({
     required this.txLog,
@@ -934,6 +1061,7 @@ class _TxDebugPanel extends StatefulWidget {
     required this.explorerOrigin,
     required this.initialOnChainTxs,
     required this.onOnChainTxsUpdated,
+    required this.confirmedAt,
   });
 
   @override
@@ -1322,20 +1450,27 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                                 oc?.status == 'confirmed';
                         String? confirmTimeStr;
                         if (isConfirmed) {
-                          int? latencyMs;
-                          // Prefer the explorer's inclusion_latency_ms (tx
-                          // timestamp vs block timestamp, computed server-side).
-                          // Fall back to local send time vs block timestamp,
-                          // which can be negative due to clock skew.
-                          if (oc?.inclusionLatencyMs != null) {
-                            latencyMs = oc!.inclusionLatencyMs!;
-                          } else if (!entry.isHistorical &&
-                              oc?.timestampMs != null) {
-                            latencyMs = oc!.timestampMs! -
-                                local.timestamp.millisecondsSinceEpoch;
+                          // Total latency: phone-clock delta from send to
+                          // first detection as confirmed. Available for txs
+                          // sent in this session.
+                          final ca = local.txHash != null
+                              ? widget.confirmedAt[local.txHash]
+                              : null;
+                          if (ca != null && !entry.isHistorical) {
+                            final totalMs =
+                                ca.difference(local.timestamp).inMilliseconds;
+                            if (totalMs >= 0) {
+                              final secs = totalMs ~/ 1000;
+                              confirmTimeStr = secs < 60
+                                  ? '${secs}s'
+                                  : '${secs ~/ 60}m ${secs % 60}s';
+                            }
                           }
-                          if (latencyMs != null && latencyMs >= 0) {
-                            final secs = latencyMs ~/ 1000;
+                          // Fall back to inclusion_latency_ms for historical
+                          // entries or when confirmedAt is unavailable.
+                          if (confirmTimeStr == null &&
+                              oc?.inclusionLatencyMs != null) {
+                            final secs = oc!.inclusionLatencyMs! ~/ 1000;
                             confirmTimeStr = secs < 60
                                 ? '${secs}s'
                                 : '${secs ~/ 60}m ${secs % 60}s';
@@ -1505,6 +1640,16 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                                     ),
                                   if (isExpanded) ...[
                                     const Divider(height: 16),
+                                    if (isConfirmed &&
+                                        oc?.inclusionLatencyMs !=
+                                            null)
+                                      _buildLatencyRow(
+                                        theme: theme,
+                                        muted: muted,
+                                        local: local,
+                                        entry: entry,
+                                        oc: oc!,
+                                      ),
                                     _detailRow(
                                         theme, muted, 'From',
                                         local.from,
@@ -1551,6 +1696,64 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildLatencyRow({
+    required ThemeData theme,
+    required Color muted,
+    required _TxLogEntry local,
+    required _MergedEntry entry,
+    required _OnChainTx oc,
+  }) {
+    final inclusionSecs = oc.inclusionLatencyMs! ~/ 1000;
+
+    final ca = (!entry.isHistorical && local.txHash != null)
+        ? widget.confirmedAt[local.txHash]
+        : null;
+    int? totalSecs;
+    int? lastMileSecs;
+    if (ca != null) {
+      final totalMs = ca.difference(local.timestamp).inMilliseconds;
+      if (totalMs >= 0) {
+        totalSecs = totalMs ~/ 1000;
+        final lm = totalMs - oc.inclusionLatencyMs!;
+        if (lm >= 0) lastMileSecs = lm ~/ 1000;
+      }
+    }
+
+    String fmt(int s) => s < 60 ? '${s}s' : '${s ~/ 60}m ${s % 60}s';
+
+    Widget col(String label, String value, {bool accent = false}) {
+      return Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label,
+                style: theme.textTheme.labelSmall?.copyWith(color: muted)),
+            const SizedBox(height: 2),
+            Text(
+              value,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: accent ? const Color(0xFF4CAF50) : null,
+                fontWeight: accent ? FontWeight.w600 : null,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          if (totalSecs != null)
+            col('Total', '\u{23F1} ${fmt(totalSecs)}', accent: true),
+          col('Inclusion', fmt(inclusionSecs)),
+          if (lastMileSecs != null) col('Last mile', fmt(lastMileSecs)),
+        ],
       ),
     );
   }

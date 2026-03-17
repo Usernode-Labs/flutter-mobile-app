@@ -17,6 +17,7 @@ export 'tokens/app_typography.dart';
 
 // Widgets
 export 'src/block_production_status_card.dart';
+export 'src/burst_pulse_illustration.dart';
 export 'src/bottom_nav.dart';
 export 'src/empty_state.dart';
 export 'src/full_page_error_state.dart';

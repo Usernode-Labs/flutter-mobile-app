@@ -16,6 +16,7 @@ import 'package:crypto_mobile_app/design_system/src/challenge_detail_page.dart';
 import 'package:crypto_mobile_app/design_system/src/challenge_reward_card.dart';
 import 'package:crypto_mobile_app/design_system/src/status_badge.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
+import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_slots.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 
@@ -52,6 +53,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
         builder: (context, diffSnapshot) {
           return _buildPage(
             context,
+            ref,
             eb,
             diffSnapshot.data,
             latestEpoch,
@@ -65,6 +67,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
 
   Widget _buildPage(
     BuildContext context,
+    WidgetRef ref,
     EventBreakdown? eb,
     PointDiff? diff,
     int? latestEpoch,
@@ -100,7 +103,8 @@ class ChallengeDetailScreen extends ConsumerWidget {
           ? _buildRewardCard(context, category, eb, diff, latestEpoch)
           : null,
       statusSection: isProduceBlocks
-          ? _buildStatusSection(nodeStatus, blocksSummaryData)
+          ? _buildStatusSection(
+              context, ref, nodeStatus, blocksSummaryData, latestEpoch)
           : null,
       sections: _buildSections(context, dto),
       totalRewardHeading: showRewardCard
@@ -218,41 +222,51 @@ class ChallengeDetailScreen extends ConsumerWidget {
   }
 
   Widget _buildStatusSection(
+    BuildContext context,
+    WidgetRef ref,
     NodeStatusState? nodeStatus,
     ProducedBlocksSummary? summary,
+    int? currentEpoch,
   ) {
-    // Network step
+    // Network step — always tappable, navigates to Node Status tab
+    void networkOnTap() {
+      ref.read(currentHomeTabProvider.notifier).state = HomeTab.nodeStatus;
+      context.go(AppRoutes.home);
+    }
     final PipelineStepStatus networkStep;
     if (nodeStatus == null) {
-      networkStep = const PipelineStepStatus(
+      networkStep = PipelineStepStatus(
         label: 'Network',
         icon: Symbols.wifi_sharp,
-        trailing: StepTrailingBadge(
+        trailing: const StepTrailingBadge(
           label: 'Loading',
           variant: StatusBadgeVariant.neutral,
         ),
+        onTap: networkOnTap,
       );
     } else if (nodeStatus.connectedPeers > 0) {
-      networkStep = const PipelineStepStatus(
+      networkStep = PipelineStepStatus(
         label: 'Network',
         icon: Symbols.wifi_sharp,
-        trailing: StepTrailingBadge(
+        trailing: const StepTrailingBadge(
           label: 'Connected',
           variant: StatusBadgeVariant.success,
         ),
+        onTap: networkOnTap,
       );
     } else {
-      networkStep = const PipelineStepStatus(
+      networkStep = PipelineStepStatus(
         label: 'Network',
         icon: Symbols.wifi_sharp,
-        trailing: StepTrailingBadge(
+        trailing: const StepTrailingBadge(
           label: 'Disconnected',
           variant: StatusBadgeVariant.error,
         ),
+        onTap: networkOnTap,
       );
     }
 
-    // VRF step
+    // VRF step — tappable when currentEpoch is known
     final PipelineStepStatus vrfStep;
     final vrfStatus = nodeStatus?.vrfEvaluator?.currentEpochVrfEvaluationStatus;
     vrfStep = PipelineStepStatus(
@@ -276,6 +290,9 @@ class ChallengeDetailScreen extends ConsumerWidget {
             variant: StatusBadgeVariant.neutral,
           ),
       },
+      onTap: currentEpoch != null && summary != null
+          ? () => _navigateToSlots(context, summary, currentEpoch, ['all'])
+          : null,
     );
 
     // Next Block step — find first scheduled slot with future time
@@ -301,11 +318,17 @@ class ChallengeDetailScreen extends ConsumerWidget {
       }
     }
 
-    if (nextBlockText != null) {
+    // Next Block — tappable when there are upcoming slots
+    final hasUpcoming = nextBlockText != null;
+    if (hasUpcoming) {
       nextBlockStep = PipelineStepStatus(
         label: 'Next Block',
         icon: Symbols.schedule_sharp,
         trailing: StepTrailingText(text: nextBlockText),
+        onTap: summary != null
+            ? () =>
+                _navigateToSlots(context, summary, currentEpoch, ['upcoming'])
+            : null,
       );
     } else if (vrfStatus == RpcStatusVrfEvaluationStatus.completed) {
       nextBlockStep = const PipelineStepStatus(
@@ -349,12 +372,18 @@ class ChallengeDetailScreen extends ConsumerWidget {
       }
     }
 
-    if (lastProducedTimeMs != null) {
+    // Last Produced — tappable when there are produced blocks
+    final hasProduced = lastProducedTimeMs != null;
+    if (hasProduced) {
       final agoMs = nowMs - lastProducedTimeMs.toInt();
       lastProducedStep = PipelineStepStatus(
         label: 'Last Produced',
         icon: Symbols.check_circle_sharp,
         trailing: StepTrailingText(text: _formatTimeAgo(agoMs)),
+        onTap: summary != null
+            ? () =>
+                _navigateToSlots(context, summary, currentEpoch, ['produced'])
+            : null,
       );
     } else {
       lastProducedStep = const PipelineStepStatus(
@@ -367,12 +396,39 @@ class ChallengeDetailScreen extends ConsumerWidget {
       );
     }
 
+    // Missed Blocks step — count from current epoch
+    final PipelineStepStatus? missedBlocksStep;
+    if (summary != null && currentEpoch != null) {
+      final currentScore =
+          (currentEpoch >= 0 && currentEpoch < summary.epochScores.length)
+              ? summary.epochScores[currentEpoch]
+              : null;
+      final missed = currentScore?.missed ?? 0;
+      missedBlocksStep = PipelineStepStatus(
+        label: 'Missed Blocks',
+        icon: Symbols.disabled_by_default_sharp,
+        trailing: missed > 0
+            ? StepTrailingText(
+                text: '$missed ${missed == 1 ? 'block' : 'blocks'}')
+            : const StepTrailingBadge(
+                label: 'None',
+                variant: StatusBadgeVariant.success,
+              ),
+        onTap: missed > 0
+            ? () => _navigateToSlots(context, summary, currentEpoch, ['missed'])
+            : null,
+      );
+    } else {
+      missedBlocksStep = null;
+    }
+
     return BlockProductionStatusCard(
       data: BlockProductionStatusData(
         network: networkStep,
         vrf: vrfStep,
         nextBlock: nextBlockStep,
         lastProduced: lastProducedStep,
+        missedBlocks: missedBlocksStep,
       ),
     );
   }
@@ -397,6 +453,51 @@ class ChallengeDetailScreen extends ConsumerWidget {
     if (hours < 24) return '$hours h ago';
     final days = hours ~/ 24;
     return '$days d ago';
+  }
+
+  /// Navigate to slot assignments with extracted slot data.
+  static void _navigateToSlots(
+    BuildContext context,
+    ProducedBlocksSummary data,
+    int? currentEpoch,
+    List<String> filters,
+  ) {
+    if (currentEpoch == null) return;
+    final score = (currentEpoch >= 0 && currentEpoch < data.epochScores.length)
+        ? data.epochScores[currentEpoch]
+        : null;
+    final epochData = score?.epochData.slotData;
+    final results = epochData == null
+        ? <int>[]
+        : epochData.map((s) => s.result.index).toList();
+    final slotTimesMs = epochData == null
+        ? <int?>[]
+        : epochData.map((s) => s.slotTimeMs?.toInt()).toList();
+    final producedMeta = epochData == null
+        ? const <Map<String, dynamic>?>[]
+        : epochData
+            .map((s) => s.producedBlockMetadata == null
+                ? null
+                : <String, dynamic>{
+                    'blockHash': s.producedBlockMetadata!.blockHash.toString(),
+                    'canonical': s.producedBlockMetadata!.canonical,
+                    'timestampMs':
+                        s.producedBlockMetadata!.timestampMs.toString(),
+                    'tokensWon': s.producedBlockMetadata!.tokensWon.toString(),
+                  })
+            .toList();
+
+    context.push(
+      AppRoutes.slotAssignments,
+      extra: {
+        'epoch': currentEpoch,
+        'slotsInEpoch': data.slotsInEpoch,
+        'results': results,
+        'slotTimesMs': slotTimesMs,
+        'producedMeta': producedMeta,
+        'filters': filters,
+      },
+    );
   }
 
   String _categoryDisplayName(ChallengeCategory category) {

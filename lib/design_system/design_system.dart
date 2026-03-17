@@ -47,6 +47,7 @@ export 'src/sheet_layout.dart';
 export 'src/shimmer_block.dart';
 export 'src/shimmer_card_skeleton.dart';
 export 'src/shimmer_list_tile.dart';
+export 'src/slot_assignments_page.dart';
 export 'src/status_badge.dart';
 export 'src/status_text_trailing.dart';
 export 'src/tabs.dart';

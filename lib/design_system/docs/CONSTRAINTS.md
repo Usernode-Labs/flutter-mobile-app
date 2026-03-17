@@ -33,9 +33,22 @@ Rules enforced by convention (and eventually by lint). Each constraint has: WHAT
 
 ## Color Budget Rule
 
-**Constraint:** Chromatic color only via `AppSemanticColors`. The `ColorScheme` is achromatic. The tertiary role is a "ghost" that forces semantic color usage.
+**Constraint:** Chromatic color only via `AppSemanticColors`. Every `ColorScheme` structural role — primary, secondary, tertiary, and all their containers — is **achromatic grey**. Only `error*` retains hue.
 
-**Why:** An achromatic base ensures color has meaning — every chromatic pixel earns its place through a semantic role. **Where:** [COLOR.md](COLOR.md).
+**Critical implication:** Widgets using `ColorScheme` defaults render grey automatically. For example, `IconBadge` defaults to `secondaryContainer` / `onSecondaryContainer` which are grey (`#E1E2E8` / `#44474D`) — no explicit override needed to make them neutral. Do not add color params to "neutralize" something that is already achromatic.
+
+**To introduce hue**, reach for `AppSemanticColors`:
+```dart
+final semantic = Theme.of(context).extension<AppSemanticColors>()!;
+// semantic.technical  — blue (infrastructure, upcoming slots)
+// semantic.flash      — amber (challenge category)
+// semantic.community  — green (challenge category)
+// semantic.success    — green (positive outcomes)
+// semantic.warning    — amber (syncing, permissions)
+// Each group: .color, .onColor, .colorContainer, .onColorContainer, .colorSurface, .onColorSurface
+```
+
+**Why:** An achromatic base ensures color has meaning — every chromatic pixel earns its place through a semantic role. **Where:** [COLOR.md](COLOR.md); `theme/color_is_expensive_theme.dart`.
 
 ## Two-Tier Surface Rule
 

@@ -242,6 +242,8 @@ class RustBackendService {
       _nodeRunning = true;
       control.resume();
       await _cachePeerIdFromRpc(rpc);
+
+      await _configureWalletSigner(secretKey, account.id);
       _log.info('Reused previously started node');
       return true;
     }
@@ -305,24 +307,7 @@ class RustBackendService {
         _log.warn('Failed to cache peer ID (node may still be starting): $e');
       }
 
-      // Set the signer in the usernode for transaction signing
-      try {
-        _log.debug('Configuring wallet signer for account ${account.id}...');
-        final signerResponse = await _rpc!.walletSetSignerFromSecret(
-          secretKey: secretKey,
-        );
-
-        if (signerResponse != null && signerResponse.ok) {
-          _log.info(
-              'Wallet signer configured successfully for account ${account.id}');
-        } else {
-          final error = signerResponse?.error ?? 'Unknown error';
-          _log.warn('Failed to configure wallet signer: $error');
-        }
-      } catch (e, st) {
-        _log.warn('Exception while configuring wallet signer: $e $st');
-        // Don't fail node startup if signer configuration fails
-      }
+      await _configureWalletSigner(secretKey, account.id);
 
       _log.info('Node started with user account block producer');
       return true;
@@ -332,6 +317,42 @@ class RustBackendService {
       await SentryUtil.captureError(e, st, tag: 'startNode');
       return false;
     }
+  }
+
+  Future<void> _configureWalletSigner(
+      String secretKey, String accountId) async {
+    const maxAttempts = 5;
+    const retryDelay = Duration(milliseconds: 500);
+
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        _log.debug(
+          'Configuring wallet signer for account $accountId '
+          '(attempt $attempt/$maxAttempts)...',
+        );
+        final resp = await _rpc!.walletSetSignerFromSecret(
+          secretKey: secretKey,
+        );
+
+        if (resp != null && resp.ok) {
+          _log.info('Wallet signer configured for account $accountId');
+          return;
+        }
+
+        final error = resp?.error ?? (resp == null ? 'null response' : 'ok=false');
+        _log.warn('Wallet signer attempt $attempt failed: $error');
+      } catch (e) {
+        _log.warn('Wallet signer attempt $attempt exception: $e');
+      }
+
+      if (attempt < maxAttempts) {
+        await Future.delayed(retryDelay);
+      }
+    }
+    _log.error(
+      'Wallet signer configuration failed after $maxAttempts attempts '
+      'for account $accountId — dapp transactions will not work',
+    );
   }
 
   Future<void> resumeNode() async {

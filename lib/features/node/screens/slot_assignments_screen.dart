@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/providers/produced_blocks_provider.dart';
+import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:go_router/go_router.dart';
@@ -42,7 +45,9 @@ class _ParsedItem {
 class _SlotAssignmentsScreenState extends ConsumerState<SlotAssignmentsScreen> {
   _Filter _selected = _Filter.wonSlots;
   bool _isInitialFilter = true;
-  late final List<_ParsedItem> _items =
+  Timer? _autoRefreshTimer;
+  bool _refreshing = false;
+  late final List<_ParsedItem> _fallbackItems =
       _buildItemsFromArgs(widget.args) ?? const <_ParsedItem>[];
 
   @override
@@ -63,6 +68,41 @@ class _SlotAssignmentsScreenState extends ConsumerState<SlotAssignmentsScreen> {
       }
     } else {
       _selected = _Filter.wonSlots;
+    }
+
+    _startAutoRefresh();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _refreshSummary();
+    });
+  }
+
+  @override
+  void dispose() {
+    _autoRefreshTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startAutoRefresh() {
+    _autoRefreshTimer?.cancel();
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (!mounted || _refreshing) return;
+      _refreshSummary();
+    });
+  }
+
+  Future<void> _refreshSummary() async {
+    if (_refreshing) return;
+    if (!mounted) return;
+    final route = ModalRoute.of(context);
+    if (route != null && !route.isCurrent) return;
+    _refreshing = true;
+    try {
+      final _ = await ref.refresh(producedBlocksSummaryProvider.future);
+    } catch (e, st) {
+      debugPrint('SlotAssignmentsScreen: refresh failed: $e\n$st');
+    } finally {
+      _refreshing = false;
     }
   }
 
@@ -113,6 +153,55 @@ class _SlotAssignmentsScreenState extends ConsumerState<SlotAssignmentsScreen> {
     }
   }
 
+  List<_ParsedItem>? _buildItemsFromLiveSummary(
+    ProducedBlocksSummary? summary,
+    int epoch,
+    int fallbackSlotsInEpoch,
+  ) {
+    if (summary == null || epoch < 0 || epoch >= summary.epochScores.length) {
+      return null;
+    }
+
+    final slotData = summary.epochScores[epoch].epochData.slotData;
+    if (slotData == null) return null;
+
+    final slotsInEpoch =
+        summary.slotsInEpoch > 0 ? summary.slotsInEpoch : fallbackSlotsInEpoch;
+    if (slotsInEpoch <= 0) return null;
+
+    return List<_ParsedItem>.generate(slotsInEpoch, (i) {
+      final slot = i < slotData.length ? slotData[i] : null;
+      final metadata = slot?.producedBlockMetadata;
+      return _ParsedItem(
+        slot: i,
+        result: slot?.result ?? RpcSlotResult.notCalculated,
+        slotTimeMs: slot?.slotTimeMs?.toInt(),
+        producedMeta: metadata == null
+            ? null
+            : <String, dynamic>{
+                'blockHash': metadata.blockHash.toString(),
+                'canonical': metadata.canonical,
+                'timestampMs': metadata.timestampMs.toString(),
+                'tokensWon': metadata.tokensWon.toString(),
+              },
+      );
+    });
+  }
+
+  static RpcSlotResult _effectiveResult(
+    _ParsedItem item,
+    int nowMs,
+    int slotDurationMs,
+  ) {
+    if (item.result == RpcSlotResult.scheduled &&
+        item.slotTimeMs != null &&
+        slotDurationMs > 0 &&
+        nowMs >= item.slotTimeMs! + slotDurationMs) {
+      return RpcSlotResult.missed;
+    }
+    return item.result;
+  }
+
   // ---------------------------------------------------------------------------
   // Data mapping helpers
   // ---------------------------------------------------------------------------
@@ -143,16 +232,17 @@ class _SlotAssignmentsScreenState extends ConsumerState<SlotAssignmentsScreen> {
   // Filter logic
   // ---------------------------------------------------------------------------
 
-  bool _matchesFilter(_ParsedItem item) {
+  bool _matchesFilter(_ParsedItem item, int nowMs, int slotDurationMs) {
+    final result = _effectiveResult(item, nowMs, slotDurationMs);
     return switch (_selected) {
-      _Filter.wonSlots => item.result == RpcSlotResult.produced ||
-          item.result == RpcSlotResult.orphaned ||
-          item.result == RpcSlotResult.missed ||
-          item.result == RpcSlotResult.scheduled,
-      _Filter.produced => item.result == RpcSlotResult.produced ||
-          item.result == RpcSlotResult.orphaned,
-      _Filter.missed => item.result == RpcSlotResult.missed,
-      _Filter.upcoming => item.result == RpcSlotResult.scheduled,
+      _Filter.wonSlots => result == RpcSlotResult.produced ||
+          result == RpcSlotResult.orphaned ||
+          result == RpcSlotResult.missed ||
+          result == RpcSlotResult.scheduled,
+      _Filter.produced =>
+        result == RpcSlotResult.produced || result == RpcSlotResult.orphaned,
+      _Filter.missed => result == RpcSlotResult.missed,
+      _Filter.upcoming => result == RpcSlotResult.scheduled,
     };
   }
 
@@ -197,39 +287,54 @@ class _SlotAssignmentsScreenState extends ConsumerState<SlotAssignmentsScreen> {
     final args = widget.args ?? const <String, dynamic>{};
     final epoch = (args['epoch'] as int?) ?? 0;
     final slotsInEpoch = (args['slotsInEpoch'] as int?) ?? 0;
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final slotDurationMs =
+        ref.watch(nodeStatusProvider).valueOrNull?.slotDurationMs ?? 0;
 
     // Live slot progress
     final summary = ref.watch(producedBlocksSummaryProvider);
-    final data = summary.asData?.value;
+    final data = summary.valueOrNull;
     final (curr, total, progress) = _slotProgress(data, epoch, slotsInEpoch);
+    final items =
+        _buildItemsFromLiveSummary(data, epoch, slotsInEpoch) ?? _fallbackItems;
 
     // Filter counts
-    final producedCount = _items
+    final producedCount = items.where((i) {
+      final result = _effectiveResult(i, nowMs, slotDurationMs);
+      return result == RpcSlotResult.produced ||
+          result == RpcSlotResult.orphaned;
+    }).length;
+    final missedCount = items
         .where((i) =>
-            i.result == RpcSlotResult.produced ||
-            i.result == RpcSlotResult.orphaned)
+            _effectiveResult(i, nowMs, slotDurationMs) == RpcSlotResult.missed)
         .length;
-    final missedCount =
-        _items.where((i) => i.result == RpcSlotResult.missed).length;
-    final upcomingCount =
-        _items.where((i) => i.result == RpcSlotResult.scheduled).length;
+    final upcomingCount = items
+        .where((i) =>
+            _effectiveResult(i, nowMs, slotDurationMs) ==
+            RpcSlotResult.scheduled)
+        .length;
     final wonSlotsCount = producedCount + missedCount + upcomingCount;
 
     // Build filtered + sorted item list
     final List<_ParsedItem> filtered;
     if (_selected == _Filter.upcoming) {
-      filtered = _items.where(_matchesFilter).toList(growable: false);
+      filtered = items
+          .where((item) => _matchesFilter(item, nowMs, slotDurationMs))
+          .toList(growable: false);
     } else {
-      filtered = _items.reversed.where(_matchesFilter).toList(growable: false);
+      filtered = items.reversed
+          .where((item) => _matchesFilter(item, nowMs, slotDurationMs))
+          .toList(growable: false);
     }
 
     final dsItems = filtered.map((item) {
-      final isTappable = item.result == RpcSlotResult.produced ||
-          item.result == RpcSlotResult.orphaned;
+      final result = _effectiveResult(item, nowMs, slotDurationMs);
+      final isTappable =
+          result == RpcSlotResult.produced || result == RpcSlotResult.orphaned;
       return SlotAssignmentItemData(
         slot: item.slot,
-        status: _mapStatus(item.result),
-        timeLabel: _formatTimeLabel(item.result, item.slotTimeMs),
+        status: _mapStatus(result),
+        timeLabel: _formatTimeLabel(result, item.slotTimeMs),
         isTappable: isTappable,
       );
     }).toList(growable: false);

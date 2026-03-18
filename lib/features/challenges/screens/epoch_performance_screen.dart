@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -27,11 +29,45 @@ class EpochPerformanceScreen extends ConsumerStatefulWidget {
 class _EpochPerformanceScreenState
     extends ConsumerState<EpochPerformanceScreen> {
   late int _viewedEpoch;
+  Timer? _autoRefreshTimer;
+  bool _refreshing = false;
 
   @override
   void initState() {
     super.initState();
     _viewedEpoch = widget.initialEpoch;
+    _startAutoRefresh();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _refreshSummary();
+    });
+  }
+
+  @override
+  void dispose() {
+    _autoRefreshTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startAutoRefresh() {
+    _autoRefreshTimer?.cancel();
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (!mounted || _refreshing) return;
+      _refreshSummary();
+    });
+  }
+
+  Future<void> _refreshSummary() async {
+    if (_refreshing) return;
+    if (!mounted) return;
+    final route = ModalRoute.of(context);
+    if (route != null && !route.isCurrent) return;
+    _refreshing = true;
+    try {
+      final _ = await ref.refresh(producedBlocksSummaryProvider.future);
+    } finally {
+      _refreshing = false;
+    }
   }
 
   @override
@@ -40,7 +76,7 @@ class _EpochPerformanceScreenState
     final nodeStatus = ref.watch(nodeStatusProvider).value;
     final l10n = AppLocalizations.of(context);
 
-    final dataValue = summary.asData?.value;
+    final dataValue = summary.valueOrNull;
     final currentEpoch = dataValue?.currentEpoch ?? 0;
     final maxEpochWithData = dataValue?.maxEpochWithData ?? currentEpoch;
     final viewedEpoch = _viewedEpoch.clamp(0, maxEpochWithData);
@@ -70,7 +106,7 @@ class _EpochPerformanceScreenState
         ),
       ),
       data: (data) => RefreshIndicator(
-        onRefresh: () => ref.refresh(producedBlocksSummaryProvider.future),
+        onRefresh: _refreshSummary,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           child: SizedBox(

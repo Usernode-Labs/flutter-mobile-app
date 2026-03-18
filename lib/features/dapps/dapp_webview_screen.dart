@@ -13,6 +13,7 @@ import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -26,6 +27,7 @@ class _TxLogEntry {
   final String memo;
   final _TxStatus status;
   final String? errorMessage;
+  final String? txHash;
 
   const _TxLogEntry({
     required this.timestamp,
@@ -35,6 +37,7 @@ class _TxLogEntry {
     required this.memo,
     required this.status,
     this.errorMessage,
+    this.txHash,
   });
 }
 
@@ -65,6 +68,34 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   bool _showUrlEditor = false;
   final List<_TxLogEntry> _txLog = [];
   List<_OnChainTx> _onChainTxCache = [];
+  final Map<String, DateTime> _txConfirmedAt = {};
+  Timer? _confirmPoller;
+  String? _cachedChainId;
+
+  String get _confirmedAtPrefsKey =>
+      'dapp_tx_confirmed_at:${widget.url}';
+
+  Future<void> _loadConfirmedAt() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_confirmedAtPrefsKey);
+    if (raw == null) return;
+    try {
+      final map = jsonDecode(raw) as Map<String, dynamic>;
+      for (final e in map.entries) {
+        _txConfirmedAt[e.key] =
+            DateTime.fromMillisecondsSinceEpoch(e.value as int);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _saveConfirmedAt() async {
+    final prefs = await SharedPreferences.getInstance();
+    final map = <String, int>{};
+    for (final e in _txConfirmedAt.entries) {
+      map[e.key] = e.value.millisecondsSinceEpoch;
+    }
+    await prefs.setString(_confirmedAtPrefsKey, jsonEncode(map));
+  }
 
   // Transaction confirmation uses Navigator.push with an opaque route instead
   // of showModalBottomSheet. A known Flutter engine bug (fixed in 3.41.0)
@@ -131,6 +162,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
         ),
       )
       ..loadRequest(parseDappUrl(widget.url));
+    _loadConfirmedAt();
   }
 
   @override
@@ -141,6 +173,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
 
   @override
   void dispose() {
+    _confirmPoller?.cancel();
     _secretTapResetTimer?.cancel();
     _urlController.dispose();
     _urlFocusNode.dispose();
@@ -313,6 +346,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
         );
 
     final rpcError = resp?.error;
+    final isQueued = rpcError == null || rpcError.isEmpty;
     _txLog.insert(
       0,
       _TxLogEntry(
@@ -321,12 +355,15 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
         to: destinationPubkey,
         amount: amount,
         memo: memoString,
-        status: (rpcError != null && rpcError.isNotEmpty)
-            ? _TxStatus.error
-            : _TxStatus.queued,
+        status: isQueued ? _TxStatus.queued : _TxStatus.error,
         errorMessage: rpcError,
+        txHash: resp?.txId,
       ),
     );
+
+    if (isQueued && resp?.txId != null) {
+      _ensureConfirmPoller();
+    }
 
     await _resolveJsPromise(
       id: id,
@@ -336,6 +373,97 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
       },
       error: null,
     );
+  }
+
+  void _ensureConfirmPoller() {
+    if (_confirmPoller != null) return;
+    _confirmPoller = Timer.periodic(const Duration(seconds: 3), (_) {
+      _pollForConfirmations();
+    });
+  }
+
+  Future<void> _pollForConfirmations() async {
+    final pending = <String, DateTime>{};
+    for (final entry in _txLog) {
+      if (entry.status != _TxStatus.queued) continue;
+      if (entry.txHash == null) continue;
+      if (_txConfirmedAt.containsKey(entry.txHash)) continue;
+      pending[entry.txHash!] = entry.timestamp;
+    }
+
+    if (pending.isEmpty) {
+      _confirmPoller?.cancel();
+      _confirmPoller = null;
+      return;
+    }
+
+    final address = await _getActiveNodeAddress();
+    if (address == null || address.isEmpty) return;
+
+    final dappUri = parseDappUrl(widget.url);
+    final base = Uri(
+      scheme: dappUri.scheme,
+      host: dappUri.host,
+      port: dappUri.port,
+    );
+
+    try {
+      if (_cachedChainId == null) {
+        final chainRes =
+            await http.get(base.resolve('/explorer-api/active_chain'));
+        if (chainRes.statusCode != 200) return;
+        final chainData = jsonDecode(chainRes.body) as Map<String, dynamic>;
+        _cachedChainId = chainData['chain_id'] as String?;
+        if (_cachedChainId == null) return;
+      }
+
+      final earliest = pending.values.reduce(
+        (a, b) => a.isBefore(b) ? a : b,
+      );
+      final fromTs = earliest.millisecondsSinceEpoch - 60000;
+
+      final txUrl =
+          base.resolve('/explorer-api/$_cachedChainId/transactions');
+      final txRes = await http.post(
+        txUrl,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'sender': address,
+          'from_timestamp': fromTs,
+          'limit': 50,
+        }),
+      );
+      if (txRes.statusCode != 200) return;
+
+      final txData = jsonDecode(txRes.body) as Map<String, dynamic>;
+      final items = (txData['items'] as List<dynamic>?) ?? [];
+      final now = DateTime.now();
+      var found = false;
+
+      for (final item in items) {
+        final j = item as Map<String, dynamic>;
+        final txId =
+            (j['tx_id'] ?? j['id'] ?? j['txid'] ?? j['hash'] ?? '') as String;
+        final status = j['status'] as String?;
+        if (txId.isNotEmpty &&
+            status == 'confirmed' &&
+            pending.containsKey(txId) &&
+            !_txConfirmedAt.containsKey(txId)) {
+          _txConfirmedAt[txId] = now;
+          final oc = _OnChainTx.fromJson(j);
+          _onChainTxCache =
+              _onChainTxCache.where((c) => c.txId != txId).toList()..add(oc);
+          found = true;
+        }
+      }
+
+      if (found) {
+        _saveConfirmedAt();
+        if (mounted) setState(() {});
+      }
+    } catch (_) {
+      // Silently ignore — will retry on next tick.
+    }
   }
 
   /// Pushes a full-screen opaque route for transaction confirmation.
@@ -420,6 +548,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
           explorerOrigin: explorerOrigin,
           initialOnChainTxs: _onChainTxCache,
           onOnChainTxsUpdated: (txs) => _onChainTxCache = txs,
+          confirmedAt: _txConfirmedAt,
         ),
         transitionsBuilder: (_, animation, __, child) {
           return SlideTransition(
@@ -924,6 +1053,7 @@ class _TxDebugPanel extends StatefulWidget {
   final Uri explorerOrigin;
   final List<_OnChainTx> initialOnChainTxs;
   final ValueChanged<List<_OnChainTx>> onOnChainTxsUpdated;
+  final Map<String, DateTime> confirmedAt;
 
   const _TxDebugPanel({
     required this.txLog,
@@ -931,6 +1061,7 @@ class _TxDebugPanel extends StatefulWidget {
     required this.explorerOrigin,
     required this.initialOnChainTxs,
     required this.onOnChainTxsUpdated,
+    required this.confirmedAt,
   });
 
   @override
@@ -968,36 +1099,57 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
       return;
     }
 
-    // Narrow the time window: only query from the oldest queued entry that
-    // hasn't been matched yet, minus 60 s buffer for clock skew.
-    int? fromTimestamp;
+    // Build a set of on-chain tx IDs for quick lookup.
+    final onChainIds = <String>{};
+    for (final oc in _onChainTxs) {
+      onChainIds.add(oc.txId);
+    }
+
+    // Entries with a txHash are resolved by exact ID match.  Entries without
+    // a hash fall back to count-based (destination, memo) matching.
+    final queuedCounts = <(String, String), int>{};
+    final onChainCounts = <(String, String), int>{};
     for (final local in widget.txLog) {
       if (local.status != _TxStatus.queued) continue;
-      final alreadyResolved = _onChainTxs.any(
-        (oc) => oc.destination == local.to && oc.memo == local.memo,
-      );
-      if (alreadyResolved) continue;
+      if (local.txHash != null) continue; // resolved by exact match below
+      final key = (local.to, local.memo);
+      queuedCounts[key] = (queuedCounts[key] ?? 0) + 1;
+    }
+    for (final oc in _onChainTxs) {
+      if (oc.destination == null || oc.memo == null) continue;
+      final key = (oc.destination!, oc.memo!);
+      if (queuedCounts.containsKey(key)) {
+        onChainCounts[key] = (onChainCounts[key] ?? 0) + 1;
+      }
+    }
+
+    int? fromTimestamp;
+    int unresolvedCount = 0;
+    for (final local in widget.txLog) {
+      if (local.status != _TxStatus.queued) continue;
+      // Exact-hash entries: resolved if the hash appears in on-chain set.
+      if (local.txHash != null) {
+        if (onChainIds.contains(local.txHash)) continue;
+        unresolvedCount++;
+        final ms = local.timestamp.millisecondsSinceEpoch - 60000;
+        if (fromTimestamp == null || ms < fromTimestamp) fromTimestamp = ms;
+        continue;
+      }
+      // Count-based entries: resolved if on-chain count covers queued count.
+      final key = (local.to, local.memo);
+      final needed = queuedCounts[key] ?? 0;
+      final have = onChainCounts[key] ?? 0;
+      if (have >= needed) continue;
+      unresolvedCount++;
       final ms = local.timestamp.millisecondsSinceEpoch - 60000;
       if (fromTimestamp == null || ms < fromTimestamp) fromTimestamp = ms;
     }
 
-    // Nothing unresolved — skip the network call entirely.
     if (fromTimestamp == null && _onChainTxs.isNotEmpty) {
       if (mounted) setState(() => _loading = false);
       return;
     }
-
-    // Build the set of (destination, memo) pairs we still need to resolve.
-    final unresolvedPairs = <(String, String)>{};
-    for (final local in widget.txLog) {
-      if (local.status != _TxStatus.queued) continue;
-      final alreadyResolved = _onChainTxs.any(
-        (oc) => oc.destination == local.to && oc.memo == local.memo,
-      );
-      if (!alreadyResolved) {
-        unresolvedPairs.add((local.to, local.memo));
-      }
-    }
+    final hadUnresolved = unresolvedCount > 0;
 
     try {
       final base = widget.explorerOrigin;
@@ -1023,7 +1175,9 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
 
       for (var page = 0; page < maxPages; page++) {
         final query = <String, dynamic>{'sender': address, 'limit': 200};
-        if (fromTimestamp != null) query['from_timestamp'] = fromTimestamp;
+        if (fromTimestamp != null && merged.isNotEmpty) {
+          query['from_timestamp'] = fromTimestamp;
+        }
         if (cursor != null) query['cursor'] = cursor;
 
         final txRes = await http.post(
@@ -1039,16 +1193,37 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
 
         for (final item in items) {
           final tx = _OnChainTx.fromJson(item as Map<String, dynamic>);
-          merged[tx.txId] = tx;
-
-          // Check off resolved pairs for early exit.
-          if (tx.destination != null && tx.memo != null) {
-            unresolvedPairs.remove((tx.destination!, tx.memo!));
+          if (!merged.containsKey(tx.txId)) {
+            onChainIds.add(tx.txId);
+            if (tx.destination != null && tx.memo != null) {
+              final key = (tx.destination!, tx.memo!);
+              onChainCounts[key] = (onChainCounts[key] ?? 0) + 1;
+            }
           }
+          merged[tx.txId] = tx;
         }
 
-        // Stop if all pending entries are resolved.
-        if (unresolvedPairs.isEmpty) break;
+        // Recount unresolved: check both exact-hash and count-based entries.
+        if (hadUnresolved) {
+          var stillUnresolved = false;
+          for (final local in widget.txLog) {
+            if (local.status != _TxStatus.queued) continue;
+            if (local.txHash != null) {
+              if (!onChainIds.contains(local.txHash)) {
+                stillUnresolved = true;
+                break;
+              }
+            } else {
+              final key = (local.to, local.memo);
+              final needed = queuedCounts[key] ?? 0;
+              if (needed > 0 && (onChainCounts[key] ?? 0) < needed) {
+                stillUnresolved = true;
+                break;
+              }
+            }
+          }
+          if (!stillUnresolved) break;
+        }
 
         final hasMore = txData['has_more'] as bool? ?? false;
         final nextCursor = txData['next_cursor'] as String?;
@@ -1078,27 +1253,67 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
     final matched = <String>{};
     final results = <_MergedEntry>[];
 
-    // First pass: merge local entries with on-chain matches.
-    for (final local in widget.txLog) {
-      if (local.status != _TxStatus.queued) {
-        results.add(_MergedEntry(local: local));
-        continue;
-      }
+    final queuedIndices = <int>[];
+    for (var i = 0; i < widget.txLog.length; i++) {
+      if (widget.txLog[i].status == _TxStatus.queued) queuedIndices.add(i);
+    }
+    queuedIndices.sort((a, b) =>
+        widget.txLog[a].timestamp.compareTo(widget.txLog[b].timestamp));
 
-      _OnChainTx? match;
-      for (final oc in _onChainTxs) {
-        if (matched.contains(oc.txId)) continue;
-        if (oc.destination == local.to && oc.memo == local.memo) {
-          matched.add(oc.txId);
-          match = oc;
-          break;
-        }
-      }
-      results.add(_MergedEntry(local: local, onChain: match));
+    // Build an index of on-chain txs by txId for O(1) exact matching.
+    final onChainById = <String, _OnChainTx>{};
+    for (final oc in _onChainTxs) {
+      onChainById[oc.txId] = oc;
     }
 
-    // Second pass: append historical on-chain txs not matched to any local
-    // entry (e.g. from previous app sessions).
+    final matchByIndex = <int, _OnChainTx>{};
+    for (final i in queuedIndices) {
+      final local = widget.txLog[i];
+
+      // Primary: exact match by tx hash (available for txs sent in this session).
+      if (local.txHash != null) {
+        final oc = onChainById[local.txHash];
+        if (oc != null && !matched.contains(oc.txId)) {
+          matched.add(oc.txId);
+          matchByIndex[i] = oc;
+          continue;
+        }
+      }
+
+      // Fallback: closest-timestamp heuristic for entries without a hash
+      // (e.g. historical entries synthesized from on-chain data).
+      _OnChainTx? bestMatch;
+      int bestDelta = 0x7FFFFFFFFFFFFFFF;
+      final localMs = local.timestamp.millisecondsSinceEpoch;
+
+      for (final oc in _onChainTxs) {
+        if (matched.contains(oc.txId)) continue;
+        if (oc.destination != local.to || oc.memo != local.memo) continue;
+        final delta = (oc.timestampMs != null)
+            ? (oc.timestampMs! - localMs).abs()
+            : 0x7FFFFFFFFFFFFFFF;
+        if (delta < bestDelta) {
+          bestDelta = delta;
+          bestMatch = oc;
+        }
+      }
+
+      if (bestMatch != null) {
+        matched.add(bestMatch.txId);
+        matchByIndex[i] = bestMatch;
+      }
+    }
+
+    for (var i = 0; i < widget.txLog.length; i++) {
+      final local = widget.txLog[i];
+      if (local.status != _TxStatus.queued) {
+        results.add(_MergedEntry(local: local));
+      } else {
+        results.add(_MergedEntry(local: local, onChain: matchByIndex[i]));
+      }
+    }
+
+    // Append historical on-chain txs not matched to any local entry.
     for (final oc in _onChainTxs) {
       if (matched.contains(oc.txId)) continue;
       if (oc.source == null) continue;
@@ -1235,27 +1450,34 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                                 oc?.status == 'confirmed';
                         String? confirmTimeStr;
                         if (isConfirmed) {
-                          int? latencyMs;
-                          // Prefer the explorer's inclusion_latency_ms (tx
-                          // timestamp vs block timestamp, computed server-side).
-                          // Fall back to local send time vs block timestamp,
-                          // which can be negative due to clock skew.
-                          if (oc?.inclusionLatencyMs != null) {
-                            latencyMs = oc!.inclusionLatencyMs!;
-                          } else if (!entry.isHistorical &&
-                              oc?.timestampMs != null) {
-                            latencyMs = oc!.timestampMs! -
-                                local.timestamp.millisecondsSinceEpoch;
+                          // Total latency: phone-clock delta from send to
+                          // first detection as confirmed. Available for txs
+                          // sent in this session.
+                          final ca = local.txHash != null
+                              ? widget.confirmedAt[local.txHash]
+                              : null;
+                          if (ca != null && !entry.isHistorical) {
+                            final totalMs =
+                                ca.difference(local.timestamp).inMilliseconds;
+                            if (totalMs >= 0) {
+                              final secs = totalMs ~/ 1000;
+                              confirmTimeStr = secs < 60
+                                  ? '${secs}s'
+                                  : '${secs ~/ 60}m ${secs % 60}s';
+                            }
                           }
-                          if (latencyMs != null && latencyMs >= 0) {
-                            final secs = latencyMs ~/ 1000;
+                          // Fall back to inclusion_latency_ms for historical
+                          // entries or when confirmedAt is unavailable.
+                          if (confirmTimeStr == null &&
+                              oc?.inclusionLatencyMs != null) {
+                            final secs = oc!.inclusionLatencyMs! ~/ 1000;
                             confirmTimeStr = secs < 60
                                 ? '${secs}s'
                                 : '${secs ~/ 60}m ${secs % 60}s';
                           }
                         }
 
-                        final txHash = oc?.txId;
+                        final txHash = local.txHash ?? oc?.txId;
 
                         return Padding(
                           padding:
@@ -1418,6 +1640,16 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                                     ),
                                   if (isExpanded) ...[
                                     const Divider(height: 16),
+                                    if (isConfirmed &&
+                                        oc?.inclusionLatencyMs !=
+                                            null)
+                                      _buildLatencyRow(
+                                        theme: theme,
+                                        muted: muted,
+                                        local: local,
+                                        entry: entry,
+                                        oc: oc!,
+                                      ),
                                     _detailRow(
                                         theme, muted, 'From',
                                         local.from,
@@ -1464,6 +1696,64 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildLatencyRow({
+    required ThemeData theme,
+    required Color muted,
+    required _TxLogEntry local,
+    required _MergedEntry entry,
+    required _OnChainTx oc,
+  }) {
+    final inclusionSecs = oc.inclusionLatencyMs! ~/ 1000;
+
+    final ca = (!entry.isHistorical && local.txHash != null)
+        ? widget.confirmedAt[local.txHash]
+        : null;
+    int? totalSecs;
+    int? lastMileSecs;
+    if (ca != null) {
+      final totalMs = ca.difference(local.timestamp).inMilliseconds;
+      if (totalMs >= 0) {
+        totalSecs = totalMs ~/ 1000;
+        final lm = totalMs - oc.inclusionLatencyMs!;
+        if (lm >= 0) lastMileSecs = lm ~/ 1000;
+      }
+    }
+
+    String fmt(int s) => s < 60 ? '${s}s' : '${s ~/ 60}m ${s % 60}s';
+
+    Widget col(String label, String value, {bool accent = false}) {
+      return Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label,
+                style: theme.textTheme.labelSmall?.copyWith(color: muted)),
+            const SizedBox(height: 2),
+            Text(
+              value,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: accent ? const Color(0xFF4CAF50) : null,
+                fontWeight: accent ? FontWeight.w600 : null,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          if (totalSecs != null)
+            col('Total', '\u{23F1} ${fmt(totalSecs)}', accent: true),
+          col('Inclusion', fmt(inclusionSecs)),
+          if (lastMileSecs != null) col('Last mile', fmt(lastMileSecs)),
+        ],
       ),
     );
   }

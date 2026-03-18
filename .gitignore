@@ -84,3 +84,6 @@ gmp.md
 
 # Design system research archive (local only)
 lib/design_system/.archive/
+
+# Discord archive (local only)
+.discord-archive/

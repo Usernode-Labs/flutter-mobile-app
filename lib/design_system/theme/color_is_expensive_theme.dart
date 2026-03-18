@@ -348,180 +348,180 @@ class ColorIsExpensiveTheme {
     final resolved = Typography.englishLike2021.merge(textTheme);
 
     return ThemeData(
-        useMaterial3: true,
-        brightness: colorScheme.brightness,
-        colorScheme: colorScheme,
-        textTheme: resolved.apply(
-          bodyColor: colorScheme.onSurface,
-          displayColor: colorScheme.onSurface,
-        ),
-        scaffoldBackgroundColor: colorScheme.surface,
-        canvasColor: colorScheme.surface,
+      useMaterial3: true,
+      brightness: colorScheme.brightness,
+      colorScheme: colorScheme,
+      textTheme: resolved.apply(
+        bodyColor: colorScheme.onSurface,
+        displayColor: colorScheme.onSurface,
+      ),
+      scaffoldBackgroundColor: colorScheme.surface,
+      canvasColor: colorScheme.surface,
 
-        // --- Icon defaults: weight 300, outline (fill 0), 24px ---
-        iconTheme: IconThemeData(
-          size: 24,
-          weight: 300,
-          fill: 0,
-          opticalSize: 24,
+      // --- Icon defaults: weight 300, outline (fill 0), 24px ---
+      iconTheme: IconThemeData(
+        size: 24,
+        weight: 300,
+        fill: 0,
+        opticalSize: 24,
+        color: colorScheme.onSurface,
+      ),
+
+      // --- Surface architecture: two-tier grey scaffold / white content ---
+
+      appBarTheme: AppBarTheme(
+        centerTitle: false,
+        backgroundColor: colorScheme.surface,
+        foregroundColor: colorScheme.onSurface,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+      ),
+
+      navigationBarTheme: NavigationBarThemeData(
+        height: 80, // Explicit M3 default — documents intent, prevents drift
+        backgroundColor: colorScheme.surfaceContainerLowest,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+      ),
+
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: colorScheme.surfaceContainerLowest,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        showDragHandle: true,
+        shape: RoundedRectangleBorder(
+          borderRadius: _radii.borderRadiusTopXXLarge,
+        ),
+      ),
+
+      cardTheme: CardThemeData(
+        color: colorScheme.surfaceContainerLowest,
+        elevation: 0,
+        margin: EdgeInsets.zero,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: _radii.borderRadiusLarge,
+        ),
+      ),
+
+      dialogTheme: DialogThemeData(
+        backgroundColor: colorScheme.surfaceContainerLowest,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: _radii.borderRadiusXLarge,
+        ),
+      ),
+
+      dividerTheme: DividerThemeData(
+        color: colorScheme.onSurface.withValues(alpha: _borders.opacity),
+        thickness: _borders.width,
+        space: _borders.width,
+      ),
+
+      drawerTheme: DrawerThemeData(
+        backgroundColor: colorScheme.surfaceContainerLowest,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+      ),
+
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: _radii.borderRadiusMedium,
+        ),
+      ),
+
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: colorScheme.surfaceContainerHighest,
+        border: UnderlineInputBorder(
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(_radii.small),
+            topRight: Radius.circular(_radii.small),
+          ),
+          borderSide: BorderSide(color: colorScheme.outline),
+        ),
+        enabledBorder: UnderlineInputBorder(
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(_radii.small),
+            topRight: Radius.circular(_radii.small),
+          ),
+          borderSide: BorderSide(color: colorScheme.outline),
+        ),
+        focusedBorder: UnderlineInputBorder(
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(_radii.small),
+            topRight: Radius.circular(_radii.small),
+          ),
+          borderSide: BorderSide(
+            color: colorScheme.primary,
+            width: 2,
+          ),
+        ),
+        errorBorder: UnderlineInputBorder(
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(_radii.small),
+            topRight: Radius.circular(_radii.small),
+          ),
+          borderSide: BorderSide(color: colorScheme.error),
+        ),
+        focusedErrorBorder: UnderlineInputBorder(
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(_radii.small),
+            topRight: Radius.circular(_radii.small),
+          ),
+          borderSide: BorderSide(
+            color: colorScheme.error,
+            width: 2,
+          ),
+        ),
+        contentPadding: EdgeInsets.all(_spacing.space16),
+      ),
+
+      expansionTileTheme: ExpansionTileThemeData(
+        tilePadding: EdgeInsets.symmetric(
+          horizontal: _spacing.space16,
+          vertical: _spacing.space12,
+        ),
+        childrenPadding: EdgeInsets.fromLTRB(
+          _spacing.space16,
+          0,
+          _spacing.space16,
+          _spacing.space16,
+        ),
+        shape: const RoundedRectangleBorder(),
+        collapsedShape: const RoundedRectangleBorder(),
+        backgroundColor: Colors.transparent,
+        collapsedBackgroundColor: Colors.transparent,
+        iconColor: colorScheme.onSurfaceVariant,
+        collapsedIconColor: colorScheme.onSurfaceVariant,
+        clipBehavior: Clip.none,
+      ),
+
+      // Layout: all M3 defaults (removed: titleAlignment, minVerticalPadding,
+      // minTileHeight, visualDensity, vertical contentPadding).
+      // See CONSTRAINTS.md § ListTile Layout Constraint.
+      listTileTheme: ListTileThemeData(
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: _spacing.space16,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: _radii.borderRadiusMedium,
+        ),
+        titleTextStyle: resolved.bodyMedium?.copyWith(
           color: colorScheme.onSurface,
         ),
-
-        // --- Surface architecture: two-tier grey scaffold / white content ---
-
-        appBarTheme: AppBarTheme(
-          centerTitle: false,
-          backgroundColor: colorScheme.surface,
-          foregroundColor: colorScheme.onSurface,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          surfaceTintColor: Colors.transparent,
+        subtitleTextStyle: resolved.bodySmall?.copyWith(
+          color: colorScheme.onSurfaceVariant,
         ),
-
-        navigationBarTheme: NavigationBarThemeData(
-          height: 80, // Explicit M3 default — documents intent, prevents drift
-          backgroundColor: colorScheme.surfaceContainerLowest,
-          elevation: 0,
-          surfaceTintColor: Colors.transparent,
+        leadingAndTrailingTextStyle: resolved.bodyMedium?.copyWith(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w500,
         ),
-
-        bottomSheetTheme: BottomSheetThemeData(
-          backgroundColor: colorScheme.surfaceContainerLowest,
-          surfaceTintColor: Colors.transparent,
-          elevation: 0,
-          showDragHandle: true,
-          shape: RoundedRectangleBorder(
-            borderRadius: _radii.borderRadiusTopXXLarge,
-          ),
-        ),
-
-        cardTheme: CardThemeData(
-          color: colorScheme.surfaceContainerLowest,
-          elevation: 0,
-          margin: EdgeInsets.zero,
-          surfaceTintColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: _radii.borderRadiusLarge,
-          ),
-        ),
-
-        dialogTheme: DialogThemeData(
-          backgroundColor: colorScheme.surfaceContainerLowest,
-          elevation: 0,
-          surfaceTintColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: _radii.borderRadiusXLarge,
-          ),
-        ),
-
-        dividerTheme: DividerThemeData(
-          color: colorScheme.onSurface.withValues(alpha: _borders.opacity),
-          thickness: _borders.width,
-          space: _borders.width,
-        ),
-
-        drawerTheme: DrawerThemeData(
-          backgroundColor: colorScheme.surfaceContainerLowest,
-          surfaceTintColor: Colors.transparent,
-          elevation: 0,
-        ),
-
-        snackBarTheme: SnackBarThemeData(
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: _radii.borderRadiusMedium,
-          ),
-        ),
-
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: colorScheme.surfaceContainerHighest,
-          border: UnderlineInputBorder(
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(_radii.small),
-              topRight: Radius.circular(_radii.small),
-            ),
-            borderSide: BorderSide(color: colorScheme.outline),
-          ),
-          enabledBorder: UnderlineInputBorder(
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(_radii.small),
-              topRight: Radius.circular(_radii.small),
-            ),
-            borderSide: BorderSide(color: colorScheme.outline),
-          ),
-          focusedBorder: UnderlineInputBorder(
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(_radii.small),
-              topRight: Radius.circular(_radii.small),
-            ),
-            borderSide: BorderSide(
-              color: colorScheme.primary,
-              width: 2,
-            ),
-          ),
-          errorBorder: UnderlineInputBorder(
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(_radii.small),
-              topRight: Radius.circular(_radii.small),
-            ),
-            borderSide: BorderSide(color: colorScheme.error),
-          ),
-          focusedErrorBorder: UnderlineInputBorder(
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(_radii.small),
-              topRight: Radius.circular(_radii.small),
-            ),
-            borderSide: BorderSide(
-              color: colorScheme.error,
-              width: 2,
-            ),
-          ),
-          contentPadding: EdgeInsets.all(_spacing.space16),
-        ),
-
-        expansionTileTheme: ExpansionTileThemeData(
-          tilePadding: EdgeInsets.symmetric(
-            horizontal: _spacing.space16,
-            vertical: _spacing.space12,
-          ),
-          childrenPadding: EdgeInsets.fromLTRB(
-            _spacing.space16,
-            0,
-            _spacing.space16,
-            _spacing.space16,
-          ),
-          shape: const RoundedRectangleBorder(),
-          collapsedShape: const RoundedRectangleBorder(),
-          backgroundColor: Colors.transparent,
-          collapsedBackgroundColor: Colors.transparent,
-          iconColor: colorScheme.onSurfaceVariant,
-          collapsedIconColor: colorScheme.onSurfaceVariant,
-          clipBehavior: Clip.none,
-        ),
-
-        // Layout: all M3 defaults (removed: titleAlignment, minVerticalPadding,
-        // minTileHeight, visualDensity, vertical contentPadding).
-        // See CONSTRAINTS.md § ListTile Layout Constraint.
-        listTileTheme: ListTileThemeData(
-          contentPadding: EdgeInsets.symmetric(
-            horizontal: _spacing.space16,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: _radii.borderRadiusMedium,
-          ),
-          titleTextStyle: resolved.bodyMedium?.copyWith(
-            color: colorScheme.onSurface,
-          ),
-          subtitleTextStyle: resolved.bodySmall?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
-          leadingAndTrailingTextStyle: resolved.bodyMedium?.copyWith(
-            color: colorScheme.onSurface,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      );
+      ),
+    );
   }
 
   ThemeData light() => theme(lightScheme());

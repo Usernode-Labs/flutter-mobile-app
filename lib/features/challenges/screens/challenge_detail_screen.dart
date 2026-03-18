@@ -233,6 +233,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
       ref.read(currentHomeTabProvider.notifier).state = HomeTab.nodeStatus;
       context.go(AppRoutes.home);
     }
+
     final PipelineStepStatus networkStep;
     if (nodeStatus == null) {
       networkStep = PipelineStepStatus(

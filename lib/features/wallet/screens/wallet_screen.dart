@@ -209,7 +209,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
         ),
         surfaceSlivers: _buildSurfaceSlivers(walletState, l10n, theme, spacing),
       ),
-      floatingActionButton: isEmpty ? null : _buildSpeedDial(theme, l10n, spacing),
+      floatingActionButton:
+          isEmpty ? null : _buildSpeedDial(theme, l10n, spacing),
     );
   }
 

@@ -530,17 +530,15 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
           leading: const IconBadge(icon: Symbols.casino_sharp),
           title: Text(l10n.nodeVrf),
           subtitle: Text(vrf != null
-              ? l10n.nodeVrfEvaluated(
-                  vrf.details?.evaluatedCurrentEpoch ?? 0,
+              ? l10n.nodeVrfEvaluated(vrf.details?.evaluatedCurrentEpoch ?? 0,
                   status?.slotsInEpoch ?? 0)
               : l10n.nodeVrfEvaluatedNA),
           trailing: StatusTextTrailing(
             text: vrf != null
-                ? _mapVrfEvaluationLabel(
-                    vrf.currentEpochVrfEvaluationStatus)
+                ? _mapVrfEvaluationLabel(vrf.currentEpochVrfEvaluationStatus)
                 : l10n.nodeNotAvailable,
-            variant: _vrfEvaluationVariant(
-                vrf?.currentEpochVrfEvaluationStatus),
+            variant:
+                _vrfEvaluationVariant(vrf?.currentEpochVrfEvaluationStatus),
           ),
         ),
         ListTile(
@@ -662,7 +660,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
       extra: {'peers': peers, 'peerId': status?.peerId},
     );
   }
-
 
   // ============== UTILITY METHODS ==============
 

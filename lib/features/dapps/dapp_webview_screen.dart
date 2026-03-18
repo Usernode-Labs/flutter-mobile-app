@@ -72,8 +72,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   Timer? _confirmPoller;
   String? _cachedChainId;
 
-  String get _confirmedAtPrefsKey =>
-      'dapp_tx_confirmed_at:${widget.url}';
+  String get _confirmedAtPrefsKey => 'dapp_tx_confirmed_at:${widget.url}';
 
   Future<void> _loadConfirmedAt() async {
     final prefs = await SharedPreferences.getInstance();
@@ -112,8 +111,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
         _jsChannelName,
         onMessageReceived: (message) async {
           try {
-            final payload =
-                jsonDecode(message.message) as Map<String, dynamic>;
+            final payload = jsonDecode(message.message) as Map<String, dynamic>;
             final method = payload['method'] as String?;
             final id = payload['id'] as String?;
             if (method == null || id == null) return;
@@ -422,8 +420,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
       );
       final fromTs = earliest.millisecondsSinceEpoch - 60000;
 
-      final txUrl =
-          base.resolve('/explorer-api/$_cachedChainId/transactions');
+      final txUrl = base.resolve('/explorer-api/$_cachedChainId/transactions');
       final txRes = await http.post(
         txUrl,
         headers: {'Content-Type': 'application/json'},
@@ -1381,8 +1378,8 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                   ? Center(
                       child: Text(
                         'No transactions yet',
-                        style: theme.textTheme.bodyMedium
-                            ?.copyWith(color: muted),
+                        style:
+                            theme.textTheme.bodyMedium?.copyWith(color: muted),
                       ),
                     )
                   : ListView.builder(
@@ -1400,10 +1397,7 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                               theme.colorScheme.error,
                               'Denied'
                             ),
-                          _TxStatus.error => (
-                              theme.colorScheme.error,
-                              'Error'
-                            ),
+                          _TxStatus.error => (theme.colorScheme.error, 'Error'),
                           _TxStatus.queued when oc?.status == 'confirmed' => (
                               const Color(0xFF4CAF50),
                               'Confirmed'
@@ -1480,59 +1474,45 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                         final txHash = local.txHash ?? oc?.txId;
 
                         return Padding(
-                          padding:
-                              EdgeInsets.only(bottom: spacing.space8),
+                          padding: EdgeInsets.only(bottom: spacing.space8),
                           child: GestureDetector(
                             onTap: () {
                               setState(() {
-                                _expandedIndex =
-                                    isExpanded ? null : index;
+                                _expandedIndex = isExpanded ? null : index;
                               });
                             },
                             child: Container(
-                              padding:
-                                  EdgeInsets.all(spacing.space12),
+                              padding: EdgeInsets.all(spacing.space12),
                               decoration: BoxDecoration(
-                                color: theme.colorScheme
-                                    .surfaceContainerHighest
+                                color: theme.colorScheme.surfaceContainerHighest
                                     .withAlpha(100),
-                                borderRadius:
-                                    radii.borderRadiusMedium,
+                                borderRadius: radii.borderRadiusMedium,
                                 border: Border.all(
-                                  color: theme
-                                      .colorScheme.outlineVariant
+                                  color: theme.colorScheme.outlineVariant
                                       .withAlpha(80),
                                 ),
                               ),
                               child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Row(
                                     children: [
                                       Container(
-                                        padding:
-                                            const EdgeInsets
-                                                .symmetric(
+                                        padding: const EdgeInsets.symmetric(
                                           horizontal: 8,
                                           vertical: 2,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: badgeColor
-                                              .withAlpha(30),
+                                          color: badgeColor.withAlpha(30),
                                           borderRadius:
-                                              BorderRadius
-                                                  .circular(4),
+                                              BorderRadius.circular(4),
                                         ),
                                         child: Text(
                                           badgeLabel,
-                                          style: theme
-                                              .textTheme
-                                              .labelSmall
+                                          style: theme.textTheme.labelSmall
                                               ?.copyWith(
                                             color: badgeColor,
-                                            fontWeight:
-                                                FontWeight.w600,
+                                            fontWeight: FontWeight.w600,
                                           ),
                                         ),
                                       ),
@@ -1540,109 +1520,85 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                                       if (confirmTimeStr != null)
                                         Padding(
                                           padding:
-                                              const EdgeInsets.only(
-                                                  right: 6),
+                                              const EdgeInsets.only(right: 6),
                                           child: Text(
                                             '⏱ $confirmTimeStr',
-                                            style: theme
-                                                .textTheme
-                                                .labelSmall
+                                            style: theme.textTheme.labelSmall
                                                 ?.copyWith(
-                                              color:
-                                                  const Color(
-                                                      0xFF4CAF50),
-                                              fontWeight:
-                                                  FontWeight.w600,
+                                              color: const Color(0xFF4CAF50),
+                                              fontWeight: FontWeight.w600,
                                             ),
                                           ),
                                         ),
                                       Text(
                                         ageStr,
-                                        style: theme
-                                            .textTheme
-                                            .labelSmall
+                                        style: theme.textTheme.labelSmall
                                             ?.copyWith(
                                           color: muted,
                                         ),
                                       ),
                                     ],
                                   ),
-                                  SizedBox(
-                                      height: spacing.space8),
+                                  SizedBox(height: spacing.space8),
                                   Row(
                                     children: [
                                       Expanded(
                                         child: Text(
                                           'To: ${_truncate(local.to, 20)}',
-                                          style: theme
-                                              .textTheme
-                                              .bodySmall
+                                          style: theme.textTheme.bodySmall
                                               ?.copyWith(
-                                            fontFamily:
-                                                kMonoFontFamily,
+                                            fontFamily: kMonoFontFamily,
                                           ),
                                         ),
                                       ),
                                       Text(
                                         'Amt: ${local.amount}',
-                                        style: theme
-                                            .textTheme.bodySmall,
+                                        style: theme.textTheme.bodySmall,
                                       ),
                                     ],
                                   ),
                                   if (memoType.isNotEmpty)
                                     Padding(
-                                      padding: EdgeInsets.only(
-                                          top: spacing.space4),
+                                      padding:
+                                          EdgeInsets.only(top: spacing.space4),
                                       child: Text(
                                         'type: $memoType',
-                                        style: theme
-                                            .textTheme
-                                            .labelSmall
+                                        style: theme.textTheme.labelSmall
                                             ?.copyWith(
                                           color: muted,
                                         ),
                                       ),
                                     ),
-                                  if (txHash != null &&
-                                      txHash.isNotEmpty)
+                                  if (txHash != null && txHash.isNotEmpty)
                                     Padding(
-                                      padding: EdgeInsets.only(
-                                          top: spacing.space4),
+                                      padding:
+                                          EdgeInsets.only(top: spacing.space4),
                                       child: Text(
                                         'tx: ${_truncate(txHash, 24)}',
-                                        style: theme
-                                            .textTheme
-                                            .labelSmall
+                                        style: theme.textTheme.labelSmall
                                             ?.copyWith(
-                                          fontFamily:
-                                              kMonoFontFamily,
+                                          fontFamily: kMonoFontFamily,
                                           color: muted,
                                         ),
                                       ),
                                     ),
-                                  if (local.status ==
-                                          _TxStatus.error &&
+                                  if (local.status == _TxStatus.error &&
                                       local.errorMessage != null)
                                     Padding(
-                                      padding: EdgeInsets.only(
-                                          top: spacing.space4),
+                                      padding:
+                                          EdgeInsets.only(top: spacing.space4),
                                       child: Text(
                                         local.errorMessage!,
-                                        style: theme
-                                            .textTheme
-                                            .labelSmall
+                                        style: theme.textTheme.labelSmall
                                             ?.copyWith(
-                                          color: theme
-                                              .colorScheme.error,
+                                          color: theme.colorScheme.error,
                                         ),
                                       ),
                                     ),
                                   if (isExpanded) ...[
                                     const Divider(height: 16),
                                     if (isConfirmed &&
-                                        oc?.inclusionLatencyMs !=
-                                            null)
+                                        oc?.inclusionLatencyMs != null)
                                       _buildLatencyRow(
                                         theme: theme,
                                         muted: muted,
@@ -1650,41 +1606,21 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                                         entry: entry,
                                         oc: oc!,
                                       ),
-                                    _detailRow(
-                                        theme, muted, 'From',
-                                        local.from,
+                                    _detailRow(theme, muted, 'From', local.from,
                                         mono: true),
-                                    _detailRow(
-                                        theme, muted, 'To',
-                                        local.to,
+                                    _detailRow(theme, muted, 'To', local.to,
                                         mono: true),
-                                    _detailRow(
-                                        theme,
-                                        muted,
-                                        'Amount',
-                                        local.amount
-                                            .toString()),
-                                    if (txHash != null &&
-                                        txHash.isNotEmpty)
+                                    _detailRow(theme, muted, 'Amount',
+                                        local.amount.toString()),
+                                    if (txHash != null && txHash.isNotEmpty)
                                       _detailRow(
-                                          theme,
-                                          muted,
-                                          'Tx Hash',
-                                          txHash,
+                                          theme, muted, 'Tx Hash', txHash,
                                           mono: true),
                                     if (oc?.blockHeight != null)
-                                      _detailRow(
-                                          theme,
-                                          muted,
-                                          'Block',
-                                          oc!.blockHeight
-                                              .toString()),
-                                    _detailRow(
-                                        theme,
-                                        muted,
-                                        'Memo',
-                                        _formatMemo(
-                                            local.memo)),
+                                      _detailRow(theme, muted, 'Block',
+                                          oc!.blockHeight.toString()),
+                                    _detailRow(theme, muted, 'Memo',
+                                        _formatMemo(local.memo)),
                                   ],
                                 ],
                               ),

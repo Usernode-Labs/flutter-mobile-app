@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
@@ -18,6 +20,7 @@ class DappsScreen extends ConsumerStatefulWidget {
 class _DappsScreenState extends ConsumerState<DappsScreen> {
   final _scrollFraction = ValueNotifier<double>(0.0);
   SortMode _sortMode = SortMode.popular;
+  bool _forceEnabled = false;
 
   @override
   void dispose() {
@@ -28,7 +31,7 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
   Future<void> _onRefresh() async {
     ref.invalidate(dappsProvider);
     final futures = <Future<Object>>[ref.read(dappsProvider.future)];
-    if (ref.read(dappsLiveProvider)) {
+    if (ref.read(dappsLiveProvider) || _forceEnabled) {
       ref.invalidate(dappStatsProvider);
       futures.add(ref.read(dappStatsProvider.future));
     }
@@ -42,7 +45,8 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
     final sizing = theme.extension<AppSizing>()!;
     final dappsAsync = ref.watch(dappsProvider);
     final dappsLive = ref.watch(dappsLiveProvider);
-    final statsAsync = dappsLive ? ref.watch(dappStatsProvider) : null;
+    final effectiveLive = dappsLive || _forceEnabled;
+    final statsAsync = effectiveLive ? ref.watch(dappStatsProvider) : null;
 
     final dappCount = dappsAsync.valueOrNull?.length;
 
@@ -57,14 +61,14 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
         header: _DappsHeader(
           count: dappCount,
           statsAsync: statsAsync,
-          dappsLive: dappsLive,
+          dappsLive: effectiveLive,
         ),
         surfaceSlivers: _buildSurfaceSlivers(
           dappsAsync,
           statsAsync,
           spacing,
           sizing,
-          dappsLive,
+          effectiveLive,
         ),
       ),
     );
@@ -87,6 +91,8 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
             sortMode: effectiveSort,
             enabled: dappsLive,
             onSortChanged: (mode) => setState(() => _sortMode = mode),
+            onForceEnable:
+                dappsLive ? null : () => setState(() => _forceEnabled = true),
           ),
         ),
       ),
@@ -270,16 +276,31 @@ const _sortLabels = {
   SortMode.alpha: 'A → Z',
 };
 
-class _SortBar extends StatelessWidget {
+class _SortBar extends StatefulWidget {
   const _SortBar({
     required this.sortMode,
     required this.onSortChanged,
     this.enabled = true,
+    this.onForceEnable,
   });
 
   final SortMode sortMode;
   final ValueChanged<SortMode> onSortChanged;
   final bool enabled;
+  final VoidCallback? onForceEnable;
+
+  @override
+  State<_SortBar> createState() => _SortBarState();
+}
+
+class _SortBarState extends State<_SortBar> {
+  Timer? _longPressTimer;
+
+  @override
+  void dispose() {
+    _longPressTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -290,10 +311,27 @@ class _SortBar extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text('dApps', style: theme.textTheme.titleMedium),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onLongPressStart: widget.onForceEnable != null
+                ? (_) {
+                    _longPressTimer = Timer(
+                      const Duration(seconds: 5),
+                      widget.onForceEnable!,
+                    );
+                  }
+                : null,
+            onLongPressEnd: widget.onForceEnable != null
+                ? (_) => _longPressTimer?.cancel()
+                : null,
+            onLongPressCancel: widget.onForceEnable != null
+                ? () => _longPressTimer?.cancel()
+                : null,
+            child: Text('dApps', style: theme.textTheme.titleMedium),
+          ),
           DropdownChip(
-            label: _sortLabels[sortMode]!,
-            enabled: enabled,
+            label: _sortLabels[widget.sortMode]!,
+            enabled: widget.enabled,
             onTap: () async {
               final labels = _sortLabels.values.toList();
               final modes = _sortLabels.keys.toList();
@@ -301,10 +339,10 @@ class _SortBar extends StatelessWidget {
                 context: context,
                 labels: labels,
                 title: 'Sort',
-                selectedIndex: modes.indexOf(sortMode),
+                selectedIndex: modes.indexOf(widget.sortMode),
               );
               if (result != null) {
-                onSortChanged(modes[result]);
+                widget.onSortChanged(modes[result]);
               }
             },
           ),

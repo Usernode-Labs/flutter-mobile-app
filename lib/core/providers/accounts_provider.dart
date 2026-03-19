@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' show min;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -135,8 +136,13 @@ class AccountsRepository {
       _log.trace('importFromSecretKey - success (account id: ${result.id})');
       return result;
     } catch (e, stackTrace) {
-      _log.error('importFromSecretKey - FAILED with exception',
-          error: e, stackTrace: stackTrace);
+      _log.error(
+        'importFromSecretKey - FAILED '
+        '(key len: ${secretKey.length}, '
+        'prefix: ${secretKey.substring(0, min(6, secretKey.length))})',
+        error: e,
+        stackTrace: stackTrace,
+      );
       return null;
     }
   }

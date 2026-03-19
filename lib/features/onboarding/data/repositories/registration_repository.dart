@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
@@ -186,17 +187,26 @@ class RegistrationResult {
     final participantId = parseInt(json['participant_id'] ?? json['id']) ??
         (throw const FormatException('Missing participant_id'));
 
+    final rawSecretKey = requiredString(['secret_key', 'secret_key_hex']);
+    final rawPublicKey = requiredString(['public_key', 'public_key_hex']);
+    final rawAddress = requiredString([
+      'address',
+      'public_key_hash_bech32m',
+      'public_key_hash',
+    ]);
+
+    // Convert hex keys to bech32m if needed — Rust FFI expects bech32m encoding.
+    final secretKey = _ensureBech32m(rawSecretKey, 'utsk');
+    final publicKey = _ensureBech32m(rawPublicKey, 'utpk');
+    final address = _ensureBech32m(rawAddress, 'ut');
+
     return RegistrationResult(
       participantId: participantId,
       identityUid: requiredString(['identity_uid', 'identity_uid_hex']),
-      publicKey: requiredString(['public_key', 'public_key_hex']),
-      address: requiredString([
-        'address',
-        'public_key_hash_bech32m',
-        'public_key_hash',
-      ]),
+      publicKey: publicKey,
+      address: address,
       tier: json['tier'] as String,
-      secretKey: requiredString(['secret_key', 'secret_key_hex']),
+      secretKey: secretKey,
       eventId: event is Map<String, dynamic>
           ? parseInt(event['event_id'] ?? event['id'])
           : null,
@@ -205,5 +215,108 @@ class RegistrationResult {
       eventEndsAt:
           event is Map<String, dynamic> ? event['ends_at'] as String? : null,
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Bech32m encoding helpers (BIP350)
+  // ---------------------------------------------------------------------------
+
+  static const _bech32mConst = 0x2bc830a3;
+  static const _charset = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
+
+  static final _hexRegExp = RegExp(r'^[0-9a-fA-F]+$');
+
+  /// Returns [key] as-is if it already looks like bech32m (starts with [hrp]1).
+  /// If it looks like hex, encodes it as bech32m with the given [hrp].
+  static String _ensureBech32m(String key, String hrp) {
+    if (key.startsWith('${hrp}1')) return key;
+    // Only convert even-length hex strings
+    if (key.length.isEven && _hexRegExp.hasMatch(key)) {
+      _log.debug(
+        'Converting hex key to bech32m '
+        '(len: ${key.length}, hrp: $hrp)',
+      );
+      return _bech32mEncode(hrp, _hexToBytes(key));
+    }
+    // Unknown format — return as-is, let downstream report the error.
+    return key;
+  }
+
+  static Uint8List _hexToBytes(String hex) {
+    final length = hex.length ~/ 2;
+    final bytes = Uint8List(length);
+    for (var i = 0; i < length; i++) {
+      bytes[i] = int.parse(hex.substring(i * 2, i * 2 + 2), radix: 16);
+    }
+    return bytes;
+  }
+
+  static List<int> _convertBits(
+    List<int> data,
+    int fromBits,
+    int toBits, {
+    bool pad = true,
+  }) {
+    var acc = 0;
+    var bits = 0;
+    final result = <int>[];
+    final maxV = (1 << toBits) - 1;
+    for (final value in data) {
+      acc = (acc << fromBits) | value;
+      bits += fromBits;
+      while (bits >= toBits) {
+        bits -= toBits;
+        result.add((acc >> bits) & maxV);
+      }
+    }
+    if (pad && bits > 0) {
+      result.add((acc << (toBits - bits)) & maxV);
+    }
+    return result;
+  }
+
+  static int _bech32Polymod(List<int> values) {
+    const gen = [
+      0x3b6a57b2,
+      0x26508e6d,
+      0x1ea119fa,
+      0x3d4233dd,
+      0x2a1462b3,
+    ];
+    var chk = 1;
+    for (final v in values) {
+      final top = chk >> 25;
+      chk = ((chk & 0x1ffffff) << 5) ^ v;
+      for (var i = 0; i < 5; i++) {
+        chk ^= ((top >> i) & 1) != 0 ? gen[i] : 0;
+      }
+    }
+    return chk;
+  }
+
+  static List<int> _hrpExpand(String hrp) {
+    final result = <int>[];
+    for (final c in hrp.codeUnits) {
+      result.add(c >> 5);
+    }
+    result.add(0);
+    for (final c in hrp.codeUnits) {
+      result.add(c & 31);
+    }
+    return result;
+  }
+
+  static List<int> _bech32mChecksum(String hrp, List<int> data) {
+    final values = _hrpExpand(hrp) + data + [0, 0, 0, 0, 0, 0];
+    final polymod = _bech32Polymod(values) ^ _bech32mConst;
+    return List.generate(6, (i) => (polymod >> (5 * (5 - i))) & 31);
+  }
+
+  static String _bech32mEncode(String hrp, Uint8List data) {
+    final converted = _convertBits(data, 8, 5);
+    final checksum = _bech32mChecksum(hrp, converted);
+    final encoded =
+        (converted + checksum).map((d) => _charset[d]).join();
+    return '${hrp}1$encoded';
   }
 }

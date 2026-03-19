@@ -64,6 +64,91 @@ void main() {
     });
   });
 
+  group('RegistrationResult hex-to-bech32m conversion', () {
+    test('converts 64-char hex secret key to bech32m', () {
+      final result = RegistrationResult.fromJson({
+        'participant_id': 1,
+        'identity_uid': 'uid-1',
+        'public_key': 'utpk1already',
+        'secret_key_hex':
+            'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
+        'address': 'ut1already',
+        'tier': 'gold',
+      });
+
+      expect(result.secretKey, startsWith('utsk1'));
+      expect(result.secretKey, isNot(contains('abcdef')));
+      // 32 bytes → 52 five-bit groups + 6 checksum + 'utsk1' = 63 chars
+      expect(result.secretKey.length, 63);
+    });
+
+    test('passes through bech32m secret key unchanged', () {
+      final result = RegistrationResult.fromJson({
+        'participant_id': 1,
+        'identity_uid': 'uid-1',
+        'public_key': 'utpk1abc',
+        'secret_key': 'utsk1somevalidbech32mdata',
+        'address': 'ut1someaddr',
+        'tier': 'gold',
+      });
+
+      expect(result.secretKey, 'utsk1somevalidbech32mdata');
+    });
+
+    test('passes through non-hex key unchanged', () {
+      final result = RegistrationResult.fromJson({
+        'participant_id': 1,
+        'identity_uid': 'uid-1',
+        'public_key': '0xNotHex!',
+        'secret_key': '0xAlsoNotHex!',
+        'address': '0xAddr!',
+        'tier': 'gold',
+      });
+
+      expect(result.secretKey, '0xAlsoNotHex!');
+      expect(result.publicKey, '0xNotHex!');
+    });
+
+    test('converts hex public key and address', () {
+      final hex32 =
+          '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+      final result = RegistrationResult.fromJson({
+        'participant_id': 1,
+        'identity_uid': 'uid-1',
+        'public_key_hex': hex32,
+        'secret_key': 'utsk1passthrough',
+        'public_key_hash': 'aabbccdd' * 5, // 40-char hex (20 bytes)
+        'tier': 'gold',
+      });
+
+      expect(result.publicKey, startsWith('utpk1'));
+      expect(result.address, startsWith('ut1'));
+    });
+
+    test('produces consistent encoding for same input', () {
+      final hex =
+          'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+      final r1 = RegistrationResult.fromJson({
+        'participant_id': 1,
+        'identity_uid': 'uid',
+        'public_key': 'utpk1x',
+        'secret_key_hex': hex,
+        'address': 'ut1x',
+        'tier': 'gold',
+      });
+      final r2 = RegistrationResult.fromJson({
+        'participant_id': 2,
+        'identity_uid': 'uid',
+        'public_key': 'utpk1x',
+        'secret_key_hex': hex,
+        'address': 'ut1x',
+        'tier': 'gold',
+      });
+
+      expect(r1.secretKey, r2.secretKey);
+    });
+  });
+
   group('RegistrationRepository.register', () {
     setUp(() {
       SharedPreferences.setMockInitialValues({});

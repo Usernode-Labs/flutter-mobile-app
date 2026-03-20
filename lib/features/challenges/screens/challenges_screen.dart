@@ -13,6 +13,7 @@ import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/providers/ranking_provider.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
+import 'package:crypto_mobile_app/core/providers/syncing_text_provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
@@ -494,6 +495,11 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
 
     // Use API-provided earned points directly (breakdown with include_activity=1).
     final effectiveEarned = enriched.earnedPoints;
+    final isSyncing = isProduceBlocksSyncing(
+      isProduceBlocks: isProduceBlocks,
+      earnedPoints: effectiveEarned,
+      successRate: eb?.successRate ?? 0,
+    );
 
     String? completedPoints;
     if (variant == ChallengeCardVariant.completed) {
@@ -517,10 +523,13 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
       rewardText: variant == ChallengeCardVariant.active
           ? formatRewardText(dto.reward)
           : null,
-      earnedPoints:
-          variant == ChallengeCardVariant.ongoing && effectiveEarned != null
-              ? formatEarnedPoints(effectiveEarned)
-              : null,
+      earnedPoints: variant == ChallengeCardVariant.ongoing
+          ? isSyncing
+              ? ref.watch(syncingTextProvider).value ?? kSyncingTextFallback
+              : effectiveEarned != null
+                  ? formatEarnedPoints(effectiveEarned)
+                  : null
+          : null,
       completedPoints: completedPoints,
       onTap: () {
         if (isZkIdentityChallenge(dto)) {

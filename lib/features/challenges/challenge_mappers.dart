@@ -347,6 +347,18 @@ const String kDappsSubCategory = 'DAPPS_CHALLENGE';
 /// Returns true when the challenge is the dApps challenge.
 bool isDappsChallenge(ChallengeDto dto) => dto.subCategory == kDappsSubCategory;
 
+/// True when the aggregator hasn't yet tallied earned points for a
+/// produce-blocks challenge that already has block activity.
+bool isProduceBlocksSyncing({
+  required bool isProduceBlocks,
+  required int? earnedPoints,
+  required double successRate,
+}) {
+  return isProduceBlocks &&
+      (earnedPoints == null || earnedPoints == 0) &&
+      successRate > 0;
+}
+
 /// Formats rank as an ordinal: 1 → "1st", 2 → "2nd", 3 → "3rd".
 ///
 /// Returns null for null input or ranks outside 1–3.

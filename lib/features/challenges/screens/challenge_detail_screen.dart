@@ -8,6 +8,7 @@ import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
+import 'package:crypto_mobile_app/core/providers/syncing_text_provider.dart';
 import 'package:crypto_mobile_app/core/providers/produced_blocks_provider.dart';
 import 'package:crypto_mobile_app/core/utils/challenge_point_tracker.dart';
 import 'package:crypto_mobile_app/design_system/src/block_production_status_card.dart';
@@ -41,9 +42,9 @@ class ChallengeDetailScreen extends ConsumerWidget {
     final blocksSummary = ref.watch(producedBlocksSummaryProvider);
     final nodeStatus = ref.watch(nodeStatusProvider).asData?.value;
     final latestEpoch = nodeStatus?.currentEpoch;
-
-    // Record point snapshot on each successful data load
-    if (challenge.earnedPoints != null) {
+    // Record point snapshot on each successful data load (skip 0 — aggregator
+    // may not have tallied yet, recording 0 would skew the 24-hour diff).
+    if (challenge.earnedPoints != null && challenge.earnedPoints! > 0) {
       ChallengePointTracker.record(_trackerKey, challenge.earnedPoints!);
     }
 
@@ -100,7 +101,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
       dateRange:
           '${_categoryDisplayName(category)} · ${formatDateRange(dto.scheduleStart, dto.scheduleEnd)}',
       rewardCard: showRewardCard
-          ? _buildRewardCard(context, category, eb, diff, latestEpoch)
+          ? _buildRewardCard(context, ref, category, eb, diff, latestEpoch)
           : null,
       statusSection: isProduceBlocks
           ? _buildStatusSection(
@@ -118,6 +119,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
 
   Widget _buildRewardCard(
     BuildContext context,
+    WidgetRef ref,
     ChallengeCategory category,
     EventBreakdown? eb,
     PointDiff? diff,
@@ -135,8 +137,17 @@ class ChallengeDetailScreen extends ConsumerWidget {
 
     // Use API-provided earned points directly (breakdown with include_activity=1).
     final earnedPoints = challenge.earnedPoints;
-    final totalEarned =
-        earnedPoints != null ? formatPoints(earnedPoints) : '--';
+    final isSyncing = isProduceBlocksSyncing(
+      isProduceBlocks: isProduceBlocks,
+      earnedPoints: earnedPoints,
+      successRate: successRate,
+    );
+    // Only subscribe to the 500ms ticker when actually syncing.
+    final displayPoints = isSyncing
+        ? ref.watch(syncingTextProvider).value ?? kSyncingTextFallback
+        : earnedPoints != null
+            ? formatPoints(earnedPoints)
+            : '--';
 
     // Epoch section: only for produce-blocks challenges.
     final String? epochEarned;
@@ -163,7 +174,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
         progressFraction: successRate / 100.0,
         successRate: '${successRate.round()}%',
         maxPoints: formatPoints(maxPts),
-        totalPoints: earnedPoints != null ? formatPoints(earnedPoints) : '--',
+        totalPoints: displayPoints,
         rankLabel: formatRankOrdinal(eb?.rank),
         rankReward: '+${formatPoints(eb?.top3Points ?? 0)}',
         rateLabel: dto.completed ? 'SUCCESS RATE' : 'BLOCK RATE',
@@ -174,7 +185,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
 
     return ChallengeRewardCard(
       category: category,
-      totalEarned: totalEarned,
+      totalEarned: displayPoints,
       data: data,
       epochSectionLabel: epochSectionLabel,
       epochEarned: epochEarned,
@@ -289,8 +300,9 @@ class ChallengeDetailScreen extends ConsumerWidget {
     String? nextBlockText;
 
     if (summary != null) {
-      // Search current epoch first, then look ahead
-      for (final epochScore in summary.epochScores.reversed) {
+      // Forward iteration: past epochs have no scheduled slots (converted to missed),
+      // so this naturally finds the nearest upcoming slot in the current epoch first.
+      for (final epochScore in summary.epochScores) {
         final slots = epochScore.epochData.slotData;
         if (slots == null) continue;
         for (final slot in slots) {

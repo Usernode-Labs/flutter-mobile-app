@@ -76,6 +76,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
   void _startAutoRefresh() {
     _refreshTimer?.cancel();
     _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) async {
+      if (!mounted) return;
       final currentTab = ref.read(currentHomeTabProvider);
       if (currentTab == HomeTab.challenges) {
         await Future.wait([

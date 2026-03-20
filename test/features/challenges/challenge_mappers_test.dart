@@ -638,6 +638,64 @@ void main() {
     });
   });
 
+  group('isProduceBlocksSyncing', () {
+    test('true when earnedPoints is null and successRate > 0', () {
+      expect(
+        isProduceBlocksSyncing(
+          isProduceBlocks: true,
+          earnedPoints: null,
+          successRate: 83.33,
+        ),
+        isTrue,
+      );
+    });
+
+    test('true when earnedPoints is 0 and successRate > 0 (aggregator gap)',
+        () {
+      expect(
+        isProduceBlocksSyncing(
+          isProduceBlocks: true,
+          earnedPoints: 0,
+          successRate: 50.0,
+        ),
+        isTrue,
+      );
+    });
+
+    test('false when earnedPoints > 0', () {
+      expect(
+        isProduceBlocksSyncing(
+          isProduceBlocks: true,
+          earnedPoints: 4166,
+          successRate: 83.33,
+        ),
+        isFalse,
+      );
+    });
+
+    test('false when successRate is 0 (no blocks produced yet)', () {
+      expect(
+        isProduceBlocksSyncing(
+          isProduceBlocks: true,
+          earnedPoints: null,
+          successRate: 0,
+        ),
+        isFalse,
+      );
+    });
+
+    test('false when not a produce-blocks challenge', () {
+      expect(
+        isProduceBlocksSyncing(
+          isProduceBlocks: false,
+          earnedPoints: null,
+          successRate: 83.33,
+        ),
+        isFalse,
+      );
+    });
+  });
+
   group('formatDiffLabel', () {
     test('>= 24h returns "Last 24h"', () {
       expect(formatDiffLabel(const Duration(hours: 24)), 'Last 24h');

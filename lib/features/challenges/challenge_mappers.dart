@@ -347,28 +347,6 @@ const String kDappsSubCategory = 'DAPPS_CHALLENGE';
 /// Returns true when the challenge is the dApps challenge.
 bool isDappsChallenge(ChallengeDto dto) => dto.subCategory == kDappsSubCategory;
 
-/// Computes effective earned points for produce-blocks challenges.
-///
-/// When [earnedPoints] (from per-challenge breakdown) is available, returns it
-/// directly. Otherwise, derives from event-level [successRate] × max pts
-/// (ceiling minus [kTop3RankBonusPoints]).
-///
-/// Returns null when neither source is available or [rewardText] can't be
-/// parsed.
-int? computeEffectiveEarnedPoints({
-  int? earnedPoints,
-  double? successRate,
-  String? rewardText,
-}) {
-  if (earnedPoints != null) return earnedPoints;
-  final sr = successRate ?? 0;
-  if (sr <= 0 || rewardText == null) return null;
-  final ceiling = parseRewardCeiling(formatRewardText(rewardText));
-  if (ceiling == null) return null;
-  final maxPts = ceiling - kTop3RankBonusPoints;
-  return (sr * maxPts / 100).round();
-}
-
 /// Formats rank as an ordinal: 1 → "1st", 2 → "2nd", 3 → "3rd".
 ///
 /// Returns null for null input or ranks outside 1–3.

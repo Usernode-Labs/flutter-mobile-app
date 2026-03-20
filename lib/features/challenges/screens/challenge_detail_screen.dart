@@ -125,29 +125,18 @@ class ChallengeDetailScreen extends ConsumerWidget {
   ) {
     final dto = challenge.dto;
     final isProduceBlocks = isProduceBlocksChallenge(dto);
+    final successRate = eb?.successRate ?? 0;
 
-    // Compute maxPts early so it's available for the reward card breakdown.
+    // Max success-rate points for the progress breakdown display.
     final ceiling = isProduceBlocks
         ? parseRewardCeiling(formatRewardText(dto.reward))
         : null;
-    // TODO(challenges): The API should return maxSuccessRatePoints and
-    // top3Bonus separately so the client doesn't embed reward-formula
-    // constants. See kTop3RankBonusPoints.
     final maxPts = ceiling != null ? ceiling - kTop3RankBonusPoints : 0;
-    final successRate = eb?.successRate ?? 0;
 
-    // Use per-challenge earned points from breakdown activity, not event total.
-    // For produce-blocks, fall back to event-level successRate × maxPts when
-    // no per-challenge activity match exists.
-    final effectiveEarned = isProduceBlocks
-        ? computeEffectiveEarnedPoints(
-            earnedPoints: challenge.earnedPoints,
-            successRate: successRate,
-            rewardText: dto.reward,
-          )
-        : challenge.earnedPoints;
+    // Use API-provided earned points directly (breakdown with include_activity=1).
+    final earnedPoints = challenge.earnedPoints;
     final totalEarned =
-        effectiveEarned != null ? formatPoints(effectiveEarned) : '--';
+        earnedPoints != null ? formatPoints(earnedPoints) : '--';
 
     // Epoch section: only for produce-blocks challenges.
     final String? epochEarned;
@@ -174,9 +163,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
         progressFraction: successRate / 100.0,
         successRate: '${successRate.round()}%',
         maxPoints: formatPoints(maxPts),
-        // TODO(challenges): The server should return pre-computed
-        // successRatePoints so the client doesn't duplicate business logic.
-        totalPoints: formatPoints((successRate * maxPts / 100).round()),
+        totalPoints: earnedPoints != null ? formatPoints(earnedPoints) : '--',
         rankLabel: formatRankOrdinal(eb?.rank),
         rankReward: '+${formatPoints(eb?.top3Points ?? 0)}',
         rateLabel: dto.completed ? 'SUCCESS RATE' : 'BLOCK RATE',

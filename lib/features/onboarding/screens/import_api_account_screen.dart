@@ -12,6 +12,7 @@ import 'package:crypto_mobile_app/features/onboarding/data/repositories/registra
 import 'package:crypto_mobile_app/features/onboarding/data/onboarding_providers.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
@@ -41,6 +42,7 @@ class _OnboardingImportApiAccountScreenState
   final TextEditingController _activationCodeController =
       TextEditingController();
   bool _submitting = false;
+  String _versionLabel = '';
 
   @override
   void initState() {
@@ -50,6 +52,14 @@ class _OnboardingImportApiAccountScreenState
     }
     if (_defaultCode.isNotEmpty) {
       _activationCodeController.text = _defaultCode;
+    }
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    final info = await PackageInfo.fromPlatform();
+    if (mounted) {
+      setState(() => _versionLabel = 'v${info.version} (${info.buildNumber})');
     }
   }
 
@@ -241,6 +251,16 @@ class _OnboardingImportApiAccountScreenState
                   onTap: _onSubmit,
                 ),
               ),
+              if (_versionLabel.isNotEmpty) ...[
+                SizedBox(height: spacing.space16),
+                Text(
+                  _versionLabel,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ],
           ),
         ),

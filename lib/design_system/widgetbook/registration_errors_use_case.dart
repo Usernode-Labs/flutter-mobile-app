@@ -2,7 +2,38 @@ import 'package:flutter/material.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'package:crypto_mobile_app/design_system/design_system.dart';
-import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
+
+// ---------------------------------------------------------------------------
+// Mock strings — widgetbook has no localization delegates, so we hardcode
+// the English strings here (matching app_en.arb).
+// ---------------------------------------------------------------------------
+
+const _kKeyDerivationFailed =
+    'Account setup failed. Please try again or contact support.';
+const _kStorageFailed =
+    'Could not save account securely. Please check device storage and try again.';
+const _kBackendStartFailed =
+    'Account created, but node startup failed. The app will retry automatically.';
+const _kTimeoutError =
+    'Connection timed out. Please check your internet and try again.';
+const _kNetworkError =
+    'Could not reach the server. Please check your internet and try again.';
+const _kUnexpectedError =
+    'An unexpected error occurred. Please try again or contact support.';
+const _kEventInactive =
+    'Registration is currently closed. If you received an invite, please contact support.';
+const _kNotFound =
+    'Username not found or registration code invalid. Please double-check both fields and try again.';
+const _kCodeUsed =
+    'This registration code has already been used. If this is your code, try re-entering your exact username.';
+const _kValidation = 'Please fill in both your username and registration code.';
+const _kGeneric = 'Registration failed. Please try again or contact support.';
+const _kStaleBannerBody =
+    'Your registration may be from a previous season. Blocks produced with old credentials won\'t earn points.';
+const _kStaleTitle = 'Registration Expired';
+const _kStaleBody =
+    'Your registration is from a previous season. Blocks produced with old credentials won\'t earn points. Please re-register to participate in the current season.';
+const _kStaleAction = 'Re-register';
 
 WidgetbookComponent registrationErrorsComponent() {
   return WidgetbookComponent(
@@ -21,21 +52,22 @@ WidgetbookComponent registrationErrorsComponent() {
 // ---------------------------------------------------------------------------
 
 enum _ErrorScenario {
-  none('None (success)'),
-  apiEventInactive('403 — Registration closed'),
-  apiNotFound('404 — Username/code invalid'),
-  apiCodeUsed('409 — Code already used'),
-  apiValidation('422 — Validation error'),
-  apiGeneric('5xx — Server error'),
-  keyDerivation('FFI — Key derivation failed'),
-  secureStorage('Storage — Secure storage failed'),
-  backendStart('Backend — Node startup failed'),
-  timeout('Network — Timeout'),
-  network('Network — Connection refused'),
-  unexpected('Catch-all — Unexpected error');
+  none('None (success)', 'Success — no error'),
+  apiEventInactive('403 — Registration closed', _kEventInactive),
+  apiNotFound('404 — Username/code invalid', _kNotFound),
+  apiCodeUsed('409 — Code already used', _kCodeUsed),
+  apiValidation('422 — Validation error', _kValidation),
+  apiGeneric('5xx — Server error', _kGeneric),
+  keyDerivation('FFI — Key derivation failed', _kKeyDerivationFailed),
+  secureStorage('Storage — Secure storage failed', _kStorageFailed),
+  backendStart('Backend — Node startup failed', _kBackendStartFailed),
+  timeout('Network — Timeout', _kTimeoutError),
+  network('Network — Connection refused', _kNetworkError),
+  unexpected('Catch-all — Unexpected error', _kUnexpectedError);
 
-  const _ErrorScenario(this.label);
+  const _ErrorScenario(this.label, this.message);
   final String label;
+  final String message;
 }
 
 // ---------------------------------------------------------------------------
@@ -64,9 +96,9 @@ class _PlaygroundPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
+    final radii = Theme.of(context).extension<AppRadii>()!;
 
     return Scaffold(
       body: SafeArea(
@@ -92,19 +124,20 @@ class _PlaygroundPage extends StatelessWidget {
                   label: 'Trigger Error',
                   variant: ButtonVariant.primary,
                   size: ButtonSize.large,
-                  onTap: () => _showError(context, scenario, l10n),
+                  onTap: () {
+                    ScaffoldMessenger.of(context)
+                      ..hideCurrentSnackBar()
+                      ..showSnackBar(SnackBar(content: Text(scenario.message)));
+                  },
                 ),
               ),
               SizedBox(height: spacing.space16),
-              // Show the raw message text below for easy reading
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.all(spacing.space12),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.surfaceContainerHighest,
-                  borderRadius: Theme.of(context)
-                      .extension<AppRadii>()!
-                      .borderRadiusSmall,
+                  borderRadius: radii.borderRadiusSmall,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -117,7 +150,7 @@ class _PlaygroundPage extends StatelessWidget {
                     ),
                     SizedBox(height: spacing.space4),
                     Text(
-                      _messageForScenario(scenario, l10n),
+                      scenario.message,
                       style: theme.textTheme.bodyMedium,
                     ),
                   ],
@@ -129,36 +162,6 @@ class _PlaygroundPage extends StatelessWidget {
       ),
     );
   }
-
-  void _showError(
-      BuildContext context, _ErrorScenario scenario, AppLocalizations l10n) {
-    final message = _messageForScenario(scenario, l10n);
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
-  }
-}
-
-String _messageForScenario(_ErrorScenario scenario, AppLocalizations l10n) {
-  return switch (scenario) {
-    _ErrorScenario.none => 'Success — no error',
-    _ErrorScenario.apiEventInactive =>
-      'Registration is currently closed. If you received an invite, please contact support.',
-    _ErrorScenario.apiNotFound =>
-      'Username not found or registration code invalid. Please double-check both fields and try again.',
-    _ErrorScenario.apiCodeUsed =>
-      'This registration code has already been used. If this is your code, try re-entering your exact username.',
-    _ErrorScenario.apiValidation =>
-      'Please fill in both your username and registration code.',
-    _ErrorScenario.apiGeneric =>
-      'Registration failed. Please try again or contact support.',
-    _ErrorScenario.keyDerivation => l10n.importApiAccountKeyDerivationFailed,
-    _ErrorScenario.secureStorage => l10n.importApiAccountStorageFailed,
-    _ErrorScenario.backendStart => l10n.importApiAccountBackendStartFailed,
-    _ErrorScenario.timeout => l10n.registrationTimeoutError,
-    _ErrorScenario.network => l10n.registrationNetworkError,
-    _ErrorScenario.unexpected => l10n.registrationUnexpectedError,
-  };
 }
 
 // ---------------------------------------------------------------------------
@@ -169,7 +172,6 @@ WidgetbookUseCase _allStates() {
   return WidgetbookUseCase(
     name: 'All Error Messages',
     builder: (context) {
-      final l10n = AppLocalizations.of(context);
       final spacing = Theme.of(context).extension<AppSpacing>()!;
       final theme = Theme.of(context);
 
@@ -185,7 +187,7 @@ WidgetbookUseCase _allStates() {
                 if (scenario != _ErrorScenario.none) ...[
                   _ErrorCard(
                     label: scenario.label,
-                    message: _messageForScenario(scenario, l10n),
+                    message: scenario.message,
                   ),
                   SizedBox(height: spacing.space8),
                 ],
@@ -261,14 +263,12 @@ class _StaleBannerPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final spacing = Theme.of(context).extension<AppSpacing>()!;
 
     return Scaffold(
       body: Column(
         children: [
-          // Banner area
           if (stale && !dismissed)
             MaterialBanner(
               padding: EdgeInsets.symmetric(
@@ -280,23 +280,22 @@ class _StaleBannerPreview extends StatelessWidget {
                 color: theme.colorScheme.error,
               ),
               content: Text(
-                l10n.registrationStaleBannerBody,
+                _kStaleBannerBody,
                 style: theme.textTheme.bodySmall,
               ),
               actions: [
                 TextButton(
                   onPressed: () {},
-                  child: Text(l10n.registrationStaleBannerDismiss),
+                  child: const Text('Dismiss'),
                 ),
                 TextButton(
                   onPressed: () {},
-                  child: Text(l10n.registrationStaleAction),
+                  child: const Text(_kStaleAction),
                 ),
               ],
             )
           else
             const SizedBox.shrink(),
-          // Placeholder content representing the home screen
           Expanded(
             child: Center(
               child: Text(
@@ -325,7 +324,6 @@ WidgetbookUseCase _staleScreen() {
   return WidgetbookUseCase(
     name: 'Stale Screen (Hard Mode)',
     builder: (context) {
-      final l10n = AppLocalizations.of(context);
       final spacing = Theme.of(context).extension<AppSpacing>()!;
       final theme = Theme.of(context);
 
@@ -345,19 +343,19 @@ WidgetbookUseCase _staleScreen() {
                 ),
                 SizedBox(height: spacing.space24),
                 Text(
-                  l10n.registrationStaleTitle,
+                  _kStaleTitle,
                   style: theme.textTheme.headlineSmall,
                   textAlign: TextAlign.center,
                 ),
                 SizedBox(height: spacing.space16),
                 Text(
-                  l10n.registrationStaleBody,
+                  _kStaleBody,
                   style: theme.textTheme.bodyMedium,
                   textAlign: TextAlign.center,
                 ),
                 const Spacer(),
                 Button(
-                  label: l10n.registrationStaleAction,
+                  label: _kStaleAction,
                   variant: ButtonVariant.primary,
                   size: ButtonSize.large,
                   onTap: () {},

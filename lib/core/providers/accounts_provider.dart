@@ -10,6 +10,17 @@ import 'package:crypto_mobile_app/core/utils/sentry.dart';
 
 final _log = LoggingService.instance.withTag('usernode/AccountsProvider');
 
+enum AccountImportFailure { keyDerivation, secureStorage }
+
+class AccountImportException implements Exception {
+  AccountImportException(this.failure, this.cause);
+  final AccountImportFailure failure;
+  final Object cause;
+
+  @override
+  String toString() => 'AccountImportException($failure, $cause)';
+}
+
 /// Provider for AccountsRepository - handles account persistence
 final accountsProvider = FutureProvider<AccountsRepository>((ref) async {
   return AccountsRepository.create();
@@ -102,28 +113,39 @@ class AccountsRepository {
   }
 
   /// Import an account from a bech32m-encoded secret key (HRP `utsk`).
-  Future<AccountMeta?> importFromSecretKey({
+  ///
+  /// Throws [AccountImportException] with a specific [AccountImportFailure]
+  /// on key derivation or secure storage errors.
+  Future<AccountMeta> importFromSecretKey({
     required String name,
     required String secretKey,
     bool isDemo = false,
   }) async {
     _log.debug('importFromSecretKey - start (name: $name, isDemo: $isDemo)');
 
+    // Derive keys from private key via Rust FFI
+    final dynamic accountExport;
     try {
-      // Use Rust backend to derive public key and address from private key
-      final accountExport = accountFromPrivateKey(
+      accountExport = accountFromPrivateKey(
         secretKey: secretKey.trim(),
       );
+    } catch (e, stackTrace) {
+      _log.error('importFromSecretKey - key derivation FAILED',
+          error: e, stackTrace: stackTrace);
+      throw AccountImportException(AccountImportFailure.keyDerivation, e);
+    }
 
-      // Extract keys from AccountExport
-      final derivedSecretKey = accountExport.secretKey;
-      final publicKey = accountExport.publicKey;
-      final address = accountExport.address;
+    // Extract keys from AccountExport
+    final derivedSecretKey = accountExport.secretKey;
+    final publicKey = accountExport.publicKey;
+    final address = accountExport.address;
 
-      _log.debug('Secret key length: ${derivedSecretKey.length}');
-      _log.debug('Public key length: ${publicKey.length}');
-      _log.debug('Address: $address');
+    _log.debug('Secret key length: ${derivedSecretKey.length}');
+    _log.debug('Public key length: ${publicKey.length}');
+    _log.debug('Address: $address');
 
+    // Persist to secure storage
+    try {
       final result = await _persistNew(
         name: name,
         address: address,
@@ -135,9 +157,9 @@ class AccountsRepository {
       _log.trace('importFromSecretKey - success (account id: ${result.id})');
       return result;
     } catch (e, stackTrace) {
-      _log.error('importFromSecretKey - FAILED with exception',
+      _log.error('importFromSecretKey - secure storage FAILED',
           error: e, stackTrace: stackTrace);
-      return null;
+      throw AccountImportException(AccountImportFailure.secureStorage, e);
     }
   }
 

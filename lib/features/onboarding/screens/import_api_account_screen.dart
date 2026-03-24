@@ -1,11 +1,19 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/features/onboarding/data/repositories/registration_repository.dart';
 import 'package:crypto_mobile_app/features/onboarding/data/onboarding_providers.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
+import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
@@ -27,6 +35,7 @@ class _OnboardingImportApiAccountScreenState
       String.fromEnvironment('DEFAULT_REGISTRATION_CONTACT', defaultValue: '');
   static const String _defaultCode =
       String.fromEnvironment('DEFAULT_REGISTRATION_CODE', defaultValue: '');
+  static final _leadingPrefixRegex = RegExp(r'^[@#]+');
 
   final TextEditingController _contactController = TextEditingController();
   final TextEditingController _activationCodeController =
@@ -53,58 +62,106 @@ class _OnboardingImportApiAccountScreenState
 
   Future<void> _onSubmit() async {
     if (_submitting) return;
-    setState(() => _submitting = true);
     final l10n = AppLocalizations.of(context);
-    try {
-      final contact = _contactController.text.trim();
-      final activationCode = _activationCodeController.text.trim();
 
+    // Client-side input validation
+    final contact =
+        _contactController.text.trim().replaceAll(_leadingPrefixRegex, '');
+    final activationCode = _activationCodeController.text.trim();
+
+    if (contact.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.registrationUsernameEmpty)),
+      );
+      return;
+    }
+    if (activationCode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.registrationCodeEmpty)),
+      );
+      return;
+    }
+
+    setState(() => _submitting = true);
+    try {
       final registration =
           await _registerViaApi(contact: contact, code: activationCode);
 
       final repo = await AccountsRepository.create();
-      final result = await repo.importFromSecretKey(
+      await repo.importFromSecretKey(
         name: 'API Account',
         secretKey: registration.secretKey,
       );
 
       if (!mounted) return;
 
-      if (result == null) {
-        setState(() => _submitting = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.importApiAccountFailed)),
-        );
-        return;
+      // Persist season/event context so cold-start can detect staleness
+      if (registration.eventId != null) {
+        await LeaderboardBootstrap.persistSeasonEvent(SeasonEventContext(
+          eventId: registration.eventId,
+          eventName: registration.eventName,
+        ));
       }
 
       // Start backend for new account
+      var backendFailed = false;
       try {
         await RustBackendService.instance.startNode();
         _log.debug('Backend started successfully');
       } catch (e, st) {
         _log.error('Failed to start backend', error: e, stackTrace: st);
+        backendFailed = true;
       }
+
+      // Reset stale registration state (important for re-registration flow)
+      ref.read(registrationFreshnessProvider.notifier).state =
+          RegistrationFreshness.unknown;
+
+      // Clear stale banner dismiss flag so it can reappear if needed
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(NetworkPrefs.prefixKey(staleBannerDismissedKey));
 
       // Invalidate account state so router sees new account immediately
       ref.invalidate(hasAnyAccountProvider);
 
       // Navigate to welcome setup screen before permission flow
       if (!mounted) return;
+
+      if (backendFailed) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.importApiAccountBackendStartFailed)),
+        );
+      }
+
       ref.read(onboardingUserIdProvider.notifier).state = contact;
       context.go(AppRoutes.onboardingWelcomeSetup);
     } on RegistrationApiException catch (e) {
       if (!mounted) return;
-      String message = e.message;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    } on AccountImportException catch (e) {
+      if (!mounted) return;
+      final message = switch (e.failure) {
+        AccountImportFailure.keyDerivation =>
+          l10n.importApiAccountKeyDerivationFailed,
+        AccountImportFailure.secureStorage =>
+          l10n.importApiAccountStorageFailed,
+      };
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message)),
       );
     } catch (e) {
       if (!mounted) return;
+      final message = switch (e) {
+        TimeoutException() => l10n.registrationTimeoutError,
+        SocketException() => l10n.registrationNetworkError,
+        http.ClientException() => l10n.registrationNetworkError,
+        _ => l10n.registrationUnexpectedError,
+      };
+      _log.error('Registration failed with unexpected error', error: e);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content:
-                Text(l10n.importApiAccountRegistrationFailed(e.toString()))),
+        SnackBar(content: Text(message)),
       );
     } finally {
       if (mounted) setState(() => _submitting = false);

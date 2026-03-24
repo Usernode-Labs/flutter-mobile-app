@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -109,6 +111,122 @@ void main() {
           NetworkPrefs.prefixKey('leaderboard:participant_id'),
         ),
         equals(99),
+      );
+    });
+
+    test('403 response throws RegistrationApiException with correct message',
+        () async {
+      final mockClient = MockClient((request) async {
+        return http.Response(
+          '{"success": false, "error": "Registration failed"}',
+          403,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final repo = RegistrationRepository(
+        endpoint: 'https://example.com',
+        httpClient: mockClient,
+      );
+
+      expect(
+        () => repo.register(registrationCode: 'code', identifier: 'user'),
+        throwsA(
+          isA<RegistrationApiException>()
+              .having((e) => e.statusCode, 'statusCode', 403)
+              .having((e) => e.message, 'message',
+                  contains('Registration is currently closed')),
+        ),
+      );
+    });
+
+    test('404 response throws with username/code message', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response(
+          '{"success": false, "error": "Registration failed"}',
+          404,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final repo = RegistrationRepository(
+        endpoint: 'https://example.com',
+        httpClient: mockClient,
+      );
+
+      expect(
+        () => repo.register(registrationCode: 'code', identifier: 'user'),
+        throwsA(
+          isA<RegistrationApiException>()
+              .having((e) => e.statusCode, 'statusCode', 404)
+              .having((e) => e.message, 'message',
+                  contains('Username not found or registration code invalid')),
+        ),
+      );
+    });
+
+    test('409 response throws with code-used message', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response(
+          '{"success": false, "error": "Registration failed"}',
+          409,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final repo = RegistrationRepository(
+        endpoint: 'https://example.com',
+        httpClient: mockClient,
+      );
+
+      expect(
+        () => repo.register(registrationCode: 'code', identifier: 'user'),
+        throwsA(
+          isA<RegistrationApiException>()
+              .having((e) => e.statusCode, 'statusCode', 409)
+              .having(
+                  (e) => e.message, 'message', contains('already been used')),
+        ),
+      );
+    });
+
+    test('404 with debug field extracts detailed message', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response(
+          '{"success": false, "error": "Registration failed", "debug": "Participant not found."}',
+          404,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final repo = RegistrationRepository(
+        endpoint: 'https://example.com',
+        httpClient: mockClient,
+      );
+
+      expect(
+        () => repo.register(registrationCode: 'code', identifier: 'user'),
+        throwsA(
+          isA<RegistrationApiException>()
+              .having((e) => e.statusCode, 'statusCode', 404)
+              .having((e) => e.message, 'message', 'Participant not found.'),
+        ),
+      );
+    });
+
+    test('network error propagates (not swallowed)', () async {
+      final mockClient = MockClient((request) async {
+        throw const SocketException('Connection refused');
+      });
+
+      final repo = RegistrationRepository(
+        endpoint: 'https://example.com',
+        httpClient: mockClient,
+      );
+
+      expect(
+        () => repo.register(registrationCode: 'code', identifier: 'user'),
+        throwsA(isA<SocketException>()),
       );
     });
   });

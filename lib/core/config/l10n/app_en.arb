@@ -2051,5 +2051,58 @@
   "producedBlocksNoData": "No produced blocks available",
   "@producedBlocksNoData": {
     "description": "No produced blocks message"
+  },
+
+  "importApiAccountKeyDerivationFailed": "Account setup failed. Please try again or contact support.",
+  "@importApiAccountKeyDerivationFailed": {
+    "description": "Error when Rust FFI key derivation fails during account import"
+  },
+  "importApiAccountStorageFailed": "Could not save account securely. Please check device storage and try again.",
+  "@importApiAccountStorageFailed": {
+    "description": "Error when secure storage write fails during account import"
+  },
+  "importApiAccountBackendStartFailed": "Account created, but node startup failed. The app will retry automatically.",
+  "@importApiAccountBackendStartFailed": {
+    "description": "Warning when backend fails to start after account creation"
+  },
+  "registrationUsernameEmpty": "Please enter your username.",
+  "@registrationUsernameEmpty": {
+    "description": "Validation error for empty username field"
+  },
+  "registrationCodeEmpty": "Please enter your activation code.",
+  "@registrationCodeEmpty": {
+    "description": "Validation error for empty activation code field"
+  },
+  "registrationTimeoutError": "Connection timed out. Please check your internet and try again.",
+  "@registrationTimeoutError": {
+    "description": "Error when registration request times out"
+  },
+  "registrationNetworkError": "Could not reach the server. Please check your internet and try again.",
+  "@registrationNetworkError": {
+    "description": "Error when registration request fails due to network"
+  },
+  "registrationUnexpectedError": "An unexpected error occurred. Please try again or contact support.",
+  "@registrationUnexpectedError": {
+    "description": "Generic fallback error for unexpected registration failures"
+  },
+  "registrationStaleTitle": "Registration Expired",
+  "@registrationStaleTitle": {
+    "description": "Title for stale registration blocking screen"
+  },
+  "registrationStaleBody": "Your registration is from a previous season. Blocks produced with old credentials won't earn points. Please re-register to participate in the current season.",
+  "@registrationStaleBody": {
+    "description": "Body text for stale registration blocking screen"
+  },
+  "registrationStaleAction": "Re-register",
+  "@registrationStaleAction": {
+    "description": "Button text on stale registration screen"
+  },
+  "registrationStaleBannerBody": "Your registration may be from a previous season. Blocks produced with old credentials won't earn points.",
+  "@registrationStaleBannerBody": {
+    "description": "Body text for dismissable stale registration warning banner"
+  },
+  "registrationStaleBannerDismiss": "Dismiss",
+  "@registrationStaleBannerDismiss": {
+    "description": "Dismiss button on stale registration banner"
   }
 }

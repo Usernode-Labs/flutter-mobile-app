@@ -18,6 +18,7 @@ import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_mod
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
 import 'package:crypto_mobile_app/features/zk_identity/zk_identity_status_mapper.dart';
+import 'package:crypto_mobile_app/features/home/widgets/stale_registration_banner.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -82,14 +83,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final semantic = theme.extension<AppSemanticColors>()!;
 
     return Scaffold(
-      body: IndexedStack(
-        index: index,
-        children: const [
-          ChallengesScreen(),
-          WalletScreen(),
-          DappsScreen(),
-          NodeStatusScreen(),
-          SettingsScreen(),
+      body: Column(
+        children: [
+          const StaleRegistrationBanner(),
+          Expanded(
+            child: IndexedStack(
+              index: index,
+              children: const [
+                ChallengesScreen(),
+                WalletScreen(),
+                DappsScreen(),
+                NodeStatusScreen(),
+                SettingsScreen(),
+              ],
+            ),
+          ),
         ],
       ),
       bottomNavigationBar: _buildBottomNav(

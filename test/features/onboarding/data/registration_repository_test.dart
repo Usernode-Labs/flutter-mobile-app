@@ -214,6 +214,81 @@ void main() {
       );
     });
 
+    test('422 response extracts Laravel validation error', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response(
+          '{"success": false, "errors": {"identifier": ["The identifier field is required."]}}',
+          422,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final repo = RegistrationRepository(
+        endpoint: 'https://example.com',
+        httpClient: mockClient,
+      );
+
+      expect(
+        () => repo.register(registrationCode: 'code', identifier: 'user'),
+        throwsA(
+          isA<RegistrationApiException>()
+              .having((e) => e.statusCode, 'statusCode', 422)
+              .having((e) => e.message, 'message',
+                  'The identifier field is required.'),
+        ),
+      );
+    });
+
+    test('422 without errors map falls back to generic message', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response(
+          '{"success": false}',
+          422,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final repo = RegistrationRepository(
+        endpoint: 'https://example.com',
+        httpClient: mockClient,
+      );
+
+      expect(
+        () => repo.register(registrationCode: 'code', identifier: 'user'),
+        throwsA(
+          isA<RegistrationApiException>()
+              .having((e) => e.statusCode, 'statusCode', 422)
+              .having((e) => e.message, 'message',
+                  contains('username and registration code')),
+        ),
+      );
+    });
+
+    test('malformed JSON body falls back to status-code message', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response(
+          'not valid json at all',
+          500,
+          headers: {'content-type': 'text/plain'},
+        );
+      });
+
+      final repo = RegistrationRepository(
+        endpoint: 'https://example.com',
+        httpClient: mockClient,
+      );
+
+      expect(
+        () => repo.register(registrationCode: 'code', identifier: 'user'),
+        throwsA(
+          isA<RegistrationApiException>()
+              .having((e) => e.statusCode, 'statusCode', 500)
+              .having((e) => e.message, 'message',
+                  contains('Please try again or contact support')),
+        ),
+      );
+    });
+
     test('network error propagates (not swallowed)', () async {
       final mockClient = MockClient((request) async {
         throw const SocketException('Connection refused');

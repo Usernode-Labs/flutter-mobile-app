@@ -5,8 +5,6 @@ import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 
-// RegistrationFreshness enum is exported from leaderboard_bootstrap.dart
-
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});

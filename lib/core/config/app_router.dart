@@ -54,7 +54,7 @@ class AppRoutes {
   static const onboardingNotificationPermission3 =
       '/onboarding/notification-permission3';
   static const onboardingBatteryComplete = '/onboarding/battery-complete';
-  static const staleRegistration = '/onboarding/stale-registration';
+  static const staleRegistration = '/stale-registration';
 
   // Standalone routes
   static const slotAssignments = '/produced/slot-assignments';
@@ -370,6 +370,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       //     currentLocation != AppRoutes.onboardingImportApi) {
       //   return AppRoutes.staleRegistration;
       // }
+
+      // Allow stale registration screen (lives outside /onboarding/)
+      if (currentLocation == AppRoutes.staleRegistration) {
+        return null;
+      }
 
       // Redirect from splash and onboarding to home
       if (currentLocation == AppRoutes.splash ||

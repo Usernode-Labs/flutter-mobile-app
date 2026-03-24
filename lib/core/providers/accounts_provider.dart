@@ -124,7 +124,7 @@ class AccountsRepository {
     _log.debug('importFromSecretKey - start (name: $name, isDemo: $isDemo)');
 
     // Derive keys from private key via Rust FFI
-    final dynamic accountExport;
+    final AccountExport accountExport;
     try {
       accountExport = accountFromPrivateKey(
         secretKey: secretKey.trim(),

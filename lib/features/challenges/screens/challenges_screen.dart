@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -9,7 +11,9 @@ import 'package:crypto_mobile_app/core/providers/categorized_challenges_provider
 import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/providers/ranking_provider.dart';
+import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
+import 'package:crypto_mobile_app/core/providers/syncing_text_provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
@@ -47,6 +51,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
   final _scrollFraction = ValueNotifier<double>(0.0);
   late TabController _tabController;
   late final HeartbeatAnimation _heartbeat;
+  Timer? _refreshTimer;
 
   final _pullFeedback = ValueNotifier<PullFeedback>(const PullFeedback());
 
@@ -55,15 +60,32 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
     super.initState();
     _tabController = TabController(length: kTabLabels.length, vsync: this);
     _heartbeat = HeartbeatAnimation(vsync: this);
+    _startAutoRefresh();
   }
 
   @override
   void dispose() {
+    _refreshTimer?.cancel();
     _heartbeat.dispose();
     _tabController.dispose();
     _scrollFraction.dispose();
     _pullFeedback.dispose();
     super.dispose();
+  }
+
+  void _startAutoRefresh() {
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) async {
+      if (!mounted) return;
+      final currentTab = ref.read(currentHomeTabProvider);
+      if (currentTab == HomeTab.challenges) {
+        await Future.wait([
+          ref.read(challengesProvider.notifier).silentRefresh(),
+          ref.read(rankingProvider.notifier).silentRefresh(),
+          ref.read(breakdownProvider.notifier).silentRefresh(),
+        ]);
+      }
+    });
   }
 
   void _onRefreshStatusChange(RefreshIndicatorStatus? status) {
@@ -85,6 +107,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
       variant: _scoreVariant,
       disableAnimations: MediaQuery.of(context).disableAnimations,
     );
+    _startAutoRefresh();
   }
 
   @override
@@ -471,15 +494,13 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
       eventSuccessRate: isProduceBlocks ? eb?.successRate : null,
     );
 
-    // For produce-blocks without a per-challenge activity, compute earned
-    // points from event-level successRate × maxPts.
-    final effectiveEarned = isProduceBlocks
-        ? computeEffectiveEarnedPoints(
-            earnedPoints: enriched.earnedPoints,
-            successRate: eb?.successRate,
-            rewardText: dto.reward,
-          )
-        : enriched.earnedPoints;
+    // Use API-provided earned points directly (breakdown with include_activity=1).
+    final effectiveEarned = enriched.earnedPoints;
+    final isSyncing = isProduceBlocksSyncing(
+      isProduceBlocks: isProduceBlocks,
+      earnedPoints: effectiveEarned,
+      successRate: eb?.successRate ?? 0,
+    );
 
     String? completedPoints;
     if (variant == ChallengeCardVariant.completed) {
@@ -503,10 +524,13 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
       rewardText: variant == ChallengeCardVariant.active
           ? formatRewardText(dto.reward)
           : null,
-      earnedPoints:
-          variant == ChallengeCardVariant.ongoing && effectiveEarned != null
-              ? formatEarnedPoints(effectiveEarned)
-              : null,
+      earnedPoints: variant == ChallengeCardVariant.ongoing
+          ? isSyncing
+              ? ref.watch(syncingTextProvider).value ?? kSyncingTextFallback
+              : effectiveEarned != null
+                  ? formatEarnedPoints(effectiveEarned)
+                  : null
+          : null,
       completedPoints: completedPoints,
       onTap: () {
         if (isZkIdentityChallenge(dto)) {

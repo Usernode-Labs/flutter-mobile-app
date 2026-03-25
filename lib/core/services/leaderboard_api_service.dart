@@ -98,6 +98,7 @@ class LeaderboardApiService {
   }) async {
     final params = <String, String>{
       'participant_id': participantId.toString(),
+      'include_activity': '1',
     };
     if (seasonId != null) params['season_id'] = seasonId.toString();
     if (eventId != null) params['event_id'] = eventId.toString();

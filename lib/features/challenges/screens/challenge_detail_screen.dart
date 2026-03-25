@@ -8,6 +8,7 @@ import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
+import 'package:crypto_mobile_app/core/providers/syncing_text_provider.dart';
 import 'package:crypto_mobile_app/core/providers/produced_blocks_provider.dart';
 import 'package:crypto_mobile_app/core/utils/challenge_point_tracker.dart';
 import 'package:crypto_mobile_app/design_system/src/block_production_status_card.dart';
@@ -41,9 +42,9 @@ class ChallengeDetailScreen extends ConsumerWidget {
     final blocksSummary = ref.watch(producedBlocksSummaryProvider);
     final nodeStatus = ref.watch(nodeStatusProvider).asData?.value;
     final latestEpoch = nodeStatus?.currentEpoch;
-
-    // Record point snapshot on each successful data load
-    if (challenge.earnedPoints != null) {
+    // Record point snapshot on each successful data load (skip 0 — aggregator
+    // may not have tallied yet, recording 0 would skew the 24-hour diff).
+    if (challenge.earnedPoints != null && challenge.earnedPoints! > 0) {
       ChallengePointTracker.record(_trackerKey, challenge.earnedPoints!);
     }
 
@@ -100,7 +101,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
       dateRange:
           '${_categoryDisplayName(category)} · ${formatDateRange(dto.scheduleStart, dto.scheduleEnd)}',
       rewardCard: showRewardCard
-          ? _buildRewardCard(context, category, eb, diff, latestEpoch)
+          ? _buildRewardCard(context, ref, category, eb, diff, latestEpoch)
           : null,
       statusSection: isProduceBlocks
           ? _buildStatusSection(
@@ -118,6 +119,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
 
   Widget _buildRewardCard(
     BuildContext context,
+    WidgetRef ref,
     ChallengeCategory category,
     EventBreakdown? eb,
     PointDiff? diff,
@@ -125,29 +127,27 @@ class ChallengeDetailScreen extends ConsumerWidget {
   ) {
     final dto = challenge.dto;
     final isProduceBlocks = isProduceBlocksChallenge(dto);
+    final successRate = eb?.successRate ?? 0;
 
-    // Compute maxPts early so it's available for the reward card breakdown.
+    // Max success-rate points for the progress breakdown display.
     final ceiling = isProduceBlocks
         ? parseRewardCeiling(formatRewardText(dto.reward))
         : null;
-    // TODO(challenges): The API should return maxSuccessRatePoints and
-    // top3Bonus separately so the client doesn't embed reward-formula
-    // constants. See kTop3RankBonusPoints.
     final maxPts = ceiling != null ? ceiling - kTop3RankBonusPoints : 0;
-    final successRate = eb?.successRate ?? 0;
 
-    // Use per-challenge earned points from breakdown activity, not event total.
-    // For produce-blocks, fall back to event-level successRate × maxPts when
-    // no per-challenge activity match exists.
-    final effectiveEarned = isProduceBlocks
-        ? computeEffectiveEarnedPoints(
-            earnedPoints: challenge.earnedPoints,
-            successRate: successRate,
-            rewardText: dto.reward,
-          )
-        : challenge.earnedPoints;
-    final totalEarned =
-        effectiveEarned != null ? formatPoints(effectiveEarned) : '--';
+    // Use API-provided earned points directly (breakdown with include_activity=1).
+    final earnedPoints = challenge.earnedPoints;
+    final isSyncing = isProduceBlocksSyncing(
+      isProduceBlocks: isProduceBlocks,
+      earnedPoints: earnedPoints,
+      successRate: successRate,
+    );
+    // Only subscribe to the 500ms ticker when actually syncing.
+    final displayPoints = isSyncing
+        ? ref.watch(syncingTextProvider).value ?? kSyncingTextFallback
+        : earnedPoints != null
+            ? formatPoints(earnedPoints)
+            : '--';
 
     // Epoch section: only for produce-blocks challenges.
     final String? epochEarned;
@@ -174,9 +174,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
         progressFraction: successRate / 100.0,
         successRate: '${successRate.round()}%',
         maxPoints: formatPoints(maxPts),
-        // TODO(challenges): The server should return pre-computed
-        // successRatePoints so the client doesn't duplicate business logic.
-        totalPoints: formatPoints((successRate * maxPts / 100).round()),
+        totalPoints: displayPoints,
         rankLabel: formatRankOrdinal(eb?.rank),
         rankReward: '+${formatPoints(eb?.top3Points ?? 0)}',
         rateLabel: dto.completed ? 'SUCCESS RATE' : 'BLOCK RATE',
@@ -187,7 +185,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
 
     return ChallengeRewardCard(
       category: category,
-      totalEarned: totalEarned,
+      totalEarned: displayPoints,
       data: data,
       epochSectionLabel: epochSectionLabel,
       epochEarned: epochEarned,
@@ -302,8 +300,9 @@ class ChallengeDetailScreen extends ConsumerWidget {
     String? nextBlockText;
 
     if (summary != null) {
-      // Search current epoch first, then look ahead
-      for (final epochScore in summary.epochScores.reversed) {
+      // Forward iteration: past epochs have no scheduled slots (converted to missed),
+      // so this naturally finds the nearest upcoming slot in the current epoch first.
+      for (final epochScore in summary.epochScores) {
         final slots = epochScore.epochData.slotData;
         if (slots == null) continue;
         for (final slot in slots) {

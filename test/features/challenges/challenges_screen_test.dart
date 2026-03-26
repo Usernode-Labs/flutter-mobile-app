@@ -11,7 +11,6 @@ import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/providers/ranking_provider.dart';
 import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
-import 'package:crypto_mobile_app/core/utils/leaderboard_cache.dart';
 import 'package:crypto_mobile_app/design_system/src/score_header.dart';
 import 'package:crypto_mobile_app/design_system/src/shimmer_block.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
@@ -26,10 +25,10 @@ import 'package:crypto_mobile_app/features/challenges/screens/challenges_screen.
 
 class _MockChallengesController extends ChallengesController {
   _MockChallengesController(this._data);
-  final CachedData<List<ChallengeDto>>? _data;
+  final List<ChallengeDto>? _data;
 
   @override
-  Future<CachedData<List<ChallengeDto>>?> build() async => _data;
+  Future<List<ChallengeDto>?> build() async => _data;
 
   @override
   Future<void> silentRefresh() async {}
@@ -40,9 +39,9 @@ class _MockChallengesController extends ChallengesController {
 
 class _LoadingChallengesController extends ChallengesController {
   @override
-  Future<CachedData<List<ChallengeDto>>?> build() {
+  Future<List<ChallengeDto>?> build() {
     // Return a future that never completes (no Timer, safe for tests).
-    return Completer<CachedData<List<ChallengeDto>>?>().future;
+    return Completer<List<ChallengeDto>?>().future;
   }
 
   @override
@@ -54,10 +53,10 @@ class _LoadingChallengesController extends ChallengesController {
 
 class _MockRankingController extends RankingController {
   _MockRankingController(this._data);
-  final CachedData<RankingResult>? _data;
+  final RankingResult? _data;
 
   @override
-  Future<CachedData<RankingResult>?> build() async => _data;
+  Future<RankingResult?> build() async => _data;
 
   @override
   Future<void> silentRefresh() async {}
@@ -68,10 +67,10 @@ class _MockRankingController extends RankingController {
 
 class _MockBreakdownController extends BreakdownController {
   _MockBreakdownController(this._data);
-  final CachedData<BreakdownResult>? _data;
+  final BreakdownResult? _data;
 
   @override
-  Future<CachedData<BreakdownResult>?> build() async => _data;
+  Future<BreakdownResult?> build() async => _data;
 
   @override
   Future<void> silentRefresh() async {}
@@ -82,10 +81,10 @@ class _MockBreakdownController extends BreakdownController {
 
 class _MockSeasonsController extends SeasonsController {
   _MockSeasonsController(this._data);
-  final CachedData<List<SeasonDto>>? _data;
+  final List<SeasonDto>? _data;
 
   @override
-  Future<CachedData<List<SeasonDto>>?> build() async => _data;
+  Future<List<SeasonDto>?> build() async => _data;
 
   @override
   Future<void> silentRefresh() async {}
@@ -170,10 +169,10 @@ const _testContext = SeasonEventContext(
 // ---------------------------------------------------------------------------
 
 Widget _buildTestApp({
-  CachedData<List<ChallengeDto>>? challengeData,
-  CachedData<RankingResult>? rankingData,
-  CachedData<BreakdownResult>? breakdownData,
-  CachedData<List<SeasonDto>>? seasonsData,
+  List<ChallengeDto>? challengeData,
+  RankingResult? rankingData,
+  BreakdownResult? breakdownData,
+  List<SeasonDto>? seasonsData,
   SeasonEventContext seasonContext = _testContext,
   bool loading = false,
 }) {
@@ -182,27 +181,29 @@ Widget _buildTestApp({
       if (loading)
         challengesProvider.overrideWith(_LoadingChallengesController.new)
       else
-        challengesProvider
-            .overrideWith(() => _MockChallengesController(challengeData)),
+        challengesProvider.overrideWith(
+          () => _MockChallengesController(challengeData),
+        ),
       rankingProvider.overrideWith(() => _MockRankingController(rankingData)),
-      breakdownProvider
-          .overrideWith(() => _MockBreakdownController(breakdownData)),
+      breakdownProvider.overrideWith(
+        () => _MockBreakdownController(breakdownData),
+      ),
       leaderboardBootstrapProvider.overrideWith((ref) async {}),
       seasonEventContextProvider.overrideWith((ref) => seasonContext),
-      seasonsProvider.overrideWith(() => _MockSeasonsController(
-            seasonsData ??
-                const CachedData(data: _testSeasons, isCached: false),
-          )),
+      seasonsProvider.overrideWith(
+        () => _MockSeasonsController(seasonsData ?? _testSeasons),
+      ),
     ],
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      theme:
-          ColorIsExpensiveTheme(ThemeData.light().textTheme).light().copyWith(
-                extensions: DesignSystemTheme.standardExtensions(
-                  semanticColors: AppSemanticColors.light(),
-                ),
-              ),
+      theme: ColorIsExpensiveTheme(ThemeData.light().textTheme)
+          .light()
+          .copyWith(
+            extensions: DesignSystemTheme.standardExtensions(
+              semanticColors: AppSemanticColors.light(),
+            ),
+          ),
       home: const ChallengesScreen(),
     ),
   );
@@ -215,16 +216,12 @@ Widget _buildTestApp({
 void main() {
   group('ChallengesScreen', () {
     testWidgets('renders ScoreHeader with ranking data', (tester) async {
-      await tester.pumpWidget(_buildTestApp(
-        challengeData: const CachedData(
-          data: _testChallenges,
-          isCached: false,
+      await tester.pumpWidget(
+        _buildTestApp(
+          challengeData: _testChallenges,
+          rankingData: _testRanking,
         ),
-        rankingData: const CachedData(
-          data: _testRanking,
-          isCached: false,
-        ),
-      ));
+      );
       await tester.pumpAndSettle();
 
       expect(find.byType(ScoreHeader), findsOneWidget);
@@ -234,12 +231,7 @@ void main() {
     });
 
     testWidgets('renders active challenges in default tab', (tester) async {
-      await tester.pumpWidget(_buildTestApp(
-        challengeData: const CachedData(
-          data: _testChallenges,
-          isCached: false,
-        ),
-      ));
+      await tester.pumpWidget(_buildTestApp(challengeData: _testChallenges));
       await tester.pumpAndSettle();
 
       // Active tab is default — shows the one active challenge
@@ -251,13 +243,10 @@ void main() {
 
     testWidgets('shows completed challenges when tab tapped', (tester) async {
       // Provide breakdown with activity description matching challenge goal
-      await tester.pumpWidget(_buildTestApp(
-        challengeData: const CachedData(
-          data: _testChallenges,
-          isCached: false,
-        ),
-        breakdownData: const CachedData(
-          data: BreakdownResult(
+      await tester.pumpWidget(
+        _buildTestApp(
+          challengeData: _testChallenges,
+          breakdownData: const BreakdownResult(
             scope: 'event',
             displayName: 'Test',
             totalPoints: 1000,
@@ -277,9 +266,8 @@ void main() {
               ],
             ),
           ),
-          isCached: false,
         ),
-      ));
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Completed'));
@@ -290,12 +278,7 @@ void main() {
     });
 
     testWidgets('shows missed challenges when tab tapped', (tester) async {
-      await tester.pumpWidget(_buildTestApp(
-        challengeData: const CachedData(
-          data: _testChallenges,
-          isCached: false,
-        ),
-      ));
+      await tester.pumpWidget(_buildTestApp(challengeData: _testChallenges));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Missed'));
@@ -305,8 +288,9 @@ void main() {
       expect(find.text('Produce Every Block'), findsNothing);
     });
 
-    testWidgets('shows shimmer placeholders when no cached data',
-        (tester) async {
+    testWidgets('shows shimmer placeholders when no cached data', (
+      tester,
+    ) async {
       await tester.pumpWidget(_buildTestApp(loading: true));
       await tester.pump();
 
@@ -315,12 +299,9 @@ void main() {
 
     testWidgets('shows empty state for tab with no challenges', (tester) async {
       // Only the active challenge
-      await tester.pumpWidget(_buildTestApp(
-        challengeData: CachedData(
-          data: [_testChallenges[0]],
-          isCached: false,
-        ),
-      ));
+      await tester.pumpWidget(
+        _buildTestApp(challengeData: [_testChallenges[0]]),
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Completed'));
@@ -330,13 +311,12 @@ void main() {
     });
 
     testWidgets('season chip shows season name from context', (tester) async {
-      await tester.pumpWidget(_buildTestApp(
-        challengeData: const CachedData(
-          data: _testChallenges,
-          isCached: false,
+      await tester.pumpWidget(
+        _buildTestApp(
+          challengeData: _testChallenges,
+          seasonContext: _testContext,
         ),
-        seasonContext: _testContext,
-      ));
+      );
       await tester.pumpAndSettle();
 
       // Season name appears in DropdownChain chip
@@ -344,32 +324,23 @@ void main() {
     });
 
     testWidgets('shows fallback score when ranking is null', (tester) async {
-      await tester.pumpWidget(_buildTestApp(
-        challengeData: const CachedData(
-          data: _testChallenges,
-          isCached: false,
-        ),
-        rankingData: null,
-      ));
+      await tester.pumpWidget(
+        _buildTestApp(challengeData: _testChallenges, rankingData: null),
+      );
       await tester.pumpAndSettle();
 
       // Two "--" widgets: one for the score, one for the countdown time fallback
       expect(find.text('--'), findsNWidgets(2));
     });
 
-    testWidgets('ScoreHeader shows breakdown totalPoints when available',
-        (tester) async {
-      await tester.pumpWidget(_buildTestApp(
-        challengeData: const CachedData(
-          data: _testChallenges,
-          isCached: false,
-        ),
-        rankingData: const CachedData(
-          data: _testRanking,
-          isCached: false,
-        ),
-        breakdownData: const CachedData(
-          data: BreakdownResult(
+    testWidgets('ScoreHeader shows breakdown totalPoints when available', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildTestApp(
+          challengeData: _testChallenges,
+          rankingData: _testRanking,
+          breakdownData: const BreakdownResult(
             scope: 'event',
             displayName: 'Test',
             totalPoints: 12345,
@@ -383,9 +354,8 @@ void main() {
               activities: [],
             ),
           ),
-          isCached: false,
         ),
-      ));
+      );
       await tester.pumpAndSettle();
 
       // Breakdown totalPoints takes precedence over ranking
@@ -393,16 +363,14 @@ void main() {
       expect(find.text('Rank 10'), findsOneWidget);
     });
 
-    testWidgets('completed tab shows earned points from breakdown',
-        (tester) async {
+    testWidgets('completed tab shows earned points from breakdown', (
+      tester,
+    ) async {
       // Activity description "Prove Humanity" matches challenge goal
-      await tester.pumpWidget(_buildTestApp(
-        challengeData: const CachedData(
-          data: _testChallenges,
-          isCached: false,
-        ),
-        breakdownData: const CachedData(
-          data: BreakdownResult(
+      await tester.pumpWidget(
+        _buildTestApp(
+          challengeData: _testChallenges,
+          breakdownData: const BreakdownResult(
             scope: 'event',
             displayName: 'Test',
             totalPoints: 9000,
@@ -422,9 +390,8 @@ void main() {
               ],
             ),
           ),
-          isCached: false,
         ),
-      ));
+      );
       await tester.pumpAndSettle();
 
       // "Prove Humanity" matched by description → completed tab
@@ -436,17 +403,13 @@ void main() {
     });
 
     testWidgets('graceful fallback when breakdown is null', (tester) async {
-      await tester.pumpWidget(_buildTestApp(
-        challengeData: const CachedData(
-          data: _testChallenges,
-          isCached: false,
+      await tester.pumpWidget(
+        _buildTestApp(
+          challengeData: _testChallenges,
+          rankingData: _testRanking,
+          breakdownData: null,
         ),
-        rankingData: const CachedData(
-          data: _testRanking,
-          isCached: false,
-        ),
-        breakdownData: null,
-      ));
+      );
       await tester.pumpAndSettle();
 
       // Without breakdown, falls back to ranking totalPoints

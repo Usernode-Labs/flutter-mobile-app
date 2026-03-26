@@ -37,7 +37,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final breakdownAsync = ref.watch(breakdownProvider);
-    final breakdown = breakdownAsync.value?.data;
+    final breakdown = breakdownAsync.value;
     final eb = breakdown?.eventBreakdown;
     final blocksSummary = ref.watch(producedBlocksSummaryProvider);
     final nodeStatus = ref.watch(nodeStatusProvider).asData?.value;
@@ -91,8 +91,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
       ChallengeCardVariant.missed => false,
       ChallengeCardVariant.completed => true,
       ChallengeCardVariant.active ||
-      ChallengeCardVariant.ongoing =>
-        isProduceBlocks,
+      ChallengeCardVariant.ongoing => isProduceBlocks,
     };
 
     return ChallengeDetailPage(
@@ -105,13 +104,19 @@ class ChallengeDetailScreen extends ConsumerWidget {
           : null,
       statusSection: isProduceBlocks
           ? _buildStatusSection(
-              context, ref, nodeStatus, blocksSummaryData, latestEpoch)
+              context,
+              ref,
+              nodeStatus,
+              blocksSummaryData,
+              latestEpoch,
+            )
           : null,
       sections: _buildSections(context, dto),
       totalRewardHeading: showRewardCard
           ? null
-          : AppLocalizations.of(context)
-              .challengeTotalReward(formatRewardText(dto.reward)),
+          : AppLocalizations.of(
+              context,
+            ).challengeTotalReward(formatRewardText(dto.reward)),
       totalRewardBody: showRewardCard ? null : (dto.rewardLogic ?? ''),
       onBackTap: () => context.pop(),
     );
@@ -146,8 +151,8 @@ class ChallengeDetailScreen extends ConsumerWidget {
     final displayPoints = isSyncing
         ? ref.watch(syncingTextProvider).value ?? kSyncingTextFallback
         : earnedPoints != null
-            ? formatPoints(earnedPoints)
-            : '--';
+        ? formatPoints(earnedPoints)
+        : '--';
 
     // Epoch section: only for produce-blocks challenges.
     final String? epochEarned;
@@ -194,27 +199,33 @@ class ChallengeDetailScreen extends ConsumerWidget {
           : null,
       onEpochTap: isProduceBlocks && latestEpoch != null
           ? () => context.push(
-                AppRoutes.epochPerformance,
-                extra: {'initialEpoch': latestEpoch},
-              )
+              AppRoutes.epochPerformance,
+              extra: {'initialEpoch': latestEpoch},
+            )
           : null,
     );
   }
 
   List<ChallengeDetailSection> _buildSections(
-      BuildContext context, ChallengeDto dto) {
+    BuildContext context,
+    ChallengeDto dto,
+  ) {
     final l10n = AppLocalizations.of(context);
     final sections = <ChallengeDetailSection>[];
     if (dto.description != null && dto.description!.isNotEmpty) {
-      sections
-          .add((title: l10n.challengeSectionTheWhy, body: dto.description!));
+      sections.add((
+        title: l10n.challengeSectionTheWhy,
+        body: dto.description!,
+      ));
     }
     if (dto.task.isNotEmpty) {
       sections.add((title: l10n.challengeSectionTask, body: dto.task));
     }
     if (dto.requirements != null && dto.requirements!.isNotEmpty) {
-      sections.add(
-          (title: l10n.challengeSectionRequirements, body: dto.requirements!));
+      sections.add((
+        title: l10n.challengeSectionRequirements,
+        body: dto.requirements!,
+      ));
     }
     return sections;
   }
@@ -273,21 +284,21 @@ class ChallengeDetailScreen extends ConsumerWidget {
       icon: Symbols.casino_sharp,
       trailing: switch (vrfStatus) {
         RpcStatusVrfEvaluationStatus.completed => const StepTrailingBadge(
-            label: 'Complete',
-            variant: StatusBadgeVariant.success,
-          ),
+          label: 'Complete',
+          variant: StatusBadgeVariant.success,
+        ),
         RpcStatusVrfEvaluationStatus.evaluating => const StepTrailingBadge(
-            label: 'Evaluating',
-            variant: StatusBadgeVariant.info,
-          ),
+          label: 'Evaluating',
+          variant: StatusBadgeVariant.info,
+        ),
         RpcStatusVrfEvaluationStatus.pending => const StepTrailingBadge(
-            label: 'Pending',
-            variant: StatusBadgeVariant.neutral,
-          ),
+          label: 'Pending',
+          variant: StatusBadgeVariant.neutral,
+        ),
         null => const StepTrailingBadge(
-            label: 'Unknown',
-            variant: StatusBadgeVariant.neutral,
-          ),
+          label: 'Unknown',
+          variant: StatusBadgeVariant.neutral,
+        ),
       },
       onTap: currentEpoch != null && summary != null
           ? () => _navigateToSlots(context, summary, currentEpoch, ['all'])
@@ -327,7 +338,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
         trailing: StepTrailingText(text: nextBlockText),
         onTap: summary != null
             ? () =>
-                _navigateToSlots(context, summary, currentEpoch, ['upcoming'])
+                  _navigateToSlots(context, summary, currentEpoch, ['upcoming'])
             : null,
       );
     } else if (vrfStatus == RpcStatusVrfEvaluationStatus.completed) {
@@ -382,7 +393,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
         trailing: StepTrailingText(text: _formatTimeAgo(agoMs)),
         onTap: summary != null
             ? () =>
-                _navigateToSlots(context, summary, currentEpoch, ['produced'])
+                  _navigateToSlots(context, summary, currentEpoch, ['produced'])
             : null,
       );
     } else {
@@ -401,15 +412,16 @@ class ChallengeDetailScreen extends ConsumerWidget {
     if (summary != null && currentEpoch != null) {
       final currentScore =
           (currentEpoch >= 0 && currentEpoch < summary.epochScores.length)
-              ? summary.epochScores[currentEpoch]
-              : null;
+          ? summary.epochScores[currentEpoch]
+          : null;
       final missed = currentScore?.missed ?? 0;
       missedBlocksStep = PipelineStepStatus(
         label: 'Missed Blocks',
         icon: Symbols.disabled_by_default_sharp,
         trailing: missed > 0
             ? StepTrailingText(
-                text: '$missed ${missed == 1 ? 'block' : 'blocks'}')
+                text: '$missed ${missed == 1 ? 'block' : 'blocks'}',
+              )
             : const StepTrailingBadge(
                 label: 'None',
                 variant: StatusBadgeVariant.success,
@@ -476,16 +488,20 @@ class ChallengeDetailScreen extends ConsumerWidget {
     final producedMeta = epochData == null
         ? const <Map<String, dynamic>?>[]
         : epochData
-            .map((s) => s.producedBlockMetadata == null
-                ? null
-                : <String, dynamic>{
-                    'blockHash': s.producedBlockMetadata!.blockHash.toString(),
-                    'canonical': s.producedBlockMetadata!.canonical,
-                    'timestampMs':
-                        s.producedBlockMetadata!.timestampMs.toString(),
-                    'tokensWon': s.producedBlockMetadata!.tokensWon.toString(),
-                  })
-            .toList();
+              .map(
+                (s) => s.producedBlockMetadata == null
+                    ? null
+                    : <String, dynamic>{
+                        'blockHash': s.producedBlockMetadata!.blockHash
+                            .toString(),
+                        'canonical': s.producedBlockMetadata!.canonical,
+                        'timestampMs': s.producedBlockMetadata!.timestampMs
+                            .toString(),
+                        'tokensWon': s.producedBlockMetadata!.tokensWon
+                            .toString(),
+                      },
+              )
+              .toList();
 
     context.push(
       AppRoutes.slotAssignments,

@@ -31,10 +31,14 @@ class PullFeedback {
 
   factory PullFeedback.fromStatus(RefreshIndicatorStatus? status) =>
       switch (status) {
-        RefreshIndicatorStatus.drag =>
-          const PullFeedback(scale: 1.02, offset: 8.0),
-        RefreshIndicatorStatus.armed =>
-          const PullFeedback(scale: 1.04, offset: 16.0),
+        RefreshIndicatorStatus.drag => const PullFeedback(
+          scale: 1.02,
+          offset: 8.0,
+        ),
+        RefreshIndicatorStatus.armed => const PullFeedback(
+          scale: 1.04,
+          offset: 16.0,
+        ),
         _ => const PullFeedback(),
       };
 }
@@ -133,13 +137,15 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
   }
 
   Widget _buildBody(BuildContext context) {
-    final ranking = ref.watch(rankingProvider.select((s) => s.value?.data));
-    final breakdown = ref.watch(breakdownProvider.select((s) => s.value?.data));
+    final ranking = ref.watch(rankingProvider.select((s) => s.value));
+    final breakdown = ref.watch(breakdownProvider.select((s) => s.value));
     final eb = breakdown?.eventBreakdown;
     final isLoading = ref.watch(
-        challengesProvider.select((s) => s.isLoading && s.value?.data == null));
+      challengesProvider.select((s) => s.isLoading && s.value == null),
+    );
     final hasError = ref.watch(
-        challengesProvider.select((s) => s.hasError && s.value?.data == null));
+      challengesProvider.select((s) => s.hasError && s.value == null),
+    );
     // Trigger lazy init so seasons data is available for the pickers.
     ref.watch(seasonsProvider);
 
@@ -152,9 +158,13 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
       );
     }
 
-    final categorized = ref.watch(categorizedChallengesProvider) ??
+    final categorized =
+        ref.watch(categorizedChallengesProvider) ??
         const CategorizedEnrichedChallenges(
-            active: [], completed: [], missed: []);
+          active: [],
+          completed: [],
+          missed: [],
+        );
     final badgeCounts = [
       categorized.active.length,
       categorized.completed.length,
@@ -204,14 +214,27 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
           physics: const NeverScrollableScrollPhysics(),
           controller: _tabController,
           children: [
-            _buildActiveTabContent(categorized.active, categorized, spacing,
-                isLoading: isLoading, eb: eb),
-            _buildEnrichedChallengeList(categorized.completed, spacing,
-                AppLocalizations.of(context).challengeNoCompleted,
-                isLoading: isLoading, eb: eb),
-            _buildEnrichedChallengeList(categorized.missed, spacing,
-                AppLocalizations.of(context).challengeNoMissed,
-                isLoading: isLoading, eb: eb),
+            _buildActiveTabContent(
+              categorized.active,
+              categorized,
+              spacing,
+              isLoading: isLoading,
+              eb: eb,
+            ),
+            _buildEnrichedChallengeList(
+              categorized.completed,
+              spacing,
+              AppLocalizations.of(context).challengeNoCompleted,
+              isLoading: isLoading,
+              eb: eb,
+            ),
+            _buildEnrichedChallengeList(
+              categorized.missed,
+              spacing,
+              AppLocalizations.of(context).challengeNoMissed,
+              isLoading: isLoading,
+              eb: eb,
+            ),
           ],
         ),
       ),
@@ -281,21 +304,23 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
   /// Resolves the selected season from provider state. Returns null when
   /// seasons data isn't loaded or the selected season can't be found.
   SeasonDto? _resolveSelectedSeason() {
-    final seasons = ref.read(seasonsProvider).value?.data;
+    final seasons = ref.read(seasonsProvider).value;
     final ctx = ref.read(seasonEventContextProvider);
     if (seasons == null || seasons.isEmpty || ctx.seasonId == null) return null;
-    return seasons
-        .cast<SeasonDto?>()
-        .firstWhere((s) => s!.id == ctx.seasonId, orElse: () => null);
+    return seasons.cast<SeasonDto?>().firstWhere(
+      (s) => s!.id == ctx.seasonId,
+      orElse: () => null,
+    );
   }
 
   /// Resolves the selected event within the season.
   SeasonEventDto? _resolveSelectedEvent(SeasonDto season) {
     final ctx = ref.read(seasonEventContextProvider);
     if (ctx.eventId == null || season.events.isEmpty) return null;
-    return season.events
-        .cast<SeasonEventDto?>()
-        .firstWhere((e) => e!.id == ctx.eventId, orElse: () => null);
+    return season.events.cast<SeasonEventDto?>().firstWhere(
+      (e) => e!.id == ctx.eventId,
+      orElse: () => null,
+    );
   }
 
   /// Compute countdown label + time from the resolved event's end date.
@@ -349,7 +374,10 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
   }
 
   Widget _buildScoreHeader(
-      BreakdownResult? breakdown, RankingResult? ranking, GlowValues glow) {
+    BreakdownResult? breakdown,
+    RankingResult? ranking,
+    GlowValues glow,
+  ) {
     final totalPoints = breakdown?.totalPoints ?? ranking?.totalPoints;
     final rank = breakdown?.eventBreakdown?.rank ?? ranking?.rank;
 
@@ -412,8 +440,9 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
                 onViewCompleted: completedCount > 0
                     ? () => _tabController.animateTo(1)
                     : null,
-                onViewMissed:
-                    missedCount > 0 ? () => _tabController.animateTo(2) : null,
+                onViewMissed: missedCount > 0
+                    ? () => _tabController.animateTo(2)
+                    : null,
               ),
             ),
           ),
@@ -442,8 +471,8 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
               child: Text(
                 emptyMessage,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
           ),
@@ -526,10 +555,10 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
           : null,
       earnedPoints: variant == ChallengeCardVariant.ongoing
           ? isSyncing
-              ? ref.watch(syncingTextProvider).value ?? kSyncingTextFallback
-              : effectiveEarned != null
-                  ? formatEarnedPoints(effectiveEarned)
-                  : null
+                ? ref.watch(syncingTextProvider).value ?? kSyncingTextFallback
+                : effectiveEarned != null
+                ? formatEarnedPoints(effectiveEarned)
+                : null
           : null,
       completedPoints: completedPoints,
       onTap: () {

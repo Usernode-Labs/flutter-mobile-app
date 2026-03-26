@@ -5,7 +5,6 @@ import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
 import 'package:crypto_mobile_app/core/providers/categorized_challenges_provider.dart';
 import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
-import 'package:crypto_mobile_app/core/utils/leaderboard_cache.dart';
 
 // ---------------------------------------------------------------------------
 // Mock controllers
@@ -13,10 +12,10 @@ import 'package:crypto_mobile_app/core/utils/leaderboard_cache.dart';
 
 class _MockChallengesController extends ChallengesController {
   _MockChallengesController(this._data);
-  final CachedData<List<ChallengeDto>>? _data;
+  final List<ChallengeDto>? _data;
 
   @override
-  Future<CachedData<List<ChallengeDto>>?> build() async => _data;
+  Future<List<ChallengeDto>?> build() async => _data;
 
   @override
   Future<void> silentRefresh() async {}
@@ -27,10 +26,10 @@ class _MockChallengesController extends ChallengesController {
 
 class _MockBreakdownController extends BreakdownController {
   _MockBreakdownController(this._data);
-  final CachedData<BreakdownResult>? _data;
+  final BreakdownResult? _data;
 
   @override
-  Future<CachedData<BreakdownResult>?> build() async => _data;
+  Future<BreakdownResult?> build() async => _data;
 
   @override
   Future<void> silentRefresh() async {}
@@ -103,8 +102,9 @@ void main() {
     test('returns null when challenges are not loaded', () async {
       final container = ProviderContainer(
         overrides: [
-          challengesProvider
-              .overrideWith(() => _MockChallengesController(null)),
+          challengesProvider.overrideWith(
+            () => _MockChallengesController(null),
+          ),
           breakdownProvider.overrideWith(() => _MockBreakdownController(null)),
         ],
       );
@@ -120,9 +120,9 @@ void main() {
     test('categorizes without breakdown (v1 fallback)', () async {
       final container = ProviderContainer(
         overrides: [
-          challengesProvider.overrideWith(() => _MockChallengesController(
-                const CachedData(data: _challenges, isCached: false),
-              )),
+          challengesProvider.overrideWith(
+            () => _MockChallengesController(_challenges),
+          ),
           breakdownProvider.overrideWith(() => _MockBreakdownController(null)),
         ],
       );
@@ -146,12 +146,12 @@ void main() {
     test('categorizes with breakdown (enriched)', () async {
       final container = ProviderContainer(
         overrides: [
-          challengesProvider.overrideWith(() => _MockChallengesController(
-                const CachedData(data: _challenges, isCached: false),
-              )),
-          breakdownProvider.overrideWith(() => _MockBreakdownController(
-                const CachedData(data: _breakdown, isCached: false),
-              )),
+          challengesProvider.overrideWith(
+            () => _MockChallengesController(_challenges),
+          ),
+          breakdownProvider.overrideWith(
+            () => _MockBreakdownController(_breakdown),
+          ),
         ],
       );
       addTearDown(container.dispose);

@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
-import 'package:crypto_mobile_app/core/utils/leaderboard_cache.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/dapps_challenge_provider.dart';
 
@@ -26,8 +25,7 @@ ChallengeDto _makeDto({
 }
 
 ProviderContainer _container({
-  AsyncValue<CachedData<List<ChallengeDto>>?> challengesState =
-      const AsyncData(null),
+  AsyncValue<List<ChallengeDto>?> challengesState = const AsyncData(null),
 }) {
   return ProviderContainer(
     overrides: [
@@ -39,15 +37,14 @@ ProviderContainer _container({
   );
 }
 
-class _StubChallengesController
-    extends AsyncNotifier<CachedData<List<ChallengeDto>>?>
+class _StubChallengesController extends AsyncNotifier<List<ChallengeDto>?>
     implements ChallengesController {
   _StubChallengesController(this._state);
 
-  final AsyncValue<CachedData<List<ChallengeDto>>?> _state;
+  final AsyncValue<List<ChallengeDto>?> _state;
 
   @override
-  Future<CachedData<List<ChallengeDto>>?> build() async {
+  Future<List<ChallengeDto>?> build() async {
     state = _state;
     return _state.value;
   }
@@ -57,6 +54,12 @@ class _StubChallengesController
 
   @override
   Future<void> silentRefresh() async {}
+
+  @override
+  Future<List<ChallengeDto>> fetch() async => throw UnimplementedError();
+
+  @override
+  bool watchDeps() => true;
 }
 
 void main() {
@@ -70,10 +73,7 @@ void main() {
 
     test('returns false when no matching challenge', () {
       final container = _container(
-        challengesState: AsyncData(CachedData(
-          data: [_makeDto(subCategory: 'OTHER')],
-          isCached: false,
-        )),
+        challengesState: AsyncData([_makeDto(subCategory: 'OTHER')]),
       );
       addTearDown(container.dispose);
 
@@ -82,10 +82,9 @@ void main() {
 
     test('returns false when matching challenge is disabled', () {
       final container = _container(
-        challengesState: AsyncData(CachedData(
-          data: [_makeDto(subCategory: kDappsSubCategory, enabled: false)],
-          isCached: false,
-        )),
+        challengesState: AsyncData([
+          _makeDto(subCategory: kDappsSubCategory, enabled: false),
+        ]),
       );
       addTearDown(container.dispose);
 
@@ -94,10 +93,9 @@ void main() {
 
     test('returns true when matching challenge is enabled', () {
       final container = _container(
-        challengesState: AsyncData(CachedData(
-          data: [_makeDto(subCategory: kDappsSubCategory, enabled: true)],
-          isCached: false,
-        )),
+        challengesState: AsyncData([
+          _makeDto(subCategory: kDappsSubCategory, enabled: true),
+        ]),
       );
       addTearDown(container.dispose);
 

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -105,8 +106,23 @@ class LeaderboardBootstrap {
 }
 
 /// Refresh all active leaderboard providers silently.
-/// For pull-to-refresh on the leaderboard screen.
+/// Called from zkpassport flow completion and other non-screen contexts.
+/// Screen pull-to-refresh calls individual provider refreshes directly.
+/// Throttled to at most once every 5 seconds.
+DateTime? _lastRefreshAt;
+
+/// Reset throttle state for testing.
+@visibleForTesting
+void resetRefreshThrottle() => _lastRefreshAt = null;
+
 Future<void> refreshAllLeaderboardData(Ref ref) async {
+  final now = DateTime.now();
+  if (_lastRefreshAt != null &&
+      now.difference(_lastRefreshAt!) < const Duration(seconds: 5)) {
+    return;
+  }
+  _lastRefreshAt = now;
+
   await Future.wait([
     ref.read(rankingProvider.notifier).silentRefresh(),
     ref.read(challengesProvider.notifier).silentRefresh(),
@@ -170,23 +186,27 @@ final leaderboardBootstrapProvider = FutureProvider<void>((ref) async {
   // Resolve season: prefer persisted seasonId, then active, then last.
   final season = persisted?.seasonId != null
       ? (seasons.cast<SeasonDto?>().firstWhere(
-              (s) => s!.id == persisted!.seasonId,
-              orElse: () => null) ??
-          seasons
-              .cast<SeasonDto?>()
-              .firstWhere((s) => s!.isActive, orElse: () => null) ??
+                (s) => s!.id == persisted!.seasonId,
+                orElse: () => null,
+              ) ??
+          seasons.cast<SeasonDto?>().firstWhere(
+                (s) => s!.isActive,
+                orElse: () => null,
+              ) ??
           seasons.last)
-      : (seasons
-              .cast<SeasonDto?>()
-              .firstWhere((s) => s!.isActive, orElse: () => null) ??
+      : (seasons.cast<SeasonDto?>().firstWhere(
+                (s) => s!.isActive,
+                orElse: () => null,
+              ) ??
           seasons.last);
 
   // Resolve event: active one, or last in the list.
   SeasonEventDto? event;
   if (season.events.isNotEmpty) {
-    event = season.events
-            .cast<SeasonEventDto?>()
-            .firstWhere((e) => e!.isActive, orElse: () => null) ??
+    event = season.events.cast<SeasonEventDto?>().firstWhere(
+              (e) => e!.isActive,
+              orElse: () => null,
+            ) ??
         season.events.last;
   }
 

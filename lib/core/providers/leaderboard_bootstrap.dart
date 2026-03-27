@@ -75,7 +75,7 @@ class LeaderboardBootstrap {
   /// Persist a season/event selection (e.g. when the user switches season
   /// via a [DropdownChip] in the leaderboard UI).
   static Future<void> persistSeasonEvent(SeasonEventContext ctx) async {
-    if (ctx.seasonId == null) return;
+    if (ctx.seasonId == null && ctx.eventId == null) return;
     await _persistContext(ctx);
   }
 
@@ -104,6 +104,20 @@ class LeaderboardBootstrap {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Registration freshness detection
+// ---------------------------------------------------------------------------
+
+enum RegistrationFreshness { current, stale, unknown }
+
+final registrationFreshnessProvider = StateProvider<RegistrationFreshness>(
+  (ref) => RegistrationFreshness.unknown,
+);
+
+/// SharedPreferences key for the stale-banner dismiss flag.
+/// Used by the banner widget and cleared on re-registration.
+const staleBannerDismissedKey = 'registration:stale_banner_dismissed';
+
 /// Refresh all active leaderboard providers silently.
 /// For pull-to-refresh on the leaderboard screen.
 Future<void> refreshAllLeaderboardData(Ref ref) async {
@@ -129,23 +143,27 @@ Future<void> refreshAllLeaderboardData(Ref ref) async {
 /// populated.
 final leaderboardBootstrapProvider = FutureProvider<void>((ref) async {
   final persisted = await LeaderboardBootstrap.loadPersistedContext();
+
+  // Fast path: restore full context immediately so downstream providers
+  // get data without waiting for the API.
   if (persisted != null && persisted.eventId != null) {
     _log.info(
       'Restored full context: seasonId=${persisted.seasonId}, '
       'eventId=${persisted.eventId}',
     );
     ref.read(seasonEventContextProvider.notifier).state = persisted;
-    return;
+    // Fall through to the API call below to validate freshness
+    // and update the context if a newer event is active.
+  } else {
+    _log.info(
+      persisted != null
+          ? 'Persisted seasonId=${persisted.seasonId} but no eventId, '
+              'resolving from seasons API…'
+          : 'No persisted context, auto-selecting from seasons API…',
+    );
   }
 
-  // Missing or incomplete persisted data — call the API to resolve the
-  // full season+event context.
-  _log.info(
-    persisted != null
-        ? 'Persisted seasonId=${persisted.seasonId} but no eventId, '
-            'resolving from seasons API…'
-        : 'No persisted context, auto-selecting from seasons API…',
-  );
+  // Single API call to resolve seasons + validate freshness.
   List<SeasonDto> seasons;
   try {
     final service = ref.read(leaderboardApiServiceProvider);
@@ -202,4 +220,88 @@ final leaderboardBootstrapProvider = FutureProvider<void>((ref) async {
     'Auto-selected season=${season.id} (${season.name}), '
     'event=${event?.id} (${event?.name})',
   );
+
+  // Validate registration freshness against current active event
+  // Pass the original persisted context (before API override) for comparison
+  await _validateRegistrationFreshness(ref,
+      currentActiveEventId: event?.id, persisted: persisted);
 });
+
+/// Checks whether the persisted registration belongs to the current active
+/// event. Sets [registrationFreshnessProvider] accordingly.
+Future<void> _validateRegistrationFreshness(
+  Ref ref, {
+  required int? currentActiveEventId,
+  SeasonEventContext? persisted,
+}) async {
+  if (currentActiveEventId == null) {
+    _log.info('No active event to validate registration against');
+    return;
+  }
+
+  persisted ??= await LeaderboardBootstrap.loadPersistedContext();
+  final participantId = await ref.read(participantIdProvider.future);
+
+  if (participantId == null) {
+    // No registration at all — nothing to check
+    return;
+  }
+
+  // Case 1 — persisted eventId matches current active event
+  if (persisted?.eventId != null &&
+      persisted!.eventId == currentActiveEventId) {
+    _log.info('Registration is current (eventId=${persisted.eventId})');
+    ref.read(registrationFreshnessProvider.notifier).state =
+        RegistrationFreshness.current;
+    return;
+  }
+
+  // Case 2 — persisted eventId exists but doesn't match
+  if (persisted?.eventId != null &&
+      persisted!.eventId != currentActiveEventId) {
+    _log.warn(
+      'Registration is stale: persisted eventId=${persisted.eventId}, '
+      'current=$currentActiveEventId',
+    );
+    ref.read(registrationFreshnessProvider.notifier).state =
+        RegistrationFreshness.stale;
+    return;
+  }
+
+  // Case 3 — no persisted eventId (legacy v1 registration)
+  // Verify via API whether participant is in the current event
+  _log.info(
+    'No persisted eventId — checking API for participant $participantId '
+    'in event $currentActiveEventId',
+  );
+  try {
+    final service = ref.read(leaderboardApiServiceProvider);
+    await service.getRanking(
+      participantId: participantId,
+      eventId: currentActiveEventId,
+    );
+    // Success — participant is in the current event, backfill eventId
+    _log.info('Participant is in current event — backfilling eventId');
+    ref.read(registrationFreshnessProvider.notifier).state =
+        RegistrationFreshness.current;
+    final updated = (persisted ?? const SeasonEventContext()).copyWith(
+      eventId: currentActiveEventId,
+    );
+    await LeaderboardBootstrap.persistSeasonEvent(updated);
+  } on LeaderboardApiException catch (e) {
+    // Only 404 means "participant not in this event".
+    // Any other status (500, 503, etc.) is a server error — don't block the user.
+    if (e.statusCode == 404) {
+      _log.warn('Participant not in current event (404): $e');
+      ref.read(registrationFreshnessProvider.notifier).state =
+          RegistrationFreshness.stale;
+    } else {
+      _log.warn(
+          'Ranking API returned ${e.statusCode} — leaving freshness unknown');
+    }
+  } catch (e) {
+    // Network error — don't block the user
+    _log.warn('Failed to verify registration freshness: $e');
+    // Leave as unknown
+  }
+}

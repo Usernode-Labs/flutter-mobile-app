@@ -2751,6 +2751,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No produced blocks available'**
   String get producedBlocksNoData;
+
+  /// Error when Rust FFI key derivation fails during account import
+  ///
+  /// In en, this message translates to:
+  /// **'Account setup failed. Please try again or contact support.'**
+  String get importApiAccountKeyDerivationFailed;
+
+  /// Error when secure storage write fails during account import
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save account securely. Please check device storage and try again.'**
+  String get importApiAccountStorageFailed;
+
+  /// Warning when backend fails to start after account creation
+  ///
+  /// In en, this message translates to:
+  /// **'Account created, but node startup failed. The app will retry automatically.'**
+  String get importApiAccountBackendStartFailed;
+
+  /// Validation error for empty username field
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter your username.'**
+  String get registrationUsernameEmpty;
+
+  /// Validation error for empty activation code field
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter your activation code.'**
+  String get registrationCodeEmpty;
+
+  /// Error when registration request times out
+  ///
+  /// In en, this message translates to:
+  /// **'Connection timed out. Please check your internet and try again.'**
+  String get registrationTimeoutError;
+
+  /// Error when registration request fails due to network
+  ///
+  /// In en, this message translates to:
+  /// **'Could not reach the server. Please check your internet and try again.'**
+  String get registrationNetworkError;
+
+  /// Generic fallback error for unexpected registration failures
+  ///
+  /// In en, this message translates to:
+  /// **'An unexpected error occurred. Please try again or contact support.'**
+  String get registrationUnexpectedError;
+
+  /// Title for stale registration blocking screen
+  ///
+  /// In en, this message translates to:
+  /// **'Registration Expired'**
+  String get registrationStaleTitle;
+
+  /// Body text for stale registration blocking screen
+  ///
+  /// In en, this message translates to:
+  /// **'Your registration is from a previous season. Blocks produced with old credentials won\'t earn points. Please re-register to participate in the current season.'**
+  String get registrationStaleBody;
+
+  /// Button text on stale registration screen
+  ///
+  /// In en, this message translates to:
+  /// **'Re-register'**
+  String get registrationStaleAction;
+
+  /// Body text for dismissable stale registration warning banner
+  ///
+  /// In en, this message translates to:
+  /// **'Your registration may be from a previous season. Blocks produced with old credentials won\'t earn points.'**
+  String get registrationStaleBannerBody;
+
+  /// Dismiss button on stale registration banner
+  ///
+  /// In en, this message translates to:
+  /// **'Dismiss'**
+  String get registrationStaleBannerDismiss;
 }
 
 class _AppLocalizationsDelegate

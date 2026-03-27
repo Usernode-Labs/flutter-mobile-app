@@ -1532,4 +1532,51 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get producedBlocksNoData => 'No produced blocks available';
+
+  @override
+  String get importApiAccountKeyDerivationFailed =>
+      'Account setup failed. Please try again or contact support.';
+
+  @override
+  String get importApiAccountStorageFailed =>
+      'Could not save account securely. Please check device storage and try again.';
+
+  @override
+  String get importApiAccountBackendStartFailed =>
+      'Account created, but node startup failed. The app will retry automatically.';
+
+  @override
+  String get registrationUsernameEmpty => 'Please enter your username.';
+
+  @override
+  String get registrationCodeEmpty => 'Please enter your activation code.';
+
+  @override
+  String get registrationTimeoutError =>
+      'Connection timed out. Please check your internet and try again.';
+
+  @override
+  String get registrationNetworkError =>
+      'Could not reach the server. Please check your internet and try again.';
+
+  @override
+  String get registrationUnexpectedError =>
+      'An unexpected error occurred. Please try again or contact support.';
+
+  @override
+  String get registrationStaleTitle => 'Registration Expired';
+
+  @override
+  String get registrationStaleBody =>
+      'Your registration is from a previous season. Blocks produced with old credentials won\'t earn points. Please re-register to participate in the current season.';
+
+  @override
+  String get registrationStaleAction => 'Re-register';
+
+  @override
+  String get registrationStaleBannerBody =>
+      'Your registration may be from a previous season. Blocks produced with old credentials won\'t earn points.';
+
+  @override
+  String get registrationStaleBannerDismiss => 'Dismiss';
 }

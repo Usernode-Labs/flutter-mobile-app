@@ -143,7 +143,7 @@ class RegistrationRepository {
     switch (resp.statusCode) {
       case 403:
         return detail ??
-            'Registration is currently closed. If you received an invite, please contact support.';
+            'These credentials belong to a previous event that is no longer active. Please check your latest invite email for updated credentials.';
       case 404:
         return detail ??
             'Username not found or registration code invalid. Please double-check both fields and try again.';

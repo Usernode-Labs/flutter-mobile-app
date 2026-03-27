@@ -8,39 +8,58 @@ import 'package:crypto_mobile_app/design_system/design_system.dart';
 // the English strings here (matching app_en.arb).
 // ---------------------------------------------------------------------------
 
+const _kContactLabel = 'Discord, Email, or Telegram';
+const _kContactHint = '@username or name@example.com';
+const _kCodeLabel = 'Activation Code';
+const _kCodeHint = 'Enter your code';
+const _kSubmit = 'Verify Code';
+const _kTitle = 'Verify access';
+const _kSubtitle =
+    'Use the username/registration code that has been shared with you. '
+    'Username must be typed exactly as it appears in the registration email.';
+const _kVersion = 'v1.4.2 (210)';
+
+// Field errors — shown as errorText under the TextField
+const _kUsernameEmpty = 'Please enter your username.';
+const _kCodeEmpty = 'Please enter your activation code.';
+
+// Form-level errors — shown as red text above the CTA
+const _kApiEventInactive =
+    'Registration is currently closed. If you received an invite, please contact support.';
+const _kApiNotFound =
+    'Username not found or registration code invalid. Please double-check both fields and try again.';
+const _kApiCodeUsed =
+    'This registration code has already been used. If this is your code, try re-entering your exact username.';
+const _kApiValidation =
+    'Please fill in both your username and registration code.';
+const _kApiGeneric = 'Registration failed. Please try again or contact support.';
 const _kKeyDerivationFailed =
     'Account setup failed. Please try again or contact support.';
 const _kStorageFailed =
     'Could not save account securely. Please check device storage and try again.';
-const _kBackendStartFailed =
-    'Account created, but node startup failed. The app will retry automatically.';
 const _kTimeoutError =
     'Connection timed out. Please check your internet and try again.';
 const _kNetworkError =
     'Could not reach the server. Please check your internet and try again.';
 const _kUnexpectedError =
     'An unexpected error occurred. Please try again or contact support.';
-const _kEventInactive =
-    'Registration is currently closed. If you received an invite, please contact support.';
-const _kNotFound =
-    'Username not found or registration code invalid. Please double-check both fields and try again.';
-const _kCodeUsed =
-    'This registration code has already been used. If this is your code, try re-entering your exact username.';
-const _kValidation = 'Please fill in both your username and registration code.';
-const _kGeneric = 'Registration failed. Please try again or contact support.';
+
+// Stale registration strings
 const _kStaleBannerBody =
     'Your registration may be from a previous season. Blocks produced with old credentials won\'t earn points.';
 const _kStaleTitle = 'Registration Expired';
 const _kStaleBody =
-    'Your registration is from a previous season. Blocks produced with old credentials won\'t earn points. Please re-register to participate in the current season.';
+    'Your registration is from a previous season. Blocks produced with old credentials '
+    'won\'t earn points. Please re-register to participate in the current season.';
 const _kStaleAction = 'Re-register';
 
 WidgetbookComponent registrationErrorsComponent() {
   return WidgetbookComponent(
-    name: 'Registration Errors',
+    name: 'Registration Form',
     useCases: [
       _playground(),
-      _allStates(),
+      _allFieldErrors(),
+      _allFormErrors(),
       _staleBanner(),
       _staleScreen(),
     ],
@@ -48,57 +67,62 @@ WidgetbookComponent registrationErrorsComponent() {
 }
 
 // ---------------------------------------------------------------------------
-// Error scenario enum (drives the playground)
+// Error scenario enum
 // ---------------------------------------------------------------------------
 
-enum _ErrorScenario {
-  none('None (success)', 'Success — no error'),
-  apiEventInactive('403 — Registration closed', _kEventInactive),
-  apiNotFound('404 — Username/code invalid', _kNotFound),
-  apiCodeUsed('409 — Code already used', _kCodeUsed),
-  apiValidation('422 — Validation error', _kValidation),
-  apiGeneric('5xx — Server error', _kGeneric),
-  keyDerivation('FFI — Key derivation failed', _kKeyDerivationFailed),
-  secureStorage('Storage — Secure storage failed', _kStorageFailed),
-  backendStart('Backend — Node startup failed', _kBackendStartFailed),
-  timeout('Network — Timeout', _kTimeoutError),
-  network('Network — Connection refused', _kNetworkError),
-  unexpected('Catch-all — Unexpected error', _kUnexpectedError);
+enum _Scenario {
+  none('No error — idle', null, null),
+  loading('Loading — submitting', null, null),
+  fieldContact('Field: username empty', _kUsernameEmpty, null),
+  fieldCode('Field: code empty', null, _kCodeEmpty),
+  api403('API 403 — registration closed', null, _kApiEventInactive),
+  api404('API 404 — username/code invalid', null, _kApiNotFound),
+  api409('API 409 — code already used', null, _kApiCodeUsed),
+  api422('API 422 — validation error', null, _kApiValidation),
+  api5xx('API 5xx — server error', null, _kApiGeneric),
+  keyDerivation('FFI — key derivation failed', null, _kKeyDerivationFailed),
+  secureStorage('Storage — secure storage failed', null, _kStorageFailed),
+  timeout('Network — timeout', null, _kTimeoutError),
+  noConnection('Network — no connection', null, _kNetworkError),
+  unexpected('Catch-all — unexpected error', null, _kUnexpectedError);
 
-  const _ErrorScenario(this.label, this.message);
+  const _Scenario(this.label, this.contactError, this.formError);
   final String label;
-  final String message;
+
+  /// Non-null → shown as errorText under the contact TextField
+  final String? contactError;
+
+  /// Non-null → shown as red text above the CTA button
+  final String? formError;
+
+  bool get isLoading => this == _Scenario.loading;
 }
 
 // ---------------------------------------------------------------------------
-// Playground — trigger SnackBars for each error scenario
+// Shared form preview widget
 // ---------------------------------------------------------------------------
 
-WidgetbookUseCase _playground() {
-  return WidgetbookUseCase(
-    name: 'Playground',
-    builder: (context) {
-      final scenario = context.knobs.object.dropdown<_ErrorScenario>(
-        label: 'Error Scenario',
-        options: _ErrorScenario.values,
-        initialOption: _ErrorScenario.none,
-        labelBuilder: (s) => s.label,
-      );
+class _RegistrationFormPreview extends StatelessWidget {
+  const _RegistrationFormPreview({
+    this.contactError,
+    this.codeError,
+    this.formError,
+    this.isLoading = false,
+    this.contactValue = '',
+    this.codeValue = '',
+  });
 
-      return _PlaygroundPage(scenario: scenario);
-    },
-  );
-}
-
-class _PlaygroundPage extends StatelessWidget {
-  const _PlaygroundPage({required this.scenario});
-  final _ErrorScenario scenario;
+  final String? contactError;
+  final String? codeError;
+  final String? formError;
+  final bool isLoading;
+  final String contactValue;
+  final String codeValue;
 
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
-    final radii = Theme.of(context).extension<AppRadii>()!;
 
     return Scaffold(
       body: SafeArea(
@@ -107,53 +131,77 @@ class _PlaygroundPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Registration Error Playground',
-                style: theme.textTheme.titleLarge,
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: Text(
+                  _kVersion,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
               ),
-              SizedBox(height: spacing.space8),
+              SizedBox(height: spacing.space16),
               Text(
-                'Select an error scenario from knobs, then tap the button '
-                'to see the SnackBar message the user would see.',
-                style: theme.textTheme.bodySmall,
+                _kTitle,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.normal,
+                ),
               ),
+              SizedBox(height: spacing.space24),
+              Text(
+                _kSubtitle,
+                style: theme.textTheme.bodyMedium,
+              ),
+              SizedBox(height: spacing.space32),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      TextField(
+                        controller:
+                            TextEditingController(text: contactValue),
+                        decoration: InputDecoration(
+                          labelText: _kContactLabel,
+                          hintText: _kContactHint,
+                          errorText: contactError,
+                        ),
+                        textInputAction: TextInputAction.next,
+                      ),
+                      SizedBox(height: spacing.space16),
+                      TextField(
+                        controller: TextEditingController(text: codeValue),
+                        decoration: InputDecoration(
+                          labelText: _kCodeLabel,
+                          hintText: _kCodeHint,
+                          errorText: codeError,
+                        ),
+                        textInputAction: TextInputAction.done,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (formError != null) ...[
+                SizedBox(height: spacing.space8),
+                Text(
+                  formError!,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.error,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
               SizedBox(height: spacing.space24),
               SizedBox(
                 width: double.infinity,
                 child: Button(
-                  label: 'Trigger Error',
+                  label: _kSubmit,
                   variant: ButtonVariant.primary,
                   size: ButtonSize.large,
-                  onTap: () {
-                    ScaffoldMessenger.of(context)
-                      ..hideCurrentSnackBar()
-                      ..showSnackBar(SnackBar(content: Text(scenario.message)));
-                  },
-                ),
-              ),
-              SizedBox(height: spacing.space16),
-              Container(
-                width: double.infinity,
-                padding: EdgeInsets.all(spacing.space12),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest,
-                  borderRadius: radii.borderRadiusSmall,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      scenario.label,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    SizedBox(height: spacing.space4),
-                    Text(
-                      scenario.message,
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                  ],
+                  isLoading: isLoading,
+                  onTap: isLoading ? null : () {},
                 ),
               ),
             ],
@@ -165,12 +213,47 @@ class _PlaygroundPage extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// All States — static gallery of every error message
+// Playground — knob-driven scenario picker
 // ---------------------------------------------------------------------------
 
-WidgetbookUseCase _allStates() {
+WidgetbookUseCase _playground() {
   return WidgetbookUseCase(
-    name: 'All Error Messages',
+    name: 'Playground',
+    builder: (context) {
+      final scenario = context.knobs.object.dropdown<_Scenario>(
+        label: 'Scenario',
+        options: _Scenario.values,
+        initialOption: _Scenario.none,
+        labelBuilder: (s) => s.label,
+      );
+      final contactValue = context.knobs.string(
+        label: 'Username value',
+        initialValue: '',
+      );
+      final codeValue = context.knobs.string(
+        label: 'Code value',
+        initialValue: '',
+      );
+
+      return _RegistrationFormPreview(
+        contactError: scenario.contactError,
+        codeError: scenario == _Scenario.fieldCode ? _kCodeEmpty : null,
+        formError: scenario.formError,
+        isLoading: scenario.isLoading,
+        contactValue: contactValue,
+        codeValue: codeValue,
+      );
+    },
+  );
+}
+
+// ---------------------------------------------------------------------------
+// All field error states — inline errorText under each field
+// ---------------------------------------------------------------------------
+
+WidgetbookUseCase _allFieldErrors() {
+  return WidgetbookUseCase(
+    name: 'Field Errors',
     builder: (context) {
       final spacing = Theme.of(context).extension<AppSpacing>()!;
       final theme = Theme.of(context);
@@ -180,17 +263,36 @@ WidgetbookUseCase _allStates() {
           child: ListView(
             padding: EdgeInsets.all(spacing.space16),
             children: [
-              Text('Registration Error Messages',
-                  style: theme.textTheme.titleMedium),
-              SizedBox(height: spacing.space16),
-              for (final scenario in _ErrorScenario.values)
-                if (scenario != _ErrorScenario.none) ...[
-                  _ErrorCard(
-                    label: scenario.label,
-                    message: scenario.message,
-                  ),
-                  SizedBox(height: spacing.space8),
-                ],
+              Text(
+                'Inline field validation errors',
+                style: theme.textTheme.titleMedium,
+              ),
+              Text(
+                'Shown as errorText under the offending field. '
+                'Clears on next keystroke.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              SizedBox(height: spacing.space24),
+              Text('Username empty', style: theme.textTheme.labelMedium),
+              SizedBox(height: spacing.space8),
+              const SizedBox(
+                height: 480,
+                child: _RegistrationFormPreview(
+                  contactError: _kUsernameEmpty,
+                ),
+              ),
+              SizedBox(height: spacing.space32),
+              Text('Activation code empty', style: theme.textTheme.labelMedium),
+              SizedBox(height: spacing.space8),
+              const SizedBox(
+                height: 480,
+                child: _RegistrationFormPreview(
+                  contactValue: 'exjobless',
+                  codeError: _kCodeEmpty,
+                ),
+              ),
             ],
           ),
         ),
@@ -199,39 +301,66 @@ WidgetbookUseCase _allStates() {
   );
 }
 
-class _ErrorCard extends StatelessWidget {
-  const _ErrorCard({required this.label, required this.message});
-  final String label;
-  final String message;
+// ---------------------------------------------------------------------------
+// All form-level error states — red text above the CTA
+// ---------------------------------------------------------------------------
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
-    final radii = Theme.of(context).extension<AppRadii>()!;
+final _formErrorScenarios = [
+  ('API 403 — Registration closed', _kApiEventInactive, 'myusername', 'CODE123'),
+  ('API 404 — Username/code invalid', _kApiNotFound, 'wronguser', 'BADCODE'),
+  ('API 409 — Code already used', _kApiCodeUsed, 'peterkrulis', 'ABC123'),
+  ('API 422 — Validation error', _kApiValidation, '', ''),
+  ('API 5xx — Server error', _kApiGeneric, 'myusername', 'CODE123'),
+  ('FFI — Key derivation failed', _kKeyDerivationFailed, 'myusername', 'CODE123'),
+  ('Storage — Secure storage failed', _kStorageFailed, 'myusername', 'CODE123'),
+  ('Network — Timeout', _kTimeoutError, 'myusername', 'CODE123'),
+  ('Network — No connection', _kNetworkError, 'myusername', 'CODE123'),
+  ('Catch-all — Unexpected', _kUnexpectedError, 'myusername', 'CODE123'),
+];
 
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(spacing.space12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: radii.borderRadiusSmall,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+WidgetbookUseCase _allFormErrors() {
+  return WidgetbookUseCase(
+    name: 'Form Errors',
+    builder: (context) {
+      final spacing = Theme.of(context).extension<AppSpacing>()!;
+      final theme = Theme.of(context);
+
+      return Scaffold(
+        body: SafeArea(
+          child: ListView(
+            padding: EdgeInsets.all(spacing.space16),
+            children: [
+              Text(
+                'Form-level errors above CTA',
+                style: theme.textTheme.titleMedium,
+              ),
+              Text(
+                'Shown in colorScheme.error below the fields and above the '
+                'button. Persists until next submit attempt.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              for (final (label, message, contact, code)
+                  in _formErrorScenarios) ...[
+                SizedBox(height: spacing.space32),
+                Text(label, style: theme.textTheme.labelMedium),
+                SizedBox(height: spacing.space8),
+                SizedBox(
+                  height: 520,
+                  child: _RegistrationFormPreview(
+                    contactValue: contact,
+                    codeValue: code,
+                    formError: message,
+                  ),
+                ),
+              ],
+            ],
           ),
-          SizedBox(height: spacing.space4),
-          Text(message, style: theme.textTheme.bodySmall),
-        ],
-      ),
-    );
-  }
+        ),
+      );
+    },
+  );
 }
 
 // ---------------------------------------------------------------------------

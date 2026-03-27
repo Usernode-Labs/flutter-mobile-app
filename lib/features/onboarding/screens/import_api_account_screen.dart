@@ -44,6 +44,10 @@ class _OnboardingImportApiAccountScreenState
   bool _submitting = false;
   String _versionLabel = '';
 
+  String? _contactError;
+  String? _codeError;
+  String? _formError;
+
   @override
   void initState() {
     super.initState();
@@ -74,21 +78,24 @@ class _OnboardingImportApiAccountScreenState
     if (_submitting) return;
     final l10n = AppLocalizations.of(context);
 
+    // Clear all errors before each attempt
+    setState(() {
+      _contactError = null;
+      _codeError = null;
+      _formError = null;
+    });
+
     // Client-side input validation
     final contact =
         _contactController.text.trim().replaceAll(_leadingPrefixRegex, '');
     final activationCode = _activationCodeController.text.trim();
 
     if (contact.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.registrationUsernameEmpty)),
-      );
+      setState(() => _contactError = l10n.registrationUsernameEmpty);
       return;
     }
     if (activationCode.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.registrationCodeEmpty)),
-      );
+      setState(() => _codeError = l10n.registrationCodeEmpty);
       return;
     }
 
@@ -147,9 +154,7 @@ class _OnboardingImportApiAccountScreenState
       context.go(AppRoutes.onboardingWelcomeSetup);
     } on RegistrationApiException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
-      );
+      setState(() => _formError = e.message);
     } on AccountImportException catch (e) {
       if (!mounted) return;
       final message = switch (e.failure) {
@@ -158,9 +163,7 @@ class _OnboardingImportApiAccountScreenState
         AccountImportFailure.secureStorage =>
           l10n.importApiAccountStorageFailed,
       };
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      setState(() => _formError = message);
     } catch (e) {
       if (!mounted) return;
       final message = switch (e) {
@@ -170,9 +173,7 @@ class _OnboardingImportApiAccountScreenState
         _ => l10n.registrationUnexpectedError,
       };
       _log.error('Registration failed with unexpected error', error: e);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      setState(() => _formError = message);
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -199,6 +200,16 @@ class _OnboardingImportApiAccountScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (_versionLabel.isNotEmpty)
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: Text(
+                    _versionLabel,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
               SizedBox(height: spacing.space16),
               Text(
                 l10n.onboardingVerifyAccessTitle,
@@ -224,8 +235,11 @@ class _OnboardingImportApiAccountScreenState
                         decoration: InputDecoration(
                           labelText: l10n.importApiAccountContactLabel,
                           hintText: l10n.importApiAccountContactHint,
+                          errorText: _contactError,
                         ),
                         textInputAction: TextInputAction.next,
+                        onChanged: (_) =>
+                            setState(() => _contactError = null),
                       ),
                       SizedBox(height: spacing.space16),
                       TextField(
@@ -233,13 +247,25 @@ class _OnboardingImportApiAccountScreenState
                         decoration: InputDecoration(
                           labelText: l10n.importApiAccountCodeLabel,
                           hintText: l10n.importApiAccountCodeHint,
+                          errorText: _codeError,
                         ),
                         textInputAction: TextInputAction.done,
+                        onChanged: (_) => setState(() => _codeError = null),
                       ),
                     ],
                   ),
                 ),
               ),
+              if (_formError != null) ...[
+                SizedBox(height: spacing.space8),
+                Text(
+                  _formError!,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.error,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
               SizedBox(height: spacing.space24),
               SizedBox(
                 width: double.infinity,
@@ -251,16 +277,6 @@ class _OnboardingImportApiAccountScreenState
                   onTap: _onSubmit,
                 ),
               ),
-              if (_versionLabel.isNotEmpty) ...[
-                SizedBox(height: spacing.space16),
-                Text(
-                  _versionLabel,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
             ],
           ),
         ),

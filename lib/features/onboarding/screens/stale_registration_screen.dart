@@ -22,6 +22,22 @@ class StaleRegistrationScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              FutureBuilder<PackageInfo>(
+                future: PackageInfo.fromPlatform(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) return const SizedBox.shrink();
+                  final info = snapshot.data!;
+                  return Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: Text(
+                      'v${info.version} (${info.buildNumber})',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  );
+                },
+              ),
               const Spacer(),
               Icon(
                 Icons.warning_amber_rounded,
@@ -46,21 +62,6 @@ class StaleRegistrationScreen extends StatelessWidget {
                 variant: ButtonVariant.primary,
                 size: ButtonSize.large,
                 onTap: () => context.go(AppRoutes.onboardingImportApi),
-              ),
-              SizedBox(height: spacing.space16),
-              FutureBuilder<PackageInfo>(
-                future: PackageInfo.fromPlatform(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) return const SizedBox.shrink();
-                  final info = snapshot.data!;
-                  return Text(
-                    'v${info.version} (${info.buildNumber})',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    textAlign: TextAlign.center,
-                  );
-                },
               ),
             ],
           ),

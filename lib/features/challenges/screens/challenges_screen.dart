@@ -137,14 +137,14 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
   }
 
   Widget _buildBody(BuildContext context) {
-    final ranking = ref.watch(rankingProvider.select((s) => s.value));
-    final breakdown = ref.watch(breakdownProvider.select((s) => s.value));
+    final ranking = ref.watch(rankingProvider.select((s) => s.valueOrNull));
+    final breakdown = ref.watch(breakdownProvider.select((s) => s.valueOrNull));
     final eb = breakdown?.eventBreakdown;
     final isLoading = ref.watch(
-      challengesProvider.select((s) => s.isLoading && s.value == null),
+      challengesProvider.select((s) => s.isLoading && s.valueOrNull == null),
     );
     final hasError = ref.watch(
-      challengesProvider.select((s) => s.hasError && s.value == null),
+      challengesProvider.select((s) => s.hasError && s.valueOrNull == null),
     );
     // Trigger lazy init so seasons data is available for the pickers.
     ref.watch(seasonsProvider);
@@ -304,7 +304,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
   /// Resolves the selected season from provider state. Returns null when
   /// seasons data isn't loaded or the selected season can't be found.
   SeasonDto? _resolveSelectedSeason() {
-    final seasons = ref.read(seasonsProvider).value;
+    final seasons = ref.read(seasonsProvider).valueOrNull;
     final ctx = ref.read(seasonEventContextProvider);
     if (seasons == null || seasons.isEmpty || ctx.seasonId == null) return null;
     return seasons.cast<SeasonDto?>().firstWhere(

@@ -62,18 +62,18 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
   }
 
   Widget _buildBody(BuildContext context) {
-    final ranking = ref.watch(rankingProvider.select((s) => s.value));
-    final leaderboard = ref.watch(leaderboardProvider.select((s) => s.value));
-    final eventPoints = ref.watch(eventPointsProvider.select((s) => s.value));
+    final ranking = ref.watch(rankingProvider.select((s) => s.valueOrNull));
+    final leaderboard = ref.watch(leaderboardProvider.select((s) => s.valueOrNull));
+    final eventPoints = ref.watch(eventPointsProvider.select((s) => s.valueOrNull));
     final participantId = ref.watch(participantIdProvider).value;
     final categorized = ref.watch(categorizedChallengesProvider);
     ref.watch(seasonsProvider);
 
     final isLoading = ref.watch(
-      leaderboardProvider.select((s) => s.isLoading && s.value == null),
+      leaderboardProvider.select((s) => s.isLoading && s.valueOrNull == null),
     );
     final hasError = ref.watch(
-      leaderboardProvider.select((s) => s.hasError && s.value == null),
+      leaderboardProvider.select((s) => s.hasError && s.valueOrNull == null),
     );
 
     if (isLoading) {

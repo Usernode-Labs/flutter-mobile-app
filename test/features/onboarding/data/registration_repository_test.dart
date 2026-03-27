@@ -95,6 +95,7 @@ void main() {
       final repo = RegistrationRepository(
         endpoint: 'https://example.com',
         httpClient: mockClient,
+        writesEnabled: true,
       );
 
       final result = await repo.register(
@@ -110,6 +111,32 @@ void main() {
         ),
         equals(99),
       );
+    });
+
+    test('fails fast in view-only mode before sending request', () async {
+      var requestSent = false;
+      final mockClient = MockClient((request) async {
+        requestSent = true;
+        return http.Response('{}', 200);
+      });
+
+      final repo = RegistrationRepository(
+        endpoint: 'https://example.com',
+        httpClient: mockClient,
+        writesEnabled: false,
+      );
+
+      expect(
+        () => repo.register(
+          registrationCode: 'code',
+          identifier: 'user',
+        ),
+        throwsA(
+          isA<RegistrationApiException>()
+              .having((e) => e.statusCode, 'statusCode', 503),
+        ),
+      );
+      expect(requestSent, isFalse);
     });
   });
 }

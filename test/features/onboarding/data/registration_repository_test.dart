@@ -97,6 +97,7 @@ void main() {
       final repo = RegistrationRepository(
         endpoint: 'https://example.com',
         httpClient: mockClient,
+        writesEnabled: true,
       );
 
       final result = await repo.register(
@@ -127,6 +128,7 @@ void main() {
       final repo = RegistrationRepository(
         endpoint: 'https://example.com',
         httpClient: mockClient,
+        writesEnabled: true,
       );
 
       expect(
@@ -134,8 +136,11 @@ void main() {
         throwsA(
           isA<RegistrationApiException>()
               .having((e) => e.statusCode, 'statusCode', 403)
-              .having((e) => e.message, 'message',
-                  contains('Registration is currently closed')),
+              .having(
+                (e) => e.message,
+                'message',
+                contains('previous event that is no longer active'),
+              ),
         ),
       );
     });
@@ -152,6 +157,7 @@ void main() {
       final repo = RegistrationRepository(
         endpoint: 'https://example.com',
         httpClient: mockClient,
+        writesEnabled: true,
       );
 
       expect(
@@ -177,6 +183,7 @@ void main() {
       final repo = RegistrationRepository(
         endpoint: 'https://example.com',
         httpClient: mockClient,
+        writesEnabled: true,
       );
 
       expect(
@@ -202,6 +209,7 @@ void main() {
       final repo = RegistrationRepository(
         endpoint: 'https://example.com',
         httpClient: mockClient,
+        writesEnabled: true,
       );
 
       expect(
@@ -226,6 +234,7 @@ void main() {
       final repo = RegistrationRepository(
         endpoint: 'https://example.com',
         httpClient: mockClient,
+        writesEnabled: true,
       );
 
       expect(
@@ -251,6 +260,7 @@ void main() {
       final repo = RegistrationRepository(
         endpoint: 'https://example.com',
         httpClient: mockClient,
+        writesEnabled: true,
       );
 
       expect(
@@ -276,6 +286,7 @@ void main() {
       final repo = RegistrationRepository(
         endpoint: 'https://example.com',
         httpClient: mockClient,
+        writesEnabled: true,
       );
 
       expect(
@@ -297,12 +308,40 @@ void main() {
       final repo = RegistrationRepository(
         endpoint: 'https://example.com',
         httpClient: mockClient,
+        writesEnabled: true,
       );
 
       expect(
         () => repo.register(registrationCode: 'code', identifier: 'user'),
         throwsA(isA<SocketException>()),
       );
+    });
+
+    test('fails fast in view-only mode before sending request', () async {
+      var requestSent = false;
+      final mockClient = MockClient((request) async {
+        requestSent = true;
+        return http.Response('{}', 200);
+      });
+
+      final repo = RegistrationRepository(
+        endpoint: 'https://example.com',
+        httpClient: mockClient,
+        writesEnabled: false,
+      );
+
+      expect(
+        () => repo.register(
+          registrationCode: 'code',
+          identifier: 'user',
+        ),
+        throwsA(
+          isA<RegistrationApiException>()
+              .having((e) => e.statusCode, 'statusCode', 503)
+              .having((e) => e.message, 'message', contains('view-only mode')),
+        ),
+      );
+      expect(requestSent, isFalse);
     });
   });
 }

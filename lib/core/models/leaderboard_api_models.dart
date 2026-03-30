@@ -521,12 +521,15 @@ class LeaderboardResult {
 // ---------------------------------------------------------------------------
 
 class BreakdownActivity {
-  final int id;
+  /// Activity ID. Regular activities have numeric IDs; extra-point activities
+  /// use string IDs like `"extra-point-123"`.
+  final String id;
   final String activityType;
   final int points;
   final String? description;
   final String? activityAt;
   final int? challengeId;
+  final String? activitySubCategory;
 
   const BreakdownActivity({
     required this.id,
@@ -535,16 +538,18 @@ class BreakdownActivity {
     this.description,
     this.activityAt,
     this.challengeId,
+    this.activitySubCategory,
   });
 
   factory BreakdownActivity.fromJson(Map<String, dynamic> json) {
     return BreakdownActivity(
-      id: _jsonInt(json['activity_id'] ?? json['id']),
+      id: (json['activity_id'] ?? json['id'] ?? '').toString(),
       activityType: json['activity_type'] as String? ?? '',
       points: _jsonInt(json['points']),
       description: json['description'] as String?,
       activityAt: json['activity_at'] as String?,
       challengeId: _jsonIntN(json['challenge_id']),
+      activitySubCategory: json['activity_sub_category'] as String?,
     );
   }
 
@@ -556,6 +561,8 @@ class BreakdownActivity {
         if (description != null) 'description': description,
         if (activityAt != null) 'activity_at': activityAt,
         if (challengeId != null) 'challenge_id': challengeId,
+        if (activitySubCategory != null)
+          'activity_sub_category': activitySubCategory,
       };
 }
 

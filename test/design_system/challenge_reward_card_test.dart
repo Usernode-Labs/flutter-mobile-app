@@ -190,6 +190,38 @@ void main() {
       expect(find.text('3rd'), findsNothing);
     });
 
+    testWidgets('renders extra points row when provided', (tester) async {
+      await tester.pumpWidget(wrap(
+        const ChallengeRewardCard(
+          category: ChallengeCategory.technical,
+          totalEarned: '5,025',
+          data: ProduceBlocksRewardData(
+            progressFraction: 0.98,
+            successRate: '98%',
+            maxPoints: '5,000',
+            totalPoints: '4,900',
+            rankReward: '+0',
+            extraPoints: '+840',
+          ),
+        ),
+      ));
+
+      expect(find.text('EXTRA POINTS'), findsOneWidget);
+      expect(find.text('+840'), findsOneWidget);
+    });
+
+    testWidgets('hides extra points row when null', (tester) async {
+      await tester.pumpWidget(wrap(
+        const ChallengeRewardCard(
+          category: ChallengeCategory.technical,
+          totalEarned: '4,900',
+          data: produceBlocksData,
+        ),
+      ));
+
+      expect(find.text('EXTRA POINTS'), findsNothing);
+    });
+
     testWidgets('uses custom rateLabel when provided', (tester) async {
       await tester.pumpWidget(wrap(
         const ChallengeRewardCard(

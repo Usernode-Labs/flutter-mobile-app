@@ -10,7 +10,7 @@ import 'package:crypto_mobile_app/features/onboarding/data/repositories/registra
 
 void main() {
   group('RegistrationResult.fromJson', () {
-    test('parses new event schema with participant_id', () {
+    test('parses new event schema with participant_id and season', () {
       final result = RegistrationResult.fromJson({
         'participant_id': 42,
         'identity_uid': 'uid-abc',
@@ -18,6 +18,8 @@ void main() {
         'secret_key': '0xabc',
         'address': '0x999',
         'tier': 'gold',
+        'season_id': 1,
+        'season_name': 'Season 1',
         'event': {
           'event_id': 10,
           'name': 'Event Alpha',
@@ -27,9 +29,26 @@ void main() {
 
       expect(result.participantId, 42);
       expect(result.identityUid, 'uid-abc');
+      expect(result.seasonId, 1);
+      expect(result.seasonName, 'Season 1');
       expect(result.eventId, 10);
       expect(result.eventName, 'Event Alpha');
       expect(result.eventEndsAt, '2024-12-31T00:00:00Z');
+    });
+
+    test('handles missing season fields gracefully', () {
+      final result = RegistrationResult.fromJson({
+        'participant_id': 42,
+        'identity_uid': 'uid-abc',
+        'public_key': '0x123',
+        'secret_key': '0xabc',
+        'address': '0x999',
+        'tier': 'gold',
+      });
+
+      expect(result.seasonId, isNull);
+      expect(result.seasonName, isNull);
+      expect(result.eventId, isNull);
     });
 
     test('falls back to legacy phase payload', () {
@@ -135,7 +154,7 @@ void main() {
           isA<RegistrationApiException>()
               .having((e) => e.statusCode, 'statusCode', 403)
               .having((e) => e.message, 'message',
-                  contains('Registration is currently closed')),
+                  contains('no longer active')),
         ),
       );
     });

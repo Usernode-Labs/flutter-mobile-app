@@ -112,11 +112,13 @@ class _OnboardingImportApiAccountScreenState
 
       if (!mounted) return;
 
-      // Persist season/event context so cold-start can detect staleness
-      if (registration.eventId != null) {
+      // Persist season context so cold-start can detect staleness.
+      // With season continuity, registration is at the season level —
+      // don't persist the season-phase eventId as a user selection.
+      if (registration.seasonId != null) {
         await LeaderboardBootstrap.persistSeasonEvent(SeasonEventContext(
-          eventId: registration.eventId,
-          eventName: registration.eventName,
+          seasonId: registration.seasonId,
+          seasonName: registration.seasonName,
         ));
       }
 

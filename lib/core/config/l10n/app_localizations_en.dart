@@ -970,16 +970,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get categoryFlash => 'Flash';
 
   @override
-  String get seasonFallback => 'Season';
+  String get allEvents => 'All Events';
 
   @override
-  String get phaseFallback => 'Phase';
+  String get selectEvent => 'Select Event';
 
   @override
-  String get selectSeason => 'Select Season';
-
-  @override
-  String get selectPhase => 'Select Phase';
+  String get eventEnded => 'Ended';
 
   @override
   String get challengeFailedToLoad => 'Failed to load challenges';

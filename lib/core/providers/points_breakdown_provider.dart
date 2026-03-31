@@ -52,6 +52,13 @@ class BreakdownController extends AsyncNotifier<CachedData<BreakdownResult>?> {
         eventId: ctx.eventId,
         toJson: () => result.toJson(),
       );
+      // Capture event IDs when season-scoped so the event picker knows
+      // which ended events the participant was in.
+      if (result.seasonBreakdown != null) {
+        final ids =
+            result.seasonBreakdown!.events.map((e) => e.eventId).toSet();
+        ref.read(participantEventIdsProvider.notifier).state = ids;
+      }
       return CachedData(data: result, isCached: false, lastUpdated: now);
     } catch (e) {
       if (state.value != null) return state.value;

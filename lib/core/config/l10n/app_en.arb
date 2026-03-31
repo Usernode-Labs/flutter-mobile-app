@@ -1279,21 +1279,17 @@
   "@categoryFlash": {
     "description": "Flash challenge category name"
   },
-  "seasonFallback": "Season",
-  "@seasonFallback": {
-    "description": "Fallback label when no season name is available"
+  "allEvents": "All Events",
+  "@allEvents": {
+    "description": "Label for selecting all events in the event picker"
   },
-  "phaseFallback": "Phase",
-  "@phaseFallback": {
-    "description": "Fallback label when no phase/event name is available"
+  "selectEvent": "Select Event",
+  "@selectEvent": {
+    "description": "Title for event picker bottom sheet"
   },
-  "selectSeason": "Select Season",
-  "@selectSeason": {
-    "description": "Title for season picker bottom sheet"
-  },
-  "selectPhase": "Select Phase",
-  "@selectPhase": {
-    "description": "Title for phase picker bottom sheet"
+  "eventEnded": "Ended",
+  "@eventEnded": {
+    "description": "Suffix for ended events in the event picker"
   },
 
   "challengeFailedToLoad": "Failed to load challenges",

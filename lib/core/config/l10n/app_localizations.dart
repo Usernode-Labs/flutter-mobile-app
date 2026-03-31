@@ -62,7 +62,7 @@ import 'app_localizations_en.dart';
 /// property.
 abstract class AppLocalizations {
   AppLocalizations(String locale)
-      : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -85,11 +85,11 @@ abstract class AppLocalizations {
   /// of delegates is preferred or required.
   static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
       <LocalizationsDelegate<dynamic>>[
-    delegate,
-    GlobalMaterialLocalizations.delegate,
-    GlobalCupertinoLocalizations.delegate,
-    GlobalWidgetsLocalizations.delegate,
-  ];
+        delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[Locale('en')];
@@ -1774,29 +1774,23 @@ abstract class AppLocalizations {
   /// **'Flash'**
   String get categoryFlash;
 
-  /// Fallback label when no season name is available
+  /// Label for selecting all events in the event picker
   ///
   /// In en, this message translates to:
-  /// **'Season'**
-  String get seasonFallback;
+  /// **'All Events'**
+  String get allEvents;
 
-  /// Fallback label when no phase/event name is available
+  /// Title for event picker bottom sheet
   ///
   /// In en, this message translates to:
-  /// **'Phase'**
-  String get phaseFallback;
+  /// **'Select Event'**
+  String get selectEvent;
 
-  /// Title for season picker bottom sheet
+  /// Suffix for ended events in the event picker
   ///
   /// In en, this message translates to:
-  /// **'Select Season'**
-  String get selectSeason;
-
-  /// Title for phase picker bottom sheet
-  ///
-  /// In en, this message translates to:
-  /// **'Select Phase'**
-  String get selectPhase;
+  /// **'Ended'**
+  String get eventEnded;
 
   /// Error message when challenges fail to load
   ///
@@ -2856,8 +2850,9 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   }
 
   throw FlutterError(
-      'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
-      'an issue with the localizations generation tool. Please file an issue '
-      'on GitHub with a reproducible sample app and the gen-l10n configuration '
-      'that was used.');
+    'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
+    'an issue with the localizations generation tool. Please file an issue '
+    'on GitHub with a reproducible sample app and the gen-l10n configuration '
+    'that was used.',
+  );
 }

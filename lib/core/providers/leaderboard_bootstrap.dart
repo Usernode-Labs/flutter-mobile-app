@@ -72,8 +72,8 @@ class LeaderboardBootstrap {
     );
   }
 
-  /// Persist a season/event selection (e.g. when the user switches season
-  /// via a [DropdownChip] in the leaderboard UI).
+  /// Persist a season/event selection (e.g. when the user picks an event
+  /// or "All Events" via the event picker).
   static Future<void> persistSeasonEvent(SeasonEventContext ctx) async {
     if (ctx.seasonId == null && ctx.eventId == null) return;
     await _persistContext(ctx);
@@ -94,12 +94,16 @@ class LeaderboardBootstrap {
     }
     if (ctx.eventId != null) {
       await prefs.setInt(NetworkPrefs.prefixKey(_eventIdKey), ctx.eventId!);
+    } else {
+      await prefs.remove(NetworkPrefs.prefixKey(_eventIdKey));
     }
     if (ctx.eventName != null) {
       await prefs.setString(
         NetworkPrefs.prefixKey(_eventNameKey),
         ctx.eventName!,
       );
+    } else {
+      await prefs.remove(NetworkPrefs.prefixKey(_eventNameKey));
     }
   }
 }
@@ -144,23 +148,19 @@ Future<void> refreshAllLeaderboardData(Ref ref) async {
 final leaderboardBootstrapProvider = FutureProvider<void>((ref) async {
   final persisted = await LeaderboardBootstrap.loadPersistedContext();
 
-  // Fast path: restore full context immediately so downstream providers
-  // get data without waiting for the API.
-  if (persisted != null && persisted.eventId != null) {
+  // Fast path: restore persisted context immediately so downstream
+  // providers get data without waiting for the API. A null eventId
+  // is valid (= "All Events" selection).
+  if (persisted != null && persisted.seasonId != null) {
     _log.info(
-      'Restored full context: seasonId=${persisted.seasonId}, '
-      'eventId=${persisted.eventId}',
+      'Restored context: seasonId=${persisted.seasonId}, '
+      'eventId=${persisted.eventId ?? "All Events"}',
     );
     ref.read(seasonEventContextProvider.notifier).state = persisted;
     // Fall through to the API call below to validate freshness
     // and update the context if a newer event is active.
   } else {
-    _log.info(
-      persisted != null
-          ? 'Persisted seasonId=${persisted.seasonId} but no eventId, '
-              'resolving from seasons API…'
-          : 'No persisted context, auto-selecting from seasons API…',
-    );
+    _log.info('No persisted context, auto-selecting from seasons API…');
   }
 
   // Single API call to resolve seasons + validate freshness.
@@ -199,32 +199,39 @@ final leaderboardBootstrapProvider = FutureProvider<void>((ref) async {
               .firstWhere((s) => s!.isActive, orElse: () => null) ??
           seasons.last);
 
-  // Resolve event: active one, or last in the list.
-  SeasonEventDto? event;
-  if (season.events.isNotEmpty) {
-    event = season.events
-            .cast<SeasonEventDto?>()
-            .firstWhere((e) => e!.isActive, orElse: () => null) ??
-        season.events.last;
+  // Resolve event: preserve persisted eventId if it still exists in the
+  // season, otherwise default to "All Events" (null eventId).
+  SeasonEventDto? resolvedEvent;
+  if (persisted?.eventId != null && season.events.isNotEmpty) {
+    resolvedEvent = season.events
+        .cast<SeasonEventDto?>()
+        .firstWhere((e) => e!.id == persisted!.eventId, orElse: () => null);
   }
 
   final ctx = SeasonEventContext(
     seasonId: season.id,
     seasonName: season.name,
-    eventId: event?.id,
-    eventName: event?.name,
+    eventId: resolvedEvent?.id,
+    eventName: resolvedEvent?.name,
   );
   ref.read(seasonEventContextProvider.notifier).state = ctx;
   await LeaderboardBootstrap.persistSeasonEvent(ctx);
   _log.info(
-    'Auto-selected season=${season.id} (${season.name}), '
-    'event=${event?.id} (${event?.name})',
+    'Bootstrap: season=${season.id} (${season.name}), '
+    'event=${resolvedEvent?.id ?? "All Events"}',
   );
 
-  // Validate registration freshness against current active event
-  // Pass the original persisted context (before API override) for comparison
+  // For freshness validation, find the active regular event (if any).
+  final activeRegularEvent = season.events.isNotEmpty
+      ? season.events.cast<SeasonEventDto?>().firstWhere(
+            (e) => e!.isActive && e.type != 'season',
+            orElse: () => null,
+          )
+      : null;
+
+  // Validate registration freshness against current active regular event.
   await _validateRegistrationFreshness(ref,
-      currentActiveEventId: event?.id, persisted: persisted);
+      currentActiveEventId: activeRegularEvent?.id, persisted: persisted);
 });
 
 /// Checks whether the persisted registration belongs to the current active

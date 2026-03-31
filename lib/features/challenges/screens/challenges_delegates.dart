@@ -24,18 +24,14 @@ class ChipBarDelegate extends SliverPersistentHeaderDelegate {
     required this.topPadding,
     required this.spacing,
     required this.scrollFractionNotifier,
-    required this.onSeasonTap,
     required this.onEventTap,
-    required this.seasonLabel,
     required this.eventLabel,
   });
 
   final double topPadding;
   final AppSpacing spacing;
   final ValueNotifier<double> scrollFractionNotifier;
-  final VoidCallback onSeasonTap;
   final VoidCallback onEventTap;
-  final String seasonLabel;
   final String eventLabel;
 
   @override
@@ -71,12 +67,6 @@ class ChipBarDelegate extends SliverPersistentHeaderDelegate {
             ),
             child: DropdownChain(
               items: [
-                DropdownChainItem(
-                  label: seasonLabel,
-                  variant: ChipVariant.surface,
-                  borderColor: chipBorder,
-                  onTap: onSeasonTap,
-                ),
                 DropdownChainItem(
                   label: eventLabel,
                   variant: ChipVariant.surface,

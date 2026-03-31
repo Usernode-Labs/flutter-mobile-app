@@ -170,6 +170,7 @@ class ChallengeDto {
   final int id;
   final int? eventId;
   final String? eventName;
+  final String? eventType;
   final String category;
   final String goal;
   final String task;
@@ -189,6 +190,7 @@ class ChallengeDto {
     required this.id,
     this.eventId,
     this.eventName,
+    this.eventType,
     required this.category,
     required this.goal,
     required this.task,
@@ -210,6 +212,7 @@ class ChallengeDto {
       id: _jsonInt(json['id']),
       eventId: _jsonIntN(json['event_id']),
       eventName: json['event_name'] as String?,
+      eventType: json['event_type'] as String?,
       category: json['category'] as String? ?? 'technical',
       goal: json['goal'] as String? ?? '',
       task: json['task'] as String? ?? '',
@@ -231,6 +234,7 @@ class ChallengeDto {
         'id': id,
         if (eventId != null) 'event_id': eventId,
         if (eventName != null) 'event_name': eventName,
+        if (eventType != null) 'event_type': eventType,
         'category': category,
         'goal': goal,
         'task': task,
@@ -274,6 +278,7 @@ class LeaderboardSeason {
 class LeaderboardEvent {
   final int id;
   final String name;
+  final String? type;
   final String? startsAt;
   final String? endsAt;
   final bool isActive;
@@ -281,6 +286,7 @@ class LeaderboardEvent {
   const LeaderboardEvent({
     required this.id,
     required this.name,
+    this.type,
     this.startsAt,
     this.endsAt,
     required this.isActive,
@@ -290,6 +296,7 @@ class LeaderboardEvent {
     return LeaderboardEvent(
       id: _jsonInt(json['id']),
       name: json['name'] as String? ?? '',
+      type: json['type'] as String?,
       startsAt: json['starts_at'] as String?,
       endsAt: json['ends_at'] as String?,
       isActive: json['is_active'] as bool? ?? false,
@@ -299,6 +306,7 @@ class LeaderboardEvent {
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
+        if (type != null) 'type': type,
         if (startsAt != null) 'starts_at': startsAt,
         if (endsAt != null) 'ends_at': endsAt,
         'is_active': isActive,
@@ -312,6 +320,7 @@ class LeaderboardEvent {
 class SeasonEventDto {
   final int id;
   final String name;
+  final String? type;
   final String? description;
   final String? startsAt;
   final String? endsAt;
@@ -320,6 +329,7 @@ class SeasonEventDto {
   const SeasonEventDto({
     required this.id,
     required this.name,
+    this.type,
     this.description,
     this.startsAt,
     this.endsAt,
@@ -331,6 +341,7 @@ class SeasonEventDto {
     return SeasonEventDto(
       id: id,
       name: json['name'] as String? ?? 'Event $id',
+      type: json['type'] as String?,
       description: json['description'] as String?,
       startsAt: json['starts_at'] as String?,
       endsAt: json['ends_at'] as String?,
@@ -342,6 +353,7 @@ class SeasonEventDto {
         'event_id': id,
         'id': id, // cache compat alias
         'name': name,
+        if (type != null) 'type': type,
         if (description != null) 'description': description,
         if (startsAt != null) 'starts_at': startsAt,
         if (endsAt != null) 'ends_at': endsAt,
@@ -357,6 +369,7 @@ class SeasonDto {
   final String? endsAt;
   final bool isActive;
   final List<SeasonEventDto> events;
+  final List<ChallengeDto>? seasonChallenges;
 
   const SeasonDto({
     required this.id,
@@ -366,6 +379,7 @@ class SeasonDto {
     this.endsAt,
     required this.isActive,
     this.events = const [],
+    this.seasonChallenges,
   });
 
   factory SeasonDto.fromJson(Map<String, dynamic> json) {
@@ -381,6 +395,9 @@ class SeasonDto {
               ?.map((e) => SeasonEventDto.fromJson(e as Map<String, dynamic>))
               .toList() ??
           const [],
+      seasonChallenges: (json['season_challenges'] as List?)
+          ?.map((e) => ChallengeDto.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
   }
 
@@ -393,6 +410,9 @@ class SeasonDto {
         if (endsAt != null) 'ends_at': endsAt,
         'is_active': isActive,
         'events': events.map((e) => e.toJson()).toList(),
+        if (seasonChallenges != null)
+          'season_challenges':
+              seasonChallenges!.map((c) => c.toJson()).toList(),
       };
 }
 

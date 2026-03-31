@@ -122,10 +122,6 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                 child: DropdownChain(
                   items: [
                     DropdownChainItem(
-                      label: seasonLabel(context, ref),
-                      onTap: () => showSeasonPicker(context, ref),
-                    ),
-                    DropdownChainItem(
                       label: eventLabel(context, ref),
                       onTap: () => showEventPicker(context, ref),
                     ),

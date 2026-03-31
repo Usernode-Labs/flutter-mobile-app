@@ -157,8 +157,8 @@ final leaderboardBootstrapProvider = FutureProvider<void>((ref) async {
       'eventId=${persisted.eventId ?? "All Events"}',
     );
     ref.read(seasonEventContextProvider.notifier).state = persisted;
-    // Fall through to the API call below to validate freshness
-    // and update the context if a newer event is active.
+    // Fall through to validate freshness and verify the persisted
+    // event still exists in the season.
   } else {
     _log.info('No persisted context, auto-selecting from seasons API…');
   }

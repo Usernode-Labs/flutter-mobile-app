@@ -296,17 +296,8 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
         .firstWhere((e) => e!.id == ctx.eventId, orElse: () => null);
   }
 
-  /// Resolves the end date for countdown: from the selected event, or
-  /// from the season itself when "All Events" is selected.
-  String? _resolveEndsAt() {
-    final season = _resolveSelectedSeason();
-    if (season == null) return null;
-    final event = _resolveSelectedEvent(season);
-    return event?.endsAt ?? season.endsAt;
-  }
-
-  /// Resolves start/end dates for progress: from the selected event, or
-  /// from the season itself when "All Events" is selected.
+  /// Resolves start/end dates from the selected event, or from the
+  /// season itself when "All Events" is selected.
   ({String? startsAt, String? endsAt}) _resolveDateRange() {
     final season = _resolveSelectedSeason();
     if (season == null) return (startsAt: null, endsAt: null);
@@ -319,7 +310,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
 
   /// Compute countdown label + time from the resolved end date.
   ({String label, String? time}) _computeCountdown() {
-    final endsAtRaw = _resolveEndsAt();
+    final endsAtRaw = _resolveDateRange().endsAt;
     if (endsAtRaw == null) return (label: 'ENDS IN', time: null);
 
     final endsAt = DateTime.tryParse(endsAtRaw);

@@ -51,23 +51,21 @@ class _DropdownSheetBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dividerSlot =
+        dividerAfterIndex != null ? dividerAfterIndex! + 1 : -1;
+
     return SheetLayout(
       title: title,
       child: ListView.builder(
         shrinkWrap: true,
         itemCount: labels.length + (dividerAfterIndex != null ? 1 : 0),
         itemBuilder: (context, index) {
-          // Insert divider after the specified option index.
-          final dividerSlot = dividerAfterIndex != null
-              ? dividerAfterIndex! + 1
-              : -1;
           if (index == dividerSlot) {
             return const Divider(height: 1);
           }
-          final labelIndex =
-              dividerAfterIndex != null && index > dividerSlot
-                  ? index - 1
-                  : index;
+          final labelIndex = index > dividerSlot && dividerSlot >= 0
+              ? index - 1
+              : index;
           final isSelected = labelIndex == selectedIndex;
           return _OptionRow(
             label: labels[labelIndex],

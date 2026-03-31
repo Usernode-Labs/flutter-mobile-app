@@ -27,7 +27,6 @@ Future<void> showEventPicker(BuildContext context, WidgetRef ref) async {
   if (seasons == null || seasons.isEmpty) return;
   final ctx = ref.read(seasonEventContextProvider);
 
-  // Resolve current season.
   final currentSeason = ctx.seasonId != null
       ? seasons.cast<SeasonDto?>().firstWhere(
             (s) => s!.id == ctx.seasonId,
@@ -36,8 +35,6 @@ Future<void> showEventPicker(BuildContext context, WidgetRef ref) async {
       : seasons.first;
   if (currentSeason == null || currentSeason.events.isEmpty) return;
 
-  // Show events the user is enrolled in: active events (auto-enrolled)
-  // plus ended events the user participated in (from breakdown data).
   final participatedIds = ref.read(participantEventIdsProvider);
   final events = currentSeason.events
       .where((e) => e.isActive || participatedIds.contains(e.id))
@@ -46,7 +43,6 @@ Future<void> showEventPicker(BuildContext context, WidgetRef ref) async {
 
   final l10n = AppLocalizations.of(context);
 
-  // Build labels: "All Events" + individual event names with status.
   final labels = <String>[
     l10n.allEvents,
     ...events.map((e) {
@@ -55,7 +51,6 @@ Future<void> showEventPicker(BuildContext context, WidgetRef ref) async {
     }),
   ];
 
-  // Selected index: 0 for "All Events", 1+ for specific events.
   final selectedIndex = ctx.eventId == null
       ? 0
       : events.indexWhere((e) => e.id == ctx.eventId) + 1;
@@ -75,7 +70,6 @@ Future<void> showEventPicker(BuildContext context, WidgetRef ref) async {
 
   final SeasonEventContext newCtx;
   if (result == 0) {
-    // "All Events" selected.
     newCtx = SeasonEventContext(
       seasonId: seasonId,
       seasonName: seasonName,

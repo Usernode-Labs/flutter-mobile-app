@@ -309,8 +309,9 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
   }
 
   /// Compute countdown label + time from the resolved end date.
-  ({String label, String? time}) _computeCountdown() {
-    final endsAtRaw = _resolveDateRange().endsAt;
+  ({String label, String? time}) _computeCountdown(
+      ({String? startsAt, String? endsAt}) range) {
+    final endsAtRaw = range.endsAt;
     if (endsAtRaw == null) return (label: 'ENDS IN', time: null);
 
     final endsAt = DateTime.tryParse(endsAtRaw);
@@ -331,8 +332,8 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
   }
 
   /// Compute time progress as a fraction (0.0 = start, 1.0 = end).
-  double _computePhaseProgress() {
-    final range = _resolveDateRange();
+  double _computePhaseProgress(
+      ({String? startsAt, String? endsAt}) range) {
     if (range.startsAt == null || range.endsAt == null) return 0.0;
 
     final start = DateTime.tryParse(range.startsAt!);
@@ -355,9 +356,10 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
     final l10n = AppLocalizations.of(context);
     final score = totalPoints != null ? formatPoints(totalPoints) : '--';
     final rankLabel = rank != null ? l10n.challengeRank(rank) : null;
-    final progress = _computePhaseProgress();
+    final range = _resolveDateRange();
+    final progress = _computePhaseProgress(range);
 
-    final countdown = _computeCountdown();
+    final countdown = _computeCountdown(range);
     return ScoreHeader(
       score: score,
       scoreLabel: l10n.challengePoints,

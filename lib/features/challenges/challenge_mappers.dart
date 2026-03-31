@@ -95,13 +95,25 @@ class EnrichedChallenge {
   final ChallengeDto dto;
   final BreakdownActivity? activity;
 
-  const EnrichedChallenge({required this.dto, this.activity});
+  /// Extra points from manual adjustments for this challenge.
+  final int extraPoints;
+
+  const EnrichedChallenge({
+    required this.dto,
+    this.activity,
+    this.extraPoints = 0,
+  });
 
   /// Whether the participant completed this challenge (has a matching activity).
   bool get participantCompleted => activity != null;
 
-  /// Actual points earned by the participant, or null if not completed.
-  int? get earnedPoints => activity?.points;
+  /// Actual points earned by the participant (including extra points),
+  /// or null if not completed.
+  int? get earnedPoints {
+    final base = activity?.points;
+    if (base == null && extraPoints == 0) return null;
+    return (base ?? 0) + extraPoints;
+  }
 }
 
 /// Cross-references challenges with breakdown activities.
@@ -109,6 +121,10 @@ class EnrichedChallenge {
 /// Prefers matching by [BreakdownActivity.challengeId] → [ChallengeDto.id].
 /// Falls back to [BreakdownActivity.description] → [ChallengeDto.goal] when
 /// `challengeId` is null (older cached data).
+///
+/// When multiple activities share the same [challengeId] (e.g. regular epoch
+/// activities plus extra-point activities for produce-blocks), the primary
+/// (non-extra-point) activity is preferred.
 ///
 /// When [activities] is null (breakdown unavailable), wraps all challenges
 /// with `activity: null` for graceful v1-style fallback.
@@ -120,10 +136,12 @@ List<EnrichedChallenge> enrichChallenges(
     return challenges.map((dto) => EnrichedChallenge(dto: dto)).toList();
   }
 
-  final byId = <int, BreakdownActivity>{};
+  final byId = <int, List<BreakdownActivity>>{};
   final byDesc = <String, BreakdownActivity>{};
   for (final a in activities) {
-    if (a.challengeId != null) byId[a.challengeId!] = a;
+    if (a.challengeId != null) {
+      byId.putIfAbsent(a.challengeId!, () => []).add(a);
+    }
     if (a.description != null) byDesc[a.description!] = a;
   }
 
@@ -133,9 +151,32 @@ List<EnrichedChallenge> enrichChallenges(
             // TODO(challenges): Remove description fallback once all breakdown
             // activities include challengeId. The assumption that
             // description == goal is a reliable match is fragile.
-            activity: byId[dto.id] ?? byDesc[dto.goal],
+            activity: _primaryActivity(byId[dto.id]) ?? byDesc[dto.goal],
+            extraPoints: _sumExtraPoints(byId[dto.id]),
           ))
       .toList();
+}
+
+/// Picks the primary activity from a list sharing the same [challengeId].
+///
+/// Prefers non-extra-point activities (regular epoch evaluations) over
+/// extra-point entries so that [EnrichedChallenge.activity] reflects the
+/// base reward. Extra points are summed separately via [_sumExtraPoints].
+BreakdownActivity? _primaryActivity(List<BreakdownActivity>? list) {
+  if (list == null || list.isEmpty) return null;
+  if (list.length == 1 && !list.first.id.startsWith('extra-point-')) {
+    return list.first;
+  }
+  final primary = list.where((a) => !a.id.startsWith(kExtraPointIdPrefix));
+  return primary.isNotEmpty ? primary.first : null;
+}
+
+/// Sums points from extra-point activities in [list].
+int _sumExtraPoints(List<BreakdownActivity>? list) {
+  if (list == null || list.isEmpty) return 0;
+  return list
+      .where((a) => a.id.startsWith(kExtraPointIdPrefix))
+      .fold<int>(0, (sum, a) => sum + a.points);
 }
 
 /// Result of categorizing enriched challenges into tab buckets.
@@ -310,6 +351,10 @@ String formatDiffLabel(Duration since) {
 
 /// The subcategory value that identifies produce-blocks challenges.
 const String kProduceBlocksSubCategory = 'PRODUCE_BLOCKS_CHALLENGE';
+
+/// ID prefix for extra-point activities returned by the backend, e.g.
+/// `"extra-point-42"`.
+const String kExtraPointIdPrefix = 'extra-point-';
 
 /// Points reserved for top-3 rank bonus in the reward ceiling.
 ///

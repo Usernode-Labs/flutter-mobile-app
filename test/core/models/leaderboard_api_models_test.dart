@@ -595,7 +595,7 @@ void main() {
         'activity_at': '2025-01-15T10:00:00Z',
         'challenge_id': 7,
       });
-      expect(a.id, 1);
+      expect(a.id, '1');
       expect(a.activityType, 'block_produced');
       expect(a.points, 50);
       expect(a.description, 'Produced block #123');
@@ -609,7 +609,24 @@ void main() {
         'activity_type': 'bonus',
         'points': 10,
       });
-      expect(a.id, 2);
+      expect(a.id, '2');
+    });
+
+    test('fromJson parses string activity_id (extra points)', () {
+      final a = BreakdownActivity.fromJson({
+        'activity_id': 'extra-point-42',
+        'activity_type': 'technical',
+        'points': 125,
+        'description': 'Manual recovery bonus',
+        'activity_at': '2026-03-27T14:00:00Z',
+        'challenge_id': 7,
+        'activity_sub_category': 'PRODUCE_BLOCKS_CHALLENGE',
+      });
+      expect(a.id, 'extra-point-42');
+      expect(a.activityType, 'technical');
+      expect(a.points, 125);
+      expect(a.challengeId, 7);
+      expect(a.activitySubCategory, 'PRODUCE_BLOCKS_CHALLENGE');
     });
 
     test('fromJson handles nullable fields', () {
@@ -621,6 +638,7 @@ void main() {
       expect(a.description, isNull);
       expect(a.activityAt, isNull);
       expect(a.challengeId, isNull);
+      expect(a.activitySubCategory, isNull);
     });
   });
 
@@ -1011,6 +1029,7 @@ void main() {
         'description': 'Produced block #123',
         'activity_at': '2025-01-15T10:00:00Z',
         'challenge_id': 7,
+        'activity_sub_category': 'PRODUCE_BLOCKS_CHALLENGE',
       };
       final a = BreakdownActivity.fromJson(json);
       final a2 = BreakdownActivity.fromJson(a.toJson());
@@ -1020,6 +1039,23 @@ void main() {
       expect(a2.description, a.description);
       expect(a2.activityAt, a.activityAt);
       expect(a2.challengeId, a.challengeId);
+      expect(a2.activitySubCategory, a.activitySubCategory);
+    });
+
+    test('BreakdownActivity round-trip with string id (extra points)', () {
+      final json = {
+        'activity_id': 'extra-point-42',
+        'activity_type': 'technical',
+        'points': 125,
+        'description': 'Manual recovery bonus',
+        'challenge_id': 7,
+        'activity_sub_category': 'PRODUCE_BLOCKS_CHALLENGE',
+      };
+      final a = BreakdownActivity.fromJson(json);
+      final a2 = BreakdownActivity.fromJson(a.toJson());
+      expect(a2.id, 'extra-point-42');
+      expect(a2.points, 125);
+      expect(a2.challengeId, 7);
     });
 
     test('EventBreakdown', () {

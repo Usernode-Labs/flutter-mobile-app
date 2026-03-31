@@ -135,19 +135,25 @@ class ChallengeDetailScreen extends ConsumerWidget {
         : null;
     final maxPts = ceiling != null ? ceiling - kTop3RankBonusPoints : 0;
 
-    // Use API-provided earned points directly (breakdown with include_activity=1).
+    // earnedPoints includes extra points; base is the success-rate calculation only.
     final earnedPoints = challenge.earnedPoints;
+    final basePoints = challenge.activity?.points;
+    final extraPointsTotal = challenge.extraPoints;
     final isSyncing = isProduceBlocksSyncing(
       isProduceBlocks: isProduceBlocks,
-      earnedPoints: earnedPoints,
+      earnedPoints: basePoints,
       successRate: successRate,
     );
-    // Only subscribe to the 500ms ticker when actually syncing.
-    final displayPoints = isSyncing
+    final syncingText = isSyncing
         ? ref.watch(syncingTextProvider).value ?? kSyncingTextFallback
-        : earnedPoints != null
-            ? formatPoints(earnedPoints)
-            : '--';
+        : null;
+    // Calculation row shows base points (success rate × max pts).
+    final displayBasePoints =
+        syncingText ?? (basePoints != null ? formatPoints(basePoints) : '--');
+    // Total earned includes base + extra + top3.
+    final totalWithTop3 = (earnedPoints ?? 0) + (eb?.top3Points ?? 0);
+    final displayTotalEarned = syncingText ??
+        (earnedPoints != null ? formatPoints(totalWithTop3) : '--');
 
     // Epoch section: only for produce-blocks challenges.
     final String? epochEarned;
@@ -156,7 +162,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
       if (diff != null) {
         epochEarned = '+${formatPoints(diff.points)}';
         epochSectionLabel = formatDiffLabel(diff.since);
-      } else if (challenge.earnedPoints != null || successRate > 0) {
+      } else if (earnedPoints != null || successRate > 0) {
         epochEarned = AppLocalizations.of(context).challengeEpochNoChange;
         epochSectionLabel = AppLocalizations.of(context).challengeEpochLast24h;
       } else {
@@ -174,10 +180,13 @@ class ChallengeDetailScreen extends ConsumerWidget {
         progressFraction: successRate / 100.0,
         successRate: '${successRate.round()}%',
         maxPoints: formatPoints(maxPts),
-        totalPoints: displayPoints,
+        totalPoints: displayBasePoints,
         rankLabel: formatRankOrdinal(eb?.rank),
         rankReward: '+${formatPoints(eb?.top3Points ?? 0)}',
         rateLabel: dto.completed ? 'SUCCESS RATE' : 'BLOCK RATE',
+        extraPoints: extraPointsTotal > 0
+            ? '+${formatPoints(extraPointsTotal)}'
+            : null,
       );
     } else {
       data = const SimpleRewardData();
@@ -185,7 +194,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
 
     return ChallengeRewardCard(
       category: category,
-      totalEarned: displayPoints,
+      totalEarned: isProduceBlocks ? displayTotalEarned : displayBasePoints,
       data: data,
       epochSectionLabel: epochSectionLabel,
       epochEarned: epochEarned,

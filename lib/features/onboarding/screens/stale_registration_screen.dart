@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/core/utils/url_launcher.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 
 class StaleRegistrationScreen extends StatelessWidget {
@@ -61,7 +61,8 @@ class StaleRegistrationScreen extends StatelessWidget {
                 label: l10n.registrationStaleAction,
                 variant: ButtonVariant.primary,
                 size: ButtonSize.large,
-                onTap: () => context.go(AppRoutes.onboardingImportApi),
+                onTap: () =>
+                    launchExternalUrl(AppConfig.discordInviteUrl),
               ),
             ],
           ),

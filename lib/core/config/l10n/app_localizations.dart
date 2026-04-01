@@ -62,7 +62,7 @@ import 'app_localizations_en.dart';
 /// property.
 abstract class AppLocalizations {
   AppLocalizations(String locale)
-    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+      : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -85,11 +85,11 @@ abstract class AppLocalizations {
   /// of delegates is preferred or required.
   static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
       <LocalizationsDelegate<dynamic>>[
-        delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-      ];
+    delegate,
+    GlobalMaterialLocalizations.delegate,
+    GlobalCupertinoLocalizations.delegate,
+    GlobalWidgetsLocalizations.delegate,
+  ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[Locale('en')];
@@ -2803,26 +2803,14 @@ abstract class AppLocalizations {
   /// Body text for stale registration blocking screen
   ///
   /// In en, this message translates to:
-  /// **'Your registration is from a previous season. Blocks produced with old credentials won\'t earn points. Please re-register to participate in the current season.'**
+  /// **'Your registration is from a previous season. Blocks produced with old credentials won\'t earn points. Please contact the team on Discord for assistance.'**
   String get registrationStaleBody;
 
   /// Button text on stale registration screen
   ///
   /// In en, this message translates to:
-  /// **'Re-register'**
+  /// **'Contact us on Discord'**
   String get registrationStaleAction;
-
-  /// Body text for dismissable stale registration warning banner
-  ///
-  /// In en, this message translates to:
-  /// **'Your registration may be from a previous season. Blocks produced with old credentials won\'t earn points.'**
-  String get registrationStaleBannerBody;
-
-  /// Dismiss button on stale registration banner
-  ///
-  /// In en, this message translates to:
-  /// **'Dismiss'**
-  String get registrationStaleBannerDismiss;
 }
 
 class _AppLocalizationsDelegate
@@ -2850,9 +2838,8 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   }
 
   throw FlutterError(
-    'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
-    'an issue with the localizations generation tool. Please file an issue '
-    'on GitHub with a reproducible sample app and the gen-l10n configuration '
-    'that was used.',
-  );
+      'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
+      'an issue with the localizations generation tool. Please file an issue '
+      'on GitHub with a reproducible sample app and the gen-l10n configuration '
+      'that was used.');
 }

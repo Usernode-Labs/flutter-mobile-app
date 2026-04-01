@@ -1565,15 +1565,8 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get registrationStaleBody =>
-      'Your registration is from a previous season. Blocks produced with old credentials won\'t earn points. Please re-register to participate in the current season.';
+      'Your registration is from a previous season. Blocks produced with old credentials won\'t earn points. Please contact the team on Discord for assistance.';
 
   @override
-  String get registrationStaleAction => 'Re-register';
-
-  @override
-  String get registrationStaleBannerBody =>
-      'Your registration may be from a previous season. Blocks produced with old credentials won\'t earn points.';
-
-  @override
-  String get registrationStaleBannerDismiss => 'Dismiss';
+  String get registrationStaleAction => 'Contact us on Discord';
 }

@@ -2085,20 +2085,12 @@
   "@registrationStaleTitle": {
     "description": "Title for stale registration blocking screen"
   },
-  "registrationStaleBody": "Your registration is from a previous season. Blocks produced with old credentials won't earn points. Please re-register to participate in the current season.",
+  "registrationStaleBody": "Your registration is from a previous season. Blocks produced with old credentials won't earn points. Please contact the team on Discord for assistance.",
   "@registrationStaleBody": {
     "description": "Body text for stale registration blocking screen"
   },
-  "registrationStaleAction": "Re-register",
+  "registrationStaleAction": "Contact us on Discord",
   "@registrationStaleAction": {
     "description": "Button text on stale registration screen"
-  },
-  "registrationStaleBannerBody": "Your registration may be from a previous season. Blocks produced with old credentials won't earn points.",
-  "@registrationStaleBannerBody": {
-    "description": "Body text for dismissable stale registration warning banner"
-  },
-  "registrationStaleBannerDismiss": "Dismiss",
-  "@registrationStaleBannerDismiss": {
-    "description": "Dismiss button on stale registration banner"
   }
 }

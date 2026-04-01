@@ -118,9 +118,6 @@ final registrationFreshnessProvider = StateProvider<RegistrationFreshness>(
   (ref) => RegistrationFreshness.unknown,
 );
 
-/// SharedPreferences key for the stale-banner dismiss flag.
-/// Used by the banner widget and cleared on re-registration.
-const staleBannerDismissedKey = 'registration:stale_banner_dismissed';
 
 /// Refresh all active leaderboard providers silently.
 /// For pull-to-refresh on the leaderboard screen.

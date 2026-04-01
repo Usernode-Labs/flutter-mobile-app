@@ -9,6 +9,8 @@ import 'sheet_layout.dart';
 /// Returns the index of the selected option, or `null` if dismissed
 /// (tap barrier or drag down).
 ///
+/// [dividerAfterIndex] inserts a [Divider] after the option at that index.
+///
 /// Wraps M3 [showModalBottomSheet] for native drag-to-dismiss, barrier tap,
 /// and accessibility. Visual appearance is controlled by `bottomSheetTheme`
 /// in [ColorIsExpensiveTheme].
@@ -17,6 +19,7 @@ Future<int?> showDropdownSheet({
   required List<String> labels,
   String? title,
   int? selectedIndex,
+  int? dividerAfterIndex,
 }) {
   return showModalBottomSheet<int>(
     context: context,
@@ -28,6 +31,7 @@ Future<int?> showDropdownSheet({
       labels: labels,
       title: title,
       selectedIndex: selectedIndex,
+      dividerAfterIndex: dividerAfterIndex,
     ),
   );
 }
@@ -37,25 +41,36 @@ class _DropdownSheetBody extends StatelessWidget {
     required this.labels,
     this.title,
     this.selectedIndex,
+    this.dividerAfterIndex,
   });
 
   final List<String> labels;
   final String? title;
   final int? selectedIndex;
+  final int? dividerAfterIndex;
 
   @override
   Widget build(BuildContext context) {
+    final dividerSlot =
+        dividerAfterIndex != null ? dividerAfterIndex! + 1 : -1;
+
     return SheetLayout(
       title: title,
       child: ListView.builder(
         shrinkWrap: true,
-        itemCount: labels.length,
+        itemCount: labels.length + (dividerAfterIndex != null ? 1 : 0),
         itemBuilder: (context, index) {
-          final isSelected = index == selectedIndex;
+          if (index == dividerSlot) {
+            return const Divider(height: 1);
+          }
+          final labelIndex = index > dividerSlot && dividerSlot >= 0
+              ? index - 1
+              : index;
+          final isSelected = labelIndex == selectedIndex;
           return _OptionRow(
-            label: labels[index],
+            label: labels[labelIndex],
             selected: isSelected,
-            onTap: () => Navigator.of(context).pop(index),
+            onTap: () => Navigator.of(context).pop(labelIndex),
           );
         },
       ),

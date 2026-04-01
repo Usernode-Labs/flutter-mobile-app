@@ -122,10 +122,6 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                 child: DropdownChain(
                   items: [
                     DropdownChainItem(
-                      label: seasonLabel(context, ref),
-                      onTap: () => showSeasonPicker(context, ref),
-                    ),
-                    DropdownChainItem(
                       label: eventLabel(context, ref),
                       onTap: () => showEventPicker(context, ref),
                     ),
@@ -352,8 +348,16 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     List<EnrichedChallenge> challenges,
   ) {
     final l10n = AppLocalizations.of(context);
-    final remaining = challenges.where((c) => !c.participantCompleted).toList();
+    final now = DateTime.now().toUtc();
     final completed = challenges.where((c) => c.participantCompleted).toList();
+    final remaining = challenges.where((c) {
+      if (c.participantCompleted) return false;
+      // Hide expired challenges the user didn't complete.
+      final end = c.dto.scheduleEnd != null
+          ? DateTime.tryParse(c.dto.scheduleEnd!)
+          : null;
+      return end == null || !now.isAfter(end.toUtc());
+    }).toList();
 
     var totalPoints = 0;
     for (final c in completed) {

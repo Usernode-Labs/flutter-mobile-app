@@ -1774,29 +1774,23 @@ abstract class AppLocalizations {
   /// **'Flash'**
   String get categoryFlash;
 
-  /// Fallback label when no season name is available
+  /// Label for selecting all events in the event picker
   ///
   /// In en, this message translates to:
-  /// **'Season'**
-  String get seasonFallback;
+  /// **'All Events'**
+  String get allEvents;
 
-  /// Fallback label when no phase/event name is available
+  /// Title for event picker bottom sheet
   ///
   /// In en, this message translates to:
-  /// **'Phase'**
-  String get phaseFallback;
+  /// **'Select Event'**
+  String get selectEvent;
 
-  /// Title for season picker bottom sheet
+  /// Suffix for ended events in the event picker
   ///
   /// In en, this message translates to:
-  /// **'Select Season'**
-  String get selectSeason;
-
-  /// Title for phase picker bottom sheet
-  ///
-  /// In en, this message translates to:
-  /// **'Select Phase'**
-  String get selectPhase;
+  /// **'Ended'**
+  String get eventEnded;
 
   /// Error message when challenges fail to load
   ///
@@ -2809,26 +2803,14 @@ abstract class AppLocalizations {
   /// Body text for stale registration blocking screen
   ///
   /// In en, this message translates to:
-  /// **'Your registration is from a previous season. Blocks produced with old credentials won\'t earn points. Please re-register to participate in the current season.'**
+  /// **'Your registration is from a previous season. Blocks produced with old credentials won\'t earn points. Please contact the team on Discord for assistance.'**
   String get registrationStaleBody;
 
   /// Button text on stale registration screen
   ///
   /// In en, this message translates to:
-  /// **'Re-register'**
+  /// **'Contact us on Discord'**
   String get registrationStaleAction;
-
-  /// Body text for dismissable stale registration warning banner
-  ///
-  /// In en, this message translates to:
-  /// **'Your registration may be from a previous season. Blocks produced with old credentials won\'t earn points.'**
-  String get registrationStaleBannerBody;
-
-  /// Dismiss button on stale registration banner
-  ///
-  /// In en, this message translates to:
-  /// **'Dismiss'**
-  String get registrationStaleBannerDismiss;
 }
 
 class _AppLocalizationsDelegate

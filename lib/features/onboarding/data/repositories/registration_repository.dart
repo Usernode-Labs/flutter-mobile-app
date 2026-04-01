@@ -152,7 +152,7 @@ class RegistrationRepository {
     switch (resp.statusCode) {
       case 403:
         return detail ??
-            'These credentials belong to a previous event that is no longer active. Please check your latest invite email for updated credentials.';
+            'This registration code is no longer active. Please check your latest invite email for updated credentials.';
       case 404:
         return detail ??
             'Username not found or registration code invalid. Please double-check both fields and try again.';
@@ -181,6 +181,8 @@ class RegistrationResult {
     required this.address,
     required this.tier,
     required this.secretKey,
+    this.seasonId,
+    this.seasonName,
     this.eventId,
     this.eventName,
     this.eventEndsAt,
@@ -192,6 +194,8 @@ class RegistrationResult {
   final String address;
   final String tier;
   final String secretKey;
+  final int? seasonId;
+  final String? seasonName;
   final int? eventId;
   final String? eventName;
   final String? eventEndsAt;
@@ -228,6 +232,8 @@ class RegistrationResult {
       ]),
       tier: json['tier'] as String,
       secretKey: requiredString(['secret_key', 'secret_key_hex']),
+      seasonId: parseInt(json['season_id']),
+      seasonName: json['season_name'] as String?,
       eventId: event is Map<String, dynamic>
           ? parseInt(event['event_id'] ?? event['id'])
           : null,

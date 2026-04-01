@@ -131,11 +131,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   // Watch providers to make router reactive and capture their values
   final hasAnyAccountAsync = ref.watch(hasAnyAccountProvider);
   final hasCompletedOnboardingAsync = ref.watch(hasCompletedOnboardingProvider);
-  // Watch freshness + bootstrap so the check runs at cold start.
-  // Soft mode: banner in HomeScreen instead of blocking redirect.
-  // When switching to hard mode, capture the value in a local variable
-  // and use it in the redirect function below.
-  ref.watch(registrationFreshnessProvider);
+  // Watch freshness + bootstrap so the router reacts to stale detection.
+  final registrationFreshness = ref.watch(registrationFreshnessProvider);
   ref.watch(leaderboardBootstrapProvider);
 
   return GoRouter(
@@ -361,15 +358,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Account exists AND onboarding completed
       _log.trace('Account exists and onboarding completed');
 
-      // NOTE: Stale registration uses soft mode (banner in HomeScreen) for now.
-      // The blocking redirect below is commented out until telemetry confirms
-      // zero false positives. Uncomment to switch to hard mode:
-      //
-      // if (registrationFreshness == RegistrationFreshness.stale &&
-      //     currentLocation != AppRoutes.staleRegistration &&
-      //     currentLocation != AppRoutes.onboardingImportApi) {
-      //   return AppRoutes.staleRegistration;
-      // }
+      // Block app usage when registration belongs to a previous season.
+      if (registrationFreshness == RegistrationFreshness.stale &&
+          currentLocation != AppRoutes.staleRegistration &&
+          currentLocation != AppRoutes.onboardingImportApi) {
+        return AppRoutes.staleRegistration;
+      }
 
       // Allow stale registration screen (lives outside /onboarding/)
       if (currentLocation == AppRoutes.staleRegistration) {

@@ -193,6 +193,7 @@ void main() {
         'id': 7,
         'event_id': 2,
         'event_name': 'Event 2',
+        'event_type': 'season',
         'category': 'block_production',
         'sub_category': 'PRODUCE_BLOCKS_CHALLENGE',
         'goal': 'Produce 10 blocks',
@@ -211,6 +212,7 @@ void main() {
       expect(c.id, 7);
       expect(c.eventId, 2);
       expect(c.eventName, 'Event 2');
+      expect(c.eventType, 'season');
       expect(c.category, 'block_production');
       expect(c.subCategory, 'PRODUCE_BLOCKS_CHALLENGE');
       expect(c.goal, 'Produce 10 blocks');
@@ -234,6 +236,7 @@ void main() {
       });
       expect(c.eventId, isNull);
       expect(c.eventName, isNull);
+      expect(c.eventType, isNull);
       expect(c.subCategory, isNull);
       expect(c.description, isNull);
       expect(c.requirements, isNull);
@@ -259,27 +262,40 @@ void main() {
   });
 
   group('LeaderboardEvent', () {
-    test('fromJson parses all fields', () {
+    test('fromJson parses all fields including type', () {
       final e = LeaderboardEvent.fromJson({
         'id': 5,
         'name': 'Event 5',
+        'type': 'regular',
         'starts_at': '2025-01-01',
         'ends_at': '2025-01-07',
         'is_active': true,
       });
       expect(e.id, 5);
       expect(e.name, 'Event 5');
+      expect(e.type, 'regular');
       expect(e.startsAt, '2025-01-01');
       expect(e.endsAt, '2025-01-07');
       expect(e.isActive, true);
     });
 
-    test('fromJson handles null dates', () {
+    test('fromJson parses season type', () {
+      final e = LeaderboardEvent.fromJson({
+        'id': 10,
+        'name': 'Season 1 Global Challenges',
+        'type': 'season',
+        'is_active': true,
+      });
+      expect(e.type, 'season');
+    });
+
+    test('fromJson handles null dates and type', () {
       final e = LeaderboardEvent.fromJson({
         'id': 1,
         'name': 'E1',
         'is_active': false,
       });
+      expect(e.type, isNull);
       expect(e.startsAt, isNull);
       expect(e.endsAt, isNull);
     });
@@ -290,10 +306,11 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('SeasonEventDto', () {
-    test('fromJson parses event_id key', () {
+    test('fromJson parses event_id key with type', () {
       final e = SeasonEventDto.fromJson({
         'event_id': 5,
         'name': 'Event 5',
+        'type': 'regular',
         'description': 'The fifth event',
         'starts_at': '2025-01-01',
         'ends_at': '2025-01-07',
@@ -301,10 +318,21 @@ void main() {
       });
       expect(e.id, 5);
       expect(e.name, 'Event 5');
+      expect(e.type, 'regular');
       expect(e.description, 'The fifth event');
       expect(e.startsAt, '2025-01-01');
       expect(e.endsAt, '2025-01-07');
       expect(e.isActive, true);
+    });
+
+    test('fromJson parses season type', () {
+      final e = SeasonEventDto.fromJson({
+        'event_id': 10,
+        'name': 'Season 1 Global Challenges',
+        'type': 'season',
+        'is_active': true,
+      });
+      expect(e.type, 'season');
     });
 
     test('fromJson falls back to id key (cache compat)', () {
@@ -322,15 +350,17 @@ void main() {
         'name': 'E1',
         'is_active': false,
       });
+      expect(e.type, isNull);
       expect(e.description, isNull);
       expect(e.startsAt, isNull);
       expect(e.endsAt, isNull);
     });
 
-    test('toJson round-trip', () {
+    test('toJson round-trip preserves type', () {
       final json = {
         'event_id': 5,
         'name': 'Event 5',
+        'type': 'season',
         'description': 'Desc',
         'starts_at': '2025-01-01',
         'ends_at': '2025-01-07',
@@ -340,6 +370,7 @@ void main() {
       final e2 = SeasonEventDto.fromJson(e.toJson());
       expect(e2.id, e.id);
       expect(e2.name, e.name);
+      expect(e2.type, e.type);
       expect(e2.description, e.description);
       expect(e2.startsAt, e.startsAt);
       expect(e2.endsAt, e.endsAt);
@@ -393,15 +424,40 @@ void main() {
       expect(s.id, 2);
     });
 
-    test('fromJson handles missing events', () {
+    test('fromJson handles missing events and season_challenges', () {
       final s = SeasonDto.fromJson({
         'season_id': 2,
         'name': 'Season 2',
         'is_active': false,
       });
       expect(s.events, isEmpty);
+      expect(s.seasonChallenges, isNull);
       expect(s.description, isNull);
       expect(s.startsAt, isNull);
+    });
+
+    test('fromJson parses season_challenges', () {
+      final s = SeasonDto.fromJson({
+        'season_id': 1,
+        'name': 'Season 1',
+        'is_active': true,
+        'events': [],
+        'season_challenges': [
+          {
+            'challenge_id': 42,
+            'id': 42,
+            'category': 'TECHNICAL',
+            'goal': 'Produce Every Block',
+            'task': 'Block Production',
+            'reward': 6500,
+            'enabled': true,
+            'completed': false,
+          },
+        ],
+      });
+      expect(s.seasonChallenges, hasLength(1));
+      expect(s.seasonChallenges!.first.id, 42);
+      expect(s.seasonChallenges!.first.goal, 'Produce Every Block');
     });
 
     test('toJson round-trip', () {
@@ -863,6 +919,7 @@ void main() {
         'id': 7,
         'event_id': 2,
         'event_name': 'Event 2',
+        'event_type': 'season',
         'category': 'block_production',
         'sub_category': 'PRODUCE_BLOCKS_CHALLENGE',
         'goal': 'Produce 10 blocks',
@@ -883,6 +940,7 @@ void main() {
       expect(c2.id, c.id);
       expect(c2.eventId, c.eventId);
       expect(c2.eventName, c.eventName);
+      expect(c2.eventType, c.eventType);
       expect(c2.category, c.category);
       expect(c2.subCategory, c.subCategory);
       expect(c2.goal, c.goal);

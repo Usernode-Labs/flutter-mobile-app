@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/features/onboarding/data/repositories/registration_repository.dart';
@@ -14,7 +13,6 @@ import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
-import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
@@ -112,11 +110,13 @@ class _OnboardingImportApiAccountScreenState
 
       if (!mounted) return;
 
-      // Persist season/event context so cold-start can detect staleness
-      if (registration.eventId != null) {
+      // Persist season context so cold-start can detect staleness.
+      // With season continuity, registration is at the season level —
+      // don't persist the season-phase eventId as a user selection.
+      if (registration.seasonId != null) {
         await LeaderboardBootstrap.persistSeasonEvent(SeasonEventContext(
-          eventId: registration.eventId,
-          eventName: registration.eventName,
+          seasonId: registration.seasonId,
+          seasonName: registration.seasonName,
         ));
       }
 
@@ -133,10 +133,6 @@ class _OnboardingImportApiAccountScreenState
       // Reset stale registration state (important for re-registration flow)
       ref.read(registrationFreshnessProvider.notifier).state =
           RegistrationFreshness.unknown;
-
-      // Clear stale banner dismiss flag so it can reappear if needed
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(NetworkPrefs.prefixKey(staleBannerDismissedKey));
 
       // Invalidate account state so router sees new account immediately
       ref.invalidate(hasAnyAccountProvider);

@@ -11,8 +11,6 @@ import '../src/parallax_surface_layout.dart';
 import '../tokens/app_semantic_colors.dart';
 import '../tokens/app_sizing.dart';
 import '../tokens/app_spacing.dart';
-import '../tokens/app_typography.dart';
-
 WidgetbookComponent dappsPageComponent() {
   return WidgetbookComponent(
     name: 'dApps',
@@ -20,15 +18,7 @@ WidgetbookComponent dappsPageComponent() {
       WidgetbookUseCase(
         name: 'Playground',
         builder: (context) {
-          final dappCount = context.knobs.int.input(
-            label: 'dApp count',
-            initialValue: 4,
-          );
-          final txnCount = context.knobs.int.input(
-            label: 'Transaction count',
-            initialValue: 1234,
-          );
-          return _DappsPage(dappCount: dappCount, txnCount: txnCount);
+          return const _DappsPage();
         },
       ),
     ],
@@ -51,10 +41,7 @@ const _sortLabels = [
 // ---------------------------------------------------------------------------
 
 class _DappsPage extends StatefulWidget {
-  const _DappsPage({required this.dappCount, required this.txnCount});
-
-  final int dappCount;
-  final int txnCount;
+  const _DappsPage();
 
   @override
   State<_DappsPage> createState() => _DappsPageState();
@@ -80,9 +67,9 @@ class _DappsPageState extends State<_DappsPage> {
 
     return Scaffold(
       body: ParallaxSurfaceLayout(
-        headerHeight: kScreenHeaderHeight,
+        headerHeight: 1,
         scrollFractionNotifier: _scrollFraction,
-        header: _buildHeader(context),
+        header: const SizedBox.shrink(),
         surfaceSlivers: [
           // 48px content slot — sort bar
           SliverPadding(
@@ -169,28 +156,6 @@ class _DappsPageState extends State<_DappsPage> {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    final spacing = theme.extension<AppSpacing>()!;
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _StatPair(value: '${widget.dappCount}', label: 'dApps'),
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: spacing.space24),
-          child: Container(
-            width: 1,
-            height: 40,
-            color: colors.outline.withValues(alpha: 0.2),
-          ),
-        ),
-        _StatPair(value: '${widget.txnCount}', label: 'transactions'),
-      ],
-    );
-  }
-
   DappCard _buildMockCard(int index) {
     const mocks = [
       (
@@ -233,34 +198,3 @@ class _DappsPageState extends State<_DappsPage> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Stat pair helper (mirrors _StatPair in dapps_screen.dart)
-// ---------------------------------------------------------------------------
-
-class _StatPair extends StatelessWidget {
-  const _StatPair({required this.value, required this.label});
-
-  final String value;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          value,
-          style: theme.textTheme.displaySmall
-              ?.copyWith(fontFamily: kMonoFontFamily),
-        ),
-        Text(
-          label,
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
-    );
-  }
-}

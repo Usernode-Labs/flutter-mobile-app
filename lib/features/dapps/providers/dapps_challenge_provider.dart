@@ -16,7 +16,8 @@ final dappsChallengeProvider = Provider<ChallengeDto?>((ref) {
 
 /// Whether dApps live functionality is enabled.
 ///
-/// TODO: restore challenge gate before release.
+/// True when the dApps challenge exists and is enabled.
 final dappsLiveProvider = Provider<bool>((ref) {
-  return true;
+  final challenge = ref.watch(dappsChallengeProvider);
+  return challenge != null && challenge.enabled;
 });

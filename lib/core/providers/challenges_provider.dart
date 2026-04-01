@@ -40,6 +40,7 @@ class ChallengesController
       final result = await service.getChallenges(
         seasonId: ctx.seasonId,
         eventId: ctx.eventId,
+        onlyScheduled: ctx.eventId == null ? true : null,
       );
       final now = DateTime.now().toUtc().toIso8601String();
       await LeaderboardCache.write(

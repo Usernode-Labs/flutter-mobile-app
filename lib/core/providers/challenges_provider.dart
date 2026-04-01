@@ -37,21 +37,10 @@ class ChallengesController
   ) async {
     try {
       final service = ref.read(leaderboardApiServiceProvider);
-      var result = await service.getChallenges(
+      final result = await service.getChallenges(
         seasonId: ctx.seasonId,
         eventId: ctx.eventId,
-        onlyScheduled: ctx.eventId == null ? true : null,
       );
-      // Client-side safety net: when showing all events, drop challenges
-      // whose schedule has already ended.
-      if (ctx.eventId == null) {
-        final now = DateTime.now().toUtc();
-        result = result.where((c) {
-          if (c.scheduleEnd == null) return true;
-          final end = DateTime.tryParse(c.scheduleEnd!);
-          return end == null || !now.isAfter(end.toUtc());
-        }).toList();
-      }
       final now = DateTime.now().toUtc().toIso8601String();
       await LeaderboardCache.write(
         type: 'challenges',

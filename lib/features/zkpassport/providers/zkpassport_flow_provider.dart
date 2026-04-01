@@ -110,6 +110,14 @@ class ZkPassportFlowController {
   }
 
   Future<ZkPassportLaunchResult> _startServerOwnedRegistration() async {
+    if (AppConfig.viewOnly) {
+      return const ZkPassportLaunchResult(
+        started: false,
+        requestId: null,
+        message: 'zkPassport session creation is disabled in view-only mode.',
+      );
+    }
+
     final pipeline = _ref.read(zkPassportPipelineProvider);
     final pipelineController = _ref.read(zkPassportPipelineProvider.notifier);
     final activeRequestId = pipeline.requestId?.trim();
@@ -1231,6 +1239,16 @@ class ZkPassportPipelineController
     required String sessionId,
     required String? nullifierHex,
   }) async {
+    if (AppConfig.viewOnly) {
+      _log.info(
+        'Skipping zkPassport backend completion in view-only mode',
+        context: {'sessionId': sessionId},
+      );
+      final repo = _ref.read(zkPassportRegistrationRepositoryProvider);
+      await repo.clearPendingCompletion();
+      return;
+    }
+
     final participantId = await _ref.read(participantIdProvider.future);
     final challengeId = _ref.read(zkIdentityChallengeIdProvider);
     if (participantId == null || challengeId == null || nullifierHex == null) {
@@ -1289,6 +1307,12 @@ class ZkPassportPipelineController
   Future<void> _retryPendingCompletion() async {
     final repo = _ref.read(zkPassportRegistrationRepositoryProvider);
     try {
+      if (AppConfig.viewOnly) {
+        await repo.clearPendingCompletion();
+        _log.info('Cleared pending zkPassport completion in view-only mode');
+        return;
+      }
+
       final pending = await repo.getPendingCompletion();
       if (pending == null) return;
 

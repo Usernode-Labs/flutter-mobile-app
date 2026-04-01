@@ -56,8 +56,11 @@ void main() {
               'ends_at': '2025-06-01',
             },
           }));
-      final service =
-          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        httpClient: client,
+        writesEnabled: true,
+      );
 
       final result = await service.register(
         registrationCode: 'code-123',
@@ -84,8 +87,11 @@ void main() {
         }),
         onRequest: (r) => captured = r,
       );
-      final service =
-          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        httpClient: client,
+        writesEnabled: true,
+      );
 
       await service.register(
         registrationCode: 'my-code',
@@ -103,8 +109,11 @@ void main() {
 
     test('throws LeaderboardApiException on 400', () async {
       final client = _mockClient(400, {'error': 'Bad request'});
-      final service =
-          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        httpClient: client,
+        writesEnabled: true,
+      );
 
       expect(
         () => service.register(
@@ -121,8 +130,11 @@ void main() {
 
     test('throws LeaderboardApiException on 409 conflict', () async {
       final client = _mockClient(409, {'error': 'Already registered'});
-      final service =
-          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        httpClient: client,
+        writesEnabled: true,
+      );
 
       expect(
         () => service.register(
@@ -135,6 +147,31 @@ void main() {
               .having((e) => e.message, 'message', 'Already registered'),
         ),
       );
+    });
+
+    test('fails fast in view-only mode before sending request', () async {
+      var requestSent = false;
+      final client = MockClient((request) async {
+        requestSent = true;
+        return http.Response('{}', 200);
+      });
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        httpClient: client,
+        writesEnabled: false,
+      );
+
+      expect(
+        () => service.register(
+          registrationCode: 'code-123',
+          identifier: 'test-id',
+        ),
+        throwsA(
+          isA<LeaderboardApiException>()
+              .having((e) => e.statusCode, 'statusCode', 503),
+        ),
+      );
+      expect(requestSent, isFalse);
     });
   });
 

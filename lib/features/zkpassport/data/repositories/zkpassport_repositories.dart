@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
@@ -241,11 +242,14 @@ class ZkPassportSessionServerRepository {
   ZkPassportSessionServerRepository({
     required String baseUrl,
     http.Client? httpClient,
+    bool? writesEnabled,
   })  : _baseUrl = _normalizeBaseUrl(baseUrl),
-        _http = httpClient ?? http.Client();
+        _http = httpClient ?? http.Client(),
+        _writesEnabled = writesEnabled ?? !AppConfig.viewOnly;
 
   final String _baseUrl;
   final http.Client _http;
+  final bool _writesEnabled;
 
   Future<ZkPassportSessionStartResponse> startSession({
     required String walletAddress,
@@ -253,6 +257,13 @@ class ZkPassportSessionServerRepository {
     required int nonce,
     required bool facematchStrict,
   }) async {
+    if (!_writesEnabled) {
+      throw ZkPassportSessionServerException(
+        503,
+        'Backend write requests are disabled in view-only mode.',
+      );
+    }
+
     final json = await _postJson(
       '/v1/zkp/sessions/start',
       body: {

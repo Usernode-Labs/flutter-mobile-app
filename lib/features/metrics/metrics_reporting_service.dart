@@ -127,6 +127,11 @@ class MetricsReportingService {
       return;
     }
 
+    if (AppConfig.viewOnly) {
+      _log.warn('Metrics reporting disabled in view-only mode');
+      return;
+    }
+
     // Check if metrics are enabled in environment
     if (!AppConfig.metricsEnabled) {
       _log.warn(
@@ -210,6 +215,14 @@ class MetricsReportingService {
   ///
   /// Use this for one-off events that are not part of the block production flow.
   void reportEvent(String eventType, {Map<String, dynamic>? eventData}) {
+    if (AppConfig.viewOnly) {
+      _log.debug(
+        'Skipping metrics event in view-only mode',
+        context: {'event_type': eventType},
+      );
+      return;
+    }
+
     if (!_isRunning || _httpClient == null) {
       _log.debug('Cannot report event: service not running');
       return;
@@ -306,7 +319,9 @@ class MetricsReportingService {
 
   /// Send metrics payload to the centralized API
   Future<bool> _sendMetrics(MetricsPayload payload) async {
-    if (_httpClient == null) return false;
+    if (AppConfig.viewOnly || _httpClient == null) {
+      return false;
+    }
 
     try {
       final url = Uri.parse(AppConfig.metricsEndpoint);

@@ -28,6 +28,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 
 final _log = LoggingService.instance.withTag('usernode/NodeService');
+const _viewOnlyTransactionError =
+    'Transactions are disabled in view-only mode.';
 
 /// Parse log level string to TracingLevel enum
 TracingLevel _parseTracingLevel(String level) {
@@ -261,11 +263,15 @@ class RustBackendService {
       // Load network configuration from URLs (with retry)
       await _configureNetworkFromUrls(builder);
 
-      _log.trace(
-        'Configuring block producer with user secret key (length: ${secretKey.length})',
-      );
-      builder.blockProducerSecretKey(secretKey: secretKey);
-      if (AppConfig.observabilityHubBaseUrl.isNotEmpty) {
+      if (AppConfig.viewOnly) {
+        _log.info('VIEW_ONLY enabled; skipping block producer configuration');
+      } else {
+        _log.trace(
+          'Configuring block producer with user secret key (length: ${secretKey.length})',
+        );
+        builder.blockProducerSecretKey(secretKey: secretKey);
+      }
+      if (!AppConfig.viewOnly && AppConfig.observabilityHubBaseUrl.isNotEmpty) {
         _log.info(
           'Enabling observability hub HTTP intake',
           context: {'base_url': AppConfig.observabilityHubBaseUrl},
@@ -273,12 +279,16 @@ class RustBackendService {
         builder.enableObservabilityHubHttp(
           baseUrl: AppConfig.observabilityHubBaseUrl,
         );
+      } else if (AppConfig.observabilityHubBaseUrl.isNotEmpty) {
+        _log.info('Skipping observability hub HTTP intake in view-only mode');
       }
       if (AppConfig.enableRealProver) {
         _log.info('Forcing real prover mode');
         builder.enableRealProver();
       }
-      builder.mempoolAutoinsertInterval(secs: BigInt.from(1));
+      if (!AppConfig.viewOnly) {
+        builder.mempoolAutoinsertInterval(secs: BigInt.from(1));
+      }
 
       // Configure persistent VRF storage path so VRF evaluation progress survives restarts.
       // Use network-specific path to avoid conflicts when switching networks.
@@ -339,7 +349,8 @@ class RustBackendService {
           return;
         }
 
-        final error = resp?.error ?? (resp == null ? 'null response' : 'ok=false');
+        final error =
+            resp?.error ?? (resp == null ? 'null response' : 'ok=false');
         _log.warn('Wallet signer attempt $attempt failed: $error');
       } catch (e) {
         _log.warn('Wallet signer attempt $attempt exception: $e');
@@ -1044,6 +1055,14 @@ class RustBackendService {
     required BigInt amount,
     required PublicKeyHash toPkHash,
   }) async {
+    if (AppConfig.viewOnly) {
+      _log.info('Skipping transferFunds in view-only mode');
+      return const RpcWalletTxSendResp(
+        queued: false,
+        error: _viewOnlyTransactionError,
+      );
+    }
+
     _log.trace(
       'transferFunds called with params: fromPkHash=[PublicKeyHash], amount=$amount, toPkHash=[PublicKeyHash]',
     );

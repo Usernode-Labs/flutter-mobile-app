@@ -5,6 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/feature_flags.dart';
+import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
+import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
+import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
+import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/utils/lifecycle.dart';
@@ -14,7 +18,9 @@ import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
+import 'package:crypto_mobile_app/features/wallet/models/account.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
+import 'package:crypto_mobile_app/src/rust/account.dart';
 
 class AppBootstrapResult {
   final ProviderContainer container;
@@ -64,6 +70,11 @@ class AppBootstrap {
 
     // Accounts are needed to decide background behavior and set crash context
     final repo = await AccountsRepository.create();
+    await _applyBootstrapIdentity(
+      log: log,
+      container: container,
+      repo: repo,
+    );
     final hasAnyAccounts = await repo.hasAny();
     final activeId = repo.getActiveId();
 
@@ -94,6 +105,117 @@ class AppBootstrap {
       hasAnyAccounts: hasAnyAccounts,
       activeAccountId: activeId,
     );
+  }
+
+  static Future<void> _applyBootstrapIdentity({
+    required TaggedLogger log,
+    required ProviderContainer container,
+    required AccountsRepository repo,
+  }) async {
+    final secretKey = AppConfig.bootstrapSecretKey;
+    final participantId = AppConfig.bootstrapParticipantId;
+    final seasonId = AppConfig.bootstrapSeasonId;
+    final seasonName = AppConfig.bootstrapSeasonName.trim();
+    final eventId = AppConfig.bootstrapEventId;
+    final eventName = AppConfig.bootstrapEventName.trim();
+
+    final hasBootstrapConfig = secretKey.isNotEmpty ||
+        participantId != null ||
+        seasonId != null ||
+        seasonName.isNotEmpty ||
+        eventId != null ||
+        eventName.isNotEmpty;
+    if (!hasBootstrapConfig) {
+      return;
+    }
+
+    log.info('Applying bootstrap identity from env', context: {
+      'has_secret_key': secretKey.isNotEmpty,
+      'has_participant_id': participantId != null,
+      'season_id': seasonId,
+      'event_id': eventId,
+      'complete_onboarding': AppConfig.bootstrapCompleteOnboarding,
+    });
+
+    var hasActiveAccount = false;
+    if (secretKey.isNotEmpty) {
+      try {
+        await RustBackendService.instance.init();
+        final bootstrapAddress =
+            accountFromPrivateKey(secretKey: secretKey).address;
+        AccountMeta? existingAccount;
+        for (final account in await repo.list()) {
+          if (account.address == bootstrapAddress) {
+            existingAccount = account;
+            break;
+          }
+        }
+        if (existingAccount != null) {
+          await repo.setActiveId(existingAccount.id);
+          hasActiveAccount = true;
+          log.info(
+            'Bootstrap account already exists; reusing existing account',
+            context: {
+              'account_id': existingAccount.id,
+              'address': existingAccount.address,
+            },
+          );
+        } else {
+          final account = await repo.importFromSecretKey(
+            name: AppConfig.bootstrapAccountName,
+            secretKey: secretKey,
+          );
+          if (account != null) {
+            hasActiveAccount = true;
+            log.info(
+              'Bootstrap account ready',
+              context: {'account_id': account.id, 'address': account.address},
+            );
+          } else {
+            log.warn('Failed to import bootstrap account from env');
+          }
+        }
+      } catch (e, st) {
+        log.error(
+          'Bootstrap account import failed: $e',
+          error: e,
+          stackTrace: st,
+        );
+      }
+    } else {
+      hasActiveAccount = await repo.hasAny();
+    }
+
+    if (participantId != null) {
+      await saveParticipantId(participantId);
+      log.info('Persisted bootstrap participant id', context: {
+        'participant_id': participantId,
+      });
+    }
+
+    final hasSeasonContext = seasonId != null ||
+        seasonName.isNotEmpty ||
+        eventId != null ||
+        eventName.isNotEmpty;
+    if (hasSeasonContext) {
+      final ctx = SeasonEventContext(
+        seasonId: seasonId,
+        seasonName: seasonName.isNotEmpty ? seasonName : null,
+        eventId: eventId,
+        eventName: eventName.isNotEmpty ? eventName : null,
+      );
+      container.read(seasonEventContextProvider.notifier).state = ctx;
+      await LeaderboardBootstrap.persistSeasonEvent(ctx);
+      log.info('Persisted bootstrap season/event context', context: {
+        'season_id': ctx.seasonId,
+        'event_id': ctx.eventId,
+      });
+    }
+
+    if (hasActiveAccount && AppConfig.bootstrapCompleteOnboarding) {
+      await markOnboardingComplete();
+      log.info('Marked onboarding complete from bootstrap env');
+    }
   }
 
   static Future<void> _bootstrapBackendAsync({

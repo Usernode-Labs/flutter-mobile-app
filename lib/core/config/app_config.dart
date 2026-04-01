@@ -54,6 +54,42 @@ class AppConfig {
     defaultValue: 'https://leaderboard.usernodelabs.org/api/v2/mobile/register',
   );
 
+  // Startup bootstrap for local/dev sign-in without registration.
+  static const String _bootstrapSecretKey =
+      String.fromEnvironment('BOOTSTRAP_SECRET_KEY', defaultValue: '');
+  static const String bootstrapAccountName = String.fromEnvironment(
+      'BOOTSTRAP_ACCOUNT_NAME',
+      defaultValue: 'Bootstrap Account');
+  static const String _bootstrapParticipantIdRaw =
+      String.fromEnvironment('BOOTSTRAP_PARTICIPANT_ID', defaultValue: '');
+  static const String _bootstrapSeasonIdRaw =
+      String.fromEnvironment('BOOTSTRAP_SEASON_ID', defaultValue: '');
+  static const String bootstrapSeasonName =
+      String.fromEnvironment('BOOTSTRAP_SEASON_NAME', defaultValue: '');
+  static const String _bootstrapEventIdRaw =
+      String.fromEnvironment('BOOTSTRAP_EVENT_ID', defaultValue: '');
+  static const String bootstrapEventName =
+      String.fromEnvironment('BOOTSTRAP_EVENT_NAME', defaultValue: '');
+  static const bool bootstrapCompleteOnboarding = bool.fromEnvironment(
+    'BOOTSTRAP_COMPLETE_ONBOARDING',
+    defaultValue: true,
+  );
+
+  static String get bootstrapSecretKey => _bootstrapSecretKey.trim();
+  static bool get hasBootstrapSecretKey => bootstrapSecretKey.isNotEmpty;
+  static int? get bootstrapParticipantId =>
+      _parseOptionalInt(_bootstrapParticipantIdRaw);
+  static int? get bootstrapSeasonId => _parseOptionalInt(_bootstrapSeasonIdRaw);
+  static int? get bootstrapEventId => _parseOptionalInt(_bootstrapEventIdRaw);
+
+  // Global gate for remote/backend mutations and producer-side node behavior.
+  // Defaults to normal behavior; pass `--dart-define=VIEW_ONLY=true`
+  // to disable writes and block production.
+  static const bool viewOnly = bool.fromEnvironment(
+    'VIEW_ONLY',
+    defaultValue: false,
+  );
+
   // Observability hub intake base URL for node startup.
   // Leave empty to disable HTTP observability export from the mobile node.
   static const String observabilityHubBaseUrl = String.fromEnvironment(
@@ -265,6 +301,12 @@ class AppConfig {
     } catch (e) {
       return [];
     }
+  }
+
+  static int? _parseOptionalInt(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return null;
+    return int.tryParse(trimmed);
   }
 }
 

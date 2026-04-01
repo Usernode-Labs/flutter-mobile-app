@@ -10,14 +10,21 @@ import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 
 final _log = LoggingService.instance.withTag('usernode/LeaderboardApiService');
+const _backendWritesDisabledMessage =
+    'Backend write requests are disabled in view-only mode.';
 
 class LeaderboardApiService {
-  LeaderboardApiService({String? baseUrl, http.Client? httpClient})
-      : _baseUrl = baseUrl ?? AppConfig.leaderboardApiBaseUrl,
-        _http = httpClient ?? http.Client();
+  LeaderboardApiService({
+    String? baseUrl,
+    http.Client? httpClient,
+    bool? writesEnabled,
+  })  : _baseUrl = baseUrl ?? AppConfig.leaderboardApiBaseUrl,
+        _http = httpClient ?? http.Client(),
+        _writesEnabled = writesEnabled ?? !AppConfig.viewOnly;
 
   final String _baseUrl;
   final http.Client _http;
+  final bool _writesEnabled;
 
   static const _jsonHeaders = {
     'Content-Type': 'application/json',
@@ -36,6 +43,7 @@ class LeaderboardApiService {
     required String registrationCode,
     required String identifier,
   }) async {
+    _ensureWritesEnabled();
     final data = await _post('/register', body: {
       'registration_code': registrationCode,
       'identifier': identifier,
@@ -163,6 +171,7 @@ class LeaderboardApiService {
     required String sessionId,
     required String nullifierHex,
   }) async {
+    _ensureWritesEnabled();
     try {
       await _post('/zkpassport/complete', body: {
         'participant_id': participantId,
@@ -209,6 +218,17 @@ class LeaderboardApiService {
       () => _http.post(url, headers: _jsonHeaders, body: jsonEncode(body)),
     );
     return _parseEnvelope(resp, url);
+  }
+
+  void _ensureWritesEnabled() {
+    if (_writesEnabled) {
+      return;
+    }
+
+    throw LeaderboardApiException(
+      503,
+      _backendWritesDisabledMessage,
+    );
   }
 
   Future<http.Response> _send(

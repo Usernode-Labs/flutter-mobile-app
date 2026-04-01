@@ -7,6 +7,8 @@ import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 final _log = LoggingService.instance.withTag('usernode/RegistrationRepository');
+const _backendWritesDisabledMessage =
+    'Backend write requests are disabled in view-only mode.';
 
 class RegistrationApiException implements Exception {
   RegistrationApiException(this.statusCode, this.message, {this.body});
@@ -21,16 +23,23 @@ class RegistrationRepository {
   RegistrationRepository({
     String? endpoint,
     http.Client? httpClient,
+    bool? writesEnabled,
   })  : _endpoint = endpoint ?? AppConfig.registrationEndpoint,
-        _http = httpClient ?? http.Client();
+        _http = httpClient ?? http.Client(),
+        _writesEnabled = writesEnabled ?? !AppConfig.viewOnly;
 
   final String _endpoint;
   final http.Client _http;
+  final bool _writesEnabled;
 
   Future<RegistrationResult> register({
     required String registrationCode,
     required String identifier,
   }) async {
+    if (!_writesEnabled) {
+      throw RegistrationApiException(503, _backendWritesDisabledMessage);
+    }
+
     final url = Uri.parse(_endpoint);
     _log.trace('Calling registration endpoint', context: {
       'url': url.toString(),

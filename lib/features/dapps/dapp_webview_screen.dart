@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/design_system/src/button.dart';
-import 'package:crypto_mobile_app/design_system/src/sheet_layout.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_typography.dart';
@@ -323,6 +323,28 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
       return;
     }
 
+    if (AppConfig.viewOnly) {
+      const errorMessage = 'Transactions are disabled in view-only mode.';
+      _txLog.insert(
+        0,
+        _TxLogEntry(
+          timestamp: DateTime.now(),
+          from: fromAddress,
+          to: destinationPubkey,
+          amount: amount,
+          memo: memoString,
+          status: _TxStatus.error,
+          errorMessage: errorMessage,
+        ),
+      );
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: errorMessage,
+      );
+      return;
+    }
+
     final fromPkHash = frb_types.publicKeyHashFromString(s: fromAddress);
     final toPkHash = frb_types.publicKeyHashFromString(s: destinationPubkey);
 
@@ -562,164 +584,6 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
         },
       ),
     );
-  }
-
-  Future<bool> _showTransactionConfirmation({
-    required String from,
-    required String to,
-    required BigInt amount,
-    required String memo,
-  }) async {
-    if (!mounted) return false;
-
-    final confirmed = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.75,
-      ),
-      builder: (ctx) {
-        final theme = Theme.of(ctx);
-        final spacing = theme.extension<AppSpacing>()!;
-        final radii = theme.extension<AppRadii>()!;
-        final muted = theme.colorScheme.onSurfaceVariant;
-
-        Widget detailRow(String label, String value, {bool mono = false}) {
-          return Padding(
-            padding: EdgeInsets.symmetric(vertical: spacing.space8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: theme.textTheme.labelSmall?.copyWith(color: muted),
-                ),
-                SizedBox(height: spacing.space4),
-                Text(
-                  value,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontFamily: mono ? 'monospace' : null,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-
-        String formattedMemo = memo;
-        if (memo.isNotEmpty) {
-          try {
-            final parsed = jsonDecode(memo);
-            const encoder = JsonEncoder.withIndent('  ');
-            formattedMemo = encoder.convert(parsed);
-          } catch (_) {
-            // Not valid JSON — show raw string.
-          }
-        }
-
-        final memoBox = formattedMemo.isEmpty
-            ? const SizedBox.shrink()
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Divider(height: 1),
-                  Padding(
-                    padding: EdgeInsets.only(top: spacing.space8),
-                    child: Text(
-                      'Memo',
-                      style: theme.textTheme.labelSmall?.copyWith(color: muted),
-                    ),
-                  ),
-                  SizedBox(height: spacing.space4),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 150),
-                    child: Scrollbar(
-                      thumbVisibility: true,
-                      child: SingleChildScrollView(
-                        child: SizedBox(
-                          width: double.infinity,
-                          child: Text(
-                            formattedMemo,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              fontFamily: kMonoFontFamily,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              );
-
-        return SheetLayout(
-          title: 'Confirm Transaction',
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: spacing.space16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'A dapp is requesting to send a transaction.',
-                  style: theme.textTheme.bodySmall?.copyWith(color: muted),
-                ),
-                SizedBox(height: spacing.space16),
-                Flexible(
-                  child: Container(
-                    padding: EdgeInsets.all(spacing.space16),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest
-                          .withAlpha(100),
-                      borderRadius: radii.borderRadiusMedium,
-                      border: Border.all(
-                        color: theme.colorScheme.outlineVariant.withAlpha(80),
-                      ),
-                    ),
-                    child: SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          detailRow('From', from, mono: true),
-                          const Divider(height: 1),
-                          detailRow('To', to, mono: true),
-                          const Divider(height: 1),
-                          detailRow('Amount', amount.toString()),
-                          const Divider(height: 1),
-                          detailRow('Fee', '0'),
-                          memoBox,
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                SizedBox(height: spacing.space24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Button(
-                        label: 'Deny',
-                        variant: ButtonVariant.outlined,
-                        onTap: () => Navigator.pop(ctx, false),
-                      ),
-                    ),
-                    SizedBox(width: spacing.space12),
-                    Expanded(
-                      child: Button(
-                        label: 'Confirm',
-                        variant: ButtonVariant.primary,
-                        onTap: () => Navigator.pop(ctx, true),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-
-    return confirmed ?? false;
   }
 
   @override

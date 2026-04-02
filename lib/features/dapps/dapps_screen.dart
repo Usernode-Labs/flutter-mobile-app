@@ -18,7 +18,7 @@ class DappsScreen extends ConsumerStatefulWidget {
 
 class _DappsScreenState extends ConsumerState<DappsScreen> {
   SortMode _sortMode = SortMode.popular;
-  bool _forceEnabled = true; // TODO: revert to false to re-enable "Coming soon"
+  bool _forceEnabled = false;
 
   Future<void> _onRefresh() async {
     ref.invalidate(dappsProvider);

@@ -19,26 +19,74 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 enum _TxStatus { denied, error, queued }
 
-class _TxLogEntry {
-  final DateTime timestamp;
+class _TxRecord {
+  final String id;
+  final DateTime sentAt;
   final String from;
   final String to;
   final BigInt amount;
   final String memo;
   final _TxStatus status;
   final String? errorMessage;
-  final String? txHash;
 
-  const _TxLogEntry({
-    required this.timestamp,
+  DateTime? confirmedAt;
+  int? inclusionLatencyMs;
+  int? blockHeight;
+  int? onChainTimestampMs;
+  String? onChainStatus;
+
+  _TxRecord({
+    required this.id,
+    required this.sentAt,
     required this.from,
     required this.to,
     required this.amount,
     required this.memo,
     required this.status,
     this.errorMessage,
-    this.txHash,
+    this.confirmedAt,
+    this.inclusionLatencyMs,
+    this.blockHeight,
+    this.onChainTimestampMs,
+    this.onChainStatus,
   });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'sentAt': sentAt.millisecondsSinceEpoch,
+        'from': from,
+        'to': to,
+        'amount': amount.toString(),
+        'memo': memo,
+        'status': status.name,
+        if (errorMessage != null) 'error': errorMessage,
+        if (confirmedAt != null)
+          'confirmedAt': confirmedAt!.millisecondsSinceEpoch,
+        if (inclusionLatencyMs != null) 'inclusionLatencyMs': inclusionLatencyMs,
+        if (blockHeight != null) 'blockHeight': blockHeight,
+        if (onChainTimestampMs != null) 'onChainTimestampMs': onChainTimestampMs,
+        if (onChainStatus != null) 'onChainStatus': onChainStatus,
+      };
+
+  factory _TxRecord.fromJson(Map<String, dynamic> j) {
+    return _TxRecord(
+      id: j['id'] as String,
+      sentAt: DateTime.fromMillisecondsSinceEpoch(j['sentAt'] as int),
+      from: j['from'] as String,
+      to: j['to'] as String,
+      amount: BigInt.parse(j['amount'] as String),
+      memo: j['memo'] as String,
+      status: _TxStatus.values.byName(j['status'] as String),
+      errorMessage: j['error'] as String?,
+      confirmedAt: j['confirmedAt'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(j['confirmedAt'] as int)
+          : null,
+      inclusionLatencyMs: (j['inclusionLatencyMs'] as num?)?.toInt(),
+      blockHeight: (j['blockHeight'] as num?)?.toInt(),
+      onChainTimestampMs: (j['onChainTimestampMs'] as num?)?.toInt(),
+      onChainStatus: j['onChainStatus'] as String?,
+    );
+  }
 }
 
 class DappWebViewScreen extends ConsumerStatefulWidget {
@@ -66,34 +114,82 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   final List<DateTime> _secretTaps = <DateTime>[];
   Timer? _secretTapResetTimer;
   bool _showUrlEditor = false;
-  final List<_TxLogEntry> _txLog = [];
-  List<_OnChainTx> _onChainTxCache = [];
-  final Map<String, DateTime> _txConfirmedAt = {};
+  final Set<String> _dappTxIds = {};
+  final Map<String, _TxRecord> _txRecords = {};
   Timer? _confirmPoller;
   String? _cachedChainId;
 
-  String get _confirmedAtPrefsKey => 'dapp_tx_confirmed_at:${widget.url}';
+  static const _maxPersistedIds = 200;
+  static const _maxTxRecords = 500;
 
-  Future<void> _loadConfirmedAt() async {
+  String get _dappTxIdsPrefsKey => 'dapp_tx_ids:${widget.url}';
+  static const _txRecordsPrefsKey = 'tx_records';
+
+  Future<void> _loadDappTxIds() async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_confirmedAtPrefsKey);
+    final raw = prefs.getString(_dappTxIdsPrefsKey);
+    if (raw == null) return;
+    try {
+      final list = jsonDecode(raw) as List<dynamic>;
+      _dappTxIds.addAll(list.cast<String>());
+    } catch (_) {}
+  }
+
+  Future<void> _saveDappTxIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (_dappTxIds.length > _maxPersistedIds) {
+      final sorted = _dappTxIds
+          .where((id) => _txRecords.containsKey(id))
+          .toList()
+        ..sort((a, b) {
+          final ra = _txRecords[a]!;
+          final rb = _txRecords[b]!;
+          return rb.sentAt.compareTo(ra.sentAt);
+        });
+      final kept = sorted.take(_maxPersistedIds).toSet();
+      _dappTxIds
+        ..clear()
+        ..addAll(kept);
+    }
+    await prefs.setString(_dappTxIdsPrefsKey, jsonEncode(_dappTxIds.toList()));
+  }
+
+  Future<void> _loadTxRecords() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_txRecordsPrefsKey);
     if (raw == null) return;
     try {
       final map = jsonDecode(raw) as Map<String, dynamic>;
-      for (final e in map.entries) {
-        _txConfirmedAt[e.key] =
-            DateTime.fromMillisecondsSinceEpoch(e.value as int);
+      for (final entry in map.entries) {
+        _txRecords[entry.key] =
+            _TxRecord.fromJson(entry.value as Map<String, dynamic>);
       }
     } catch (_) {}
   }
 
-  Future<void> _saveConfirmedAt() async {
+  Future<void> _saveTxRecords() async {
     final prefs = await SharedPreferences.getInstance();
-    final map = <String, int>{};
-    for (final e in _txConfirmedAt.entries) {
-      map[e.key] = e.value.millisecondsSinceEpoch;
+    final entries = _txRecords.entries.toList()
+      ..sort((a, b) => b.value.sentAt.compareTo(a.value.sentAt));
+
+    final map = <String, dynamic>{};
+    for (final e in entries.take(_maxTxRecords)) {
+      map[e.key] = e.value.toJson();
     }
-    await prefs.setString(_confirmedAtPrefsKey, jsonEncode(map));
+
+    if (entries.length > _maxTxRecords) {
+      final kept = entries.take(_maxTxRecords).map((e) => e.key).toSet();
+      _txRecords.removeWhere((k, _) => !kept.contains(k));
+    }
+
+    await prefs.setString(_txRecordsPrefsKey, jsonEncode(map));
+  }
+
+  void _addRecord(_TxRecord record) {
+    _dappTxIds.add(record.id);
+    _txRecords[record.id] = record;
+    _saveDappTxIds();
+    _saveTxRecords();
   }
 
   // Transaction confirmation uses Navigator.push with an opaque route instead
@@ -160,7 +256,8 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
         ),
       )
       ..loadRequest(parseDappUrl(widget.url));
-    _loadConfirmedAt();
+    _loadTxRecords();
+    _loadDappTxIds();
   }
 
   @override
@@ -308,17 +405,15 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     );
 
     if (!userConfirmed) {
-      _txLog.insert(
-        0,
-        _TxLogEntry(
-          timestamp: DateTime.now(),
-          from: fromAddress,
-          to: destinationPubkey,
-          amount: amount,
-          memo: memoString,
-          status: _TxStatus.denied,
-        ),
-      );
+      _addRecord(_TxRecord(
+        id: 'local_${DateTime.now().millisecondsSinceEpoch}',
+        sentAt: DateTime.now(),
+        from: fromAddress,
+        to: destinationPubkey,
+        amount: amount,
+        memo: memoString,
+        status: _TxStatus.denied,
+      ));
       await _resolveJsPromise(
         id: id,
         value: null,
@@ -329,18 +424,16 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
 
     if (AppConfig.viewOnly) {
       const errorMessage = 'Transactions are disabled in view-only mode.';
-      _txLog.insert(
-        0,
-        _TxLogEntry(
-          timestamp: DateTime.now(),
-          from: fromAddress,
-          to: destinationPubkey,
-          amount: amount,
-          memo: memoString,
-          status: _TxStatus.error,
-          errorMessage: errorMessage,
-        ),
-      );
+      _addRecord(_TxRecord(
+        id: 'local_${DateTime.now().millisecondsSinceEpoch}',
+        sentAt: DateTime.now(),
+        from: fromAddress,
+        to: destinationPubkey,
+        amount: amount,
+        memo: memoString,
+        status: _TxStatus.error,
+        errorMessage: errorMessage,
+      ));
       await _resolveJsPromise(
         id: id,
         value: null,
@@ -371,19 +464,18 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
 
     final rpcError = resp?.error;
     final isQueued = rpcError == null || rpcError.isEmpty;
-    _txLog.insert(
-      0,
-      _TxLogEntry(
-        timestamp: DateTime.now(),
-        from: fromAddress,
-        to: destinationPubkey,
-        amount: amount,
-        memo: memoString,
-        status: isQueued ? _TxStatus.queued : _TxStatus.error,
-        errorMessage: rpcError,
-        txHash: resp?.txId,
-      ),
-    );
+    final recordId =
+        resp?.txId ?? 'local_${DateTime.now().millisecondsSinceEpoch}';
+    _addRecord(_TxRecord(
+      id: recordId,
+      sentAt: DateTime.now(),
+      from: fromAddress,
+      to: destinationPubkey,
+      amount: amount,
+      memo: memoString,
+      status: isQueued ? _TxStatus.queued : _TxStatus.error,
+      errorMessage: rpcError,
+    ));
 
     if (isQueued && resp?.txId != null) {
       _ensureConfirmPoller();
@@ -408,11 +500,13 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
 
   Future<void> _pollForConfirmations() async {
     final pending = <String, DateTime>{};
-    for (final entry in _txLog) {
-      if (entry.status != _TxStatus.queued) continue;
-      if (entry.txHash == null) continue;
-      if (_txConfirmedAt.containsKey(entry.txHash)) continue;
-      pending[entry.txHash!] = entry.timestamp;
+    for (final id in _dappTxIds) {
+      final rec = _txRecords[id];
+      if (rec == null) continue;
+      if (rec.status != _TxStatus.queued) continue;
+      if (rec.id.startsWith('local_')) continue;
+      if (rec.confirmedAt != null) continue;
+      pending[rec.id] = rec.sentAt;
     }
 
     if (pending.isEmpty) {
@@ -470,18 +564,22 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
         final status = j['status'] as String?;
         if (txId.isNotEmpty &&
             status == 'confirmed' &&
-            pending.containsKey(txId) &&
-            !_txConfirmedAt.containsKey(txId)) {
-          _txConfirmedAt[txId] = now;
-          final oc = _OnChainTx.fromJson(j);
-          _onChainTxCache =
-              _onChainTxCache.where((c) => c.txId != txId).toList()..add(oc);
-          found = true;
+            pending.containsKey(txId)) {
+          final rec = _txRecords[txId];
+          if (rec != null && rec.confirmedAt == null) {
+            rec.confirmedAt = now;
+            rec.inclusionLatencyMs =
+                (j['inclusion_latency_ms'] as num?)?.toInt();
+            rec.blockHeight = (j['block_height'] as num?)?.toInt();
+            rec.onChainTimestampMs = (j['timestamp_ms'] as num?)?.toInt();
+            rec.onChainStatus = status;
+            found = true;
+          }
         }
       }
 
       if (found) {
-        _saveConfirmedAt();
+        _saveTxRecords();
         if (mounted) setState(() {});
       }
     } catch (_) {
@@ -570,12 +668,13 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
         transitionDuration: const Duration(milliseconds: 300),
         reverseTransitionDuration: const Duration(milliseconds: 250),
         pageBuilder: (_, __, ___) => _TxDebugPanel(
-          txLog: _txLog,
+          dappTxIds: _dappTxIds,
+          txRecords: _txRecords,
           userAddress: userAddress,
           explorerOrigin: explorerOrigin,
-          initialOnChainTxs: _onChainTxCache,
-          onOnChainTxsUpdated: (txs) => _onChainTxCache = txs,
-          confirmedAt: _txConfirmedAt,
+          onRecordsUpdated: () {
+            _saveTxRecords();
+          },
         ),
         transitionsBuilder: (_, animation, __, child) {
           return SlideTransition(
@@ -934,72 +1033,19 @@ class _TxConfirmationPageState extends State<_TxConfirmationPage> {
 // Transaction debug panel (opaque route — no WebView overlap)
 // ---------------------------------------------------------------------------
 
-class _OnChainTx {
-  final String txId;
-  final String? source;
-  final String? destination;
-  final String? memo;
-  final String? status;
-  final int? amount;
-  final int? blockHeight;
-  final int? timestampMs;
-  final int? inclusionLatencyMs;
-
-  const _OnChainTx({
-    required this.txId,
-    this.source,
-    this.destination,
-    this.memo,
-    this.status,
-    this.amount,
-    this.blockHeight,
-    this.timestampMs,
-    this.inclusionLatencyMs,
-  });
-
-  factory _OnChainTx.fromJson(Map<String, dynamic> j) {
-    return _OnChainTx(
-      txId: (j['tx_id'] ?? j['id'] ?? j['txid'] ?? j['hash'] ?? '') as String,
-      source: j['source'] as String? ?? j['from_pubkey'] as String?,
-      destination:
-          j['destination'] as String? ?? j['destination_pubkey'] as String?,
-      memo: j['memo'] as String?,
-      status: j['status'] as String?,
-      amount: (j['amount'] as num?)?.toInt(),
-      blockHeight: (j['block_height'] as num?)?.toInt(),
-      timestampMs: (j['timestamp_ms'] as num?)?.toInt(),
-      inclusionLatencyMs: (j['inclusion_latency_ms'] as num?)?.toInt(),
-    );
-  }
-}
-
-class _MergedEntry {
-  final _TxLogEntry local;
-  final _OnChainTx? onChain;
-  final bool isHistorical;
-
-  const _MergedEntry({
-    required this.local,
-    this.onChain,
-    this.isHistorical = false,
-  });
-}
-
 class _TxDebugPanel extends StatefulWidget {
-  final List<_TxLogEntry> txLog;
+  final Set<String> dappTxIds;
+  final Map<String, _TxRecord> txRecords;
   final String? userAddress;
   final Uri explorerOrigin;
-  final List<_OnChainTx> initialOnChainTxs;
-  final ValueChanged<List<_OnChainTx>> onOnChainTxsUpdated;
-  final Map<String, DateTime> confirmedAt;
+  final VoidCallback onRecordsUpdated;
 
   const _TxDebugPanel({
-    required this.txLog,
+    required this.dappTxIds,
+    required this.txRecords,
     required this.userAddress,
     required this.explorerOrigin,
-    required this.initialOnChainTxs,
-    required this.onOnChainTxsUpdated,
-    required this.confirmedAt,
+    required this.onRecordsUpdated,
   });
 
   @override
@@ -1007,8 +1053,7 @@ class _TxDebugPanel extends StatefulWidget {
 }
 
 class _TxDebugPanelState extends State<_TxDebugPanel> {
-  late List<_OnChainTx> _onChainTxs;
-  late bool _loading;
+  bool _loading = false;
   String? _fetchError;
   int? _expandedIndex;
   late final Timer _ageTicker;
@@ -1016,8 +1061,6 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
   @override
   void initState() {
     super.initState();
-    _onChainTxs = List.of(widget.initialOnChainTxs);
-    _loading = _onChainTxs.isEmpty;
     _ageTicker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() {});
     });
@@ -1030,6 +1073,24 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
     super.dispose();
   }
 
+  List<_TxRecord> _sortedRecords() {
+    final records = <_TxRecord>[];
+    for (final id in widget.dappTxIds) {
+      final rec = widget.txRecords[id];
+      if (rec != null) records.add(rec);
+    }
+    records.sort((a, b) => b.sentAt.compareTo(a.sentAt));
+    return records;
+  }
+
+  Future<void> _refresh() async {
+    setState(() {
+      _fetchError = null;
+      _loading = true;
+    });
+    await _fetchExplorerData();
+  }
+
   Future<void> _fetchExplorerData() async {
     final address = widget.userAddress;
     if (address == null || address.isEmpty) {
@@ -1037,57 +1098,22 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
       return;
     }
 
-    // Build a set of on-chain tx IDs for quick lookup.
-    final onChainIds = <String>{};
-    for (final oc in _onChainTxs) {
-      onChainIds.add(oc.txId);
+    final pending = <String, DateTime>{};
+    for (final id in widget.dappTxIds) {
+      final rec = widget.txRecords[id];
+      if (rec == null) continue;
+      if (rec.status != _TxStatus.queued) continue;
+      if (rec.id.startsWith('local_')) continue;
+      if (rec.confirmedAt != null) continue;
+      pending[rec.id] = rec.sentAt;
     }
 
-    // Entries with a txHash are resolved by exact ID match.  Entries without
-    // a hash fall back to count-based (destination, memo) matching.
-    final queuedCounts = <(String, String), int>{};
-    final onChainCounts = <(String, String), int>{};
-    for (final local in widget.txLog) {
-      if (local.status != _TxStatus.queued) continue;
-      if (local.txHash != null) continue; // resolved by exact match below
-      final key = (local.to, local.memo);
-      queuedCounts[key] = (queuedCounts[key] ?? 0) + 1;
-    }
-    for (final oc in _onChainTxs) {
-      if (oc.destination == null || oc.memo == null) continue;
-      final key = (oc.destination!, oc.memo!);
-      if (queuedCounts.containsKey(key)) {
-        onChainCounts[key] = (onChainCounts[key] ?? 0) + 1;
-      }
-    }
-
-    int? fromTimestamp;
-    int unresolvedCount = 0;
-    for (final local in widget.txLog) {
-      if (local.status != _TxStatus.queued) continue;
-      // Exact-hash entries: resolved if the hash appears in on-chain set.
-      if (local.txHash != null) {
-        if (onChainIds.contains(local.txHash)) continue;
-        unresolvedCount++;
-        final ms = local.timestamp.millisecondsSinceEpoch - 60000;
-        if (fromTimestamp == null || ms < fromTimestamp) fromTimestamp = ms;
-        continue;
-      }
-      // Count-based entries: resolved if on-chain count covers queued count.
-      final key = (local.to, local.memo);
-      final needed = queuedCounts[key] ?? 0;
-      final have = onChainCounts[key] ?? 0;
-      if (have >= needed) continue;
-      unresolvedCount++;
-      final ms = local.timestamp.millisecondsSinceEpoch - 60000;
-      if (fromTimestamp == null || ms < fromTimestamp) fromTimestamp = ms;
-    }
-
-    if (fromTimestamp == null && _onChainTxs.isNotEmpty) {
+    if (pending.isEmpty) {
       if (mounted) setState(() => _loading = false);
       return;
     }
-    final hadUnresolved = unresolvedCount > 0;
+
+    setState(() => _loading = true);
 
     try {
       final base = widget.explorerOrigin;
@@ -1100,83 +1126,53 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
       final chainId = chainData['chain_id'] as String?;
       if (chainId == null) throw Exception('No chain_id in response');
 
+      final earliest = pending.values.reduce(
+        (a, b) => a.isBefore(b) ? a : b,
+      );
+      final fromTs = earliest.millisecondsSinceEpoch - 60000;
+
       final txUrl = base.resolve('/explorer-api/$chainId/transactions');
-      final headers = {'Content-Type': 'application/json'};
-
-      final merged = <String, _OnChainTx>{};
-      for (final tx in _onChainTxs) {
-        merged[tx.txId] = tx;
+      final txRes = await http.post(
+        txUrl,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'sender': address,
+          'from_timestamp': fromTs,
+          'limit': 50,
+        }),
+      );
+      if (txRes.statusCode != 200) {
+        throw Exception('Transaction fetch failed (${txRes.statusCode})');
       }
 
-      String? cursor;
-      const maxPages = 20;
+      final txData = jsonDecode(txRes.body) as Map<String, dynamic>;
+      final items = (txData['items'] as List<dynamic>?) ?? [];
+      var found = false;
+      final now = DateTime.now();
 
-      for (var page = 0; page < maxPages; page++) {
-        final query = <String, dynamic>{'sender': address, 'limit': 200};
-        if (fromTimestamp != null && merged.isNotEmpty) {
-          query['from_timestamp'] = fromTimestamp;
-        }
-        if (cursor != null) query['cursor'] = cursor;
-
-        final txRes = await http.post(
-          txUrl,
-          headers: headers,
-          body: jsonEncode(query),
-        );
-        if (txRes.statusCode != 200) {
-          throw Exception('Transaction fetch failed (${txRes.statusCode})');
-        }
-        final txData = jsonDecode(txRes.body) as Map<String, dynamic>;
-        final items = (txData['items'] as List<dynamic>?) ?? [];
-
-        for (final item in items) {
-          final tx = _OnChainTx.fromJson(item as Map<String, dynamic>);
-          if (!merged.containsKey(tx.txId)) {
-            onChainIds.add(tx.txId);
-            if (tx.destination != null && tx.memo != null) {
-              final key = (tx.destination!, tx.memo!);
-              onChainCounts[key] = (onChainCounts[key] ?? 0) + 1;
-            }
+      for (final item in items) {
+        final j = item as Map<String, dynamic>;
+        final txId =
+            (j['tx_id'] ?? j['id'] ?? j['txid'] ?? j['hash'] ?? '') as String;
+        final status = j['status'] as String?;
+        if (txId.isNotEmpty &&
+            status == 'confirmed' &&
+            pending.containsKey(txId)) {
+          final rec = widget.txRecords[txId];
+          if (rec != null && rec.confirmedAt == null) {
+            rec.confirmedAt = now;
+            rec.inclusionLatencyMs =
+                (j['inclusion_latency_ms'] as num?)?.toInt();
+            rec.blockHeight = (j['block_height'] as num?)?.toInt();
+            rec.onChainTimestampMs = (j['timestamp_ms'] as num?)?.toInt();
+            rec.onChainStatus = status;
+            found = true;
           }
-          merged[tx.txId] = tx;
         }
-
-        // Recount unresolved: check both exact-hash and count-based entries.
-        if (hadUnresolved) {
-          var stillUnresolved = false;
-          for (final local in widget.txLog) {
-            if (local.status != _TxStatus.queued) continue;
-            if (local.txHash != null) {
-              if (!onChainIds.contains(local.txHash)) {
-                stillUnresolved = true;
-                break;
-              }
-            } else {
-              final key = (local.to, local.memo);
-              final needed = queuedCounts[key] ?? 0;
-              if (needed > 0 && (onChainCounts[key] ?? 0) < needed) {
-                stillUnresolved = true;
-                break;
-              }
-            }
-          }
-          if (!stillUnresolved) break;
-        }
-
-        final hasMore = txData['has_more'] as bool? ?? false;
-        final nextCursor = txData['next_cursor'] as String?;
-        if (!hasMore || nextCursor == null) break;
-        cursor = nextCursor;
       }
 
-      if (mounted) {
-        final mergedList = merged.values.toList();
-        setState(() {
-          _onChainTxs = mergedList;
-          _loading = false;
-        });
-        widget.onOnChainTxsUpdated(mergedList);
-      }
+      if (found) widget.onRecordsUpdated();
+      if (mounted) setState(() => _loading = false);
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -1187,101 +1183,13 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
     }
   }
 
-  List<_MergedEntry> _buildMergedList() {
-    final matched = <String>{};
-    final results = <_MergedEntry>[];
-
-    final queuedIndices = <int>[];
-    for (var i = 0; i < widget.txLog.length; i++) {
-      if (widget.txLog[i].status == _TxStatus.queued) queuedIndices.add(i);
-    }
-    queuedIndices.sort((a, b) =>
-        widget.txLog[a].timestamp.compareTo(widget.txLog[b].timestamp));
-
-    // Build an index of on-chain txs by txId for O(1) exact matching.
-    final onChainById = <String, _OnChainTx>{};
-    for (final oc in _onChainTxs) {
-      onChainById[oc.txId] = oc;
-    }
-
-    final matchByIndex = <int, _OnChainTx>{};
-    for (final i in queuedIndices) {
-      final local = widget.txLog[i];
-
-      // Primary: exact match by tx hash (available for txs sent in this session).
-      if (local.txHash != null) {
-        final oc = onChainById[local.txHash];
-        if (oc != null && !matched.contains(oc.txId)) {
-          matched.add(oc.txId);
-          matchByIndex[i] = oc;
-          continue;
-        }
-      }
-
-      // Fallback: closest-timestamp heuristic for entries without a hash
-      // (e.g. historical entries synthesized from on-chain data).
-      _OnChainTx? bestMatch;
-      int bestDelta = 0x7FFFFFFFFFFFFFFF;
-      final localMs = local.timestamp.millisecondsSinceEpoch;
-
-      for (final oc in _onChainTxs) {
-        if (matched.contains(oc.txId)) continue;
-        if (oc.destination != local.to || oc.memo != local.memo) continue;
-        final delta = (oc.timestampMs != null)
-            ? (oc.timestampMs! - localMs).abs()
-            : 0x7FFFFFFFFFFFFFFF;
-        if (delta < bestDelta) {
-          bestDelta = delta;
-          bestMatch = oc;
-        }
-      }
-
-      if (bestMatch != null) {
-        matched.add(bestMatch.txId);
-        matchByIndex[i] = bestMatch;
-      }
-    }
-
-    for (var i = 0; i < widget.txLog.length; i++) {
-      final local = widget.txLog[i];
-      if (local.status != _TxStatus.queued) {
-        results.add(_MergedEntry(local: local));
-      } else {
-        results.add(_MergedEntry(local: local, onChain: matchByIndex[i]));
-      }
-    }
-
-    // Append historical on-chain txs not matched to any local entry.
-    for (final oc in _onChainTxs) {
-      if (matched.contains(oc.txId)) continue;
-      if (oc.source == null) continue;
-      final ts = oc.timestampMs != null
-          ? DateTime.fromMillisecondsSinceEpoch(oc.timestampMs!)
-          : DateTime.now();
-      results.add(_MergedEntry(
-        local: _TxLogEntry(
-          timestamp: ts,
-          from: oc.source!,
-          to: oc.destination ?? '',
-          amount: BigInt.from(oc.amount ?? 0),
-          memo: oc.memo ?? '',
-          status: _TxStatus.queued,
-        ),
-        onChain: oc,
-        isHistorical: true,
-      ));
-    }
-
-    return results;
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final spacing = theme.extension<AppSpacing>()!;
     final radii = theme.extension<AppRadii>()!;
     final muted = theme.colorScheme.onSurfaceVariant;
-    final merged = _buildMergedList();
+    final records = _sortedRecords();
 
     return Scaffold(
       appBar: AppBar(
@@ -1315,261 +1223,272 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                 ),
               ),
             Expanded(
-              child: merged.isEmpty
-                  ? Center(
-                      child: Text(
-                        'No transactions yet',
-                        style:
-                            theme.textTheme.bodyMedium?.copyWith(color: muted),
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: EdgeInsets.all(spacing.space16),
-                      itemCount: merged.length,
-                      itemBuilder: (ctx, index) {
-                        final entry = merged[index];
-                        final local = entry.local;
-                        final oc = entry.onChain;
-                        final isExpanded = _expandedIndex == index;
+              child: RefreshIndicator(
+                onRefresh: _refresh,
+                child: records.isEmpty
+                    ? ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: [
+                          SizedBox(height: spacing.space16 * 6),
+                          Center(
+                            child: Text(
+                              'No transactions yet',
+                              style: theme.textTheme.bodyMedium
+                                  ?.copyWith(color: muted),
+                            ),
+                          ),
+                        ],
+                      )
+                    : ListView.builder(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: EdgeInsets.all(spacing.space16),
+                        itemCount: records.length,
+                        itemBuilder: (ctx, index) {
+                          final rec = records[index];
+                          final isExpanded = _expandedIndex == index;
+                          final isConfirmed =
+                              rec.status == _TxStatus.queued &&
+                                  rec.onChainStatus == 'confirmed';
 
-                        final (Color badgeColor, String badgeLabel) =
-                            switch (local.status) {
-                          _TxStatus.denied => (
-                              theme.colorScheme.error,
-                              'Denied'
-                            ),
-                          _TxStatus.error => (theme.colorScheme.error, 'Error'),
-                          _TxStatus.queued when oc?.status == 'confirmed' => (
-                              const Color(0xFF4CAF50),
-                              'Confirmed'
-                            ),
-                          _TxStatus.queued when oc?.status == 'orphaned' => (
-                              theme.colorScheme.error,
-                              'Orphaned'
-                            ),
-                          _TxStatus.queued => (
-                              const Color(0xFFFFA726),
-                              'Pending'
-                            ),
-                        };
+                          final (Color badgeColor, String badgeLabel) =
+                              switch (rec.status) {
+                            _TxStatus.denied => (
+                                theme.colorScheme.error,
+                                'Denied'
+                              ),
+                            _TxStatus.error => (
+                                theme.colorScheme.error,
+                                'Error'
+                              ),
+                            _TxStatus.queued
+                                when rec.onChainStatus == 'confirmed' =>
+                              (const Color(0xFF4CAF50), 'Confirmed'),
+                            _TxStatus.queued
+                                when rec.onChainStatus == 'orphaned' =>
+                              (theme.colorScheme.error, 'Orphaned'),
+                            _TxStatus.queued => (
+                                const Color(0xFFFFA726),
+                                'Pending'
+                              ),
+                          };
 
-                        String memoType = '';
-                        try {
-                          final parsed =
-                              jsonDecode(local.memo) as Map<String, dynamic>;
-                          memoType = parsed['type'] as String? ?? '';
-                        } catch (_) {}
+                          String memoType = '';
+                          try {
+                            final parsed = jsonDecode(rec.memo)
+                                as Map<String, dynamic>;
+                            memoType = parsed['type'] as String? ?? '';
+                          } catch (_) {}
 
-                        final age = DateTime.now().difference(local.timestamp);
-                        final String ageStr;
-                        if (entry.isHistorical) {
-                          ageStr = age.inMinutes < 1
-                              ? '${age.inSeconds}s ago'
-                              : age.inHours < 1
-                                  ? '${age.inMinutes}m ago'
-                                  : age.inDays < 1
-                                      ? '${age.inHours}h ago'
-                                      : '${age.inDays}d ago';
-                        } else {
-                          ageStr = age.inMinutes < 1
+                          final age = DateTime.now().difference(rec.sentAt);
+                          final ageStr = age.inMinutes < 1
                               ? 'sent ${age.inSeconds}s ago'
                               : age.inHours < 1
                                   ? 'sent ${age.inMinutes}m ago'
                                   : age.inDays < 1
                                       ? 'sent ${age.inHours}h ago'
                                       : 'sent ${age.inDays}d ago';
-                        }
 
-                        final bool isConfirmed =
-                            local.status == _TxStatus.queued &&
-                                oc?.status == 'confirmed';
-                        String? confirmTimeStr;
-                        if (isConfirmed) {
-                          // Total latency: phone-clock delta from send to
-                          // first detection as confirmed. Available for txs
-                          // sent in this session.
-                          final ca = local.txHash != null
-                              ? widget.confirmedAt[local.txHash]
-                              : null;
-                          if (ca != null && !entry.isHistorical) {
-                            final totalMs =
-                                ca.difference(local.timestamp).inMilliseconds;
+                          String? confirmTimeStr;
+                          int? confirmTotalSecs;
+                          if (isConfirmed && rec.confirmedAt != null) {
+                            final totalMs = rec.confirmedAt!
+                                .difference(rec.sentAt)
+                                .inMilliseconds;
                             if (totalMs >= 0) {
                               final secs = totalMs ~/ 1000;
+                              confirmTotalSecs = secs;
                               confirmTimeStr = secs < 60
                                   ? '${secs}s'
                                   : '${secs ~/ 60}m ${secs % 60}s';
                             }
                           }
-                          // Fall back to inclusion_latency_ms for historical
-                          // entries or when confirmedAt is unavailable.
                           if (confirmTimeStr == null &&
-                              oc?.inclusionLatencyMs != null) {
-                            final secs = oc!.inclusionLatencyMs! ~/ 1000;
+                              isConfirmed &&
+                              rec.inclusionLatencyMs != null) {
+                            final secs = rec.inclusionLatencyMs! ~/ 1000;
+                            confirmTotalSecs = secs;
                             confirmTimeStr = secs < 60
                                 ? '${secs}s'
                                 : '${secs ~/ 60}m ${secs % 60}s';
                           }
-                        }
 
-                        final txHash = local.txHash ?? oc?.txId;
+                          final txHash =
+                              rec.id.startsWith('local_') ? null : rec.id;
 
-                        return Padding(
-                          padding: EdgeInsets.only(bottom: spacing.space8),
-                          child: GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _expandedIndex = isExpanded ? null : index;
-                              });
-                            },
-                            child: Container(
-                              padding: EdgeInsets.all(spacing.space12),
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.surfaceContainerHighest
-                                    .withAlpha(100),
-                                borderRadius: radii.borderRadiusMedium,
-                                border: Border.all(
-                                  color: theme.colorScheme.outlineVariant
-                                      .withAlpha(80),
+                          return Padding(
+                            padding: EdgeInsets.only(bottom: spacing.space8),
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _expandedIndex =
+                                      isExpanded ? null : index;
+                                });
+                              },
+                              child: Container(
+                                padding: EdgeInsets.all(spacing.space12),
+                                decoration: BoxDecoration(
+                                  color: theme
+                                      .colorScheme.surfaceContainerHighest
+                                      .withAlpha(100),
+                                  borderRadius: radii.borderRadiusMedium,
+                                  border: Border.all(
+                                    color: theme.colorScheme.outlineVariant
+                                        .withAlpha(80),
+                                  ),
                                 ),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 2,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: badgeColor.withAlpha(30),
-                                          borderRadius:
-                                              BorderRadius.circular(4),
-                                        ),
-                                        child: Text(
-                                          badgeLabel,
-                                          style: theme.textTheme.labelSmall
-                                              ?.copyWith(
-                                            color: badgeColor,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                      const Spacer(),
-                                      if (confirmTimeStr != null)
-                                        Padding(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Container(
                                           padding:
-                                              const EdgeInsets.only(right: 6),
+                                              const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 2,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color:
+                                                badgeColor.withAlpha(30),
+                                            borderRadius:
+                                                BorderRadius.circular(4),
+                                          ),
                                           child: Text(
-                                            '⏱ $confirmTimeStr',
-                                            style: theme.textTheme.labelSmall
+                                            badgeLabel,
+                                            style: theme
+                                                .textTheme.labelSmall
                                                 ?.copyWith(
-                                              color: const Color(0xFF4CAF50),
+                                              color: badgeColor,
                                               fontWeight: FontWeight.w600,
                                             ),
                                           ),
                                         ),
-                                      Text(
-                                        ageStr,
-                                        style: theme.textTheme.labelSmall
-                                            ?.copyWith(
-                                          color: muted,
+                                        const Spacer(),
+                                        if (confirmTimeStr != null)
+                                          Padding(
+                                            padding:
+                                                const EdgeInsets.only(
+                                                    right: 6),
+                                            child: Text(
+                                              '\u{23F1} $confirmTimeStr',
+                                              style: theme
+                                                  .textTheme.labelSmall
+                                                  ?.copyWith(
+                                                color: _latencyColor(
+                                                    confirmTotalSecs ?? 0),
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                        Text(
+                                          ageStr,
+                                          style: theme
+                                              .textTheme.labelSmall
+                                              ?.copyWith(color: muted),
+                                        ),
+                                      ],
+                                    ),
+                                    SizedBox(height: spacing.space8),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            'To: ${_truncate(rec.to, 20)}',
+                                            style: theme
+                                                .textTheme.bodySmall
+                                                ?.copyWith(
+                                              fontFamily: kMonoFontFamily,
+                                            ),
+                                          ),
+                                        ),
+                                        Text(
+                                          'Amt: ${rec.amount}',
+                                          style:
+                                              theme.textTheme.bodySmall,
+                                        ),
+                                      ],
+                                    ),
+                                    if (memoType.isNotEmpty)
+                                      Padding(
+                                        padding: EdgeInsets.only(
+                                            top: spacing.space4),
+                                        child: Text(
+                                          'type: $memoType',
+                                          style: theme
+                                              .textTheme.labelSmall
+                                              ?.copyWith(color: muted),
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                  SizedBox(height: spacing.space8),
-                                  Row(
-                                    children: [
-                                      Expanded(
+                                    if (txHash != null &&
+                                        txHash.isNotEmpty)
+                                      Padding(
+                                        padding: EdgeInsets.only(
+                                            top: spacing.space4),
                                         child: Text(
-                                          'To: ${_truncate(local.to, 20)}',
-                                          style: theme.textTheme.bodySmall
+                                          'tx: ${_truncate(txHash, 24)}',
+                                          style: theme
+                                              .textTheme.labelSmall
                                               ?.copyWith(
                                             fontFamily: kMonoFontFamily,
+                                            color: muted,
                                           ),
                                         ),
                                       ),
-                                      Text(
-                                        'Amt: ${local.amount}',
-                                        style: theme.textTheme.bodySmall,
-                                      ),
-                                    ],
-                                  ),
-                                  if (memoType.isNotEmpty)
-                                    Padding(
-                                      padding:
-                                          EdgeInsets.only(top: spacing.space4),
-                                      child: Text(
-                                        'type: $memoType',
-                                        style: theme.textTheme.labelSmall
-                                            ?.copyWith(
-                                          color: muted,
+                                    if (rec.status == _TxStatus.error &&
+                                        rec.errorMessage != null)
+                                      Padding(
+                                        padding: EdgeInsets.only(
+                                            top: spacing.space4),
+                                        child: Text(
+                                          rec.errorMessage!,
+                                          style: theme
+                                              .textTheme.labelSmall
+                                              ?.copyWith(
+                                            color:
+                                                theme.colorScheme.error,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  if (txHash != null && txHash.isNotEmpty)
-                                    Padding(
-                                      padding:
-                                          EdgeInsets.only(top: spacing.space4),
-                                      child: Text(
-                                        'tx: ${_truncate(txHash, 24)}',
-                                        style: theme.textTheme.labelSmall
-                                            ?.copyWith(
-                                          fontFamily: kMonoFontFamily,
-                                          color: muted,
+                                    if (isExpanded) ...[
+                                      const Divider(height: 16),
+                                      if (isConfirmed &&
+                                          rec.inclusionLatencyMs != null)
+                                        _buildLatencyRow(
+                                          theme: theme,
+                                          muted: muted,
+                                          rec: rec,
                                         ),
-                                      ),
-                                    ),
-                                  if (local.status == _TxStatus.error &&
-                                      local.errorMessage != null)
-                                    Padding(
-                                      padding:
-                                          EdgeInsets.only(top: spacing.space4),
-                                      child: Text(
-                                        local.errorMessage!,
-                                        style: theme.textTheme.labelSmall
-                                            ?.copyWith(
-                                          color: theme.colorScheme.error,
-                                        ),
-                                      ),
-                                    ),
-                                  if (isExpanded) ...[
-                                    const Divider(height: 16),
-                                    if (isConfirmed &&
-                                        oc?.inclusionLatencyMs != null)
-                                      _buildLatencyRow(
-                                        theme: theme,
-                                        muted: muted,
-                                        local: local,
-                                        entry: entry,
-                                        oc: oc!,
-                                      ),
-                                    _detailRow(theme, muted, 'From', local.from,
-                                        mono: true),
-                                    _detailRow(theme, muted, 'To', local.to,
-                                        mono: true),
-                                    _detailRow(theme, muted, 'Amount',
-                                        local.amount.toString()),
-                                    if (txHash != null && txHash.isNotEmpty)
                                       _detailRow(
-                                          theme, muted, 'Tx Hash', txHash,
+                                          theme, muted, 'From', rec.from,
                                           mono: true),
-                                    if (oc?.blockHeight != null)
-                                      _detailRow(theme, muted, 'Block',
-                                          oc!.blockHeight.toString()),
-                                    _detailRow(theme, muted, 'Memo',
-                                        _formatMemo(local.memo)),
+                                      _detailRow(
+                                          theme, muted, 'To', rec.to,
+                                          mono: true),
+                                      _detailRow(theme, muted, 'Amount',
+                                          rec.amount.toString()),
+                                      if (txHash != null &&
+                                          txHash.isNotEmpty)
+                                        _detailRow(theme, muted,
+                                            'Tx Hash', txHash,
+                                            mono: true),
+                                      if (rec.blockHeight != null)
+                                        _detailRow(
+                                            theme,
+                                            muted,
+                                            'Block',
+                                            rec.blockHeight.toString()),
+                                      _detailRow(theme, muted, 'Memo',
+                                          _formatMemo(rec.memo)),
+                                    ],
                                   ],
-                                ],
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      },
-                    ),
+                          );
+                        },
+                      ),
+              ),
             ),
           ],
         ),
@@ -1580,29 +1499,25 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
   Widget _buildLatencyRow({
     required ThemeData theme,
     required Color muted,
-    required _TxLogEntry local,
-    required _MergedEntry entry,
-    required _OnChainTx oc,
+    required _TxRecord rec,
   }) {
-    final inclusionSecs = oc.inclusionLatencyMs! ~/ 1000;
+    final inclusionSecs = rec.inclusionLatencyMs! ~/ 1000;
 
-    final ca = (!entry.isHistorical && local.txHash != null)
-        ? widget.confirmedAt[local.txHash]
-        : null;
     int? totalSecs;
     int? lastMileSecs;
-    if (ca != null) {
-      final totalMs = ca.difference(local.timestamp).inMilliseconds;
+    if (rec.confirmedAt != null) {
+      final totalMs =
+          rec.confirmedAt!.difference(rec.sentAt).inMilliseconds;
       if (totalMs >= 0) {
         totalSecs = totalMs ~/ 1000;
-        final lm = totalMs - oc.inclusionLatencyMs!;
+        final lm = totalMs - rec.inclusionLatencyMs!;
         if (lm >= 0) lastMileSecs = lm ~/ 1000;
       }
     }
 
     String fmt(int s) => s < 60 ? '${s}s' : '${s ~/ 60}m ${s % 60}s';
 
-    Widget col(String label, String value, {bool accent = false}) {
+    Widget col(String label, String value, {Color? color}) {
       return Expanded(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1613,8 +1528,8 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
             Text(
               value,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: accent ? const Color(0xFF4CAF50) : null,
-                fontWeight: accent ? FontWeight.w600 : null,
+                color: color,
+                fontWeight: color != null ? FontWeight.w600 : null,
               ),
             ),
           ],
@@ -1627,7 +1542,8 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
       child: Row(
         children: [
           if (totalSecs != null)
-            col('Total', '\u{23F1} ${fmt(totalSecs)}', accent: true),
+            col('Total', '\u{23F1} ${fmt(totalSecs)}',
+                color: _latencyColor(totalSecs)),
           col('Inclusion', fmt(inclusionSecs)),
           if (lastMileSecs != null) col('Last mile', fmt(lastMileSecs)),
         ],
@@ -1661,10 +1577,16 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
     );
   }
 
+  static Color _latencyColor(int totalSecs) {
+    if (totalSecs < 20) return const Color(0xFF4CAF50);
+    if (totalSecs <= 40) return const Color(0xFFFFA726);
+    return const Color(0xFFF44336);
+  }
+
   static String _truncate(String s, int maxLen) {
     if (s.length <= maxLen) return s;
     final half = (maxLen - 1) ~/ 2;
-    return '${s.substring(0, half)}…${s.substring(s.length - half)}';
+    return '${s.substring(0, half)}\u{2026}${s.substring(s.length - half)}';
   }
 
   static String _formatMemo(String memo) {

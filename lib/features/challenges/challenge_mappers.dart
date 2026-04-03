@@ -141,8 +141,12 @@ List<EnrichedChallenge> enrichChallenges(
   for (final a in activities) {
     if (a.challengeId != null) {
       byId.putIfAbsent(a.challengeId!, () => []).add(a);
+    } else if (a.description != null) {
+      // Description fallback only for legacy activities without challengeId.
+      // Activities WITH challengeId must match by ID only — otherwise
+      // same-named challenges across events get false matches.
+      byDesc[a.description!] = a;
     }
-    if (a.description != null) byDesc[a.description!] = a;
   }
 
   return challenges

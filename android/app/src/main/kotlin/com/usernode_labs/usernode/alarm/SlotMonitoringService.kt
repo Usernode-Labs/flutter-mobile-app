@@ -3,6 +3,7 @@ package com.usernode_labs.usernode.alarm
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
@@ -16,6 +17,7 @@ class SlotMonitoringService : Service() {
         const val ACTION_STOP_MONITORING = "com.usernode.app.STOP_MONITORING"
         const val ACTION_START_PERSISTENT = "com.usernode.app.START_PERSISTENT"
         const val ACTION_STOP_PERSISTENT = "com.usernode.app.STOP_PERSISTENT"
+        const val EXTRA_CONTINUE_EXACT_ALARM = "continueExactAlarm"
 
         private const val NOTIFICATION_ID = 1001
         private const val CHANNEL_ID = "slot_monitoring_channel"
@@ -82,11 +84,18 @@ class SlotMonitoringService : Service() {
                 val alarmId = intent.getStringExtra("alarmId")
                 val nodeRunning = intent.getBooleanExtra("nodeRunning", false)
                 val alarmTimeMs = intent.getLongExtra("alarmTimeMs", -1L)
+                val continueExactAlarm =
+                    intent.getBooleanExtra(EXTRA_CONTINUE_EXACT_ALARM, false)
                 Log.d(TAG, "[SlotMonitoringService] START_MONITORING - Slot: $slotNumber, AlarmId: $alarmId, nodeRunning=$nodeRunning")
 
                 // Allow alarmId-only wake (e.g., fg_resume) by using 0 as placeholder
                 val safeSlot = if (slotNumber != -1) slotNumber else 0
-                startMonitoring(safeSlot, nodeRunning, alarmTimeMs)
+                startMonitoring(
+                    slotNumber = safeSlot,
+                    nodeRunning = nodeRunning,
+                    alarmTimeMs = alarmTimeMs,
+                    continueExactAlarm = continueExactAlarm,
+                )
 
                 val eventData = mapOf(
                     "alarmId" to (alarmId ?: "unknown"),
@@ -131,7 +140,12 @@ class SlotMonitoringService : Service() {
         return START_STICKY
     }
 
-    private fun startMonitoring(slotNumber: Int, nodeRunning: Boolean, alarmTimeMs: Long = -1L) {
+    private fun startMonitoring(
+        slotNumber: Int,
+        nodeRunning: Boolean,
+        alarmTimeMs: Long = -1L,
+        continueExactAlarm: Boolean = false,
+    ) {
         currentSlotNumber = slotNumber
         Log.i(TAG, "[SlotMonitoringService] ✓ Starting foreground monitoring for slot $slotNumber")
 
@@ -153,7 +167,11 @@ class SlotMonitoringService : Service() {
         )
 
         try {
-            startForeground(NOTIFICATION_ID, notification)
+            startInForeground(
+                notification = notification,
+                continueExactAlarm = continueExactAlarm,
+                reason = "slot_monitoring",
+            )
             Log.d(TAG, "[SlotMonitoringService] Foreground service started with notification ID $NOTIFICATION_ID")
             isForegroundServiceActive = true
 
@@ -223,8 +241,13 @@ class SlotMonitoringService : Service() {
         )
 
         try {
-            startForeground(NOTIFICATION_ID, notification)
+            startInForeground(
+                notification = notification,
+                continueExactAlarm = false,
+                reason = "persistent_mode",
+            )
             Log.d(TAG, "[SlotMonitoringService] Persistent foreground service started with notification ID $NOTIFICATION_ID")
+            isForegroundServiceActive = true
 
             // Send event to Flutter
             Log.d(TAG, "[SlotMonitoringService] Sending android_persistent_foreground_started event to Flutter")
@@ -320,6 +343,48 @@ class SlotMonitoringService : Service() {
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setOngoing(true)
             .build()
+    }
+
+    private fun startInForeground(
+        notification: Notification,
+        continueExactAlarm: Boolean,
+        reason: String,
+    ) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            startForeground(NOTIFICATION_ID, notification)
+            return
+        }
+
+        val preferredType = if (
+            continueExactAlarm &&
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
+        ) {
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED
+        } else {
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+        }
+
+        try {
+            startForeground(NOTIFICATION_ID, notification, preferredType)
+        } catch (e: Exception) {
+            if (
+                preferredType == ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED &&
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
+            ) {
+                Log.w(
+                    TAG,
+                    "[SlotMonitoringService] systemExempted rejected for $reason; falling back to dataSync",
+                    e
+                )
+                startForeground(
+                    NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                )
+                return
+            }
+            throw e
+        }
     }
 
     fun updateNotification(title: String, message: String) {

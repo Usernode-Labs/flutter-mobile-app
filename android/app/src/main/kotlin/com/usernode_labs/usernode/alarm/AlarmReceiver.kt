@@ -82,6 +82,8 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra("slotNumber", slotNumber)
             putExtra("nodeRunning", nodeRunning)
             putExtra("alarmTimeMs", scheduledTimeMs)
+            // Exact alarms are the strongest match for systemExempted FGS.
+            putExtra(SlotMonitoringService.EXTRA_CONTINUE_EXACT_ALARM, true)
         }
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -128,6 +130,7 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra("alarmId", alarmId)
             putExtra("slotNumber", slotNumber)
             putExtra("nodeRunning", nodeRunning)
+            putExtra(SlotMonitoringService.EXTRA_CONTINUE_EXACT_ALARM, false)
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

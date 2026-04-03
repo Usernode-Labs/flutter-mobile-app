@@ -17,6 +17,7 @@ class ForegroundServiceManager(private val context: Context) {
                 putExtra("slotNumber", slotNumber)
                 putExtra("title", title)
                 putExtra("message", message)
+                putExtra(SlotMonitoringService.EXTRA_CONTINUE_EXACT_ALARM, false)
             }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

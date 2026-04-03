@@ -10,7 +10,7 @@ void main() {
     // Build the app widget
     await tester.pumpWidget(
       const ProviderScope(
-        child: CryptoMobileApp(hasAccount: false),
+        child: CryptoMobileApp(),
       ),
     );
 

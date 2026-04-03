@@ -74,6 +74,7 @@ rust
 ios/build/
 ios/Podfile.lock
 rust_builder/cargokit/build_tool/pubspec.lock
+android/app/mapping.txt
 
 # Internal notes
 gmp.md

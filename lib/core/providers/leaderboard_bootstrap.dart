@@ -136,6 +136,14 @@ Future<void> refreshAllLeaderboardData(Ref ref) async {
       now.difference(_lastRefreshAt!) < const Duration(seconds: 5)) {
     return;
   }
+
+  // Don't consume the throttle window if deps aren't ready — the
+  // silentRefresh calls would all fail and swallow the errors, leaving
+  // the UI stale with no retry until the window expires.
+  final pid = ref.read(participantIdProvider).valueOrNull;
+  final ctx = ref.read(seasonEventContextProvider);
+  if (pid == null || ctx.seasonId == null) return;
+
   _lastRefreshAt = now;
 
   await Future.wait([

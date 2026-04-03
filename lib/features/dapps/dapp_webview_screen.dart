@@ -260,6 +260,8 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     final destinationPubkey = (args['destination_pubkey'] as String?)?.trim();
     final amountRaw = args['amount'];
     final memoString = _parseMemoString(args['memo']);
+    final confirmTitle = (args['confirm_title'] as String?)?.trim();
+    final confirmSubtitle = (args['confirm_subtitle'] as String?)?.trim();
 
     if (destinationPubkey == null || destinationPubkey.isEmpty) {
       await _resolveJsPromise(
@@ -301,6 +303,8 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
       to: destinationPubkey,
       amount: amount,
       memo: memoString,
+      confirmTitle: confirmTitle,
+      confirmSubtitle: confirmSubtitle,
     );
 
     if (!userConfirmed) {
@@ -492,6 +496,8 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     required String to,
     required BigInt amount,
     required String memo,
+    String? confirmTitle,
+    String? confirmSubtitle,
   }) async {
     if (!mounted) return false;
 
@@ -506,6 +512,8 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
           to: to,
           amount: amount,
           memo: memo,
+          confirmTitle: confirmTitle,
+          confirmSubtitle: confirmSubtitle,
         ),
         transitionsBuilder: (_, animation, __, child) {
           return SlideTransition(
@@ -681,18 +689,29 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
 
 /// Pushed as a full opaque [MaterialPageRoute] so no Flutter widget ever
 /// overlaps the WKWebView platform view, avoiding the gesture recognizer bug.
-class _TxConfirmationPage extends StatelessWidget {
+class _TxConfirmationPage extends StatefulWidget {
   const _TxConfirmationPage({
     required this.from,
     required this.to,
     required this.amount,
     required this.memo,
+    this.confirmTitle,
+    this.confirmSubtitle,
   });
 
   final String from;
   final String to;
   final BigInt amount;
   final String memo;
+  final String? confirmTitle;
+  final String? confirmSubtitle;
+
+  @override
+  State<_TxConfirmationPage> createState() => _TxConfirmationPageState();
+}
+
+class _TxConfirmationPageState extends State<_TxConfirmationPage> {
+  bool _detailsExpanded = false;
 
   @override
   Widget build(BuildContext context) {
@@ -701,50 +720,16 @@ class _TxConfirmationPage extends StatelessWidget {
     final radii = theme.extension<AppRadii>()!;
     final muted = theme.colorScheme.onSurfaceVariant;
 
-    String formattedMemo = memo;
-    if (memo.isNotEmpty) {
+    String formattedMemo = widget.memo;
+    if (widget.memo.isNotEmpty) {
       try {
-        final parsed = jsonDecode(memo);
+        final parsed = jsonDecode(widget.memo);
         const encoder = JsonEncoder.withIndent('  ');
         formattedMemo = encoder.convert(parsed);
       } catch (_) {
         // Not valid JSON — show raw string.
       }
     }
-
-    final memoBox = formattedMemo.isEmpty
-        ? const SizedBox.shrink()
-        : Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Divider(height: 1),
-              Padding(
-                padding: EdgeInsets.only(top: spacing.space8),
-                child: Text(
-                  'Memo',
-                  style: theme.textTheme.labelSmall?.copyWith(color: muted),
-                ),
-              ),
-              SizedBox(height: spacing.space4),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 200),
-                child: Scrollbar(
-                  thumbVisibility: true,
-                  child: SingleChildScrollView(
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: Text(
-                        formattedMemo,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          fontFamily: kMonoFontFamily,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          );
 
     Widget detailRow(String label, String value, {bool mono = false}) {
       return Padding(
@@ -768,6 +753,45 @@ class _TxConfirmationPage extends StatelessWidget {
       );
     }
 
+    final detailsContent = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        detailRow('From', widget.from, mono: true),
+        const Divider(height: 1),
+        detailRow('To', widget.to, mono: true),
+        const Divider(height: 1),
+        detailRow('Fee', '0'),
+        if (formattedMemo.isNotEmpty) ...[
+          const Divider(height: 1),
+          Padding(
+            padding: EdgeInsets.only(top: spacing.space8),
+            child: Text(
+              'Memo',
+              style: theme.textTheme.labelSmall?.copyWith(color: muted),
+            ),
+          ),
+          SizedBox(height: spacing.space4),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 200),
+            child: Scrollbar(
+              thumbVisibility: true,
+              child: SingleChildScrollView(
+                child: SizedBox(
+                  width: double.infinity,
+                  child: Text(
+                    formattedMemo,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontFamily: kMonoFontFamily,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -775,7 +799,7 @@ class _TxConfirmationPage extends StatelessWidget {
           onPressed: () => Navigator.pop(context, false),
           icon: const Icon(Symbols.arrow_back_sharp),
         ),
-        title: const Text('Confirm Transaction'),
+        title: Text(widget.confirmTitle ?? 'Confirm Transaction'),
         titleSpacing: 0,
       ),
       body: SafeArea(
@@ -785,33 +809,86 @@ class _TxConfirmationPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'A dapp is requesting to send a transaction.',
+                widget.confirmSubtitle ??
+                    'A dapp is requesting to send a transaction.',
                 style: theme.textTheme.bodySmall?.copyWith(color: muted),
+              ),
+              SizedBox(height: spacing.space24),
+              Text(
+                'Amount',
+                style: theme.textTheme.labelSmall?.copyWith(color: muted),
+              ),
+              SizedBox(height: spacing.space4),
+              Text(
+                widget.amount.toString(),
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  fontFamily: kMonoFontFamily,
+                ),
               ),
               SizedBox(height: spacing.space16),
               Expanded(
-                child: Container(
-                  padding: EdgeInsets.all(spacing.space16),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest
-                        .withAlpha(100),
-                    borderRadius: radii.borderRadiusMedium,
-                    border: Border.all(
-                      color: theme.colorScheme.outlineVariant.withAlpha(80),
+                child: SingleChildScrollView(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceContainerHighest
+                          .withAlpha(100),
+                      borderRadius: radii.borderRadiusMedium,
+                      border: Border.all(
+                        color: theme.colorScheme.outlineVariant.withAlpha(80),
+                      ),
                     ),
-                  ),
-                  child: SingleChildScrollView(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        detailRow('From', from, mono: true),
-                        const Divider(height: 1),
-                        detailRow('To', to, mono: true),
-                        const Divider(height: 1),
-                        detailRow('Amount', amount.toString()),
-                        const Divider(height: 1),
-                        detailRow('Fee', '0'),
-                        memoBox,
+                        InkWell(
+                          borderRadius: _detailsExpanded
+                              ? BorderRadius.vertical(
+                                  top: radii.borderRadiusMedium.topLeft,
+                                )
+                              : radii.borderRadiusMedium,
+                          onTap: () => setState(
+                            () => _detailsExpanded = !_detailsExpanded,
+                          ),
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: spacing.space16,
+                              vertical: spacing.space12,
+                            ),
+                            child: Row(
+                              children: [
+                                Text(
+                                  'Details',
+                                  style: theme.textTheme.titleSmall,
+                                ),
+                                const Spacer(),
+                                AnimatedRotation(
+                                  turns: _detailsExpanded ? 0.5 : 0,
+                                  duration: const Duration(milliseconds: 200),
+                                  child: Icon(
+                                    Symbols.expand_more,
+                                    size: 20,
+                                    color: muted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        AnimatedCrossFade(
+                          firstChild: const SizedBox.shrink(),
+                          secondChild: Padding(
+                            padding: EdgeInsets.fromLTRB(
+                              spacing.space16,
+                              0,
+                              spacing.space16,
+                              spacing.space16,
+                            ),
+                            child: detailsContent,
+                          ),
+                          crossFadeState: _detailsExpanded
+                              ? CrossFadeState.showSecond
+                              : CrossFadeState.showFirst,
+                          duration: const Duration(milliseconds: 200),
+                        ),
                       ],
                     ),
                   ),

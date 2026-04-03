@@ -84,7 +84,7 @@ const _breakdown = BreakdownResult(
     offchainPoints: 0,
     activities: [
       BreakdownActivity(
-        id: 100,
+        id: '100',
         activityType: 'COMMUNITY',
         points: 1000,
         description: 'Prove Humanity',

@@ -188,9 +188,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
               topPadding: safeTop,
               spacing: spacing,
               scrollFractionNotifier: _scrollFraction,
-              onSeasonTap: () => showSeasonPicker(context, ref),
               onEventTap: () => showEventPicker(context, ref),
-              seasonLabel: seasonLabel(context, ref),
               eventLabel: eventLabel(context, ref),
             ),
           ),
@@ -323,13 +321,22 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
     );
   }
 
-  /// Compute countdown label + time from the resolved event's end date.
-  ({String label, String? time}) _computeCountdown() {
+  /// Resolves start/end dates from the selected event, or from the
+  /// season itself when "All Events" is selected.
+  ({String? startsAt, String? endsAt}) _resolveDateRange() {
     final season = _resolveSelectedSeason();
-    if (season == null) return (label: 'ENDS IN', time: null);
-
+    if (season == null) return (startsAt: null, endsAt: null);
     final event = _resolveSelectedEvent(season);
-    final endsAtRaw = event?.endsAt;
+    return (
+      startsAt: event?.startsAt ?? season.startsAt,
+      endsAt: event?.endsAt ?? season.endsAt,
+    );
+  }
+
+  /// Compute countdown label + time from the resolved end date.
+  ({String label, String? time}) _computeCountdown(
+      ({String? startsAt, String? endsAt}) range) {
+    final endsAtRaw = range.endsAt;
     if (endsAtRaw == null) return (label: 'ENDS IN', time: null);
 
     final endsAt = DateTime.tryParse(endsAtRaw);
@@ -349,20 +356,13 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
     return (label: 'ENDS IN', time: '${days}D ${hours}H ${minutes}M');
   }
 
-  /// Compute phase (event) time progress as a fraction (0.0 = start, 1.0 = end).
-  double _computePhaseProgress() {
-    final season = _resolveSelectedSeason();
-    if (season == null) return 0.0;
+  /// Compute time progress as a fraction (0.0 = start, 1.0 = end).
+  double _computePhaseProgress(
+      ({String? startsAt, String? endsAt}) range) {
+    if (range.startsAt == null || range.endsAt == null) return 0.0;
 
-    final event = _resolveSelectedEvent(season);
-    if (event == null) return 0.0;
-
-    final startsAtRaw = event.startsAt;
-    final endsAtRaw = event.endsAt;
-    if (startsAtRaw == null || endsAtRaw == null) return 0.0;
-
-    final start = DateTime.tryParse(startsAtRaw);
-    final end = DateTime.tryParse(endsAtRaw);
+    final start = DateTime.tryParse(range.startsAt!);
+    final end = DateTime.tryParse(range.endsAt!);
     if (start == null || end == null) return 0.0;
 
     final now = DateTime.now().toUtc();
@@ -384,9 +384,10 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
     final l10n = AppLocalizations.of(context);
     final score = totalPoints != null ? formatPoints(totalPoints) : '--';
     final rankLabel = rank != null ? l10n.challengeRank(rank) : null;
-    final progress = _computePhaseProgress();
+    final range = _resolveDateRange();
+    final progress = _computePhaseProgress(range);
 
-    final countdown = _computeCountdown();
+    final countdown = _computeCountdown(range);
     return ScoreHeader(
       score: score,
       scoreLabel: l10n.challengePoints,

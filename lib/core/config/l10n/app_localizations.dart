@@ -1774,29 +1774,23 @@ abstract class AppLocalizations {
   /// **'Flash'**
   String get categoryFlash;
 
-  /// Fallback label when no season name is available
+  /// Label for selecting all events in the event picker
   ///
   /// In en, this message translates to:
-  /// **'Season'**
-  String get seasonFallback;
+  /// **'All Events'**
+  String get allEvents;
 
-  /// Fallback label when no phase/event name is available
+  /// Title for event picker bottom sheet
   ///
   /// In en, this message translates to:
-  /// **'Phase'**
-  String get phaseFallback;
+  /// **'Select Event'**
+  String get selectEvent;
 
-  /// Title for season picker bottom sheet
+  /// Suffix for ended events in the event picker
   ///
   /// In en, this message translates to:
-  /// **'Select Season'**
-  String get selectSeason;
-
-  /// Title for phase picker bottom sheet
-  ///
-  /// In en, this message translates to:
-  /// **'Select Phase'**
-  String get selectPhase;
+  /// **'Ended'**
+  String get eventEnded;
 
   /// Error message when challenges fail to load
   ///
@@ -2751,6 +2745,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No produced blocks available'**
   String get producedBlocksNoData;
+
+  /// Error when Rust FFI key derivation fails during account import
+  ///
+  /// In en, this message translates to:
+  /// **'Account setup failed. Please try again or contact support.'**
+  String get importApiAccountKeyDerivationFailed;
+
+  /// Error when secure storage write fails during account import
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save account securely. Please check device storage and try again.'**
+  String get importApiAccountStorageFailed;
+
+  /// Warning when backend fails to start after account creation
+  ///
+  /// In en, this message translates to:
+  /// **'Account created, but node startup failed. The app will retry automatically.'**
+  String get importApiAccountBackendStartFailed;
+
+  /// Validation error for empty username field
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter your username.'**
+  String get registrationUsernameEmpty;
+
+  /// Validation error for empty activation code field
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter your activation code.'**
+  String get registrationCodeEmpty;
+
+  /// Error when registration request times out
+  ///
+  /// In en, this message translates to:
+  /// **'Connection timed out. Please check your internet and try again.'**
+  String get registrationTimeoutError;
+
+  /// Error when registration request fails due to network
+  ///
+  /// In en, this message translates to:
+  /// **'Could not reach the server. Please check your internet and try again.'**
+  String get registrationNetworkError;
+
+  /// Generic fallback error for unexpected registration failures
+  ///
+  /// In en, this message translates to:
+  /// **'An unexpected error occurred. Please try again or contact support.'**
+  String get registrationUnexpectedError;
+
+  /// Title for stale registration blocking screen
+  ///
+  /// In en, this message translates to:
+  /// **'Registration Expired'**
+  String get registrationStaleTitle;
+
+  /// Body text for stale registration blocking screen
+  ///
+  /// In en, this message translates to:
+  /// **'Your registration is from a previous season. Blocks produced with old credentials won\'t earn points. Please contact the team on Discord for assistance.'**
+  String get registrationStaleBody;
+
+  /// Button text on stale registration screen
+  ///
+  /// In en, this message translates to:
+  /// **'Contact us on Discord'**
+  String get registrationStaleAction;
 }
 
 class _AppLocalizationsDelegate

@@ -453,6 +453,18 @@ class RustBackendService {
     await startNode();
   }
 
+  /// Clears cached service state so the next bootstrap starts from a clean slate.
+  Future<void> resetForAppRestart() async {
+    await stopNode();
+    _initialized = false;
+    _initCompleter = null;
+    _startNodeCompleter = null;
+    _nodeRunning = false;
+    _instanceId = null;
+    _cachedPeerId = null;
+    _cachedGenesisTimestamp = null;
+  }
+
   /// Obtain the RPC client for ad-hoc calls.
   NodeRpcClient? get rpc => _rpc;
 

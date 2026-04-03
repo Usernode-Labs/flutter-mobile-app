@@ -57,6 +57,10 @@ WidgetbookComponent challengeRewardCardComponent() {
             min: 0,
             max: 1,
           );
+          final extraPoints = context.knobs.stringOrNull(
+            label: 'Extra Points',
+            initialValue: '+840',
+          );
 
           return Center(
             child: Padding(
@@ -74,6 +78,7 @@ WidgetbookComponent challengeRewardCardComponent() {
                     rankLabel: '1st',
                     rankReward: '+500',
                     rateLabel: 'BLOCK RATE',
+                    extraPoints: extraPoints,
                   ),
                   epochSectionLabel: 'This Epoch Earned',
                   epochEarned: '+50',

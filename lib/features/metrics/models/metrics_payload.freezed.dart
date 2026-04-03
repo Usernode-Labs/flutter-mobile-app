@@ -1117,6 +1117,7 @@ abstract class _EventMetrics extends EventMetrics {
 mixin _$IdentityMetrics {
   String? get peerId => throw _privateConstructorUsedError;
   String? get chainId => throw _privateConstructorUsedError;
+  int? get participantId => throw _privateConstructorUsedError;
 
   /// Create a copy of IdentityMetrics
   /// with the given fields replaced by the non-null parameter values.
@@ -1131,7 +1132,7 @@ abstract class $IdentityMetricsCopyWith<$Res> {
           IdentityMetrics value, $Res Function(IdentityMetrics) then) =
       _$IdentityMetricsCopyWithImpl<$Res, IdentityMetrics>;
   @useResult
-  $Res call({String? peerId, String? chainId});
+  $Res call({String? peerId, String? chainId, int? participantId});
 }
 
 /// @nodoc
@@ -1151,6 +1152,7 @@ class _$IdentityMetricsCopyWithImpl<$Res, $Val extends IdentityMetrics>
   $Res call({
     Object? peerId = freezed,
     Object? chainId = freezed,
+    Object? participantId = freezed,
   }) {
     return _then(_value.copyWith(
       peerId: freezed == peerId
@@ -1161,6 +1163,10 @@ class _$IdentityMetricsCopyWithImpl<$Res, $Val extends IdentityMetrics>
           ? _value.chainId
           : chainId // ignore: cast_nullable_to_non_nullable
               as String?,
+      participantId: freezed == participantId
+          ? _value.participantId
+          : participantId // ignore: cast_nullable_to_non_nullable
+              as int?,
     ) as $Val);
   }
 }
@@ -1173,7 +1179,7 @@ abstract class _$$IdentityMetricsImplCopyWith<$Res>
       __$$IdentityMetricsImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({String? peerId, String? chainId});
+  $Res call({String? peerId, String? chainId, int? participantId});
 }
 
 /// @nodoc
@@ -1191,6 +1197,7 @@ class __$$IdentityMetricsImplCopyWithImpl<$Res>
   $Res call({
     Object? peerId = freezed,
     Object? chainId = freezed,
+    Object? participantId = freezed,
   }) {
     return _then(_$IdentityMetricsImpl(
       peerId: freezed == peerId
@@ -1201,6 +1208,10 @@ class __$$IdentityMetricsImplCopyWithImpl<$Res>
           ? _value.chainId
           : chainId // ignore: cast_nullable_to_non_nullable
               as String?,
+      participantId: freezed == participantId
+          ? _value.participantId
+          : participantId // ignore: cast_nullable_to_non_nullable
+              as int?,
     ));
   }
 }
@@ -1208,16 +1219,19 @@ class __$$IdentityMetricsImplCopyWithImpl<$Res>
 /// @nodoc
 
 class _$IdentityMetricsImpl extends _IdentityMetrics {
-  const _$IdentityMetricsImpl({this.peerId, this.chainId}) : super._();
+  const _$IdentityMetricsImpl({this.peerId, this.chainId, this.participantId})
+      : super._();
 
   @override
   final String? peerId;
   @override
   final String? chainId;
+  @override
+  final int? participantId;
 
   @override
   String toString() {
-    return 'IdentityMetrics(peerId: $peerId, chainId: $chainId)';
+    return 'IdentityMetrics(peerId: $peerId, chainId: $chainId, participantId: $participantId)';
   }
 
   @override
@@ -1226,11 +1240,13 @@ class _$IdentityMetricsImpl extends _IdentityMetrics {
         (other.runtimeType == runtimeType &&
             other is _$IdentityMetricsImpl &&
             (identical(other.peerId, peerId) || other.peerId == peerId) &&
-            (identical(other.chainId, chainId) || other.chainId == chainId));
+            (identical(other.chainId, chainId) || other.chainId == chainId) &&
+            (identical(other.participantId, participantId) ||
+                other.participantId == participantId));
   }
 
   @override
-  int get hashCode => Object.hash(runtimeType, peerId, chainId);
+  int get hashCode => Object.hash(runtimeType, peerId, chainId, participantId);
 
   /// Create a copy of IdentityMetrics
   /// with the given fields replaced by the non-null parameter values.
@@ -1244,13 +1260,17 @@ class _$IdentityMetricsImpl extends _IdentityMetrics {
 
 abstract class _IdentityMetrics extends IdentityMetrics {
   const factory _IdentityMetrics(
-      {final String? peerId, final String? chainId}) = _$IdentityMetricsImpl;
+      {final String? peerId,
+      final String? chainId,
+      final int? participantId}) = _$IdentityMetricsImpl;
   const _IdentityMetrics._() : super._();
 
   @override
   String? get peerId;
   @override
   String? get chainId;
+  @override
+  int? get participantId;
 
   /// Create a copy of IdentityMetrics
   /// with the given fields replaced by the non-null parameter values.

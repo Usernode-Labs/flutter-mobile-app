@@ -970,16 +970,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get categoryFlash => 'Flash';
 
   @override
-  String get seasonFallback => 'Season';
+  String get allEvents => 'All Events';
 
   @override
-  String get phaseFallback => 'Phase';
+  String get selectEvent => 'Select Event';
 
   @override
-  String get selectSeason => 'Select Season';
-
-  @override
-  String get selectPhase => 'Select Phase';
+  String get eventEnded => 'Ended';
 
   @override
   String get challengeFailedToLoad => 'Failed to load challenges';
@@ -1532,4 +1529,44 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get producedBlocksNoData => 'No produced blocks available';
+
+  @override
+  String get importApiAccountKeyDerivationFailed =>
+      'Account setup failed. Please try again or contact support.';
+
+  @override
+  String get importApiAccountStorageFailed =>
+      'Could not save account securely. Please check device storage and try again.';
+
+  @override
+  String get importApiAccountBackendStartFailed =>
+      'Account created, but node startup failed. The app will retry automatically.';
+
+  @override
+  String get registrationUsernameEmpty => 'Please enter your username.';
+
+  @override
+  String get registrationCodeEmpty => 'Please enter your activation code.';
+
+  @override
+  String get registrationTimeoutError =>
+      'Connection timed out. Please check your internet and try again.';
+
+  @override
+  String get registrationNetworkError =>
+      'Could not reach the server. Please check your internet and try again.';
+
+  @override
+  String get registrationUnexpectedError =>
+      'An unexpected error occurred. Please try again or contact support.';
+
+  @override
+  String get registrationStaleTitle => 'Registration Expired';
+
+  @override
+  String get registrationStaleBody =>
+      'Your registration is from a previous season. Blocks produced with old credentials won\'t earn points. Please contact the team on Discord for assistance.';
+
+  @override
+  String get registrationStaleAction => 'Contact us on Discord';
 }

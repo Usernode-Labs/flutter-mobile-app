@@ -18,11 +18,21 @@ class BreakdownController extends LeaderboardNotifier<BreakdownResult> {
     final participantId = ref.read(participantIdProvider).value!;
     final ctx = ref.read(seasonEventContextProvider);
     final service = ref.read(leaderboardApiServiceProvider);
-    return service.getBreakdown(
+    final result = await service.getBreakdown(
       participantId: participantId,
       seasonId: ctx.seasonId,
       eventId: ctx.eventId,
     );
+    // Update participant event IDs for the event picker filter.
+    if (result.seasonBreakdown != null) {
+      final ids =
+          result.seasonBreakdown!.events.map((e) => e.eventId).toSet();
+      final prev = ref.read(participantEventIdsProvider);
+      if (ids.length != prev.length || !ids.containsAll(prev)) {
+        ref.read(participantEventIdsProvider.notifier).state = ids;
+      }
+    }
+    return result;
   }
 }
 

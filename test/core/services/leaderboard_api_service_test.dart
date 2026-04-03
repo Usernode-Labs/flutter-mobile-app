@@ -307,6 +307,38 @@ void main() {
       expect(capturedUri!.queryParameters['active_only'], 'true');
     });
 
+    test('sends only_scheduled query param when true', () async {
+      Uri? capturedUri;
+      final client = _mockClient(
+        200,
+        _envelope(<dynamic>[]),
+        onRequest: (r) => capturedUri = r.url,
+      );
+      final service =
+          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
+
+      await service.getChallenges(
+        seasonId: 1,
+        onlyScheduled: true,
+      );
+
+      expect(capturedUri!.queryParameters['only_scheduled'], '1');
+    });
+
+    test('omits only_scheduled when false or null', () async {
+      Uri? capturedUri;
+      final client = _mockClient(
+        200,
+        _envelope(<dynamic>[]),
+        onRequest: (r) => capturedUri = r.url,
+      );
+      final service =
+          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
+
+      await service.getChallenges(seasonId: 1);
+      expect(capturedUri!.queryParameters.containsKey('only_scheduled'), false);
+    });
+
     test('returns empty list for empty data', () async {
       final client = _mockClient(200, _envelope(<dynamic>[]));
       final service =

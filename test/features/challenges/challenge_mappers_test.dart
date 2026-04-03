@@ -30,7 +30,7 @@ ChallengeDto _makeDto({
 }
 
 BreakdownActivity _makeActivity({
-  int id = 1,
+  String id = '1',
   int points = 100,
   String? description,
   int? challengeId,
@@ -173,12 +173,12 @@ void main() {
       ];
       final activities = [
         _makeActivity(
-            id: 10,
+            id: '10',
             challengeId: 1,
             description: 'Produce Every Block',
             points: 6491),
         _makeActivity(
-            id: 11,
+            id: '11',
             challengeId: 3,
             description: 'Feedback Survey',
             points: 500),
@@ -200,7 +200,8 @@ void main() {
         _makeDto(id: 2, goal: 'Report a Bug'),
       ];
       final activities = [
-        _makeActivity(id: 10, description: 'Produce Every Block', points: 6491),
+        _makeActivity(
+            id: '10', description: 'Produce Every Block', points: 6491),
       ];
 
       final enriched = enrichChallenges(challenges, activities);
@@ -216,12 +217,61 @@ void main() {
       // Activity has challengeId=1 but description doesn't match goal
       final activities = [
         _makeActivity(
-            id: 10, challengeId: 1, description: 'Different Desc', points: 999),
+            id: '10',
+            challengeId: 1,
+            description: 'Different Desc',
+            points: 999),
       ];
 
       final enriched = enrichChallenges(challenges, activities);
       expect(enriched[0].participantCompleted, isTrue);
       expect(enriched[0].earnedPoints, 999);
+    });
+
+    test('prefers primary activity over extra-point when both share challengeId',
+        () {
+      final challenges = [
+        _makeDto(
+            id: 1,
+            goal: 'Produce Every Block',
+            subCategory: 'PRODUCE_BLOCKS_CHALLENGE'),
+      ];
+      final activities = [
+        _makeActivity(
+            id: '10', challengeId: 1, points: 4166), // regular epoch activity
+        _makeActivity(
+            id: 'extra-point-42',
+            challengeId: 1,
+            points: 125), // extra points
+      ];
+
+      final enriched = enrichChallenges(challenges, activities);
+      expect(enriched[0].participantCompleted, isTrue);
+      // Should pick the regular activity, not the extra-point one
+      expect(enriched[0].activity!.id, '10');
+      expect(enriched[0].activity!.points, 4166);
+      // earnedPoints includes extra points
+      expect(enriched[0].earnedPoints, 4291);
+      expect(enriched[0].extraPoints, 125);
+    });
+
+    test('uses extra points when no regular activity exists', () {
+      final challenges = [
+        _makeDto(
+            id: 1,
+            goal: 'Produce Every Block',
+            subCategory: 'PRODUCE_BLOCKS_CHALLENGE'),
+      ];
+      final activities = [
+        _makeActivity(
+            id: 'extra-point-42', challengeId: 1, points: 125),
+      ];
+
+      final enriched = enrichChallenges(challenges, activities);
+      // No primary activity, but extra points still contribute
+      expect(enriched[0].activity, isNull);
+      expect(enriched[0].extraPoints, 125);
+      expect(enriched[0].earnedPoints, 125);
     });
 
     test('null activities wraps all with activity: null', () {
@@ -236,7 +286,7 @@ void main() {
 
     test('activities without description or challengeId are skipped', () {
       final challenges = [_makeDto(id: 1, goal: 'Goal')];
-      final activities = [_makeActivity(id: 10, description: null)];
+      final activities = [_makeActivity(id: '10', description: null)];
 
       final enriched = enrichChallenges(challenges, activities);
       expect(enriched[0].participantCompleted, isFalse);
@@ -245,7 +295,7 @@ void main() {
     test('unmatched activities are ignored', () {
       final challenges = [_makeDto(id: 1, goal: 'Goal')];
       final activities = [
-        _makeActivity(id: 10, description: 'Something Else'),
+        _makeActivity(id: '10', description: 'Something Else'),
       ];
 
       final enriched = enrichChallenges(challenges, activities);

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
+import 'package:crypto_mobile_app/core/services/app_reset_service.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_reporting_service.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
@@ -45,9 +46,7 @@ Future<void> main() async {
 
     // Render UI immediately; perform heavy bootstrap asynchronously.
     log.info('Running app UI');
-    runApp(UncontrolledProviderScope(
-        container: boot.container,
-        child: CryptoMobileApp(hasAccount: boot.hasAnyAccounts)));
+    runApp(AppRuntimeRoot(initialContainer: boot.container));
   });
 }
 
@@ -219,9 +218,63 @@ void _startHeadlessProducedBlocksRefresh(
   });
 }
 
+class AppRuntimeRoot extends StatefulWidget {
+  const AppRuntimeRoot({super.key, required this.initialContainer});
+
+  final ProviderContainer initialContainer;
+
+  @override
+  State<AppRuntimeRoot> createState() => _AppRuntimeRootState();
+}
+
+class _AppRuntimeRootState extends State<AppRuntimeRoot> {
+  late ProviderContainer _container;
+
+  @override
+  void initState() {
+    super.initState();
+    _container = widget.initialContainer;
+    AppResetService.instance.registerInProcessRestartHandler(
+      _restartInProcess,
+    );
+  }
+
+  @override
+  void dispose() {
+    AppResetService.instance.unregisterInProcessRestartHandler();
+    _container.dispose();
+    super.dispose();
+  }
+
+  Future<void> _restartInProcess() async {
+    final boot = await AppBootstrap.initNonUi(
+      logTag: 'usernode/BootstrapRestart',
+      installErrorHandlers: false,
+    );
+
+    if (!mounted) {
+      boot.container.dispose();
+      return;
+    }
+
+    final oldContainer = _container;
+    setState(() {
+      _container = boot.container;
+    });
+    oldContainer.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return UncontrolledProviderScope(
+      container: _container,
+      child: const CryptoMobileApp(),
+    );
+  }
+}
+
 class CryptoMobileApp extends ConsumerWidget {
-  const CryptoMobileApp({super.key, required this.hasAccount});
-  final bool hasAccount;
+  const CryptoMobileApp({super.key});
 
   static final _lightTheme =
       ColorIsExpensiveTheme(ThemeData.light().textTheme).light().copyWith(

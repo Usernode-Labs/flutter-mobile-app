@@ -82,14 +82,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final semantic = theme.extension<AppSemanticColors>()!;
 
     return Scaffold(
-      body: IndexedStack(
-        index: index,
-        children: const [
-          ChallengesScreen(),
-          WalletScreen(),
-          DappsScreen(),
-          NodeStatusScreen(),
-          SettingsScreen(),
+      body: Column(
+        children: [
+          Expanded(
+            child: IndexedStack(
+              index: index,
+              children: const [
+                ChallengesScreen(),
+                WalletScreen(),
+                DappsScreen(),
+                NodeStatusScreen(),
+                SettingsScreen(),
+              ],
+            ),
+          ),
         ],
       ),
       bottomNavigationBar: _buildBottomNav(

@@ -258,7 +258,7 @@ void main() {
               offchainPoints: 0,
               activities: [
                 BreakdownActivity(
-                  id: 100,
+                  id: '100',
                   activityType: 'COMMUNITY',
                   points: 1000,
                   description: 'Prove Humanity',
@@ -310,7 +310,7 @@ void main() {
       expect(find.text('No completed challenges'), findsOneWidget);
     });
 
-    testWidgets('season chip shows season name from context', (tester) async {
+    testWidgets('event chip shows event name from context', (tester) async {
       await tester.pumpWidget(
         _buildTestApp(
           challengeData: _testChallenges,
@@ -319,8 +319,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Season name appears in DropdownChain chip
-      expect(find.text('Season 2'), findsWidgets);
+      // Event name appears in DropdownChain chip
+      expect(find.text('Event 10'), findsWidgets);
     });
 
     testWidgets('shows fallback score when ranking is null', (tester) async {
@@ -382,7 +382,7 @@ void main() {
               offchainPoints: 0,
               activities: [
                 BreakdownActivity(
-                  id: 100,
+                  id: '100',
                   activityType: 'COMMUNITY',
                   points: 6491,
                   description: 'Prove Humanity',

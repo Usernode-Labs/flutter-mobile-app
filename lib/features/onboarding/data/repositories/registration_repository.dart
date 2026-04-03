@@ -125,24 +125,46 @@ class RegistrationRepository {
     String? detail;
     try {
       final parsed = jsonDecode(resp.body);
-      if (parsed is Map && parsed['detail'] is String) {
-        detail = parsed['detail'] as String;
-      } else if (parsed is Map && parsed['message'] is String) {
-        detail = parsed['message'] as String;
+      if (parsed is Map) {
+        // Try: detail → message → debug → error (backend uses different fields)
+        detail = parsed['detail'] as String? ??
+            parsed['message'] as String? ??
+            parsed['debug'] as String?;
+        if (detail == null &&
+            parsed['error'] is String &&
+            parsed['error'] != 'Registration failed') {
+          detail = parsed['error'] as String;
+        }
+        // Handle 422 Laravel validation errors
+        if (resp.statusCode == 422 && parsed['errors'] is Map) {
+          final errors = parsed['errors'] as Map;
+          if (errors.isNotEmpty) {
+            final firstField = errors.values.first;
+            if (firstField is List && firstField.isNotEmpty) {
+              detail = firstField.first.toString();
+            }
+          }
+        }
       }
     } catch (e) {
       _log.debug('Could not parse error response JSON: $e');
     }
     switch (resp.statusCode) {
       case 403:
-        return detail ?? 'Registration event inactive. Please try later.';
+        return detail ??
+            'This registration code is no longer active. Please check your latest invite email for updated credentials.';
       case 404:
         return detail ??
-            'Participant not found or code invalid. Check your identifier and code.';
+            'Username not found or registration code invalid. Please double-check both fields and try again.';
       case 409:
-        return detail ?? 'This registration code has already been used.';
+        return detail ??
+            'This registration code has already been used. If this is your code, try re-entering your exact username.';
+      case 422:
+        return detail ??
+            'Please fill in both your username and registration code.';
       default:
-        return detail ?? 'Registration failed (HTTP ${resp.statusCode}).';
+        return detail ??
+            'Registration failed. Please try again or contact support.';
     }
   }
 
@@ -159,6 +181,8 @@ class RegistrationResult {
     required this.address,
     required this.tier,
     required this.secretKey,
+    this.seasonId,
+    this.seasonName,
     this.eventId,
     this.eventName,
     this.eventEndsAt,
@@ -170,6 +194,8 @@ class RegistrationResult {
   final String address;
   final String tier;
   final String secretKey;
+  final int? seasonId;
+  final String? seasonName;
   final int? eventId;
   final String? eventName;
   final String? eventEndsAt;
@@ -206,6 +232,8 @@ class RegistrationResult {
       ]),
       tier: json['tier'] as String,
       secretKey: requiredString(['secret_key', 'secret_key_hex']),
+      seasonId: parseInt(json['season_id']),
+      seasonName: json['season_name'] as String?,
       eventId: event is Map<String, dynamic>
           ? parseInt(event['event_id'] ?? event['id'])
           : null,

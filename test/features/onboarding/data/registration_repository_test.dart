@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -8,7 +10,7 @@ import 'package:crypto_mobile_app/features/onboarding/data/repositories/registra
 
 void main() {
   group('RegistrationResult.fromJson', () {
-    test('parses new event schema with participant_id', () {
+    test('parses new event schema with participant_id and season', () {
       final result = RegistrationResult.fromJson({
         'participant_id': 42,
         'identity_uid': 'uid-abc',
@@ -16,6 +18,8 @@ void main() {
         'secret_key': '0xabc',
         'address': '0x999',
         'tier': 'gold',
+        'season_id': 1,
+        'season_name': 'Season 1',
         'event': {
           'event_id': 10,
           'name': 'Event Alpha',
@@ -25,9 +29,26 @@ void main() {
 
       expect(result.participantId, 42);
       expect(result.identityUid, 'uid-abc');
+      expect(result.seasonId, 1);
+      expect(result.seasonName, 'Season 1');
       expect(result.eventId, 10);
       expect(result.eventName, 'Event Alpha');
       expect(result.eventEndsAt, '2024-12-31T00:00:00Z');
+    });
+
+    test('handles missing season fields gracefully', () {
+      final result = RegistrationResult.fromJson({
+        'participant_id': 42,
+        'identity_uid': 'uid-abc',
+        'public_key': '0x123',
+        'secret_key': '0xabc',
+        'address': '0x999',
+        'tier': 'gold',
+      });
+
+      expect(result.seasonId, isNull);
+      expect(result.seasonName, isNull);
+      expect(result.eventId, isNull);
     });
 
     test('falls back to legacy phase payload', () {
@@ -113,6 +134,208 @@ void main() {
       );
     });
 
+    test('403 response throws RegistrationApiException with correct message',
+        () async {
+      final mockClient = MockClient((request) async {
+        return http.Response(
+          '{"success": false, "error": "Registration failed"}',
+          403,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final repo = RegistrationRepository(
+        endpoint: 'https://example.com',
+        httpClient: mockClient,
+        writesEnabled: true,
+      );
+
+      expect(
+        () => repo.register(registrationCode: 'code', identifier: 'user'),
+        throwsA(
+          isA<RegistrationApiException>()
+              .having((e) => e.statusCode, 'statusCode', 403)
+              .having(
+                (e) => e.message,
+                'message',
+                contains('registration code is no longer active'),
+              ),
+        ),
+      );
+    });
+
+    test('404 response throws with username/code message', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response(
+          '{"success": false, "error": "Registration failed"}',
+          404,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final repo = RegistrationRepository(
+        endpoint: 'https://example.com',
+        httpClient: mockClient,
+        writesEnabled: true,
+      );
+
+      expect(
+        () => repo.register(registrationCode: 'code', identifier: 'user'),
+        throwsA(
+          isA<RegistrationApiException>()
+              .having((e) => e.statusCode, 'statusCode', 404)
+              .having((e) => e.message, 'message',
+                  contains('Username not found or registration code invalid')),
+        ),
+      );
+    });
+
+    test('409 response throws with code-used message', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response(
+          '{"success": false, "error": "Registration failed"}',
+          409,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final repo = RegistrationRepository(
+        endpoint: 'https://example.com',
+        httpClient: mockClient,
+        writesEnabled: true,
+      );
+
+      expect(
+        () => repo.register(registrationCode: 'code', identifier: 'user'),
+        throwsA(
+          isA<RegistrationApiException>()
+              .having((e) => e.statusCode, 'statusCode', 409)
+              .having(
+                  (e) => e.message, 'message', contains('already been used')),
+        ),
+      );
+    });
+
+    test('404 with debug field extracts detailed message', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response(
+          '{"success": false, "error": "Registration failed", "debug": "Participant not found."}',
+          404,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final repo = RegistrationRepository(
+        endpoint: 'https://example.com',
+        httpClient: mockClient,
+        writesEnabled: true,
+      );
+
+      expect(
+        () => repo.register(registrationCode: 'code', identifier: 'user'),
+        throwsA(
+          isA<RegistrationApiException>()
+              .having((e) => e.statusCode, 'statusCode', 404)
+              .having((e) => e.message, 'message', 'Participant not found.'),
+        ),
+      );
+    });
+
+    test('422 response extracts Laravel validation error', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response(
+          '{"success": false, "errors": {"identifier": ["The identifier field is required."]}}',
+          422,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final repo = RegistrationRepository(
+        endpoint: 'https://example.com',
+        httpClient: mockClient,
+        writesEnabled: true,
+      );
+
+      expect(
+        () => repo.register(registrationCode: 'code', identifier: 'user'),
+        throwsA(
+          isA<RegistrationApiException>()
+              .having((e) => e.statusCode, 'statusCode', 422)
+              .having((e) => e.message, 'message',
+                  'The identifier field is required.'),
+        ),
+      );
+    });
+
+    test('422 without errors map falls back to generic message', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response(
+          '{"success": false}',
+          422,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final repo = RegistrationRepository(
+        endpoint: 'https://example.com',
+        httpClient: mockClient,
+        writesEnabled: true,
+      );
+
+      expect(
+        () => repo.register(registrationCode: 'code', identifier: 'user'),
+        throwsA(
+          isA<RegistrationApiException>()
+              .having((e) => e.statusCode, 'statusCode', 422)
+              .having((e) => e.message, 'message',
+                  contains('username and registration code')),
+        ),
+      );
+    });
+
+    test('malformed JSON body falls back to status-code message', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response(
+          'not valid json at all',
+          500,
+          headers: {'content-type': 'text/plain'},
+        );
+      });
+
+      final repo = RegistrationRepository(
+        endpoint: 'https://example.com',
+        httpClient: mockClient,
+        writesEnabled: true,
+      );
+
+      expect(
+        () => repo.register(registrationCode: 'code', identifier: 'user'),
+        throwsA(
+          isA<RegistrationApiException>()
+              .having((e) => e.statusCode, 'statusCode', 500)
+              .having((e) => e.message, 'message',
+                  contains('Please try again or contact support')),
+        ),
+      );
+    });
+
+    test('network error propagates (not swallowed)', () async {
+      final mockClient = MockClient((request) async {
+        throw const SocketException('Connection refused');
+      });
+
+      final repo = RegistrationRepository(
+        endpoint: 'https://example.com',
+        httpClient: mockClient,
+        writesEnabled: true,
+      );
+
+      expect(
+        () => repo.register(registrationCode: 'code', identifier: 'user'),
+        throwsA(isA<SocketException>()),
+      );
+    });
+
     test('fails fast in view-only mode before sending request', () async {
       var requestSent = false;
       final mockClient = MockClient((request) async {
@@ -133,7 +356,8 @@ void main() {
         ),
         throwsA(
           isA<RegistrationApiException>()
-              .having((e) => e.statusCode, 'statusCode', 503),
+              .having((e) => e.statusCode, 'statusCode', 503)
+              .having((e) => e.message, 'message', contains('view-only mode')),
         ),
       );
       expect(requestSent, isFalse);

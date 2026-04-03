@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/features/splash/screens/splash_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/welcome_claim_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/import_api_account_screen.dart';
+import 'package:crypto_mobile_app/features/onboarding/screens/stale_registration_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/exact_alarm_permission1_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/battery_permission2_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/notification_permission3_screen.dart';
@@ -29,6 +30,7 @@ import 'package:crypto_mobile_app/features/wallet/screens/transaction_success_sc
 import 'package:crypto_mobile_app/features/wallet/screens/transaction_failed_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/burst/burst_screen.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
+import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
@@ -52,6 +54,7 @@ class AppRoutes {
   static const onboardingNotificationPermission3 =
       '/onboarding/notification-permission3';
   static const onboardingBatteryComplete = '/onboarding/battery-complete';
+  static const staleRegistration = '/stale-registration';
 
   // Standalone routes
   static const slotAssignments = '/produced/slot-assignments';
@@ -99,6 +102,13 @@ class GoRouterRefreshStream extends ChangeNotifier {
         notifyListeners();
       },
     );
+    // Listen to registration freshness changes (stale detection)
+    _ref.listen<RegistrationFreshness>(
+      registrationFreshnessProvider,
+      (previous, next) {
+        notifyListeners();
+      },
+    );
   }
 
   final Ref _ref;
@@ -121,6 +131,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   // Watch providers to make router reactive and capture their values
   final hasAnyAccountAsync = ref.watch(hasAnyAccountProvider);
   final hasCompletedOnboardingAsync = ref.watch(hasCompletedOnboardingProvider);
+  // Watch freshness + bootstrap so the router reacts to stale detection.
+  final registrationFreshness = ref.watch(registrationFreshnessProvider);
+  ref.watch(leaderboardBootstrapProvider);
 
   return GoRouter(
     navigatorKey: _navigatorKey,
@@ -159,6 +172,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.onboardingBatteryComplete,
         builder: (context, state) => const OnboardingBatteryCompleteScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.staleRegistration,
+        builder: (context, state) => const StaleRegistrationScreen(),
       ),
       GoRoute(
         path: AppRoutes.homeSlash,
@@ -340,6 +357,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       // Account exists AND onboarding completed
       _log.trace('Account exists and onboarding completed');
+
+      // Block app usage when registration belongs to a previous season.
+      if (registrationFreshness == RegistrationFreshness.stale &&
+          currentLocation != AppRoutes.staleRegistration &&
+          currentLocation != AppRoutes.onboardingImportApi) {
+        return AppRoutes.staleRegistration;
+      }
+
+      // Allow stale registration screen (lives outside /onboarding/)
+      if (currentLocation == AppRoutes.staleRegistration) {
+        return null;
+      }
 
       // Redirect from splash and onboarding to home
       if (currentLocation == AppRoutes.splash ||

@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:http/http.dart' as http;
 import 'package:crypto_mobile_app/core/config/app_config.dart';
+import 'package:crypto_mobile_app/core/services/app_reset_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/models/block_production_event.dart';
 import 'package:crypto_mobile_app/features/metrics/models/metrics_payload.dart';
@@ -31,6 +33,9 @@ class MetricsReportingService {
   DateTime? _lastReportTime;
   int _successCount = 0;
   int _failureCount = 0;
+
+  static const participantWalletMismatchErrorCode =
+      'participant_wallet_mismatch';
 
   /// Whether the service is currently running
   bool get isRunning => _isRunning;
@@ -199,6 +204,12 @@ class MetricsReportingService {
     _isRunning = false;
   }
 
+  Future<void> resetForAppRestart() async {
+    await stop();
+    _walletDataCallback = null;
+    resetStats();
+  }
+
   /// Manually trigger a metrics report (outside of periodic schedule)
   Future<void> reportNow() async {
     if (!_isRunning) {
@@ -347,6 +358,20 @@ class MetricsReportingService {
         },
       );
 
+      if (isParticipantWalletMismatchResponse(response)) {
+        _log.error(
+          'Metrics backend reported participant/wallet mismatch',
+          context: {'response_body': response.body},
+        );
+        unawaited(
+          AppResetService.instance.resetAndRestart(
+            reason: participantWalletMismatchErrorCode,
+            backendResponse: response.body,
+          ),
+        );
+        return false;
+      }
+
       if (response.statusCode >= 200 && response.statusCode < 300) {
         _log.trace(
           'Metrics sent successfully',
@@ -423,4 +448,29 @@ class MetricsReportingService {
     _failureCount = 0;
     _lastReportTime = null;
   }
+}
+
+String? metricsApiErrorCodeFromBody(String body) {
+  try {
+    final decoded = jsonDecode(body);
+    if (decoded is Map<String, dynamic>) {
+      final code = decoded['code'];
+      if (code is String && code.isNotEmpty) {
+        return code;
+      }
+    }
+  } catch (_) {
+    // Ignore malformed error bodies.
+  }
+
+  return null;
+}
+
+bool isParticipantWalletMismatchResponse(http.Response response) {
+  if (response.statusCode != 409) {
+    return false;
+  }
+
+  return metricsApiErrorCodeFromBody(response.body) ==
+      MetricsReportingService.participantWalletMismatchErrorCode;
 }

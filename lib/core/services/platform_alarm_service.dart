@@ -727,6 +727,29 @@ class PlatformAlarmService {
     }
   }
 
+  Future<bool> restartActivity() async {
+    if (!Platform.isAndroid) {
+      _log.debug('Activity restart is Android-only');
+      return false;
+    }
+
+    try {
+      final restarted =
+          await _channel.invokeMethod<bool>('restartActivity') ?? false;
+
+      if (restarted) {
+        _log.info('Requested Android activity restart');
+      } else {
+        _log.warn('Android activity restart was not performed');
+      }
+
+      return restarted;
+    } on PlatformException catch (e) {
+      _log.error('Error restarting activity: ${e.message}');
+      return false;
+    }
+  }
+
   /// Get background task execution statistics (Android only)
   Future<Map<String, dynamic>> getBackgroundTaskStats() async {
     if (!Platform.isAndroid) {
@@ -759,6 +782,13 @@ class PlatformAlarmService {
     } catch (e) {
       _log.error('Error incrementing background task count: $e');
     }
+  }
+
+  void resetForAppRestart() {
+    _initialized = false;
+    _permissionsGranted = false;
+    _onBootReschedule = null;
+    _onNativeEvent = null;
   }
 }
 

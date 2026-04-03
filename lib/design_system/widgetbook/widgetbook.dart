@@ -41,6 +41,7 @@ import 'settings_page_use_case.dart';
 import 'sheet_layout_use_case.dart';
 import 'slot_assignments_page_use_case.dart';
 import 'shimmer_use_case.dart';
+import 'stale_registration_screen_use_case.dart';
 import 'status_badge_use_case.dart';
 import 'status_text_trailing_use_case.dart';
 import 'tabs_use_case.dart';
@@ -50,6 +51,7 @@ import 'top_app_bar_use_case.dart';
 import 'unified_theme_catalog.dart';
 import 'wallet_page_use_case.dart';
 import 'zk_identity_flow_page_use_case.dart';
+import 'registration_errors_use_case.dart';
 import 'zk_identity_status_card_use_case.dart';
 import 'zk_identity_step_illustration_use_case.dart';
 
@@ -233,6 +235,7 @@ class WidgetbookApp extends StatelessWidget {
                 emptyStateComponent(),
                 fullPageErrorStateComponent(),
                 fullPageLoadingStateComponent(),
+                staleRegistrationScreenComponent(),
                 iconBadgeComponent(),
                 rankBadgeComponent(),
                 shimmerBlockComponent(),
@@ -309,6 +312,12 @@ class WidgetbookApp extends StatelessWidget {
               children: [
                 burstPulseIllustrationComponent(),
                 walletPageComponent(),
+              ],
+            ),
+            WidgetbookFolder(
+              name: 'Onboarding',
+              children: [
+                registrationErrorsComponent(),
               ],
             ),
           ],

@@ -279,6 +279,10 @@ class AppConfig {
   static Duration get explorerCacheTtl =>
       const Duration(minutes: explorerCacheTtlMinutes);
 
+  // === Community ===
+  static const String discordInviteUrl =
+      'https://discord.com/channels/1427970105521737760/1447595610877460591';
+
   // Demo accounts configuration (JSON object with account metadata)
   static const String _demoAccountsJson = String.fromEnvironment(
       'DEMO_ACCOUNTS_JSON',

@@ -11,10 +11,10 @@ import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 final categorizedChallengesProvider = Provider<CategorizedEnrichedChallenges?>((
   ref,
 ) {
-  final challenges = ref.watch(challengesProvider.select((s) => s.value));
+  final challenges = ref.watch(challengesProvider.select((s) => s.valueOrNull));
   if (challenges == null) return null;
   final enabled = challenges.where((c) => c.enabled).toList();
-  final breakdown = ref.watch(breakdownProvider.select((s) => s.value));
+  final breakdown = ref.watch(breakdownProvider.select((s) => s.valueOrNull));
   final activities = extractActivities(breakdown);
   final enriched = enrichChallenges(enabled, activities);
   return categorizeEnrichedChallenges(enriched);

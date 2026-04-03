@@ -19,7 +19,7 @@ final zkIdentityChallengeIdProvider = Provider<int?>((ref) {
 
 /// Resolves the full [ChallengeDto] for the ZK Identity challenge.
 final zkIdentityChallengeDtoProvider = Provider<ChallengeDto?>((ref) {
-  final challenges = ref.watch(challengesProvider.select((s) => s.value));
+  final challenges = ref.watch(challengesProvider.select((s) => s.valueOrNull));
   if (challenges == null) return null;
   for (final c in challenges) {
     if (c.subCategory == zkIdentitySubCategory) return c;

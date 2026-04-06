@@ -65,7 +65,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     final ranking = ref.watch(rankingProvider.select((s) => s.valueOrNull));
     final leaderboard = ref.watch(leaderboardProvider.select((s) => s.valueOrNull));
     final eventPoints = ref.watch(eventPointsProvider.select((s) => s.valueOrNull));
-    final participantId = ref.watch(participantIdProvider).value;
+    final participantId = ref.watch(participantIdProvider).valueOrNull;
     final categorized = ref.watch(categorizedChallengesProvider);
     ref.watch(seasonsProvider);
 

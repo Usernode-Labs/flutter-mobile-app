@@ -73,7 +73,7 @@ class _EpochPerformanceScreenState
   @override
   Widget build(BuildContext context) {
     final summary = ref.watch(producedBlocksSummaryProvider);
-    final nodeStatus = ref.watch(nodeStatusProvider).value;
+    final nodeStatus = ref.watch(nodeStatusProvider).valueOrNull;
     final l10n = AppLocalizations.of(context);
 
     final dataValue = summary.valueOrNull;

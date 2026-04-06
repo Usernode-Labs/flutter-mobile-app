@@ -23,15 +23,15 @@ String eventLabel(BuildContext context, WidgetRef ref) {
 /// The first option is "All Events" (fetches challenges across all events),
 /// followed by a divider, then individual events from the current season.
 Future<void> showEventPicker(BuildContext context, WidgetRef ref) async {
-  final seasons = ref.read(seasonsProvider).value?.data;
+  final seasons = ref.read(seasonsProvider).valueOrNull;
   if (seasons == null || seasons.isEmpty) return;
   final ctx = ref.read(seasonEventContextProvider);
 
   final currentSeason = ctx.seasonId != null
       ? seasons.cast<SeasonDto?>().firstWhere(
-            (s) => s!.id == ctx.seasonId,
-            orElse: () => seasons.first,
-          )
+          (s) => s!.id == ctx.seasonId,
+          orElse: () => seasons.first,
+        )
       : seasons.first;
   if (currentSeason == null || currentSeason.events.isEmpty) return;
 

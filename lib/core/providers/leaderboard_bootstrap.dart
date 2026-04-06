@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -120,8 +121,31 @@ final registrationFreshnessProvider = StateProvider<RegistrationFreshness>(
 
 
 /// Refresh all active leaderboard providers silently.
-/// For pull-to-refresh on the leaderboard screen.
+/// Called from zkpassport flow completion and other non-screen contexts.
+/// Screen pull-to-refresh calls individual provider refreshes directly.
+/// Throttled to at most once every 5 seconds.
+DateTime? _lastRefreshAt;
+
+/// Reset throttle state for testing.
+@visibleForTesting
+void resetRefreshThrottle() => _lastRefreshAt = null;
+
 Future<void> refreshAllLeaderboardData(Ref ref) async {
+  final now = DateTime.now();
+  if (_lastRefreshAt != null &&
+      now.difference(_lastRefreshAt!) < const Duration(seconds: 5)) {
+    return;
+  }
+
+  // Don't consume the throttle window if deps aren't ready — the
+  // silentRefresh calls would all fail and swallow the errors, leaving
+  // the UI stale with no retry until the window expires.
+  final pid = ref.read(participantIdProvider).valueOrNull;
+  final ctx = ref.read(seasonEventContextProvider);
+  if (pid == null || ctx.seasonId == null) return;
+
+  _lastRefreshAt = now;
+
   await Future.wait([
     ref.read(rankingProvider.notifier).silentRefresh(),
     ref.read(challengesProvider.notifier).silentRefresh(),
@@ -185,15 +209,18 @@ final leaderboardBootstrapProvider = FutureProvider<void>((ref) async {
   // Resolve season: prefer persisted seasonId, then active, then last.
   final season = persisted?.seasonId != null
       ? (seasons.cast<SeasonDto?>().firstWhere(
-              (s) => s!.id == persisted!.seasonId,
-              orElse: () => null) ??
-          seasons
-              .cast<SeasonDto?>()
-              .firstWhere((s) => s!.isActive, orElse: () => null) ??
+                (s) => s!.id == persisted!.seasonId,
+                orElse: () => null,
+              ) ??
+          seasons.cast<SeasonDto?>().firstWhere(
+                (s) => s!.isActive,
+                orElse: () => null,
+              ) ??
           seasons.last)
-      : (seasons
-              .cast<SeasonDto?>()
-              .firstWhere((s) => s!.isActive, orElse: () => null) ??
+      : (seasons.cast<SeasonDto?>().firstWhere(
+                (s) => s!.isActive,
+                orElse: () => null,
+              ) ??
           seasons.last);
 
   // Resolve event: preserve persisted eventId if it still exists in the

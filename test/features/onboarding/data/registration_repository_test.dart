@@ -158,7 +158,7 @@ void main() {
               .having(
                 (e) => e.message,
                 'message',
-                contains('previous event that is no longer active'),
+                contains('registration code is no longer active'),
               ),
         ),
       );

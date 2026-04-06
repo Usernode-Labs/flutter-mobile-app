@@ -62,18 +62,19 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
   }
 
   Widget _buildBody(BuildContext context) {
-    final ranking = ref.watch(rankingProvider.select((s) => s.value?.data));
-    final leaderboard = ref.watch(leaderboardProvider.select((s) => s.value));
-    final eventPoints =
-        ref.watch(eventPointsProvider.select((s) => s.value?.data));
+    final ranking = ref.watch(rankingProvider.select((s) => s.valueOrNull));
+    final leaderboard = ref.watch(leaderboardProvider.select((s) => s.valueOrNull));
+    final eventPoints = ref.watch(eventPointsProvider.select((s) => s.valueOrNull));
     final participantId = ref.watch(participantIdProvider).value;
     final categorized = ref.watch(categorizedChallengesProvider);
     ref.watch(seasonsProvider);
 
-    final isLoading = ref.watch(leaderboardProvider
-        .select((s) => s.isLoading && s.value?.data == null));
+    final isLoading = ref.watch(
+      leaderboardProvider.select((s) => s.isLoading && s.valueOrNull == null),
+    );
     final hasError = ref.watch(
-        leaderboardProvider.select((s) => s.hasError && s.value?.data == null));
+      leaderboardProvider.select((s) => s.hasError && s.valueOrNull == null),
+    );
 
     if (isLoading) {
       return const Scaffold(
@@ -97,8 +98,8 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     final colors = Theme.of(context).colorScheme;
     final radii = Theme.of(context).extension<AppRadii>()!;
 
-    final entries = leaderboard?.data.allEntries ?? [];
-    final isLoadingMore = leaderboard?.data.isLoadingMore ?? false;
+    final entries = leaderboard?.allEntries ?? [];
+    final isLoadingMore = leaderboard?.isLoadingMore ?? false;
 
     return Scaffold(
       body: RefreshIndicator(
@@ -151,11 +152,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                   bottom: spacing.space8,
                 ),
                 sliver: SliverToBoxAdapter(
-                  child: _buildCategoryTiles(
-                    context,
-                    categorized,
-                    spacing,
-                  ),
+                  child: _buildCategoryTiles(context, categorized, spacing),
                 ),
               ),
 
@@ -182,7 +179,8 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                         ),
                       ),
                       ...entries.map((entry) {
-                        final isCurrentUser = participantId != null &&
+                        final isCurrentUser =
+                            participantId != null &&
                             entry.participantId == participantId;
                         final l10n = AppLocalizations.of(context);
                         return ListTile(
@@ -190,11 +188,13 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                           title: Text(
                             entry.displayName ??
                                 l10n.participantFallbackName(
-                                    entry.participantId.toString()),
+                                  entry.participantId.toString(),
+                                ),
                           ),
                           trailing: Text(
                             l10n.pointsAbbreviated(
-                                formatPoints(entry.totalPoints)),
+                              formatPoints(entry.totalPoints),
+                            ),
                           ),
                           tileColor: isCurrentUser
                               ? colors.primaryContainer.withValues(alpha: 0.3)
@@ -220,9 +220,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
             ),
 
             // Bottom padding
-            SliverToBoxAdapter(
-              child: SizedBox(height: spacing.space32),
-            ),
+            SliverToBoxAdapter(child: SizedBox(height: spacing.space32)),
           ],
         ),
       ),

@@ -6,7 +6,7 @@ import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 
 /// Resolves the [ChallengeDto] for the dApps challenge by subCategory.
 final dappsChallengeProvider = Provider<ChallengeDto?>((ref) {
-  final challenges = ref.watch(challengesProvider.select((s) => s.value?.data));
+  final challenges = ref.watch(challengesProvider.select((s) => s.valueOrNull));
   if (challenges == null) return null;
   for (final c in challenges) {
     if (isDappsChallenge(c)) return c;

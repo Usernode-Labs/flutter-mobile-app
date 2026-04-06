@@ -150,7 +150,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
       successRate: successRate,
     );
     final syncingText = isSyncing
-        ? ref.watch(syncingTextProvider).value ?? kSyncingTextFallback
+        ? ref.watch(syncingTextProvider).valueOrNull ?? kSyncingTextFallback
         : null;
     // Calculation row shows base points (success rate × max pts).
     final displayBasePoints =

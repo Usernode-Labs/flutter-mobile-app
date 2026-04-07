@@ -158,5 +158,4 @@ void main() {
       expect(find.byIcon(Symbols.search_sharp), findsOneWidget);
     });
   });
-
 }

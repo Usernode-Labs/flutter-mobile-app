@@ -600,6 +600,12 @@ class EventBreakdown {
   final double? successRate;
   final List<BreakdownActivity> activities;
 
+  /// Sum of block-production bonus rewards (first block, top-3, >50% success).
+  int get totalBonusPoints =>
+      (firstBlockPoints ?? 0) +
+      (top3Points ?? 0) +
+      (success50PercentPoints ?? 0);
+
   const EventBreakdown({
     required this.eventId,
     required this.eventName,

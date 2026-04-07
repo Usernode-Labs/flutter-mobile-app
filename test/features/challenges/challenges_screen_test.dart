@@ -197,13 +197,12 @@ Widget _buildTestApp({
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      theme: ColorIsExpensiveTheme(ThemeData.light().textTheme)
-          .light()
-          .copyWith(
-            extensions: DesignSystemTheme.standardExtensions(
-              semanticColors: AppSemanticColors.light(),
-            ),
-          ),
+      theme:
+          ColorIsExpensiveTheme(ThemeData.light().textTheme).light().copyWith(
+                extensions: DesignSystemTheme.standardExtensions(
+                  semanticColors: AppSemanticColors.light(),
+                ),
+              ),
       home: const ChallengesScreen(),
     ),
   );
@@ -247,21 +246,29 @@ void main() {
         _buildTestApp(
           challengeData: _testChallenges,
           breakdownData: const BreakdownResult(
-            scope: 'event',
+            scope: 'season',
             displayName: 'Test',
             totalPoints: 1000,
             offchainPoints: 0,
-            eventBreakdown: EventBreakdown(
-              eventId: 1,
-              eventName: 'E1',
+            seasonBreakdown: SeasonBreakdown(
+              seasonId: 1,
+              seasonName: 'S1',
               totalPoints: 1000,
               offchainPoints: 0,
-              activities: [
-                BreakdownActivity(
-                  id: '100',
-                  activityType: 'COMMUNITY',
-                  points: 1000,
-                  description: 'Prove Humanity',
+              events: [
+                EventBreakdown(
+                  eventId: 1,
+                  eventName: 'E1',
+                  totalPoints: 1000,
+                  offchainPoints: 0,
+                  activities: [
+                    BreakdownActivity(
+                      id: '100',
+                      activityType: 'COMMUNITY',
+                      points: 1000,
+                      description: 'Prove Humanity',
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -310,19 +317,6 @@ void main() {
       expect(find.text('No completed challenges'), findsOneWidget);
     });
 
-    testWidgets('event chip shows event name from context', (tester) async {
-      await tester.pumpWidget(
-        _buildTestApp(
-          challengeData: _testChallenges,
-          seasonContext: _testContext,
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      // Event name appears in DropdownChain chip
-      expect(find.text('Event 10'), findsWidgets);
-    });
-
     testWidgets('shows fallback score when ranking is null', (tester) async {
       await tester.pumpWidget(
         _buildTestApp(challengeData: _testChallenges, rankingData: null),
@@ -341,17 +335,16 @@ void main() {
           challengeData: _testChallenges,
           rankingData: _testRanking,
           breakdownData: const BreakdownResult(
-            scope: 'event',
+            scope: 'season',
             displayName: 'Test',
             totalPoints: 12345,
             offchainPoints: 0,
-            eventBreakdown: EventBreakdown(
-              eventId: 1,
-              eventName: 'E1',
+            seasonBreakdown: SeasonBreakdown(
+              seasonId: 1,
+              seasonName: 'S1',
               totalPoints: 12345,
               offchainPoints: 0,
-              rank: 10,
-              activities: [],
+              events: [],
             ),
           ),
         ),
@@ -360,7 +353,8 @@ void main() {
 
       // Breakdown totalPoints takes precedence over ranking
       expect(find.text('12,345'), findsOneWidget);
-      expect(find.text('Rank 10'), findsOneWidget);
+      // Rank comes from the ranking provider (season-scoped)
+      expect(find.text('Rank 44'), findsOneWidget);
     });
 
     testWidgets('completed tab shows earned points from breakdown', (
@@ -371,21 +365,29 @@ void main() {
         _buildTestApp(
           challengeData: _testChallenges,
           breakdownData: const BreakdownResult(
-            scope: 'event',
+            scope: 'season',
             displayName: 'Test',
             totalPoints: 9000,
             offchainPoints: 0,
-            eventBreakdown: EventBreakdown(
-              eventId: 1,
-              eventName: 'E1',
+            seasonBreakdown: SeasonBreakdown(
+              seasonId: 1,
+              seasonName: 'S1',
               totalPoints: 9000,
               offchainPoints: 0,
-              activities: [
-                BreakdownActivity(
-                  id: '100',
-                  activityType: 'COMMUNITY',
-                  points: 6491,
-                  description: 'Prove Humanity',
+              events: [
+                EventBreakdown(
+                  eventId: 1,
+                  eventName: 'E1',
+                  totalPoints: 9000,
+                  offchainPoints: 0,
+                  activities: [
+                    BreakdownActivity(
+                      id: '100',
+                      activityType: 'COMMUNITY',
+                      points: 6491,
+                      description: 'Prove Humanity',
+                    ),
+                  ],
                 ),
               ],
             ),

@@ -139,7 +139,7 @@ class ScoreHeader extends StatelessWidget {
           Button(
             label: ctaLabel!,
             onTap: onCtaTap,
-            variant: ButtonVariant.primary,
+            variant: ButtonVariant.outlined,
           ),
         SizedBox(height: spacing.space32 + spacing.space8),
       ],

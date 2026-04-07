@@ -520,7 +520,6 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
         return ChallengeEventGroup(
           eventName: group.eventName ?? 'Event',
           dateRange: _formatEventDateRange(group.challenges),
-
           pointsLabel: showPoints ? '${formatPoints(totalPoints)} pts' : '',
           challenges: items,
         );

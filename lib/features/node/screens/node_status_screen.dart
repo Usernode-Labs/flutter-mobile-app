@@ -508,7 +508,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
             text: _buildEpochTrailingText(),
           ),
           onTap: () {
-            final epoch = ref.read(nodeStatusProvider).valueOrNull?.currentEpoch ?? 0;
+            final epoch =
+                ref.read(nodeStatusProvider).valueOrNull?.currentEpoch ?? 0;
             context.push(
               AppRoutes.epochPerformance,
               extra: {'initialEpoch': epoch},
@@ -520,7 +521,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
           title: Text(l10n.nodeMempool),
           subtitle: _buildMempoolSubtitle(),
           trailing: TextChevronTrailing(
-            text: '${ref.read(nodeMempoolProvider).valueOrNull?.count.toInt() ?? 0}',
+            text:
+                '${ref.read(nodeMempoolProvider).valueOrNull?.count.toInt() ?? 0}',
           ),
           onTap: () => context.push(AppRoutes.mainNodeMempool),
         ),

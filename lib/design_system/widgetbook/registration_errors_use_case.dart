@@ -32,7 +32,8 @@ const _kApiCodeUsed =
     'This registration code has already been used. If this is your code, try re-entering your exact username.';
 const _kApiValidation =
     'Please fill in both your username and registration code.';
-const _kApiGeneric = 'Registration failed. Please try again or contact support.';
+const _kApiGeneric =
+    'Registration failed. Please try again or contact support.';
 const _kKeyDerivationFailed =
     'Account setup failed. Please try again or contact support.';
 const _kStorageFailed =
@@ -160,8 +161,7 @@ class _RegistrationFormPreview extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       TextField(
-                        controller:
-                            TextEditingController(text: contactValue),
+                        controller: TextEditingController(text: contactValue),
                         decoration: InputDecoration(
                           labelText: _kContactLabel,
                           hintText: _kContactHint,
@@ -306,12 +306,22 @@ WidgetbookUseCase _allFieldErrors() {
 // ---------------------------------------------------------------------------
 
 final _formErrorScenarios = [
-  ('API 403 — Registration closed', _kApiEventInactive, 'myusername', 'CODE123'),
+  (
+    'API 403 — Registration closed',
+    _kApiEventInactive,
+    'myusername',
+    'CODE123'
+  ),
   ('API 404 — Username/code invalid', _kApiNotFound, 'wronguser', 'BADCODE'),
   ('API 409 — Code already used', _kApiCodeUsed, 'peterkrulis', 'ABC123'),
   ('API 422 — Validation error', _kApiValidation, '', ''),
   ('API 5xx — Server error', _kApiGeneric, 'myusername', 'CODE123'),
-  ('FFI — Key derivation failed', _kKeyDerivationFailed, 'myusername', 'CODE123'),
+  (
+    'FFI — Key derivation failed',
+    _kKeyDerivationFailed,
+    'myusername',
+    'CODE123'
+  ),
   ('Storage — Secure storage failed', _kStorageFailed, 'myusername', 'CODE123'),
   ('Network — Timeout', _kTimeoutError, 'myusername', 'CODE123'),
   ('Network — No connection', _kNetworkError, 'myusername', 'CODE123'),

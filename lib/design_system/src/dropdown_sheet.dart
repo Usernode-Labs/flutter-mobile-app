@@ -51,8 +51,7 @@ class _DropdownSheetBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dividerSlot =
-        dividerAfterIndex != null ? dividerAfterIndex! + 1 : -1;
+    final dividerSlot = dividerAfterIndex != null ? dividerAfterIndex! + 1 : -1;
 
     return SheetLayout(
       title: title,
@@ -63,9 +62,8 @@ class _DropdownSheetBody extends StatelessWidget {
           if (index == dividerSlot) {
             return const Divider(height: 1);
           }
-          final labelIndex = index > dividerSlot && dividerSlot >= 0
-              ? index - 1
-              : index;
+          final labelIndex =
+              index > dividerSlot && dividerSlot >= 0 ? index - 1 : index;
           final isSelected = labelIndex == selectedIndex;
           return _OptionRow(
             label: labels[labelIndex],

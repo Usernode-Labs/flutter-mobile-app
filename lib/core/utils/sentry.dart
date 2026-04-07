@@ -85,6 +85,7 @@ class SentryUtil {
       if (opts.dsn.isNotEmpty) options.dsn = opts.dsn;
       options.environment = opts.environment;
       options.tracesSampleRate = opts.tracesSampleRate;
+      // ignore: experimental_member_use
       options.profilesSampleRate = opts.profilesSampleRate;
       options.attachThreads = true;
       options.reportPackages = true;

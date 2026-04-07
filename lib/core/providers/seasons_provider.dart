@@ -14,5 +14,5 @@ class SeasonsController extends LeaderboardNotifier<List<SeasonDto>> {
 
 final seasonsProvider =
     AsyncNotifierProvider<SeasonsController, List<SeasonDto>?>(
-      SeasonsController.new,
-    );
+  SeasonsController.new,
+);

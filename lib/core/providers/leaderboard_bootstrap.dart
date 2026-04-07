@@ -119,7 +119,6 @@ final registrationFreshnessProvider = StateProvider<RegistrationFreshness>(
   (ref) => RegistrationFreshness.unknown,
 );
 
-
 /// Refresh all active leaderboard providers silently.
 /// Called from zkpassport flow completion and other non-screen contexts.
 /// Screen pull-to-refresh calls individual provider refreshes directly.

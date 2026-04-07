@@ -27,5 +27,5 @@ class EventPointsController extends LeaderboardNotifier<EventPointsResult> {
 
 final eventPointsProvider =
     AsyncNotifierProvider<EventPointsController, EventPointsResult?>(
-      EventPointsController.new,
-    );
+  EventPointsController.new,
+);

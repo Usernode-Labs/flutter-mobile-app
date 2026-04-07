@@ -152,7 +152,7 @@ jobs:
           dart run bin/lint.dart ../..
 
       - name: Run unit tests
-        run: flutter test --coverage --exclude-tags golden
+        run: flutter test --coverage
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3

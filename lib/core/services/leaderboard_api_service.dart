@@ -76,8 +76,9 @@ class LeaderboardApiService {
     if (seasonId != null) params['season_id'] = seasonId.toString();
     if (eventId != null) params['event_id'] = eventId.toString();
     if (activeOnly != null) params['active_only'] = activeOnly.toString();
-    if (onlyScheduled == true)
+    if (onlyScheduled == true) {
       params['only_scheduled'] = '1'; // backend expects '1', not 'true'
+    }
 
     final data = await _get('/challenges', queryParams: params);
     return (data as List)

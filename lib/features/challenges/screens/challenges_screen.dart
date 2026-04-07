@@ -189,7 +189,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
 
     return Scaffold(
       body: ParallaxSurfaceLayout(
-        headerHeight: kScreenHeaderHeight,
+        headerHeight: kScreenHeaderHeight + kPinnedBarPadding,
         scrollFractionNotifier: _scrollFraction,
         onRefresh: _onRefresh,
         onRefreshStatusChange: _onRefreshStatusChange,

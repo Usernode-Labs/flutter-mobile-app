@@ -164,20 +164,18 @@ class ParallaxSurfaceLayout extends StatefulWidget {
   final bool showEdgeFade;
 
   /// When true and no [pinnedHeaderSlivers] are provided, the layout injects
-  /// an internal pinned [SafeAreaPinnedDelegate] that offsets the surface
-  /// downward by the status-bar height plus [kPinnedBarPadding] and lerps
-  /// from [ColorScheme.surface] to [ColorScheme.surfaceContainerLowest] as
-  /// the user scrolls.
+  /// an internal pinned [SafeAreaPinnedDelegate] that lerps from
+  /// [ColorScheme.surface] to [ColorScheme.surfaceContainerLowest] as the
+  /// user scrolls.
   ///
-  /// The extra [kPinnedBarPadding] (48px) matches the space that standard
-  /// pinned-bar delegates add beyond the safe-area inset, keeping all
-  /// screens' surfaces at the same Y position.
+  /// The delegate height depends on [title]:
+  /// - **With title**: `safeTop + kPinnedBarPadding` (48px content slot for
+  ///   the title text, matching screens with pinned bars).
+  /// - **Without title**: `safeTop` only (minimal safe-area coverage, no
+  ///   empty gap below the status bar).
   ///
   /// Screens with [pinnedHeaderSlivers] handle safe-area internally through
-  /// their delegates, so the auto-sliver is skipped. When adding pinned
-  /// headers to a screen, ensure the first delegate includes
-  /// `MediaQuery.of(context).padding.top + kPinnedBarPadding` in its
-  /// extent — otherwise the surface will sit higher than other screens.
+  /// their delegates, so the auto-sliver is skipped.
   final bool safeAreaOverlay;
 
   // ignore: deprecated_member_use_from_same_package
@@ -246,8 +244,13 @@ class _ParallaxSurfaceLayoutState extends State<ParallaxSurfaceLayout> {
     final theme = Theme.of(context);
     // Matches the structural offset that pinned-header screens get for free.
     // Used in: header padding, edge fade position, deprecated surfaceFillsViewport.
+    // When safeAreaOverlay is active and no custom pinned headers exist,
+    // inject a pinned sliver for status-bar coverage. Include the 48px
+    // content-slot padding only when a title fills it; otherwise use
+    // minimal safe-area (safeTop only) to avoid an empty gap.
     _autoSliverExtent = (widget.safeAreaOverlay && _effectivePinned.isEmpty)
-        ? MediaQuery.of(context).padding.top + kPinnedBarPadding
+        ? MediaQuery.of(context).padding.top +
+            (widget.title != null ? kPinnedBarPadding : 0.0)
         : 0.0;
 
     final stackChildren = [
@@ -701,9 +704,8 @@ class StatusBarOverlay extends StatelessWidget {
 /// (e.g. no address bar, no search field).
 ///
 /// **Invariant:** [minExtent] and [maxExtent] must both equal [topPadding],
-/// which should be `MediaQuery.of(context).padding.top + kPinnedBarPadding`
-/// for screens without custom pinned bars. Changing them will shift the
-/// surface Y position and break cross-screen alignment.
+/// which should be `safeTop + kPinnedBarPadding` when [title] is displayed,
+/// or `safeTop` only for screens without a title or custom pinned bars.
 class SafeAreaPinnedDelegate extends SliverPersistentHeaderDelegate {
   SafeAreaPinnedDelegate({
     required this.topPadding,
@@ -715,6 +717,7 @@ class SafeAreaPinnedDelegate extends SliverPersistentHeaderDelegate {
   final ValueNotifier<double> scrollFractionNotifier;
 
   /// Optional page title displayed bottom-left in the 48px bar zone.
+  /// When null, the auto-sliver uses minimal safe-area height (safeTop only).
   final String? title;
 
   @override
@@ -748,14 +751,16 @@ class SafeAreaPinnedDelegate extends SliverPersistentHeaderDelegate {
               colorScheme.surfaceContainerLowest,
               sf,
             )!,
-            border: Border(
-              bottom: BorderSide(
-                color: colorScheme.onSurface.withValues(
-                  alpha: sf.clamp(0.0, 1.0) * borders.opacity,
-                ),
-                width: borders.width,
-              ),
-            ),
+            border: title != null
+                ? Border(
+                    bottom: BorderSide(
+                      color: colorScheme.onSurface.withValues(
+                        alpha: sf.clamp(0.0, 1.0) * borders.opacity,
+                      ),
+                      width: borders.width,
+                    ),
+                  )
+                : null,
           ),
           child: title != null
               ? Opacity(

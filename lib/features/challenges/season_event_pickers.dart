@@ -29,9 +29,9 @@ Future<void> showEventPicker(BuildContext context, WidgetRef ref) async {
 
   final currentSeason = ctx.seasonId != null
       ? seasons.cast<SeasonDto?>().firstWhere(
-          (s) => s!.id == ctx.seasonId,
-          orElse: () => seasons.first,
-        )
+            (s) => s!.id == ctx.seasonId,
+            orElse: () => seasons.first,
+          )
       : seasons.first;
   if (currentSeason == null || currentSeason.events.isEmpty) return;
 

@@ -228,7 +228,8 @@ void main() {
       expect(enriched[0].earnedPoints, 999);
     });
 
-    test('prefers primary activity over extra-point when both share challengeId',
+    test(
+        'prefers primary activity over extra-point when both share challengeId',
         () {
       final challenges = [
         _makeDto(
@@ -240,9 +241,7 @@ void main() {
         _makeActivity(
             id: '10', challengeId: 1, points: 4166), // regular epoch activity
         _makeActivity(
-            id: 'extra-point-42',
-            challengeId: 1,
-            points: 125), // extra points
+            id: 'extra-point-42', challengeId: 1, points: 125), // extra points
       ];
 
       final enriched = enrichChallenges(challenges, activities);
@@ -263,8 +262,7 @@ void main() {
             subCategory: 'PRODUCE_BLOCKS_CHALLENGE'),
       ];
       final activities = [
-        _makeActivity(
-            id: 'extra-point-42', challengeId: 1, points: 125),
+        _makeActivity(id: 'extra-point-42', challengeId: 1, points: 125),
       ];
 
       final enriched = enrichChallenges(challenges, activities);
@@ -337,7 +335,7 @@ void main() {
       expect(result.missed, isEmpty);
     });
 
-    test('disabled challenge is dropped even if participant completed', () {
+    test('disabled challenge with earned points goes to completed', () {
       final enriched = [
         EnrichedChallenge(
           dto: _makeDto(id: 1, enabled: false, goal: 'Goal'),
@@ -346,7 +344,7 @@ void main() {
       ];
       final result = categorizeEnrichedChallenges(enriched);
       expect(result.active, isEmpty);
-      expect(result.completed, isEmpty);
+      expect(result.completed, hasLength(1));
       expect(result.missed, isEmpty);
     });
 

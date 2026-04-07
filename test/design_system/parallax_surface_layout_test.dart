@@ -507,9 +507,9 @@ void main() {
         ),
       ));
 
-      // NestedScrollView should contain the user's pinned header plus the
-      // auto-injected safe-area sliver (no pinnedHeaderSlivers provided).
-      expect(find.byType(SliverPersistentHeader), findsNWidgets(2));
+      // Without safe-area padding the auto-sliver is not injected,
+      // so only the user-provided SliverPersistentHeader should be present.
+      expect(find.byType(SliverPersistentHeader), findsOneWidget);
       expect(find.text('Tab Content'), findsOneWidget);
     });
 
@@ -739,6 +739,7 @@ void main() {
             ParallaxSurfaceLayout(
               header: const SizedBox(height: 200),
               headerHeight: 200,
+              title: 'Test',
               surfaceSlivers: [
                 SliverList.list(
                   children: List.generate(
@@ -771,6 +772,7 @@ void main() {
             ParallaxSurfaceLayout(
               header: const SizedBox(height: 200),
               headerHeight: 200,
+              title: 'Test',
               surfaceSlivers: [
                 SliverList.list(
                   children: List.generate(
@@ -873,6 +875,7 @@ void main() {
                 height: 100,
               ),
               headerHeight: headerHeight,
+              title: 'Test',
             ),
           ));
           final autoY =
@@ -920,6 +923,7 @@ void main() {
               height: 100,
             ),
             headerHeight: headerHeight,
+            title: 'Test',
           ),
         ));
         final y =
@@ -973,6 +977,7 @@ void main() {
             header: Text('Header'),
             surfaceBody: Text('Body'),
             headerHeight: headerHeight,
+            title: 'Test',
           ),
         ));
         final autoHeaderY = tester.getTopLeft(find.text('Header')).dy;

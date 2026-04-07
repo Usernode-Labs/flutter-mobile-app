@@ -10,6 +10,7 @@ import '../src/nav_indicator_shapes.dart';
 import '../tokens/app_semantic_colors.dart';
 import '../tokens/app_sizing.dart';
 import '../tokens/app_spacing.dart';
+
 WidgetbookComponent dappsPageComponent() {
   return WidgetbookComponent(
     name: 'dApps',
@@ -193,4 +194,3 @@ class _DappsPageState extends State<_DappsPage> {
     );
   }
 }
-

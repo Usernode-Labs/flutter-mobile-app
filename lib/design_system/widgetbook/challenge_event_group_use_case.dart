@@ -45,7 +45,6 @@ WidgetbookUseCase _playground() {
         child: ChallengeEventGroup(
           eventName: eventName,
           dateRange: dateRange,
-
           pointsLabel: pointsLabel,
           challenges: const [
             ChallengeEventItem(
@@ -90,7 +89,6 @@ WidgetbookUseCase _multipleEvents() {
             ChallengeEventGroup(
               eventName: 'Block Production',
               dateRange: 'Mar 1 - Mar 31',
-
               pointsLabel: '5,000 pts',
               challenges: [
                 ChallengeEventItem(
@@ -110,7 +108,6 @@ WidgetbookUseCase _multipleEvents() {
             ChallengeEventGroup(
               eventName: 'Transactions & Wallets',
               dateRange: 'Jan 15 - Feb 28',
-
               pointsLabel: '3,200 pts',
               challenges: [
                 ChallengeEventItem(

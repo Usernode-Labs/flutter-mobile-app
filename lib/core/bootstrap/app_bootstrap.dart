@@ -165,15 +165,11 @@ class AppBootstrap {
             name: AppConfig.bootstrapAccountName,
             secretKey: secretKey,
           );
-          if (account != null) {
-            hasActiveAccount = true;
-            log.info(
-              'Bootstrap account ready',
-              context: {'account_id': account.id, 'address': account.address},
-            );
-          } else {
-            log.warn('Failed to import bootstrap account from env');
-          }
+          hasActiveAccount = true;
+          log.info(
+            'Bootstrap account ready',
+            context: {'account_id': account.id, 'address': account.address},
+          );
         }
       } catch (e, st) {
         log.error(

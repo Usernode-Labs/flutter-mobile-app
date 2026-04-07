@@ -639,7 +639,7 @@ class _TypographyScaleSection extends StatelessWidget {
         ...styles.map((entry) {
           final (name, style) = entry;
           final size = style?.fontSize?.toStringAsFixed(0) ?? '?';
-          final weight = style?.fontWeight?.index.toString() ?? '?';
+          final weight = style?.fontWeight?.value.toString() ?? '?';
           return Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Container(

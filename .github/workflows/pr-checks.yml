@@ -7,7 +7,7 @@ on:
       - develop
 
 env:
-  FLUTTER_VERSION: "3.35.7"
+  FLUTTER_VERSION: "3.41.4"
   JAVA_VERSION: "17"
   NDK_VERSION: "29.0.14206865"
 
@@ -143,7 +143,7 @@ jobs:
         run: dart format . --set-exit-if-changed
 
       - name: Analyze code
-        run: flutter analyze --no-fatal-infos
+        run: flutter analyze
 
       - name: Design system lints
         run: |

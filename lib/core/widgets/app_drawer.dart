@@ -260,7 +260,7 @@ class _AppDrawerState extends ConsumerState<AppDrawer> {
             const Divider(height: 16),
             Text(l10n.drawerP2pPeerId),
             SelectableText(
-              ref.watch(nodeStatusProvider).value?.peerId ??
+              ref.watch(nodeStatusProvider).valueOrNull?.peerId ??
                   l10n.nodeNotAvailable,
               style: const TextStyle(
                 fontFamily: kMonoFontFamily,

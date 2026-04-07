@@ -655,7 +655,8 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
           : null,
       earnedPoints: variant == ChallengeCardVariant.ongoing
           ? isSyncing
-              ? ref.watch(syncingTextProvider).value ?? kSyncingTextFallback
+              ? ref.watch(syncingTextProvider).valueOrNull ??
+                  kSyncingTextFallback
               : effectiveEarned != null
                   ? formatEarnedPoints(effectiveEarned)
                   : null

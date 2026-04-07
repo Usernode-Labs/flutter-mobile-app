@@ -1,11 +1,19 @@
 #!/bin/sh
-# Pre-commit hook: run flutter analyze on staged .dart files.
-# Catches compile errors (e.g. invalid constructor params) before they're committed.
+# Pre-commit hook: run dart format + flutter analyze on staged .dart files.
+# Catches formatting issues and compile errors before they're committed.
 #
 # Activate with: git config core.hooksPath .githooks
 
 changed_dart=$(git diff --cached --name-only --diff-filter=ACM -- '*.dart')
 if [ -n "$changed_dart" ]; then
+  echo "Checking dart format on staged .dart files..."
+  dart format --set-exit-if-changed $changed_dart
+  fmt_exit=$?
+  if [ $fmt_exit -ne 0 ]; then
+    echo "dart format failed — run 'dart format' on the files above, stage, and retry."
+    exit 1
+  fi
+
   echo "Running flutter analyze on staged .dart files..."
   flutter analyze --no-pub $changed_dart
   exit $?

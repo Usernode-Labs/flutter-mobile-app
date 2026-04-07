@@ -5,8 +5,6 @@ import 'package:widgetbook/widgetbook.dart';
 import '../src/bottom_nav.dart';
 import '../src/challenge_card.dart';
 import '../src/challenge_category_icon.dart';
-import '../src/dropdown_chain.dart';
-import '../src/dropdown_chip.dart';
 import '../src/nav_indicator_shapes.dart';
 import '../src/parallax_surface_layout.dart';
 import '../src/score_header.dart';
@@ -37,9 +35,6 @@ const _kSpacerHeight = 344.0;
 
 /// M3 TabBar height.
 const _kTabBarHeight = 48.0;
-
-/// Chip row intrinsic height.
-const _kChipHeight = 32.0;
 
 /// Tab definitions.
 const _kTabLabels = ['Active', 'Completed', 'Missed'];
@@ -216,7 +211,7 @@ class _ChallengesPageState extends State<_ChallengesPage>
                   Offset(0, -_scrollFraction * _kSpacerHeight * kParallaxRatio),
               child: Padding(
                 padding: EdgeInsets.only(
-                  top: safeTop + spacing.space8 + _kChipHeight + spacing.space8,
+                  top: safeTop,
                   left: spacing.space16,
                   right: spacing.space16,
                 ),
@@ -245,15 +240,6 @@ class _ChallengesPageState extends State<_ChallengesPage>
               child: NestedScrollView(
                 headerSliverBuilder: (context, innerBoxIsScrolled) {
                   return [
-                    // Pinned chip bar
-                    SliverPersistentHeader(
-                      pinned: true,
-                      delegate: _ChipBarDelegate(
-                        topPadding: safeTop,
-                        spacing: spacing,
-                        scrollFraction: _scrollFraction,
-                      ),
-                    ),
                     // Transparent spacer revealing ScoreHeader
                     const SliverToBoxAdapter(
                       child: SizedBox(height: _kSpacerHeight),
@@ -424,70 +410,6 @@ class _ChallengesPageState extends State<_ChallengesPage>
       ),
     );
   }
-}
-
-// ---------------------------------------------------------------------------
-// _ChipBarDelegate — pinned DropdownChain with lerping background
-// ---------------------------------------------------------------------------
-
-class _ChipBarDelegate extends SliverPersistentHeaderDelegate {
-  _ChipBarDelegate({
-    required this.topPadding,
-    required this.spacing,
-    required this.scrollFraction,
-  });
-
-  final double topPadding;
-  final AppSpacing spacing;
-  final double scrollFraction;
-
-  @override
-  double get maxExtent =>
-      topPadding + spacing.space8 + _kChipHeight + spacing.space8;
-
-  @override
-  double get minExtent => maxExtent;
-
-  @override
-  Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
-    final colors = Theme.of(context).colorScheme;
-    final bgColor = Color.lerp(
-        colors.surfaceContainerLowest.withValues(alpha: 0),
-        colors.surfaceContainerLowest,
-        scrollFraction)!;
-    final chipBorder = Color.lerp(colors.outlineVariant.withValues(alpha: 0),
-        colors.outlineVariant, scrollFraction)!;
-
-    return ColoredBox(
-      color: bgColor,
-      child: Padding(
-        padding: EdgeInsets.only(
-          top: topPadding + spacing.space8,
-          left: spacing.space16,
-          right: spacing.space16,
-          bottom: spacing.space8,
-        ),
-        child: DropdownChain(
-          items: [
-            DropdownChainItem(
-                label: 'Season 2',
-                variant: ChipVariant.surface,
-                borderColor: chipBorder),
-            DropdownChainItem(
-                label: 'DApps Integration',
-                variant: ChipVariant.surface,
-                borderColor: chipBorder),
-          ],
-        ),
-      ),
-    );
-  }
-
-  @override
-  bool shouldRebuild(_ChipBarDelegate oldDelegate) =>
-      oldDelegate.scrollFraction != scrollFraction ||
-      oldDelegate.topPadding != topPadding;
 }
 
 // ---------------------------------------------------------------------------

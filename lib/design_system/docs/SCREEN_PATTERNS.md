@@ -230,7 +230,7 @@ Scaffold and SafeArea handle system insets (status bar, notch, keyboard). These 
 | Screen type | System inset handling |
 |-------------|---------------------|
 | Detail screen with `TopAppBar` | Automatic — `SliverAppBar` consumes top inset |
-| Tab screen with `ParallaxSurfaceLayout` | Automatic — internal pinned sliver via `safeAreaOverlay` covers status bar + `kPinnedBarPadding` (48 px) for cross-screen alignment; skipped when `pinnedHeaderSlivers` provided (they must include `safeTop + kPinnedBarPadding` in their extent). See [LAYOUT.md § Safe Area Strategies](LAYOUT.md#safe-area-strategies). |
+| Tab screen with `ParallaxSurfaceLayout` | Automatic — internal pinned sliver via `safeAreaOverlay` covers status bar. Height = `safeTop + kPinnedBarPadding` (48 px) when `title` is provided, or `safeTop` only (minimal) when no title. Skipped when `pinnedHeaderSlivers` provided. See [LAYOUT.md § Safe Area Strategies](LAYOUT.md#safe-area-strategies). |
 | Tab screen in IndexedStack (no ParallaxSurfaceLayout) | Wrap body in `SafeArea` — shell provides BottomNav |
 | Full-screen (onboarding) | Explicit `SafeArea` around content |
 

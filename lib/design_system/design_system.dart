@@ -29,6 +29,7 @@ export 'src/challenge_activity_summary.dart';
 export 'src/challenge_card.dart';
 export 'src/challenge_category_icon.dart';
 export 'src/challenge_category_tile.dart';
+export 'src/challenge_event_group.dart';
 export 'src/challenge_detail_page.dart';
 export 'src/challenge_reward_card.dart';
 export 'src/dapp_avatar.dart';

@@ -28,7 +28,9 @@ import 'package:crypto_mobile_app/features/settings/widgets/build_info_sheet.dar
 import 'package:crypto_mobile_app/features/settings/widgets/network_switcher_dialog.dart';
 import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
+import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:crypto_mobile_app/core/config/app_router.dart';
 
 final _log =
     LoggingService.instance.withTag('usernode/BackgroundProductionSettings');
@@ -61,6 +63,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String? _deviceManufacturer;
   bool _iosKeepAliveActive = false;
   Timer? _autoTimer;
+  Timer? _longPressTimer;
   bool _refreshing = false;
   bool _active = false;
 
@@ -95,6 +98,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   void dispose() {
     _autoTimer?.cancel();
+    _longPressTimer?.cancel();
     super.dispose();
   }
 
@@ -534,7 +538,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
 
               SizedBox(height: spacing.space24),
-              const ListSectionHeader(title: 'ZK Identity'),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onLongPressStart: (_) {
+                  _longPressTimer?.cancel();
+                  _longPressTimer = Timer(
+                    const Duration(seconds: 5),
+                    () {
+                      if (mounted) context.push(AppRoutes.zkIdentityDetail);
+                    },
+                  );
+                },
+                onLongPressEnd: (_) => _longPressTimer?.cancel(),
+                onLongPressCancel: () => _longPressTimer?.cancel(),
+                child: const ListSectionHeader(title: 'ZK Identity'),
+              ),
               Card(
                 child: Column(
                   children: [

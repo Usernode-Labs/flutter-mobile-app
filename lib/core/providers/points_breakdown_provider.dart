@@ -9,8 +9,10 @@ class BreakdownController extends LeaderboardNotifier<BreakdownResult> {
   @override
   bool watchDeps() {
     final pid = ref.watch(participantIdProvider).valueOrNull;
-    final ctx = ref.watch(seasonEventContextProvider);
-    return pid != null && ctx.seasonId != null;
+    final sid = ref.watch(
+      seasonEventContextProvider.select((ctx) => ctx.seasonId),
+    );
+    return pid != null && sid != null;
   }
 
   @override
@@ -21,12 +23,10 @@ class BreakdownController extends LeaderboardNotifier<BreakdownResult> {
     final result = await service.getBreakdown(
       participantId: participantId,
       seasonId: ctx.seasonId,
-      eventId: ctx.eventId,
     );
     // Update participant event IDs for the event picker filter.
     if (result.seasonBreakdown != null) {
-      final ids =
-          result.seasonBreakdown!.events.map((e) => e.eventId).toSet();
+      final ids = result.seasonBreakdown!.events.map((e) => e.eventId).toSet();
       final prev = ref.read(participantEventIdsProvider);
       if (ids.length != prev.length || !ids.containsAll(prev)) {
         ref.read(participantEventIdsProvider.notifier).state = ids;
@@ -38,5 +38,5 @@ class BreakdownController extends LeaderboardNotifier<BreakdownResult> {
 
 final breakdownProvider =
     AsyncNotifierProvider<BreakdownController, BreakdownResult?>(
-      BreakdownController.new,
-    );
+  BreakdownController.new,
+);

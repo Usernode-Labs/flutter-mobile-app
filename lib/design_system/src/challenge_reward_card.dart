@@ -35,6 +35,8 @@ class ProduceBlocksRewardData extends ChallengeRewardData {
     required this.rankReward,
     this.rateLabel = 'SUCCESS RATE',
     this.extraPoints,
+    this.firstBlockReward,
+    this.successReward,
   });
 
   /// Progress bar fill fraction, 0.0–1.0.
@@ -62,6 +64,12 @@ class ProduceBlocksRewardData extends ChallengeRewardData {
   /// Formatted extra points from manual adjustments, e.g. "+840".
   /// When null the extra points row is hidden.
   final String? extraPoints;
+
+  /// Formatted first-block bonus, e.g. "+250". When null the row is hidden.
+  final String? firstBlockReward;
+
+  /// Formatted >50% success rate bonus, e.g. "+1,000". When null the row is hidden.
+  final String? successReward;
 }
 
 // ---------------------------------------------------------------------------
@@ -186,7 +194,9 @@ class ChallengeRewardCard extends StatelessWidget {
                       :final rankLabel,
                       :final rankReward,
                       :final rateLabel,
-                    :final extraPoints,
+                      :final extraPoints,
+                      :final firstBlockReward,
+                      :final successReward,
                     )) ...[
                   SizedBox(height: spacing.space24),
                   // Progress bar
@@ -251,27 +261,31 @@ class ChallengeRewardCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  // Extra points row (manual adjustments)
-                  if (extraPoints != null) ...[
-                    SizedBox(height: spacing.space12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'EXTRA POINTS',
-                          style: textTheme.labelSmall
-                              ?.copyWith(color: dimOnColor),
-                        ),
-                        Text(
-                          extraPoints,
-                          style: textTheme.bodyMedium?.copyWith(
-                            fontFamily: kMonoFontFamily,
-                            color: onColor,
+                  for (final (label, value) in [
+                    ('FIRST BLOCK REWARD', firstBlockReward),
+                    ('50% SUCCESS REWARD', successReward),
+                    ('EXTRA POINTS', extraPoints),
+                  ])
+                    if (value != null) ...[
+                      SizedBox(height: spacing.space12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            label,
+                            style: textTheme.labelSmall
+                                ?.copyWith(color: dimOnColor),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                          Text(
+                            value,
+                            style: textTheme.bodyMedium?.copyWith(
+                              fontFamily: kMonoFontFamily,
+                              color: onColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                 ],
               ],
             ),

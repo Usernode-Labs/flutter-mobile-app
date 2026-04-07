@@ -153,7 +153,7 @@ Stack (alignment: topCenter)
 ├── Layer 2 — CustomScrollView (scrollable)
 │   ├── [...pinnedHeaderSlivers]    ← pinned bars (multiple supported)
 │   ├── OR auto SafeAreaPinnedDelegate (safeAreaOverlay && no pinned headers)
-│   │   └── extent = safeTop + kPinnedBarPadding; color lerp surface→surfaceContainerLowest
+│   │   └── extent = safeTop + kPinnedBarPadding (with title) or safeTop only (no title)
 │   ├── SliverToBoxAdapter          ← transparent spacer (height: headerHeight)
 │   └── surfaceSlivers path:
 │       │   _SliverDecoratedBox(animated corners)
@@ -205,24 +205,23 @@ Stack (alignment: topCenter)
 `ParallaxSurfaceLayout` handles the status-bar safe-area automatically via
 its `safeAreaOverlay` parameter (default `true`). When no `pinnedHeaderSlivers`
 are provided, an internal pinned `SafeAreaPinnedDelegate` sliver is injected
-inside the `CustomScrollView`, offsetting the surface by `safeTop + kPinnedBarPadding`
-(48 px) and lerping from `surface` → `surfaceContainerLowest`. The extra
-`kPinnedBarPadding` matches the structural padding that standard pinned-bar
-delegates add beyond the safe-area inset, keeping all screens' surfaces at the
-same Y position. Screens that provide their own pinned headers (e.g. Wallet)
-skip the auto-sliver because their delegates already include
-`safeTop + kPinnedBarPadding` in their extent.
+inside the `CustomScrollView`, lerping from `surface` → `surfaceContainerLowest`.
 
-> **If you add `pinnedHeaderSlivers` to a screen**, your first delegate must
-> include `MediaQuery.of(context).padding.top + kPinnedBarPadding` in its
-> extent. Otherwise the auto-sliver is skipped and the surface will sit higher
-> than other screens.
+The delegate height depends on the `title` parameter:
+- **With `title`**: `safeTop + kPinnedBarPadding` (48 px) — provides a content
+  slot for the title text, matching the structural offset of screens with pinned bars.
+- **Without `title`**: `safeTop` only — minimal safe-area coverage with no
+  empty gap below the status bar.
 
-| Pattern | pinnedHeaderSlivers | safeAreaOverlay | Example |
-|---------|---------------------|-----------------|---------|
-| Pinned bar + safe area | `SliverPersistentHeader` delegates | auto-skipped | Wallet |
-| Auto pinned sliver (default) | `null` | `true` (default) | DApps, Node Status |
-| No safe-area handling | `null` | `false` | Widgetbook |
+Screens that provide their own `pinnedHeaderSlivers` (e.g. Wallet) skip the
+auto-sliver because their delegates already include safe-area handling.
+
+| Pattern | pinnedHeaderSlivers | title | Example |
+|---------|---------------------|-------|---------|
+| Pinned bar + safe area | `SliverPersistentHeader` delegates | N/A (auto-skipped) | Wallet |
+| Auto sliver with title | `null` | `'Node Status'` | Node Status |
+| Auto sliver minimal | `null` | `null` | Challenges |
+| No safe-area handling | `null` + `safeAreaOverlay: false` | N/A | Widgetbook |
 
 ### Surface Body Decoration Rules
 

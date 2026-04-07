@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'package:crypto_mobile_app/design_system/src/dropdown_chain.dart';
-import 'package:crypto_mobile_app/design_system/src/dropdown_chip.dart';
 import 'package:crypto_mobile_app/design_system/src/parallax_surface_layout.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_borders.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
@@ -9,81 +7,8 @@ import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 /// M3 TabBar height.
 const kTabBarHeight = 48.0;
 
-/// Chip row intrinsic height.
-const kChipHeight = 32.0;
-
 /// Tab labels.
 const kTabLabels = ['Active', 'Completed', 'Missed'];
-
-// ---------------------------------------------------------------------------
-// ChipBarDelegate — pinned DropdownChain with lerping background
-// ---------------------------------------------------------------------------
-
-class ChipBarDelegate extends SliverPersistentHeaderDelegate {
-  ChipBarDelegate({
-    required this.topPadding,
-    required this.spacing,
-    required this.scrollFractionNotifier,
-    required this.onEventTap,
-    required this.eventLabel,
-  });
-
-  final double topPadding;
-  final AppSpacing spacing;
-  final ValueNotifier<double> scrollFractionNotifier;
-  final VoidCallback onEventTap;
-  final String eventLabel;
-
-  @override
-  double get maxExtent =>
-      topPadding + spacing.space8 + kChipHeight + spacing.space8;
-
-  @override
-  double get minExtent => maxExtent;
-
-  @override
-  Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return ValueListenableBuilder<double>(
-      valueListenable: scrollFractionNotifier,
-      builder: (context, scrollFraction, child) {
-        final bgColor = Color.lerp(
-            colorScheme.surfaceContainerLowest.withValues(alpha: 0),
-            colorScheme.surfaceContainerLowest,
-            scrollFraction)!;
-        final borderColor = colorScheme.outlineVariant;
-        final chipBorder = Color.lerp(
-            borderColor.withValues(alpha: 0), borderColor, scrollFraction)!;
-
-        return ColoredBox(
-          color: bgColor,
-          child: Padding(
-            padding: EdgeInsets.only(
-              top: topPadding + spacing.space8,
-              left: spacing.space16,
-              right: spacing.space16,
-              bottom: spacing.space8,
-            ),
-            child: DropdownChain(
-              items: [
-                DropdownChainItem(
-                  label: eventLabel,
-                  variant: ChipVariant.surface,
-                  borderColor: chipBorder,
-                  onTap: onEventTap,
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  @override
-  bool shouldRebuild(ChipBarDelegate oldDelegate) => true;
-}
 
 // ---------------------------------------------------------------------------
 // SurfaceTabBarDelegate — pinned white surface with animating corner radius

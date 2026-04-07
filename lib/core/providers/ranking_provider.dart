@@ -9,8 +9,10 @@ class RankingController extends LeaderboardNotifier<RankingResult> {
   @override
   bool watchDeps() {
     final pid = ref.watch(participantIdProvider).valueOrNull;
-    final ctx = ref.watch(seasonEventContextProvider);
-    return pid != null && ctx.seasonId != null;
+    final sid = ref.watch(
+      seasonEventContextProvider.select((ctx) => ctx.seasonId),
+    );
+    return pid != null && sid != null;
   }
 
   @override
@@ -21,12 +23,11 @@ class RankingController extends LeaderboardNotifier<RankingResult> {
     return service.getRanking(
       participantId: participantId,
       seasonId: ctx.seasonId,
-      eventId: ctx.eventId,
     );
   }
 }
 
 final rankingProvider =
     AsyncNotifierProvider<RankingController, RankingResult?>(
-      RankingController.new,
-    );
+  RankingController.new,
+);

@@ -70,3 +70,11 @@ Gap analysis against M3 specs revealed the sheet was too dense: option rows 8dp 
 - Typography: `bodyLarge` for labels, `bodyLarge` bold for title
 - Selected indicator: `Icons.check` (24dp, `primary` color) with `SizedBox(width: 24)` spacer
 - Presentation-only: no providers
+
+## Composition
+
+**Use when:** Presenting a selection list as a modal bottom sheet (single-select from a list of options).
+**Parent containers:** Shows as a `BottomSheet` — called via `showDropdownSheet()` function, not placed in widget tree.
+**Pair with:** `DropdownChip` / `DropdownChain` (triggers the sheet on tap).
+**Anti-patterns:** Don't use for multi-select — this is single-select only. Don't use for complex forms — use a full sheet or dialog.
+**Screen example:** `lib/features/challenges/season_event_pickers.dart` — season/epoch selection sheets

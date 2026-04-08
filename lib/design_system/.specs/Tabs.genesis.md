@@ -129,3 +129,11 @@ Replaced manual tab bar + `PageView` with M3 `TabBar` + `TabBarView` driven by `
 - Badge treatment: inline badge with active/inactive color (onSurface/outline), not M3 error badge
 - Divider: `outlineVariant` 1dp (from `tabBarTheme.dividerColor`)
 - Indicator: `primary` color (from `tabBarTheme.indicatorColor`)
+
+## Composition
+
+**Use when:** Switching between content sections within a single screen (e.g., challenge categories, leaderboard views).
+**Parent containers:** PSL `surfacePinnedSlivers` (pinned at surface junction in `nestedBody` mode), or standalone in any layout.
+**Pair with:** `TabBarView` / `nestedBody` for independently scrollable tab content, `ParallaxSurfaceLayout` for PSL integration.
+**Anti-patterns:** Don't use for top-level navigation — use `BottomNav`. Don't use inside a non-scrollable layout if content per tab can overflow.
+**Screen example:** `lib/features/challenges/screens/challenges_screen.dart` — category tabs pinned at PSL surface with `nestedBody`

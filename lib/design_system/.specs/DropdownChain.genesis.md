@@ -27,3 +27,11 @@ The 16px horizontal / 8px vertical padding visible in Figma is a screen concern,
 
 ### Presentation-only
 No selection state, no menu logic. The screen passes labels and tap callbacks. Items are an ordered list — the widget doesn't know or care about filter semantics.
+
+## Composition
+
+**Use when:** Presenting a horizontal chain of related filters/selectors (e.g., season → epoch → category).
+**Parent containers:** Inside PSL `pinnedHeaderSlivers` as part of a pinned bar, or inside `SliverToBoxAdapter` in scroll content.
+**Pair with:** `DropdownSheet` (opens on chip tap), `DropdownChip` (individual items in the chain).
+**Anti-patterns:** Don't bake horizontal padding into the chain — screen applies its own margins.
+**Screen example:** `lib/features/leaderboard/screens/leaderboard_screen.dart` — filter chain for season/epoch selection

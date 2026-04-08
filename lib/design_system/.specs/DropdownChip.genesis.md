@@ -61,3 +61,11 @@ Wrapped `FilterChip` with `showCheckmark: false`. Dropdown arrow placed inside l
 - Selected state: `secondaryContainer` fill via `selectedColor`
 - Disabled opacity: still uses `AppOpacity.disabled` (0.30)
 - Presentation-only: no providers
+
+## Composition
+
+**Use when:** A single filter/selector chip that opens a dropdown sheet on tap.
+**Parent containers:** Inside `DropdownChain` (primary), or standalone in a toolbar row.
+**Pair with:** `DropdownChain` (horizontal chain), `DropdownSheet` (selection UI on tap).
+**Anti-patterns:** Don't use for actions — chips are selectors, not buttons. Use `Button` for actions.
+**Screen example:** `lib/features/dapps/dapps_screen.dart` — standalone sort chip

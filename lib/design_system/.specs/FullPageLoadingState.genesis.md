@@ -13,3 +13,10 @@ Multiple screens hand-roll identical `Center(child: CircularProgressIndicator())
 
 ## Figma
 No Figma reference — loading indicators are not designed per-screen.
+
+## Composition
+
+**Use when:** An async operation is loading and the entire screen area should show a centered spinner.
+**Parent containers:** `Scaffold` body, PSL `surfaceSlivers` (via `SliverFillRemaining`), or `TabBarView` child.
+**Pair with:** Provider loading states — wrap in `AsyncValue.when(loading: ...)` pattern.
+**Anti-patterns:** Don't use for partial loading within a list — use `ShimmerBlock` / `ShimmerListTile` instead. Don't add a Scaffold.

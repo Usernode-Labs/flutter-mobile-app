@@ -73,3 +73,11 @@ touch_target: iconContainerRegular  # 48px
 visible_size: iconContainerSmall    # 40px
 icon_size: iconRegular              # 24px
 ```
+
+## Composition
+
+**Use when:** A circular icon container with a tinted background — the general-purpose leading element for ListTile rows.
+**Parent containers:** `ListTile.leading` (primary use), any `Row` or layout needing a visual anchor.
+**Pair with:** M3 `ListTile` (leading slot), `StatusTextTrailing` / `TextChevronTrailing` (trailing slot).
+**Anti-patterns:** Don't use for challenge categories — use `ChallengeCategoryIcon` instead. Don't override the default achromatic color unless a semantic color group applies.
+**Screen example:** `lib/features/settings/widgets/quick_settings_panel.dart`, `lib/features/node/screens/node_status_screen.dart`

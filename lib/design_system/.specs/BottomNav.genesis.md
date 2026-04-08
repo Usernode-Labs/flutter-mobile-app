@@ -143,3 +143,11 @@ Replaced manual `DecoratedBox` + `Row` + `GestureDetector` layout with `Navigati
 - Top border: `outlineVariant` `BorderSide`
 - Disabled treatment: 50% opacity via `Opacity` widget
 - Presentation-only: no providers
+
+## Composition
+
+**Use when:** App-level tab navigation. Singleton — only one instance in the app shell.
+**Parent containers:** `Scaffold.bottomNavigationBar` in `HomeScreen` shell.
+**Pair with:** `IndexedStack` for tab content preservation.
+**Anti-patterns:** Don't use inside detail screens — only the shell provides BottomNav.
+**Screen example:** `lib/features/home/screens/home_screen.dart`

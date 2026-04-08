@@ -257,3 +257,24 @@ Replaced blanket `Opacity` wrapper with per-element color shifts using existing 
 ### Principle
 
 Never use blanket `Opacity` to communicate semantic state on content that includes text. `Opacity` is acceptable for decorative elements (shadows, overlays) but not for entire interactive cards with readable content. Use the Material 3 surface/text color hierarchy instead — it was designed for exactly this purpose.
+
+## Composition
+
+**Use when:** Displaying a challenge in a list — active, ongoing, completed, or missed. Each card is a self-contained unit showing title, category, date range, and reward info.
+
+**Parent containers:**
+- `ListView.separated` inside PSL `surfaceSlivers` (primary use)
+- `SliverList` inside PSL `surfaceSlivers` (sliver context)
+
+**Pair with:**
+- `Tabs` for category filtering (technical/flash/community)
+- `ScoreHeader` in PSL `headerBuilder` for the overall score above the challenge list
+- `DropdownChain` / `DropdownChip` for season/epoch selection
+- `ChallengeCategoryIcon` as the leading element (composed internally)
+
+**Anti-patterns:**
+- Don't use standalone outside a scrollable container — always in a list
+- Don't wrap in extra `Padding` with horizontal insets — PSL provides screen margins via `SliverPadding`
+- Don't mix variants in the same list section without clear grouping (use `ListSectionHeader` to separate active from completed)
+
+**Screen example:** `lib/features/challenges/screens/challenges_screen.dart` — `_buildEnrichedChallengeCard` builds cards inside a `ListView.separated` within PSL `surfaceSlivers`

@@ -55,3 +55,11 @@ All 7 text styles match theme mappings:
 
 ### CTA epoch source fix
 Changed from `eb.eventName` (leaderboard event identifier) to `producedBlocksSummaryProvider.maxEpochWithData` (actual latest on-chain epoch). CTA now appears as soon as block data loads, independent of breakdown availability.
+
+## Composition
+
+**Use when:** Showing detailed reward breakdown for a single challenge (success rate, max points, total calculation).
+**Parent containers:** Inside `ChallengeDetailPage` as a standalone card, or inside PSL `surfaceSlivers`.
+**Pair with:** `ChallengeDetailPage` (primary consumer), `ChallengeCard` (navigates to detail which shows this card).
+**Anti-patterns:** Don't use in lists — this is a detail-level card, not a list item.
+**Screen example:** `lib/design_system/src/challenge_detail_page.dart` — composed internally as `_TotalRewardCard`

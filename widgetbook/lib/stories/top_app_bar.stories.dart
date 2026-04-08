@@ -19,13 +19,15 @@ final $Small = _Story(
     ]),
   ),
   setup: (context, child, args) {
-    return CustomScrollView(
-      slivers: [
-        child,
-        const SliverFillRemaining(
-          child: Center(child: Text('Scroll content area')),
-        ),
-      ],
+    return Material(
+      child: CustomScrollView(
+        slivers: [
+          child,
+          const SliverFillRemaining(
+            child: Center(child: Text('Scroll content area')),
+          ),
+        ],
+      ),
     );
   },
 );
@@ -42,16 +44,18 @@ final $Large = _Story(
     ]),
   ),
   setup: (context, child, args) {
-    return CustomScrollView(
-      slivers: [
-        child,
-        SliverList(
-          delegate: SliverChildBuilderDelegate(
-            (context, index) => ListTile(title: Text('Item $index')),
-            childCount: 30,
+    return Material(
+      child: CustomScrollView(
+        slivers: [
+          child,
+          SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) => ListTile(title: Text('Item $index')),
+              childCount: 30,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   },
 );

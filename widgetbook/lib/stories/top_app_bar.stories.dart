@@ -1,0 +1,57 @@
+import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
+import 'package:widgetbook/widgetbook.dart';
+
+import 'package:crypto_mobile_app/design_system/src/top_app_bar.dart';
+
+part 'top_app_bar.stories.g.dart';
+
+const meta = Meta<TopAppBar>(path: 'widgets/navigation');
+
+final $Small = _Story(
+  name: 'Small',
+  args: _Args(
+    title: StringArg('Challenges'),
+    size: EnumArg(TopAppBarSize.small, values: TopAppBarSize.values),
+    onLeadingTap: Arg.fixed(() {}),
+    actions: Arg.fixed([
+      IconButton(onPressed: () {}, icon: const Icon(Symbols.more_vert_sharp)),
+    ]),
+  ),
+  setup: (context, child, args) {
+    return CustomScrollView(
+      slivers: [
+        child,
+        const SliverFillRemaining(
+          child: Center(child: Text('Scroll content area')),
+        ),
+      ],
+    );
+  },
+);
+
+final $Large = _Story(
+  name: 'Large',
+  args: _Args(
+    title: StringArg('Block Production'),
+    size: EnumArg(TopAppBarSize.large, values: TopAppBarSize.values),
+    subtitle: Arg.fixed('Mar 1 – Mar 31 · Technical'),
+    onLeadingTap: Arg.fixed(() {}),
+    actions: Arg.fixed([
+      IconButton(onPressed: () {}, icon: const Icon(Symbols.share_sharp)),
+    ]),
+  ),
+  setup: (context, child, args) {
+    return CustomScrollView(
+      slivers: [
+        child,
+        SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) => ListTile(title: Text('Item $index')),
+            childCount: 30,
+          ),
+        ),
+      ],
+    );
+  },
+);

@@ -28,14 +28,13 @@ class _TxRecord {
   final String memo;
   final _TxStatus status;
   final String? errorMessage;
+  final DateTime? confirmedAt;
+  final int? inclusionLatencyMs;
+  final int? blockHeight;
+  final int? onChainTimestampMs;
+  final String? onChainStatus;
 
-  DateTime? confirmedAt;
-  int? inclusionLatencyMs;
-  int? blockHeight;
-  int? onChainTimestampMs;
-  String? onChainStatus;
-
-  _TxRecord({
+  const _TxRecord({
     required this.id,
     required this.sentAt,
     required this.from,
@@ -50,6 +49,30 @@ class _TxRecord {
     this.onChainTimestampMs,
     this.onChainStatus,
   });
+
+  _TxRecord copyWith({
+    DateTime? confirmedAt,
+    int? inclusionLatencyMs,
+    int? blockHeight,
+    int? onChainTimestampMs,
+    String? onChainStatus,
+  }) {
+    return _TxRecord(
+      id: id,
+      sentAt: sentAt,
+      from: from,
+      to: to,
+      amount: amount,
+      memo: memo,
+      status: status,
+      errorMessage: errorMessage,
+      confirmedAt: confirmedAt ?? this.confirmedAt,
+      inclusionLatencyMs: inclusionLatencyMs ?? this.inclusionLatencyMs,
+      blockHeight: blockHeight ?? this.blockHeight,
+      onChainTimestampMs: onChainTimestampMs ?? this.onChainTimestampMs,
+      onChainStatus: onChainStatus ?? this.onChainStatus,
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -123,7 +146,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   static const _maxTxRecords = 500;
 
   String get _dappTxIdsPrefsKey => 'dapp_tx_ids:${widget.url}';
-  static const _txRecordsPrefsKey = 'tx_records';
+  String get _txRecordsPrefsKey => 'tx_records:${widget.url}';
 
   Future<void> _loadDappTxIds() async {
     final prefs = await SharedPreferences.getInstance();
@@ -567,12 +590,14 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
             pending.containsKey(txId)) {
           final rec = _txRecords[txId];
           if (rec != null && rec.confirmedAt == null) {
-            rec.confirmedAt = now;
-            rec.inclusionLatencyMs =
-                (j['inclusion_latency_ms'] as num?)?.toInt();
-            rec.blockHeight = (j['block_height'] as num?)?.toInt();
-            rec.onChainTimestampMs = (j['timestamp_ms'] as num?)?.toInt();
-            rec.onChainStatus = status;
+            _txRecords[txId] = rec.copyWith(
+              confirmedAt: now,
+              inclusionLatencyMs:
+                  (j['inclusion_latency_ms'] as num?)?.toInt(),
+              blockHeight: (j['block_height'] as num?)?.toInt(),
+              onChainTimestampMs: (j['timestamp_ms'] as num?)?.toInt(),
+              onChainStatus: status,
+            );
             found = true;
           }
         }
@@ -1160,12 +1185,14 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
             pending.containsKey(txId)) {
           final rec = widget.txRecords[txId];
           if (rec != null && rec.confirmedAt == null) {
-            rec.confirmedAt = now;
-            rec.inclusionLatencyMs =
-                (j['inclusion_latency_ms'] as num?)?.toInt();
-            rec.blockHeight = (j['block_height'] as num?)?.toInt();
-            rec.onChainTimestampMs = (j['timestamp_ms'] as num?)?.toInt();
-            rec.onChainStatus = status;
+            widget.txRecords[txId] = rec.copyWith(
+              confirmedAt: now,
+              inclusionLatencyMs:
+                  (j['inclusion_latency_ms'] as num?)?.toInt(),
+              blockHeight: (j['block_height'] as num?)?.toInt(),
+              onChainTimestampMs: (j['timestamp_ms'] as num?)?.toInt(),
+              onChainStatus: status,
+            );
             found = true;
           }
         }

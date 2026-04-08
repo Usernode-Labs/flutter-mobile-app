@@ -95,3 +95,26 @@ All four main tab screens use PSL:
 - **DApps**: `surfaceSlivers` (auto safe-area)
 - **Node Status**: `surfaceSlivers` (auto safe-area)
 - **Challenges**: `nestedBody` + `pinnedHeaderSlivers` (ChipBarDelegate) + `surfacePinnedSlivers` (SurfaceTabBarDelegate) + `headerOverlay` (CTA button) + `onRefreshStatusChange` (pull feedback)
+
+## Composition
+
+**Use when:** A screen needs the "white sheet over grey scaffold" pattern with a parallax header. This is the primary scroll container for tab screens and detail screens.
+
+**Parent containers:**
+- Direct child of `Scaffold` body (primary use)
+- Never nested inside another scroll container
+
+**Pair with:**
+- `ScoreHeader` in `header` slot (challenges, leaderboard)
+- `TopAppBar` as a `pinnedHeaderSliver` for detail screens
+- Custom `SliverPersistentHeaderDelegate` as `pinnedHeaderSlivers` (Wallet address bar, chip bars)
+- `Tabs` / `TabBar` in `surfacePinnedSlivers` for tabbed content (`nestedBody` mode)
+- Any slivers in `surfaceSlivers` — `SliverList`, `SliverToBoxAdapter`, `SliverPadding`
+
+**Anti-patterns:**
+- Don't use both `surfaceBody` (deprecated) and `surfaceSlivers` — use `surfaceSlivers` only
+- Don't add top padding to the first surfaceSliver — PSL injects `kSurfaceTopInset` (8px) automatically
+- Don't wrap `CustomScrollView` around PSL — it IS the scroll container
+- Don't add `SafeArea` when PSL's `safeAreaOverlay` is true (default) — it handles status bar automatically
+
+**Screen example:** `lib/features/wallet/screens/wallet_screen.dart` — PSL with `pinnedHeaderSlivers` (AddressBarDelegate) + `surfaceSlivers`; `lib/features/challenges/screens/challenges_screen.dart` — PSL with `nestedBody` for tabbed challenges

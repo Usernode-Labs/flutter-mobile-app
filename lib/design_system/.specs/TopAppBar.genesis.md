@@ -110,3 +110,22 @@ Since `TopAppBar` is a sliver (not a RenderBox), golden tests capture `find.byTy
 
 - **Golden files**: `test/design_system/goldens/top_app_bar_small.png`, `test/design_system/goldens/top_app_bar_large.png`
 - Rendered with light theme, default viewport
+
+## Composition
+
+**Use when:** A detail screen needs a pinned app bar with back navigation. Provides small (title only) and large (title + subtitle + optional image) variants.
+
+**Parent containers:**
+- First sliver in a `CustomScrollView` (pinned via `SliverAppBar`)
+- First sliver in PSL `pinnedHeaderSlivers` for detail pages using PSL
+
+**Pair with:**
+- `ParallaxSurfaceLayout` for detail screens with parallax headers
+- Action buttons in `actions` slot (IconButton with `Symbols.*_sharp`)
+
+**Anti-patterns:**
+- Don't use on tab screens — tab screens get their safe area from PSL's auto-sliver or shell
+- Don't add `SafeArea` around TopAppBar — `SliverAppBar` handles top insets automatically
+- Don't use the large variant for simple detail pages — reserve for screens with a hero identity (image, subtitle)
+
+**Screen example:** `lib/features/leaderboard/screens/leaderboard_screen.dart` — `TopAppBar(title: ..., actions: [...])` as first pinned sliver

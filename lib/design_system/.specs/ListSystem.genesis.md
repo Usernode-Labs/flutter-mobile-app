@@ -131,3 +131,25 @@ The Figma shows a "Building Blocks / Section header" component above the list it
 | Trailing text color | colorScheme.onSurface | — |
 | Pattern A leading size | AppSizing.iconContainerRegular | 48 |
 | Pattern B leading size | AppSizing.iconContainerSmall | 40 |
+
+## Composition
+
+**Use when:** Displaying structured data as a vertical list of key-value rows. The List System is a pattern (ListSectionHeader + M3 ListTile), not a single widget.
+
+**Parent containers:**
+- Inside `Card` / `AppCard` for grouped settings or data sections
+- Inside PSL `surfaceSlivers` as `SliverList` for flat lists
+- Inside `Column` for small static groups
+
+**Pair with:**
+- `ListSectionHeader` above each group for section titles
+- `IconBadge` as `leading` element (Pattern A with 48dp container)
+- `StatusTextTrailing` / `TextChevronTrailing` as `trailing` element
+- `StatusBadge` as inline indicator within list rows
+
+**Anti-patterns:**
+- Don't wrap `ListTile` in `Padding` with horizontal insets — theme `contentPadding` handles horizontal padding, extra Padding shifts K₂ keyline
+- Don't override `visualDensity`, `minVerticalPadding`, `contentPadding`, or `minTileHeight` per-widget — set in theme
+- Don't use `Card(margin:)` around list sections — margin is zeroed by theme
+
+**Screen example:** `lib/features/settings/screens/settings_screen.dart` — `ListSectionHeader` + `ListTile` groups inside cards; `lib/features/node/screens/node_status_screen.dart` — `ListTile` rows inside PSL surfaceSlivers

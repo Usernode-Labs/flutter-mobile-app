@@ -23,3 +23,11 @@ Both `_SectionsCard` and `_TotalRewardCard` use `surfaceContainerLowest` backgro
 
 ### ChallengeCategoryIcon in TopAppBar
 The page composes `ChallengeCategoryIcon` internally from the `category` param, passing it to `TopAppBar.image`. This keeps the external API clean — caller only needs to pass the category enum.
+
+## Composition
+
+**Use when:** Full-screen detail view for a single challenge.
+**Parent containers:** Pushed via `context.push()` as a standalone route — not inside tabs or IndexedStack.
+**Pair with:** `TopAppBar` (large variant with category icon), `ChallengeRewardCard`, `ChallengeCategoryIcon`.
+**Anti-patterns:** Don't embed inside another scroll container — it manages its own scrolling.
+**Screen example:** `lib/features/challenges/screens/challenge_detail_screen.dart`

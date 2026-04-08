@@ -65,3 +65,11 @@ Figma uses `rgba(0,0,0,0.1)` for the border. Snapped to `outlineVariant` to stay
 | Test | `test/design_system/rank_badge_test.dart` |
 | Widgetbook | `lib/design_system/widgetbook/rank_badge_use_case.dart` |
 | Export | `lib/design_system/design_system.dart` |
+
+## Composition
+
+**Use when:** Displaying a numeric rank (1, 2, 3, etc.) as a circular badge in leaderboard rows.
+**Parent containers:** `ListTile.leading` (primary use in leaderboard list).
+**Pair with:** M3 `ListTile` in leaderboard lists, `LeaderboardStatsCard` (summary above the list).
+**Anti-patterns:** Don't use for non-ranking numbers — this is semantically a rank indicator.
+**Screen example:** `lib/features/leaderboard/screens/leaderboard_screen.dart`

@@ -133,3 +133,11 @@ Bars rise sequentially left-to-right when the chart first mounts, making the com
 | Test | `test/design_system/leaderboard_stats_card_test.dart` |
 | Widgetbook | `lib/design_system/widgetbook/leaderboard_stats_card_use_case.dart` |
 | Export | `lib/design_system/design_system.dart` |
+
+## Composition
+
+**Use when:** Showing leaderboard statistics (rank, score, percentile) as a prominent card with histogram.
+**Parent containers:** Inside PSL `surfaceSlivers` or `CustomScrollView` as a standalone card.
+**Pair with:** `RankBadge` (displays rank within list rows below), `DropdownChain` for season/epoch filtering.
+**Anti-patterns:** Don't use in a list of cards — this is a singleton stats card per screen.
+**Screen example:** `lib/features/leaderboard/screens/leaderboard_screen.dart`

@@ -98,3 +98,23 @@ After 9 widgets in the design system, 5 reimplemented standard M3 interaction pa
 - Widget name: still `Button`, not `FilledButton`
 - Tonal style: `secondaryContainer` / `onSecondaryContainer` — renders identical grey pill
 - Presentation-only: no providers, all state via constructor params
+
+## Composition
+
+**Use when:** Displaying a primary KPI or score as a hero element at the top of a screen. The header sits in the parallax zone behind the scrolling surface.
+
+**Parent containers:**
+- PSL `header` parameter (primary use — centered in the fixed parallax area)
+- Can also be used standalone in any centered layout context
+
+**Pair with:**
+- `ParallaxSurfaceLayout` as the scroll container (PSL's `header` slot)
+- `ChallengeCard` list below in PSL `surfaceSlivers`
+- `Tabs` for category filtering below the header
+
+**Anti-patterns:**
+- Don't place inside a scrollable list — it belongs in the fixed parallax header zone
+- Don't use for secondary metrics — reserve for the screen's single most prominent data point
+- Don't hardcode the glow color — pass the semantic color group so it adapts to category
+
+**Screen example:** `lib/features/challenges/screens/challenges_screen.dart` — `_buildScoreHeader` passes score data into PSL's `header` parameter

@@ -41,3 +41,11 @@ SVG templates use `{{C}}` (category color) and `{{S}}` (stroke/onSurface) placeh
 | (dark lines) | `colorScheme.onSurface` | Stroke outlines |
 
 The widget uses runtime tokens, not Figma hex values, so icons adapt to every theme contrast level.
+
+## Composition
+
+**Use when:** Displaying a challenge category icon (technical/community/flash) as a visual identifier.
+**Parent containers:** `ChallengeCard` leading element, `ChallengeCategoryTile` leading element, standalone in category headers.
+**Pair with:** `ChallengeCard`, `ChallengeCategoryTile`, `ListTile` leading slot.
+**Anti-patterns:** Don't use for generic icons — this is category-specific. Use `IconBadge` for general-purpose icons.
+**Screen example:** Composed internally by `ChallengeCard` — see `lib/design_system/src/challenge_card.dart`

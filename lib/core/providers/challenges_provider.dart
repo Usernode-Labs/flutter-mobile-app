@@ -8,7 +8,7 @@ import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
 class ChallengesController extends LeaderboardNotifier<List<ChallengeDto>> {
   @override
   bool watchDeps() {
-    ref.watch(seasonEventContextProvider);
+    ref.watch(seasonEventContextProvider.select((ctx) => ctx.seasonId));
     return true;
   }
 
@@ -16,11 +16,11 @@ class ChallengesController extends LeaderboardNotifier<List<ChallengeDto>> {
   Future<List<ChallengeDto>> fetch() async {
     final ctx = ref.read(seasonEventContextProvider);
     final service = ref.read(leaderboardApiServiceProvider);
-    return service.getChallenges(seasonId: ctx.seasonId, eventId: ctx.eventId);
+    return service.getChallenges(seasonId: ctx.seasonId);
   }
 }
 
 final challengesProvider =
     AsyncNotifierProvider<ChallengesController, List<ChallengeDto>?>(
-      ChallengesController.new,
-    );
+  ChallengesController.new,
+);

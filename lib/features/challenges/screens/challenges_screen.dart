@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -11,15 +12,14 @@ import 'package:crypto_mobile_app/core/providers/categorized_challenges_provider
 import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/providers/ranking_provider.dart';
-import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
+import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/core/providers/syncing_text_provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 import 'package:crypto_mobile_app/features/challenges/heartbeat_animation.dart';
-import 'package:crypto_mobile_app/features/challenges/season_event_pickers.dart';
 import 'package:crypto_mobile_app/features/challenges/screens/challenges_delegates.dart';
 import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
 
@@ -32,13 +32,13 @@ class PullFeedback {
   factory PullFeedback.fromStatus(RefreshIndicatorStatus? status) =>
       switch (status) {
         RefreshIndicatorStatus.drag => const PullFeedback(
-          scale: 1.02,
-          offset: 8.0,
-        ),
+            scale: 1.02,
+            offset: 8.0,
+          ),
         RefreshIndicatorStatus.armed => const PullFeedback(
-          scale: 1.04,
-          offset: 16.0,
-        ),
+            scale: 1.04,
+            offset: 16.0,
+          ),
         _ => const PullFeedback(),
       };
 }
@@ -139,15 +139,14 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
   Widget _buildBody(BuildContext context) {
     final ranking = ref.watch(rankingProvider.select((s) => s.valueOrNull));
     final breakdown = ref.watch(breakdownProvider.select((s) => s.valueOrNull));
-    final eb = breakdown?.eventBreakdown;
+    final eb = breakdown?.eventBreakdown ??
+        breakdown?.seasonBreakdown?.events.lastOrNull;
     final isLoading = ref.watch(
       challengesProvider.select((s) => s.isLoading && s.valueOrNull == null),
     );
     final hasError = ref.watch(
       challengesProvider.select((s) => s.hasError && s.valueOrNull == null),
     );
-    // Trigger lazy init so seasons data is available for the pickers.
-    ref.watch(seasonsProvider);
 
     if (hasError) {
       return Scaffold(
@@ -158,43 +157,43 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
       );
     }
 
-    final categorized =
-        ref.watch(categorizedChallengesProvider) ??
+    final categorized = ref.watch(categorizedChallengesProvider) ??
         const CategorizedEnrichedChallenges(
           active: [],
           completed: [],
           missed: [],
         );
+
+    // Exclude challenges from active events in the Missed tab — if the event
+    // hasn't ended, its challenges aren't truly missed yet.
+    final seasons = ref.watch(seasonsProvider).valueOrNull;
+    final activeEventIds = seasons
+            ?.expand((s) => s.events)
+            .where((e) => e.isActive)
+            .map((e) => e.id)
+            .toSet() ??
+        const <int>{};
+    final filteredMissed = activeEventIds.isEmpty
+        ? categorized.missed
+        : categorized.missed
+            .where((c) => !activeEventIds.contains(c.dto.eventId))
+            .toList();
+
     final badgeCounts = [
       categorized.active.length,
       categorized.completed.length,
-      categorized.missed.length,
+      filteredMissed.length,
     ];
 
     final spacing = Theme.of(context).extension<AppSpacing>()!;
-    final safeTop = MediaQuery.of(context).padding.top;
 
     return Scaffold(
       body: ParallaxSurfaceLayout(
-        headerHeight: kScreenHeaderHeight,
+        headerHeight: kScreenHeaderHeight + kPinnedBarPadding,
         scrollFractionNotifier: _scrollFraction,
         onRefresh: _onRefresh,
         onRefreshStatusChange: _onRefreshStatusChange,
         refreshNotificationPredicate: _challengesRefreshPredicate,
-        pinnedHeaderSlivers: [
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: ChipBarDelegate(
-              topPadding: safeTop,
-              spacing: spacing,
-              scrollFractionNotifier: _scrollFraction,
-              onEventTap: () => showEventPicker(context, ref),
-              eventLabel: eventLabel(context, ref),
-            ),
-          ),
-        ],
-        pinnedHeadersHeight:
-            safeTop + spacing.space8 + kChipHeight + spacing.space8,
         header: _buildHeaderWithPullFeedback(breakdown, ranking, spacing),
         headerOverlay: _buildCtaOverlay(spacing),
         surfacePinnedSlivers: [
@@ -218,20 +217,22 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
               spacing,
               isLoading: isLoading,
               eb: eb,
+              missedOverride: filteredMissed.length,
             ),
-            _buildEnrichedChallengeList(
+            _buildGroupedChallengeList(
               categorized.completed,
               spacing,
               AppLocalizations.of(context).challengeNoCompleted,
               isLoading: isLoading,
-              eb: eb,
+              eventBreakdowns: breakdown?.seasonBreakdown?.events ?? const [],
             ),
-            _buildEnrichedChallengeList(
-              categorized.missed,
+            _buildGroupedChallengeList(
+              filteredMissed,
               spacing,
               AppLocalizations.of(context).challengeNoMissed,
               isLoading: isLoading,
-              eb: eb,
+              eventBreakdowns: breakdown?.seasonBreakdown?.events ?? const [],
+              showPoints: false,
             ),
           ],
         ),
@@ -305,32 +306,14 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
     final seasons = ref.read(seasonsProvider).valueOrNull;
     final ctx = ref.read(seasonEventContextProvider);
     if (seasons == null || seasons.isEmpty || ctx.seasonId == null) return null;
-    return seasons.cast<SeasonDto?>().firstWhere(
-      (s) => s!.id == ctx.seasonId,
-      orElse: () => null,
-    );
+    return seasons.firstWhereOrNull((s) => s.id == ctx.seasonId);
   }
 
-  /// Resolves the selected event within the season.
-  SeasonEventDto? _resolveSelectedEvent(SeasonDto season) {
-    final ctx = ref.read(seasonEventContextProvider);
-    if (ctx.eventId == null || season.events.isEmpty) return null;
-    return season.events.cast<SeasonEventDto?>().firstWhere(
-      (e) => e!.id == ctx.eventId,
-      orElse: () => null,
-    );
-  }
-
-  /// Resolves start/end dates from the selected event, or from the
-  /// season itself when "All Events" is selected.
+  /// Resolves start/end dates from the current season.
   ({String? startsAt, String? endsAt}) _resolveDateRange() {
     final season = _resolveSelectedSeason();
     if (season == null) return (startsAt: null, endsAt: null);
-    final event = _resolveSelectedEvent(season);
-    return (
-      startsAt: event?.startsAt ?? season.startsAt,
-      endsAt: event?.endsAt ?? season.endsAt,
-    );
+    return (startsAt: season.startsAt, endsAt: season.endsAt);
   }
 
   /// Compute countdown label + time from the resolved end date.
@@ -357,8 +340,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
   }
 
   /// Compute time progress as a fraction (0.0 = start, 1.0 = end).
-  double _computePhaseProgress(
-      ({String? startsAt, String? endsAt}) range) {
+  double _computePhaseProgress(({String? startsAt, String? endsAt}) range) {
     if (range.startsAt == null || range.endsAt == null) return 0.0;
 
     final start = DateTime.tryParse(range.startsAt!);
@@ -379,7 +361,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
     GlowValues glow,
   ) {
     final totalPoints = breakdown?.totalPoints ?? ranking?.totalPoints;
-    final rank = breakdown?.eventBreakdown?.rank ?? ranking?.rank;
+    final rank = ranking?.rank;
 
     final l10n = AppLocalizations.of(context);
     final score = totalPoints != null ? formatPoints(totalPoints) : '--';
@@ -414,6 +396,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
     AppSpacing spacing, {
     bool isLoading = false,
     EventBreakdown? eb,
+    int? missedOverride,
   }) {
     if (isLoading) {
       return _buildShimmerCards(spacing);
@@ -424,7 +407,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
     }
 
     final completedCount = categorized.completed.length;
-    final missedCount = categorized.missed.length;
+    final missedCount = missedOverride ?? categorized.missed.length;
     final totalCount = completedCount + missedCount + active.length;
 
     return CustomScrollView(
@@ -441,9 +424,8 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
                 onViewCompleted: completedCount > 0
                     ? () => _tabController.animateTo(1)
                     : null,
-                onViewMissed: missedCount > 0
-                    ? () => _tabController.animateTo(2)
-                    : null,
+                onViewMissed:
+                    missedCount > 0 ? () => _tabController.animateTo(2) : null,
               ),
             ),
           ),
@@ -463,23 +445,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
       return _buildShimmerCards(spacing);
     }
 
-    if (challenges.isEmpty) {
-      return CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          SliverFillRemaining(
-            child: Center(
-              child: Text(
-                emptyMessage,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-          ),
-        ],
-      );
-    }
+    if (challenges.isEmpty) return _buildEmptyTab(emptyMessage);
 
     return ListView.separated(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -491,6 +457,138 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
         key: ValueKey(challenges[index].dto.id),
         child: _buildEnrichedChallengeCard(challenges[index], eb: eb),
       ),
+    );
+  }
+
+  Widget _buildGroupedChallengeList(
+    List<EnrichedChallenge> challenges,
+    AppSpacing spacing,
+    String emptyMessage, {
+    bool isLoading = false,
+    List<EventBreakdown> eventBreakdowns = const [],
+    bool showPoints = true,
+  }) {
+    if (isLoading) return _buildShimmerCards(spacing);
+
+    if (challenges.isEmpty) return _buildEmptyTab(emptyMessage);
+
+    final groups = groupByEvent(challenges);
+
+    // Single event — show flat list, no section headers needed.
+    if (groups.length == 1) {
+      final singleEventBd = groups.first.eventId != null
+          ? eventBreakdowns
+              .firstWhereOrNull((e) => e.eventId == groups.first.eventId)
+          : null;
+      return _buildEnrichedChallengeList(
+        challenges,
+        spacing,
+        emptyMessage,
+        eb: singleEventBd,
+      );
+    }
+
+    // Multiple events — one card per event, flat challenge rows inside.
+    return ListView.separated(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: EdgeInsets.all(spacing.space16),
+      itemCount: groups.length,
+      separatorBuilder: (_, __) => SizedBox(height: spacing.space16),
+      itemBuilder: (context, index) {
+        final group = groups[index];
+        final eventBd = group.eventId != null
+            ? eventBreakdowns
+                .firstWhereOrNull((e) => e.eventId == group.eventId)
+            : null;
+        final totalPoints = eventBd?.totalPoints ??
+            group.challenges.fold<int>(
+              0,
+              (sum, c) => sum + (c.earnedPoints ?? 0),
+            );
+        // Only the first produce-blocks challenge claims event bonuses.
+        var bonusesClaimed = false;
+        final items = <ChallengeEventItem>[];
+        for (final c in group.challenges) {
+          final isPB = isProduceBlocksChallenge(c.dto);
+          items.add(_mapToEventItem(
+            c,
+            eventBd: eventBd,
+            claimBonuses: isPB && !bonusesClaimed,
+          ));
+          if (isPB) bonusesClaimed = true;
+        }
+        return ChallengeEventGroup(
+          eventName: group.eventName ?? 'Event',
+          dateRange: _formatEventDateRange(group.challenges),
+          pointsLabel: showPoints ? '${formatPoints(totalPoints)} pts' : '',
+          challenges: items,
+        );
+      },
+    );
+  }
+
+  /// Derives a date range label from the first challenge's scheduleStart
+  /// to the last challenge's scheduleEnd within an event group.
+  String? _formatEventDateRange(List<EnrichedChallenge> challenges) {
+    if (challenges.isEmpty) return null;
+    final first = challenges.first.dto.scheduleStart;
+    final last = challenges.last.dto.scheduleEnd;
+    return formatDateRange(first, last);
+  }
+
+  ChallengeEventItem _mapToEventItem(
+    EnrichedChallenge enriched, {
+    EventBreakdown? eventBd,
+    required bool claimBonuses,
+  }) {
+    final dto = enriched.dto;
+    final category = mapCategory(dto.category);
+    final isProduceBlocks = isProduceBlocksChallenge(dto);
+    final variant = mapEnrichedVariant(
+      enriched,
+      eventSuccessRate: isProduceBlocks ? eventBd?.successRate : null,
+    );
+
+    final effectiveEarned = enriched.earnedPoints;
+    final bonusPoints =
+        (isProduceBlocks && claimBonuses) ? eventBd?.totalBonusPoints ?? 0 : 0;
+
+    String? points;
+    if (variant == ChallengeCardVariant.completed &&
+        (effectiveEarned != null || bonusPoints > 0)) {
+      points = formatEarnedPoints((effectiveEarned ?? 0) + bonusPoints);
+    }
+
+    return ChallengeEventItem(
+      title: dto.goal,
+      category: category,
+      variant: variant,
+      earnedPoints: points,
+      onTap: () {
+        if (isZkIdentityChallenge(dto)) {
+          context.push(AppRoutes.zkIdentityDetail);
+        } else {
+          context.push(AppRoutes.challengeDetail, extra: enriched);
+        }
+      },
+    );
+  }
+
+  Widget _buildEmptyTab(String message) {
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverFillRemaining(
+          child: Center(
+            child: Text(
+              message,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -556,10 +654,11 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
           : null,
       earnedPoints: variant == ChallengeCardVariant.ongoing
           ? isSyncing
-                ? ref.watch(syncingTextProvider).value ?? kSyncingTextFallback
-                : effectiveEarned != null
-                ? formatEarnedPoints(effectiveEarned)
-                : null
+              ? ref.watch(syncingTextProvider).valueOrNull ??
+                  kSyncingTextFallback
+              : effectiveEarned != null
+                  ? formatEarnedPoints(effectiveEarned)
+                  : null
           : null,
       completedPoints: completedPoints,
       onTap: () {

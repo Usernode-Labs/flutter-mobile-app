@@ -5,6 +5,7 @@ import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/design_system/src/button.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_sizing.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_typography.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/dapps_provider.dart';
@@ -841,6 +842,7 @@ class _TxConfirmationPageState extends State<_TxConfirmationPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final spacing = theme.extension<AppSpacing>()!;
+    final sizing = theme.extension<AppSizing>()!;
     final radii = theme.extension<AppRadii>()!;
     final muted = theme.colorScheme.onSurfaceVariant;
 
@@ -989,7 +991,7 @@ class _TxConfirmationPageState extends State<_TxConfirmationPage> {
                                   duration: const Duration(milliseconds: 200),
                                   child: Icon(
                                     Symbols.expand_more,
-                                    size: 20,
+                                    size: sizing.iconSmall,
                                     color: muted,
                                   ),
                                 ),
@@ -1022,26 +1024,18 @@ class _TxConfirmationPageState extends State<_TxConfirmationPage> {
               Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      style: OutlinedButton.styleFrom(
-                        padding: EdgeInsets.symmetric(
-                          vertical: spacing.space12,
-                        ),
-                      ),
-                      child: const Text('Deny'),
+                    child: Button(
+                      label: 'Deny',
+                      variant: ButtonVariant.outlined,
+                      onTap: () => Navigator.pop(context, false),
                     ),
                   ),
                   SizedBox(width: spacing.space12),
                   Expanded(
-                    child: FilledButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      style: FilledButton.styleFrom(
-                        padding: EdgeInsets.symmetric(
-                          vertical: spacing.space12,
-                        ),
-                      ),
-                      child: const Text('Confirm'),
+                    child: Button(
+                      label: 'Confirm',
+                      variant: ButtonVariant.primary,
+                      onTap: () => Navigator.pop(context, true),
                     ),
                   ),
                 ],
@@ -1379,7 +1373,7 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                                             color:
                                                 badgeColor.withAlpha(30),
                                             borderRadius:
-                                                BorderRadius.circular(4),
+                                                radii.borderRadiusXSmall,
                                           ),
                                           child: Text(
                                             badgeLabel,

@@ -234,8 +234,7 @@ class _OnboardingImportApiAccountScreenState
                           errorText: _contactError,
                         ),
                         textInputAction: TextInputAction.next,
-                        onChanged: (_) =>
-                            setState(() => _contactError = null),
+                        onChanged: (_) => setState(() => _contactError = null),
                       ),
                       SizedBox(height: spacing.space16),
                       TextField(

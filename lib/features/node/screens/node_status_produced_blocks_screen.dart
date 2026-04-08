@@ -94,9 +94,10 @@ class _NodeStatusProducedBlocksScreenState
     }
 
     final blockchainAsync = ref.watch(nodeBlockchainProvider);
-    final status = ref.watch(nodeStatusProvider).value;
+    final status = ref.watch(nodeStatusProvider).valueOrNull;
     final rewardsAsync = ref.watch(epochRewardsProvider);
-    final rewardPerBlock = rewardsAsync.value?.rewardPerBlock ?? BigInt.zero;
+    final rewardPerBlock =
+        rewardsAsync.valueOrNull?.rewardPerBlock ?? BigInt.zero;
     final l10n = AppLocalizations.of(context);
 
     return Scaffold(

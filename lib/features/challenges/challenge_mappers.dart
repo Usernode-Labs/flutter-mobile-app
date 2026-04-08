@@ -425,3 +425,34 @@ String? formatRankOrdinal(int? rank) {
     _ => null,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Event grouping
+// ---------------------------------------------------------------------------
+
+/// Groups enriched challenges by [ChallengeDto.eventId].
+///
+/// Returns a linked map preserving insertion order. Challenges without an
+/// eventId are grouped under a `null` key.
+typedef EventGroup = ({
+  int? eventId,
+  String? eventName,
+  List<EnrichedChallenge> challenges
+});
+
+List<EventGroup> groupByEvent(List<EnrichedChallenge> challenges) {
+  final map = <int?, List<EnrichedChallenge>>{};
+  final names = <int?, String?>{};
+  for (final c in challenges) {
+    final id = c.dto.eventId;
+    (map[id] ??= []).add(c);
+    names.putIfAbsent(id, () => c.dto.eventName);
+  }
+  // Newest events first (higher eventId = newer).
+  final sortedKeys = map.keys.toList()
+    ..sort((a, b) => (b ?? 0).compareTo(a ?? 0));
+  return [
+    for (final key in sortedKeys)
+      (eventId: key, eventName: names[key], challenges: map[key]!),
+  ];
+}

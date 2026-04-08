@@ -115,7 +115,7 @@ class EpochRewardsController extends AsyncNotifier<EpochRewardsState?> {
   Future<EpochRewardsState?> build() async {
     // Read status to get epoch value (use read, not watch, to avoid rebuilds on every status update)
     final statusAsync = ref.read(nodeStatusProvider);
-    final epoch = statusAsync.value?.epoch;
+    final epoch = statusAsync.valueOrNull?.epoch;
 
     // Step 1: Load cache immediately to show previous data (only on initial build)
     _log.debug('Loading cached epoch rewards...');
@@ -143,7 +143,7 @@ class EpochRewardsController extends AsyncNotifier<EpochRewardsState?> {
 
   Future<void> refresh() async {
     final statusAsync = ref.read(nodeStatusProvider);
-    final epoch = statusAsync.value?.epoch;
+    final epoch = statusAsync.valueOrNull?.epoch;
 
     if (epoch == null) {
       state = const AsyncData(null);

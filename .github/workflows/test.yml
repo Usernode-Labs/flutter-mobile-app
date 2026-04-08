@@ -14,7 +14,7 @@ on:
     - cron: "0 6 * * *"
 
 env:
-  FLUTTER_VERSION: "3.35.7"
+  FLUTTER_VERSION: "3.41.4"
 
 jobs:
   determine-frb-rev:
@@ -118,8 +118,7 @@ jobs:
         run: flutter_rust_bridge_codegen generate
 
       - name: Run unit tests
-        run: flutter test --coverage --reporter expanded
-
+        run: flutter test --coverage --reporter expanded 
       - name: Upload coverage
         uses: codecov/codecov-action@v3
         with:
@@ -131,8 +130,7 @@ jobs:
         run: flutter test --coverage test/widget_test.dart --reporter expanded
 
       - name: Generate coverage
-        run: flutter test --coverage
-
+        run: flutter test --coverage 
       - name: Check coverage threshold
         run: |
           # Install lcov

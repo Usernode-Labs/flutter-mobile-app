@@ -7,7 +7,7 @@ on:
       - develop
 
 env:
-  FLUTTER_VERSION: "3.35.7"
+  FLUTTER_VERSION: "3.41.4"
   JAVA_VERSION: "17"
   NDK_VERSION: "29.0.14206865"
 

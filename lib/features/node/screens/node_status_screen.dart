@@ -183,7 +183,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
 
       if (!mounted) return;
 
-      final status = ref.read(nodeStatusProvider).value;
+      final status = ref.read(nodeStatusProvider).valueOrNull;
       if (status != null) {
         _peers = status.peers;
       }
@@ -281,7 +281,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     final spacing = theme.extension<AppSpacing>()!;
     final sizing = theme.extension<AppSizing>()!;
     final colorScheme = theme.colorScheme;
-    final statusFromProvider = ref.read(nodeStatusProvider).value;
+    final statusFromProvider = ref.read(nodeStatusProvider).valueOrNull;
     final sync = statusFromProvider?.syncStatus;
 
     // Determine status display
@@ -384,7 +384,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     final theme = Theme.of(context);
     final spacing = theme.extension<AppSpacing>()!;
     final colorScheme = theme.colorScheme;
-    final statusFromProvider = ref.read(nodeStatusProvider).value;
+    final statusFromProvider = ref.read(nodeStatusProvider).valueOrNull;
 
     final sync = statusFromProvider?.syncStatus;
     final isNodeSynced = sync?.isSynced == true;
@@ -482,7 +482,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
 
-    final status = ref.read(nodeStatusProvider).value;
+    final status = ref.read(nodeStatusProvider).valueOrNull;
     final vrf = status?.vrfEvaluator;
     final displayBestTip = status?.networkBest ?? status?.localBest;
     final bestTipHash = displayBestTip?.hash.toString() ?? '';
@@ -508,7 +508,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
             text: _buildEpochTrailingText(),
           ),
           onTap: () {
-            final epoch = ref.read(nodeStatusProvider).value?.currentEpoch ?? 0;
+            final epoch =
+                ref.read(nodeStatusProvider).valueOrNull?.currentEpoch ?? 0;
             context.push(
               AppRoutes.epochPerformance,
               extra: {'initialEpoch': epoch},
@@ -520,7 +521,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
           title: Text(l10n.nodeMempool),
           subtitle: _buildMempoolSubtitle(),
           trailing: TextChevronTrailing(
-            text: '${ref.read(nodeMempoolProvider).value?.count.toInt() ?? 0}',
+            text:
+                '${ref.read(nodeMempoolProvider).valueOrNull?.count.toInt() ?? 0}',
           ),
           onTap: () => context.push(AppRoutes.mainNodeMempool),
         ),
@@ -584,7 +586,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
   }
 
   Widget _buildPeersSubtitle() {
-    final statusFromProvider = ref.read(nodeStatusProvider).value;
+    final statusFromProvider = ref.read(nodeStatusProvider).valueOrNull;
     final connectedPeers = statusFromProvider?.connectedPeers ?? 0;
     final totalPeers = statusFromProvider?.totalPeers ?? 0;
     final l10n = AppLocalizations.of(context);
@@ -592,14 +594,14 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
   }
 
   Widget _buildEpochTitle() {
-    final statusFromProvider = ref.read(nodeStatusProvider).value;
+    final statusFromProvider = ref.read(nodeStatusProvider).valueOrNull;
     final currentEpoch = statusFromProvider?.currentEpoch ?? 0;
     final l10n = AppLocalizations.of(context);
     return Text(l10n.nodeEpochN(currentEpoch));
   }
 
   (int slotInEpoch, int slotsPerEpoch, int currentSlot) _epochSlotData() {
-    final status = ref.read(nodeStatusProvider).value;
+    final status = ref.read(nodeStatusProvider).valueOrNull;
     final currentSlot = status?.currentGlobalSlot ?? 0;
     final slotsPerEpoch = status?.slotsInEpoch ?? 0;
     final slotInEpoch = slotsPerEpoch > 0 ? currentSlot % slotsPerEpoch : 0;
@@ -640,7 +642,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
   }
 
   Widget _buildMempoolSubtitle() {
-    final mempool = ref.read(nodeMempoolProvider).value;
+    final mempool = ref.read(nodeMempoolProvider).valueOrNull;
     final l10n = AppLocalizations.of(context);
     if (mempool == null) return Text(l10n.nodeNotAvailable);
 
@@ -652,7 +654,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
   // ============== NAVIGATION ==============
 
   void _navigateToPeers() {
-    final status = ref.read(nodeStatusProvider).value;
+    final status = ref.read(nodeStatusProvider).valueOrNull;
     final peers = status?.peers.isNotEmpty == true ? status!.peers : _peers;
     if (peers.isEmpty) return;
     context.push(

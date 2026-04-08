@@ -12,6 +12,8 @@ include: package:flutter_lints/flutter.yaml
 analyzer:
   exclude:
     - "lib/src/rust/**"
+    - "packages/ds_lints/**"
+    - "rust_builder/cargokit/**"
 
 linter:
   # The lint rules applied to this project can be customized in the

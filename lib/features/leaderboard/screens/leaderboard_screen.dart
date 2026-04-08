@@ -63,9 +63,11 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
 
   Widget _buildBody(BuildContext context) {
     final ranking = ref.watch(rankingProvider.select((s) => s.valueOrNull));
-    final leaderboard = ref.watch(leaderboardProvider.select((s) => s.valueOrNull));
-    final eventPoints = ref.watch(eventPointsProvider.select((s) => s.valueOrNull));
-    final participantId = ref.watch(participantIdProvider).value;
+    final leaderboard =
+        ref.watch(leaderboardProvider.select((s) => s.valueOrNull));
+    final eventPoints =
+        ref.watch(eventPointsProvider.select((s) => s.valueOrNull));
+    final participantId = ref.watch(participantIdProvider).valueOrNull;
     final categorized = ref.watch(categorizedChallengesProvider);
     ref.watch(seasonsProvider);
 
@@ -179,8 +181,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                         ),
                       ),
                       ...entries.map((entry) {
-                        final isCurrentUser =
-                            participantId != null &&
+                        final isCurrentUser = participantId != null &&
                             entry.participantId == participantId;
                         final l10n = AppLocalizations.of(context);
                         return ListTile(

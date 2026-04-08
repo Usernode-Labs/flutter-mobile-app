@@ -91,6 +91,7 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
     'Icon',
     'Padding',
     'Card',
+    'Color',
     'ListTile',
     'SwitchListTile',
     'CheckboxListTile',
@@ -129,6 +130,8 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
         _checkCardMargin(node, args);
       case 'AppCard':
         _checkTileCardVerticalInset(node, args);
+      case 'Color':
+        _checkHardcodedColor(node, constructorName, args);
       case 'FilledButton':
       case 'OutlinedButton':
         _checkPreferDsButton(node, typeName);
@@ -676,6 +679,93 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
       'Raw $typeName is not allowed — use design_system Button. '
           'Button enforces tokenized sizing (small/regular/large) and '
           'consistent styling. See lib/design_system/src/button.dart.',
+      'WARNING',
+    );
+  }
+
+  // ── Rule 12: avoid_hardcoded_color ──────────────────────────────────
+
+  static const _hardcodedColorConstructors = {
+    null, // default constructor: Color(0xFF...)
+    'fromARGB',
+    'fromRGBO',
+  };
+
+  void _checkHardcodedColor(
+    AstNode node,
+    String? constructorName,
+    ArgumentList args,
+  ) {
+    if (!_hardcodedColorConstructors.contains(constructorName)) return;
+    if (isColorTokenFile(filePath)) return;
+    if (isExcludedPath(filePath)) return;
+
+    // Default constructor: flag if argument is an integer literal (0xFF...).
+    if (constructorName == null) {
+      for (final arg in args.arguments) {
+        final valueExpr = arg is NamedExpression ? arg.expression : arg;
+        if (valueExpr is IntegerLiteral) {
+          _report(
+            node,
+            'avoid_hardcoded_color',
+            'Hardcoded Color literal. Use '
+                'Theme.of(context).colorScheme or '
+                'Theme.of(context).extension<AppSemanticColors>()! instead.',
+            'WARNING',
+          );
+          return;
+        }
+      }
+      return;
+    }
+
+    // Named constructors (fromARGB, fromRGBO): flag if any numeric args.
+    final hasNumericArg = args.arguments.any((arg) {
+      final valueExpr = arg is NamedExpression ? arg.expression : arg;
+      return numericLiteralValue(valueExpr) != null ||
+          valueExpr is IntegerLiteral;
+    });
+    if (hasNumericArg) {
+      _report(
+        node,
+        'avoid_hardcoded_color',
+        'Hardcoded Color.$constructorName literal. Use '
+            'Theme.of(context).colorScheme or '
+            'Theme.of(context).extension<AppSemanticColors>()! instead.',
+        'WARNING',
+      );
+    }
+  }
+
+  // ── Rule 13: avoid_colors_class ───────────────────────────────────
+
+  @override
+  void visitPrefixedIdentifier(PrefixedIdentifier node) {
+    _checkColorsClass(node, node.prefix.name, node.identifier.name);
+    super.visitPrefixedIdentifier(node);
+  }
+
+  @override
+  void visitPropertyAccess(PropertyAccess node) {
+    final target = node.target;
+    if (target is SimpleIdentifier) {
+      _checkColorsClass(node, target.name, node.propertyName.name);
+    }
+    super.visitPropertyAccess(node);
+  }
+
+  void _checkColorsClass(AstNode node, String prefix, String identifier) {
+    if (prefix != 'Colors') return;
+    if (identifier == 'transparent') return;
+    if (isColorTokenFile(filePath)) return;
+    if (isExcludedPath(filePath)) return;
+
+    _report(
+      node,
+      'avoid_colors_class',
+      'Colors.$identifier is not allowed. Use '
+          'Theme.of(context).colorScheme or '
+          'Theme.of(context).extension<AppSemanticColors>()! instead.',
       'WARNING',
     );
   }

@@ -40,6 +40,22 @@ const Set<String> macroTokens = {'space32', 'space48'};
 /// Paths excluded from lint enforcement.
 const List<String> excludedPathSegments = ['/widgetbook/', '/test/'];
 
+/// Files that legitimately define color values (token/theme sources).
+const List<String> _colorTokenFileSegments = [
+  'app_semantic_colors.dart',
+  'color_is_expensive_theme.dart',
+  'color_catalog.dart',
+];
+
+/// Returns true if [path] is a color token definition file that
+/// legitimately uses hardcoded Color literals.
+bool isColorTokenFile(String path) {
+  for (final segment in _colorTokenFileSegments) {
+    if (path.contains(segment)) return true;
+  }
+  return false;
+}
+
 /// Returns true if [path] should be excluded from lint checks.
 bool isExcludedPath(String path) {
   for (final segment in excludedPathSegments) {

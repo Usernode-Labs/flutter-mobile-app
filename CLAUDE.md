@@ -60,3 +60,24 @@ All new design system work lives in `lib/design_system/`. Existing code is untou
 - **Widget pipeline**: `.claude/commands/widget-from-figma.md` → `.claude/commands/figma-inspect.md` → `.claude/commands/verify-widget.md`
 - **Build constraints**: `lib/design_system/.specs/BUILD_INSTRUCTIONS.md` — canonical token-to-code reference
 - **All constraints**: `lib/design_system/docs/CONSTRAINTS.md` — rules, lint rules, quality gate
+
+## Maturity Matrix
+
+The project tracks mainnet readiness via 12 initiative tracker issues (labeled `type:tracker`). Every issue, PR, and discussion must connect to an initiative. See [Discussion #370](https://github.com/Usernode-Labs/flutter-mobile-app/discussions/370) for the full plan.
+
+### When creating an issue:
+1. Apply the matching `init:*` label (ask the user which initiative if unclear)
+2. Add `Relates to #N` in the body (where N = the tracker issue number for that initiative)
+3. After creation, update the tracker issue body — add the new issue to the appropriate phase tasklist as an unchecked `- [ ] #M description` item
+
+### When creating a PR:
+1. Apply the matching `init:*` label
+2. Include `Relates to #N` referencing the tracker issue
+3. If the PR closes an issue, use `Closes #M` — the tracker tasklist updates when the issue closes
+
+### When closing an issue:
+1. Check if the issue is referenced in a tracker tasklist (`gh issue view <tracker> --json body`)
+2. If all items in a phase section are now closed, suggest updating the phase marker from 🔄 to ✅
+
+### Initiative labels:
+`init:bg-node`, `init:app-stores`, `init:zk-identity`, `init:fair-rewards`, `init:mini-apps`, `init:block-explorer`, `init:wallet`, `init:bridge`, `init:dex`, `init:design-system`, `init:leaderboard`, `init:landing-page`

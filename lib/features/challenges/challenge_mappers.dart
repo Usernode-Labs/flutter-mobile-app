@@ -141,8 +141,12 @@ List<EnrichedChallenge> enrichChallenges(
   for (final a in activities) {
     if (a.challengeId != null) {
       byId.putIfAbsent(a.challengeId!, () => []).add(a);
+    } else if (a.description != null) {
+      // Description fallback only for legacy activities without challengeId.
+      // Activities WITH challengeId must match by ID only — otherwise
+      // same-named challenges across events get false matches.
+      byDesc[a.description!] = a;
     }
-    if (a.description != null) byDesc[a.description!] = a;
   }
 
   return challenges
@@ -226,10 +230,14 @@ CategorizedEnrichedChallenges categorizeEnrichedChallenges(
   final missed = <EnrichedChallenge>[];
 
   for (final c in challenges) {
-    if (!c.dto.enabled) continue;
-    // Produce-blocks earns incrementally — activity ≠ completed.
+    // HIDE: unreleased challenge — not enabled, not expired, no earned points.
+    final hasEarnedPoints = c.earnedPoints != null && c.earnedPoints! > 0;
+    if (!c.dto.enabled && !_isScheduleExpired(c.dto) && !hasEarnedPoints) {
+      continue;
+    }
+
     if (isProduceBlocksChallenge(c.dto)) {
-      if (c.dto.completed) {
+      if (c.dto.completed || (_isScheduleExpired(c.dto) && hasEarnedPoints)) {
         completed.add(c);
       } else if (_isScheduleExpired(c.dto)) {
         missed.add(c);
@@ -269,22 +277,24 @@ ChallengeCardVariant mapEnrichedVariant(
   EnrichedChallenge c, {
   double? eventSuccessRate,
 }) {
-  // Produce-blocks earns points incrementally — activity ≠ completed.
+  final hasEarnedPoints = c.earnedPoints != null && c.earnedPoints! > 0;
+
   if (isProduceBlocksChallenge(c.dto)) {
-    if (c.dto.completed) return ChallengeCardVariant.completed;
-    if (!c.dto.enabled || _isScheduleExpired(c.dto)) {
-      return ChallengeCardVariant.missed;
+    if (c.dto.completed || (_isScheduleExpired(c.dto) && hasEarnedPoints)) {
+      return ChallengeCardVariant.completed;
     }
-    if (c.earnedPoints != null) return ChallengeCardVariant.ongoing;
+    if (_isScheduleExpired(c.dto)) return ChallengeCardVariant.missed;
+    if (!c.dto.enabled) return ChallengeCardVariant.missed;
+    if (hasEarnedPoints) return ChallengeCardVariant.ongoing;
     if (eventSuccessRate != null && eventSuccessRate > 0) {
       return ChallengeCardVariant.ongoing;
     }
     return ChallengeCardVariant.active;
   }
+
   if (c.participantCompleted) return ChallengeCardVariant.completed;
-  if (!c.dto.enabled || _isScheduleExpired(c.dto)) {
-    return ChallengeCardVariant.missed;
-  }
+  if (_isScheduleExpired(c.dto)) return ChallengeCardVariant.missed;
+  if (!c.dto.enabled) return ChallengeCardVariant.missed;
   return ChallengeCardVariant.active;
 }
 

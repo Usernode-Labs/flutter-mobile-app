@@ -6,6 +6,7 @@ import 'package:battery_plus/battery_plus.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/models/block_production_event.dart';
+import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/features/metrics/models/metrics_payload.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
@@ -87,6 +88,21 @@ class MetricsCollectorService {
     if (currentState != null) {
       _appLifecycleState = currentState;
     }
+  }
+
+  /// Clears cached state so a subsequent bootstrap starts cleanly.
+  void reset() {
+    _container = null;
+    _appStartTime = null;
+    _appLifecycleState = AppLifecycleState.resumed;
+    _cachedPackageInfo = null;
+    _cachedDeviceInfo = null;
+    _cachedPeerId = null;
+    _cachedWalletAddress = null;
+    _batteryOptimizationCacheTime = null;
+    _cachedBatteryOptimization = null;
+    _permissionsCacheTime = null;
+    _cachedPermissions = null;
   }
 
   /// Update the current app lifecycle state
@@ -212,6 +228,7 @@ class MetricsCollectorService {
     // Get peer ID from backend service - CACHED (static per session)
     _cachedPeerId ??= RustBackendService.instance.getPeerId();
     final peerId = _cachedPeerId;
+    int? participantId;
 
     // Get chain ID from node status provider (shared cache)
     String? chainId;
@@ -222,6 +239,20 @@ class MetricsCollectorService {
         _log.debug('Got chain_id from nodeStatusProvider: $chainId');
       } catch (e) {
         _log.debug('Failed to get chain_id from nodeStatusProvider: $e');
+      }
+
+      try {
+        participantId = await _container!.read(participantIdProvider.future);
+      } catch (e) {
+        _log.debug('Failed to get participant_id from provider: $e');
+      }
+    }
+
+    if (participantId == null) {
+      try {
+        participantId = await loadParticipantId();
+      } catch (e) {
+        _log.debug('Failed to load participant_id from storage: $e');
       }
     }
 
@@ -241,6 +272,7 @@ class MetricsCollectorService {
     return IdentityMetrics(
       peerId: peerId,
       chainId: chainId,
+      participantId: participantId,
     );
   }
 

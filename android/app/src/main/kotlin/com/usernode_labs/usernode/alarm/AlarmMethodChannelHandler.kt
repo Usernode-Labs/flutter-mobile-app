@@ -16,8 +16,6 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
-import android.os.Handler
-import android.os.Looper
 import java.lang.ref.WeakReference
 
 /**
@@ -269,9 +267,37 @@ class AlarmMethodChannelHandler(context: Context) {
                 //     BackgroundAlarmEngine.destroyCachedEngine("wakelock_release")
                 // }
             }
+            "restartActivity" -> {
+                result.success(restartActivity())
+            }
             else -> {
                 result.notImplemented()
             }
+        }
+    }
+
+    private fun restartActivity(): Boolean {
+        val activity = activityRef?.get()
+        if (activity == null) {
+            Log.w(TAG, "Cannot restart activity - no Activity attached")
+            return false
+        }
+
+        return try {
+            val launchIntent = appContext.packageManager.getLaunchIntentForPackage(appContext.packageName)
+            if (launchIntent == null) {
+                Log.e(TAG, "Cannot restart activity - no launch intent available")
+                return false
+            }
+
+            BackgroundAlarmEngine.destroyCachedEngine("app_reset_restart")
+            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+            appContext.startActivity(launchIntent)
+            activity.finishAffinity()
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to restart activity", e)
+            false
         }
     }
 

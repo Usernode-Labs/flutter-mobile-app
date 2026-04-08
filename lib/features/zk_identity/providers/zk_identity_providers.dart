@@ -19,7 +19,7 @@ final zkIdentityChallengeIdProvider = Provider<int?>((ref) {
 
 /// Resolves the full [ChallengeDto] for the ZK Identity challenge.
 final zkIdentityChallengeDtoProvider = Provider<ChallengeDto?>((ref) {
-  final challenges = ref.watch(challengesProvider.select((s) => s.value?.data));
+  final challenges = ref.watch(challengesProvider.select((s) => s.valueOrNull));
   if (challenges == null) return null;
   for (final c in challenges) {
     if (c.subCategory == zkIdentitySubCategory) return c;
@@ -33,13 +33,13 @@ final zkIdentityIsCompleteProvider = Provider<AsyncValue<bool>>((ref) {
 
 final zkIdentityRegistrationProvider =
     Provider<AsyncValue<ZkPassportLocalRegistration>>((ref) {
-  return ref.watch(zkPassportRegistrationProvider);
-});
+      return ref.watch(zkPassportRegistrationProvider);
+    });
 
 final zkIdentityStepControllerProvider =
     StateNotifierProvider<ZkIdentityStepController, ZkIdentityFlowState>((ref) {
-  return ZkIdentityStepController(ref);
-});
+      return ZkIdentityStepController(ref);
+    });
 
 class ZkIdentityStepController extends StateNotifier<ZkIdentityFlowState> {
   ZkIdentityStepController(this._ref) : super(ZkIdentityFlowState.initial());
@@ -109,8 +109,9 @@ class ZkIdentityStepController extends StateNotifier<ZkIdentityFlowState> {
       final updated = List<ZkIdentityStepState>.from(state.steps);
       updated[state.currentStepIndex] = updated[state.currentStepIndex]
           .copyWith(status: ZkIdentityStepVisualStatus.completed);
-      updated[resultIndex] = updated[resultIndex]
-          .copyWith(status: ZkIdentityStepVisualStatus.active);
+      updated[resultIndex] = updated[resultIndex].copyWith(
+        status: ZkIdentityStepVisualStatus.active,
+      );
       state = ZkIdentityFlowState(
         steps: updated,
         currentStepIndex: resultIndex,
@@ -125,8 +126,9 @@ class ZkIdentityStepController extends StateNotifier<ZkIdentityFlowState> {
   void _failVerification(String message) {
     final idx = ZkIdentityStep.verification.index;
     final updated = List<ZkIdentityStepState>.from(state.steps);
-    updated[idx] =
-        updated[idx].copyWith(status: ZkIdentityStepVisualStatus.failed);
+    updated[idx] = updated[idx].copyWith(
+      status: ZkIdentityStepVisualStatus.failed,
+    );
     state = ZkIdentityFlowState(
       steps: updated,
       currentStepIndex: idx,

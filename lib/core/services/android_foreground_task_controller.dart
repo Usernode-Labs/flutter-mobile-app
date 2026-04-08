@@ -129,6 +129,16 @@ class AndroidForegroundTaskController {
     await startMonitoring(reason: reason);
   }
 
+  Future<void> resetForAppRestart() async {
+    if (!Platform.isAndroid) return;
+    _pollTimer?.cancel();
+    _pollTimer = null;
+    _initialized = false;
+    _wakelockHeld = false;
+    _cachedOurPubKey = null;
+    _awaitingOtherProducerState = null;
+  }
+
   Future<bool> _ensureNodeRunning() async {
     try {
       final started = await RustBackendService.instance.startNode();

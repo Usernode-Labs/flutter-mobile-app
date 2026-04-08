@@ -95,6 +95,7 @@ class IdentityMetrics with _$IdentityMetrics {
   const factory IdentityMetrics({
     String? peerId,
     String? chainId,
+    int? participantId,
   }) = _IdentityMetrics;
 
   const IdentityMetrics._();
@@ -102,6 +103,7 @@ class IdentityMetrics with _$IdentityMetrics {
   Map<String, dynamic> toJson() => {
         if (peerId != null) 'peer_id': peerId,
         if (chainId != null) 'chain_id': chainId,
+        if (participantId != null) 'participant_id': participantId,
       };
 }
 

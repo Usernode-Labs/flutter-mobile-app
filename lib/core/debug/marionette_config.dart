@@ -23,6 +23,8 @@ const _interactiveTypes = <Type>{
   DropdownChip,
   ChallengeCard,
   DappCard,
+  ScoreHeader,
+  TopAppBar,
 };
 
 /// Configuration passed to [MarionetteBinding.ensureInitialized].
@@ -42,6 +44,9 @@ String? _extractText(Widget widget) {
   if (widget is TopAppBar) return widget.title;
   if (widget is Button) return widget.label;
   if (widget is DropdownChip) return widget.label;
+  if (widget is DropdownChain && widget.items.isNotEmpty) {
+    return widget.items.first.label;
+  }
 
   return null;
 }

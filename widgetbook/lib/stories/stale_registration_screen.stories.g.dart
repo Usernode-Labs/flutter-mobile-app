@@ -11,47 +11,46 @@ part of 'stale_registration_screen.stories.dart';
 // StoryGenerator
 // **************************************************************************
 
-typedef _Component = Component<FullPageErrorState, FullPageErrorStateArgs>;
-typedef _Scenario = FullPageErrorStateScenario;
-typedef _Defaults = FullPageErrorStateDefaults;
-typedef _Story = FullPageErrorStateStory;
-typedef _Args = FullPageErrorStateArgs;
-final FullPageErrorStateComponent =
-    Component<FullPageErrorState, FullPageErrorStateArgs>(
-      name: meta.name ?? 'FullPageErrorState',
+typedef _Component =
+    Component<StaleRegistrationDemo, StaleRegistrationDemoArgs>;
+typedef _Scenario = StaleRegistrationDemoScenario;
+typedef _Defaults = StaleRegistrationDemoDefaults;
+typedef _Story = StaleRegistrationDemoStory;
+typedef _Args = StaleRegistrationDemoArgs;
+final StaleRegistrationDemoComponent =
+    Component<StaleRegistrationDemo, StaleRegistrationDemoArgs>(
+      name: meta.name ?? 'StaleRegistrationDemo',
       path: meta.path ?? 'stories',
       docsBuilder: meta.docsBuilder,
-      docComment: r'''A centered error display for use as a full-page body.
-
-Shows a prominent error icon inside a colored circle, a primary message,
-an optional detail line, and an optional retry button.
-
-Presentation-only — takes all state via constructor params.''',
+      docComment:
+          r'''Wrapper to give StaleRegistration stories a distinct component identity
+from the generic FullPageErrorState stories.''',
       stories: [
         $Default..$generatedName = 'Default',
         $NoRetry..$generatedName = 'NoRetry',
         $MinimalError..$generatedName = 'MinimalError',
       ],
     );
-typedef FullPageErrorStateScenario =
-    Scenario<FullPageErrorState, FullPageErrorStateArgs>;
-typedef FullPageErrorStateDefaults =
-    Defaults<FullPageErrorState, FullPageErrorStateArgs>;
+typedef StaleRegistrationDemoScenario =
+    Scenario<StaleRegistrationDemo, StaleRegistrationDemoArgs>;
+typedef StaleRegistrationDemoDefaults =
+    Defaults<StaleRegistrationDemo, StaleRegistrationDemoArgs>;
 
-class FullPageErrorStateStory
-    extends Story<FullPageErrorState, FullPageErrorStateArgs> {
-  FullPageErrorStateStory({
+class StaleRegistrationDemoStory
+    extends Story<StaleRegistrationDemo, StaleRegistrationDemoArgs> {
+  StaleRegistrationDemoStory({
     super.name,
     super.setup,
     super.modes,
-    FullPageErrorStateArgs? args,
-    StoryWidgetBuilder<FullPageErrorState, FullPageErrorStateArgs>? builder,
+    StaleRegistrationDemoArgs? args,
+    StoryWidgetBuilder<StaleRegistrationDemo, StaleRegistrationDemoArgs>?
+    builder,
     super.scenarios,
   }) : super(
-         args: args ?? FullPageErrorStateArgs(),
+         args: args ?? StaleRegistrationDemoArgs(),
          builder:
              builder ??
-             (context, args) => FullPageErrorState(
+             (context, args) => StaleRegistrationDemo(
                key: args.key,
                message: args.message,
                detail: args.detail,
@@ -61,8 +60,8 @@ class FullPageErrorStateStory
        );
 }
 
-class FullPageErrorStateArgs extends StoryArgs<FullPageErrorState> {
-  FullPageErrorStateArgs({
+class StaleRegistrationDemoArgs extends StoryArgs<StaleRegistrationDemo> {
+  StaleRegistrationDemoArgs({
     Arg<Key?>? key,
     Arg<String>? message,
     Arg<String?>? detail,
@@ -78,7 +77,7 @@ class FullPageErrorStateArgs extends StoryArgs<FullPageErrorState> {
          StringArg('Retry'),
        )!;
 
-  FullPageErrorStateArgs.fixed({
+  StaleRegistrationDemoArgs.fixed({
     Key? key,
     String message = '',
     String? detail = null,

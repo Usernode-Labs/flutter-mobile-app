@@ -45,12 +45,30 @@ const List<String> _colorTokenFileSegments = [
   'app_semantic_colors.dart',
   'color_is_expensive_theme.dart',
   'color_catalog.dart',
+  'legacy_colors.dart',
+];
+
+// TODO(ds-evolution): Migrate these files to use theme tokens, then remove.
+// Tracked in https://github.com/Usernode-Labs/flutter-mobile-app/issues/369
+const List<String> _legacyColorExcludedFiles = [
+  'main_app.dart',
+  'wallet_provider.dart',
+  'app_bar.dart',
+  'app_progress_bar.dart',
+  'dapp_avatar.dart',
+  'score_header.dart',
+  'dapp_webview_screen.dart',
+  'transaction_model.dart',
 ];
 
 /// Returns true if [path] is a color token definition file that
-/// legitimately uses hardcoded Color literals.
+/// legitimately uses hardcoded Color literals, or a legacy file
+/// pending migration to theme tokens.
 bool isColorTokenFile(String path) {
   for (final segment in _colorTokenFileSegments) {
+    if (path.contains(segment)) return true;
+  }
+  for (final segment in _legacyColorExcludedFiles) {
     if (path.contains(segment)) return true;
   }
   return false;

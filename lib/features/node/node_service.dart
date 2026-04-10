@@ -1089,12 +1089,7 @@ class RustBackendService {
         amount: amount,
         toPkHash: toPkHash,
       );
-      if (rpcResponse != null) {
-        response = RpcWalletTxSendResp(
-          queued: rpcResponse.queued,
-          error: rpcResponse.error,
-        );
-      }
+      response = rpcResponse;
     } on PanicException catch (e, st) {
       // FRB surfaced a Rust-side panic.
       _log.error('FRB panic during transferFunds', error: e, stackTrace: st);
@@ -1116,9 +1111,11 @@ class RustBackendService {
     try {
       final queued = response?.queued ?? false;
       final error = response?.error;
+      final txId = response?.txId;
+      final proofStats = response?.proofStats;
 
       _log.trace(
-        'transferFunds response: queued=$queued, error=$error',
+        'transferFunds response: queued=$queued, error=$error, txId=$txId, proofDurationMs=${proofStats?.durationMs}, extraInputs=${proofStats?.extraInputCount}',
       );
 
       // Log successful RPC operation
@@ -1126,6 +1123,11 @@ class RustBackendService {
         'transferFunds ${queued ? 'queued' : 'failed'}',
         context: {
           'queued': queued,
+          if (txId != null) 'txId': txId,
+          if (proofStats != null)
+            'proofDurationMs': proofStats.durationMs.toString(),
+          if (proofStats != null)
+            'extraInputCount': proofStats.extraInputCount.toString(),
           if (error != null) 'error': error,
         },
       );

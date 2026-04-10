@@ -2092,5 +2092,37 @@
   "registrationStaleAction": "Contact us on Discord",
   "@registrationStaleAction": {
     "description": "Button text on stale registration screen"
+  },
+  "walletProofTimeLabel": "Proof time",
+  "@walletProofTimeLabel": {
+    "description": "Label for transfer proof generation time"
+  },
+  "walletTotalInputsLabel": "Total inputs",
+  "@walletTotalInputsLabel": {
+    "description": "Label for the number of transaction inputs used"
+  },
+  "walletDefragInputsLabel": "Defrag inputs",
+  "@walletDefragInputsLabel": {
+    "description": "Label for the number of extra inputs used for defragmentation"
+  },
+  "walletTransactionIdLabel": "Transaction ID",
+  "@walletTransactionIdLabel": {
+    "description": "Label for a submitted transaction identifier"
+  },
+  "burstLastProofTimeLabel": "Last proof time",
+  "@burstLastProofTimeLabel": {
+    "description": "Label for the most recent burst transaction proof time"
+  },
+  "burstLastDefragInputsLabel": "Last defrag inputs",
+  "@burstLastDefragInputsLabel": {
+    "description": "Label for the most recent burst transaction defragmentation input count"
+  },
+  "burstProofTimeSummaryLabel": "Proof time avg / max",
+  "@burstProofTimeSummaryLabel": {
+    "description": "Label for burst proof time summary values"
+  },
+  "burstDefragInputsSummaryLabel": "Defrag inputs avg / max",
+  "@burstDefragInputsSummaryLabel": {
+    "description": "Label for burst defragmentation input summary values"
   }
 }

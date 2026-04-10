@@ -2811,6 +2811,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Contact us on Discord'**
   String get registrationStaleAction;
+
+  /// Label for transfer proof generation time
+  ///
+  /// In en, this message translates to:
+  /// **'Proof time'**
+  String get walletProofTimeLabel;
+
+  /// Label for the number of transaction inputs used
+  ///
+  /// In en, this message translates to:
+  /// **'Total inputs'**
+  String get walletTotalInputsLabel;
+
+  /// Label for the number of extra inputs used for defragmentation
+  ///
+  /// In en, this message translates to:
+  /// **'Defrag inputs'**
+  String get walletDefragInputsLabel;
+
+  /// Label for a submitted transaction identifier
+  ///
+  /// In en, this message translates to:
+  /// **'Transaction ID'**
+  String get walletTransactionIdLabel;
+
+  /// Label for the most recent burst transaction proof time
+  ///
+  /// In en, this message translates to:
+  /// **'Last proof time'**
+  String get burstLastProofTimeLabel;
+
+  /// Label for the most recent burst transaction defragmentation input count
+  ///
+  /// In en, this message translates to:
+  /// **'Last defrag inputs'**
+  String get burstLastDefragInputsLabel;
+
+  /// Label for burst proof time summary values
+  ///
+  /// In en, this message translates to:
+  /// **'Proof time avg / max'**
+  String get burstProofTimeSummaryLabel;
+
+  /// Label for burst defragmentation input summary values
+  ///
+  /// In en, this message translates to:
+  /// **'Defrag inputs avg / max'**
+  String get burstDefragInputsSummaryLabel;
 }
 
 class _AppLocalizationsDelegate

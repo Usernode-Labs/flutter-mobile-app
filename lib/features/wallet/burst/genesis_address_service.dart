@@ -9,6 +9,39 @@ import 'package:crypto_mobile_app/features/node/node_service.dart';
 
 final _log = LoggingService.instance.withTag('usernode/GenesisAddressService');
 
+List<String> parseGenesisAddresses(Map<String, dynamic> genesisJson) {
+  final addresses = <String>{};
+
+  final alloc = genesisJson['alloc'];
+  if (alloc is Map) {
+    for (final key in alloc.keys) {
+      if (key is String && key.startsWith('ut')) {
+        addresses.add(key);
+      }
+    }
+  }
+
+  final outputs = genesisJson['outputs'];
+  if (outputs is List) {
+    for (final output in outputs) {
+      if (output is! Map) continue;
+
+      final recipient = output['recipient'];
+      if (recipient is! Map) continue;
+
+      final key = recipient['key'];
+      if (key is! Map) continue;
+
+      final pkHash = key['pk_hash'];
+      if (pkHash is String && pkHash.startsWith('ut')) {
+        addresses.add(pkHash);
+      }
+    }
+  }
+
+  return List<String>.unmodifiable(addresses);
+}
+
 class GenesisAddressService {
   GenesisAddressService._();
 
@@ -42,11 +75,7 @@ class GenesisAddressService {
     }
 
     final genesisJson = jsonDecode(response.body) as Map<String, dynamic>;
-    final alloc = genesisJson['alloc'] as Map<String, dynamic>? ?? {};
-
-    // alloc keys are ut-prefixed address strings
-    final addresses =
-        alloc.keys.where((key) => key.startsWith('ut')).toList(growable: false);
+    final addresses = parseGenesisAddresses(genesisJson);
 
     _log.info('Cached ${addresses.length} genesis addresses');
     _cached = addresses;

@@ -1569,4 +1569,28 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get registrationStaleAction => 'Contact us on Discord';
+
+  @override
+  String get walletProofTimeLabel => 'Proof time';
+
+  @override
+  String get walletTotalInputsLabel => 'Total inputs';
+
+  @override
+  String get walletDefragInputsLabel => 'Defrag inputs';
+
+  @override
+  String get walletTransactionIdLabel => 'Transaction ID';
+
+  @override
+  String get burstLastProofTimeLabel => 'Last proof time';
+
+  @override
+  String get burstLastDefragInputsLabel => 'Last defrag inputs';
+
+  @override
+  String get burstProofTimeSummaryLabel => 'Proof time avg / max';
+
+  @override
+  String get burstDefragInputsSummaryLabel => 'Defrag inputs avg / max';
 }

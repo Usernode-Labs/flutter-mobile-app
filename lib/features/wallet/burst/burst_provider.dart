@@ -6,6 +6,7 @@ import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/features/wallet/burst/genesis_address_service.dart';
 
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/wallet_tx.dart';
 
 final _log = LoggingService.instance.withTag('usernode/BurstProvider');
 
@@ -27,6 +28,7 @@ class BurstRunning extends BurstState {
   final int succeeded;
   final int failed;
   final Stopwatch stopwatch;
+  final List<RpcWalletTxProofStats> proofStats;
 
   const BurstRunning({
     required this.total,
@@ -34,6 +36,7 @@ class BurstRunning extends BurstState {
     required this.succeeded,
     required this.failed,
     required this.stopwatch,
+    required this.proofStats,
   });
 }
 
@@ -43,6 +46,7 @@ class BurstComplete extends BurstState {
   final int failed;
   final Duration elapsed;
   final List<String> errors;
+  final List<RpcWalletTxProofStats> proofStats;
 
   const BurstComplete({
     required this.total,
@@ -50,6 +54,7 @@ class BurstComplete extends BurstState {
     required this.failed,
     required this.elapsed,
     required this.errors,
+    required this.proofStats,
   });
 }
 
@@ -70,6 +75,7 @@ class BurstTransactionNotifier extends Notifier<BurstState> {
 
     final stopwatch = Stopwatch()..start();
     final errors = <String>[];
+    final proofStats = <RpcWalletTxProofStats>[];
     var succeeded = 0;
     var failed = 0;
 
@@ -84,6 +90,7 @@ class BurstTransactionNotifier extends Notifier<BurstState> {
           failed: 1,
           elapsed: stopwatch.elapsed,
           errors: ['No active account found'],
+          proofStats: const [],
         );
         return;
       }
@@ -97,6 +104,20 @@ class BurstTransactionNotifier extends Notifier<BurstState> {
         exclude: userAccount.address,
       );
 
+      if (recipients.isEmpty) {
+        const error = 'No burst recipients found in genesis';
+        _log.warn(error);
+        state = BurstComplete(
+          total: 0,
+          succeeded: 0,
+          failed: 1,
+          elapsed: stopwatch.elapsed,
+          errors: const [error],
+          proofStats: const [],
+        );
+        return;
+      }
+
       final total = recipients.length;
 
       state = BurstRunning(
@@ -105,6 +126,7 @@ class BurstTransactionNotifier extends Notifier<BurstState> {
         succeeded: 0,
         failed: 0,
         stopwatch: stopwatch,
+        proofStats: const [],
       );
 
       // 4. Sequential loop with retry on "already pending"
@@ -134,6 +156,9 @@ class BurstTransactionNotifier extends Notifier<BurstState> {
 
             if (response != null && response.queued) {
               succeeded++;
+              if (response.proofStats case final stats?) {
+                proofStats.add(stats);
+              }
 
               break;
             }
@@ -167,6 +192,7 @@ class BurstTransactionNotifier extends Notifier<BurstState> {
           succeeded: succeeded,
           failed: failed,
           stopwatch: stopwatch,
+          proofStats: List<RpcWalletTxProofStats>.unmodifiable(proofStats),
         );
       }
 
@@ -180,6 +206,7 @@ class BurstTransactionNotifier extends Notifier<BurstState> {
         failed: failed,
         elapsed: stopwatch.elapsed,
         errors: errors,
+        proofStats: List<RpcWalletTxProofStats>.unmodifiable(proofStats),
       );
     } catch (e, st) {
       _log.error('Burst failed', error: e, stackTrace: st);
@@ -190,6 +217,7 @@ class BurstTransactionNotifier extends Notifier<BurstState> {
         failed: failed + 1,
         elapsed: stopwatch.elapsed,
         errors: [...errors, e.toString()],
+        proofStats: List<RpcWalletTxProofStats>.unmodifiable(proofStats),
       );
     }
   }

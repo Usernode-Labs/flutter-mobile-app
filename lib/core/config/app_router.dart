@@ -34,6 +34,7 @@ import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/wallet_tx.dart';
 
 final _log = LoggingService.instance.withTag('usernode/Router');
 
@@ -249,6 +250,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             amount: extra['amount'] as String,
             tokenSymbol: extra['tokenSymbol'] as String,
             recipientAddress: extra['recipientAddress'] as String,
+            txId: extra['txId'] as String?,
+            proofStats: extra['proofStats'] as RpcWalletTxProofStats?,
           );
         },
       ),

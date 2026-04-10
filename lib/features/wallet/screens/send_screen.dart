@@ -86,6 +86,8 @@ class _SendScreenState extends ConsumerState<SendScreen> {
             'amount': amountStr,
             'tokenSymbol': '\$TOKEN', // TODO: Get actual token symbol
             'recipientAddress': recipientAddress,
+            'txId': response.txId,
+            'proofStats': response.proofStats,
           });
         } else {
           // Transaction failed

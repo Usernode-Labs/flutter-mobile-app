@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/wallet/burst/burst_provider.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/wallet_tx.dart';
 
 class BurstScreen extends ConsumerStatefulWidget {
   const BurstScreen({super.key});
@@ -102,6 +103,7 @@ class _RunningBodyState extends ConsumerState<_RunningBody> {
     final state = widget.state;
     final elapsed = state.stopwatch.elapsed;
     final elapsedText = '${elapsed.inSeconds}s';
+    final latestProof = state.proofStats.isEmpty ? null : state.proofStats.last;
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: spacing.space24),
@@ -125,6 +127,22 @@ class _RunningBodyState extends ConsumerState<_RunningBody> {
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
+          if (latestProof != null) ...[
+            SizedBox(height: spacing.space8),
+            Text(
+              '${l10n.burstLastProofTimeLabel}: ${latestProof.durationMs} ms',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            SizedBox(height: spacing.space4),
+            Text(
+              '${l10n.burstLastDefragInputsLabel}: ${latestProof.extraInputCount}',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
           if (state.failed > 0) ...[
             SizedBox(height: spacing.space8),
             Text(
@@ -157,7 +175,7 @@ class _CompleteBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final ResultPageVariant variant;
     final String title;
-    final String? subtitle;
+    String? subtitle;
 
     final elapsedText = '${state.elapsed.inSeconds}s';
 
@@ -176,6 +194,14 @@ class _CompleteBody extends StatelessWidget {
           l10n.burstMixedSubtitle(state.succeeded, state.failed, elapsedText);
     }
 
+    final proofSummary = _buildProofSummary(
+      l10n: l10n,
+      proofStats: state.proofStats,
+    );
+    if (proofSummary != null) {
+      subtitle = subtitle == null ? proofSummary : '$subtitle\n\n$proofSummary';
+    }
+
     return ResultPage(
       variant: variant,
       title: title,
@@ -187,4 +213,40 @@ class _CompleteBody extends StatelessWidget {
       ),
     );
   }
+}
+
+String? _buildProofSummary({
+  required AppLocalizations l10n,
+  required List<RpcWalletTxProofStats> proofStats,
+}) {
+  if (proofStats.isEmpty) {
+    return null;
+  }
+
+  final totalDurationMs = proofStats.fold<BigInt>(
+    BigInt.zero,
+    (sum, stats) => sum + stats.durationMs,
+  );
+  final totalDefragInputs = proofStats.fold<BigInt>(
+    BigInt.zero,
+    (sum, stats) => sum + stats.extraInputCount,
+  );
+  final avgDurationMs =
+      (totalDurationMs.toDouble() / proofStats.length).round();
+  final maxDurationMs = proofStats
+      .map((stats) => stats.durationMs)
+      .reduce((a, b) => a > b ? a : b);
+  final avgDefragInputs = totalDefragInputs.toDouble() / proofStats.length;
+  final maxDefragInputs = proofStats
+      .map((stats) => stats.extraInputCount)
+      .reduce((a, b) => a > b ? a : b);
+
+  final avgDefragText = avgDefragInputs == avgDefragInputs.roundToDouble()
+      ? avgDefragInputs.toStringAsFixed(0)
+      : avgDefragInputs.toStringAsFixed(1);
+
+  return [
+    '${l10n.burstProofTimeSummaryLabel}: $avgDurationMs / $maxDurationMs ms',
+    '${l10n.burstDefragInputsSummaryLabel}: $avgDefragText / $maxDefragInputs',
+  ].join('\n');
 }

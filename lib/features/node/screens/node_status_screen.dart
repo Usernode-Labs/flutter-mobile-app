@@ -15,6 +15,7 @@ import 'package:crypto_mobile_app/core/widgets/app_progress_bar.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/core/providers/node_data_providers.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
+import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -34,6 +35,7 @@ class NodeStatusScreen extends ConsumerStatefulWidget {
 
 class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
   final _scrollFraction = ValueNotifier<double>(0.0);
+  final _appSleepService = AppSleepService.instance;
 
   // State flags
   bool _refreshing = false;
@@ -58,6 +60,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
   @override
   void initState() {
     super.initState();
+    _appSleepService.addListener(_handleAppSleepChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeData();
       _startTimer();
@@ -79,6 +82,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
 
   @override
   void dispose() {
+    _appSleepService.removeListener(_handleAppSleepChanged);
     _scrollFraction.dispose();
     _autoTimer?.cancel();
     super.dispose();
@@ -205,8 +209,10 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
   // ============== TIMER MANAGEMENT ==============
 
   void _startTimer() {
+    if (_appSleepService.isSleeping) return;
     _autoTimer?.cancel();
     _autoTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (_appSleepService.isSleeping) return;
       if (mounted && _active && !_refreshing) {
         _refresh();
       }
@@ -216,6 +222,19 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
   void _stopTimer() {
     _autoTimer?.cancel();
     _autoTimer = null;
+  }
+
+  void _handleAppSleepChanged() {
+    if (!mounted) return;
+    if (_appSleepService.isSleeping) {
+      _stopTimer();
+      return;
+    }
+
+    if (_active) {
+      _startTimer();
+      unawaited(_refresh());
+    }
   }
 
   // ============== BUILD ==============

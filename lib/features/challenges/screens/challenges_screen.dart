@@ -13,6 +13,7 @@ import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/providers/ranking_provider.dart';
 import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
+import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/core/providers/syncing_text_provider.dart';
 import 'package:go_router/go_router.dart';
@@ -55,6 +56,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
   final _scrollFraction = ValueNotifier<double>(0.0);
   late TabController _tabController;
   late final HeartbeatAnimation _heartbeat;
+  final _appSleepService = AppSleepService.instance;
   Timer? _refreshTimer;
 
   final _pullFeedback = ValueNotifier<PullFeedback>(const PullFeedback());
@@ -64,11 +66,13 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
     super.initState();
     _tabController = TabController(length: kTabLabels.length, vsync: this);
     _heartbeat = HeartbeatAnimation(vsync: this);
+    _appSleepService.addListener(_handleAppSleepChanged);
     _startAutoRefresh();
   }
 
   @override
   void dispose() {
+    _appSleepService.removeListener(_handleAppSleepChanged);
     _refreshTimer?.cancel();
     _heartbeat.dispose();
     _tabController.dispose();
@@ -78,8 +82,10 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
   }
 
   void _startAutoRefresh() {
+    if (_appSleepService.isSleeping) return;
     _refreshTimer?.cancel();
     _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) async {
+      if (_appSleepService.isSleeping) return;
       if (!mounted) return;
       final currentTab = ref.read(currentHomeTabProvider);
       if (currentTab == HomeTab.challenges) {
@@ -112,6 +118,18 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
       disableAnimations: MediaQuery.of(context).disableAnimations,
     );
     _startAutoRefresh();
+  }
+
+  void _handleAppSleepChanged() {
+    if (!mounted) return;
+    if (_appSleepService.isSleeping) {
+      _refreshTimer?.cancel();
+      _refreshTimer = null;
+      return;
+    }
+
+    _startAutoRefresh();
+    unawaited(_onRefresh());
   }
 
   @override

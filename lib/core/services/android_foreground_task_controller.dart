@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import 'package:crypto_mobile_app/core/models/vrf_status.dart';
+import 'package:crypto_mobile_app/core/services/app_sleep_state_store.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
@@ -69,11 +70,22 @@ class AndroidForegroundTaskController {
 
   Future<void> onNodeStarted() async {
     if (!Platform.isAndroid) return;
+    if (AppSleepStateStore.isSleeping) {
+      _log.info('Skipping Android monitoring start while app sleep is active');
+      return;
+    }
     await startMonitoring(reason: 'node_started');
   }
 
   Future<void> startMonitoring({String reason = 'manual'}) async {
     if (!Platform.isAndroid) return;
+    if (AppSleepStateStore.isSleeping) {
+      _log.info(
+        'Skipping Android monitoring start while app sleep is active',
+        context: {'reason': reason},
+      );
+      return;
+    }
     await initialize();
 
     // Ensure the Rust node is running before polling VRF or scheduling alarms.
@@ -125,6 +137,13 @@ class AndroidForegroundTaskController {
   }
 
   Future<void> handleAlarmFire({String reason = 'alarm'}) async {
+    if (AppSleepStateStore.isSleeping) {
+      _log.info(
+        'Ignoring alarm-fired monitoring start while app sleep is active',
+        context: {'reason': reason},
+      );
+      return;
+    }
     _log.info('Alarm fired, restarting foreground task ($reason)');
     await startMonitoring(reason: reason);
   }
@@ -397,6 +416,10 @@ class AndroidForegroundTaskController {
   void handleNativeEvent(String eventType, Map<String, dynamic> data) {
     if (!Platform.isAndroid) return;
     if (eventType != 'android_alarm_fired') return;
+    if (AppSleepStateStore.isSleeping) {
+      _log.info('Ignoring native alarm event while app sleep is active');
+      return;
+    }
 
     final alarmId = data['alarmId'] as String? ?? '';
     if (alarmId == 'fg_resume') {

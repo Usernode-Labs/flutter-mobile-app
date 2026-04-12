@@ -15,6 +15,26 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appTagline => 'Your Gateway to DeFi';
 
   @override
+  String get appSleepTitle => 'App asleep';
+
+  @override
+  String appSleepUntilSlot(int slotNumber, String dateTime) {
+    return 'Sleeping until slot $slotNumber at $dateTime.';
+  }
+
+  @override
+  String appSleepUntilTime(String dateTime) {
+    return 'Sleeping until $dateTime.';
+  }
+
+  @override
+  String get appSleepUntilUnknown =>
+      'Sleeping until the next scheduled slot. Tap anywhere to wake sooner.';
+
+  @override
+  String get appSleepTapToWake => 'Tap anywhere to wake and return to the app.';
+
+  @override
   String get initializingNode => 'Initializing node...';
 
   @override

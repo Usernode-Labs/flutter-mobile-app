@@ -3,6 +3,9 @@ import 'dart:convert';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/services/app_reset_service.dart';
+import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
+import 'package:crypto_mobile_app/core/services/app_sleep_state_store.dart';
+import 'package:crypto_mobile_app/features/app_sleep/screens/app_sleep_screen.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_reporting_service.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
@@ -10,6 +13,7 @@ import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:crypto_mobile_app/core/bootstrap/app_bootstrap.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
@@ -64,8 +68,17 @@ Future<void> headlessMain() async {
   // Initialize Flutter binding manually (no Sentry in headless mode)
   WidgetsFlutterBinding.ensureInitialized();
   try {
+    await AppSleepStateStore.load();
+    if (AppSleepStateStore.isSleeping) {
+      await LoggingService.initialize();
+      final log = LoggingService.instance.withTag('usernode/HeadlessBootstrap');
+      log.info('Skipping headless bootstrap while app sleep is active');
+      return;
+    }
+
     final boot = await AppBootstrap.initNonUi(
       logTag: 'usernode/HeadlessBootstrap',
+      registerLifecycleObserver: false,
     );
     final log = boot.log;
     final container = boot.container;
@@ -343,13 +356,16 @@ class _AppWrapper extends ConsumerStatefulWidget {
 class _AppWrapperState extends ConsumerState<_AppWrapper>
     with WidgetsBindingObserver {
   bool _versionCheckShown = false;
+  bool _wasSleeping = false;
+  final _appSleepService = AppSleepService.instance;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Start periodic version checks
-    AppVersionCheck.instance.startPeriodicChecks(_handleVersionCheckResult);
+    _wasSleeping = _appSleepService.isSleeping;
+    _appSleepService.addListener(_handleAppSleepChanged);
+    _syncVersionChecks();
     // Check version after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkInitialVersion());
   }
@@ -388,6 +404,7 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _appSleepService.removeListener(_handleAppSleepChanged);
     AppVersionCheck.instance.stopPeriodicChecks();
     super.dispose();
   }
@@ -396,6 +413,29 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
     if (!mounted || _versionCheckShown) return;
     _versionCheckShown = true;
     showUpdateDialog(appNavigatorKey, result);
+  }
+
+  void _handleAppSleepChanged() {
+    final isSleeping = _appSleepService.isSleeping;
+    _syncVersionChecks();
+    if (_wasSleeping && !isSleeping) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final navContext = appNavigatorKey.currentContext;
+        if (navContext == null) return;
+        GoRouter.of(navContext).go(AppRoutes.home);
+      });
+    }
+    _wasSleeping = isSleeping;
+  }
+
+  void _syncVersionChecks() {
+    if (_appSleepService.isSleeping) {
+      AppVersionCheck.instance.stopPeriodicChecks();
+      return;
+    }
+
+    AppVersionCheck.instance.startPeriodicChecks(_handleVersionCheckResult);
   }
 
   @override
@@ -407,11 +447,45 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Positioned.fill(child: widget.child ?? const SizedBox.shrink()),
-        const ClockDriftWarningOverlay(),
-      ],
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) {
+        _appSleepService.recordUserInteraction(source: 'pointer_down');
+      },
+      onPointerMove: (_) {
+        _appSleepService.recordUserInteraction(source: 'pointer_move');
+      },
+      onPointerSignal: (_) {
+        _appSleepService.recordUserInteraction(source: 'pointer_signal');
+      },
+      child: ListenableBuilder(
+        listenable: _appSleepService,
+        builder: (context, child) {
+          final snapshot = _appSleepService.snapshot;
+          final showSleepScreen = snapshot.isSleeping &&
+              snapshot.lifecycleState == AppLifecycleState.resumed;
+          return TickerMode(
+            enabled: !_appSleepService.isSleeping,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                child ?? const SizedBox.shrink(),
+                const ClockDriftWarningOverlay(),
+                if (showSleepScreen)
+                  AppSleepScreen(
+                    snapshot: snapshot,
+                    onWakeRequested: () {
+                      _appSleepService.recordUserInteraction(
+                        source: 'sleep_screen',
+                      );
+                    },
+                  ),
+              ],
+            ),
+          );
+        },
+        child: widget.child ?? const SizedBox.shrink(),
+      ),
     );
   }
 }

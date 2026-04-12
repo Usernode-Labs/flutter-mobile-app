@@ -106,6 +106,36 @@ abstract class AppLocalizations {
   /// **'Your Gateway to DeFi'**
   String get appTagline;
 
+  /// Title shown on the full-screen sleep page
+  ///
+  /// In en, this message translates to:
+  /// **'App asleep'**
+  String get appSleepTitle;
+
+  /// Message shown when the next scheduled slot time is known
+  ///
+  /// In en, this message translates to:
+  /// **'Sleeping until slot {slotNumber} at {dateTime}.'**
+  String appSleepUntilSlot(int slotNumber, String dateTime);
+
+  /// Message shown when only the next wake time is known
+  ///
+  /// In en, this message translates to:
+  /// **'Sleeping until {dateTime}.'**
+  String appSleepUntilTime(String dateTime);
+
+  /// Fallback message shown when the next scheduled slot time is unavailable
+  ///
+  /// In en, this message translates to:
+  /// **'Sleeping until the next scheduled slot. Tap anywhere to wake sooner.'**
+  String get appSleepUntilUnknown;
+
+  /// Instruction shown on the sleep page
+  ///
+  /// In en, this message translates to:
+  /// **'Tap anywhere to wake and return to the app.'**
+  String get appSleepTapToWake;
+
   /// Loading text on splash screen
   ///
   /// In en, this message translates to:

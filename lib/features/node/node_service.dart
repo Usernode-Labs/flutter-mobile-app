@@ -71,6 +71,7 @@ class RustBackendService {
       _initCompleter; // Prevents race condition on concurrent init() calls
   Completer<bool>? _startNodeCompleter;
   bool _nodeRunning = false;
+  bool _nodePaused = false;
   String? _instanceId;
   String? _cachedPeerId;
   int? _cachedGenesisTimestamp;
@@ -333,6 +334,7 @@ class RustBackendService {
       _rpc = rpc;
       _control = control;
       _nodeRunning = true;
+      _nodePaused = false;
       control.resume();
       await _cachePeerIdFromRpc(rpc);
 
@@ -397,6 +399,7 @@ class RustBackendService {
       // Run the node in a background thread.
       _control = node.runForeverInNewThread();
       _nodeRunning = true;
+      _nodePaused = false;
 
       // Cache peer ID once on startup.
       // Prefer RPC status so callers don't depend on holding a Node handle.
@@ -459,11 +462,13 @@ class RustBackendService {
 
   Future<void> resumeNode() async {
     _log.info('Resuming node');
+    _nodePaused = false;
     _control?.resume();
   }
 
   Future<void> pauseNode() async {
     _log.info('Pausing node');
+    _nodePaused = true;
     _control?.pause();
   }
 
@@ -475,6 +480,7 @@ class RustBackendService {
     );
     _control?.shutdown();
     _nodeRunning = false;
+    _nodePaused = false;
     _rpc = null;
     _control = null;
     _cachedPeerId = null;
@@ -552,6 +558,7 @@ class RustBackendService {
     _initCompleter = null;
     _startNodeCompleter = null;
     _nodeRunning = false;
+    _nodePaused = false;
     _instanceId = null;
     _cachedPeerId = null;
     _cachedGenesisTimestamp = null;
@@ -568,8 +575,18 @@ class RustBackendService {
     return _cachedPeerId;
   }
 
+  bool _shouldSkipRpc(String methodName) {
+    if (!_nodePaused) {
+      return false;
+    }
+
+    _log.debug('$methodName skipped: node is paused');
+    return true;
+  }
+
   Future<RpcStatusNode?> getStatusNode() async {
     _log.trace('getStatusNode called');
+    if (_shouldSkipRpc('getStatusNode')) return null;
     final r = _rpc;
     if (r == null) return null;
     try {
@@ -595,6 +612,7 @@ class RustBackendService {
   Future<RpcStatusResp?> getStatus({
     bool includeVrfDetails = true,
   }) async {
+    if (_shouldSkipRpc('getStatus')) return null;
     final stopwatch = Stopwatch()..start();
     _log.debug(
         'getStatus RPC call started (includeVrfDetails: $includeVrfDetails)');
@@ -792,6 +810,7 @@ class RustBackendService {
     bool includeVrfDetails = true,
   }) async {
     _log.trace('getBlockProducerStatus called');
+    if (_shouldSkipRpc('getBlockProducerStatus')) return null;
     final r = _rpc;
     if (r == null) return null;
 
@@ -824,6 +843,7 @@ class RustBackendService {
     int? epoch,
     AccountPublicKey? blockProducer,
   }) async {
+    if (_shouldSkipRpc('listBlockchain')) return null;
     final stopwatch = Stopwatch()..start();
     _log.debug(
         'listBlockchain RPC call started (limit: $limit, fromTip: $fromTip, epoch: $epoch)');
@@ -932,6 +952,7 @@ class RustBackendService {
     bool? idsOnly,
     TransactionHash? cursorAfter,
   }) async {
+    if (_shouldSkipRpc('listMempool')) return null;
     final stopwatch = Stopwatch()..start();
     _log.debug(
         'listMempool RPC call started (limit: $limit, idsOnly: $idsOnly)');
@@ -1030,6 +1051,7 @@ class RustBackendService {
     int? epoch,
   }) async {
     _log.trace('epochRewards called with params: epoch=$epoch');
+    if (_shouldSkipRpc('epochRewards')) return null;
     final r = _rpc;
     if (r == null) return null;
 
@@ -1121,6 +1143,7 @@ class RustBackendService {
     _log.trace(
       'listUtxosByOwner called with params: owner=[PublicKeyHash], limit=$limit',
     );
+    if (_shouldSkipRpc('listUtxosByOwner')) return null;
     final r = _rpc;
     if (r == null) return null;
 
@@ -1253,6 +1276,7 @@ class RustBackendService {
   ///
   /// Returns null if backend is unavailable or calls fail.
   Future<BackendRPCResponse?> getEpochInfo({int? epoch}) async {
+    if (_shouldSkipRpc('getEpochInfo')) return null;
     try {
       // First, get current blockchain status to determine current slot
       final status = await getStatus();
@@ -1304,6 +1328,7 @@ class RustBackendService {
   /// Convenience helper to fetch epochs with slot data via RPC.
   Future<RpcEpochsWithDataResp?> getEpochsWithData() async {
     _log.trace('getEpochsWithData called');
+    if (_shouldSkipRpc('getEpochsWithData')) return null;
     final r = _rpc;
     if (r == null) return null;
 
@@ -1344,6 +1369,7 @@ class RustBackendService {
     required int epoch,
   }) async {
     _log.trace('getEpochSlotResults called with params: epoch=$epoch');
+    if (_shouldSkipRpc('getEpochSlotResults')) return null;
     final r = _rpc;
     if (r == null) return null;
 
@@ -1388,6 +1414,7 @@ class RustBackendService {
     required int slot,
   }) async {
     _log.trace('getSlotTime called with params: epoch=$epoch, slot=$slot');
+    if (_shouldSkipRpc('getSlotTime')) return null;
     final r = _rpc;
     if (r == null) return null;
 
@@ -1434,6 +1461,7 @@ class RustBackendService {
   }) async {
     _log.trace(
         'getProducedBlockMetadata called with params: epoch=$epoch, slot=$slot');
+    if (_shouldSkipRpc('getProducedBlockMetadata')) return null;
     final r = _rpc;
     if (r == null) return null;
 

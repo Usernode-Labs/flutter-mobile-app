@@ -8,6 +8,39 @@
   "@appTagline": {
     "description": "Application tagline"
   },
+  "appSleepTitle": "App asleep",
+  "@appSleepTitle": {
+    "description": "Title shown on the full-screen sleep page"
+  },
+  "appSleepUntilSlot": "Sleeping until slot {slotNumber} at {dateTime}.",
+  "@appSleepUntilSlot": {
+    "description": "Message shown when the next scheduled slot time is known",
+    "placeholders": {
+      "slotNumber": {
+        "type": "int"
+      },
+      "dateTime": {
+        "type": "String"
+      }
+    }
+  },
+  "appSleepUntilTime": "Sleeping until {dateTime}.",
+  "@appSleepUntilTime": {
+    "description": "Message shown when only the next wake time is known",
+    "placeholders": {
+      "dateTime": {
+        "type": "String"
+      }
+    }
+  },
+  "appSleepUntilUnknown": "Sleeping until the next scheduled slot. Tap anywhere to wake sooner.",
+  "@appSleepUntilUnknown": {
+    "description": "Fallback message shown when the next scheduled slot time is unavailable"
+  },
+  "appSleepTapToWake": "Tap anywhere to wake and return to the app.",
+  "@appSleepTapToWake": {
+    "description": "Instruction shown on the sleep page"
+  },
   "initializingNode": "Initializing node...",
   "@initializingNode": {
     "description": "Loading text on splash screen"

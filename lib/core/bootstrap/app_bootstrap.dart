@@ -10,6 +10,7 @@ import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
+import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/utils/lifecycle.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -85,6 +86,10 @@ class AppBootstrap {
 
     // Metrics collector needs the container before any lifecycle/service starts
     MetricsCollectorService.instance.initialize(container);
+
+    if (registerLifecycleObserver) {
+      await AppSleepService.instance.initializeForInteractiveApp();
+    }
 
     void recoverZkSession() {
       container

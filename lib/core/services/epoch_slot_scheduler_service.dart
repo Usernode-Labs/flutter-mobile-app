@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
+import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import '../../features/node/node_service.dart';
@@ -237,6 +238,23 @@ class EpochSlotSchedulerService {
     _log.info('Epoch transition: $message');
   }
 
+  int? _computeAlarmDelayMs({
+    required int localSlotTimeMs,
+    required int wakeLeadMs,
+    required int nowMs,
+  }) {
+    if (localSlotTimeMs <= nowMs) {
+      return null;
+    }
+
+    final localWakeTimeMs = localSlotTimeMs - wakeLeadMs;
+    if (localWakeTimeMs <= nowMs) {
+      return 0;
+    }
+
+    return localWakeTimeMs - nowMs;
+  }
+
   /// Schedule alarms for all won slots in the specified epoch
   ///
   /// This queries the Rust backend for won slots and schedules
@@ -245,8 +263,7 @@ class EpochSlotSchedulerService {
     int? epoch,
     Duration? advanceTime,
   }) async {
-    // Default advance time: 12 slots (will be calculated from status if null)
-    advanceTime ??= const Duration(minutes: 1); // Fallback, updated below
+    advanceTime ??= AppConfig.blockProductionWakeBeforeSlot;
     if (!_initialized) {
       _log.warn('Cannot schedule slots: service not initialized');
       return SchedulingResult(
@@ -267,6 +284,16 @@ class EpochSlotSchedulerService {
           error: 'RPC service not available',
         );
       }
+      final clockDriftMs =
+          await RustBackendService.instance.resolveNodeClockDriftMs();
+      if (clockDriftMs == null) {
+        _log.warn('Cannot schedule slots: node clock drift unavailable');
+        return SchedulingResult(
+          success: false,
+          error: 'Node clock drift unavailable',
+        );
+      }
+      final wakeLeadMs = advanceTime.inMilliseconds;
 
       final epochData = await rpc.epochRewards(
         epoch: epoch,
@@ -306,10 +333,19 @@ class EpochSlotSchedulerService {
       int failureCount = 0;
 
       for (final wonSlot in epochData.wonSlots!) {
-        final slotTime = DateTime.fromMillisecondsSinceEpoch(
-          wonSlot.expectedTimeMs.toInt(),
+        final rustSlotTimeMs = wonSlot.expectedTimeMs.toInt();
+        final localSlotTimeMs =
+            RustBackendService.instance.localTimeMsFromRustTimeMs(
+          rustSlotTimeMs,
+          clockDriftMs: clockDriftMs,
         );
-        final alarmTime = slotTime.subtract(advanceTime);
+        final slotTime = DateTime.fromMillisecondsSinceEpoch(localSlotTimeMs);
+        final nowMs = DateTime.now().millisecondsSinceEpoch;
+        final alarmDelayMs = _computeAlarmDelayMs(
+          localSlotTimeMs: localSlotTimeMs,
+          wakeLeadMs: wakeLeadMs,
+          nowMs: nowMs,
+        );
 
         // Record won slot to statistics repository
         try {
@@ -323,8 +359,9 @@ class EpochSlotSchedulerService {
           _log.warn('Failed to record won slot ${wonSlot.globalSlot}: $e');
         }
 
-        // Only schedule future slots
-        if (alarmTime.isAfter(DateTime.now())) {
+        if (alarmDelayMs != null) {
+          final alarmTime =
+              DateTime.fromMillisecondsSinceEpoch(nowMs + alarmDelayMs);
           final scheduled = ScheduledSlot(
             slotNumber: wonSlot.globalSlot,
             slotTime: slotTime,
@@ -332,7 +369,8 @@ class EpochSlotSchedulerService {
             epoch: epochData.epoch,
           );
 
-          final success = await _scheduleSlotAlarm(scheduled);
+          final success =
+              await _scheduleSlotAlarm(slot: scheduled, delayMs: alarmDelayMs);
           if (success) {
             newSlots.add(scheduled);
             successCount++;
@@ -340,7 +378,11 @@ class EpochSlotSchedulerService {
             failureCount++;
           }
         } else {
-          _log.debug('Skipping past slot ${wonSlot.globalSlot}');
+          _log.debug(
+            'Skipping past slot ${wonSlot.globalSlot} '
+            '(rustSlotTimeMs=$rustSlotTimeMs, localSlotTimeMs=$localSlotTimeMs, '
+            'clockDriftMs=$clockDriftMs)',
+          );
         }
       }
 
@@ -367,7 +409,10 @@ class EpochSlotSchedulerService {
   }
 
   /// Schedule alarm for a specific slot
-  Future<bool> _scheduleSlotAlarm(ScheduledSlot slot) async {
+  Future<bool> _scheduleSlotAlarm({
+    required ScheduledSlot slot,
+    required int delayMs,
+  }) async {
     try {
       _log.debug(
         'Scheduling alarm for slot ${slot.slotNumber} at ${slot.alarmTime}',
@@ -377,7 +422,7 @@ class EpochSlotSchedulerService {
       final alarmId = 'slot_${slot.slotNumber}';
       final success = await PlatformAlarmService.instance.scheduleAlarm(
         alarmId: alarmId,
-        alarmTime: slot.alarmTime,
+        delayMs: delayMs,
         slotNumber: slot.slotNumber,
         data: {
           'epoch': slot.epoch,

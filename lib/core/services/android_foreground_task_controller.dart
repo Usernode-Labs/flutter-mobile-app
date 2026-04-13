@@ -159,17 +159,31 @@ class AndroidForegroundTaskController {
         return;
       }
 
-      final now = DateTime.now();
-      final nextWon = _nextWonSlot(info.wonSlots, now);
+      final clockDriftMs =
+          await RustBackendService.instance.resolveNodeClockDriftMs();
+      if (clockDriftMs == null) {
+        _log.warn('VRF poll: node clock drift unavailable');
+        return;
+      }
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      final rustNowMs = RustBackendService.instance.rustTimeMsFromLocalTimeMs(
+        nowMs,
+        clockDriftMs: clockDriftMs,
+      );
+      final nextWon = _nextWonSlot(info.wonSlots, rustNowMs);
 
       if (nextWon != null) {
-        final slotTime =
-            DateTime.fromMillisecondsSinceEpoch(nextWon.expectedTimeMs.toInt());
-        final diff = slotTime.difference(now);
+        final rustSlotTimeMs = nextWon.expectedTimeMs.toInt();
+        final localSlotTimeMs =
+            RustBackendService.instance.localTimeMsFromRustTimeMs(
+          rustSlotTimeMs,
+          clockDriftMs: clockDriftMs,
+        );
+        final diffMs = localSlotTimeMs - nowMs;
 
-        if (diff > _alarmLead) {
+        if (diffMs > _alarmLead.inMilliseconds) {
           await _scheduleResume(
-            slotTime.subtract(_alarmLead),
+            rustSlotTimeMs - _alarmLead.inMilliseconds,
             'next_won_slot:${nextWon.globalSlot}',
           );
         } else {
@@ -186,16 +200,21 @@ class AndroidForegroundTaskController {
         return;
       }
 
-      final epochEnd = await _getEpochEndTime(info.currentEpoch);
-      if (epochEnd == null) {
+      final epochEndRustTimeMs = await _getEpochEndTimeMs(info.currentEpoch);
+      if (epochEndRustTimeMs == null) {
         _log.warn('VRF poll: could not compute epoch end');
         return;
       }
 
-      final untilEnd = epochEnd.difference(now);
-      if (untilEnd > _alarmLead) {
+      final localEpochEndTimeMs =
+          RustBackendService.instance.localTimeMsFromRustTimeMs(
+        epochEndRustTimeMs,
+        clockDriftMs: clockDriftMs,
+      );
+      final untilEndMs = localEpochEndTimeMs - nowMs;
+      if (untilEndMs > _alarmLead.inMilliseconds) {
         await _scheduleResume(
-          epochEnd.subtract(_alarmLead),
+          epochEndRustTimeMs - _alarmLead.inMilliseconds,
           'epoch_end_${info.currentEpoch}',
         );
       } else {
@@ -278,7 +297,7 @@ class AndroidForegroundTaskController {
     }
   }
 
-  Future<void> _scheduleResume(DateTime time, String reason) async {
+  Future<void> _scheduleResume(int rustWakeTimeMs, String reason) async {
     if (await _shouldHoldForOtherProducerBlock()) {
       final height = _awaitingOtherProducerState?.height;
       _log.info(
@@ -287,9 +306,22 @@ class AndroidForegroundTaskController {
       return;
     }
 
+    final clockDriftMs =
+        await RustBackendService.instance.resolveNodeClockDriftMs();
+    if (clockDriftMs == null) {
+      _log.warn('Skipping resume alarm: node clock drift unavailable');
+      return;
+    }
+    final localWakeTimeMs =
+        RustBackendService.instance.localTimeMsFromRustTimeMs(
+      rustWakeTimeMs,
+      clockDriftMs: clockDriftMs,
+    );
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final delayMs = localWakeTimeMs - nowMs;
     final success = await PlatformAlarmService.instance.scheduleAlarm(
       alarmId: 'fg_resume',
-      alarmTime: time,
+      delayMs: delayMs,
       slotNumber: 0,
       data: {
         'reason': reason,
@@ -297,21 +329,25 @@ class AndroidForegroundTaskController {
       },
     );
 
-    _log.info('Scheduled resume alarm at $time for $reason (success=$success)');
+    final localWakeTime = DateTime.fromMillisecondsSinceEpoch(localWakeTimeMs);
+    _log.info(
+      'Scheduled resume alarm at $localWakeTime for $reason '
+      '(success=$success, rustWakeTimeMs=$rustWakeTimeMs, '
+      'clockDriftMs=$clockDriftMs)',
+    );
     await stopMonitoring(reason: reason);
   }
 
-  RpcEpochWonSlot? _nextWonSlot(List<RpcEpochWonSlot> slots, DateTime now) {
+  RpcEpochWonSlot? _nextWonSlot(List<RpcEpochWonSlot> slots, int rustNowMs) {
     final futureSlots = slots
-        .where(
-            (s) => s.expectedTimeMs.toInt() + 5000 > now.millisecondsSinceEpoch)
+        .where((s) => s.expectedTimeMs.toInt() + 5000 > rustNowMs)
         .toList()
       ..sort((a, b) => a.expectedTimeMs.compareTo(b.expectedTimeMs));
     if (futureSlots.isEmpty) return null;
     return futureSlots.first;
   }
 
-  Future<DateTime?> _getEpochEndTime(int epoch) async {
+  Future<int?> _getEpochEndTimeMs(int epoch) async {
     try {
       final status = await RustBackendService.instance.getStatus(
         includeVrfDetails: false,
@@ -325,7 +361,7 @@ class AndroidForegroundTaskController {
       );
       final timestampMs = slotResp?.timestampMs?.toInt();
       if (timestampMs == null) return null;
-      return DateTime.fromMillisecondsSinceEpoch(timestampMs);
+      return timestampMs;
     } catch (_) {
       return null;
     }

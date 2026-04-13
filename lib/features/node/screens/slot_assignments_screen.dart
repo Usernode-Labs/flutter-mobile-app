@@ -6,6 +6,7 @@ import 'package:crypto_mobile_app/core/providers/produced_blocks_provider.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
+import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/utils/time_format.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_slots.dart';
@@ -47,6 +48,7 @@ class _SlotAssignmentsScreenState extends ConsumerState<SlotAssignmentsScreen> {
   bool _isInitialFilter = true;
   Timer? _autoRefreshTimer;
   bool _refreshing = false;
+  int? _currentRustTimeMs;
   late final List<_ParsedItem> _fallbackItems =
       _buildItemsFromArgs(widget.args) ?? const <_ParsedItem>[];
 
@@ -98,7 +100,16 @@ class _SlotAssignmentsScreenState extends ConsumerState<SlotAssignmentsScreen> {
     if (route != null && !route.isCurrent) return;
     _refreshing = true;
     try {
-      final _ = await ref.refresh(producedBlocksSummaryProvider.future);
+      await Future.wait([
+        ref.refresh(producedBlocksSummaryProvider.future),
+        RustBackendService.instance.resolveCurrentRustTimeMs(),
+      ]).then((results) {
+        final rustNowMs = results[1] as int?;
+        if (!mounted) return;
+        setState(() {
+          _currentRustTimeMs = rustNowMs;
+        });
+      });
     } catch (e, st) {
       debugPrint('SlotAssignmentsScreen: refresh failed: $e\n$st');
     } finally {
@@ -287,7 +298,7 @@ class _SlotAssignmentsScreenState extends ConsumerState<SlotAssignmentsScreen> {
     final args = widget.args ?? const <String, dynamic>{};
     final epoch = (args['epoch'] as int?) ?? 0;
     final slotsInEpoch = (args['slotsInEpoch'] as int?) ?? 0;
-    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final nowMs = _currentRustTimeMs ?? DateTime.now().millisecondsSinceEpoch;
     final slotDurationMs =
         ref.watch(nodeStatusProvider).valueOrNull?.slotDurationMs ?? 0;
 

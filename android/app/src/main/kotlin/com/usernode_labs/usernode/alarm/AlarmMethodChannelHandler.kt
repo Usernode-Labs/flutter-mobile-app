@@ -144,18 +144,18 @@ class AlarmMethodChannelHandler(context: Context) {
             }
             "scheduleExactAlarm" -> {
                 val alarmId = call.argument<String>("alarmId")
-                val alarmTimeMs = call.argument<Long>("alarmTimeMs")
+                val delayMs = call.argument<Number>("delayMs")?.toLong()
                 val slotNumber = call.argument<Int>("slotNumber")
                 val data = call.argument<Map<String, Any>>("data")
 
-                if (alarmId == null || alarmTimeMs == null || slotNumber == null) {
-                    result.error("INVALID_ARGS", "Missing required arguments", null)
+                if (alarmId == null || slotNumber == null || delayMs == null) {
+                    result.error("INVALID_ARGS", "Missing required delayMs argument", null)
                     return
                 }
 
                 val success = alarmScheduler.scheduleExactAlarm(
                     alarmId = alarmId,
-                    alarmTimeMs = alarmTimeMs,
+                    delayMs = delayMs,
                     slotNumber = slotNumber,
                     data = data ?: emptyMap()
                 )

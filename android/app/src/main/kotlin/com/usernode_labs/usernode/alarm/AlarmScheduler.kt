@@ -27,12 +27,16 @@ class AlarmScheduler(
 
     fun scheduleExactAlarm(
         alarmId: String,
-        alarmTimeMs: Long,
+        delayMs: Long,
         slotNumber: Int,
         data: Map<String, Any>
     ): Boolean {
         try {
-            Log.d(TAG, "[AlarmScheduler] Attempting to schedule alarm - ID: $alarmId, Slot: $slotNumber, Time: $alarmTimeMs")
+            Log.d(TAG, "[AlarmScheduler] Attempting to schedule alarm - ID: $alarmId, Slot: $slotNumber, Delay: $delayMs")
+
+            val currentTime = System.currentTimeMillis()
+            val effectiveDelayMs = delayMs.coerceAtLeast(0L)
+            val triggerAtMs = currentTime + effectiveDelayMs
 
             // Check if we can schedule exact alarms
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -52,7 +56,7 @@ class AlarmScheduler(
                 action = "com.usernode.app.SLOT_ALARM"
                 putExtra("alarmId", alarmId)
                 putExtra("slotNumber", slotNumber)
-                putExtra("alarmTimeMs", alarmTimeMs)
+                putExtra("alarmTimeMs", triggerAtMs)
                 // Fan out provided data map into intent extras for downstream consumers
                 for ((key, value) in data) {
                     when (value) {
@@ -75,22 +79,23 @@ class AlarmScheduler(
             Log.d(TAG, "[AlarmScheduler] PendingIntent created with hashCode: ${alarmId.hashCode()}")
 
             // Schedule exact alarm
-            val currentTime = System.currentTimeMillis()
-            val delayMs = alarmTimeMs - currentTime
-            Log.d(TAG, "[AlarmScheduler] Current time: $currentTime, Alarm time: $alarmTimeMs, Delay: ${delayMs}ms (${delayMs/1000}s)")
+            Log.d(
+                TAG,
+                "[AlarmScheduler] Current time: $currentTime, Trigger at: $triggerAtMs, Delay: ${effectiveDelayMs}ms (${effectiveDelayMs/1000}s)"
+            )
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 Log.d(TAG, "[AlarmScheduler] Using setExactAndAllowWhileIdle (API >= 23)")
                 alarmManager.setExactAndAllowWhileIdle(
                     AlarmManager.RTC_WAKEUP,
-                    alarmTimeMs,
+                    triggerAtMs,
                     pendingIntent
                 )
             } else {
                 Log.d(TAG, "[AlarmScheduler] Using setExact (API < 23)")
                 alarmManager.setExact(
                     AlarmManager.RTC_WAKEUP,
-                    alarmTimeMs,
+                    triggerAtMs,
                     pendingIntent
                 )
             }
@@ -99,9 +104,9 @@ class AlarmScheduler(
             saveScheduledAlarm(alarmId, slotNumber)
             Log.d(TAG, "[AlarmScheduler] Alarm saved to SharedPreferences")
 
-            showScheduledNotification(alarmId, slotNumber, alarmTimeMs)
+            showScheduledNotification(alarmId, slotNumber, triggerAtMs)
 
-            Log.i(TAG, "[AlarmScheduler] ✓ Successfully scheduled exact alarm for slot $slotNumber at $alarmTimeMs (in ${delayMs/1000}s)")
+            Log.i(TAG, "[AlarmScheduler] ✓ Successfully scheduled exact alarm for slot $slotNumber at $triggerAtMs (in ${effectiveDelayMs/1000}s)")
             return true
         } catch (e: Exception) {
             Log.e(TAG, "[AlarmScheduler] ✗ Error scheduling exact alarm for slot $slotNumber", e)

@@ -74,18 +74,107 @@ class RustBackendService {
   String? _instanceId;
   String? _cachedPeerId;
   int? _cachedGenesisTimestamp;
+  int? _nodeClockDriftMs;
+  int? _lastNodeTimeMs;
+  int? _lastNodeClockSampleSystemTimeMs;
 
   NodeControl? _control;
   NodeRpcClient? _rpc;
   bool get isRunning => _nodeRunning;
   String? get instanceId => _instanceId;
+  int? get nodeClockDriftMs => _nodeClockDriftMs;
+  int? get lastNodeTimeMs => _lastNodeTimeMs;
+  int? get lastNodeClockSampleSystemTimeMs => _lastNodeClockSampleSystemTimeMs;
   void setInstanceId(String id) {
     _instanceId = id;
   }
 
+  void _clearNodeClockDrift() {
+    _nodeClockDriftMs = null;
+    _lastNodeTimeMs = null;
+    _lastNodeClockSampleSystemTimeMs = null;
+  }
+
+  void _updateNodeClockDriftFromStatus(
+    RpcStatusResp? status, {
+    required int requestStartedAtMs,
+    required int responseReceivedAtMs,
+  }) {
+    final rustTimeMs = status?.node.timeMs.toInt();
+    if (rustTimeMs == null) return;
+
+    final requestLatencyMs = requestStartedAtMs <= responseReceivedAtMs
+        ? responseReceivedAtMs - requestStartedAtMs
+        : 0;
+    final sampleSystemTimeMs = requestStartedAtMs + (requestLatencyMs ~/ 2);
+    final driftMs = sampleSystemTimeMs - rustTimeMs;
+
+    _nodeClockDriftMs = driftMs;
+    _lastNodeTimeMs = rustTimeMs;
+    _lastNodeClockSampleSystemTimeMs = responseReceivedAtMs;
+
+    _log.debug('Updated node clock drift', context: {
+      'rustTimeMs': rustTimeMs,
+      'systemReceivedTimeMs': responseReceivedAtMs,
+      'driftMs': driftMs,
+    });
+  }
+
+  Future<int?> ensureNodeClockDrift() async {
+    if (_nodeClockDriftMs != null) return _nodeClockDriftMs;
+    await getStatusNode();
+    return _nodeClockDriftMs;
+  }
+
+  Future<int?> refreshNodeClockDriftMs() async {
+    if (!_nodeRunning) return _nodeClockDriftMs;
+    await getStatusNode();
+    return _nodeClockDriftMs;
+  }
+
+  Future<int?> resolveNodeClockDriftMs({
+    bool refresh = true,
+  }) async {
+    if (refresh) {
+      final refreshed = await refreshNodeClockDriftMs();
+      if (refreshed != null) return refreshed;
+    }
+    return _nodeClockDriftMs ?? await ensureNodeClockDrift();
+  }
+
+  Future<int?> resolveCurrentRustTimeMs() async {
+    final clockDriftMs = await resolveNodeClockDriftMs();
+    if (clockDriftMs == null) return null;
+
+    final localNowMs = DateTime.now().millisecondsSinceEpoch;
+    return rustTimeMsFromLocalTimeMs(
+      localNowMs,
+      clockDriftMs: clockDriftMs,
+    );
+  }
+
+  int localTimeMsFromRustTimeMs(
+    int rustTimeMs, {
+    required int clockDriftMs,
+  }) =>
+      rustTimeMs + clockDriftMs;
+
+  int rustTimeMsFromLocalTimeMs(
+    int localTimeMs, {
+    required int clockDriftMs,
+  }) =>
+      localTimeMs - clockDriftMs;
+
   Future<void> _cachePeerIdFromRpc(NodeRpcClient rpc) async {
     try {
+      final requestStartedAtMs = DateTime.now().millisecondsSinceEpoch;
       final status = await rpc.status(includeVrfDetails: false);
+      final responseReceivedAtMs = DateTime.now().millisecondsSinceEpoch;
+      _updateNodeClockDriftFromStatus(
+        status,
+        requestStartedAtMs: requestStartedAtMs,
+        responseReceivedAtMs: responseReceivedAtMs,
+      );
       _cachedPeerId = status?.node.peerId.toString();
     } catch (e, st) {
       _log.error(
@@ -387,6 +476,7 @@ class RustBackendService {
     _rpc = null;
     _control = null;
     _cachedPeerId = null;
+    _clearNodeClockDrift();
   }
 
   /// Get the currently selected network type from storage.
@@ -463,6 +553,7 @@ class RustBackendService {
     _instanceId = null;
     _cachedPeerId = null;
     _cachedGenesisTimestamp = null;
+    _clearNodeClockDrift();
   }
 
   /// Obtain the RPC client for ad-hoc calls.
@@ -480,7 +571,14 @@ class RustBackendService {
     final r = _rpc;
     if (r == null) return null;
     try {
+      final requestStartedAtMs = DateTime.now().millisecondsSinceEpoch;
       final status = await r.status(includeVrfDetails: false);
+      final responseReceivedAtMs = DateTime.now().millisecondsSinceEpoch;
+      _updateNodeClockDriftFromStatus(
+        status,
+        requestStartedAtMs: requestStartedAtMs,
+        responseReceivedAtMs: responseReceivedAtMs,
+      );
       return status?.node;
     } on PanicException catch (e, st) {
       _log.error('FRB panic during getStatusNode', error: e, stackTrace: st);
@@ -509,8 +607,15 @@ class RustBackendService {
     // Call into FRB with defensive handling for panics / transport errors.
     RpcStatusResp? status;
     try {
+      final requestStartedAtMs = DateTime.now().millisecondsSinceEpoch;
       status = await r.status(
         includeVrfDetails: includeVrfDetails,
+      );
+      final responseReceivedAtMs = DateTime.now().millisecondsSinceEpoch;
+      _updateNodeClockDriftFromStatus(
+        status,
+        requestStartedAtMs: requestStartedAtMs,
+        responseReceivedAtMs: responseReceivedAtMs,
       );
       stopwatch.stop();
       _log.debug(

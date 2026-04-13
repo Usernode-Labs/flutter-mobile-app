@@ -90,6 +90,36 @@ void main() {
       expect(check, isNotNull);
     });
 
+    test('RpcStatusNode members', () {
+      void check(RpcStatusNode node) {
+        final chainId = node.chainId;
+        final chainName = node.chainName;
+        final peerId = node.peerId;
+        final timeMs = node.timeMs; // BigInt
+        final slotsInEpoch = node.slotsInEpoch;
+        final blockInterval = node.blockInterval;
+        final curGlobalSlot = node.curGlobalSlot;
+        final curEpoch = node.curEpoch;
+        final flags = node.flags;
+        expect(
+          [
+            chainId,
+            chainName,
+            peerId,
+            timeMs,
+            slotsInEpoch,
+            blockInterval,
+            curGlobalSlot,
+            curEpoch,
+            flags,
+          ].isNotEmpty,
+          isTrue,
+        );
+      }
+
+      expect(check, isNotNull);
+    });
+
     test('RpcListBlockchainResp members', () {
       void check(RpcListBlockchainResp r) {
         final items = r.items; // List<RpcStatusBlockInfo>
@@ -126,6 +156,16 @@ void main() {
         final won = r.wonSlots; // List<RpcEpochWonSlot>?
         expect([epoch, reward, produced, wins].isNotEmpty, isTrue);
         expect([earned, expected, pubkey, won].length, greaterThanOrEqualTo(0));
+      }
+
+      expect(check, isNotNull);
+    });
+
+    test('RpcEpochWonSlot members', () {
+      void check(RpcEpochWonSlot slot) {
+        final globalSlot = slot.globalSlot; // int
+        final expectedTimeMs = slot.expectedTimeMs; // BigInt
+        expect([globalSlot, expectedTimeMs].isNotEmpty, isTrue);
       }
 
       expect(check, isNotNull);

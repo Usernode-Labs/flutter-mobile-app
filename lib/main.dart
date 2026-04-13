@@ -27,12 +27,6 @@ import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 
 Timer? _headlessProducedBlocksRefreshTimer;
 
-String _versionCheckHost() {
-  const url = AppConfig.versionCheckApiUrl;
-  if (url.isEmpty) return '<unset>';
-  return Uri.tryParse(url)?.host ?? '<unparsed>';
-}
-
 Future<void> main() async {
   // NOTE: Do NOT call WidgetsFlutterBinding.ensureInitialized() here.
   // SentryFlutter.init() will initialize SentryWidgetsFlutterBinding which
@@ -50,7 +44,7 @@ Future<void> main() async {
 
     log.info('App started');
     log.info(
-      'Version check: enabled=${AppConfig.versionCheckEnabled}, host=${_versionCheckHost()}, intervalSec=${AppConfig.versionCheckIntervalSeconds}',
+      'Version check: enabled=${AppConfig.versionCheckEnabled}, host=${AppConfig.versionCheckHost}, intervalSec=${AppConfig.versionCheckIntervalSeconds}',
     );
 
     // Render UI immediately; perform heavy bootstrap asynchronously.

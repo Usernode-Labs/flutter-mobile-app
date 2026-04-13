@@ -228,6 +228,13 @@ class AppConfig {
       const Duration(seconds: versionCheckIntervalSeconds);
   static bool get versionCheckEnabled => versionCheckApiUrl.isNotEmpty;
 
+  /// Host portion of [versionCheckApiUrl] for redacted logging.
+  /// Returns `<unset>` if empty, `<unparsed>` if malformed.
+  static String get versionCheckHost {
+    if (versionCheckApiUrl.isEmpty) return '<unset>';
+    return Uri.tryParse(versionCheckApiUrl)?.host ?? '<unparsed>';
+  }
+
   // Leaderboard API v2
   static const int leaderboardApiTimeoutSeconds = int.fromEnvironment(
     'LEADERBOARD_API_TIMEOUT_SECONDS',

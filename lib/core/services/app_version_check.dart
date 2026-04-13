@@ -61,12 +61,32 @@ class AppVersionCheck {
 
   Timer? _timer;
 
-  /// Check version and return result (null on error = fail open)
-  /// Returns null if version check is disabled
+  // Rate-limit successful HTTP checks to avoid burning radio wakes on aggressive
+  // foreground/background cycles. Failures are never cached, so a flaky first
+  // request doesn't lock the user out of a retry.
+  static const _minCheckInterval = Duration(seconds: 60);
+  DateTime? _lastSuccessfulCheckAt;
+  VersionCheckResult? _lastResult;
+
+  /// Check version and return result (null on error = fail open).
+  /// Returns null if version check is disabled.
+  /// Returns the cached last successful result if called within
+  /// [_minCheckInterval] of the previous successful call.
   Future<VersionCheckResult?> check() async {
     if (!AppConfig.versionCheckEnabled) {
       _log.debug('Version check disabled (no API URL configured)');
       return null;
+    }
+
+    final lastAt = _lastSuccessfulCheckAt;
+    if (lastAt != null &&
+        DateTime.now().difference(lastAt) < _minCheckInterval) {
+      _log.debug(
+        'Version check rate-limited (last success '
+        '${DateTime.now().difference(lastAt).inSeconds}s ago, '
+        'window ${_minCheckInterval.inSeconds}s)',
+      );
+      return _lastResult;
     }
 
     try {
@@ -84,11 +104,9 @@ class AppVersionCheck {
           .timeout(const Duration(seconds: 8));
 
       if (response.statusCode != 200) {
-        final bodySnippet = response.body.length > 200
-            ? '${response.body.substring(0, 200)}…'
-            : response.body;
         _log.warn(
-          'Version check HTTP ${response.statusCode} (expected 200). Body: $bodySnippet',
+          'Version check HTTP ${response.statusCode} (expected 200). '
+          'Body: ${_snippet(response.body)}',
         );
         return null;
       }
@@ -98,17 +116,25 @@ class AppVersionCheck {
 
       if (json['success'] != true) {
         _log.warn(
-          'Version check success != true. Full response: ${response.body}',
+          'Version check success != true. Body: ${_snippet(response.body)}',
         );
         return null;
       }
 
-      return VersionCheckResult.fromJson(json);
+      final result = VersionCheckResult.fromJson(json);
+      _lastSuccessfulCheckAt = DateTime.now();
+      _lastResult = result;
+      return result;
     } catch (e, st) {
       _log.warn('Version check failed: $e\n$st');
       return null;
     }
   }
+
+  static const _logBodyMaxLen = 200;
+  static String _snippet(String body) => body.length > _logBodyMaxLen
+      ? '${body.substring(0, _logBodyMaxLen)}…'
+      : body;
 
   /// Start periodic checks using configured interval
   void startPeriodicChecks(void Function(VersionCheckResult) onResult) {
@@ -238,7 +264,6 @@ class _UpdateDialog extends StatelessWidget {
         title: Text(result.isBlocking ? 'Update Required' : 'Update Available'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
               result.details ?? 'A new version of the app is available.',

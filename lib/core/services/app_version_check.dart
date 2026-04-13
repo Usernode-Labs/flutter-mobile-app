@@ -61,32 +61,12 @@ class AppVersionCheck {
 
   Timer? _timer;
 
-  // Rate-limit successful HTTP checks to avoid burning radio wakes on aggressive
-  // foreground/background cycles. Failures are never cached, so a flaky first
-  // request doesn't lock the user out of a retry.
-  static const _minCheckInterval = Duration(seconds: 60);
-  DateTime? _lastSuccessfulCheckAt;
-  VersionCheckResult? _lastResult;
-
   /// Check version and return result (null on error = fail open).
   /// Returns null if version check is disabled.
-  /// Returns the cached last successful result if called within
-  /// [_minCheckInterval] of the previous successful call.
   Future<VersionCheckResult?> check() async {
     if (!AppConfig.versionCheckEnabled) {
       _log.debug('Version check disabled (no API URL configured)');
       return null;
-    }
-
-    final lastAt = _lastSuccessfulCheckAt;
-    if (lastAt != null &&
-        DateTime.now().difference(lastAt) < _minCheckInterval) {
-      _log.debug(
-        'Version check rate-limited (last success '
-        '${DateTime.now().difference(lastAt).inSeconds}s ago, '
-        'window ${_minCheckInterval.inSeconds}s)',
-      );
-      return _lastResult;
     }
 
     try {
@@ -121,10 +101,7 @@ class AppVersionCheck {
         return null;
       }
 
-      final result = VersionCheckResult.fromJson(json);
-      _lastSuccessfulCheckAt = DateTime.now();
-      _lastResult = result;
-      return result;
+      return VersionCheckResult.fromJson(json);
     } catch (e, st) {
       _log.warn('Version check failed: $e\n$st');
       return null;

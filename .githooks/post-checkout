@@ -1,0 +1,65 @@
+#!/bin/bash
+#
+# post-checkout: on new `git worktree add`, seed FRB-generated code from the
+# main checkout so `flutter run` compiles without waiting for full codegen.
+#
+# Why: flutter_rust_bridge generated code lives in `lib/src/rust/`, is
+# .gitignore'd, and takes 5-15 min to regenerate from scratch (cargo install
+# --force of the FRB codegen binary is the slow part). Since `rust_root` in
+# flutter_rust_bridge.yaml points at `../usernode` — a sibling checkout shared
+# across every worktree — the golden bindings in the main checkout are valid
+# for 95% of worktree sessions.
+#
+# Runs only on new-worktree creation (prev_HEAD == zeros), NOT on branch
+# switches inside an existing worktree. Safe no-op if the hook fires in the
+# main checkout itself, or if the main checkout has no generated code yet.
+#
+# Activate the whole .githooks dir once per clone: `git config core.hooksPath .githooks`
+
+set -e
+
+prev_head="$1"
+zero_hash="0000000000000000000000000000000000000000"
+
+# Only run on worktree creation, not on normal `git checkout`.
+[ "$prev_head" = "$zero_hash" ] || exit 0
+
+common_dir="$(git rev-parse --git-common-dir)"
+main_root="$(cd "$(dirname "$common_dir")" && pwd)"
+dest_root="$(git rev-parse --show-toplevel)"
+
+# If we're in the main checkout itself, skip.
+[ "$main_root" != "$dest_root" ] || exit 0
+
+src="$main_root/lib/src/rust"
+dest="$dest_root/lib/src/rust"
+
+if [ ! -f "$src/frb_types.dart" ]; then
+  echo "[post-checkout] skipped: main checkout has no FRB-generated code at $src"
+  echo "[post-checkout] run /frb-codegen in main checkout first, then re-seed with:"
+  echo "[post-checkout]   rsync -a --delete '$src/' '$dest/'"
+  exit 0
+fi
+
+echo "[post-checkout] seeding FRB generated code from main checkout"
+mkdir -p "$dest"
+rsync -a --delete "$src/" "$dest/"
+
+# Ensure the `usernode` symlink exists at the worktrees' parent dir so that
+# `rust_builder/android/build.gradle` (manifestDir = "../../../usernode/...")
+# and the iOS podspec (PROJECT_ROOT/../usernode) both resolve. The relative
+# paths were written for the main checkout depth; nested worktrees need a
+# sibling symlink to match. One symlink fixes every worktree under the same
+# parent for both Android and iOS builds.
+parent_of_dest="$(dirname "$dest_root")"
+usernode_link="$parent_of_dest/usernode"
+usernode_src="$main_root/../usernode"
+if [ -e "$usernode_link" ]; then
+  : # already exists (real dir, symlink, or worktree), leave alone
+elif [ -d "$usernode_src" ]; then
+  ln -sfn "$(cd "$usernode_src" && pwd)" "$usernode_link"
+  echo "[post-checkout] created $usernode_link -> $(cd "$usernode_src" && pwd)"
+fi
+
+echo "[post-checkout] done. If flutter analyze reports signature mismatches,"
+echo "[post-checkout] run /frb-codegen in the main checkout and re-seed."

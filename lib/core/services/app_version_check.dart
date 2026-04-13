@@ -81,7 +81,7 @@ class AppVersionCheck {
               'build_number': int.tryParse(info.buildNumber) ?? 1,
             }),
           )
-          .timeout(const Duration(seconds: 3));
+          .timeout(const Duration(seconds: 8));
 
       if (response.statusCode != 200) {
         final bodySnippet = response.body.length > 200
@@ -231,25 +231,36 @@ class _UpdateDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     return PopScope(
       canPop: !result.isBlocking,
       child: AlertDialog(
         title: Text(result.isBlocking ? 'Update Required' : 'Update Available'),
-        content: Text(
-          result.details ?? 'A new version of the app is available.',
-        ),
-        actions: [
-          if (!result.isBlocking)
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Later'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              result.details ?? 'A new version of the app is available.',
             ),
-          Button(
-            label: 'Update',
-            variant: ButtonVariant.primary,
-            onTap: () => _openStore(),
-          ),
-        ],
+            SizedBox(height: spacing.space24),
+            SizedBox(
+              width: double.infinity,
+              child: Button(
+                label: 'Update',
+                variant: ButtonVariant.primary,
+                onTap: () => _openStore(),
+              ),
+            ),
+            if (!result.isBlocking) ...[
+              SizedBox(height: spacing.space8),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Later'),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

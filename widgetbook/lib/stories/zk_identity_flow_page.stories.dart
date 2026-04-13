@@ -36,6 +36,103 @@ final $StepOne = _Story(
     ),
     onBack: Arg.fixed(() {}),
   ),
+  scenarios: [
+    _Scenario(
+      name: 'First Step Active',
+      args: _Args(
+        steps: Arg.fixed([
+          const ZkIdentityStepData(
+            label: 'Generate Key',
+            description: 'A cryptographic key pair is generated on your device.',
+            status: ZkIdentityStepVisualStatus.active,
+          ),
+          const ZkIdentityStepData(
+            label: 'Create Proof',
+            description: 'Generate a zero-knowledge proof of your identity.',
+            status: ZkIdentityStepVisualStatus.pending,
+          ),
+          const ZkIdentityStepData(
+            label: 'Submit',
+            description:
+                'Submit your proof to the network for verification.',
+            status: ZkIdentityStepVisualStatus.pending,
+          ),
+        ]),
+        currentStepIndex: Arg.fixed(0),
+      ),
+    ),
+    _Scenario(
+      name: 'Middle Step In Progress',
+      args: _Args(
+        steps: Arg.fixed([
+          const ZkIdentityStepData(
+            label: 'Generate Key',
+            description: 'Key pair generated successfully.',
+            status: ZkIdentityStepVisualStatus.completed,
+          ),
+          const ZkIdentityStepData(
+            label: 'Create Proof',
+            description: 'Generate a zero-knowledge proof of your identity.',
+            status: ZkIdentityStepVisualStatus.active,
+          ),
+          const ZkIdentityStepData(
+            label: 'Submit',
+            description:
+                'Submit your proof to the network for verification.',
+            status: ZkIdentityStepVisualStatus.pending,
+          ),
+        ]),
+        currentStepIndex: Arg.fixed(1),
+      ),
+    ),
+    _Scenario(
+      name: 'All Completed',
+      args: _Args(
+        steps: Arg.fixed([
+          const ZkIdentityStepData(
+            label: 'Generate Key',
+            description: 'Key pair generated successfully.',
+            status: ZkIdentityStepVisualStatus.completed,
+          ),
+          const ZkIdentityStepData(
+            label: 'Create Proof',
+            description: 'Proof generated successfully.',
+            status: ZkIdentityStepVisualStatus.completed,
+          ),
+          const ZkIdentityStepData(
+            label: 'Submit',
+            description: 'Proof submitted and verified.',
+            status: ZkIdentityStepVisualStatus.completed,
+          ),
+        ]),
+        currentStepIndex: Arg.fixed(2),
+      ),
+    ),
+    _Scenario(
+      name: 'Step Failed',
+      args: _Args(
+        steps: Arg.fixed([
+          const ZkIdentityStepData(
+            label: 'Generate Key',
+            description: 'Key pair generated successfully.',
+            status: ZkIdentityStepVisualStatus.completed,
+          ),
+          const ZkIdentityStepData(
+            label: 'Create Proof',
+            description: 'Proof generation failed. Please try again.',
+            status: ZkIdentityStepVisualStatus.failed,
+          ),
+          const ZkIdentityStepData(
+            label: 'Submit',
+            description:
+                'Submit your proof to the network for verification.',
+            status: ZkIdentityStepVisualStatus.pending,
+          ),
+        ]),
+        currentStepIndex: Arg.fixed(1),
+      ),
+    ),
+  ],
 );
 
 final $StepTwoInProgress = _Story(

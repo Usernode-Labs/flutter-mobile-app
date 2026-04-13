@@ -7,4 +7,12 @@ part 'text_chevron_trailing.stories.g.dart';
 
 const meta = Meta<TextChevronTrailing>(path: 'widgets/data-display');
 
-final $Default = _Story(args: _Args(text: StringArg('View All')));
+final $Default = _Story(
+  args: _Args(text: StringArg('View All')),
+  scenarios: [
+    _Scenario(
+      name: 'Default',
+      args: _Args(text: StringArg('View All')),
+    ),
+  ],
+);

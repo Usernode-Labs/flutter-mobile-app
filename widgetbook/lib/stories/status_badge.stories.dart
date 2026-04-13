@@ -17,6 +17,38 @@ final $Default = _Story(
     ),
     icon: Arg.fixed(Symbols.check_circle_sharp),
   ),
+  scenarios: [
+    _Scenario(
+      name: 'Success',
+      args: _Args.fixed(
+        label: 'Active',
+        variant: StatusBadgeVariant.success,
+        icon: Symbols.check_circle_sharp,
+      ),
+    ),
+    _Scenario(
+      name: 'Error',
+      args: _Args.fixed(
+        label: 'Failed',
+        variant: StatusBadgeVariant.error,
+        icon: Symbols.error_sharp,
+      ),
+    ),
+    _Scenario(
+      name: 'Warning',
+      args: _Args.fixed(
+        label: 'Pending',
+        variant: StatusBadgeVariant.warning,
+      ),
+    ),
+    _Scenario(
+      name: 'Neutral',
+      args: _Args.fixed(
+        label: 'Offline',
+        variant: StatusBadgeVariant.neutral,
+      ),
+    ),
+  ],
 );
 
 final $Error = _Story(

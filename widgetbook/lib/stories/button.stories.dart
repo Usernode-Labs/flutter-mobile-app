@@ -18,6 +18,48 @@ final $Playground = _Story(
     leadingIcon: Arg.fixed(null),
     onTap: Arg.fixed(() {}),
   ),
+  scenarios: [
+    _Scenario(
+      name: 'Primary',
+      args: _Args(
+        variant: EnumArg(ButtonVariant.primary, values: ButtonVariant.values),
+      ),
+    ),
+    _Scenario(
+      name: 'Tonal',
+      args: _Args(
+        variant: EnumArg(ButtonVariant.tonal, values: ButtonVariant.values),
+      ),
+    ),
+    _Scenario(
+      name: 'Outlined',
+      args: _Args(
+        variant: EnumArg(ButtonVariant.outlined, values: ButtonVariant.values),
+      ),
+    ),
+    _Scenario(
+      name: 'Surface',
+      args: _Args(
+        variant: EnumArg(ButtonVariant.surface, values: ButtonVariant.values),
+      ),
+    ),
+    _Scenario(
+      name: 'Small',
+      args: _Args(
+        size: EnumArg(ButtonSize.small, values: ButtonSize.values),
+      ),
+    ),
+    _Scenario(
+      name: 'Large',
+      args: _Args(
+        size: EnumArg(ButtonSize.large, values: ButtonSize.values),
+      ),
+    ),
+    _Scenario(
+      name: 'Loading',
+      args: _Args(isLoading: BoolArg(true)),
+    ),
+  ],
 );
 
 final $WithIcon = _Story(

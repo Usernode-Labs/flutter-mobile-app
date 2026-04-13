@@ -9,6 +9,20 @@ const meta = Meta<ShimmerBlock>(path: 'widgets/indicators');
 
 final $Default = _Story(
   args: _Args(width: DoubleArg(200), height: DoubleArg(20)),
+  scenarios: [
+    _Scenario(
+      name: 'Small text placeholder',
+      args: _Args.fixed(width: 200, height: 20),
+    ),
+    _Scenario(
+      name: 'Large block',
+      args: _Args.fixed(width: 300, height: 48),
+    ),
+    _Scenario(
+      name: 'Square avatar',
+      args: _Args.fixed(width: 80, height: 80),
+    ),
+  ],
 );
 
 final $Large = _Story(

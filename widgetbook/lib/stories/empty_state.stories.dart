@@ -14,6 +14,32 @@ final $Default = _Story(
     title: StringArg('No transactions yet'),
     subtitle: Arg.fixed('Your transactions will appear here.'),
   ),
+  scenarios: [
+    _Scenario(
+      name: 'Without action',
+      args: _Args.fixed(
+        icon: Symbols.inbox_sharp,
+        title: 'No transactions yet',
+        subtitle: 'Your transactions will appear here.',
+      ),
+    ),
+    _Scenario(
+      name: 'With action',
+      args: _Args.fixed(
+        icon: Symbols.search_sharp,
+        title: 'No results found',
+        subtitle: 'Try adjusting your filters.',
+        action: ElevatedButton(
+          onPressed: () {},
+          child: const Text('Clear Filters'),
+        ),
+      ),
+    ),
+    _Scenario(
+      name: 'Minimal',
+      args: _Args.fixed(title: 'Nothing here'),
+    ),
+  ],
 );
 
 final $WithAction = _Story(

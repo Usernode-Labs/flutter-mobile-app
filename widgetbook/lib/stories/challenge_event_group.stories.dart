@@ -35,4 +35,45 @@ final $Default = _Story(
       ),
     ]),
   ),
+  scenarios: [
+    _Scenario(
+      name: 'Mixed Statuses',
+      args: _Args(
+        challenges: Arg.fixed(const [
+          ChallengeEventItem(
+            title: 'Produce 10 Blocks',
+            category: ChallengeCategory.technical,
+            variant: ChallengeCardVariant.completed,
+            earnedPoints: '2,500 pts',
+          ),
+          ChallengeEventItem(
+            title: 'Produce 50 Blocks',
+            category: ChallengeCategory.technical,
+            variant: ChallengeCardVariant.ongoing,
+            earnedPoints: '1,200 pts',
+          ),
+          ChallengeEventItem(
+            title: 'First Block Bonus',
+            category: ChallengeCategory.flash,
+            variant: ChallengeCardVariant.missed,
+            earnedPoints: '0 pts',
+          ),
+        ]),
+      ),
+    ),
+    _Scenario(
+      name: 'Single Challenge',
+      args: _Args(
+        challenges: Arg.fixed(const [
+          ChallengeEventItem(
+            title: 'Community Engagement',
+            category: ChallengeCategory.community,
+            variant: ChallengeCardVariant.active,
+            earnedPoints: '0 pts',
+          ),
+        ]),
+        pointsLabel: StringArg('1,000 pts'),
+      ),
+    ),
+  ],
 );

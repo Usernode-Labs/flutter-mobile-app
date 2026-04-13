@@ -29,4 +29,72 @@ final $Default = _Story(
     initiallyExpanded: BoolArg(true),
     onExpansionChanged: Arg.fixed(null),
   ),
+  scenarios: [
+    _Scenario(
+      name: 'Expanded',
+      args: _Args.fixed(
+        categoryIcon: const ChallengeCategoryIcon(
+          category: ChallengeCategory.technical,
+        ),
+        challenges: const [
+          ChallengeCategoryItem(title: 'Produce Blocks', isCompleted: false),
+          ChallengeCategoryItem(title: 'Run SNARK Worker', isCompleted: true),
+          ChallengeCategoryItem(title: 'Send zkApp Txn', isCompleted: false),
+          ChallengeCategoryItem(title: 'Delegate Stake', isCompleted: true),
+          ChallengeCategoryItem(title: 'Uptime Tracking', isCompleted: false),
+        ],
+        initiallyExpanded: true,
+      ),
+    ),
+    _Scenario(
+      name: 'Collapsed',
+      args: _Args.fixed(
+        categoryIcon: const ChallengeCategoryIcon(
+          category: ChallengeCategory.technical,
+        ),
+        challenges: const [
+          ChallengeCategoryItem(title: 'Produce Blocks', isCompleted: false),
+          ChallengeCategoryItem(title: 'Run SNARK Worker', isCompleted: true),
+          ChallengeCategoryItem(title: 'Send zkApp Txn', isCompleted: false),
+          ChallengeCategoryItem(title: 'Delegate Stake', isCompleted: true),
+          ChallengeCategoryItem(title: 'Uptime Tracking', isCompleted: false),
+        ],
+        initiallyExpanded: false,
+      ),
+    ),
+    _Scenario(
+      name: 'All Completed',
+      args: _Args.fixed(
+        categoryIcon: const ChallengeCategoryIcon(
+          category: ChallengeCategory.technical,
+        ),
+        remainingCount: 0,
+        completedCount: 5,
+        challenges: const [
+          ChallengeCategoryItem(title: 'Produce Blocks', isCompleted: true),
+          ChallengeCategoryItem(title: 'Run SNARK Worker', isCompleted: true),
+          ChallengeCategoryItem(title: 'Send zkApp Txn', isCompleted: true),
+          ChallengeCategoryItem(title: 'Delegate Stake', isCompleted: true),
+          ChallengeCategoryItem(title: 'Uptime Tracking', isCompleted: true),
+        ],
+      ),
+    ),
+    _Scenario(
+      name: 'None Completed',
+      args: _Args.fixed(
+        categoryIcon: const ChallengeCategoryIcon(
+          category: ChallengeCategory.technical,
+        ),
+        remainingCount: 5,
+        completedCount: 0,
+        challenges: const [
+          ChallengeCategoryItem(title: 'Produce Blocks', isCompleted: false),
+          ChallengeCategoryItem(title: 'Run SNARK Worker', isCompleted: false),
+          ChallengeCategoryItem(title: 'Send zkApp Txn', isCompleted: false),
+          ChallengeCategoryItem(title: 'Delegate Stake', isCompleted: false),
+          ChallengeCategoryItem(title: 'Uptime Tracking', isCompleted: false),
+        ],
+      ),
+    ),
+  ],
 );

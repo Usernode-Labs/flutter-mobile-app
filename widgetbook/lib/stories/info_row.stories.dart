@@ -18,6 +18,42 @@ final $Default = _Story(
     valueStyle: Arg.fixed(null),
     contentPadding: Arg.fixed(null),
   ),
+  scenarios: [
+    _Scenario(
+      name: 'With divider',
+      args: _Args.fixed(
+        label: 'Block Hash',
+        value: '0x7a3f…e91b',
+        showDivider: true,
+      ),
+    ),
+    _Scenario(
+      name: 'Without divider',
+      args: _Args.fixed(
+        label: 'Status',
+        value: 'Active',
+        showDivider: false,
+      ),
+    ),
+    _Scenario(
+      name: 'Tappable with trailing',
+      args: _Args.fixed(
+        label: 'Epoch',
+        value: '42',
+        showDivider: true,
+        trailing: Icon(Symbols.chevron_right_sharp, size: 20),
+        onTap: () {},
+      ),
+    ),
+    _Scenario(
+      name: 'Non-tappable no divider',
+      args: _Args.fixed(
+        label: 'Version',
+        value: '1.0.0',
+        showDivider: false,
+      ),
+    ),
+  ],
 );
 
 final $Tappable = _Story(

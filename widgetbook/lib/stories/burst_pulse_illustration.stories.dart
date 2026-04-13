@@ -21,6 +21,37 @@ final $Default = _Story(
     ]),
     active: BoolArg(true),
   ),
+  scenarios: [
+    _Scenario(
+      name: 'Mixed Outcomes',
+      args: _Args(
+        rings: Arg.fixed([
+          BurstRingOutcome.succeeded,
+          BurstRingOutcome.succeeded,
+          BurstRingOutcome.failed,
+          BurstRingOutcome.succeeded,
+          BurstRingOutcome.succeeded,
+          BurstRingOutcome.succeeded,
+          BurstRingOutcome.failed,
+          BurstRingOutcome.succeeded,
+        ]),
+        active: BoolArg(true),
+      ),
+    ),
+    _Scenario(
+      name: 'All Succeeded',
+      args: _Args(
+        rings: Arg.fixed([
+          BurstRingOutcome.succeeded,
+          BurstRingOutcome.succeeded,
+          BurstRingOutcome.succeeded,
+          BurstRingOutcome.succeeded,
+          BurstRingOutcome.succeeded,
+        ]),
+        active: BoolArg(true),
+      ),
+    ),
+  ],
 );
 
 final $AllSucceeded = _Story(

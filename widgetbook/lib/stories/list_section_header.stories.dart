@@ -7,4 +7,12 @@ part 'list_section_header.stories.g.dart';
 
 const meta = Meta<ListSectionHeader>(path: 'widgets/data-display');
 
-final $Default = _Story(args: _Args(title: StringArg('Recent Activity')));
+final $Default = _Story(
+  args: _Args(title: StringArg('Recent Activity')),
+  scenarios: [
+    _Scenario(
+      name: 'Default',
+      args: _Args.fixed(title: 'Recent Activity'),
+    ),
+  ],
+);

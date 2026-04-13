@@ -28,6 +28,69 @@ final $Default = _Story(
     rewardText: StringArg('Up to 5,000 pts'),
     onTap: Arg.fixed(() {}),
   ),
+  scenarios: [
+    _Scenario(
+      name: 'Active / Technical',
+      args: _Args.fixed(
+        categoryIcon: const ChallengeCategoryIcon(
+          category: ChallengeCategory.technical,
+        ),
+        variant: ChallengeCardVariant.active,
+        category: ChallengeCategory.technical,
+      ),
+    ),
+    _Scenario(
+      name: 'Active / Community',
+      args: _Args.fixed(
+        categoryIcon: const ChallengeCategoryIcon(
+          category: ChallengeCategory.community,
+        ),
+        variant: ChallengeCardVariant.active,
+        category: ChallengeCategory.community,
+      ),
+    ),
+    _Scenario(
+      name: 'Active / Flash',
+      args: _Args.fixed(
+        categoryIcon: const ChallengeCategoryIcon(
+          category: ChallengeCategory.flash,
+        ),
+        variant: ChallengeCardVariant.active,
+        category: ChallengeCategory.flash,
+      ),
+    ),
+    _Scenario(
+      name: 'Ongoing / Technical',
+      args: _Args.fixed(
+        categoryIcon: const ChallengeCategoryIcon(
+          category: ChallengeCategory.technical,
+        ),
+        variant: ChallengeCardVariant.ongoing,
+        category: ChallengeCategory.technical,
+      ),
+    ),
+    _Scenario(
+      name: 'Completed / Community',
+      args: _Args.fixed(
+        categoryIcon: const ChallengeCategoryIcon(
+          category: ChallengeCategory.community,
+        ),
+        variant: ChallengeCardVariant.completed,
+        category: ChallengeCategory.community,
+      ),
+    ),
+    _Scenario(
+      name: 'Missed / Flash',
+      args: _Args.fixed(
+        categoryIcon: const ChallengeCategoryIcon(
+          category: ChallengeCategory.flash,
+          muted: true,
+        ),
+        variant: ChallengeCardVariant.missed,
+        category: ChallengeCategory.flash,
+      ),
+    ),
+  ],
 );
 
 final $Ongoing = _Story(

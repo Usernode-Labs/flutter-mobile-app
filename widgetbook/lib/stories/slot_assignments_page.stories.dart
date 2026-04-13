@@ -74,6 +74,35 @@ final $Default = _Story(
     onBackTap: Arg.fixed(() {}),
     highlightIndex: Arg.fixed(null),
   ),
+  scenarios: [
+    _Scenario(
+      name: 'Default',
+      args: _Args.fixed(
+        title: 'Slot Assignments',
+        epochLabel: 'Epoch 176',
+        filters: const [
+          SlotFilterData(label: 'All', count: 24, selected: true),
+          SlotFilterData(label: 'Produced', count: 18),
+          SlotFilterData(label: 'Missed', count: 2),
+          SlotFilterData(label: 'Upcoming', count: 4),
+        ],
+        onFilterTap: (int index) {},
+        items: const [
+          SlotAssignmentItemData(
+            slot: 7140,
+            status: SlotStatus.upcoming,
+            timeLabel: 'Today, 18:45',
+          ),
+          SlotAssignmentItemData(
+            slot: 7020,
+            status: SlotStatus.produced,
+            timeLabel: 'Today, 14:12',
+            isTappable: true,
+          ),
+        ],
+      ),
+    ),
+  ],
 );
 
 final $WithHighlight = _Story(

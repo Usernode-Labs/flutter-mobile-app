@@ -24,6 +24,34 @@ final $Default = _Story(
       ),
     ),
   ),
+  scenarios: [
+    _Scenario(
+      name: 'With title',
+      args: _Args.fixed(
+        title: 'Select Network',
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(title: Text('Mainnet')),
+              ListTile(title: Text('Testnet')),
+              ListTile(title: Text('Devnet')),
+            ],
+          ),
+        ),
+      ),
+    ),
+    _Scenario(
+      name: 'Without title',
+      args: _Args.fixed(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Text('Sheet content without a title header.'),
+        ),
+      ),
+    ),
+  ],
 );
 
 final $NoTitle = _Story(

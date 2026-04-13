@@ -29,6 +29,55 @@ final $Default = _Story(
       values: CountdownTextMode.values,
     ),
   ),
+  scenarios: [
+    _Scenario(
+      name: 'Standard',
+      args: _Args(
+        variant: EnumArg(
+          ScoreHeaderVariant.standard,
+          values: ScoreHeaderVariant.values,
+        ),
+      ),
+    ),
+    _Scenario(
+      name: 'Glow',
+      args: _Args(
+        variant: EnumArg(
+          ScoreHeaderVariant.glow,
+          values: ScoreHeaderVariant.values,
+        ),
+        glowIntensity: DoubleArg(1.0),
+      ),
+    ),
+    _Scenario(
+      name: 'Glow Dim',
+      args: _Args(
+        variant: EnumArg(
+          ScoreHeaderVariant.glow,
+          values: ScoreHeaderVariant.values,
+        ),
+        glowIntensity: DoubleArg(0.3),
+      ),
+    ),
+    _Scenario(
+      name: 'Catching Up',
+      args: _Args(
+        countdownTextMode: EnumArg(
+          CountdownTextMode.catchingUp,
+          values: CountdownTextMode.values,
+        ),
+      ),
+    ),
+    _Scenario(
+      name: 'Caught Up',
+      args: _Args(
+        countdownTextMode: EnumArg(
+          CountdownTextMode.caughtUp,
+          values: CountdownTextMode.values,
+        ),
+      ),
+    ),
+  ],
 );
 
 final $Glow = _Story(

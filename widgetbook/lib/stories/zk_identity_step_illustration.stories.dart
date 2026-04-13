@@ -10,6 +10,20 @@ const meta = Meta<ZkIdentityStepIllustration>(path: 'widgets/challenges');
 final $CheckApp = _Story(
   name: 'Check App (Step 0)',
   args: _Args(stepIndex: Arg.fixed(0)),
+  scenarios: [
+    _Scenario(
+      name: 'First Step (0)',
+      args: _Args(stepIndex: Arg.fixed(0)),
+    ),
+    _Scenario(
+      name: 'Middle Step (2)',
+      args: _Args(stepIndex: Arg.fixed(2)),
+    ),
+    _Scenario(
+      name: 'Last Step (4)',
+      args: _Args(stepIndex: Arg.fixed(4)),
+    ),
+  ],
 );
 
 final $ConfirmScanned = _Story(

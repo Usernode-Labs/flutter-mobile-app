@@ -90,6 +90,35 @@ final $Default = _Story(
     headerOverlay: Arg.fixed(null),
     title: StringArg('Wallet'),
   ),
+  scenarios: [
+    _Scenario(
+      name: 'Default Layout',
+      args: _Args.fixed(
+        header: const Center(
+          child: Text(
+            'Wallet',
+            style: TextStyle(fontSize: 28, color: Colors.white),
+          ),
+        ),
+        title: 'Wallet',
+        headerFadesOnScroll: true,
+        showEdgeFade: false,
+      ),
+    ),
+    _Scenario(
+      name: 'With Edge Fade',
+      args: _Args.fixed(
+        header: const Center(
+          child: Text(
+            'Wallet',
+            style: TextStyle(fontSize: 28, color: Colors.white),
+          ),
+        ),
+        title: 'Wallet',
+        showEdgeFade: true,
+      ),
+    ),
+  ],
 );
 
 final $WithTitle = _Story(

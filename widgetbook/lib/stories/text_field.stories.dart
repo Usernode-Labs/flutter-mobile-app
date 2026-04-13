@@ -32,6 +32,31 @@ final $Default = _Story(
     inputFormatters: Arg.fixed(null),
     focusNode: Arg.fixed(null),
   ),
+  scenarios: [
+    _Scenario(
+      name: 'Default',
+      args: _Args(
+        label: StringArg('Email'),
+        hint: StringArg('Enter your email'),
+        enabled: BoolArg(true),
+      ),
+    ),
+    _Scenario(
+      name: 'With Error',
+      args: _Args(
+        label: StringArg('Email'),
+        errorText: StringArg('Invalid email address'),
+      ),
+    ),
+    _Scenario(
+      name: 'Disabled',
+      args: _Args(
+        label: StringArg('Wallet Address'),
+        hint: StringArg('Read only'),
+        enabled: BoolArg(false),
+      ),
+    ),
+  ],
 );
 
 final $WithError = _Story(

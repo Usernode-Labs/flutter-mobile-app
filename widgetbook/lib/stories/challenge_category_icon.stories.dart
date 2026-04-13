@@ -18,6 +18,65 @@ final $Default = _Story(
     muted: BoolArg(false),
     size: DoubleArg(48),
   ),
+  scenarios: [
+    _Scenario(
+      name: 'Technical',
+      args: _Args(
+        category: EnumArg(
+          ChallengeCategory.technical,
+          values: ChallengeCategory.values,
+        ),
+      ),
+    ),
+    _Scenario(
+      name: 'Community',
+      args: _Args(
+        category: EnumArg(
+          ChallengeCategory.community,
+          values: ChallengeCategory.values,
+        ),
+      ),
+    ),
+    _Scenario(
+      name: 'Flash',
+      args: _Args(
+        category: EnumArg(
+          ChallengeCategory.flash,
+          values: ChallengeCategory.values,
+        ),
+      ),
+    ),
+    _Scenario(
+      name: 'Technical Muted',
+      args: _Args(
+        category: EnumArg(
+          ChallengeCategory.technical,
+          values: ChallengeCategory.values,
+        ),
+        muted: BoolArg(true),
+      ),
+    ),
+    _Scenario(
+      name: 'Community Muted',
+      args: _Args(
+        category: EnumArg(
+          ChallengeCategory.community,
+          values: ChallengeCategory.values,
+        ),
+        muted: BoolArg(true),
+      ),
+    ),
+    _Scenario(
+      name: 'Flash Muted',
+      args: _Args(
+        category: EnumArg(
+          ChallengeCategory.flash,
+          values: ChallengeCategory.values,
+        ),
+        muted: BoolArg(true),
+      ),
+    ),
+  ],
 );
 
 final $Muted = _Story(

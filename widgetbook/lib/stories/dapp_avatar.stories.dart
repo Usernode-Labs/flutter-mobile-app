@@ -9,6 +9,16 @@ const meta = Meta<DappAvatar>(path: 'widgets/dapps');
 
 final $Default = _Story(
   args: _Args(seed: StringArg('Mina Explorer'), size: Arg.fixed(48.0)),
+  scenarios: [
+    _Scenario(
+      name: 'Multi-Word Name',
+      args: _Args(seed: StringArg('Mina Explorer')),
+    ),
+    _Scenario(
+      name: 'Single-Word Name',
+      args: _Args(seed: StringArg('ZkApp')),
+    ),
+  ],
 );
 
 final $SingleWord = _Story(

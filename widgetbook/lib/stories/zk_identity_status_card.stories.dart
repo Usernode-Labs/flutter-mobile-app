@@ -38,4 +38,38 @@ final $Default = _Story(
       ),
     ),
   ),
+  scenarios: [
+    _Scenario(
+      name: 'Default',
+      args: _Args(
+        data: Arg.fixed(
+          const ZkIdentityStatusData(
+            steps: [
+              ZkIdentityStatusStep(
+                label: 'Proof ID',
+                icon: Symbols.fingerprint_sharp,
+                value: '0x7a3f…e91b',
+                monospace: true,
+              ),
+              ZkIdentityStatusStep(
+                label: 'Status',
+                icon: Symbols.verified_sharp,
+                value: 'Verified',
+              ),
+              ZkIdentityStatusStep(
+                label: 'Created',
+                icon: Symbols.schedule_sharp,
+                value: '2 hours ago',
+              ),
+              ZkIdentityStatusStep(
+                label: 'Expires',
+                icon: Symbols.timer_sharp,
+                value: 'in 22 hours',
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  ],
 );

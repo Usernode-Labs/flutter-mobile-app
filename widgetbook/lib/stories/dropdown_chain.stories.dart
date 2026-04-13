@@ -17,6 +17,38 @@ final $Default = _Story(
     variant: EnumArg(ChipVariant.surface, values: ChipVariant.values),
     size: EnumArg(ChipSize.regular, values: ChipSize.values),
   ),
+  scenarios: [
+    _Scenario(
+      name: 'Surface variant',
+      args: _Args.fixed(
+        items: [
+          DropdownChainItem(label: 'Season 2', onTap: () {}),
+          DropdownChainItem(label: 'DApps Integration', onTap: () {}),
+        ],
+        variant: ChipVariant.surface,
+      ),
+    ),
+    _Scenario(
+      name: 'Outlined variant',
+      args: _Args.fixed(
+        items: [
+          DropdownChainItem(label: 'Season 2', onTap: () {}),
+          DropdownChainItem(label: 'DApps Integration', onTap: () {}),
+        ],
+        variant: ChipVariant.outlined,
+      ),
+    ),
+    _Scenario(
+      name: 'Compact size',
+      args: _Args.fixed(
+        items: [
+          DropdownChainItem(label: 'Season 2', onTap: () {}),
+          DropdownChainItem(label: 'DApps', onTap: () {}),
+        ],
+        size: ChipSize.small,
+      ),
+    ),
+  ],
 );
 
 final $ThreeItems = _Story(

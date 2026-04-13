@@ -43,6 +43,23 @@ final $Default = _Story(
     onRetry: Arg.fixed(() {}),
     retryLabel: StringArg('Join Discord'),
   ),
+  scenarios: [
+    _Scenario(
+      name: 'With Retry',
+      args: _Args(
+        message: StringArg('Registration expired'),
+        onRetry: Arg.fixed(() {}),
+        retryLabel: StringArg('Join Discord'),
+      ),
+    ),
+    _Scenario(
+      name: 'Without Retry',
+      args: _Args(
+        message: StringArg('Something went wrong'),
+        onRetry: Arg.fixed(null),
+      ),
+    ),
+  ],
 );
 
 final $NoRetry = _Story(

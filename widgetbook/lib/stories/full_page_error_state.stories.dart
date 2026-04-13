@@ -14,6 +14,28 @@ final $Default = _Story(
     onRetry: Arg.fixed(() {}),
     retryLabel: StringArg('Retry'),
   ),
+  scenarios: [
+    _Scenario(
+      name: 'With retry',
+      args: _Args.fixed(
+        message: 'Failed to load data',
+        detail: 'Please check your connection and try again.',
+        onRetry: () {},
+        retryLabel: 'Retry',
+      ),
+    ),
+    _Scenario(
+      name: 'Without retry',
+      args: _Args.fixed(
+        message: 'Something went wrong',
+        detail: 'An unexpected error occurred.',
+      ),
+    ),
+    _Scenario(
+      name: 'Minimal',
+      args: _Args.fixed(message: 'Error'),
+    ),
+  ],
 );
 
 final $NoRetry = _Story(

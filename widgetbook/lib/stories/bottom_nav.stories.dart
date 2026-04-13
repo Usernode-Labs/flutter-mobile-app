@@ -44,4 +44,108 @@ final $Default = _Story(
     topBorder: BoolArg(true),
     onItemSelected: Arg.fixed(null),
   ),
+  scenarios: [
+    _Scenario(
+      name: 'Wallet Selected',
+      args: _Args.fixed(
+        items: const [
+          BottomNavItem(
+            icon: Symbols.account_balance_wallet_sharp,
+            label: 'Wallet',
+            indicatorShape: NavIndicatorShape.hexagon,
+          ),
+          BottomNavItem(
+            icon: Symbols.hub_sharp,
+            label: 'Node',
+            indicatorShape: NavIndicatorShape.circle,
+          ),
+          BottomNavItem(
+            icon: Symbols.emoji_events_sharp,
+            label: 'Challenges',
+            badgeCount: 3,
+            indicatorShape: NavIndicatorShape.blob,
+          ),
+          BottomNavItem(
+            icon: Symbols.language_sharp,
+            label: 'dApps',
+            indicatorShape: NavIndicatorShape.circle,
+          ),
+          BottomNavItem(
+            icon: Symbols.settings_sharp,
+            label: 'Settings',
+            indicatorShape: NavIndicatorShape.circle,
+          ),
+        ],
+        selectedIndex: 0,
+      ),
+    ),
+    _Scenario(
+      name: 'Challenges Selected',
+      args: _Args.fixed(
+        items: const [
+          BottomNavItem(
+            icon: Symbols.account_balance_wallet_sharp,
+            label: 'Wallet',
+            indicatorShape: NavIndicatorShape.hexagon,
+          ),
+          BottomNavItem(
+            icon: Symbols.hub_sharp,
+            label: 'Node',
+            indicatorShape: NavIndicatorShape.circle,
+          ),
+          BottomNavItem(
+            icon: Symbols.emoji_events_sharp,
+            label: 'Challenges',
+            badgeCount: 3,
+            indicatorShape: NavIndicatorShape.blob,
+          ),
+          BottomNavItem(
+            icon: Symbols.language_sharp,
+            label: 'dApps',
+            indicatorShape: NavIndicatorShape.circle,
+          ),
+          BottomNavItem(
+            icon: Symbols.settings_sharp,
+            label: 'Settings',
+            indicatorShape: NavIndicatorShape.circle,
+          ),
+        ],
+        selectedIndex: 2,
+      ),
+    ),
+    _Scenario(
+      name: 'No Top Border',
+      args: _Args.fixed(
+        items: const [
+          BottomNavItem(
+            icon: Symbols.account_balance_wallet_sharp,
+            label: 'Wallet',
+            indicatorShape: NavIndicatorShape.hexagon,
+          ),
+          BottomNavItem(
+            icon: Symbols.hub_sharp,
+            label: 'Node',
+            indicatorShape: NavIndicatorShape.circle,
+          ),
+          BottomNavItem(
+            icon: Symbols.emoji_events_sharp,
+            label: 'Challenges',
+            badgeCount: 3,
+            indicatorShape: NavIndicatorShape.blob,
+          ),
+          BottomNavItem(
+            icon: Symbols.language_sharp,
+            label: 'dApps',
+            indicatorShape: NavIndicatorShape.circle,
+          ),
+          BottomNavItem(
+            icon: Symbols.settings_sharp,
+            label: 'Settings',
+            indicatorShape: NavIndicatorShape.circle,
+          ),
+        ],
+        topBorder: false,
+      ),
+    ),
+  ],
 );

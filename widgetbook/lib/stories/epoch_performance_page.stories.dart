@@ -53,6 +53,30 @@ final $Default = _Story(
     epochScoreLookup: Arg.fixed((int epoch) => '${90 + (epoch % 10)}%'),
     onBackTap: Arg.fixed(() {}),
   ),
+  scenarios: [
+    _Scenario(
+      name: 'Default',
+      args: _Args.fixed(
+        epochLabel: 'Epoch 176',
+        performanceValue: '95.2%',
+        metrics: [
+          EpochMetricData(
+            icon: Symbols.check_circle_sharp,
+            title: 'Checked Slots',
+            subtitle: '12,000 of 17,280',
+            trailingValue: '69.4%',
+          ),
+          EpochMetricData(
+            icon: Symbols.deployed_code_sharp,
+            title: 'Produced Blocks',
+            subtitle: '8 of 8 won',
+            trailingValue: '100%',
+          ),
+        ],
+        onPickEpoch: (int epoch) {},
+      ),
+    ),
+  ],
 );
 
 final $EarlyEpoch = _Story(

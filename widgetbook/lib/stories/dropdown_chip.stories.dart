@@ -16,6 +16,51 @@ final $Default = _Story(
     size: EnumArg(ChipSize.regular, values: ChipSize.values),
     enabled: BoolArg(true),
   ),
+  scenarios: [
+    _Scenario(
+      name: 'Outlined variant',
+      args: _Args.fixed(
+        label: 'Season 2',
+        onTap: () {},
+        variant: ChipVariant.outlined,
+      ),
+    ),
+    _Scenario(
+      name: 'Surface variant',
+      args: _Args.fixed(
+        label: 'Season 2',
+        onTap: () {},
+        variant: ChipVariant.surface,
+      ),
+    ),
+    _Scenario(
+      name: 'Expanded',
+      args: _Args.fixed(
+        label: 'Season 2',
+        onTap: () {},
+        expanded: true,
+        variant: ChipVariant.outlined,
+      ),
+    ),
+    _Scenario(
+      name: 'Disabled',
+      args: _Args.fixed(
+        label: 'Unavailable',
+        onTap: () {},
+        enabled: false,
+        variant: ChipVariant.outlined,
+      ),
+    ),
+    _Scenario(
+      name: 'Compact size',
+      args: _Args.fixed(
+        label: 'Season 2',
+        onTap: () {},
+        size: ChipSize.small,
+        variant: ChipVariant.outlined,
+      ),
+    ),
+  ],
 );
 
 final $Surface = _Story(

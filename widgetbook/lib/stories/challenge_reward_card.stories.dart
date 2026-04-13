@@ -18,6 +18,29 @@ final $Simple = _Story(
     totalEarned: StringArg('4,525'),
     data: Arg.fixed(const SimpleRewardData()),
   ),
+  scenarios: [
+    _Scenario(
+      name: 'Technical',
+      args: _Args.fixed(
+        data: const SimpleRewardData(),
+        category: ChallengeCategory.technical,
+      ),
+    ),
+    _Scenario(
+      name: 'Community',
+      args: _Args.fixed(
+        data: const SimpleRewardData(),
+        category: ChallengeCategory.community,
+      ),
+    ),
+    _Scenario(
+      name: 'Flash',
+      args: _Args.fixed(
+        data: const SimpleRewardData(),
+        category: ChallengeCategory.flash,
+      ),
+    ),
+  ],
 );
 
 final $ProduceBlocks = _Story(

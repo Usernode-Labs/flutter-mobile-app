@@ -16,6 +16,42 @@ final $Default = _Story(
     onViewCompleted: Arg.fixed(() {}),
     onViewMissed: Arg.fixed(() {}),
   ),
+  scenarios: [
+    _Scenario(
+      name: 'With Activity',
+      args: _Args(
+        completedCount: IntArg(5),
+        missedCount: IntArg(2),
+        totalCount: IntArg(10),
+      ),
+    ),
+    _Scenario(
+      name: 'Zero Counts',
+      args: _Args(
+        completedCount: IntArg(0),
+        missedCount: IntArg(0),
+        totalCount: IntArg(0),
+        onViewCompleted: Arg.fixed(null),
+        onViewMissed: Arg.fixed(null),
+      ),
+    ),
+    _Scenario(
+      name: 'All Completed',
+      args: _Args(
+        completedCount: IntArg(10),
+        missedCount: IntArg(0),
+        totalCount: IntArg(10),
+      ),
+    ),
+    _Scenario(
+      name: 'All Missed',
+      args: _Args(
+        completedCount: IntArg(0),
+        missedCount: IntArg(10),
+        totalCount: IntArg(10),
+      ),
+    ),
+  ],
 );
 
 final $NoChallenges = _Story(

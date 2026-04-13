@@ -9,6 +9,24 @@ const meta = Meta<ShimmerListTile>(path: 'widgets/indicators');
 
 final $Default = _Story(
   args: _Args(isThreeLine: BoolArg(true), hasTrailing: BoolArg(true)),
+  scenarios: [
+    _Scenario(
+      name: 'Three line with trailing',
+      args: _Args.fixed(isThreeLine: true, hasTrailing: true),
+    ),
+    _Scenario(
+      name: 'Two line with trailing',
+      args: _Args.fixed(isThreeLine: false, hasTrailing: true),
+    ),
+    _Scenario(
+      name: 'Three line no trailing',
+      args: _Args.fixed(isThreeLine: true, hasTrailing: false),
+    ),
+    _Scenario(
+      name: 'Two line no trailing',
+      args: _Args.fixed(isThreeLine: false, hasTrailing: false),
+    ),
+  ],
 );
 
 final $TwoLine = _Story(

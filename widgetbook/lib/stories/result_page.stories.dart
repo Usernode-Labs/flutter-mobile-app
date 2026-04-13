@@ -26,6 +26,38 @@ final $Success = _Story(
       TextButton(onPressed: () {}, child: const Text('View Details')),
     ),
   ),
+  scenarios: [
+    _Scenario(
+      name: 'Success',
+      args: _Args(
+        variant: EnumArg(
+          ResultPageVariant.success,
+          values: ResultPageVariant.values,
+        ),
+        title: StringArg('Transaction Sent'),
+      ),
+    ),
+    _Scenario(
+      name: 'Failure',
+      args: _Args(
+        variant: EnumArg(
+          ResultPageVariant.failure,
+          values: ResultPageVariant.values,
+        ),
+        title: StringArg('Transaction Failed'),
+      ),
+    ),
+    _Scenario(
+      name: 'Info',
+      args: _Args(
+        variant: EnumArg(
+          ResultPageVariant.info,
+          values: ResultPageVariant.values,
+        ),
+        title: StringArg('Delegation Updated'),
+      ),
+    ),
+  ],
 );
 
 final $Failure = _Story(

@@ -16,6 +16,58 @@ final $Default = _Story(
       values: StatusBadgeVariant.values,
     ),
   ),
+  scenarios: [
+    _Scenario(
+      name: 'Success',
+      args: _Args(
+        text: StringArg('Connected'),
+        variant: EnumArg(
+          StatusBadgeVariant.success,
+          values: StatusBadgeVariant.values,
+        ),
+      ),
+    ),
+    _Scenario(
+      name: 'Error',
+      args: _Args(
+        text: StringArg('Failed'),
+        variant: EnumArg(
+          StatusBadgeVariant.error,
+          values: StatusBadgeVariant.values,
+        ),
+      ),
+    ),
+    _Scenario(
+      name: 'Warning',
+      args: _Args(
+        text: StringArg('Pending'),
+        variant: EnumArg(
+          StatusBadgeVariant.warning,
+          values: StatusBadgeVariant.values,
+        ),
+      ),
+    ),
+    _Scenario(
+      name: 'Info',
+      args: _Args(
+        text: StringArg('Syncing'),
+        variant: EnumArg(
+          StatusBadgeVariant.info,
+          values: StatusBadgeVariant.values,
+        ),
+      ),
+    ),
+    _Scenario(
+      name: 'Neutral',
+      args: _Args(
+        text: StringArg('Inactive'),
+        variant: EnumArg(
+          StatusBadgeVariant.neutral,
+          values: StatusBadgeVariant.values,
+        ),
+      ),
+    ),
+  ],
 );
 
 final $Error = _Story(

@@ -46,6 +46,30 @@ final $Default = _Story(
     title: Arg.fixed('Select Season'),
     selectedIndex: Arg.fixed(1),
   ),
+  scenarios: [
+    _Scenario(
+      name: 'Without divider',
+      args: _Args.fixed(
+        labels: ['Season 1', 'Season 2', 'Season 3'],
+        title: 'Select Season',
+        selectedIndex: 1,
+      ),
+    ),
+    _Scenario(
+      name: 'With divider',
+      args: _Args.fixed(
+        labels: [
+          'DApps Integration',
+          'Flash Challenges',
+          'Community',
+          'All Categories',
+        ],
+        title: 'Category',
+        selectedIndex: 0,
+        dividerAfterIndex: 2,
+      ),
+    ),
+  ],
 );
 
 final $WithDivider = _Story(

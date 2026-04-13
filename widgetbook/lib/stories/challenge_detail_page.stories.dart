@@ -48,6 +48,54 @@ final $Default = _Story(
     ),
     onBackTap: Arg.fixed(() {}),
   ),
+  scenarios: [
+    _Scenario(
+      name: 'Technical',
+      args: _Args.fixed(
+        category: ChallengeCategory.technical,
+        sections: [
+          (
+            title: 'Why',
+            body:
+                'Block production secures the network. Consistent producers keep the chain healthy and decentralised.',
+          ),
+          (
+            title: 'Task',
+            body:
+                'Produce every block you are assigned during the challenge period. Missed blocks reduce your score.',
+          ),
+        ],
+      ),
+    ),
+    _Scenario(
+      name: 'Community',
+      args: _Args.fixed(
+        title: 'Community Engagement',
+        category: ChallengeCategory.community,
+        dateRange: 'Community \u00b7 Feb 1 \u2013 Feb 28',
+        sections: [
+          (
+            title: 'Description',
+            body: 'Participate in community discussions and earn points.',
+          ),
+        ],
+      ),
+    ),
+    _Scenario(
+      name: 'Flash',
+      args: _Args.fixed(
+        title: 'Flash Challenge',
+        category: ChallengeCategory.flash,
+        dateRange: 'Flash \u00b7 Mar 15',
+        sections: [
+          (
+            title: 'Description',
+            body: 'Complete a quick task within 24 hours.',
+          ),
+        ],
+      ),
+    ),
+  ],
 );
 
 final $WithStatusSection = _Story(

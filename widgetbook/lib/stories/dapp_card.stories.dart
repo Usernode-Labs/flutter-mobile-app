@@ -20,6 +20,21 @@ final $Default = _Story(
     enabled: BoolArg(true),
     disabledLabel: Arg.fixed(null),
   ),
+  scenarios: [
+    _Scenario(
+      name: 'Enabled',
+      args: _Args(
+        enabled: BoolArg(true),
+      ),
+    ),
+    _Scenario(
+      name: 'Disabled',
+      args: _Args(
+        enabled: BoolArg(false),
+        disabledLabel: StringArg('Coming Soon'),
+      ),
+    ),
+  ],
 );
 
 final $Disabled = _Story(

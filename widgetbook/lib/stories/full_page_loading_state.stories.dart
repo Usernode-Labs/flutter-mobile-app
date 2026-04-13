@@ -9,4 +9,9 @@ part 'full_page_loading_state.stories.g.dart';
 // ignore: deprecated_member_use
 const meta = Meta<FullPageLoadingState>(path: 'widgets/indicators');
 
-final $Default = _Story(args: _Args());
+final $Default = _Story(
+  args: _Args(),
+  scenarios: [
+    _Scenario(name: 'Default', args: _Args.fixed()),
+  ],
+);

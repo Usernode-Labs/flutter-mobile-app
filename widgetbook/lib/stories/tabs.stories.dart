@@ -25,4 +25,71 @@ final $Default = _Story(
     showDivider: BoolArg(true),
     onTabChanged: Arg.fixed(null),
   ),
+  scenarios: [
+    _Scenario(
+      name: 'Three Tabs',
+      args: _Args.fixed(
+        tabs: const [
+          TabItem(label: 'Active', badgeCount: 3),
+          TabItem(label: 'Completed'),
+          TabItem(label: 'Missed'),
+        ],
+        children: const [
+          Center(child: Text('Active challenges content')),
+          Center(child: Text('Completed challenges content')),
+          Center(child: Text('Missed challenges content')),
+        ],
+        initialIndex: 0,
+        showDivider: true,
+      ),
+    ),
+    _Scenario(
+      name: 'Second Tab Selected',
+      args: _Args.fixed(
+        tabs: const [
+          TabItem(label: 'Active', badgeCount: 3),
+          TabItem(label: 'Completed'),
+          TabItem(label: 'Missed'),
+        ],
+        children: const [
+          Center(child: Text('Active challenges content')),
+          Center(child: Text('Completed challenges content')),
+          Center(child: Text('Missed challenges content')),
+        ],
+        initialIndex: 1,
+      ),
+    ),
+    _Scenario(
+      name: 'Scrollable',
+      args: _Args.fixed(
+        tabs: const [
+          TabItem(label: 'Active', badgeCount: 3),
+          TabItem(label: 'Completed'),
+          TabItem(label: 'Missed'),
+        ],
+        children: const [
+          Center(child: Text('Active challenges content')),
+          Center(child: Text('Completed challenges content')),
+          Center(child: Text('Missed challenges content')),
+        ],
+        isScrollable: true,
+      ),
+    ),
+    _Scenario(
+      name: 'No Divider',
+      args: _Args.fixed(
+        tabs: const [
+          TabItem(label: 'Active', badgeCount: 3),
+          TabItem(label: 'Completed'),
+          TabItem(label: 'Missed'),
+        ],
+        children: const [
+          Center(child: Text('Active challenges content')),
+          Center(child: Text('Completed challenges content')),
+          Center(child: Text('Missed challenges content')),
+        ],
+        showDivider: false,
+      ),
+    ),
+  ],
 );

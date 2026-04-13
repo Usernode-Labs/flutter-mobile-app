@@ -18,6 +18,20 @@ final $Small = _Story(
       IconButton(onPressed: () {}, icon: const Icon(Symbols.more_vert_sharp)),
     ]),
   ),
+  scenarios: [
+    _Scenario(
+      name: 'Small',
+      args: _Args(
+        size: EnumArg(TopAppBarSize.small, values: TopAppBarSize.values),
+      ),
+    ),
+    _Scenario(
+      name: 'Large',
+      args: _Args(
+        size: EnumArg(TopAppBarSize.large, values: TopAppBarSize.values),
+      ),
+    ),
+  ],
   setup: (context, child, args) {
     return Material(
       child: CustomScrollView(

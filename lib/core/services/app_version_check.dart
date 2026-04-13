@@ -27,8 +27,11 @@ class VersionCheckResult {
   final String? details;
   final String? updateUrl;
 
-  const VersionCheckResult(
-      {required this.upgrade, this.details, this.updateUrl});
+  const VersionCheckResult({
+    required this.upgrade,
+    this.details,
+    this.updateUrl,
+  });
 
   factory VersionCheckResult.fromJson(Map<String, dynamic> json) {
     final data = json['data'] as Map<String, dynamic>?;
@@ -80,16 +83,29 @@ class AppVersionCheck {
           )
           .timeout(const Duration(seconds: 3));
 
-      if (response.statusCode != 200) return null;
+      if (response.statusCode != 200) {
+        final bodySnippet = response.body.length > 200
+            ? '${response.body.substring(0, 200)}…'
+            : response.body;
+        _log.warn(
+          'Version check HTTP ${response.statusCode} (expected 200). Body: $bodySnippet',
+        );
+        return null;
+      }
 
       final json = jsonDecode(response.body) as Map<String, dynamic>;
       _log.info('Version check : $json');
 
-      if (json['success'] != true) return null;
+      if (json['success'] != true) {
+        _log.warn(
+          'Version check success != true. Full response: ${response.body}',
+        );
+        return null;
+      }
 
       return VersionCheckResult.fromJson(json);
-    } catch (e) {
-      _log.warn('Version check failed: $e');
+    } catch (e, st) {
+      _log.warn('Version check failed: $e\n$st');
       return null;
     }
   }
@@ -103,7 +119,8 @@ class AppVersionCheck {
 
     _timer?.cancel();
     _log.debug(
-        'Starting periodic version checks every ${AppConfig.versionCheckIntervalSeconds}s');
+      'Starting periodic version checks every ${AppConfig.versionCheckIntervalSeconds}s',
+    );
     _timer = Timer.periodic(AppConfig.versionCheckInterval, (_) async {
       final result = await check();
       if (result != null && result.shouldShowDialog) {
@@ -136,7 +153,9 @@ class AppVersionCheck {
   Future<void> markRecommendedDialogShown() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(
-        _lastRecommendedDialogKey, DateTime.now().millisecondsSinceEpoch);
+      _lastRecommendedDialogKey,
+      DateTime.now().millisecondsSinceEpoch,
+    );
   }
 
   static String get storeUrl => Platform.isIOS
@@ -161,9 +180,12 @@ final appVersionCheckProvider = FutureProvider<VersionCheckResult?>((ref) {
 /// Uses the provided navigatorKey to show the dialog
 /// For recommended updates, rate-limited to once per day
 Future<void> showUpdateDialog(
-    GlobalKey<NavigatorState> navigatorKey, VersionCheckResult result) async {
+  GlobalKey<NavigatorState> navigatorKey,
+  VersionCheckResult result,
+) async {
   _log.info(
-      'showUpdateDialog called with upgrade=${result.upgrade}, isBlocking=${result.isBlocking}');
+    'showUpdateDialog called with upgrade=${result.upgrade}, isBlocking=${result.isBlocking}',
+  );
 
   // Rate-limit recommended updates to once per day
   if (!result.isBlocking) {

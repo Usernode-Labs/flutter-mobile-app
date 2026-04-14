@@ -1226,9 +1226,9 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (_loading)
-              const Padding(
-                padding: EdgeInsets.all(16),
-                child: LinearProgressIndicator(minHeight: 2),
+              Padding(
+                padding: EdgeInsets.all(spacing.space16),
+                child: const LinearProgressIndicator(minHeight: 2),
               ),
             if (_fetchError != null)
               Padding(

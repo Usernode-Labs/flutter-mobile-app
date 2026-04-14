@@ -129,6 +129,442 @@
   "@settingsBuildInfo": {
     "description": "Build info setting label"
   },
+  "settingsDiagnostics": "Diagnostics",
+  "@settingsDiagnostics": {
+    "description": "Diagnostics section header in settings"
+  },
+  "settingsDeviceBenchmark": "Device Benchmark",
+  "@settingsDeviceBenchmark": {
+    "description": "Settings tile title for the device benchmark screen"
+  },
+  "settingsDeviceBenchmarkSubtitle": "Run on-device performance measurements",
+  "@settingsDeviceBenchmarkSubtitle": {
+    "description": "Settings tile subtitle for the device benchmark screen"
+  },
+
+  "perfTitle": "Device Benchmark",
+  "@perfTitle": {
+    "description": "Title for the device benchmark screen"
+  },
+  "perfIntroTitle": "Run a benchmark on this device",
+  "@perfIntroTitle": {
+    "description": "Intro card title for the device benchmark screen"
+  },
+  "perfIntroDescription": "Measure hashing, partial sync, block production, and wallet-send workloads to see how this device performs.",
+  "@perfIntroDescription": {
+    "description": "Intro description for the device benchmark screen"
+  },
+  "perfIntroNote": "Results stay on this device for now. Performance can vary with battery level, thermals, and background activity.",
+  "@perfIntroNote": {
+    "description": "Intro note for the device benchmark screen"
+  },
+  "perfCatalogLoadError": "Unable to load the benchmark catalog.",
+  "@perfCatalogLoadError": {
+    "description": "Fallback error shown when the benchmark catalog cannot be loaded"
+  },
+  "perfCatalogLoading": "Loading benchmark catalog...",
+  "@perfCatalogLoading": {
+    "description": "Status text shown while the benchmark catalog is being loaded"
+  },
+  "perfProfileQuick": "Quick Check",
+  "@perfProfileQuick": {
+    "description": "Label for the quick device benchmark profile"
+  },
+  "perfProfileStandard": "Full Benchmark",
+  "@perfProfileStandard": {
+    "description": "Label for the standard device benchmark profile"
+  },
+  "perfRunProfile": "Run {profile}",
+  "@perfRunProfile": {
+    "description": "Button label for running a benchmark profile",
+    "placeholders": {
+      "profile": {
+        "type": "String"
+      }
+    }
+  },
+  "perfStepCount": "{count} steps",
+  "@perfStepCount": {
+    "description": "Label showing how many steps a benchmark profile runs",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "perfRunning": "Running",
+  "@perfRunning": {
+    "description": "Button label shown while a benchmark run is in progress"
+  },
+  "perfCurrentRunTitle": "Current Run",
+  "@perfCurrentRunTitle": {
+    "description": "Section title for the active benchmark run card"
+  },
+  "perfRunInProgressTitle": "Benchmark In Progress",
+  "@perfRunInProgressTitle": {
+    "description": "Launcher card title shown when a benchmark is already running"
+  },
+  "perfRunInProgressDescription": "A {profile} benchmark is already running on this device.",
+  "@perfRunInProgressDescription": {
+    "description": "Launcher description shown when a benchmark is already running",
+    "placeholders": {
+      "profile": {
+        "type": "String"
+      }
+    }
+  },
+  "perfRunInProgressDescriptionUnknown": "A benchmark is already running on this device.",
+  "@perfRunInProgressDescriptionUnknown": {
+    "description": "Launcher description shown when a benchmark is already running but the profile is unknown"
+  },
+  "perfOpenCurrentRun": "Open Current Run",
+  "@perfOpenCurrentRun": {
+    "description": "Button label used to open the dedicated current benchmark run screen"
+  },
+  "perfLatestResultsTitle": "Latest Results",
+  "@perfLatestResultsTitle": {
+    "description": "Launcher card title shown when a benchmark result is available"
+  },
+  "perfLatestResultsDescription": "{profile} results are ready to review.",
+  "@perfLatestResultsDescription": {
+    "description": "Launcher description shown when benchmark results are available",
+    "placeholders": {
+      "profile": {
+        "type": "String"
+      }
+    }
+  },
+  "perfLatestResultsDescriptionUnknown": "Benchmark results are ready to review.",
+  "@perfLatestResultsDescriptionUnknown": {
+    "description": "Launcher description shown when benchmark results are available but the profile is unknown"
+  },
+  "perfViewLatestResults": "View Latest Results",
+  "@perfViewLatestResults": {
+    "description": "Button label used to open the latest benchmark results screen"
+  },
+  "perfNoRunAvailableTitle": "No Benchmark Run",
+  "@perfNoRunAvailableTitle": {
+    "description": "Title shown on the run screen when no benchmark is available"
+  },
+  "perfNoRunAvailableDescription": "Start a benchmark from the benchmark screen to see progress or results here.",
+  "@perfNoRunAvailableDescription": {
+    "description": "Description shown on the run screen when no benchmark is available"
+  },
+  "perfBackToBenchmarks": "Back To Benchmarks",
+  "@perfBackToBenchmarks": {
+    "description": "Button label used to return to the benchmark launcher"
+  },
+  "perfRunPausedNodeNotice": "Background node is paused while this benchmark runs.",
+  "@perfRunPausedNodeNotice": {
+    "description": "Notice shown on the run screen indicating the background node is paused"
+  },
+  "perfStateRunning": "Running",
+  "@perfStateRunning": {
+    "description": "Label for a running benchmark"
+  },
+  "perfStateStarting": "Starting",
+  "@perfStateStarting": {
+    "description": "Label for a benchmark that is starting up before the first status update arrives"
+  },
+  "perfStateCompleted": "Completed",
+  "@perfStateCompleted": {
+    "description": "Label for a completed benchmark"
+  },
+  "perfStateFailed": "Failed",
+  "@perfStateFailed": {
+    "description": "Label for a failed benchmark"
+  },
+  "perfStateCancelled": "Cancelled",
+  "@perfStateCancelled": {
+    "description": "Label for a cancelled benchmark"
+  },
+  "perfProgressValue": "{completed} of {total} steps",
+  "@perfProgressValue": {
+    "description": "Progress label for a benchmark run",
+    "placeholders": {
+      "completed": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "perfPreparingProfile": "Preparing {profile}",
+  "@perfPreparingProfile": {
+    "description": "Status detail shown while a benchmark profile is starting",
+    "placeholders": {
+      "profile": {
+        "type": "String"
+      }
+    }
+  },
+  "perfCurrentStep": "Current step: {label}",
+  "@perfCurrentStep": {
+    "description": "Label for the current benchmark step",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "perfElapsed": "Elapsed: {duration}",
+  "@perfElapsed": {
+    "description": "Elapsed time label for a benchmark run",
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "perfResultsTitle": "Results",
+  "@perfResultsTitle": {
+    "description": "Section title for benchmark results"
+  },
+  "perfResultProfile": "Profile",
+  "@perfResultProfile": {
+    "description": "Summary row label for benchmark profile"
+  },
+  "perfResultDevice": "Device",
+  "@perfResultDevice": {
+    "description": "Summary row label for device model"
+  },
+  "perfResultOperatingSystem": "OS",
+  "@perfResultOperatingSystem": {
+    "description": "Summary row label for operating system"
+  },
+  "perfResultCpu": "CPU",
+  "@perfResultCpu": {
+    "description": "Summary row label for CPU architecture"
+  },
+  "perfResultLogicalCores": "Logical Cores",
+  "@perfResultLogicalCores": {
+    "description": "Summary row label for CPU core count"
+  },
+  "perfResultMeasurements": "Measurements",
+  "@perfResultMeasurements": {
+    "description": "Summary row label for measurement count"
+  },
+  "perfSuitePrimitives": "Primitives",
+  "@perfSuitePrimitives": {
+    "description": "Benchmark suite label for primitive operations"
+  },
+  "perfSuitePartialSync": "Partial Sync",
+  "@perfSuitePartialSync": {
+    "description": "Benchmark suite label for partial sync"
+  },
+  "perfSuitePartialBlockProduction": "Block Production",
+  "@perfSuitePartialBlockProduction": {
+    "description": "Benchmark suite label for partial block production"
+  },
+  "perfSuiteWalletSend": "Wallet Send",
+  "@perfSuiteWalletSend": {
+    "description": "Benchmark suite label for wallet send"
+  },
+  "perfMinMax": "Min {minValue} · Max {maxValue}",
+  "@perfMinMax": {
+    "description": "Label showing min and max measurement timings",
+    "placeholders": {
+      "minValue": {
+        "type": "String"
+      },
+      "maxValue": {
+        "type": "String"
+      }
+    }
+  },
+  "perfRuns": "{count} runs",
+  "@perfRuns": {
+    "description": "Label showing the sample run count for a measurement",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "perfFlow": "Flow: {value}",
+  "@perfFlow": {
+    "description": "Label showing the flow description for a measurement row",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "perfScenarioDefault": "Default case",
+  "@perfScenarioDefault": {
+    "description": "Label for a benchmark scenario that has no additional fixture-specific context"
+  },
+  "perfContextTxCount": "{count} tx",
+  "@perfContextTxCount": {
+    "description": "Label for a block-sized benchmark scenario transaction count",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "perfContextReplayBlockCount": "{count} replay blocks",
+  "@perfContextReplayBlockCount": {
+    "description": "Label for a replay benchmark scenario block count",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "perfContextTxCountPerBlock": "{count} tx/block",
+  "@perfContextTxCountPerBlock": {
+    "description": "Label for a replay benchmark scenario transaction count per block",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "perfContextBatchLayout": "Layout {value}",
+  "@perfContextBatchLayout": {
+    "description": "Label for a benchmark scenario batch layout",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "perfContextTransactionShape": "Shape {value}",
+  "@perfContextTransactionShape": {
+    "description": "Label for a benchmark scenario transaction shape",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "perfContextProofNodes": "{count} proof nodes",
+  "@perfContextProofNodes": {
+    "description": "Label for a benchmark scenario proof node count",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "perfContextAnchorProofNodes": "{count} anchor proof nodes",
+  "@perfContextAnchorProofNodes": {
+    "description": "Label for a replay benchmark scenario anchor proof node count",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "perfContextReplayBlockProofNodes": "{count} replay proof nodes",
+  "@perfContextReplayBlockProofNodes": {
+    "description": "Label for a replay benchmark scenario block proof node count",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "perfContextProofSize": "{size} proof",
+  "@perfContextProofSize": {
+    "description": "Label for a benchmark scenario proof size",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "perfContextTouchedLeaves": "{count} touched leaves",
+  "@perfContextTouchedLeaves": {
+    "description": "Label for a benchmark scenario touched leaf count",
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "perfDetailScenario": "Scenario",
+  "@perfDetailScenario": {
+    "description": "Summary label for a benchmark result scenario"
+  },
+  "perfDetailAverage": "Average",
+  "@perfDetailAverage": {
+    "description": "Summary label for the average runtime of a benchmark result"
+  },
+  "perfDetailMinMax": "Min / Max",
+  "@perfDetailMinMax": {
+    "description": "Summary label for the min and max runtime of a benchmark result"
+  },
+  "perfDetailRuns": "Runs",
+  "@perfDetailRuns": {
+    "description": "Summary label for the number of repeated runs in a benchmark result"
+  },
+  "perfDetailMetadataTitle": "Scenario Details",
+  "@perfDetailMetadataTitle": {
+    "description": "Section title for benchmark result scenario metadata"
+  },
+  "perfDetailImplementationTitle": "Implementation Details",
+  "@perfDetailImplementationTitle": {
+    "description": "Section title for lower-level benchmark result details"
+  },
+  "perfDetailNotesTitle": "Notes",
+  "@perfDetailNotesTitle": {
+    "description": "Section title for benchmark result notes"
+  },
+  "perfDetailFlow": "Flow",
+  "@perfDetailFlow": {
+    "description": "Summary label for benchmark result flow details"
+  },
+  "perfDetailTxCount": "Transaction Count",
+  "@perfDetailTxCount": {
+    "description": "Summary label for benchmark result transaction count"
+  },
+  "perfDetailReplayBlockCount": "Replay Blocks",
+  "@perfDetailReplayBlockCount": {
+    "description": "Summary label for benchmark result replay block count"
+  },
+  "perfDetailTxCountPerBlock": "Transactions Per Block",
+  "@perfDetailTxCountPerBlock": {
+    "description": "Summary label for benchmark result transactions per replay block"
+  },
+  "perfDetailBatchLayout": "Batch Layout",
+  "@perfDetailBatchLayout": {
+    "description": "Summary label for benchmark result batch layout"
+  },
+  "perfDetailTransactionShape": "Transaction Shape",
+  "@perfDetailTransactionShape": {
+    "description": "Summary label for benchmark result transaction shape"
+  },
+  "perfDetailTouchedLeaves": "Touched Leaves",
+  "@perfDetailTouchedLeaves": {
+    "description": "Summary label for benchmark result touched leaf count"
+  },
+  "perfDetailProofNodes": "Proof Nodes",
+  "@perfDetailProofNodes": {
+    "description": "Summary label for benchmark result proof node count"
+  },
+  "perfDetailAnchorProofNodes": "Anchor Proof Nodes",
+  "@perfDetailAnchorProofNodes": {
+    "description": "Summary label for benchmark result anchor proof node count"
+  },
+  "perfDetailReplayBlockProofNodes": "Replay Proof Nodes",
+  "@perfDetailReplayBlockProofNodes": {
+    "description": "Summary label for benchmark result replay proof node count"
+  },
+  "perfDetailProofSize": "Proof Size",
+  "@perfDetailProofSize": {
+    "description": "Summary label for benchmark result proof size"
+  },
+  "perfCancelFailed": "Unable to cancel the current benchmark run.",
+  "@perfCancelFailed": {
+    "description": "Error shown when cancelling a benchmark run fails"
+  },
+  "perfRunUnavailable": "This benchmark run is no longer available.",
+  "@perfRunUnavailable": {
+    "description": "Error shown when a benchmark run can no longer be queried"
+  },
 
   "bgProdWhatIs": "What is Block Production?",
   "@bgProdWhatIs": {
@@ -1552,6 +1988,10 @@
   "commonCancel": "Cancel",
   "@commonCancel": {
     "description": "Cancel button text"
+  },
+  "commonRetry": "Retry",
+  "@commonRetry": {
+    "description": "Retry button text"
   },
   "commonEnable": "Enable",
   "@commonEnable": {

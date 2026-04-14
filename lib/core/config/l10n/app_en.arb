@@ -16,6 +16,53 @@
   "@node": {
     "description": "Node tab label"
   },
+  "clockDriftWarningTitle": "System time incorrect",
+  "@clockDriftWarningTitle": {
+    "description": "Title for the clock drift warning dialog"
+  },
+  "clockDriftWarningBody": "Your device clock differs from the node clock by {drift}. You might see some inconsistencies in the app until your system time is corrected.",
+  "@clockDriftWarningBody": {
+    "description": "Body text for the clock drift warning dialog",
+    "placeholders": {
+      "drift": {
+        "type": "String"
+      }
+    }
+  },
+  "clockDriftWarningInstruction": "Enable automatic time sync on your device.",
+  "@clockDriftWarningInstruction": {
+    "description": "Instruction for fixing clock drift"
+  },
+  "clockDriftRecommendationTitle": "Recommendation",
+  "@clockDriftRecommendationTitle": {
+    "description": "Recommendation heading in the clock drift warning dialog"
+  },
+  "clockDriftRecommendationBody": "To ensure minimum drift, keep \"Automatic date & time\" and \"Automatic time zone\" enabled in settings, which forces the device to query network time.",
+  "@clockDriftRecommendationBody": {
+    "description": "Recommendation body in the clock drift warning dialog"
+  },
+  "clockDriftDismiss": "OK",
+  "@clockDriftDismiss": {
+    "description": "Dismiss button label for the clock drift warning dialog"
+  },
+  "clockDriftAhead": "{seconds}s ahead",
+  "@clockDriftAhead": {
+    "description": "Describes a positive clock drift",
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "clockDriftBehind": "{seconds}s behind",
+  "@clockDriftBehind": {
+    "description": "Describes a negative clock drift",
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
 
   "sendFeedback": "Send Feedback",
   "@sendFeedback": {

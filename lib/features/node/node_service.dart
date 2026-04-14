@@ -106,16 +106,18 @@ class RustBackendService {
     final requestLatencyMs = requestStartedAtMs <= responseReceivedAtMs
         ? responseReceivedAtMs - requestStartedAtMs
         : 0;
-    final sampleSystemTimeMs = requestStartedAtMs + (requestLatencyMs ~/ 2);
+    final sampleSystemTimeMs = responseReceivedAtMs;
     final driftMs = sampleSystemTimeMs - rustTimeMs;
 
     _nodeClockDriftMs = driftMs;
     _lastNodeTimeMs = rustTimeMs;
-    _lastNodeClockSampleSystemTimeMs = responseReceivedAtMs;
+    _lastNodeClockSampleSystemTimeMs = sampleSystemTimeMs;
 
     _log.debug('Updated node clock drift', context: {
       'rustTimeMs': rustTimeMs,
+      'systemSampleTimeMs': sampleSystemTimeMs,
       'systemReceivedTimeMs': responseReceivedAtMs,
+      'requestLatencyMs': requestLatencyMs,
       'driftMs': driftMs,
     });
   }
@@ -612,11 +614,13 @@ class RustBackendService {
         includeVrfDetails: includeVrfDetails,
       );
       final responseReceivedAtMs = DateTime.now().millisecondsSinceEpoch;
-      _updateNodeClockDriftFromStatus(
-        status,
-        requestStartedAtMs: requestStartedAtMs,
-        responseReceivedAtMs: responseReceivedAtMs,
-      );
+      if (!includeVrfDetails) {
+        _updateNodeClockDriftFromStatus(
+          status,
+          requestStartedAtMs: requestStartedAtMs,
+          responseReceivedAtMs: responseReceivedAtMs,
+        );
+      }
       stopwatch.stop();
       _log.debug(
           'getStatus RPC completed successfully in ${stopwatch.elapsedMilliseconds}ms');

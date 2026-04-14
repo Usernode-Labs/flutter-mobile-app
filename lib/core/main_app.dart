@@ -1,3 +1,4 @@
+import 'package:crypto_mobile_app/core/widgets/clock_drift_warning_overlay.dart';
 import 'package:crypto_mobile_app/features/node/screens/node_status_screen.dart';
 import 'package:crypto_mobile_app/features/settings/screens/settings_screen.dart';
 import 'package:flutter/material.dart';
@@ -67,7 +68,12 @@ class _MainAppState extends State<MainApp> {
     final screens = active.map(_screenFor).toList(growable: false);
 
     return Scaffold(
-      body: widget.child ?? screens[index],
+      body: Stack(
+        children: [
+          Positioned.fill(child: widget.child ?? screens[index]),
+          const ClockDriftWarningOverlay(),
+        ],
+      ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: DecoratedBox(
         decoration: BoxDecoration(

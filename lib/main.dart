@@ -392,7 +392,8 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
   }
 
   void _handleVersionCheckResult(VersionCheckResult result) {
-    if (!mounted) return;
+    if (!mounted || _versionCheckShown) return;
+    _versionCheckShown = true;
     showUpdateDialog(appNavigatorKey, result);
   }
 

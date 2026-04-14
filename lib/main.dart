@@ -43,6 +43,9 @@ Future<void> main() async {
     final log = boot.log;
 
     log.info('App started');
+    log.info(
+      'Version check: enabled=${AppConfig.versionCheckEnabled}, host=${AppConfig.versionCheckHost}, intervalSec=${AppConfig.versionCheckIntervalSeconds}',
+    );
 
     // Render UI immediately; perform heavy bootstrap asynchronously.
     log.info('Running app UI');
@@ -76,8 +79,11 @@ Future<void> headlessMain() async {
       await _startHeadlessServices(container, log);
       log.debug('Headless services started');
     } catch (e, st) {
-      log.error('Error during headless bootstrap: $e',
-          error: e, stackTrace: st);
+      log.error(
+        'Error during headless bootstrap: $e',
+        error: e,
+        stackTrace: st,
+      );
       rethrow;
     }
   } catch (e, st) {
@@ -97,7 +103,9 @@ Future<void> headlessMain() async {
 
 /// Start services that are normally started by providers in headless mode
 Future<void> _startHeadlessServices(
-    ProviderContainer container, TaggedLogger log) async {
+  ProviderContainer container,
+  TaggedLogger log,
+) async {
   try {
     log.info('Starting headless services (metrics, lifecycle, etc.)');
 
@@ -105,10 +113,13 @@ Future<void> _startHeadlessServices(
 
     // Start metrics reporting service if enabled
     if (AppConfig.metricsEnabled && AppConfig.metricsEndpoint.isNotEmpty) {
-      log.info('Starting metrics reporting service in headless mode', context: {
-        'endpoint': AppConfig.metricsEndpoint,
-        'interval_seconds': AppConfig.metricsCollectionIntervalSeconds,
-      });
+      log.info(
+        'Starting metrics reporting service in headless mode',
+        context: {
+          'endpoint': AppConfig.metricsEndpoint,
+          'interval_seconds': AppConfig.metricsCollectionIntervalSeconds,
+        },
+      );
       await MetricsReportingService.instance.start();
       log.info('Metrics reporting service started successfully');
 
@@ -124,7 +135,8 @@ Future<void> _startHeadlessServices(
           // Only fetch UTXOs if address is in UTXO format (starts with 'ut')
           if (!account.address.startsWith('ut')) {
             log.debug(
-                'Account address not in UTXO format, skipping balance calculation');
+              'Account address not in UTXO format, skipping balance calculation',
+            );
             return (balance: null, address: account.address);
           }
 
@@ -234,9 +246,7 @@ class _AppRuntimeRootState extends State<AppRuntimeRoot> {
   void initState() {
     super.initState();
     _container = widget.initialContainer;
-    AppResetService.instance.registerInProcessRestartHandler(
-      _restartInProcess,
-    );
+    AppResetService.instance.registerInProcessRestartHandler(_restartInProcess);
   }
 
   @override
@@ -329,16 +339,28 @@ class _AppWrapper extends ConsumerStatefulWidget {
   ConsumerState<_AppWrapper> createState() => _AppWrapperState();
 }
 
-class _AppWrapperState extends ConsumerState<_AppWrapper> {
+class _AppWrapperState extends ConsumerState<_AppWrapper>
+    with WidgetsBindingObserver {
   bool _versionCheckShown = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Start periodic version checks
     AppVersionCheck.instance.startPeriodicChecks(_handleVersionCheckResult);
     // Check version after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkInitialVersion());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Don't reset _versionCheckShown — the guard in _checkInitialVersion
+      // prevents stacking a second dialog on top of an already-shown one.
+      ref.invalidate(appVersionCheckProvider);
+      _checkInitialVersion();
+    }
   }
 
   Future<void> _checkInitialVersion() async {
@@ -347,7 +369,8 @@ class _AppWrapperState extends ConsumerState<_AppWrapper> {
     try {
       final result = await ref.read(appVersionCheckProvider.future);
       log.info(
-          'Version check result: $result, shouldShow: ${result?.shouldShowDialog}, shown: $_versionCheckShown, mounted: $mounted');
+        'Version check result: $result, shouldShow: ${result?.shouldShowDialog}, shown: $_versionCheckShown, mounted: $mounted',
+      );
       if (result != null &&
           result.shouldShowDialog &&
           !_versionCheckShown &&
@@ -363,12 +386,14 @@ class _AppWrapperState extends ConsumerState<_AppWrapper> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     AppVersionCheck.instance.stopPeriodicChecks();
     super.dispose();
   }
 
   void _handleVersionCheckResult(VersionCheckResult result) {
-    if (!mounted) return;
+    if (!mounted || _versionCheckShown) return;
+    _versionCheckShown = true;
     showUpdateDialog(appNavigatorKey, result);
   }
 

@@ -85,3 +85,6 @@ gmp.md
 
 # Design system research archive (local only)
 lib/design_system/.archive/
+
+# Local-only worktree ergonomics hook (see /tmp/post-checkout.backup or .githooks on main checkout)
+.githooks/post-checkout

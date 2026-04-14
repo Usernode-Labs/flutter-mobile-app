@@ -27,8 +27,11 @@ class VersionCheckResult {
   final String? details;
   final String? updateUrl;
 
-  const VersionCheckResult(
-      {required this.upgrade, this.details, this.updateUrl});
+  const VersionCheckResult({
+    required this.upgrade,
+    this.details,
+    this.updateUrl,
+  });
 
   factory VersionCheckResult.fromJson(Map<String, dynamic> json) {
     final data = json['data'] as Map<String, dynamic>?;
@@ -58,8 +61,8 @@ class AppVersionCheck {
 
   Timer? _timer;
 
-  /// Check version and return result (null on error = fail open)
-  /// Returns null if version check is disabled
+  /// Check version and return result (null on error = fail open).
+  /// Returns null if version check is disabled.
   Future<VersionCheckResult?> check() async {
     if (!AppConfig.versionCheckEnabled) {
       _log.debug('Version check disabled (no API URL configured)');
@@ -78,21 +81,37 @@ class AppVersionCheck {
               'build_number': int.tryParse(info.buildNumber) ?? 1,
             }),
           )
-          .timeout(const Duration(seconds: 3));
+          .timeout(const Duration(seconds: 8));
 
-      if (response.statusCode != 200) return null;
+      if (response.statusCode != 200) {
+        _log.warn(
+          'Version check HTTP ${response.statusCode} (expected 200). '
+          'Body: ${_snippet(response.body)}',
+        );
+        return null;
+      }
 
       final json = jsonDecode(response.body) as Map<String, dynamic>;
       _log.info('Version check : $json');
 
-      if (json['success'] != true) return null;
+      if (json['success'] != true) {
+        _log.warn(
+          'Version check success != true. Body: ${_snippet(response.body)}',
+        );
+        return null;
+      }
 
       return VersionCheckResult.fromJson(json);
-    } catch (e) {
-      _log.warn('Version check failed: $e');
+    } catch (e, st) {
+      _log.warn('Version check failed: $e\n$st');
       return null;
     }
   }
+
+  static const _logBodyMaxLen = 200;
+  static String _snippet(String body) => body.length > _logBodyMaxLen
+      ? '${body.substring(0, _logBodyMaxLen)}…'
+      : body;
 
   /// Start periodic checks using configured interval
   void startPeriodicChecks(void Function(VersionCheckResult) onResult) {
@@ -103,7 +122,8 @@ class AppVersionCheck {
 
     _timer?.cancel();
     _log.debug(
-        'Starting periodic version checks every ${AppConfig.versionCheckIntervalSeconds}s');
+      'Starting periodic version checks every ${AppConfig.versionCheckIntervalSeconds}s',
+    );
     _timer = Timer.periodic(AppConfig.versionCheckInterval, (_) async {
       final result = await check();
       if (result != null && result.shouldShowDialog) {
@@ -136,7 +156,9 @@ class AppVersionCheck {
   Future<void> markRecommendedDialogShown() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(
-        _lastRecommendedDialogKey, DateTime.now().millisecondsSinceEpoch);
+      _lastRecommendedDialogKey,
+      DateTime.now().millisecondsSinceEpoch,
+    );
   }
 
   static String get storeUrl => Platform.isIOS
@@ -161,9 +183,12 @@ final appVersionCheckProvider = FutureProvider<VersionCheckResult?>((ref) {
 /// Uses the provided navigatorKey to show the dialog
 /// For recommended updates, rate-limited to once per day
 Future<void> showUpdateDialog(
-    GlobalKey<NavigatorState> navigatorKey, VersionCheckResult result) async {
+  GlobalKey<NavigatorState> navigatorKey,
+  VersionCheckResult result,
+) async {
   _log.info(
-      'showUpdateDialog called with upgrade=${result.upgrade}, isBlocking=${result.isBlocking}');
+    'showUpdateDialog called with upgrade=${result.upgrade}, isBlocking=${result.isBlocking}',
+  );
 
   // Rate-limit recommended updates to once per day
   if (!result.isBlocking) {
@@ -209,25 +234,35 @@ class _UpdateDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     return PopScope(
       canPop: !result.isBlocking,
       child: AlertDialog(
         title: Text(result.isBlocking ? 'Update Required' : 'Update Available'),
-        content: Text(
-          result.details ?? 'A new version of the app is available.',
-        ),
-        actions: [
-          if (!result.isBlocking)
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Later'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              result.details ?? 'A new version of the app is available.',
             ),
-          Button(
-            label: 'Update',
-            variant: ButtonVariant.primary,
-            onTap: () => _openStore(),
-          ),
-        ],
+            SizedBox(height: spacing.space24),
+            SizedBox(
+              width: double.infinity,
+              child: Button(
+                label: 'Update',
+                variant: ButtonVariant.primary,
+                onTap: () => _openStore(),
+              ),
+            ),
+            if (!result.isBlocking) ...[
+              SizedBox(height: spacing.space8),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Later'),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

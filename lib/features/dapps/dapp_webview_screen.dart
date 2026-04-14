@@ -86,9 +86,11 @@ class _TxRecord {
         if (errorMessage != null) 'error': errorMessage,
         if (confirmedAt != null)
           'confirmedAt': confirmedAt!.millisecondsSinceEpoch,
-        if (inclusionLatencyMs != null) 'inclusionLatencyMs': inclusionLatencyMs,
+        if (inclusionLatencyMs != null)
+          'inclusionLatencyMs': inclusionLatencyMs,
         if (blockHeight != null) 'blockHeight': blockHeight,
-        if (onChainTimestampMs != null) 'onChainTimestampMs': onChainTimestampMs,
+        if (onChainTimestampMs != null)
+          'onChainTimestampMs': onChainTimestampMs,
         if (onChainStatus != null) 'onChainStatus': onChainStatus,
       };
 
@@ -162,14 +164,13 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   Future<void> _saveDappTxIds() async {
     final prefs = await SharedPreferences.getInstance();
     if (_dappTxIds.length > _maxPersistedIds) {
-      final sorted = _dappTxIds
-          .where((id) => _txRecords.containsKey(id))
-          .toList()
-        ..sort((a, b) {
-          final ra = _txRecords[a]!;
-          final rb = _txRecords[b]!;
-          return rb.sentAt.compareTo(ra.sentAt);
-        });
+      final sorted =
+          _dappTxIds.where((id) => _txRecords.containsKey(id)).toList()
+            ..sort((a, b) {
+              final ra = _txRecords[a]!;
+              final rb = _txRecords[b]!;
+              return rb.sentAt.compareTo(ra.sentAt);
+            });
       final kept = sorted.take(_maxPersistedIds).toSet();
       _dappTxIds
         ..clear()
@@ -593,8 +594,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
           if (rec != null && rec.confirmedAt == null) {
             _txRecords[txId] = rec.copyWith(
               confirmedAt: now,
-              inclusionLatencyMs:
-                  (j['inclusion_latency_ms'] as num?)?.toInt(),
+              inclusionLatencyMs: (j['inclusion_latency_ms'] as num?)?.toInt(),
               blockHeight: (j['block_height'] as num?)?.toInt(),
               onChainTimestampMs: (j['timestamp_ms'] as num?)?.toInt(),
               onChainStatus: status,
@@ -1181,8 +1181,7 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
           if (rec != null && rec.confirmedAt == null) {
             widget.txRecords[txId] = rec.copyWith(
               confirmedAt: now,
-              inclusionLatencyMs:
-                  (j['inclusion_latency_ms'] as num?)?.toInt(),
+              inclusionLatencyMs: (j['inclusion_latency_ms'] as num?)?.toInt(),
               blockHeight: (j['block_height'] as num?)?.toInt(),
               onChainTimestampMs: (j['timestamp_ms'] as num?)?.toInt(),
               onChainStatus: status,
@@ -1267,9 +1266,8 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                         itemBuilder: (ctx, index) {
                           final rec = records[index];
                           final isExpanded = _expandedIndex == index;
-                          final isConfirmed =
-                              rec.status == _TxStatus.queued &&
-                                  rec.onChainStatus == 'confirmed';
+                          final isConfirmed = rec.status == _TxStatus.queued &&
+                              rec.onChainStatus == 'confirmed';
 
                           final (Color badgeColor, String badgeLabel) =
                               switch (rec.status) {
@@ -1295,8 +1293,8 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
 
                           String memoType = '';
                           try {
-                            final parsed = jsonDecode(rec.memo)
-                                as Map<String, dynamic>;
+                            final parsed =
+                                jsonDecode(rec.memo) as Map<String, dynamic>;
                             memoType = parsed['type'] as String? ?? '';
                           } catch (_) {}
 
@@ -1341,8 +1339,7 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                             child: GestureDetector(
                               onTap: () {
                                 setState(() {
-                                  _expandedIndex =
-                                      isExpanded ? null : index;
+                                  _expandedIndex = isExpanded ? null : index;
                                 });
                               },
                               child: Container(
@@ -1358,27 +1355,23 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                                   ),
                                 ),
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Row(
                                       children: [
                                         Container(
-                                          padding:
-                                              const EdgeInsets.symmetric(
+                                          padding: const EdgeInsets.symmetric(
                                             horizontal: 8,
                                             vertical: 2,
                                           ),
                                           decoration: BoxDecoration(
-                                            color:
-                                                badgeColor.withAlpha(30),
+                                            color: badgeColor.withAlpha(30),
                                             borderRadius:
                                                 radii.borderRadiusXSmall,
                                           ),
                                           child: Text(
                                             badgeLabel,
-                                            style: theme
-                                                .textTheme.labelSmall
+                                            style: theme.textTheme.labelSmall
                                                 ?.copyWith(
                                               color: badgeColor,
                                               fontWeight: FontWeight.w600,
@@ -1389,12 +1382,10 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                                         if (confirmTimeStr != null)
                                           Padding(
                                             padding:
-                                                const EdgeInsets.only(
-                                                    right: 6),
+                                                const EdgeInsets.only(right: 6),
                                             child: Text(
                                               '\u{23F1} $confirmTimeStr',
-                                              style: theme
-                                                  .textTheme.labelSmall
+                                              style: theme.textTheme.labelSmall
                                                   ?.copyWith(
                                                 color: _latencyColor(
                                                     confirmTotalSecs ?? 0),
@@ -1404,8 +1395,7 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                                           ),
                                         Text(
                                           ageStr,
-                                          style: theme
-                                              .textTheme.labelSmall
+                                          style: theme.textTheme.labelSmall
                                               ?.copyWith(color: muted),
                                         ),
                                       ],
@@ -1416,8 +1406,7 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                                         Expanded(
                                           child: Text(
                                             'To: ${_truncate(rec.to, 20)}',
-                                            style: theme
-                                                .textTheme.bodySmall
+                                            style: theme.textTheme.bodySmall
                                                 ?.copyWith(
                                               fontFamily: kMonoFontFamily,
                                             ),
@@ -1425,8 +1414,7 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                                         ),
                                         Text(
                                           'Amt: ${rec.amount}',
-                                          style:
-                                              theme.textTheme.bodySmall,
+                                          style: theme.textTheme.bodySmall,
                                         ),
                                       ],
                                     ),
@@ -1436,20 +1424,17 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                                             top: spacing.space4),
                                         child: Text(
                                           'type: $memoType',
-                                          style: theme
-                                              .textTheme.labelSmall
+                                          style: theme.textTheme.labelSmall
                                               ?.copyWith(color: muted),
                                         ),
                                       ),
-                                    if (txHash != null &&
-                                        txHash.isNotEmpty)
+                                    if (txHash != null && txHash.isNotEmpty)
                                       Padding(
                                         padding: EdgeInsets.only(
                                             top: spacing.space4),
                                         child: Text(
                                           'tx: ${_truncate(txHash, 24)}',
-                                          style: theme
-                                              .textTheme.labelSmall
+                                          style: theme.textTheme.labelSmall
                                               ?.copyWith(
                                             fontFamily: kMonoFontFamily,
                                             color: muted,
@@ -1463,11 +1448,9 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                                             top: spacing.space4),
                                         child: Text(
                                           rec.errorMessage!,
-                                          style: theme
-                                              .textTheme.labelSmall
+                                          style: theme.textTheme.labelSmall
                                               ?.copyWith(
-                                            color:
-                                                theme.colorScheme.error,
+                                            color: theme.colorScheme.error,
                                           ),
                                         ),
                                       ),
@@ -1480,24 +1463,18 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                                           muted: muted,
                                           rec: rec,
                                         ),
-                                      _detailRow(
-                                          theme, muted, 'From', rec.from,
+                                      _detailRow(theme, muted, 'From', rec.from,
                                           mono: true),
-                                      _detailRow(
-                                          theme, muted, 'To', rec.to,
+                                      _detailRow(theme, muted, 'To', rec.to,
                                           mono: true),
                                       _detailRow(theme, muted, 'Amount',
                                           rec.amount.toString()),
-                                      if (txHash != null &&
-                                          txHash.isNotEmpty)
-                                        _detailRow(theme, muted,
-                                            'Tx Hash', txHash,
+                                      if (txHash != null && txHash.isNotEmpty)
+                                        _detailRow(
+                                            theme, muted, 'Tx Hash', txHash,
                                             mono: true),
                                       if (rec.blockHeight != null)
-                                        _detailRow(
-                                            theme,
-                                            muted,
-                                            'Block',
+                                        _detailRow(theme, muted, 'Block',
                                             rec.blockHeight.toString()),
                                       _detailRow(theme, muted, 'Memo',
                                           _formatMemo(rec.memo)),
@@ -1527,8 +1504,7 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
     int? totalSecs;
     int? lastMileSecs;
     if (rec.confirmedAt != null) {
-      final totalMs =
-          rec.confirmedAt!.difference(rec.sentAt).inMilliseconds;
+      final totalMs = rec.confirmedAt!.difference(rec.sentAt).inMilliseconds;
       if (totalMs >= 0) {
         totalSecs = totalMs ~/ 1000;
         final lm = totalMs - rec.inclusionLatencyMs!;

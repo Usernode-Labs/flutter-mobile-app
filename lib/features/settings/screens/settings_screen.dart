@@ -22,10 +22,12 @@ import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/quick_settings_panel.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/general_settings_section.dart';
+import 'package:crypto_mobile_app/features/settings/widgets/diagnostics_settings_section.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/faq_section.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/theme_picker_sheet.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/build_info_sheet.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/network_switcher_dialog.dart';
+import 'package:crypto_mobile_app/features/perf/providers/perf_benchmark_provider.dart';
 import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 import 'package:go_router/go_router.dart';
@@ -434,8 +436,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     final themeMode = ref.watch(themeModeProvider);
     final zkSettings = ref.watch(zkPassportSettingsProvider);
+    final perfState = ref.watch(perfBenchmarkProvider);
     final facematchStrict =
         zkSettings.whenOrNull(data: (s) => s.facematchStrict) ?? true;
+    final hasCurrentBenchmarkRun = perfState.isStartingRun ||
+        perfState.isRunning ||
+        (perfState.activeRunId != null && !perfState.hasFinishedRun);
 
     return Scaffold(
       body: SafeArea(
@@ -466,6 +472,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 onAppearanceTap: _showThemePicker,
                 onBuildInfoTap: _showBuildInfo,
                 onBuildInfoLongPress: _onVersionLongPress,
+              ),
+
+              SizedBox(height: spacing.space24),
+
+              DiagnosticsSettingsSection(
+                onDeviceBenchmarkTap: () => context.push(
+                  hasCurrentBenchmarkRun
+                      ? AppRoutes.deviceBenchmarkRun
+                      : AppRoutes.deviceBenchmark,
+                ),
               ),
 
               SizedBox(height: spacing.space24),

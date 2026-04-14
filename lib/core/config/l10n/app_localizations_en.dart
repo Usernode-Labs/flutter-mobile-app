@@ -105,6 +105,298 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsBuildInfo => 'Build Info';
 
   @override
+  String get settingsDiagnostics => 'Diagnostics';
+
+  @override
+  String get settingsDeviceBenchmark => 'Device Benchmark';
+
+  @override
+  String get settingsDeviceBenchmarkSubtitle =>
+      'Run on-device performance measurements';
+
+  @override
+  String get perfTitle => 'Device Benchmark';
+
+  @override
+  String get perfIntroTitle => 'Run a benchmark on this device';
+
+  @override
+  String get perfIntroDescription =>
+      'Measure hashing, partial sync, block production, and wallet-send workloads to see how this device performs.';
+
+  @override
+  String get perfIntroNote =>
+      'Results stay on this device for now. Performance can vary with battery level, thermals, and background activity.';
+
+  @override
+  String get perfCatalogLoadError => 'Unable to load the benchmark catalog.';
+
+  @override
+  String get perfCatalogLoading => 'Loading benchmark catalog...';
+
+  @override
+  String get perfProfileQuick => 'Quick Check';
+
+  @override
+  String get perfProfileStandard => 'Full Benchmark';
+
+  @override
+  String perfRunProfile(String profile) {
+    return 'Run $profile';
+  }
+
+  @override
+  String perfStepCount(int count) {
+    return '$count steps';
+  }
+
+  @override
+  String get perfRunning => 'Running';
+
+  @override
+  String get perfCurrentRunTitle => 'Current Run';
+
+  @override
+  String get perfRunInProgressTitle => 'Benchmark In Progress';
+
+  @override
+  String perfRunInProgressDescription(String profile) {
+    return 'A $profile benchmark is already running on this device.';
+  }
+
+  @override
+  String get perfRunInProgressDescriptionUnknown =>
+      'A benchmark is already running on this device.';
+
+  @override
+  String get perfOpenCurrentRun => 'Open Current Run';
+
+  @override
+  String get perfLatestResultsTitle => 'Latest Results';
+
+  @override
+  String perfLatestResultsDescription(String profile) {
+    return '$profile results are ready to review.';
+  }
+
+  @override
+  String get perfLatestResultsDescriptionUnknown =>
+      'Benchmark results are ready to review.';
+
+  @override
+  String get perfViewLatestResults => 'View Latest Results';
+
+  @override
+  String get perfNoRunAvailableTitle => 'No Benchmark Run';
+
+  @override
+  String get perfNoRunAvailableDescription =>
+      'Start a benchmark from the benchmark screen to see progress or results here.';
+
+  @override
+  String get perfBackToBenchmarks => 'Back To Benchmarks';
+
+  @override
+  String get perfRunPausedNodeNotice =>
+      'Background node is paused while this benchmark runs.';
+
+  @override
+  String get perfStateRunning => 'Running';
+
+  @override
+  String get perfStateStarting => 'Starting';
+
+  @override
+  String get perfStateCompleted => 'Completed';
+
+  @override
+  String get perfStateFailed => 'Failed';
+
+  @override
+  String get perfStateCancelled => 'Cancelled';
+
+  @override
+  String perfProgressValue(int completed, int total) {
+    return '$completed of $total steps';
+  }
+
+  @override
+  String perfPreparingProfile(String profile) {
+    return 'Preparing $profile';
+  }
+
+  @override
+  String perfCurrentStep(String label) {
+    return 'Current step: $label';
+  }
+
+  @override
+  String perfElapsed(String duration) {
+    return 'Elapsed: $duration';
+  }
+
+  @override
+  String get perfResultsTitle => 'Results';
+
+  @override
+  String get perfResultProfile => 'Profile';
+
+  @override
+  String get perfResultDevice => 'Device';
+
+  @override
+  String get perfResultOperatingSystem => 'OS';
+
+  @override
+  String get perfResultCpu => 'CPU';
+
+  @override
+  String get perfResultLogicalCores => 'Logical Cores';
+
+  @override
+  String get perfResultMeasurements => 'Measurements';
+
+  @override
+  String get perfSuitePrimitives => 'Primitives';
+
+  @override
+  String get perfSuitePartialSync => 'Partial Sync';
+
+  @override
+  String get perfSuitePartialBlockProduction => 'Block Production';
+
+  @override
+  String get perfSuiteWalletSend => 'Wallet Send';
+
+  @override
+  String perfMinMax(String minValue, String maxValue) {
+    return 'Min $minValue · Max $maxValue';
+  }
+
+  @override
+  String perfRuns(int count) {
+    return '$count runs';
+  }
+
+  @override
+  String perfFlow(String value) {
+    return 'Flow: $value';
+  }
+
+  @override
+  String get perfScenarioDefault => 'Default case';
+
+  @override
+  String perfContextTxCount(int count) {
+    return '$count tx';
+  }
+
+  @override
+  String perfContextReplayBlockCount(int count) {
+    return '$count replay blocks';
+  }
+
+  @override
+  String perfContextTxCountPerBlock(int count) {
+    return '$count tx/block';
+  }
+
+  @override
+  String perfContextBatchLayout(String value) {
+    return 'Layout $value';
+  }
+
+  @override
+  String perfContextTransactionShape(String value) {
+    return 'Shape $value';
+  }
+
+  @override
+  String perfContextProofNodes(int count) {
+    return '$count proof nodes';
+  }
+
+  @override
+  String perfContextAnchorProofNodes(int count) {
+    return '$count anchor proof nodes';
+  }
+
+  @override
+  String perfContextReplayBlockProofNodes(int count) {
+    return '$count replay proof nodes';
+  }
+
+  @override
+  String perfContextProofSize(String size) {
+    return '$size proof';
+  }
+
+  @override
+  String perfContextTouchedLeaves(String count) {
+    return '$count touched leaves';
+  }
+
+  @override
+  String get perfDetailScenario => 'Scenario';
+
+  @override
+  String get perfDetailAverage => 'Average';
+
+  @override
+  String get perfDetailMinMax => 'Min / Max';
+
+  @override
+  String get perfDetailRuns => 'Runs';
+
+  @override
+  String get perfDetailMetadataTitle => 'Scenario Details';
+
+  @override
+  String get perfDetailImplementationTitle => 'Implementation Details';
+
+  @override
+  String get perfDetailNotesTitle => 'Notes';
+
+  @override
+  String get perfDetailFlow => 'Flow';
+
+  @override
+  String get perfDetailTxCount => 'Transaction Count';
+
+  @override
+  String get perfDetailReplayBlockCount => 'Replay Blocks';
+
+  @override
+  String get perfDetailTxCountPerBlock => 'Transactions Per Block';
+
+  @override
+  String get perfDetailBatchLayout => 'Batch Layout';
+
+  @override
+  String get perfDetailTransactionShape => 'Transaction Shape';
+
+  @override
+  String get perfDetailTouchedLeaves => 'Touched Leaves';
+
+  @override
+  String get perfDetailProofNodes => 'Proof Nodes';
+
+  @override
+  String get perfDetailAnchorProofNodes => 'Anchor Proof Nodes';
+
+  @override
+  String get perfDetailReplayBlockProofNodes => 'Replay Proof Nodes';
+
+  @override
+  String get perfDetailProofSize => 'Proof Size';
+
+  @override
+  String get perfCancelFailed => 'Unable to cancel the current benchmark run.';
+
+  @override
+  String get perfRunUnavailable => 'This benchmark run is no longer available.';
+
+  @override
   String get bgProdWhatIs => 'What is Block Production?';
 
   @override
@@ -1165,6 +1457,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get commonCancel => 'Cancel';
+
+  @override
+  String get commonRetry => 'Retry';
 
   @override
   String get commonEnable => 'Enable';

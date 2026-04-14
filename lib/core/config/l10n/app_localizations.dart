@@ -280,6 +280,492 @@ abstract class AppLocalizations {
   /// **'Build Info'**
   String get settingsBuildInfo;
 
+  /// Diagnostics section header in settings
+  ///
+  /// In en, this message translates to:
+  /// **'Diagnostics'**
+  String get settingsDiagnostics;
+
+  /// Settings tile title for the device benchmark screen
+  ///
+  /// In en, this message translates to:
+  /// **'Device Benchmark'**
+  String get settingsDeviceBenchmark;
+
+  /// Settings tile subtitle for the device benchmark screen
+  ///
+  /// In en, this message translates to:
+  /// **'Run on-device performance measurements'**
+  String get settingsDeviceBenchmarkSubtitle;
+
+  /// Title for the device benchmark screen
+  ///
+  /// In en, this message translates to:
+  /// **'Device Benchmark'**
+  String get perfTitle;
+
+  /// Intro card title for the device benchmark screen
+  ///
+  /// In en, this message translates to:
+  /// **'Run a benchmark on this device'**
+  String get perfIntroTitle;
+
+  /// Intro description for the device benchmark screen
+  ///
+  /// In en, this message translates to:
+  /// **'Measure hashing, partial sync, block production, and wallet-send workloads to see how this device performs.'**
+  String get perfIntroDescription;
+
+  /// Intro note for the device benchmark screen
+  ///
+  /// In en, this message translates to:
+  /// **'Results stay on this device for now. Performance can vary with battery level, thermals, and background activity.'**
+  String get perfIntroNote;
+
+  /// Fallback error shown when the benchmark catalog cannot be loaded
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load the benchmark catalog.'**
+  String get perfCatalogLoadError;
+
+  /// Status text shown while the benchmark catalog is being loaded
+  ///
+  /// In en, this message translates to:
+  /// **'Loading benchmark catalog...'**
+  String get perfCatalogLoading;
+
+  /// Label for the quick device benchmark profile
+  ///
+  /// In en, this message translates to:
+  /// **'Quick Check'**
+  String get perfProfileQuick;
+
+  /// Label for the standard device benchmark profile
+  ///
+  /// In en, this message translates to:
+  /// **'Full Benchmark'**
+  String get perfProfileStandard;
+
+  /// Button label for running a benchmark profile
+  ///
+  /// In en, this message translates to:
+  /// **'Run {profile}'**
+  String perfRunProfile(String profile);
+
+  /// Label showing how many steps a benchmark profile runs
+  ///
+  /// In en, this message translates to:
+  /// **'{count} steps'**
+  String perfStepCount(int count);
+
+  /// Button label shown while a benchmark run is in progress
+  ///
+  /// In en, this message translates to:
+  /// **'Running'**
+  String get perfRunning;
+
+  /// Section title for the active benchmark run card
+  ///
+  /// In en, this message translates to:
+  /// **'Current Run'**
+  String get perfCurrentRunTitle;
+
+  /// Launcher card title shown when a benchmark is already running
+  ///
+  /// In en, this message translates to:
+  /// **'Benchmark In Progress'**
+  String get perfRunInProgressTitle;
+
+  /// Launcher description shown when a benchmark is already running
+  ///
+  /// In en, this message translates to:
+  /// **'A {profile} benchmark is already running on this device.'**
+  String perfRunInProgressDescription(String profile);
+
+  /// Launcher description shown when a benchmark is already running but the profile is unknown
+  ///
+  /// In en, this message translates to:
+  /// **'A benchmark is already running on this device.'**
+  String get perfRunInProgressDescriptionUnknown;
+
+  /// Button label used to open the dedicated current benchmark run screen
+  ///
+  /// In en, this message translates to:
+  /// **'Open Current Run'**
+  String get perfOpenCurrentRun;
+
+  /// Launcher card title shown when a benchmark result is available
+  ///
+  /// In en, this message translates to:
+  /// **'Latest Results'**
+  String get perfLatestResultsTitle;
+
+  /// Launcher description shown when benchmark results are available
+  ///
+  /// In en, this message translates to:
+  /// **'{profile} results are ready to review.'**
+  String perfLatestResultsDescription(String profile);
+
+  /// Launcher description shown when benchmark results are available but the profile is unknown
+  ///
+  /// In en, this message translates to:
+  /// **'Benchmark results are ready to review.'**
+  String get perfLatestResultsDescriptionUnknown;
+
+  /// Button label used to open the latest benchmark results screen
+  ///
+  /// In en, this message translates to:
+  /// **'View Latest Results'**
+  String get perfViewLatestResults;
+
+  /// Title shown on the run screen when no benchmark is available
+  ///
+  /// In en, this message translates to:
+  /// **'No Benchmark Run'**
+  String get perfNoRunAvailableTitle;
+
+  /// Description shown on the run screen when no benchmark is available
+  ///
+  /// In en, this message translates to:
+  /// **'Start a benchmark from the benchmark screen to see progress or results here.'**
+  String get perfNoRunAvailableDescription;
+
+  /// Button label used to return to the benchmark launcher
+  ///
+  /// In en, this message translates to:
+  /// **'Back To Benchmarks'**
+  String get perfBackToBenchmarks;
+
+  /// Notice shown on the run screen indicating the background node is paused
+  ///
+  /// In en, this message translates to:
+  /// **'Background node is paused while this benchmark runs.'**
+  String get perfRunPausedNodeNotice;
+
+  /// Label for a running benchmark
+  ///
+  /// In en, this message translates to:
+  /// **'Running'**
+  String get perfStateRunning;
+
+  /// Label for a benchmark that is starting up before the first status update arrives
+  ///
+  /// In en, this message translates to:
+  /// **'Starting'**
+  String get perfStateStarting;
+
+  /// Label for a completed benchmark
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get perfStateCompleted;
+
+  /// Label for a failed benchmark
+  ///
+  /// In en, this message translates to:
+  /// **'Failed'**
+  String get perfStateFailed;
+
+  /// Label for a cancelled benchmark
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled'**
+  String get perfStateCancelled;
+
+  /// Progress label for a benchmark run
+  ///
+  /// In en, this message translates to:
+  /// **'{completed} of {total} steps'**
+  String perfProgressValue(int completed, int total);
+
+  /// Status detail shown while a benchmark profile is starting
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing {profile}'**
+  String perfPreparingProfile(String profile);
+
+  /// Label for the current benchmark step
+  ///
+  /// In en, this message translates to:
+  /// **'Current step: {label}'**
+  String perfCurrentStep(String label);
+
+  /// Elapsed time label for a benchmark run
+  ///
+  /// In en, this message translates to:
+  /// **'Elapsed: {duration}'**
+  String perfElapsed(String duration);
+
+  /// Section title for benchmark results
+  ///
+  /// In en, this message translates to:
+  /// **'Results'**
+  String get perfResultsTitle;
+
+  /// Summary row label for benchmark profile
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get perfResultProfile;
+
+  /// Summary row label for device model
+  ///
+  /// In en, this message translates to:
+  /// **'Device'**
+  String get perfResultDevice;
+
+  /// Summary row label for operating system
+  ///
+  /// In en, this message translates to:
+  /// **'OS'**
+  String get perfResultOperatingSystem;
+
+  /// Summary row label for CPU architecture
+  ///
+  /// In en, this message translates to:
+  /// **'CPU'**
+  String get perfResultCpu;
+
+  /// Summary row label for CPU core count
+  ///
+  /// In en, this message translates to:
+  /// **'Logical Cores'**
+  String get perfResultLogicalCores;
+
+  /// Summary row label for measurement count
+  ///
+  /// In en, this message translates to:
+  /// **'Measurements'**
+  String get perfResultMeasurements;
+
+  /// Benchmark suite label for primitive operations
+  ///
+  /// In en, this message translates to:
+  /// **'Primitives'**
+  String get perfSuitePrimitives;
+
+  /// Benchmark suite label for partial sync
+  ///
+  /// In en, this message translates to:
+  /// **'Partial Sync'**
+  String get perfSuitePartialSync;
+
+  /// Benchmark suite label for partial block production
+  ///
+  /// In en, this message translates to:
+  /// **'Block Production'**
+  String get perfSuitePartialBlockProduction;
+
+  /// Benchmark suite label for wallet send
+  ///
+  /// In en, this message translates to:
+  /// **'Wallet Send'**
+  String get perfSuiteWalletSend;
+
+  /// Label showing min and max measurement timings
+  ///
+  /// In en, this message translates to:
+  /// **'Min {minValue} · Max {maxValue}'**
+  String perfMinMax(String minValue, String maxValue);
+
+  /// Label showing the sample run count for a measurement
+  ///
+  /// In en, this message translates to:
+  /// **'{count} runs'**
+  String perfRuns(int count);
+
+  /// Label showing the flow description for a measurement row
+  ///
+  /// In en, this message translates to:
+  /// **'Flow: {value}'**
+  String perfFlow(String value);
+
+  /// Label for a benchmark scenario that has no additional fixture-specific context
+  ///
+  /// In en, this message translates to:
+  /// **'Default case'**
+  String get perfScenarioDefault;
+
+  /// Label for a block-sized benchmark scenario transaction count
+  ///
+  /// In en, this message translates to:
+  /// **'{count} tx'**
+  String perfContextTxCount(int count);
+
+  /// Label for a replay benchmark scenario block count
+  ///
+  /// In en, this message translates to:
+  /// **'{count} replay blocks'**
+  String perfContextReplayBlockCount(int count);
+
+  /// Label for a replay benchmark scenario transaction count per block
+  ///
+  /// In en, this message translates to:
+  /// **'{count} tx/block'**
+  String perfContextTxCountPerBlock(int count);
+
+  /// Label for a benchmark scenario batch layout
+  ///
+  /// In en, this message translates to:
+  /// **'Layout {value}'**
+  String perfContextBatchLayout(String value);
+
+  /// Label for a benchmark scenario transaction shape
+  ///
+  /// In en, this message translates to:
+  /// **'Shape {value}'**
+  String perfContextTransactionShape(String value);
+
+  /// Label for a benchmark scenario proof node count
+  ///
+  /// In en, this message translates to:
+  /// **'{count} proof nodes'**
+  String perfContextProofNodes(int count);
+
+  /// Label for a replay benchmark scenario anchor proof node count
+  ///
+  /// In en, this message translates to:
+  /// **'{count} anchor proof nodes'**
+  String perfContextAnchorProofNodes(int count);
+
+  /// Label for a replay benchmark scenario block proof node count
+  ///
+  /// In en, this message translates to:
+  /// **'{count} replay proof nodes'**
+  String perfContextReplayBlockProofNodes(int count);
+
+  /// Label for a benchmark scenario proof size
+  ///
+  /// In en, this message translates to:
+  /// **'{size} proof'**
+  String perfContextProofSize(String size);
+
+  /// Label for a benchmark scenario touched leaf count
+  ///
+  /// In en, this message translates to:
+  /// **'{count} touched leaves'**
+  String perfContextTouchedLeaves(String count);
+
+  /// Summary label for a benchmark result scenario
+  ///
+  /// In en, this message translates to:
+  /// **'Scenario'**
+  String get perfDetailScenario;
+
+  /// Summary label for the average runtime of a benchmark result
+  ///
+  /// In en, this message translates to:
+  /// **'Average'**
+  String get perfDetailAverage;
+
+  /// Summary label for the min and max runtime of a benchmark result
+  ///
+  /// In en, this message translates to:
+  /// **'Min / Max'**
+  String get perfDetailMinMax;
+
+  /// Summary label for the number of repeated runs in a benchmark result
+  ///
+  /// In en, this message translates to:
+  /// **'Runs'**
+  String get perfDetailRuns;
+
+  /// Section title for benchmark result scenario metadata
+  ///
+  /// In en, this message translates to:
+  /// **'Scenario Details'**
+  String get perfDetailMetadataTitle;
+
+  /// Section title for lower-level benchmark result details
+  ///
+  /// In en, this message translates to:
+  /// **'Implementation Details'**
+  String get perfDetailImplementationTitle;
+
+  /// Section title for benchmark result notes
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get perfDetailNotesTitle;
+
+  /// Summary label for benchmark result flow details
+  ///
+  /// In en, this message translates to:
+  /// **'Flow'**
+  String get perfDetailFlow;
+
+  /// Summary label for benchmark result transaction count
+  ///
+  /// In en, this message translates to:
+  /// **'Transaction Count'**
+  String get perfDetailTxCount;
+
+  /// Summary label for benchmark result replay block count
+  ///
+  /// In en, this message translates to:
+  /// **'Replay Blocks'**
+  String get perfDetailReplayBlockCount;
+
+  /// Summary label for benchmark result transactions per replay block
+  ///
+  /// In en, this message translates to:
+  /// **'Transactions Per Block'**
+  String get perfDetailTxCountPerBlock;
+
+  /// Summary label for benchmark result batch layout
+  ///
+  /// In en, this message translates to:
+  /// **'Batch Layout'**
+  String get perfDetailBatchLayout;
+
+  /// Summary label for benchmark result transaction shape
+  ///
+  /// In en, this message translates to:
+  /// **'Transaction Shape'**
+  String get perfDetailTransactionShape;
+
+  /// Summary label for benchmark result touched leaf count
+  ///
+  /// In en, this message translates to:
+  /// **'Touched Leaves'**
+  String get perfDetailTouchedLeaves;
+
+  /// Summary label for benchmark result proof node count
+  ///
+  /// In en, this message translates to:
+  /// **'Proof Nodes'**
+  String get perfDetailProofNodes;
+
+  /// Summary label for benchmark result anchor proof node count
+  ///
+  /// In en, this message translates to:
+  /// **'Anchor Proof Nodes'**
+  String get perfDetailAnchorProofNodes;
+
+  /// Summary label for benchmark result replay proof node count
+  ///
+  /// In en, this message translates to:
+  /// **'Replay Proof Nodes'**
+  String get perfDetailReplayBlockProofNodes;
+
+  /// Summary label for benchmark result proof size
+  ///
+  /// In en, this message translates to:
+  /// **'Proof Size'**
+  String get perfDetailProofSize;
+
+  /// Error shown when cancelling a benchmark run fails
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to cancel the current benchmark run.'**
+  String get perfCancelFailed;
+
+  /// Error shown when a benchmark run can no longer be queried
+  ///
+  /// In en, this message translates to:
+  /// **'This benchmark run is no longer available.'**
+  String get perfRunUnavailable;
+
   /// Background production explanation title
   ///
   /// In en, this message translates to:
@@ -2115,6 +2601,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Cancel'**
   String get commonCancel;
+
+  /// Retry button text
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get commonRetry;
 
   /// Enable button text
   ///

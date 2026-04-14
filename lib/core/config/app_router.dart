@@ -25,6 +25,10 @@ import 'package:crypto_mobile_app/features/zk_identity/screens/zk_identity_flow_
 import 'package:crypto_mobile_app/features/challenges/screens/challenge_detail_screen.dart';
 import 'package:crypto_mobile_app/features/challenges/screens/epoch_performance_screen.dart';
 import 'package:crypto_mobile_app/features/leaderboard/screens/leaderboard_screen.dart';
+import 'package:crypto_mobile_app/features/perf/presentation/perf_benchmark_ui.dart';
+import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benchmark_screen.dart';
+import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benchmark_result_detail_screen.dart';
+import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benchmark_run_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/screens/send_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/screens/transaction_success_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/screens/transaction_failed_screen.dart';
@@ -70,6 +74,10 @@ class AppRoutes {
   static const challengeDetail = '/challenges/detail';
   static const epochPerformance = '/challenges/epoch-performance';
   static const leaderboard = '/challenges/leaderboard';
+  static const deviceBenchmark = '/settings/device-benchmark';
+  static const deviceBenchmarkRun = '/settings/device-benchmark/run';
+  static const deviceBenchmarkResultDetail =
+      '/settings/device-benchmark/result';
 
   // ZK Identity
   static const zkIdentityDetail = '/challenges/zk-identity';
@@ -236,6 +244,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.walletSend,
         builder: (context, state) => const SendScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.deviceBenchmark,
+        builder: (context, state) => const DeviceBenchmarkScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.deviceBenchmarkRun,
+        builder: (context, state) => const DeviceBenchmarkRunScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.deviceBenchmarkResultDetail,
+        builder: (context, state) {
+          final extra = state.extra as DeviceBenchmarkResultDetailArgs;
+          return DeviceBenchmarkResultDetailScreen(args: extra);
+        },
       ),
       GoRoute(
         path: AppRoutes.walletBurst,

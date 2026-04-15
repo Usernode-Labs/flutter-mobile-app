@@ -362,14 +362,14 @@ class PlatformAlarmService {
     }
   }
 
-  /// Schedule an exact alarm for a specific time
+  /// Schedule an exact alarm using a resolved delay.
   ///
   /// Android: Schedules exact alarm + starts Foreground Service
   /// iOS: Schedules BGProcessingTask + local notification
   Future<bool> scheduleAlarm({
     required String alarmId,
-    required DateTime alarmTime,
     required int slotNumber,
+    required int delayMs,
     Map<String, dynamic>? data,
   }) async {
     if (!_initialized) {
@@ -385,8 +385,8 @@ class PlatformAlarmService {
     try {
       final params = {
         'alarmId': alarmId,
-        'alarmTimeMs': alarmTime.millisecondsSinceEpoch,
         'slotNumber': slotNumber,
+        'delayMs': delayMs < 0 ? 0 : delayMs,
         'data': data ?? {},
       };
 

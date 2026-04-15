@@ -21,6 +21,38 @@ class AppLocalizationsEn extends AppLocalizations {
   String get node => 'Node';
 
   @override
+  String get clockDriftWarningTitle => 'System time incorrect';
+
+  @override
+  String clockDriftWarningBody(String drift) {
+    return 'Your device clock differs from the node clock by $drift. You might see some inconsistencies in the app until your system time is corrected.';
+  }
+
+  @override
+  String get clockDriftWarningInstruction =>
+      'Enable automatic time sync on your device.';
+
+  @override
+  String get clockDriftRecommendationTitle => 'Recommendation';
+
+  @override
+  String get clockDriftRecommendationBody =>
+      'To ensure minimum drift, keep \"Automatic date & time\" and \"Automatic time zone\" enabled in settings, which forces the device to query network time.';
+
+  @override
+  String get clockDriftDismiss => 'OK';
+
+  @override
+  String clockDriftAhead(String seconds) {
+    return '${seconds}s ahead';
+  }
+
+  @override
+  String clockDriftBehind(String seconds) {
+    return '${seconds}s behind';
+  }
+
+  @override
   String get sendFeedback => 'Send Feedback';
 
   @override

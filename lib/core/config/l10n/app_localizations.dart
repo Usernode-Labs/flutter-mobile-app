@@ -118,6 +118,54 @@ abstract class AppLocalizations {
   /// **'Node'**
   String get node;
 
+  /// Title for the clock drift warning dialog
+  ///
+  /// In en, this message translates to:
+  /// **'System time incorrect'**
+  String get clockDriftWarningTitle;
+
+  /// Body text for the clock drift warning dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Your device clock differs from the node clock by {drift}. You might see some inconsistencies in the app until your system time is corrected.'**
+  String clockDriftWarningBody(String drift);
+
+  /// Instruction for fixing clock drift
+  ///
+  /// In en, this message translates to:
+  /// **'Enable automatic time sync on your device.'**
+  String get clockDriftWarningInstruction;
+
+  /// Recommendation heading in the clock drift warning dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Recommendation'**
+  String get clockDriftRecommendationTitle;
+
+  /// Recommendation body in the clock drift warning dialog
+  ///
+  /// In en, this message translates to:
+  /// **'To ensure minimum drift, keep \"Automatic date & time\" and \"Automatic time zone\" enabled in settings, which forces the device to query network time.'**
+  String get clockDriftRecommendationBody;
+
+  /// Dismiss button label for the clock drift warning dialog
+  ///
+  /// In en, this message translates to:
+  /// **'OK'**
+  String get clockDriftDismiss;
+
+  /// Describes a positive clock drift
+  ///
+  /// In en, this message translates to:
+  /// **'{seconds}s ahead'**
+  String clockDriftAhead(String seconds);
+
+  /// Describes a negative clock drift
+  ///
+  /// In en, this message translates to:
+  /// **'{seconds}s behind'**
+  String clockDriftBehind(String seconds);
+
   /// Send feedback button text
   ///
   /// In en, this message translates to:

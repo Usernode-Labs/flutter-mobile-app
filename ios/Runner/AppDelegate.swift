@@ -161,8 +161,8 @@ import UserNotifications
       print("[AppDelegate] scheduleIOSBGTask called")
       guard let args = call.arguments as? [String: Any],
             let alarmId = args["alarmId"] as? String,
-            let alarmTimeMs = args["alarmTimeMs"] as? Int64,
-            let slotNumber = args["slotNumber"] as? Int else {
+            let delayMs = (args["delayMs"] as? NSNumber)?.int64Value,
+            let slotNumber = (args["slotNumber"] as? NSNumber)?.intValue else {
         print("[AppDelegate] ✗ Invalid arguments for scheduleIOSBGTask")
         result(FlutterError(code: "INVALID_ARGS", message: "Missing arguments", details: nil))
         return
@@ -171,7 +171,7 @@ import UserNotifications
       if #available(iOS 13.0, *) {
         let success = bgTaskScheduler.scheduleBGTask(
           alarmId: alarmId,
-          alarmTimeMs: alarmTimeMs,
+          delayMs: delayMs,
           slotNumber: slotNumber
         )
         print("[AppDelegate] BGTask scheduling result: \(success)")

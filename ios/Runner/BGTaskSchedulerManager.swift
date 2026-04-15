@@ -50,16 +50,19 @@ class BGTaskSchedulerManager {
     }
 
     // Schedule a BGProcessingTask for a specific slot
-    func scheduleBGTask(alarmId: String, alarmTimeMs: Int64, slotNumber: Int) -> Bool {
+    func scheduleBGTask(
+        alarmId: String,
+        delayMs: Int64,
+        slotNumber: Int
+    ) -> Bool {
         print("[BGTaskScheduler] Scheduling BGTask for slot \(slotNumber)")
-        print("[BGTaskScheduler] AlarmId: \(alarmId), AlarmTimeMs: \(alarmTimeMs)")
+        print("[BGTaskScheduler] AlarmId: \(alarmId), DelayMs: \(delayMs)")
 
         let request = BGProcessingTaskRequest(identifier: taskIdentifier)
 
-        // Schedule for the alarm time
-        let alarmDate = Date(timeIntervalSince1970: Double(alarmTimeMs) / 1000.0)
-        let delaySeconds = alarmDate.timeIntervalSinceNow
-        print("[BGTaskScheduler] EarliestBeginDate: \(alarmDate), Delay: \(Int(delaySeconds))s")
+        let effectiveDelayMs = max(delayMs, Int64(0))
+        let alarmDate = Date().addingTimeInterval(Double(effectiveDelayMs) / 1000.0)
+        print("[BGTaskScheduler] EarliestBeginDate: \(alarmDate), Delay: \(effectiveDelayMs)ms")
 
         request.earliestBeginDate = alarmDate
 
@@ -76,7 +79,7 @@ class BGTaskSchedulerManager {
             print("[BGTaskScheduler] Sending ios_bgtask_scheduled event to Flutter")
             let eventData: [String: Any] = [
                 "slotNumber": slotNumber,
-                "scheduledTime": alarmTimeMs
+                "scheduledTime": Int64(alarmDate.timeIntervalSince1970 * 1000)
             ]
             DispatchQueue.main.async {
                 AppDelegate.shared?.sendEventToFlutter(eventType: "ios_bgtask_scheduled", eventData: eventData)

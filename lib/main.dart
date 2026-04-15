@@ -23,6 +23,7 @@ import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/providers/metrics_provider.dart';
 import 'package:crypto_mobile_app/core/providers/produced_blocks_provider.dart';
 import 'package:crypto_mobile_app/core/services/app_version_check.dart';
+import 'package:crypto_mobile_app/core/widgets/clock_drift_warning_overlay.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 
 Timer? _headlessProducedBlocksRefreshTimer;
@@ -406,6 +407,11 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
 
   @override
   Widget build(BuildContext context) {
-    return widget.child ?? const SizedBox.shrink();
+    return Stack(
+      children: [
+        Positioned.fill(child: widget.child ?? const SizedBox.shrink()),
+        const ClockDriftWarningOverlay(),
+      ],
+    );
   }
 }

@@ -258,6 +258,9 @@ bool _initialFromGenesis = false;
 BigInt _rewardsPerBlock = BigInt.zero;
 
 Future<dynamic> _buildProducedBlocksPreWork() async {
+  final localNowMs = DateTime.now().millisecondsSinceEpoch;
+  int? rustNowMs;
+
   // Prefer a time-based model anchored at the chain genesis timestamp.
   // We compute genesis once from status.bestTip and reuse it, so subsequent
   // calls avoid the expensive status RPC and simply advance time locally.
@@ -269,6 +272,7 @@ Future<dynamic> _buildProducedBlocksPreWork() async {
           await RustBackendService.instance.getStatus(includeVrfDetails: false);
       final node = status?.node;
       final blockchain = status?.blockchain;
+      rustNowMs = node?.timeMs.toInt();
 
       if (status != null && node != null && blockchain != null) {
         _initialStatusNode = node;
@@ -289,7 +293,7 @@ Future<dynamic> _buildProducedBlocksPreWork() async {
         // Fallback: we couldn't get full status; fall back to node-only snapshot.
         _initialStatusNode ??=
             await RustBackendService.instance.getStatusNode();
-        _initialTimestampMs = DateTime.now().millisecondsSinceEpoch;
+        _initialTimestampMs = localNowMs;
         _initialFromGenesis = false;
         _log.warn(
             'Failed to compute genesis timestamp; falling back to local snapshot time');
@@ -301,10 +305,12 @@ Future<dynamic> _buildProducedBlocksPreWork() async {
         stackTrace: st,
       );
       _initialStatusNode ??= await RustBackendService.instance.getStatusNode();
-      _initialTimestampMs = DateTime.now().millisecondsSinceEpoch;
+      _initialTimestampMs = localNowMs;
       _initialFromGenesis = false;
     }
   }
+
+  rustNowMs ??= await RustBackendService.instance.resolveCurrentRustTimeMs();
 
   // TODO this should include the hash of the genesis block
   if (networkPrefix == '') {
@@ -327,7 +333,7 @@ Future<dynamic> _buildProducedBlocksPreWork() async {
       _initialFromGenesis = true;
 
       // Use default values for missing node status
-      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      final nowMs = rustNowMs ?? localNowMs;
       const defaultSlotMs = 5000; // 5 seconds default slot duration
       const defaultSlotsInEpoch = 17280; // 17280 slots per epoch default
 
@@ -352,7 +358,6 @@ Future<dynamic> _buildProducedBlocksPreWork() async {
         'Cannot build produced blocks: node status unavailable and genesis timestamp fallback failed. Is the backend running?');
   }
 
-  final nowMs = DateTime.now().millisecondsSinceEpoch;
   final slotMs = statusNode.blockInterval;
 
   // TODO; would use currentGlobalSlot, but node status api is slow to
@@ -361,11 +366,12 @@ Future<dynamic> _buildProducedBlocksPreWork() async {
   int currentGlobalSlot;
   if (_initialFromGenesis) {
     // Time since genesis, divided by slot duration.
+    final nowMs = rustNowMs ?? localNowMs;
     currentGlobalSlot =
         slotMs > 0 ? (nowMs - _initialTimestampMs) ~/ slotMs : 0;
   } else {
     // Legacy behavior: advance from the snapshot slot using wall-clock delta.
-    final passedTime = nowMs - _initialTimestampMs;
+    final passedTime = localNowMs - _initialTimestampMs;
     final curSlot = statusNode.curGlobalSlot;
     if (curSlot == null) {
       throw StateError(

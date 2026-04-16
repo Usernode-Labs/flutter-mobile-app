@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/providers/produced_blocks_provider.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:go_router/go_router.dart';
@@ -44,6 +45,7 @@ class _ParsedItem {
 }
 
 class _SlotAssignmentsScreenState extends ConsumerState<SlotAssignmentsScreen> {
+  final _appSleepService = AppSleepService.instance;
   _Filter _selected = _Filter.wonSlots;
   bool _isInitialFilter = true;
   Timer? _autoRefreshTimer;
@@ -55,6 +57,7 @@ class _SlotAssignmentsScreenState extends ConsumerState<SlotAssignmentsScreen> {
   @override
   void initState() {
     super.initState();
+    _appSleepService.addListener(_handleAppSleepChanged);
     final filters = (widget.args?['filters'] as List?)?.cast<String>();
     if (filters != null && filters.isNotEmpty) {
       if (filters.contains('all')) {
@@ -81,13 +84,16 @@ class _SlotAssignmentsScreenState extends ConsumerState<SlotAssignmentsScreen> {
 
   @override
   void dispose() {
+    _appSleepService.removeListener(_handleAppSleepChanged);
     _autoRefreshTimer?.cancel();
     super.dispose();
   }
 
   void _startAutoRefresh() {
+    if (_appSleepService.isSleeping) return;
     _autoRefreshTimer?.cancel();
     _autoRefreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (_appSleepService.isSleeping) return;
       if (!mounted || _refreshing) return;
       _refreshSummary();
     });
@@ -115,6 +121,18 @@ class _SlotAssignmentsScreenState extends ConsumerState<SlotAssignmentsScreen> {
     } finally {
       _refreshing = false;
     }
+  }
+
+  void _handleAppSleepChanged() {
+    if (!mounted) return;
+    if (_appSleepService.isSleeping) {
+      _autoRefreshTimer?.cancel();
+      _autoRefreshTimer = null;
+      return;
+    }
+
+    _startAutoRefresh();
+    unawaited(_refreshSummary());
   }
 
   // ---------------------------------------------------------------------------

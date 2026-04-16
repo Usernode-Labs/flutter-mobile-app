@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/widgets/app_card.dart';
 import 'package:crypto_mobile_app/core/providers/node_data_providers.dart';
+import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_sizing.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
@@ -49,13 +50,17 @@ class NodeWonSlotsScreen extends ConsumerStatefulWidget {
 }
 
 class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
+  final _appSleepService = AppSleepService.instance;
   Timer? _autoTimer;
   bool _refreshing = false;
 
   @override
   void initState() {
     super.initState();
+    _appSleepService.addListener(_handleAppSleepChanged);
+    if (_appSleepService.isSleeping) return;
     _autoTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (_appSleepService.isSleeping) return;
       if (mounted && !_refreshing) {
         _refresh();
       }
@@ -64,6 +69,7 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
 
   @override
   void dispose() {
+    _appSleepService.removeListener(_handleAppSleepChanged);
     _autoTimer?.cancel();
     super.dispose();
   }
@@ -81,6 +87,24 @@ class _NodeWonSlotsScreenState extends ConsumerState<NodeWonSlotsScreen> {
         _refreshing = false;
       }
     }
+  }
+
+  void _handleAppSleepChanged() {
+    if (!mounted) return;
+    if (_appSleepService.isSleeping) {
+      _autoTimer?.cancel();
+      _autoTimer = null;
+      return;
+    }
+
+    _autoTimer?.cancel();
+    _autoTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (_appSleepService.isSleeping) return;
+      if (mounted && !_refreshing) {
+        _refresh();
+      }
+    });
+    unawaited(_refresh());
   }
 
   @override

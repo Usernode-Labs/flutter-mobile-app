@@ -11,6 +11,7 @@ import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
 import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
+import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/services/epoch_slot_scheduler_service.dart';
 import 'package:crypto_mobile_app/core/services/ios_foreground_keepalive_service.dart';
@@ -60,6 +61,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  final _appSleepService = AppSleepService.instance;
   bool _hasPermissions = false;
   bool _batteryOptDisabled = false;
   String? _deviceManufacturer;
@@ -74,6 +76,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   void initState() {
     super.initState();
+    _appSleepService.addListener(_handleAppSleepChanged);
     _checkStatus();
     _loadPackageInfo();
     _active = _isActiveTab();
@@ -99,6 +102,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   void dispose() {
+    _appSleepService.removeListener(_handleAppSleepChanged);
     _autoTimer?.cancel();
     _longPressTimer?.cancel();
     super.dispose();
@@ -113,8 +117,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   void _startTimer() {
+    if (_appSleepService.isSleeping) return;
     _autoTimer?.cancel();
     _autoTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (_appSleepService.isSleeping) return;
       if (mounted && _active && !_refreshing) {
         _checkStatus();
       }
@@ -124,6 +130,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   void _stopTimer() {
     _autoTimer?.cancel();
     _autoTimer = null;
+  }
+
+  void _handleAppSleepChanged() {
+    if (!mounted) return;
+    if (_appSleepService.isSleeping) {
+      _stopTimer();
+      return;
+    }
+
+    if (_active) {
+      _startTimer();
+      unawaited(_checkStatus());
+    }
   }
 
   Future<void> _checkStatus() async {
@@ -428,6 +447,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _resetChallengeState() => resetChallengeState(ref, context);
 
+  Future<void> _toggleAppSleep(bool value) async {
+    await _appSleepService.setEnabled(value);
+    if (!mounted) return;
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -439,6 +464,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final perfState = ref.watch(perfBenchmarkProvider);
     final facematchStrict =
         zkSettings.whenOrNull(data: (s) => s.facematchStrict) ?? true;
+    final appSleepEnabled = _appSleepService.isEnabled;
     final hasCurrentBenchmarkRun = perfState.isStartingRun ||
         perfState.isRunning ||
         (perfState.activeRunId != null && !perfState.hasFinishedRun);
@@ -469,7 +495,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               GeneralSettingsSection(
                 currentThemeLabel: _themeModeLabel(themeMode),
                 buildInfoSubtitle: _buildInfoSubtitle,
+                appSleepEnabled: appSleepEnabled,
                 onAppearanceTap: _showThemePicker,
+                onAppSleepChanged: _toggleAppSleep,
                 onBuildInfoTap: _showBuildInfo,
                 onBuildInfoLongPress: _onVersionLongPress,
               ),

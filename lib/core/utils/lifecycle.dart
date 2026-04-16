@@ -1,10 +1,8 @@
 import 'dart:async';
-import 'dart:io';
+import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:flutter/widgets.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
-import '../../features/node/node_service.dart';
 import '../../features/metrics/metrics_collector_service.dart';
-import '../services/android_foreground_task_controller.dart';
 
 final _log = LoggingService.instance.withTag('usernode/Lifecycle');
 
@@ -40,6 +38,7 @@ class AppLifecycleLogger with WidgetsBindingObserver {
 
     // Update metrics collector with new state
     MetricsCollectorService.instance.updateAppLifecycleState(state);
+    await AppSleepService.instance.handleLifecycleStateChanged(state);
 
     switch (state) {
       case AppLifecycleState.resumed:
@@ -68,15 +67,8 @@ class AppLifecycleLogger with WidgetsBindingObserver {
     try {
       _log.info('Handling app resume...');
 
-      // 1. Check and restart node if needed (Android only)
-      if (Platform.isAndroid) {
-        await _ensureNodeRunning();
-      }
-
-      // 2. Check for epoch transition and reschedule if needed
-      await _checkEpochTransition();
-
-      // 3. Verify scheduled alarms still exist
+      // Native wake/resume is handled by AppSleepService. Resume work here
+      // should be limited to foreground-only recovery tasks.
       await _verifyScheduledAlarms();
 
       _log.info('App resume handling complete');
@@ -91,38 +83,6 @@ class AppLifecycleLogger with WidgetsBindingObserver {
   /// Handle app paused
   Future<void> _handleAppPaused() async {
     // Rust Node will be paused by the foreground service or MainActivity destructor.
-  }
-
-  /// Ensure node is running (Android only)
-  Future<void> _ensureNodeRunning() async {
-    try {
-      final rustBackend = RustBackendService.instance;
-
-      await rustBackend.startNode();
-      await rustBackend.resumeNode();
-
-      if (rustBackend.isRunning) {
-        _log.info('✓ Node successfully ensured running');
-      } else {
-        _log.error('✗ Failed to start and resume node');
-      }
-    } catch (e) {
-      _log.error('Error ensuring node running: $e');
-    }
-  }
-
-  /// Check if epoch has changed and reschedule slots if needed
-  ///
-  Future<void> _checkEpochTransition() async {
-    try {
-      if (!Platform.isAndroid) return;
-
-      _log.info('Resuming Android foreground VRF monitoring');
-      await AndroidForegroundTaskController.instance
-          .startMonitoring(reason: 'app_resumed');
-    } catch (e) {
-      _log.error('Error checking epoch transition: $e');
-    }
   }
 
   /// Verify that scheduled alarms still exist (could be cleared by system)

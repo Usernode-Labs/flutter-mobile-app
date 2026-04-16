@@ -11,6 +11,7 @@ import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/services/explorer_service.dart';
+import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/features/wallet/models/transaction_model.dart';
 import 'package:crypto_mobile_app/features/wallet/screens/wallet_delegates.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
@@ -33,6 +34,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
   final _scrollFraction = ValueNotifier<double>(0.0);
   String _address = 'Loading...';
   late final AnimationController _fabAnimController;
+  final _appSleepService = AppSleepService.instance;
   bool _fabOpen = false;
 
   @override
@@ -42,6 +44,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
       vsync: this,
       duration: const Duration(milliseconds: 250),
     );
+    _appSleepService.addListener(_handleAppSleepChanged);
     _startAutoRefresh();
 
     // Resolve address when accounts provider loads or changes.
@@ -68,6 +71,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
 
   @override
   void dispose() {
+    _appSleepService.removeListener(_handleAppSleepChanged);
     _fabAnimController.dispose();
     _scrollFraction.dispose();
     _refreshTimer?.cancel();
@@ -142,8 +146,10 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
   }
 
   void _startAutoRefresh() {
+    if (_appSleepService.isSleeping) return;
     _refreshTimer?.cancel();
     _refreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) async {
+      if (_appSleepService.isSleeping) return;
       // Only refresh if currently on wallet tab (index 1)
       final currentTab = ref.read(currentHomeTabProvider);
       if (currentTab == HomeTab.wallet) {
@@ -162,6 +168,18 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
     ]);
 
     _startAutoRefresh();
+  }
+
+  void _handleAppSleepChanged() {
+    if (!mounted) return;
+    if (_appSleepService.isSleeping) {
+      _refreshTimer?.cancel();
+      _refreshTimer = null;
+      return;
+    }
+
+    _startAutoRefresh();
+    unawaited(_onRefresh());
   }
 
   @override

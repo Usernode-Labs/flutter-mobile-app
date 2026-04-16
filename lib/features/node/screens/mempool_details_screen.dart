@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
+import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/core/utils/utils.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/core/providers/node_data_providers.dart';
@@ -19,13 +20,17 @@ class MempoolDetailsScreen extends ConsumerStatefulWidget {
 }
 
 class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
+  final _appSleepService = AppSleepService.instance;
   Timer? _autoTimer;
   bool _refreshing = false;
 
   @override
   void initState() {
     super.initState();
+    _appSleepService.addListener(_handleAppSleepChanged);
+    if (_appSleepService.isSleeping) return;
     _autoTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (_appSleepService.isSleeping) return;
       if (mounted && !_refreshing) {
         _refresh();
       }
@@ -34,6 +39,7 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
 
   @override
   void dispose() {
+    _appSleepService.removeListener(_handleAppSleepChanged);
     _autoTimer?.cancel();
     super.dispose();
   }
@@ -48,6 +54,24 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
         _refreshing = false;
       }
     }
+  }
+
+  void _handleAppSleepChanged() {
+    if (!mounted) return;
+    if (_appSleepService.isSleeping) {
+      _autoTimer?.cancel();
+      _autoTimer = null;
+      return;
+    }
+
+    _autoTimer?.cancel();
+    _autoTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (_appSleepService.isSleeping) return;
+      if (mounted && !_refreshing) {
+        _refresh();
+      }
+    });
+    unawaited(_refresh());
   }
 
   @override

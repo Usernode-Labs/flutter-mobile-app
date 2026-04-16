@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
+import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 
 /// Shows a bottom sheet with node status summary
@@ -27,6 +28,7 @@ class NodeStatusSummaryModal extends ConsumerStatefulWidget {
 
 class _NodeStatusSummaryModalState
     extends ConsumerState<NodeStatusSummaryModal> {
+  final _appSleepService = AppSleepService.instance;
   Timer? _refreshTimer;
   double? _blocksPerSecond;
   int? _previousBlockHeight;
@@ -35,8 +37,11 @@ class _NodeStatusSummaryModalState
   @override
   void initState() {
     super.initState();
+    _appSleepService.addListener(_handleAppSleepChanged);
     // Auto-refresh every 3 seconds while modal is open
+    if (_appSleepService.isSleeping) return;
     _refreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (_appSleepService.isSleeping) return;
       if (mounted) {
         ref.read(nodeStatusProvider.notifier).refresh();
       }
@@ -45,8 +50,27 @@ class _NodeStatusSummaryModalState
 
   @override
   void dispose() {
+    _appSleepService.removeListener(_handleAppSleepChanged);
     _refreshTimer?.cancel();
     super.dispose();
+  }
+
+  void _handleAppSleepChanged() {
+    if (!mounted) return;
+    if (_appSleepService.isSleeping) {
+      _refreshTimer?.cancel();
+      _refreshTimer = null;
+      return;
+    }
+
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (_appSleepService.isSleeping) return;
+      if (mounted) {
+        ref.read(nodeStatusProvider.notifier).refresh();
+      }
+    });
+    ref.read(nodeStatusProvider.notifier).refresh();
   }
 
   @override

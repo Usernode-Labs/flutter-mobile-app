@@ -325,7 +325,9 @@ class _SettingsPageState extends State<_SettingsPage> {
             GeneralSettingsSection(
               currentThemeLabel: _themeModeLabel(widget.themeMode),
               buildInfoSubtitle: 'v1.2.3 \u00b7 abc1234',
+              appSleepEnabled: false,
               onAppearanceTap: _showThemePicker,
+              onAppSleepChanged: (_) {},
               onBuildInfoTap: _showBuildInfo,
               onBuildInfoLongPress: () {},
             ),

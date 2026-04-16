@@ -15,6 +15,26 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appTagline => 'Your Gateway to DeFi';
 
   @override
+  String get appSleepTitle => 'App asleep';
+
+  @override
+  String appSleepUntilSlot(int slotNumber, String dateTime) {
+    return 'Sleeping until slot $slotNumber at $dateTime.';
+  }
+
+  @override
+  String appSleepUntilTime(String dateTime) {
+    return 'Sleeping until $dateTime.';
+  }
+
+  @override
+  String get appSleepUntilUnknown =>
+      'Sleeping until the next scheduled slot. Tap anywhere to wake sooner.';
+
+  @override
+  String get appSleepTapToWake => 'Tap anywhere to wake and return to the app.';
+
+  @override
   String get initializingNode => 'Initializing node...';
 
   @override
@@ -1511,6 +1531,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsGeneral => 'General';
+
+  @override
+  String get settingsAutomaticAppSleep => 'Sleep On Inactivity';
+
+  @override
+  String get settingsAutomaticAppSleepEnabled =>
+      'Force the app to sleep when it becomes inactive, even if the display stays on. This helps avoid unnecessary battery and bandwidth drain in always-on setups.';
+
+  @override
+  String get settingsAutomaticAppSleepDisabled =>
+      'When disabled, the app will not force itself to sleep during inactivity. In always-on setups with the display left on, enabling this avoids unnecessary battery and bandwidth drain.';
 
   @override
   String get settingsAppearance => 'Appearance';

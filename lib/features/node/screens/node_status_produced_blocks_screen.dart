@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/core/utils/utils.dart';
 import 'package:crypto_mobile_app/core/widgets/app_bar.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
@@ -26,6 +27,7 @@ class NodeStatusProducedBlocksScreen extends ConsumerStatefulWidget {
 
 class _NodeStatusProducedBlocksScreenState
     extends ConsumerState<NodeStatusProducedBlocksScreen> {
+  final _appSleepService = AppSleepService.instance;
   Timer? _autoTimer;
   bool _refreshing = false;
   bool _active = true;
@@ -33,12 +35,14 @@ class _NodeStatusProducedBlocksScreenState
   @override
   void initState() {
     super.initState();
+    _appSleepService.addListener(_handleAppSleepChanged);
     _active = _isActiveTab();
     if (_active) _startTimer();
   }
 
   @override
   void dispose() {
+    _appSleepService.removeListener(_handleAppSleepChanged);
     _autoTimer?.cancel();
     super.dispose();
   }
@@ -52,8 +56,10 @@ class _NodeStatusProducedBlocksScreenState
   }
 
   void _startTimer() {
+    if (_appSleepService.isSleeping) return;
     _autoTimer?.cancel();
     _autoTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (_appSleepService.isSleeping) return;
       if (mounted && _active && !_refreshing) {
         _refresh();
       }
@@ -63,6 +69,19 @@ class _NodeStatusProducedBlocksScreenState
   void _stopTimer() {
     _autoTimer?.cancel();
     _autoTimer = null;
+  }
+
+  void _handleAppSleepChanged() {
+    if (!mounted) return;
+    if (_appSleepService.isSleeping) {
+      _stopTimer();
+      return;
+    }
+
+    if (_active) {
+      _startTimer();
+      unawaited(_refresh());
+    }
   }
 
   Future<void> _refresh() async {

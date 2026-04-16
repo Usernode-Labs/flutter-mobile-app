@@ -9,6 +9,7 @@ import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/providers/produced_blocks_provider.dart';
+import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 
 /// Feature screen that wires live block-production data to
@@ -28,6 +29,7 @@ class EpochPerformanceScreen extends ConsumerStatefulWidget {
 
 class _EpochPerformanceScreenState
     extends ConsumerState<EpochPerformanceScreen> {
+  final _appSleepService = AppSleepService.instance;
   late int _viewedEpoch;
   Timer? _autoRefreshTimer;
   bool _refreshing = false;
@@ -35,6 +37,7 @@ class _EpochPerformanceScreenState
   @override
   void initState() {
     super.initState();
+    _appSleepService.addListener(_handleAppSleepChanged);
     _viewedEpoch = widget.initialEpoch;
     _startAutoRefresh();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -45,13 +48,16 @@ class _EpochPerformanceScreenState
 
   @override
   void dispose() {
+    _appSleepService.removeListener(_handleAppSleepChanged);
     _autoRefreshTimer?.cancel();
     super.dispose();
   }
 
   void _startAutoRefresh() {
+    if (_appSleepService.isSleeping) return;
     _autoRefreshTimer?.cancel();
     _autoRefreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (_appSleepService.isSleeping) return;
       if (!mounted || _refreshing) return;
       _refreshSummary();
     });
@@ -68,6 +74,18 @@ class _EpochPerformanceScreenState
     } finally {
       _refreshing = false;
     }
+  }
+
+  void _handleAppSleepChanged() {
+    if (!mounted) return;
+    if (_appSleepService.isSleeping) {
+      _autoRefreshTimer?.cancel();
+      _autoRefreshTimer = null;
+      return;
+    }
+
+    _startAutoRefresh();
+    unawaited(_refreshSummary());
   }
 
   @override

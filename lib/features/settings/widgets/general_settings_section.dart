@@ -9,7 +9,9 @@ class GeneralSettingsSection extends StatelessWidget {
     super.key,
     required this.currentThemeLabel,
     required this.buildInfoSubtitle,
+    required this.appSleepEnabled,
     required this.onAppearanceTap,
+    required this.onAppSleepChanged,
     required this.onBuildInfoTap,
     required this.onBuildInfoLongPress,
   });
@@ -19,8 +21,10 @@ class GeneralSettingsSection extends StatelessWidget {
 
   /// Short build info string like "v1.2.3 · abc1234".
   final String buildInfoSubtitle;
+  final bool appSleepEnabled;
 
   final VoidCallback onAppearanceTap;
+  final ValueChanged<bool> onAppSleepChanged;
   final VoidCallback onBuildInfoTap;
   final GestureLongPressCallback onBuildInfoLongPress;
 
@@ -48,6 +52,21 @@ class GeneralSettingsSection extends StatelessWidget {
                   ),
                 ),
                 onTap: onAppearanceTap,
+              ),
+              SwitchListTile(
+                secondary: const Icon(Symbols.bedtime_sharp),
+                title: Text(
+                  AppLocalizations.of(context).settingsAutomaticAppSleep,
+                ),
+                subtitle: Text(
+                  appSleepEnabled
+                      ? AppLocalizations.of(context)
+                          .settingsAutomaticAppSleepEnabled
+                      : AppLocalizations.of(context)
+                          .settingsAutomaticAppSleepDisabled,
+                ),
+                value: appSleepEnabled,
+                onChanged: onAppSleepChanged,
               ),
               GestureDetector(
                 onLongPress: onBuildInfoLongPress,

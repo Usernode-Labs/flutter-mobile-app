@@ -447,6 +447,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _resetChallengeState() => resetChallengeState(ref, context);
 
+  Future<void> _toggleAppSleep(bool value) async {
+    await _appSleepService.setEnabled(value);
+    if (!mounted) return;
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -458,6 +464,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final perfState = ref.watch(perfBenchmarkProvider);
     final facematchStrict =
         zkSettings.whenOrNull(data: (s) => s.facematchStrict) ?? true;
+    final appSleepEnabled = _appSleepService.isEnabled;
     final hasCurrentBenchmarkRun = perfState.isStartingRun ||
         perfState.isRunning ||
         (perfState.activeRunId != null && !perfState.hasFinishedRun);
@@ -488,7 +495,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               GeneralSettingsSection(
                 currentThemeLabel: _themeModeLabel(themeMode),
                 buildInfoSubtitle: _buildInfoSubtitle,
+                appSleepEnabled: appSleepEnabled,
                 onAppearanceTap: _showThemePicker,
+                onAppSleepChanged: _toggleAppSleep,
                 onBuildInfoTap: _showBuildInfo,
                 onBuildInfoLongPress: _onVersionLongPress,
               ),

@@ -2716,6 +2716,24 @@ abstract class AppLocalizations {
   /// **'General'**
   String get settingsGeneral;
 
+  /// Settings toggle label for automatic app sleep
+  ///
+  /// In en, this message translates to:
+  /// **'Sleep On Inactivity'**
+  String get settingsAutomaticAppSleep;
+
+  /// Subtitle shown when automatic app sleep is enabled
+  ///
+  /// In en, this message translates to:
+  /// **'Force the app to sleep when it becomes inactive, even if the display stays on. This helps avoid unnecessary battery and bandwidth drain in always-on setups.'**
+  String get settingsAutomaticAppSleepEnabled;
+
+  /// Subtitle shown when automatic app sleep is disabled
+  ///
+  /// In en, this message translates to:
+  /// **'When disabled, the app will not force itself to sleep during inactivity. In always-on setups with the display left on, enabling this avoids unnecessary battery and bandwidth drain.'**
+  String get settingsAutomaticAppSleepDisabled;
+
   /// Appearance settings tile title and sheet title
   ///
   /// In en, this message translates to:

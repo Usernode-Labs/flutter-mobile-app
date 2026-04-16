@@ -187,4 +187,87 @@ void main() {
     service.dispose();
     await tester.pump();
   });
+
+  testWidgets('automatic sleep stays off until it is enabled', (tester) async {
+    final sleepReasons = <AppSleepReason>[];
+    final persistedEnabledValues = <bool>[];
+
+    final service = AppSleepService.forTest(
+      idleTimeout: const Duration(seconds: 1),
+      onSleep: (reason) async => sleepReasons.add(reason),
+      onWake: (_) async {},
+      persistSleepState: (_) async {},
+      persistSleepEnabled: (value) async => persistedEnabledValues.add(value),
+      initiallyEnabled: false,
+    );
+
+    await service.initializeForInteractiveApp();
+
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pump();
+
+    expect(service.isSleeping, isFalse);
+    expect(sleepReasons, isEmpty);
+
+    await service.setEnabled(true);
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump();
+
+    expect(service.isSleeping, isTrue);
+    expect(sleepReasons, [AppSleepReason.idleTimeout]);
+    expect(persistedEnabledValues, [true]);
+
+    service.dispose();
+    await tester.pump();
+  });
+
+  testWidgets('automatic sleep disabled ignores lifecycle sleep triggers',
+      (tester) async {
+    final sleepReasons = <AppSleepReason>[];
+
+    final service = AppSleepService.forTest(
+      onSleep: (reason) async => sleepReasons.add(reason),
+      onWake: (_) async {},
+      persistSleepState: (_) async {},
+      initiallyEnabled: false,
+    );
+
+    await service.initializeForInteractiveApp();
+    await service.handleLifecycleStateChanged(AppLifecycleState.inactive);
+
+    expect(service.isSleeping, isFalse);
+    expect(sleepReasons, isEmpty);
+
+    service.dispose();
+    await tester.pump();
+  });
+
+  testWidgets('disabling automatic sleep wakes a sleeping app', (tester) async {
+    final wakeReasons = <String>[];
+    final persistedEnabledValues = <bool>[];
+
+    final service = AppSleepService.forTest(
+      idleTimeout: const Duration(seconds: 1),
+      onSleep: (_) async {},
+      onWake: (reason) async => wakeReasons.add(reason),
+      persistSleepState: (_) async {},
+      persistSleepEnabled: (value) async => persistedEnabledValues.add(value),
+    );
+
+    await service.initializeForInteractiveApp();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump();
+
+    expect(service.isSleeping, isTrue);
+
+    await service.setEnabled(false);
+    await tester.pump();
+
+    expect(service.isSleeping, isFalse);
+    expect(wakeReasons, ['automatic_sleep_disabled']);
+    expect(persistedEnabledValues, [false]);
+
+    service.dispose();
+    await tester.pump();
+  });
 }

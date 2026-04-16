@@ -1533,6 +1533,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsGeneral => 'General';
 
   @override
+  String get settingsAutomaticAppSleep => 'Sleep On Inactivity';
+
+  @override
+  String get settingsAutomaticAppSleepEnabled =>
+      'Force the app to sleep when it becomes inactive, even if the display stays on. This helps avoid unnecessary battery and bandwidth drain in always-on setups.';
+
+  @override
+  String get settingsAutomaticAppSleepDisabled =>
+      'When disabled, the app will not force itself to sleep during inactivity. In always-on setups with the display left on, enabling this avoids unnecessary battery and bandwidth drain.';
+
+  @override
   String get settingsAppearance => 'Appearance';
 
   @override

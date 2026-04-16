@@ -79,7 +79,10 @@ class AppSleepService extends ChangeNotifier {
         _inactiveWakelockRetryInterval = defaultInactiveWakelockRetryInterval,
         _sleepOverride = null,
         _wakeOverride = null,
+        _useStateStore = true,
         _persistSleepingOverride = null,
+        _persistEnabledOverride = null,
+        _isEnabled = false,
         _isWakelockHeldOverride = null;
 
   @visibleForTesting
@@ -90,13 +93,18 @@ class AppSleepService extends ChangeNotifier {
     Future<void> Function(AppSleepReason reason)? onSleep,
     Future<void> Function(String reason)? onWake,
     Future<void> Function(bool value)? persistSleepState,
+    Future<void> Function(bool value)? persistSleepEnabled,
     Future<bool> Function()? isWakelockHeld,
     AppLifecycleState initialLifecycleState = AppLifecycleState.resumed,
+    bool initiallyEnabled = true,
   })  : _idleTimeout = idleTimeout,
         _inactiveWakelockRetryInterval = inactiveWakelockRetryInterval,
         _sleepOverride = onSleep,
         _wakeOverride = onWake,
+        _useStateStore = false,
         _persistSleepingOverride = persistSleepState,
+        _persistEnabledOverride = persistSleepEnabled,
+        _isEnabled = initiallyEnabled,
         _isWakelockHeldOverride = isWakelockHeld {
     _snapshot = AppSleepSnapshot(
       isSleeping: false,
@@ -115,7 +123,9 @@ class AppSleepService extends ChangeNotifier {
   final Duration _inactiveWakelockRetryInterval;
   final Future<void> Function(AppSleepReason reason)? _sleepOverride;
   final Future<void> Function(String reason)? _wakeOverride;
+  final bool _useStateStore;
   final Future<void> Function(bool value)? _persistSleepingOverride;
+  final Future<void> Function(bool value)? _persistEnabledOverride;
   final Future<bool> Function()? _isWakelockHeldOverride;
 
   Timer? _idleTimer;
@@ -124,6 +134,7 @@ class AppSleepService extends ChangeNotifier {
   Future<void> _transition = Future.value();
   DateTime? _lastRecordedInteractionAt;
   bool _initialized = false;
+  bool _isEnabled;
   bool _resumeMetricsOnWake = false;
   bool _resumeNodeOnWake = false;
   bool _resumeIosKeepAliveOnWake = false;
@@ -137,19 +148,23 @@ class AppSleepService extends ChangeNotifier {
   );
 
   AppSleepSnapshot get snapshot => _snapshot;
+  bool get isEnabled => _isEnabled;
   bool get isSleeping => _snapshot.isSleeping;
   bool get isAwake => !_snapshot.isSleeping;
 
   Future<void> initializeForInteractiveApp() async {
+    if (_useStateStore) {
+      await AppSleepStateStore.load();
+      _isEnabled = AppSleepStateStore.isEnabled;
+    }
+
     if (_initialized) {
       await _persistSleeping(false);
       _rescheduleIdleTimer();
+      notifyListeners();
       return;
     }
 
-    if (_persistSleepingOverride == null) {
-      await AppSleepStateStore.load();
-    }
     _snapshot = _snapshot.copyWith(
       lifecycleState:
           WidgetsBinding.instance.lifecycleState ?? AppLifecycleState.resumed,
@@ -171,6 +186,13 @@ class AppSleepService extends ChangeNotifier {
     _rescheduleIdleTimer();
     notifyListeners();
 
+    if (!_isEnabled) {
+      if (isSleeping) {
+        await _wakeInternal('automatic_sleep_disabled');
+      }
+      return;
+    }
+
     switch (state) {
       case AppLifecycleState.resumed:
         await wake(reason: 'lifecycle_resumed');
@@ -191,6 +213,10 @@ class AppSleepService extends ChangeNotifier {
   }
 
   void recordUserInteraction({String source = 'pointer'}) {
+    if (!_isEnabled && !isSleeping) {
+      return;
+    }
+
     final now = DateTime.now();
     final last = _lastRecordedInteractionAt;
     if (last != null && now.difference(last) < _interactionThrottle) {
@@ -209,6 +235,11 @@ class AppSleepService extends ChangeNotifier {
     _rescheduleIdleTimer();
   }
 
+  Future<void> setEnabled(bool value) {
+    _transition = _transition.then((_) => _setEnabledInternal(value));
+    return _transition;
+  }
+
   Future<void> sleep({required AppSleepReason reason}) {
     _transition = _transition.then((_) => _sleepInternal(reason));
     return _transition;
@@ -220,6 +251,10 @@ class AppSleepService extends ChangeNotifier {
   }
 
   Future<void> _sleepInternal(AppSleepReason reason) async {
+    if (!_isEnabled) {
+      return;
+    }
+
     if (isSleeping) {
       return;
     }
@@ -346,11 +381,42 @@ class AppSleepService extends ChangeNotifier {
     _rescheduleIdleTimer();
   }
 
+  Future<void> _setEnabledInternal(bool value) async {
+    if (_isEnabled == value) {
+      return;
+    }
+
+    _isEnabled = value;
+    await _persistEnabled(value);
+
+    if (!value) {
+      _idleTimer?.cancel();
+      _idleTimer = null;
+      _scheduledWakeTimer?.cancel();
+      _scheduledWakeTimer = null;
+      _cancelInactiveWakelockRetry();
+
+      if (isSleeping) {
+        await _wakeInternal('automatic_sleep_disabled');
+        return;
+      }
+
+      notifyListeners();
+      return;
+    }
+
+    _snapshot = _snapshot.copyWith(lastInteractionAt: DateTime.now());
+    _rescheduleIdleTimer();
+    notifyListeners();
+  }
+
   void _rescheduleIdleTimer() {
     _idleTimer?.cancel();
     _idleTimer = null;
 
-    if (_snapshot.lifecycleState != AppLifecycleState.resumed || isSleeping) {
+    if (!_isEnabled ||
+        _snapshot.lifecycleState != AppLifecycleState.resumed ||
+        isSleeping) {
       return;
     }
 
@@ -476,6 +542,15 @@ class AppSleepService extends ChangeNotifier {
     }
 
     await AppSleepStateStore.setSleeping(value);
+  }
+
+  Future<void> _persistEnabled(bool value) async {
+    if (_persistEnabledOverride != null) {
+      await _persistEnabledOverride(value);
+      return;
+    }
+
+    await AppSleepStateStore.setEnabled(value);
   }
 
   @override

@@ -7,14 +7,14 @@ class AppSleepStateStore {
   static const _sleepingKey = 'app_sleep:is_sleeping';
   static const _enabledKey = 'app_sleep:is_enabled';
   static bool _isSleeping = false;
-  static bool _isEnabled = false;
+  static bool _isEnabled = true;
 
   static bool get isSleeping => _isSleeping;
   static bool get isEnabled => _isEnabled;
 
   static Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
-    _isEnabled = prefs.getBool(_enabledKey) ?? false;
+    _isEnabled = prefs.getBool(_enabledKey) ?? true;
     final storedSleeping = prefs.getBool(_sleepingKey) ?? false;
     _isSleeping = _isEnabled && storedSleeping;
 

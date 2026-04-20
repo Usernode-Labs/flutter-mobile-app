@@ -127,10 +127,6 @@ String primaryContextLabel(
 ) {
   final labels = <String>[
     if (row.txCount != null) l10n.perfContextTxCount(row.txCount!),
-    if (row.replayBlockCount != null)
-      l10n.perfContextReplayBlockCount(row.replayBlockCount!),
-    if (row.txCountPerBlock != null)
-      l10n.perfContextTxCountPerBlock(row.txCountPerBlock!),
     if (row.batchLayout != null)
       l10n.perfContextBatchLayout(humanizeSnakeCase(row.batchLayout!)),
     if (row.transactionShape != null)
@@ -214,14 +210,6 @@ int _compareMeasurementRows(
   if (result != 0) {
     return result;
   }
-  result = _compareNullableInt(left.replayBlockCount, right.replayBlockCount);
-  if (result != 0) {
-    return result;
-  }
-  result = _compareNullableInt(left.txCountPerBlock, right.txCountPerBlock);
-  if (result != 0) {
-    return result;
-  }
   result = _compareNullableString(left.batchLayout, right.batchLayout);
   if (result != 0) {
     return result;
@@ -232,17 +220,6 @@ int _compareMeasurementRows(
     return result;
   }
   result = _compareNullableInt(left.proofNodes, right.proofNodes);
-  if (result != 0) {
-    return result;
-  }
-  result = _compareNullableInt(left.anchorProofNodes, right.anchorProofNodes);
-  if (result != 0) {
-    return result;
-  }
-  result = _compareNullableInt(
-    left.replayBlockProofNodes,
-    right.replayBlockProofNodes,
-  );
   if (result != 0) {
     return result;
   }

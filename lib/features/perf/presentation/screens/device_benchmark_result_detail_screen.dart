@@ -197,16 +197,6 @@ List<_MetadataRow> _metadataRows(
         label: l10n.perfDetailTxCount,
         value: '${row.txCount}',
       ),
-    if (row.replayBlockCount != null)
-      _MetadataRow(
-        label: l10n.perfDetailReplayBlockCount,
-        value: '${row.replayBlockCount}',
-      ),
-    if (row.txCountPerBlock != null)
-      _MetadataRow(
-        label: l10n.perfDetailTxCountPerBlock,
-        value: '${row.txCountPerBlock}',
-      ),
     if (row.batchLayout != null)
       _MetadataRow(
         label: l10n.perfDetailBatchLayout,
@@ -225,16 +215,6 @@ List<_MetadataRow> _metadataRows(
     if (row.proofNodes case final value? when value > 0)
       _MetadataRow(
         label: l10n.perfDetailProofNodes,
-        value: '$value',
-      ),
-    if (row.anchorProofNodes case final value? when value > 0)
-      _MetadataRow(
-        label: l10n.perfDetailAnchorProofNodes,
-        value: '$value',
-      ),
-    if (row.replayBlockProofNodes case final value? when value > 0)
-      _MetadataRow(
-        label: l10n.perfDetailReplayBlockProofNodes,
         value: '$value',
       ),
     if (row.proofSizeBytes case final value? when value > BigInt.zero)

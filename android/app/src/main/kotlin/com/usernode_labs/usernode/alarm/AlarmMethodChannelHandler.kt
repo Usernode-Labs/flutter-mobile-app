@@ -39,6 +39,7 @@ class AlarmMethodChannelHandler(context: Context) {
     private val powerManager: PowerManager = appContext.getSystemService(Context.POWER_SERVICE) as PowerManager
 
     private var methodChannel: MethodChannel? = null
+    private val flutterAlarmEventBuffer = FlutterAlarmEventBuffer()
 
     companion object {
         private const val TAG = "usernode/AlarmMethodChannelHandler"
@@ -101,28 +102,31 @@ class AlarmMethodChannelHandler(context: Context) {
     fun setMethodChannel(channel: MethodChannel) {
         methodChannel = channel
         Log.d(TAG, "Method channel set")
+        flushPendingEvents("method_channel_set")
     }
 
     fun clearMethodChannel(reason: String) {
         methodChannel = null
+        flutterAlarmEventBuffer.markFlutterNotReady()
         Log.d(TAG, "Method channel cleared (reason=$reason)")
+    }
+
+    fun markFlutterReadyForAlarmEvents(): Boolean {
+        Log.d(TAG, "Flutter marked alarm channel ready")
+        val pendingEvents = flutterAlarmEventBuffer.markFlutterReady()
+        flushEventsToCurrentChannel(pendingEvents, "flutter_ready")
+        return true
     }
 
     /// Send a block production event to Flutter
     fun sendEventToFlutter(eventType: String, eventData: Map<String, Any?>) {
-        if (methodChannel == null) {
-            Log.w(TAG, "Cannot send event '$eventType' - method channel not set")
+        val event = flutterAlarmEventBuffer.enqueueOrDispatch(eventType, eventData)
+        if (event == null) {
+            Log.d(TAG, "Queued event for Flutter: $eventType")
             return
         }
 
-        Log.d(TAG, "Sending event to Flutter: $eventType")
-
-        val args = mapOf(
-            "eventType" to eventType,
-            "eventData" to eventData
-        )
-
-        methodChannel?.invokeMethod("onBlockProductionEvent", args)
+        flushEventsToCurrentChannel(listOf(event), "immediate_dispatch")
     }
 
     fun handleMethodCall(call: MethodCall, result: MethodChannel.Result) {
@@ -266,6 +270,9 @@ class AlarmMethodChannelHandler(context: Context) {
                 // Handler(Looper.getMainLooper()).post {
                 //     BackgroundAlarmEngine.destroyCachedEngine("wakelock_release")
                 // }
+            }
+            "markFlutterReadyForAlarmEvents" -> {
+                result.success(markFlutterReadyForAlarmEvents())
             }
             "restartActivity" -> {
                 result.success(restartActivity())
@@ -517,6 +524,39 @@ class AlarmMethodChannelHandler(context: Context) {
             putInt("execution_count", currentCount + 1)
             putLong("last_execution_time", System.currentTimeMillis())
             apply()
+        }
+    }
+
+    private fun flushPendingEvents(reason: String) {
+        val pendingEvents = flutterAlarmEventBuffer.drainIfReady()
+        flushEventsToCurrentChannel(pendingEvents, reason)
+    }
+
+    private fun flushEventsToCurrentChannel(
+        events: List<FlutterAlarmEvent>,
+        reason: String,
+    ) {
+        if (events.isEmpty()) {
+            return
+        }
+
+        val channel = methodChannel
+        if (channel == null) {
+            Log.w(TAG, "Cannot flush ${events.size} event(s) - method channel not set (reason=$reason)")
+            return
+        }
+
+        if (events.size > 1) {
+            Log.i(TAG, "Flushing ${events.size} pending event(s) to Flutter (reason=$reason)")
+        }
+
+        for (event in events) {
+            Log.d(TAG, "Sending event to Flutter: ${event.eventType}")
+            val args = mapOf(
+                "eventType" to event.eventType,
+                "eventData" to event.eventData
+            )
+            channel.invokeMethod("onBlockProductionEvent", args)
         }
     }
 }

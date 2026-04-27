@@ -33,11 +33,11 @@
       }
     }
   },
-  "appSleepUntilUnknown": "Sleeping until the next scheduled slot. Tap anywhere to wake sooner.",
+  "appSleepUntilUnknown": "Sleeping until the next exact-alarm wake.",
   "@appSleepUntilUnknown": {
     "description": "Fallback message shown when the next scheduled slot time is unavailable"
   },
-  "appSleepTapToWake": "Tap anywhere to wake and return to the app.",
+  "appSleepTapToWake": "Waiting for the next scheduled wake.",
   "@appSleepTapToWake": {
     "description": "Instruction shown on the sleep page"
   },

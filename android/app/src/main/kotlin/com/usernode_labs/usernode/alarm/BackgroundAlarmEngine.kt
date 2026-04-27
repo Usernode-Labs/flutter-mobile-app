@@ -149,24 +149,13 @@ object BackgroundAlarmEngine {
             }
 
             // Activity not attached => create a background engine
-            val flutterEngine = createAndCacheNewEngine(
+            createAndCacheNewEngine(
                 context = context,
                 reason = "alarm_event:$eventType",
                 registerPlugins = true,
             )
-            val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
-
-            val args = mapOf(
-                "eventType" to eventType,
-                "eventData" to eventData
-            )
-            try {
-                Log.d(TAG, "Invoking onBlockProductionEvent via background engine")
-                channel.invokeMethod("onBlockProductionEvent", args)
-            } catch (e: Exception) {
-                Log.w(TAG, "Alarm event send failed; scheduling one retry", e)
-                scheduleRetry(context, args)
-            }
+            AlarmMethodChannelHandler.getOrCreate(context.applicationContext)
+                .sendEventToFlutter(eventType, eventData)
         }
     }
 
@@ -184,19 +173,20 @@ object BackgroundAlarmEngine {
                 }
 
                 // Activity not attached => use background engine
-                val flutterEngine = getCachedEngine()
+                getCachedEngine()
                     ?: createAndCacheNewEngine(
                         context = context,
                         reason = "alarm_event_retry",
                         registerPlugins = true,
                     )
-                val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
+                val eventType = args["eventType"] as? String ?: "unknown"
+                val eventData = args["eventData"] as? Map<String, Any?> ?: emptyMap()
                 Log.i(TAG, "Retrying alarm event delivery via background engine")
-                channel.invokeMethod("onBlockProductionEvent", args)
+                AlarmMethodChannelHandler.getOrCreate(context.applicationContext)
+                    .sendEventToFlutter(eventType, eventData)
             } catch (e: Exception) {
                 Log.e(TAG, "Retry failed for alarm event delivery", e)
             }
         }, RETRY_DELAY_MS)
     }
 }
-

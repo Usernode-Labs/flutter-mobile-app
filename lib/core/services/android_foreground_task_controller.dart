@@ -22,12 +22,16 @@ class AndroidForegroundTaskController {
 
   static const Duration _pollInterval = Duration(seconds: 30);
   static const Duration _alarmLead = Duration(minutes: 1);
+  static const Duration _alarmEventDedupWindow = Duration(seconds: 10);
 
   Timer? _pollTimer;
   bool _initialized = false;
   bool _wakelockHeld = false;
   AccountPublicKey? _cachedOurPubKey;
   ({int height, DateTime since})? _awaitingOtherProducerState;
+  String? _alarmRecoveryInFlightKey;
+  String? _lastHandledAlarmKey;
+  DateTime? _lastHandledAlarmAt;
 
   Future<void> initialize() async {
     if (!Platform.isAndroid) return;
@@ -77,9 +81,12 @@ class AndroidForegroundTaskController {
     await startMonitoring(reason: 'node_started');
   }
 
-  Future<void> startMonitoring({String reason = 'manual'}) async {
+  Future<void> startMonitoring({
+    String reason = 'manual',
+    bool allowWhileSleeping = false,
+  }) async {
     if (!Platform.isAndroid) return;
-    if (AppSleepStateStore.isSleeping) {
+    if (AppSleepStateStore.isSleeping && !allowWhileSleeping) {
       _log.info(
         'Skipping Android monitoring start while app sleep is active',
         context: {'reason': reason},
@@ -136,16 +143,56 @@ class AndroidForegroundTaskController {
     unawaited(_pollVrf());
   }
 
-  Future<void> handleAlarmFire({String reason = 'alarm'}) async {
-    if (AppSleepStateStore.isSleeping) {
+  Future<void> handleAlarmFire({
+    String reason = 'alarm',
+    String? alarmKey,
+    bool allowWhileSleeping = false,
+  }) async {
+    if (AppSleepStateStore.isSleeping && !allowWhileSleeping) {
       _log.info(
         'Ignoring alarm-fired monitoring start while app sleep is active',
         context: {'reason': reason},
       );
       return;
     }
+
+    if (alarmKey != null) {
+      final now = DateTime.now();
+      if (_alarmRecoveryInFlightKey == alarmKey) {
+        _log.info(
+          'Ignoring duplicate alarm event while recovery is in flight',
+          context: {'reason': reason, 'alarm_key': alarmKey},
+        );
+        return;
+      }
+
+      final lastHandledAt = _lastHandledAlarmAt;
+      if (_lastHandledAlarmKey == alarmKey &&
+          lastHandledAt != null &&
+          now.difference(lastHandledAt) <= _alarmEventDedupWindow) {
+        _log.info(
+          'Ignoring duplicate alarm event that was already handled',
+          context: {'reason': reason, 'alarm_key': alarmKey},
+        );
+        return;
+      }
+
+      _alarmRecoveryInFlightKey = alarmKey;
+    }
+
     _log.info('Alarm fired, restarting foreground task ($reason)');
-    await startMonitoring(reason: reason);
+    try {
+      await startMonitoring(
+        reason: reason,
+        allowWhileSleeping: allowWhileSleeping,
+      );
+    } finally {
+      if (alarmKey != null && _alarmRecoveryInFlightKey == alarmKey) {
+        _alarmRecoveryInFlightKey = null;
+        _lastHandledAlarmKey = alarmKey;
+        _lastHandledAlarmAt = DateTime.now();
+      }
+    }
   }
 
   Future<void> resetForAppRestart() async {
@@ -156,6 +203,9 @@ class AndroidForegroundTaskController {
     _wakelockHeld = false;
     _cachedOurPubKey = null;
     _awaitingOtherProducerState = null;
+    _alarmRecoveryInFlightKey = null;
+    _lastHandledAlarmKey = null;
+    _lastHandledAlarmAt = null;
   }
 
   Future<bool> _ensureNodeRunning() async {
@@ -416,15 +466,59 @@ class AndroidForegroundTaskController {
   void handleNativeEvent(String eventType, Map<String, dynamic> data) {
     if (!Platform.isAndroid) return;
     if (eventType != 'android_alarm_fired') return;
+
+    unawaited(_handleAlarmFiredEvent(data));
+  }
+
+  Future<void> _handleAlarmFiredEvent(Map<String, dynamic> data) async {
+    var allowWhileSleeping = false;
     if (AppSleepStateStore.isSleeping) {
-      _log.info('Ignoring native alarm event while app sleep is active');
-      return;
+      final nativeWakelockHeld =
+          await PlatformAlarmService.instance.isWakelockHeld();
+      if (!nativeWakelockHeld) {
+        _log.info('Ignoring native alarm event while app sleep is active');
+        return;
+      }
+
+      allowWhileSleeping = true;
+      _log.info(
+        'Processing native alarm event while app sleep is active because the native wakelock is already held',
+      );
     }
 
     final alarmId = data['alarmId'] as String? ?? '';
     if (alarmId == 'fg_resume') {
-      unawaited(handleAlarmFire(reason: 'alarm_resume'));
+      final alarmKey = _alarmEventKey(data);
+      unawaited(
+        handleAlarmFire(
+          reason: 'alarm_resume',
+          alarmKey: alarmKey,
+          allowWhileSleeping: allowWhileSleeping,
+        ),
+      );
     }
+  }
+
+  String _alarmEventKey(Map<String, dynamic> data) {
+    final alarmId = data['alarmId'] as String? ?? 'unknown_alarm';
+    final alarmTimeMs = _intFromDynamic(data['alarmTimeMs']);
+    if (alarmTimeMs != null) {
+      return '$alarmId:$alarmTimeMs';
+    }
+
+    final slotNumber = _intFromDynamic(data['slotNumber']);
+    if (slotNumber != null) {
+      return '$alarmId:slot:$slotNumber';
+    }
+
+    return alarmId;
+  }
+
+  int? _intFromDynamic(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
   }
 
   Future<bool> isWakelockHeld() async {

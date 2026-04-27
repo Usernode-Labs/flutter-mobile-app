@@ -57,21 +57,29 @@ class AlarmReceiver : BroadcastReceiver() {
         val latencyMs = if (scheduledTimeMs > 0) currentTime - scheduledTimeMs else 0L
         Log.i(TAG, "[AlarmReceiver] ✓ Slot alarm FIRED for slot $slotNumber (latency: ${latencyMs}ms)")
 
-        // Send event to Flutter if channel available; otherwise show a fallback notification
+        // Take the native wakelock before handing control to Flutter so the
+        // inactivity sleep path cannot win a race against alarm recovery.
+        NativeWakeLockManager.acquire(context)
+
+        val eventData = mapOf(
+            "alarmId" to alarmId,
+            "slotNumber" to slotNumber,
+            "alarmTimeMs" to scheduledTimeMs,
+            "batteryLevel" to 0,
+            "networkState" to "unknown",
+            "nodeRunning" to nodeRunning
+        )
         val handler = AlarmMethodChannelHandler.getInstance()
-        if (handler != null) {
-            Log.d(TAG, "[AlarmReceiver] Sending android_alarm_fired event to Flutter")
-            val eventData = mapOf(
-                "alarmId" to alarmId,
-                "slotNumber" to slotNumber,
-                "batteryLevel" to 0,
-                "networkState" to "unknown",
-                "nodeRunning" to nodeRunning
-            )
+        if (handler != null && handler.isActivityAttached()) {
+            Log.d(TAG, "[AlarmReceiver] Sending android_alarm_fired event to attached Flutter activity")
             handler.sendEventToFlutter("android_alarm_fired", eventData)
         } else {
-            Log.w(TAG, "[AlarmReceiver] Flutter channel unavailable; showing fallback notification")
-            showFallbackNotification(context, slotNumber, scheduledTimeMs)
+            Log.d(TAG, "[AlarmReceiver] Delivering android_alarm_fired via background engine")
+            BackgroundAlarmEngine.sendAlarmEvent(
+                context,
+                "android_alarm_fired",
+                eventData
+            )
         }
 
         // Start foreground service to keep app alive during monitoring

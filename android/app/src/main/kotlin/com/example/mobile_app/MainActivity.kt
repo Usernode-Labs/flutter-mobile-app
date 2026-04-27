@@ -108,6 +108,7 @@ class MainActivity: FlutterActivity() {
 
     override fun onDestroy() {
         if (::alarmHandler.isInitialized) {
+            alarmHandler.clearMethodChannel("ui_activity_onDestroy")
             alarmHandler.detachActivity(this)
         }
         backgroundStopHandler.removeCallbacks(backgroundStopRunnable)

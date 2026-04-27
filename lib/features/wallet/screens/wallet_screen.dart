@@ -124,6 +124,15 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
               context.push(AppRoutes.walletSend);
             },
           ),
+          SizedBox(height: spacing.space12),
+          _SpeedDialOption(
+            label: l10n.walletScan,
+            icon: Symbols.qr_code_scanner_sharp,
+            onTap: () {
+              _toggleFab();
+              context.push(AppRoutes.walletScan);
+            },
+          ),
           SizedBox(height: spacing.space16),
         ],
         // Main FAB
@@ -349,6 +358,12 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                         variant: ButtonVariant.primary,
                         label: l10n.walletEmptyStateSendAction,
                         onTap: () => context.push(AppRoutes.walletSend),
+                      ),
+                      SizedBox(width: spacing.space8),
+                      Button(
+                        variant: ButtonVariant.tonal,
+                        label: l10n.walletScan,
+                        onTap: () => context.push(AppRoutes.walletScan),
                       ),
                       SizedBox(width: spacing.space8),
                       Button(

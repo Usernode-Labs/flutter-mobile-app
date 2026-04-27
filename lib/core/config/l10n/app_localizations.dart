@@ -3399,6 +3399,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Contact us on Discord'**
   String get registrationStaleAction;
+
+  /// Speed dial label for scan QR action
+  ///
+  /// In en, this message translates to:
+  /// **'Scan'**
+  String get walletScan;
+
+  /// Scan screen app bar title
+  ///
+  /// In en, this message translates to:
+  /// **'Scan QR Code'**
+  String get walletScanTitle;
+
+  /// Error shown when a scanned QR code cannot be parsed
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid QR code'**
+  String get walletScanInvalidQr;
+
+  /// Error shown when the QR code type field is not recognized
+  ///
+  /// In en, this message translates to:
+  /// **'Unsupported QR code type'**
+  String get walletScanUnsupportedType;
+
+  /// Message shown when camera permission is denied
+  ///
+  /// In en, this message translates to:
+  /// **'Camera permission denied. Enable it in Settings to scan QR codes.'**
+  String get walletScanCameraPermissionDenied;
 }
 
 class _AppLocalizationsDelegate

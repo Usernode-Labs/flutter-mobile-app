@@ -1927,4 +1927,20 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get registrationStaleAction => 'Contact us on Discord';
+
+  @override
+  String get walletScan => 'Scan';
+
+  @override
+  String get walletScanTitle => 'Scan QR Code';
+
+  @override
+  String get walletScanInvalidQr => 'Invalid QR code';
+
+  @override
+  String get walletScanUnsupportedType => 'Unsupported QR code type';
+
+  @override
+  String get walletScanCameraPermissionDenied =>
+      'Camera permission denied. Enable it in Settings to scan QR codes.';
 }

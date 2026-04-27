@@ -2624,5 +2624,26 @@
   "registrationStaleAction": "Contact us on Discord",
   "@registrationStaleAction": {
     "description": "Button text on stale registration screen"
+  },
+
+  "walletScan": "Scan",
+  "@walletScan": {
+    "description": "Speed dial label for scan QR action"
+  },
+  "walletScanTitle": "Scan QR Code",
+  "@walletScanTitle": {
+    "description": "Scan screen app bar title"
+  },
+  "walletScanInvalidQr": "Invalid QR code",
+  "@walletScanInvalidQr": {
+    "description": "Error shown when a scanned QR code cannot be parsed"
+  },
+  "walletScanUnsupportedType": "Unsupported QR code type",
+  "@walletScanUnsupportedType": {
+    "description": "Error shown when the QR code type field is not recognized"
+  },
+  "walletScanCameraPermissionDenied": "Camera permission denied. Enable it in Settings to scan QR codes.",
+  "@walletScanCameraPermissionDenied": {
+    "description": "Message shown when camera permission is denied"
   }
 }

@@ -29,6 +29,7 @@ import 'package:crypto_mobile_app/features/perf/presentation/perf_benchmark_ui.d
 import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benchmark_screen.dart';
 import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benchmark_result_detail_screen.dart';
 import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benchmark_run_screen.dart';
+import 'package:crypto_mobile_app/features/wallet/screens/scan_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/screens/send_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/screens/transaction_success_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/screens/transaction_failed_screen.dart';
@@ -66,6 +67,7 @@ class AppRoutes {
 
   // Wallet routes
   static const walletSend = '/wallet/send';
+  static const walletScan = '/wallet/scan';
   static const walletBurst = '/wallet/burst';
   static const walletSendSuccess = '/wallet/send/success';
   static const walletSendFailed = '/wallet/send/failed';
@@ -244,6 +246,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.walletSend,
         builder: (context, state) => const SendScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.walletScan,
+        builder: (context, state) => const ScanScreen(),
       ),
       GoRoute(
         path: AppRoutes.deviceBenchmark,

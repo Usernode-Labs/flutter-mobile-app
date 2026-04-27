@@ -37,7 +37,7 @@
     <key>NFCReaderUsageDescription</key>
     <string>NFC is used to read your ID document.</string>
     <key>NSCameraUsageDescription</key>
-    <string>Camera is used to scan MRZ on your document.</string>
+    <string>Camera is used to scan QR codes and documents.</string>
     <key>NSFaceIDUsageDescription</key>
     <string>Biometrics are used to unlock your private data.</string>
     <key>UIBackgroundModes</key>

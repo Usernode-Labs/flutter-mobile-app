@@ -579,6 +579,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
         id: id,
         value: <String, dynamic>{
           'pubkey': active.address,
+          'publicKey': active.publicKey,
           'signature': signature,
         },
         error: null,

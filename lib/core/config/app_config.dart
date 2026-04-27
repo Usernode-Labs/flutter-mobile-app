@@ -262,6 +262,13 @@ class AppConfig {
   static Duration get challengePointDiffWindow =>
       const Duration(hours: challengePointDiffWindowHours);
 
+  // Dapps screen: force-enable all dapps even when the homepage is unreachable.
+  // Pass `--dart-define=DAPPS_FORCE_ENABLED=true` to skip "Coming soon" state.
+  static const bool dappsForceEnabled = bool.fromEnvironment(
+    'DAPPS_FORCE_ENABLED',
+    defaultValue: false,
+  );
+
   // Explorer API configuration
   static const String primaryExplorerUrl = String.fromEnvironment(
     'EXPLORER_PRIMARY_URL',

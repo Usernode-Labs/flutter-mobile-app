@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/models/dapp_item.dart';
@@ -18,7 +19,7 @@ class DappsScreen extends ConsumerStatefulWidget {
 
 class _DappsScreenState extends ConsumerState<DappsScreen> {
   SortMode _sortMode = SortMode.popular;
-  bool _forceEnabled = false;
+  bool _forceEnabled = AppConfig.dappsForceEnabled;
 
   Future<void> _onRefresh() async {
     ref.invalidate(dappsProvider);

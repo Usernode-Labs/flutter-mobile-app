@@ -10,6 +10,7 @@ import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_typography.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/dapps_provider.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
+import 'package:crypto_mobile_app/src/rust/account.dart' as frb_account;
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -252,6 +253,10 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
 
             if (method == 'sendTransaction') {
               await _handleSendTransaction(id, payload);
+            }
+
+            if (method == 'signMessage') {
+              await _handleSignMessage(id, payload);
             }
           } catch (_) {
             // Ignore malformed messages.
@@ -514,6 +519,167 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
       },
       error: null,
     );
+  }
+
+  Future<void> _handleSignMessage(
+      String id, Map<String, dynamic> payload) async {
+    final args = payload['args'];
+    if (args is! Map<String, dynamic>) {
+      await _resolveJsPromise(id: id, value: null, error: 'Missing args');
+      return;
+    }
+
+    final message = (args['message'] as String?)?.trim();
+    if (message == null || message.isEmpty) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'message is required',
+      );
+      return;
+    }
+
+    final repo = await ref.read(accountsProvider.future);
+    final active = await repo.getActive();
+    if (active == null) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'No active account available',
+      );
+      return;
+    }
+
+    final confirmed = await _requestSignatureConfirmation();
+    if (!confirmed) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'User denied the signature request',
+      );
+      return;
+    }
+
+    final secretKey = await repo.getSecretKey(active.id);
+    if (secretKey == null || secretKey.isEmpty) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'Secret key unavailable',
+      );
+      return;
+    }
+
+    try {
+      final signature = frb_account.signMessage(
+        secretKey: secretKey,
+        message: message,
+      );
+      await _resolveJsPromise(
+        id: id,
+        value: <String, dynamic>{
+          'pubkey': active.address,
+          'signature': signature,
+        },
+        error: null,
+      );
+    } catch (e) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'Signing failed: $e',
+      );
+    }
+  }
+
+  Future<bool> _requestSignatureConfirmation() async {
+    if (!mounted) return false;
+    final theme = Theme.of(context);
+
+    final result = await Navigator.push<bool>(
+      context,
+      PageRouteBuilder<bool>(
+        opaque: true,
+        transitionDuration: const Duration(milliseconds: 300),
+        reverseTransitionDuration: const Duration(milliseconds: 250),
+        pageBuilder: (ctx, _, __) {
+          final spacing = Theme.of(ctx).extension<AppSpacing>()!;
+          return Scaffold(
+            appBar: AppBar(
+              leading: IconButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                icon: const Icon(Symbols.close),
+              ),
+              title: const Text('Verify Identity'),
+              titleSpacing: 0,
+            ),
+            body: Padding(
+              padding: EdgeInsets.all(spacing.space24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Icon(
+                    Symbols.verified_user,
+                    size: 48,
+                    color: theme.colorScheme.primary,
+                  ),
+                  SizedBox(height: spacing.space16),
+                  Text(
+                    '${widget.name} is requesting to verify your identity',
+                    style: Theme.of(ctx).textTheme.titleMedium,
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: spacing.space12),
+                  Text(
+                    'This will sign a challenge with your private key to '
+                    'prove you own this wallet. No transaction will be sent '
+                    'and no tokens will be spent.',
+                    style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const Spacer(),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Button(
+                          label: 'Deny',
+                          variant: ButtonVariant.outlined,
+                          onTap: () => Navigator.pop(ctx, false),
+                        ),
+                      ),
+                      SizedBox(width: spacing.space12),
+                      Expanded(
+                        child: Button(
+                          label: 'Approve',
+                          variant: ButtonVariant.primary,
+                          onTap: () => Navigator.pop(ctx, true),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+        transitionsBuilder: (_, animation, __, child) {
+          return SlideTransition(
+            position: Tween(
+              begin: const Offset(0, 1),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+              reverseCurve: Curves.easeInCubic,
+            )),
+            child: child,
+          );
+        },
+      ),
+    );
+    return result ?? false;
   }
 
   void _ensureConfirmPoller() {

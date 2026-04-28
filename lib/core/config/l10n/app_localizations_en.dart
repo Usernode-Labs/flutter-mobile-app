@@ -32,7 +32,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Sleeping until the next exact-alarm wake.';
 
   @override
-  String get appSleepTapToWake => 'Waiting for the next scheduled wake.';
+  String get appSleepTapToWake => 'Tap anywhere to wake now.';
 
   @override
   String get initializingNode => 'Initializing node...';

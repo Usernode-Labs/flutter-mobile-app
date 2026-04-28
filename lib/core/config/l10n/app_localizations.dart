@@ -133,7 +133,7 @@ abstract class AppLocalizations {
   /// Instruction shown on the sleep page
   ///
   /// In en, this message translates to:
-  /// **'Waiting for the next scheduled wake.'**
+  /// **'Tap anywhere to wake now.'**
   String get appSleepTapToWake;
 
   /// Loading text on splash screen

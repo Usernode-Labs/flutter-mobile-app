@@ -438,6 +438,12 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
     _wasSleeping = isSleeping;
   }
 
+  void _handleSleepScreenWakeRequested() {
+    unawaited(
+      _appSleepService.wake(reason: AppSleepService.manualUiWakeReason),
+    );
+  }
+
   Future<void> _refreshWakeData() async {
     final log = LoggingService.instance.withTag('usernode/AppWakeRefresh');
 
@@ -527,6 +533,7 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
                 if (showSleepScreen)
                   AppSleepScreen(
                     snapshot: snapshot,
+                    onWakeRequested: _handleSleepScreenWakeRequested,
                   ),
               ],
             ),

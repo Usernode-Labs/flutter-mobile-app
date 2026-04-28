@@ -127,13 +127,13 @@ abstract class AppLocalizations {
   /// Fallback message shown when the next scheduled slot time is unavailable
   ///
   /// In en, this message translates to:
-  /// **'Sleeping until the next scheduled slot. Tap anywhere to wake sooner.'**
+  /// **'Sleeping until the next exact-alarm wake.'**
   String get appSleepUntilUnknown;
 
   /// Instruction shown on the sleep page
   ///
   /// In en, this message translates to:
-  /// **'Tap anywhere to wake and return to the app.'**
+  /// **'Waiting for the next scheduled wake.'**
   String get appSleepTapToWake;
 
   /// Loading text on splash screen

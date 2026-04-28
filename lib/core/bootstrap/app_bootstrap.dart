@@ -63,7 +63,13 @@ class AppBootstrap {
     // Initialize platform alarm service early to capture native events
     await PlatformAlarmService.instance.initialize();
     PlatformAlarmService.instance.setNativeEventCallback(
-      AndroidForegroundTaskController.instance.handleNativeEvent,
+      (eventType, eventData) {
+        AppSleepService.instance.handleNativeEvent(eventType, eventData);
+        AndroidForegroundTaskController.instance.handleNativeEvent(
+          eventType,
+          eventData,
+        );
+      },
     );
 
     // Create provider container

@@ -91,6 +91,7 @@ class SlotMonitoringService : Service() {
                 val eventData = mapOf(
                     "alarmId" to (alarmId ?: "unknown"),
                     "slotNumber" to safeSlot,
+                    "alarmTimeMs" to alarmTimeMs,
                     "batteryLevel" to 0,
                     "networkState" to "unknown",
                     "nodeRunning" to nodeRunning

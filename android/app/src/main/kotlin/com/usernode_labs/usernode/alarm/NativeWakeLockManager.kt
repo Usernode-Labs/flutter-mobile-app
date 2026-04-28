@@ -28,6 +28,7 @@ object NativeWakeLockManager {
             try {
                 acquire()
                 Log.i(TAG, "PARTIAL_WAKE_LOCK acquired")
+                notifyFlutterWakelockState(isHeld = true)
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to acquire PARTIAL_WAKE_LOCK", e)
             }
@@ -42,6 +43,7 @@ object NativeWakeLockManager {
             if (wl.isHeld) {
                 wl.release()
                 Log.i(TAG, "PARTIAL_WAKE_LOCK released")
+                notifyFlutterWakelockState(isHeld = false)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to release PARTIAL_WAKE_LOCK", e)
@@ -52,6 +54,16 @@ object NativeWakeLockManager {
 
     @Synchronized
     fun isHeld(): Boolean = wakeLock?.isHeld == true
-}
 
+    private fun notifyFlutterWakelockState(isHeld: Boolean) {
+        try {
+            AlarmMethodChannelHandler.getInstance()?.sendEventToFlutter(
+                if (isHeld) "android_native_wakelock_acquired" else "android_native_wakelock_released",
+                mapOf("wakelockHeld" to isHeld)
+            )
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to send wakelock state change to Flutter", e)
+        }
+    }
+}
 

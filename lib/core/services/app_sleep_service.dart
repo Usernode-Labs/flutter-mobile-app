@@ -76,36 +76,38 @@ const _scheduledWakeSlotSentinel = Object();
 class AppSleepService extends ChangeNotifier {
   AppSleepService._()
       : _idleTimeout = defaultIdleTimeout,
-        _inactiveWakelockRetryInterval = defaultInactiveWakelockRetryInterval,
+        _wakelockMonitorInterval = defaultWakelockMonitorInterval,
         _sleepOverride = null,
         _wakeOverride = null,
         _useStateStore = true,
         _persistSleepingOverride = null,
         _persistEnabledOverride = null,
         _isEnabled = false,
-        _isWakelockHeldOverride = null;
+        _isWakelockHeldOverride = null,
+        _useWakelockTransitionFlow = Platform.isAndroid;
 
   @visibleForTesting
   AppSleepService.forTest({
     Duration idleTimeout = defaultIdleTimeout,
-    Duration inactiveWakelockRetryInterval =
-        defaultInactiveWakelockRetryInterval,
+    Duration wakelockMonitorInterval = defaultWakelockMonitorInterval,
     Future<void> Function(AppSleepReason reason)? onSleep,
     Future<void> Function(String reason)? onWake,
     Future<void> Function(bool value)? persistSleepState,
     Future<void> Function(bool value)? persistSleepEnabled,
     Future<bool> Function()? isWakelockHeld,
+    bool useWakelockTransitionFlow = true,
     AppLifecycleState initialLifecycleState = AppLifecycleState.resumed,
     bool initiallyEnabled = true,
   })  : _idleTimeout = idleTimeout,
-        _inactiveWakelockRetryInterval = inactiveWakelockRetryInterval,
+        _wakelockMonitorInterval = wakelockMonitorInterval,
         _sleepOverride = onSleep,
         _wakeOverride = onWake,
         _useStateStore = false,
         _persistSleepingOverride = persistSleepState,
         _persistEnabledOverride = persistSleepEnabled,
         _isEnabled = initiallyEnabled,
-        _isWakelockHeldOverride = isWakelockHeld {
+        _isWakelockHeldOverride = isWakelockHeld,
+        _useWakelockTransitionFlow = useWakelockTransitionFlow {
     _snapshot = AppSleepSnapshot(
       isSleeping: false,
       lifecycleState: initialLifecycleState,
@@ -116,21 +118,22 @@ class AppSleepService extends ChangeNotifier {
   static final AppSleepService instance = AppSleepService._();
 
   static const defaultIdleTimeout = Duration(seconds: 20);
-  static const defaultInactiveWakelockRetryInterval = Duration(seconds: 10);
+  static const defaultWakelockMonitorInterval = Duration(seconds: 1);
   static const _interactionThrottle = Duration(seconds: 1);
 
   final Duration _idleTimeout;
-  final Duration _inactiveWakelockRetryInterval;
+  final Duration _wakelockMonitorInterval;
   final Future<void> Function(AppSleepReason reason)? _sleepOverride;
   final Future<void> Function(String reason)? _wakeOverride;
   final bool _useStateStore;
   final Future<void> Function(bool value)? _persistSleepingOverride;
   final Future<void> Function(bool value)? _persistEnabledOverride;
   final Future<bool> Function()? _isWakelockHeldOverride;
+  final bool _useWakelockTransitionFlow;
 
   Timer? _idleTimer;
   Timer? _scheduledWakeTimer;
-  Timer? _inactiveWakelockRetryTimer;
+  Timer? _wakelockMonitorTimer;
   Future<void> _transition = Future.value();
   DateTime? _lastRecordedInteractionAt;
   bool _initialized = false;
@@ -139,6 +142,9 @@ class AppSleepService extends ChangeNotifier {
   bool _resumeNodeOnWake = false;
   bool _resumeIosKeepAliveOnWake = false;
   bool _resumeEpochMonitoringOnWake = false;
+  bool _awaitingInactivityAfterWakelockRelease = false;
+  bool _wakelockPollInFlight = false;
+  bool? _lastObservedWakelockHeld;
 
   AppSleepSnapshot _snapshot = AppSleepSnapshot(
     isSleeping: false,
@@ -160,6 +166,8 @@ class AppSleepService extends ChangeNotifier {
 
     if (_initialized) {
       await _persistSleeping(false);
+      await _primeObservedWakelockState();
+      _startWakelockMonitor();
       _rescheduleIdleTimer();
       notifyListeners();
       return;
@@ -174,15 +182,14 @@ class AppSleepService extends ChangeNotifier {
     );
     _initialized = true;
     await _persistSleeping(false);
+    await _primeObservedWakelockState();
+    _startWakelockMonitor();
     _rescheduleIdleTimer();
     notifyListeners();
   }
 
   Future<void> handleLifecycleStateChanged(AppLifecycleState state) async {
     _snapshot = _snapshot.copyWith(lifecycleState: state);
-    if (state != AppLifecycleState.inactive) {
-      _cancelInactiveWakelockRetry();
-    }
     _rescheduleIdleTimer();
     notifyListeners();
 
@@ -190,6 +197,11 @@ class AppSleepService extends ChangeNotifier {
       if (isSleeping) {
         await _wakeInternal('automatic_sleep_disabled');
       }
+      return;
+    }
+
+    if (_useWakelockTransitionFlow) {
+      await _handleLifecycleInactivityChange(state);
       return;
     }
 
@@ -228,7 +240,6 @@ class AppSleepService extends ChangeNotifier {
     notifyListeners();
 
     if (isSleeping) {
-      unawaited(wake(reason: 'user_interaction:$source'));
       return;
     }
 
@@ -259,25 +270,22 @@ class AppSleepService extends ChangeNotifier {
       return;
     }
 
-    if (await _shouldBlockSleepForWakelock(reason)) {
+    if (!_useWakelockTransitionFlow && await _queryWakelockHeld()) {
       _log.info(
         'Skipping app sleep because wakelock is held',
         context: {'reason': reason.name},
       );
-      if (reason == AppSleepReason.lifecycleInactive) {
-        _startInactiveWakelockRetry();
-      }
       if (_snapshot.lifecycleState == AppLifecycleState.resumed) {
         _rescheduleIdleTimer();
       }
       return;
     }
 
-    _cancelInactiveWakelockRetry();
     _idleTimer?.cancel();
     _idleTimer = null;
     _scheduledWakeTimer?.cancel();
     _scheduledWakeTimer = null;
+    _awaitingInactivityAfterWakelockRelease = false;
 
     _resumeMetricsOnWake = MetricsReportingService.instance.isRunning;
     _resumeNodeOnWake = RustBackendService.instance.isRunning;
@@ -285,17 +293,25 @@ class AppSleepService extends ChangeNotifier {
         Platform.isIOS && IOSForegroundKeepAliveService.instance.isActive;
     _resumeEpochMonitoringOnWake =
         EpochSlotSchedulerService.instance.isInitialized;
-    final nextWakeup = await _resolveNextScheduledWake();
 
     _snapshot = _snapshot.copyWith(
       isSleeping: true,
-      scheduledWakeAt: nextWakeup?.scheduledWakeAt,
-      scheduledWakeSlotNumber: nextWakeup?.scheduledWakeSlotNumber,
+      scheduledWakeAt: null,
+      scheduledWakeSlotNumber: null,
       reason: reason,
     );
     notifyListeners();
     await _persistSleeping(true);
-    _scheduleAutomaticWakeIfNeeded();
+
+    if (!_useWakelockTransitionFlow) {
+      final nextWakeup = await _resolveNextScheduledWake();
+      _snapshot = _snapshot.copyWith(
+        scheduledWakeAt: nextWakeup?.scheduledWakeAt,
+        scheduledWakeSlotNumber: nextWakeup?.scheduledWakeSlotNumber,
+      );
+      notifyListeners();
+      _scheduleAutomaticWakeIfNeeded();
+    }
 
     _log.info('Entering app sleep', context: {'reason': reason.name});
 
@@ -314,7 +330,7 @@ class AppSleepService extends ChangeNotifier {
     EpochSlotSchedulerService.instance.stopEpochMonitoring();
     await SlotMonitorService.instance.stopMonitoring();
 
-    if (Platform.isAndroid) {
+    if (Platform.isAndroid && !_useWakelockTransitionFlow) {
       await AndroidForegroundTaskController.instance
           .stopMonitoring(reason: 'app_sleep:${reason.name}');
     }
@@ -323,7 +339,9 @@ class AppSleepService extends ChangeNotifier {
       await IOSForegroundKeepAliveService.instance.stopKeepAlive();
     }
 
-    await PlatformAlarmService.instance.cancelAllAlarms();
+    if (Platform.isAndroid && !_useWakelockTransitionFlow) {
+      await PlatformAlarmService.instance.cancelAllAlarms();
+    }
     await RustBackendService.instance.pauseNode();
   }
 
@@ -335,7 +353,7 @@ class AppSleepService extends ChangeNotifier {
 
     _scheduledWakeTimer?.cancel();
     _scheduledWakeTimer = null;
-    _cancelInactiveWakelockRetry();
+    _awaitingInactivityAfterWakelockRelease = false;
 
     _snapshot = _snapshot.copyWith(
       isSleeping: false,
@@ -344,18 +362,18 @@ class AppSleepService extends ChangeNotifier {
       reason: null,
       lastInteractionAt: DateTime.now(),
     );
-    notifyListeners();
     await _persistSleeping(false);
 
     _log.info('Waking app', context: {'reason': reason});
 
     if (_wakeOverride != null) {
       await _wakeOverride(reason);
+      notifyListeners();
       _rescheduleIdleTimer();
       return;
     }
 
-    if (_resumeNodeOnWake) {
+    if (!_useWakelockTransitionFlow && _resumeNodeOnWake) {
       await RustBackendService.instance.startNode();
       await RustBackendService.instance.resumeNode();
     }
@@ -369,7 +387,9 @@ class AppSleepService extends ChangeNotifier {
       await MetricsReportingService.instance.start();
     }
 
-    if (Platform.isAndroid && _resumeNodeOnWake) {
+    if (!_useWakelockTransitionFlow &&
+        Platform.isAndroid &&
+        _resumeNodeOnWake) {
       await AndroidForegroundTaskController.instance
           .startMonitoring(reason: 'app_wake');
     }
@@ -378,6 +398,7 @@ class AppSleepService extends ChangeNotifier {
       await IOSForegroundKeepAliveService.instance.startKeepAlive();
     }
 
+    notifyListeners();
     _rescheduleIdleTimer();
   }
 
@@ -394,7 +415,7 @@ class AppSleepService extends ChangeNotifier {
       _idleTimer = null;
       _scheduledWakeTimer?.cancel();
       _scheduledWakeTimer = null;
-      _cancelInactiveWakelockRetry();
+      _awaitingInactivityAfterWakelockRelease = false;
 
       if (isSleeping) {
         await _wakeInternal('automatic_sleep_disabled');
@@ -416,7 +437,9 @@ class AppSleepService extends ChangeNotifier {
 
     if (!_isEnabled ||
         _snapshot.lifecycleState != AppLifecycleState.resumed ||
-        isSleeping) {
+        isSleeping ||
+        (_useWakelockTransitionFlow &&
+            !_awaitingInactivityAfterWakelockRelease)) {
       return;
     }
 
@@ -425,7 +448,7 @@ class AppSleepService extends ChangeNotifier {
     });
   }
 
-  Future<bool> _shouldBlockSleepForWakelock(AppSleepReason reason) async {
+  Future<bool> _queryWakelockHeld() async {
     if (_isWakelockHeldOverride != null) {
       return _isWakelockHeldOverride();
     }
@@ -448,36 +471,145 @@ class AppSleepService extends ChangeNotifier {
     return false;
   }
 
-  void _startInactiveWakelockRetry() {
-    if (_snapshot.lifecycleState != AppLifecycleState.inactive || isSleeping) {
+  Future<void> _primeObservedWakelockState() async {
+    if (!_useWakelockTransitionFlow) {
       return;
     }
-    if (_inactiveWakelockRetryTimer != null) {
+
+    _lastObservedWakelockHeld = await _queryWakelockHeld();
+  }
+
+  void _startWakelockMonitor() {
+    if (!_useWakelockTransitionFlow) {
       return;
     }
+
+    _wakelockMonitorTimer?.cancel();
+    _wakelockMonitorTimer = Timer.periodic(
+      _wakelockMonitorInterval,
+      (_) => unawaited(_pollObservedWakelockState()),
+    );
+  }
+
+  Future<void> _pollObservedWakelockState() async {
+    if (!_useWakelockTransitionFlow || _wakelockPollInFlight) {
+      return;
+    }
+
+    _wakelockPollInFlight = true;
+    try {
+      final isHeld = await _queryWakelockHeld();
+      _handleObservedWakelockState(isHeld, source: 'poll');
+    } finally {
+      _wakelockPollInFlight = false;
+    }
+  }
+
+  void handleNativeEvent(String eventType, Map<String, dynamic> eventData) {
+    if (!_useWakelockTransitionFlow) {
+      return;
+    }
+
+    switch (eventType) {
+      case 'android_native_wakelock_acquired':
+        _handleObservedWakelockState(true, source: eventType);
+        break;
+      case 'android_native_wakelock_released':
+        _handleObservedWakelockState(false, source: eventType);
+        break;
+    }
+  }
+
+  void _handleObservedWakelockState(bool isHeld, {required String source}) {
+    final previous = _lastObservedWakelockHeld;
+    _lastObservedWakelockHeld = isHeld;
+
+    if (previous == null || previous == isHeld) {
+      return;
+    }
+
+    if (previous && !isHeld) {
+      _handleWakelockReleased(source);
+      return;
+    }
+
+    if (!previous && isHeld) {
+      _handleWakelockAcquired(source);
+    }
+  }
+
+  void _handleWakelockReleased(String source) {
+    if (isSleeping) {
+      return;
+    }
+
+    if (!_isEnabled) {
+      _awaitingInactivityAfterWakelockRelease = false;
+      _rescheduleIdleTimer();
+      return;
+    }
+
+    _awaitingInactivityAfterWakelockRelease = true;
+    _log.info(
+      'Observed wakelock release; awaiting inactivity confirmation',
+      context: {
+        'source': source,
+        'lifecycle_state': _snapshot.lifecycleState.name,
+      },
+    );
+
+    _rescheduleIdleTimer();
+
+    final sleepReason = _sleepReasonForLifecycleState(_snapshot.lifecycleState);
+    if (sleepReason != null) {
+      unawaited(sleep(reason: sleepReason));
+    }
+  }
+
+  void _handleWakelockAcquired(String source) {
+    _awaitingInactivityAfterWakelockRelease = false;
+    _rescheduleIdleTimer();
 
     _log.info(
-      'Starting inactive wakelock sleep retry loop',
-      context: {'interval_seconds': _inactiveWakelockRetryInterval.inSeconds},
+      'Observed wakelock acquire',
+      context: {
+        'source': source,
+        'is_sleeping': isSleeping,
+      },
     );
-    _inactiveWakelockRetryTimer = Timer.periodic(
-      _inactiveWakelockRetryInterval,
-      (_) => _handleInactiveWakelockRetryTick(),
-    );
-  }
 
-  void _cancelInactiveWakelockRetry() {
-    _inactiveWakelockRetryTimer?.cancel();
-    _inactiveWakelockRetryTimer = null;
-  }
-
-  void _handleInactiveWakelockRetryTick() {
-    if (_snapshot.lifecycleState != AppLifecycleState.inactive || isSleeping) {
-      _cancelInactiveWakelockRetry();
+    if (!isSleeping) {
       return;
     }
 
-    unawaited(sleep(reason: AppSleepReason.lifecycleInactive));
+    unawaited(_persistSleeping(false));
+    unawaited(wake(reason: 'wakelock_acquired:$source'));
+  }
+
+  Future<void> _handleLifecycleInactivityChange(AppLifecycleState state) async {
+    if (!_awaitingInactivityAfterWakelockRelease || isSleeping) {
+      return;
+    }
+
+    final sleepReason = _sleepReasonForLifecycleState(state);
+    if (sleepReason != null) {
+      await sleep(reason: sleepReason);
+    }
+  }
+
+  AppSleepReason? _sleepReasonForLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.resumed:
+        return null;
+      case AppLifecycleState.inactive:
+        return AppSleepReason.lifecycleInactive;
+      case AppLifecycleState.paused:
+        return AppSleepReason.lifecyclePaused;
+      case AppLifecycleState.hidden:
+        return AppSleepReason.lifecycleHidden;
+      case AppLifecycleState.detached:
+        return AppSleepReason.lifecycleDetached;
+    }
   }
 
   Future<({DateTime scheduledWakeAt, int? scheduledWakeSlotNumber})?>
@@ -559,7 +691,8 @@ class AppSleepService extends ChangeNotifier {
     _idleTimer = null;
     _scheduledWakeTimer?.cancel();
     _scheduledWakeTimer = null;
-    _cancelInactiveWakelockRetry();
+    _wakelockMonitorTimer?.cancel();
+    _wakelockMonitorTimer = null;
     super.dispose();
   }
 }

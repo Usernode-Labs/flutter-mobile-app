@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -114,6 +115,9 @@ class PlatformAlarmService {
   void setNativeEventCallback(NativeEventCallback callback) {
     _onNativeEvent = callback;
     _log.debug('Native event callback registered');
+    if (Platform.isAndroid) {
+      unawaited(_markFlutterReadyForAlarmEvents());
+    }
   }
 
   /// Handle alarm rescheduling after device reboot
@@ -134,6 +138,19 @@ class PlatformAlarmService {
     } catch (e) {
       _log.error('Error in rescheduleAfterBoot: $e');
       rethrow;
+    }
+  }
+
+  Future<void> _markFlutterReadyForAlarmEvents() async {
+    try {
+      await _channel.invokeMethod<bool>('markFlutterReadyForAlarmEvents');
+      _log.debug('Marked Flutter alarm channel ready on native side');
+    } on PlatformException catch (e) {
+      _log.warn(
+        'Failed to mark Flutter alarm channel ready: ${e.message}',
+      );
+    } catch (e) {
+      _log.warn('Failed to mark Flutter alarm channel ready: $e');
     }
   }
 

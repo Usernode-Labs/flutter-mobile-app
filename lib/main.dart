@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Platform;
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/services/app_reset_service.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_state_store.dart';
+import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/features/app_sleep/screens/app_sleep_screen.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_reporting_service.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
@@ -25,6 +27,9 @@ import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/providers/metrics_provider.dart';
+import 'package:crypto_mobile_app/core/providers/node_data_providers.dart';
+import 'package:crypto_mobile_app/core/providers/node_provider.dart';
+import 'package:crypto_mobile_app/core/providers/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/core/providers/produced_blocks_provider.dart';
 import 'package:crypto_mobile_app/core/services/app_version_check.dart';
 import 'package:crypto_mobile_app/core/widgets/clock_drift_warning_overlay.dart';
@@ -69,7 +74,10 @@ Future<void> headlessMain() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
     await AppSleepStateStore.load();
-    if (AppSleepStateStore.isSleeping) {
+    await PlatformAlarmService.instance.initialize();
+    final nativeWakelockHeld =
+        await PlatformAlarmService.instance.isWakelockHeld();
+    if (AppSleepStateStore.isSleeping && !nativeWakelockHeld) {
       await LoggingService.initialize();
       final log = LoggingService.instance.withTag('usernode/HeadlessBootstrap');
       log.info('Skipping headless bootstrap while app sleep is active');
@@ -419,6 +427,7 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
     final isSleeping = _appSleepService.isSleeping;
     _syncVersionChecks();
     if (_wasSleeping && !isSleeping) {
+      unawaited(_refreshWakeData());
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         final navContext = appNavigatorKey.currentContext;
@@ -427,6 +436,50 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
       });
     }
     _wasSleeping = isSleeping;
+  }
+
+  Future<void> _refreshWakeData() async {
+    final log = LoggingService.instance.withTag('usernode/AppWakeRefresh');
+
+    if (Platform.isAndroid) {
+      final deadline = DateTime.now().add(const Duration(seconds: 5));
+      while (DateTime.now().isBefore(deadline) &&
+          !RustBackendService.instance.isRunning) {
+        await Future.delayed(const Duration(milliseconds: 200));
+      }
+    }
+
+    Future<void> guardedRefresh(
+      String label,
+      Future<void> Function() refresh,
+    ) async {
+      try {
+        await refresh();
+      } catch (e) {
+        log.warn('Wake refresh failed for $label: $e');
+      }
+    }
+
+    await guardedRefresh(
+      'node_status',
+      () => ref.read(nodeStatusProvider.notifier).refresh(),
+    );
+    await guardedRefresh(
+      'node_blockchain',
+      () => ref.read(nodeBlockchainProvider.notifier).refresh(),
+    );
+    await guardedRefresh(
+      'epoch_rewards',
+      () => ref.read(epochRewardsProvider.notifier).refresh(),
+    );
+    await guardedRefresh(
+      'produced_blocks_summary',
+      () => ref.refresh(producedBlocksSummaryProvider.future),
+    );
+
+    if (MetricsReportingService.instance.isRunning) {
+      await MetricsReportingService.instance.reportNow();
+    }
   }
 
   void _syncVersionChecks() {
@@ -474,11 +527,6 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
                 if (showSleepScreen)
                   AppSleepScreen(
                     snapshot: snapshot,
-                    onWakeRequested: () {
-                      _appSleepService.recordUserInteraction(
-                        source: 'sleep_screen',
-                      );
-                    },
                   ),
               ],
             ),

@@ -37,7 +37,7 @@
   "@appSleepUntilUnknown": {
     "description": "Fallback message shown when the next scheduled slot time is unavailable"
   },
-  "appSleepTapToWake": "Waiting for the next scheduled wake.",
+  "appSleepTapToWake": "Tap anywhere to wake now.",
   "@appSleepTapToWake": {
     "description": "Instruction shown on the sleep page"
   },

@@ -72,7 +72,7 @@ void main() {
     await tester.pump();
   });
 
-  testWidgets('sleeping app wakes only on wakelock reacquire', (tester) async {
+  testWidgets('sleeping app wakes on explicit manual request', (tester) async {
     final sleepReasons = <AppSleepReason>[];
     final wakeReasons = <String>[];
     var wakelockHeld = true;
@@ -102,6 +102,40 @@ void main() {
 
     expect(service.isSleeping, isTrue);
     expect(wakeReasons, isEmpty);
+
+    await service.wake(reason: AppSleepService.manualUiWakeReason);
+    await tester.pump();
+
+    expect(service.isSleeping, isFalse);
+    expect(wakeReasons, [AppSleepService.manualUiWakeReason]);
+
+    service.dispose();
+    await tester.pump();
+  });
+
+  testWidgets('sleeping app wakes on wakelock reacquire', (tester) async {
+    final sleepReasons = <AppSleepReason>[];
+    final wakeReasons = <String>[];
+    var wakelockHeld = true;
+
+    final service = AppSleepService.forTest(
+      idleTimeout: const Duration(seconds: 1),
+      wakelockMonitorInterval: const Duration(seconds: 1),
+      onSleep: (reason) async => sleepReasons.add(reason),
+      onWake: (reason) async => wakeReasons.add(reason),
+      persistSleepState: (_) async {},
+      isWakelockHeld: () async => wakelockHeld,
+    );
+
+    await service.initializeForInteractiveApp();
+    wakelockHeld = false;
+    await service.handleLifecycleStateChanged(AppLifecycleState.inactive);
+
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump();
+
+    expect(service.isSleeping, isTrue);
+    expect(sleepReasons, [AppSleepReason.lifecycleInactive]);
 
     wakelockHeld = true;
     await tester.pump(const Duration(seconds: 1));

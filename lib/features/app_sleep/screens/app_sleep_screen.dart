@@ -8,9 +8,11 @@ class AppSleepScreen extends StatelessWidget {
   const AppSleepScreen({
     super.key,
     required this.snapshot,
+    required this.onWakeRequested,
   });
 
   final AppSleepSnapshot snapshot;
+  final VoidCallback onWakeRequested;
 
   @override
   Widget build(BuildContext context) {
@@ -24,52 +26,56 @@ class AppSleepScreen extends StatelessWidget {
       canPop: false,
       child: Scaffold(
         backgroundColor: theme.colorScheme.surface,
-        body: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: EdgeInsets.all(spacing.space24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Symbols.bedtime_sharp,
-                    size: sizing.iconDisplayLarge,
-                    color: semantic.technical.color,
-                  ),
-                  SizedBox(height: spacing.space24),
-                  Text(
-                    l10n.appSleepTitle,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+        body: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onWakeRequested,
+          child: SafeArea(
+            child: Center(
+              child: Padding(
+                padding: EdgeInsets.all(spacing.space24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Symbols.bedtime_sharp,
+                      size: sizing.iconDisplayLarge,
+                      color: semantic.technical.color,
                     ),
-                  ),
-                  SizedBox(height: spacing.space12),
-                  Text(
-                    _scheduledWakeText(context, l10n),
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  SizedBox(height: spacing.space24),
-                  Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: spacing.space16,
-                      vertical: spacing.space12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest,
-                      borderRadius:
-                          theme.extension<AppRadii>()!.borderRadiusMedium,
-                    ),
-                    child: Text(
-                      l10n.appSleepTapToWake,
+                    SizedBox(height: spacing.space24),
+                    Text(
+                      l10n.appSleepTitle,
                       textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyMedium,
+                      style: theme.textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                ],
+                    SizedBox(height: spacing.space12),
+                    Text(
+                      _scheduledWakeText(context, l10n),
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    SizedBox(height: spacing.space24),
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: spacing.space16,
+                        vertical: spacing.space12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerHighest,
+                        borderRadius:
+                            theme.extension<AppRadii>()!.borderRadiusMedium,
+                      ),
+                      child: Text(
+                        l10n.appSleepTapToWake,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

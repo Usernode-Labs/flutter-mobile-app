@@ -120,6 +120,7 @@ class AppSleepService extends ChangeNotifier {
   static const defaultIdleTimeout = Duration(seconds: 20);
   static const defaultWakelockMonitorInterval = Duration(seconds: 1);
   static const _interactionThrottle = Duration(seconds: 1);
+  static const manualUiWakeReason = 'manual_ui_wake';
 
   final Duration _idleTimeout;
   final Duration _wakelockMonitorInterval;
@@ -373,7 +374,7 @@ class AppSleepService extends ChangeNotifier {
       return;
     }
 
-    if (!_useWakelockTransitionFlow && _resumeNodeOnWake) {
+    if (_shouldResumeNodeDirectlyOnWake(reason)) {
       await RustBackendService.instance.startNode();
       await RustBackendService.instance.resumeNode();
     }
@@ -584,6 +585,19 @@ class AppSleepService extends ChangeNotifier {
 
     unawaited(_persistSleeping(false));
     unawaited(wake(reason: 'wakelock_acquired:$source'));
+  }
+
+  bool _shouldResumeNodeDirectlyOnWake(String reason) {
+    if (!_resumeNodeOnWake) {
+      return false;
+    }
+
+    if (!_useWakelockTransitionFlow) {
+      return true;
+    }
+
+    return reason == manualUiWakeReason &&
+        _snapshot.lifecycleState == AppLifecycleState.resumed;
   }
 
   Future<void> _handleLifecycleInactivityChange(AppLifecycleState state) async {

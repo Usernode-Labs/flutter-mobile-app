@@ -117,7 +117,7 @@ class AppSleepService extends ChangeNotifier {
 
   static final AppSleepService instance = AppSleepService._();
 
-  static const defaultIdleTimeout = Duration(seconds: 20);
+  static const defaultIdleTimeout = Duration(seconds: 300);
   static const defaultWakelockMonitorInterval = Duration(seconds: 1);
   static const _interactionThrottle = Duration(seconds: 1);
   static const manualUiWakeReason = 'manual_ui_wake';

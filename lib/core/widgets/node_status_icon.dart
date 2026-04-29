@@ -2,15 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_semantic_colors.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_sizing.dart';
 import 'package:crypto_mobile_app/features/node/screens/widgets/node_status_summary_modal.dart';
 
-/// Icon button that displays current node sync status in the app bar
+/// Icon button that displays current node sync status in the app bar.
 /// Shows different icons and colors based on sync state:
-/// - Connecting: Grey hourglass (hourglass_empty) - no peers
-/// - Syncing: Blue rotating sync icon (sync) - syncing with peers
+/// - Connecting: Amber hourglass (hourglass_empty) - no peers
+/// - Syncing: Amber rotating sync icon (sync) - syncing with peers
 /// - Synced: Green check circle (check_circle) - fully synced
 /// - Error: Red error icon (error) - backend error
+///
+/// Chromatic colors come from [AppSemanticColors] (success/warning); the
+/// `error` role on [ColorScheme] is the only structural role that carries
+/// hue in this design system.
 class NodeStatusIcon extends ConsumerWidget {
   const NodeStatusIcon({super.key});
 
@@ -18,6 +23,7 @@ class NodeStatusIcon extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final semantic = theme.extension<AppSemanticColors>()!;
     final sizing = Theme.of(context).extension<AppSizing>()!;
     final statusAsync = ref.watch(nodeStatusProvider);
 
@@ -29,30 +35,28 @@ class NodeStatusIcon extends ConsumerWidget {
       error: (_, __) => true,
     );
 
-    // Determine icon, color, and rotation based on status
+    // Determine icon, color, and rotation based on status. Chromatic color
+    // comes from AppSemanticColors (success/warning); only `error` carries
+    // hue from colorScheme by design.
     final IconData icon;
     final Color color;
     final bool shouldRotate;
 
     if (providerHasError || syncStatus == null || syncStatus.hasError) {
-      // Error state
       icon = Symbols.error_sharp;
       color = colorScheme.error;
       shouldRotate = false;
     } else if (syncStatus.isConnecting) {
-      // Connecting state (no peers)
       icon = Symbols.hourglass_empty_sharp;
-      color = colorScheme.outline;
+      color = semantic.warning.color;
       shouldRotate = false;
     } else if (syncStatus.isSynced) {
-      // Synced state
       icon = Symbols.check_circle_sharp;
-      color = colorScheme.tertiary;
+      color = semantic.success.color;
       shouldRotate = false;
     } else {
-      // Syncing state
       icon = Symbols.sync_sharp;
-      color = colorScheme.primary;
+      color = semantic.warning.color;
       shouldRotate = true;
     }
 

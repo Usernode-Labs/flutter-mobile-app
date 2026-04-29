@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
+import 'package:crypto_mobile_app/core/widgets/node_status_icon.dart';
 import 'package:crypto_mobile_app/core/widgets/tx_confirmation_page.dart';
 import 'package:crypto_mobile_app/design_system/src/button.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
@@ -949,6 +950,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
           ),
           titleSpacing: 0,
           actions: [
+            const NodeStatusIcon(),
             IconButton(
               tooltip: 'Transaction log',
               onPressed: _openTxDebugPanel,

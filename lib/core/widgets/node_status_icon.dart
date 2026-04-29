@@ -6,65 +6,96 @@ import 'package:crypto_mobile_app/design_system/tokens/app_semantic_colors.dart'
 import 'package:crypto_mobile_app/design_system/tokens/app_sizing.dart';
 import 'package:crypto_mobile_app/features/node/screens/widgets/node_status_summary_modal.dart';
 
-/// Icon button that displays current node sync status in the app bar.
-/// Shows different icons and colors based on sync state:
-/// - Connecting: Amber hourglass (hourglass_empty) - no peers
-/// - Syncing: Amber rotating sync icon (sync) - syncing with peers
-/// - Synced: Green check circle (check_circle) - fully synced
-/// - Error: Red error icon (error) - backend error
+/// Icon button that displays current node sync status as a colored circle
+/// (`*.colorContainer`) with a centered icon (`*.onColorContainer`) inside.
+/// This matches the icon-in-pill convention used on the Node Status page,
+/// and reads as "green / amber / red" much more legibly than a foreground
+/// color on a transparent background at AppBar sizes.
 ///
-/// Chromatic colors come from [AppSemanticColors] (success/warning); the
-/// `error` role on [ColorScheme] is the only structural role that carries
-/// hue in this design system.
+/// State -> visual:
+/// - Error: red circle with an X (Symbols.close_sharp).
+/// - Loading / Connecting: amber circle with a rotating sync icon.
+/// - Syncing: amber circle with a rotating sync icon.
+/// - Synced: green circle with a check (Symbols.check_sharp).
+///
+/// Loading and connecting share the same visual on purpose: from the user's
+/// perspective both mean "we're working on it, hold on". The tooltip
+/// (`syncStatus.label`) carries the more specific text.
+///
+/// Background hues come from [AppSemanticColors] `*.colorContainer` and
+/// `colorScheme.errorContainer`; the icon is drawn in the matching
+/// `*.onColorContainer` / `colorScheme.onErrorContainer`. This keeps the
+/// design system's "structural roles are grey; chromatic comes from the
+/// semantic extension" rule intact.
 class NodeStatusIcon extends ConsumerWidget {
   const NodeStatusIcon({super.key});
+
+  /// Visible coloured circle diameter. The IconButton's tap target stays at
+  /// 40x40 so accessibility isn't compromised; the circle just sits inside.
+  static const double _badgeSize = 32;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final semantic = theme.extension<AppSemanticColors>()!;
-    final sizing = Theme.of(context).extension<AppSizing>()!;
+    final sizing = theme.extension<AppSizing>()!;
     final statusAsync = ref.watch(nodeStatusProvider);
 
-    // Extract sync status and determine if there's a provider-level error
+    // Extract sync status. Note: a null syncStatus means we're still loading
+    // (or briefly between refetches) — that is NOT a hard error and must not
+    // surface the red error icon. Real errors come from `statusAsync.hasError`,
+    // an explicit `data: null` payload, or `syncStatus.hasError`.
     final syncStatus = statusAsync.valueOrNull?.syncStatus;
-    final providerHasError = statusAsync.when(
-      data: (status) => status == null,
-      loading: () => false,
-      error: (_, __) => true,
-    );
+    final hasRealError = statusAsync.hasError ||
+        (statusAsync.hasValue && statusAsync.value == null) ||
+        (syncStatus?.hasError ?? false);
 
-    // Determine icon, color, and rotation based on status. Chromatic color
-    // comes from AppSemanticColors (success/warning); only `error` carries
-    // hue from colorScheme by design.
     final IconData icon;
-    final Color color;
+    final Color backgroundColor;
+    final Color foregroundColor;
     final bool shouldRotate;
 
-    if (providerHasError || syncStatus == null || syncStatus.hasError) {
-      icon = Symbols.error_sharp;
-      color = colorScheme.error;
+    if (hasRealError) {
+      icon = Symbols.close_sharp;
+      backgroundColor = colorScheme.errorContainer;
+      foregroundColor = colorScheme.onErrorContainer;
       shouldRotate = false;
-    } else if (syncStatus.isConnecting) {
-      icon = Symbols.hourglass_empty_sharp;
-      color = semantic.warning.color;
-      shouldRotate = false;
+    } else if (syncStatus == null || syncStatus.isConnecting) {
+      icon = Symbols.sync_sharp;
+      backgroundColor = semantic.warning.colorContainer;
+      foregroundColor = semantic.warning.onColorContainer;
+      shouldRotate = true;
     } else if (syncStatus.isSynced) {
-      icon = Symbols.check_circle_sharp;
-      color = semantic.success.color;
+      icon = Symbols.check_sharp;
+      backgroundColor = semantic.success.colorContainer;
+      foregroundColor = semantic.success.onColorContainer;
       shouldRotate = false;
     } else {
       icon = Symbols.sync_sharp;
-      color = semantic.warning.color;
+      backgroundColor = semantic.warning.colorContainer;
+      foregroundColor = semantic.warning.onColorContainer;
       shouldRotate = true;
     }
 
+    final iconWidget = shouldRotate
+        ? _RotatingIcon(
+            icon: icon, color: foregroundColor, size: sizing.iconSmall)
+        : Icon(icon, color: foregroundColor, size: sizing.iconSmall);
+
     return IconButton(
       constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-      icon: shouldRotate
-          ? _RotatingIcon(icon: icon, color: color, size: sizing.iconSmall)
-          : Icon(icon, color: color, size: sizing.iconSmall),
+      padding: EdgeInsets.zero,
+      icon: Container(
+        width: _badgeSize,
+        height: _badgeSize,
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          shape: BoxShape.circle,
+        ),
+        alignment: Alignment.center,
+        child: iconWidget,
+      ),
       onPressed: () {
         showNodeStatusSummaryModal(context);
       },
@@ -73,7 +104,7 @@ class NodeStatusIcon extends ConsumerWidget {
   }
 }
 
-/// Widget that rotates an icon continuously (for syncing state)
+/// Widget that rotates an icon continuously (for syncing/connecting states).
 class _RotatingIcon extends StatefulWidget {
   final IconData icon;
   final Color color;

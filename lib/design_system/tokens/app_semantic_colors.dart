@@ -107,12 +107,15 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
           onColorSurface: Color(0xFF146D32),
         ),
         success: SemanticColorGroup(
-          color: Color(0xFF1A6D23),
+          // #2E7D32 (Material Green 800): clearly reads as green at small
+          // icon sizes on a light surface, while still passing WCAG AA
+          // contrast (~5:1 on white). Was #1A6D23, which read almost olive.
+          color: Color(0xFF2E7D32),
           onColor: Color(0xFFFFFFFF),
           colorContainer: Color(0xFFBAF1B4),
           onColorContainer: Color(0xFF12681E),
           colorSurface: Color(0xFFE3EAE4),
-          onColorSurface: Color(0xFF1A6D23),
+          onColorSurface: Color(0xFF2E7D32),
         ),
         warning: SemanticColorGroup(
           color: Color(0xFF9C5700),

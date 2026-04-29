@@ -614,14 +614,17 @@ class _NodeStatusSummaryModalState
                 variant: ButtonVariant.primary,
                 leadingIcon: const Icon(Symbols.visibility_sharp),
                 onTap: () {
-                  // Switch the home shell to the Node Status tab and navigate
-                  // to /home so the bottom navigation stays visible. The
-                  // standalone /main/node route renders NodeStatusScreen
+                  // Switch the home shell to the Node Status tab and clear
+                  // any imperatively-pushed routes (the modal itself, plus
+                  // a dapp WebView when the modal was opened from there) so
+                  // we land on /home with the bottom navigation visible.
+                  // The standalone /main/node route renders NodeStatusScreen
                   // outside HomeScreen's IndexedStack and would lose the bar.
+                  final goRouter = GoRouter.of(context);
                   ref.read(currentHomeTabProvider.notifier).state =
                       HomeTab.nodeStatus;
-                  Navigator.of(context).pop();
-                  context.go(AppRoutes.home);
+                  Navigator.of(context).popUntil((r) => r.isFirst);
+                  goRouter.go(AppRoutes.home);
                 },
               ),
             ),

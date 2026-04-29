@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
+import 'package:crypto_mobile_app/core/widgets/node_status_icon.dart';
 import 'package:crypto_mobile_app/core/widgets/tx_confirmation_page.dart';
 import 'package:crypto_mobile_app/design_system/src/button.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
@@ -229,6 +230,12 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     super.initState();
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      // Pipe WebView console.* output (including the iframe-relay tracing in
+      // usernode-bridge.js) into Flutter's debug logs so it shows up in
+      // `flutter run` — no Safari/remote inspector required.
+      ..setOnConsoleMessage((msg) {
+        debugPrint('[webview ${msg.level.name}] ${msg.message}');
+      })
       ..addJavaScriptChannel(
         _jsChannelName,
         onMessageReceived: (message) async {
@@ -236,6 +243,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
             final payload = jsonDecode(message.message) as Map<String, dynamic>;
             final method = payload['method'] as String?;
             final id = payload['id'] as String?;
+            debugPrint('[Usernode JS-channel] method=$method id=$id');
             if (method == null || id == null) return;
 
             if (method == 'getNodeAddress') {
@@ -258,8 +266,11 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
             if (method == 'signMessage') {
               await _handleSignMessage(id, payload);
             }
-          } catch (_) {
-            // Ignore malformed messages.
+          } catch (e, st) {
+            // Surface dispatch failures so we don't end up with a silently
+            // hung pending promise on the JS side. The id may not have been
+            // parsed yet, in which case there is no resolver to call.
+            debugPrint('[Usernode JS-channel] dispatch error: $e\n$st');
           }
         },
       )
@@ -913,43 +924,71 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
         ),
     ];
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          tooltip: 'Back',
-          onPressed: () => Navigator.of(context).pop(),
-          icon: const Icon(Symbols.arrow_back_sharp),
-        ),
-        title: GestureDetector(
-          onTap: _onSecretTap,
-          behavior: HitTestBehavior.opaque,
-          child: Text(widget.name),
-        ),
-        titleSpacing: 0,
-        actions: [
-          IconButton(
-            tooltip: 'Transaction log',
-            onPressed: _openTxDebugPanel,
-            icon: const Icon(Symbols.receipt_long),
+    return PopScope(
+      // Take over the route-pop handler so the device/system back button
+      // walks the WebView's session history first (pushState entries
+      // from the dapp's own client-side router count as history) and
+      // only pops the Flutter route once we're at the WebView root.
+      // Without this the Android back button would always exit the
+      // dapp, regardless of how deep the user has navigated inside it.
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        await _handleBack();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            tooltip: 'Back',
+            onPressed: _handleBack,
+            icon: const Icon(Symbols.arrow_back_sharp),
           ),
-        ],
-        bottom: bottomWidgets.isEmpty
-            ? null
-            : PreferredSize(
-                preferredSize: Size.fromHeight(
-                  (showLoading ? 2 : 0) + (_showUrlEditor ? 62 : 0),
-                ),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(color: theme.colorScheme.surface),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: bottomWidgets,
+          title: GestureDetector(
+            onTap: _onSecretTap,
+            behavior: HitTestBehavior.opaque,
+            child: Text(widget.name),
+          ),
+          titleSpacing: 0,
+          actions: [
+            const NodeStatusIcon(),
+            IconButton(
+              tooltip: 'Transaction log',
+              onPressed: _openTxDebugPanel,
+              icon: const Icon(Symbols.receipt_long),
+            ),
+          ],
+          bottom: bottomWidgets.isEmpty
+              ? null
+              : PreferredSize(
+                  preferredSize: Size.fromHeight(
+                    (showLoading ? 2 : 0) + (_showUrlEditor ? 62 : 0),
+                  ),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(color: theme.colorScheme.surface),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: bottomWidgets,
+                    ),
                   ),
                 ),
-              ),
+        ),
+        body: WebViewWidget(controller: _controller),
       ),
-      body: WebViewWidget(controller: _controller),
     );
+  }
+
+  // Single back-button entry point shared by the AppBar leading icon
+  // and the PopScope's onPopInvokedWithResult. Walks the WebView's
+  // session history first (covers in-page pushState navigation in
+  // dapps like social-vibecoding: home → app → group-chat → back goes
+  // to app, not out of the dapp) and only falls through to popping
+  // the Flutter route once the WebView is at its root.
+  Future<void> _handleBack() async {
+    if (await _controller.canGoBack()) {
+      await _controller.goBack();
+      return;
+    }
+    if (mounted) Navigator.of(context).pop();
   }
 }
 

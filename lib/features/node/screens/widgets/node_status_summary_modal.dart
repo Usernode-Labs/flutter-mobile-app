@@ -7,6 +7,7 @@ import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
+import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 
 /// Shows a bottom sheet with node status summary
 void showNodeStatusSummaryModal(BuildContext context) {
@@ -77,6 +78,10 @@ class _NodeStatusSummaryModalState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    // Sync-status hues come from AppSemanticColors so they actually read as
+    // green/amber. Structural roles (tertiary/primary/outline) are achromatic
+    // grey in this design system; only `error` carries hue from colorScheme.
+    final semantic = theme.extension<AppSemanticColors>()!;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
     final sizing = Theme.of(context).extension<AppSizing>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
@@ -99,7 +104,7 @@ class _NodeStatusSummaryModalState
                   // Loading state
                   return _StatusCard(
                     icon: Symbols.hourglass_empty_sharp,
-                    iconColor: colorScheme.outline,
+                    iconColor: semantic.warning.color,
                     title: 'Sync Status',
                     child: Center(
                       child: Text(
@@ -124,15 +129,15 @@ class _NodeStatusSummaryModalState
 
                 if (syncStatus.isConnecting) {
                   icon = Symbols.hourglass_empty_sharp;
-                  accentColor = colorScheme.outline;
+                  accentColor = semantic.warning.color;
                   statusLabel = 'Connecting';
                 } else if (syncStatus.isSynced) {
                   icon = Symbols.check_circle_sharp;
-                  accentColor = colorScheme.tertiary;
+                  accentColor = semantic.success.color;
                   statusLabel = 'Synced';
                 } else if (syncStatus.isSyncing) {
                   icon = Symbols.sync_sharp;
-                  accentColor = colorScheme.primary;
+                  accentColor = semantic.warning.color;
                   statusLabel = 'Syncing';
                 } else {
                   icon = Symbols.error_sharp;
@@ -251,8 +256,8 @@ class _NodeStatusSummaryModalState
                   final syncPercentage = syncStatus.progress;
 
                   final accentColor = syncStatus.isSynced
-                      ? colorScheme.tertiary
-                      : colorScheme.primary;
+                      ? semantic.success.color
+                      : semantic.warning.color;
 
                   return _StatusCard(
                     icon: syncStatus.isSynced
@@ -337,7 +342,7 @@ class _NodeStatusSummaryModalState
                   );
                 }
                 // Show default values when no previous data (instead of placeholder)
-                final accentColor = colorScheme.outline;
+                final accentColor = semantic.warning.color;
                 return _StatusCard(
                   icon: Symbols.hourglass_empty_sharp,
                   iconColor: accentColor,
@@ -609,8 +614,17 @@ class _NodeStatusSummaryModalState
                 variant: ButtonVariant.primary,
                 leadingIcon: const Icon(Symbols.visibility_sharp),
                 onTap: () {
-                  Navigator.of(context).pop();
-                  context.push(AppRoutes.mainNode);
+                  // Switch the home shell to the Node Status tab and clear
+                  // any imperatively-pushed routes (the modal itself, plus
+                  // a dapp WebView when the modal was opened from there) so
+                  // we land on /home with the bottom navigation visible.
+                  // The standalone /main/node route renders NodeStatusScreen
+                  // outside HomeScreen's IndexedStack and would lose the bar.
+                  final goRouter = GoRouter.of(context);
+                  ref.read(currentHomeTabProvider.notifier).state =
+                      HomeTab.nodeStatus;
+                  Navigator.of(context).popUntil((r) => r.isFirst);
+                  goRouter.go(AppRoutes.home);
                 },
               ),
             ),

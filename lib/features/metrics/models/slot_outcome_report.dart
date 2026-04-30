@@ -100,19 +100,46 @@ class SlotOutcomeReport {
   /// from `producedBlockMetadata` if available.
   final int? producedAtMs;
 
-  // ─── Pipeline timings (populated once `epoch_slot_details` is wired) ────
+  /// Wall-clock the slot was discarded at (ms since epoch), if applicable.
+  final int? discardedAtMs;
+
+  /// Node's classification of this slot: one of `"NotWon" | "Missed" |
+  /// "Won" | "Orphaned"`. Mirrors `RpcSlotResult` from `epoch_slot_details`.
+  final String? nodeSlotStatus;
+
+  // ─── Pipeline timings (populated from `epoch_slot_details` RPC) ─────────
   /// Taxonomy mirrors usernode `BlockProducerFlowOutcome`. Strings, not enum,
   /// so additions on the node side don't require Flutter changes:
   /// `"block_injected" | "won_slot_discarded" | "db_diff_failed" |
   ///  "sign_failed" | "missing_identity_proof"`.
   final String? flowOutcome;
 
-  /// e.g. `"build" | "db_diff" | "sign" | "inject"` — the last stage reached
-  /// before terminal outcome.
+  /// Free-form detail attached by the producer alongside [flowOutcome]
+  /// (e.g. signing error message, diff-failure reason). Mirrors
+  /// `PersistedFlowSummary.outcome_detail`.
+  final String? flowOutcomeDetail;
+
+  /// Reserved: stage label the producer was in when terminal outcome hit
+  /// (`"build" | "db_diff" | "sign" | "inject"`). Topochain can derive this
+  /// from [flowOutcome] + which `*_ms` timings are populated; the node
+  /// doesn't currently emit it as a field.
   final String? terminalStage;
 
-  /// Reason a won slot was discarded, if applicable.
+  /// Reason a won slot was discarded, if applicable. Surfaced as a
+  /// human-readable string.
   final String? discardReason;
+
+  /// Reason an "empty block" outcome was recorded, if applicable. Mirrors
+  /// `PersistedFlowSummary.empty_reason`.
+  final String? emptyReason;
+
+  /// Wall-clock the producer injected the block (ms since epoch). Distinct
+  /// from [producedAtMs], which is sourced from chain `produced_block_metadata`.
+  final int? blockInjectedAtMs;
+
+  /// Wall-clock the flow summary was persisted to the node's SQLite (ms
+  /// since epoch). Useful for ordering against the client's [capturedAtMs].
+  final int? flowSummaryAtMs;
 
   /// Per-stage durations in ms, when reported by the node.
   final int? buildMs;
@@ -162,9 +189,15 @@ class SlotOutcomeReport {
     this.blockHeight,
     this.canonical,
     this.producedAtMs,
+    this.discardedAtMs,
+    this.nodeSlotStatus,
     this.flowOutcome,
+    this.flowOutcomeDetail,
     this.terminalStage,
     this.discardReason,
+    this.emptyReason,
+    this.blockInjectedAtMs,
+    this.flowSummaryAtMs,
     this.buildMs,
     this.dbDiffMs,
     this.signMs,
@@ -207,9 +240,16 @@ class SlotOutcomeReport {
         if (blockHeight != null) 'block_height': blockHeight,
         if (canonical != null) 'canonical': canonical,
         if (producedAtMs != null) 'produced_at_ms': producedAtMs,
+        if (discardedAtMs != null) 'discarded_at_ms': discardedAtMs,
+        if (nodeSlotStatus != null) 'node_slot_status': nodeSlotStatus,
         if (flowOutcome != null) 'flow_outcome': flowOutcome,
+        if (flowOutcomeDetail != null) 'flow_outcome_detail': flowOutcomeDetail,
         if (terminalStage != null) 'terminal_stage': terminalStage,
         if (discardReason != null) 'discard_reason': discardReason,
+        if (emptyReason != null) 'empty_reason': emptyReason,
+        if (blockInjectedAtMs != null)
+          'block_injected_at_ms': blockInjectedAtMs,
+        if (flowSummaryAtMs != null) 'flow_summary_at_ms': flowSummaryAtMs,
         if (buildMs != null) 'build_ms': buildMs,
         if (dbDiffMs != null) 'db_diff_ms': dbDiffMs,
         if (signMs != null) 'sign_ms': signMs,
@@ -253,9 +293,15 @@ class SlotOutcomeReport {
       blockHeight: (json['block_height'] as num?)?.toInt(),
       canonical: json['canonical'] as bool?,
       producedAtMs: (json['produced_at_ms'] as num?)?.toInt(),
+      discardedAtMs: (json['discarded_at_ms'] as num?)?.toInt(),
+      nodeSlotStatus: json['node_slot_status'] as String?,
       flowOutcome: json['flow_outcome'] as String?,
+      flowOutcomeDetail: json['flow_outcome_detail'] as String?,
       terminalStage: json['terminal_stage'] as String?,
       discardReason: json['discard_reason'] as String?,
+      emptyReason: json['empty_reason'] as String?,
+      blockInjectedAtMs: (json['block_injected_at_ms'] as num?)?.toInt(),
+      flowSummaryAtMs: (json['flow_summary_at_ms'] as num?)?.toInt(),
       buildMs: (json['build_ms'] as num?)?.toInt(),
       dbDiffMs: (json['db_diff_ms'] as num?)?.toInt(),
       signMs: (json['sign_ms'] as num?)?.toInt(),

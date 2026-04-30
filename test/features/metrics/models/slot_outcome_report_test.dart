@@ -135,5 +135,52 @@ void main() {
     test('buildId composes id from globalSlot and capturedAtMs', () {
       expect(SlotOutcomeReport.buildId(42, 1700), '42:1700');
     });
+
+    test('node-side enrichment fields roundtrip through JSON', () {
+      // These fields are populated from the `epoch_slot_details` RPC after
+      // FRB regen flattened `PersistedFlowSummary` onto `RpcSlotDetail`.
+      // Pinning the wire keys here prevents a Dart-side refactor from
+      // silently breaking the topochain join.
+      const report = SlotOutcomeReport(
+        id: '1:2',
+        capturedAtMs: 2,
+        globalSlot: 1,
+        outcome: SlotOutcomeKind.produced,
+        nodeSlotStatus: 'Won',
+        flowOutcome: 'block_injected',
+        flowOutcomeDetail: 'ok',
+        discardReason: null,
+        emptyReason: null,
+        blockInjectedAtMs: 1700000000123,
+        discardedAtMs: null,
+        flowSummaryAtMs: 1700000000456,
+        buildMs: 11,
+        dbDiffMs: 22,
+        signMs: 33,
+        injectMs: 44,
+        batchFetchMs: 55,
+        hydrationVisibleMs: 66,
+      );
+
+      final json = report.toJson();
+      expect(json['node_slot_status'], 'Won');
+      expect(json['flow_outcome'], 'block_injected');
+      expect(json['flow_outcome_detail'], 'ok');
+      expect(json['block_injected_at_ms'], 1700000000123);
+      expect(json['flow_summary_at_ms'], 1700000000456);
+      expect(json.containsKey('discard_reason'), isFalse);
+      expect(json.containsKey('empty_reason'), isFalse);
+      expect(json.containsKey('discarded_at_ms'), isFalse);
+
+      final decoded = SlotOutcomeReport.fromJson(json);
+      expect(decoded.nodeSlotStatus, 'Won');
+      expect(decoded.flowOutcome, 'block_injected');
+      expect(decoded.flowOutcomeDetail, 'ok');
+      expect(decoded.blockInjectedAtMs, 1700000000123);
+      expect(decoded.flowSummaryAtMs, 1700000000456);
+      expect(decoded.buildMs, 11);
+      expect(decoded.signMs, 33);
+      expect(decoded.injectMs, 44);
+    });
   });
 }

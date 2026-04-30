@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/features/metrics/services/slot_outcome_recorder.dart';
 import '../../features/node/node_service.dart';
 import '../data/slot_production_repository.dart';
 import 'epoch_slot_scheduler_service.dart';
@@ -259,6 +260,20 @@ class SlotMonitorService {
               'Failed to record production failure for slot $currentSlotNumber: $e');
         }
 
+        // Snapshot for the next metrics POST (analytics buffer). Captured
+        // here so app_state / network / battery reflect the slot window
+        // rather than the next periodic tick.
+        unawaited(
+          SlotOutcomeRecorder.instance.recordMonitoringTimeout(
+            globalSlot: currentSlotNumber,
+            epoch: _currentSlot?.epoch,
+            slotTime: _currentSlot?.slotTime,
+            reason: 'Monitoring timeout',
+            alarmScheduledAt: _currentSlot?.alarmTime,
+            monitoringStartedAt: _monitoringStartTime,
+          ),
+        );
+
         await stopMonitoring();
       }
     } catch (e) {
@@ -300,18 +315,35 @@ class SlotMonitorService {
         blockHeight: ourBlock.height,
       ));
 
+      final producedAt = DateTime.now();
+
       // Record production success to statistics repository
       try {
         await SlotProductionRepository.instance.recordProductionSuccess(
           slotNumber: slotNumber,
           blockHeight: ourBlock.height,
-          producedTime: DateTime.now(),
+          producedTime: producedAt,
         );
         _log.debug('Recorded production success for slot $slotNumber');
       } catch (e) {
         _log.warn(
             'Failed to record production success for slot $slotNumber: $e');
       }
+
+      // Snapshot for the next metrics POST (analytics buffer). Captured
+      // here so app_state / network / battery reflect the slot window
+      // rather than the next periodic tick.
+      unawaited(
+        SlotOutcomeRecorder.instance.recordProduced(
+          globalSlot: slotNumber,
+          epoch: _currentSlot?.epoch,
+          slotTime: _currentSlot?.slotTime,
+          blockHeight: ourBlock.height,
+          producedAt: producedAt,
+          alarmScheduledAt: _currentSlot?.alarmTime,
+          monitoringStartedAt: _monitoringStartTime,
+        ),
+      );
 
       // Stop monitoring this slot
       await stopMonitoring();

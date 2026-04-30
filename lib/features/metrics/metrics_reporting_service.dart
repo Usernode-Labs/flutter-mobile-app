@@ -6,7 +6,9 @@ import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/services/app_reset_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/models/block_production_event.dart';
+import 'package:crypto_mobile_app/features/metrics/data/slot_outcome_buffer_repository.dart';
 import 'package:crypto_mobile_app/features/metrics/models/metrics_payload.dart';
+import 'package:crypto_mobile_app/features/metrics/models/slot_outcome_report.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 
@@ -328,7 +330,12 @@ class MetricsReportingService {
     });
   }
 
-  /// Send metrics payload to the centralized API
+  /// Send metrics payload to the centralized API.
+  ///
+  /// Piggybacks any pending [SlotOutcomeReport]s under the top-level
+  /// `slot_outcomes` JSON key. On 2xx we discard the shipped ids from the
+  /// buffer; on any failure (network error, non-2xx, timeout) we leave the
+  /// buffer intact so the next periodic tick retries the same records.
   Future<bool> _sendMetrics(MetricsPayload payload) async {
     if (AppConfig.viewOnly || _httpClient == null) {
       return false;
@@ -337,6 +344,20 @@ class MetricsReportingService {
     try {
       final url = Uri.parse(AppConfig.metricsEndpoint);
       final jsonPayload = payload.toJson();
+
+      // Drain pending slot outcomes (snapshot, not removed) and attach to
+      // the payload so the analytics backend can join with node-side
+      // lifecycle data.
+      List<SlotOutcomeReport> pendingOutcomes = const [];
+      try {
+        pendingOutcomes = await SlotOutcomeBufferRepository.instance.drain();
+      } catch (e) {
+        _log.warn('Failed to drain slot-outcome buffer: $e');
+      }
+      if (pendingOutcomes.isNotEmpty) {
+        jsonPayload['slot_outcomes'] =
+            pendingOutcomes.map((r) => r.toJson()).toList();
+      }
 
       _log.debug(
         'Sending metrics to API: ${jsonEncode(jsonPayload)}',
@@ -375,8 +396,23 @@ class MetricsReportingService {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         _log.trace(
           'Metrics sent successfully',
-          context: {'status_code': response.statusCode},
+          context: {
+            'status_code': response.statusCode,
+            if (pendingOutcomes.isNotEmpty)
+              'slot_outcomes_shipped': pendingOutcomes.length,
+          },
         );
+        // Discard only the ids we actually sent; new outcomes that landed
+        // in the buffer between drain() and now stay queued for the next
+        // tick.
+        if (pendingOutcomes.isNotEmpty) {
+          unawaited(
+            SlotOutcomeBufferRepository.instance
+                .discard(pendingOutcomes.map((r) => r.id))
+                .catchError(
+                    (e) => _log.warn('slot-outcome discard failed: $e')),
+          );
+        }
         return true;
       } else {
         _log.warn(

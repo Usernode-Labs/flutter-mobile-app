@@ -383,11 +383,17 @@ class RustBackendService {
         builder.mempoolAutoinsertInterval(secs: BigInt.from(1));
       }
 
-      // Configure persistent VRF storage path so VRF evaluation progress survives restarts.
-      // Use network-specific path to avoid conflicts when switching networks.
+      // Configure persistent node storage path so wallet cache state survives restarts.
+      // Use network-specific paths to avoid conflicts when switching networks.
       final appSupportDir = await getApplicationSupportDirectory();
       final networkType = await _getSelectedNetwork();
       // TODO this should include the hash of the genesis block
+      final nodeStoragePath =
+          '${appSupportDir.path}/${networkType.name}_usernode_node_storage.sqlite';
+      _log.trace('Using node storage path: $nodeStoragePath');
+      builder.nodeStoragePath(path: nodeStoragePath);
+
+      // Keep persistent VRF storage separate until it is folded into general node storage.
       final vrfPath =
           '${appSupportDir.path}/${networkType.name}_usernode_vrf_storage.sqlite';
       _log.trace('Using VRF storage path: $vrfPath');

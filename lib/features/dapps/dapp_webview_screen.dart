@@ -36,6 +36,12 @@ class _TxRecord {
   final int? blockHeight;
   final int? onChainTimestampMs;
   final String? onChainStatus;
+  // Wall-clock ms of when the dapp's bridge poll (or an explicit
+  // window.usernode.acknowledgeTransaction call) first surfaced this tx
+  // on-chain. Independent of [confirmedAt], which is the slower
+  // explorer-poll observation. The first ack wins so this stays stable
+  // across re-polls, refreshes, and explicit calls.
+  final int? dappObservedAtMs;
 
   const _TxRecord({
     required this.id,
@@ -51,6 +57,7 @@ class _TxRecord {
     this.blockHeight,
     this.onChainTimestampMs,
     this.onChainStatus,
+    this.dappObservedAtMs,
   });
 
   _TxRecord copyWith({
@@ -59,6 +66,7 @@ class _TxRecord {
     int? blockHeight,
     int? onChainTimestampMs,
     String? onChainStatus,
+    int? dappObservedAtMs,
   }) {
     return _TxRecord(
       id: id,
@@ -74,6 +82,7 @@ class _TxRecord {
       blockHeight: blockHeight ?? this.blockHeight,
       onChainTimestampMs: onChainTimestampMs ?? this.onChainTimestampMs,
       onChainStatus: onChainStatus ?? this.onChainStatus,
+      dappObservedAtMs: dappObservedAtMs ?? this.dappObservedAtMs,
     );
   }
 
@@ -94,6 +103,7 @@ class _TxRecord {
         if (onChainTimestampMs != null)
           'onChainTimestampMs': onChainTimestampMs,
         if (onChainStatus != null) 'onChainStatus': onChainStatus,
+        if (dappObservedAtMs != null) 'dappObservedAtMs': dappObservedAtMs,
       };
 
   factory _TxRecord.fromJson(Map<String, dynamic> j) {
@@ -113,6 +123,7 @@ class _TxRecord {
       blockHeight: (j['blockHeight'] as num?)?.toInt(),
       onChainTimestampMs: (j['onChainTimestampMs'] as num?)?.toInt(),
       onChainStatus: j['onChainStatus'] as String?,
+      dappObservedAtMs: (j['dappObservedAtMs'] as num?)?.toInt(),
     );
   }
 }
@@ -212,6 +223,33 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     await prefs.setString(_txRecordsPrefsKey, jsonEncode(map));
   }
 
+  // Stamp a tx with the wall-clock time the dapp's bridge first observed
+  // it on-chain, surfaced via the `txObserved` JS channel message. Distinct
+  // from [_TxRecord.confirmedAt], which is set by our own (slower) explorer
+  // poll. First ack wins so re-emits and explicit acks don't reset the
+  // timestamp.
+  Future<void> _handleTxObserved(Map<String, dynamic> payload) async {
+    final args = payload['args'];
+    if (args is! Map<String, dynamic>) return;
+    final txId = (args['tx_id'] as String?)?.trim();
+    final observedAtMs = (args['observed_at_ms'] as num?)?.toInt();
+    if (txId == null || txId.isEmpty || observedAtMs == null) return;
+
+    final rec = _txRecords[txId];
+    if (rec == null) return;
+    if (rec.dappObservedAtMs != null) return;
+
+    final updated = rec.copyWith(dappObservedAtMs: observedAtMs);
+    if (mounted) {
+      setState(() {
+        _txRecords[txId] = updated;
+      });
+    } else {
+      _txRecords[txId] = updated;
+    }
+    await _saveTxRecords();
+  }
+
   void _addRecord(_TxRecord record) {
     _dappTxIds.add(record.id);
     _txRecords[record.id] = record;
@@ -265,6 +303,10 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
 
             if (method == 'signMessage') {
               await _handleSignMessage(id, payload);
+            }
+
+            if (method == 'txObserved') {
+              await _handleTxObserved(payload);
             }
           } catch (e, st) {
             // Surface dispatch failures so we don't end up with a silently
@@ -1400,8 +1442,9 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                                       ),
                                     if (isExpanded) ...[
                                       const Divider(height: 16),
-                                      if (isConfirmed &&
-                                          rec.inclusionLatencyMs != null)
+                                      if ((isConfirmed &&
+                                              rec.inclusionLatencyMs != null) ||
+                                          rec.dappObservedAtMs != null)
                                         _buildLatencyRow(
                                           theme: theme,
                                           muted: muted,
@@ -1443,20 +1486,63 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
     required Color muted,
     required _TxRecord rec,
   }) {
-    final inclusionSecs = rec.inclusionLatencyMs! ~/ 1000;
+    // Two independent observation channels, each contributing a "total"
+    // (observed_at − sentAt) and, when inclusion latency is also known,
+    // a "last mile" (total − inclusion). The explorer poll feeds the
+    // existing inclusion + on-chain timestamp fields; the dapp ack from
+    // window.usernode (tx_observed JS-channel) feeds [dappObservedAtMs]
+    // — typically faster because dapps stream from the node directly.
+    //
+    // Total is the better of the two observation paths. Each unset
+    // metric renders as "--" so users can see which channel hasn't
+    // surfaced the tx yet.
+    final inclusionMs = rec.inclusionLatencyMs;
+    final sentMs = rec.sentAt.millisecondsSinceEpoch;
 
-    int? totalSecs;
-    int? lastMileSecs;
+    int? explorerTotalMs;
+    int? explorerLastMileMs;
     if (rec.confirmedAt != null) {
-      final totalMs = rec.confirmedAt!.difference(rec.sentAt).inMilliseconds;
-      if (totalMs >= 0) {
-        totalSecs = totalMs ~/ 1000;
-        final lm = totalMs - rec.inclusionLatencyMs!;
-        if (lm >= 0) lastMileSecs = lm ~/ 1000;
+      final ms = rec.confirmedAt!.millisecondsSinceEpoch - sentMs;
+      if (ms >= 0) {
+        explorerTotalMs = ms;
+        if (inclusionMs != null) {
+          final lm = ms - inclusionMs;
+          if (lm >= 0) explorerLastMileMs = lm;
+        }
       }
     }
 
-    String fmt(int s) => s < 60 ? '${s}s' : '${s ~/ 60}m ${s % 60}s';
+    int? dappTotalMs;
+    int? dappLastMileMs;
+    if (rec.dappObservedAtMs != null) {
+      final ms = rec.dappObservedAtMs! - sentMs;
+      if (ms >= 0) {
+        dappTotalMs = ms;
+        if (inclusionMs != null) {
+          final lm = ms - inclusionMs;
+          if (lm >= 0) dappLastMileMs = lm;
+        }
+      }
+    }
+
+    int? bestTotalMs;
+    if (explorerTotalMs != null && dappTotalMs != null) {
+      bestTotalMs =
+          explorerTotalMs < dappTotalMs ? explorerTotalMs : dappTotalMs;
+    } else {
+      bestTotalMs = explorerTotalMs ?? dappTotalMs;
+    }
+
+    String fmt(int? ms) {
+      if (ms == null) return '--';
+      final s = ms ~/ 1000;
+      return s < 60 ? '${s}s' : '${s ~/ 60}m ${s % 60}s';
+    }
+
+    Color? totalColor;
+    if (bestTotalMs != null) {
+      totalColor = _latencyColor(bestTotalMs ~/ 1000);
+    }
 
     Widget col(String label, String value, {Color? color}) {
       return Expanded(
@@ -1482,11 +1568,14 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
-          if (totalSecs != null)
-            col('Total', '\u{23F1} ${fmt(totalSecs)}',
-                color: _latencyColor(totalSecs)),
-          col('Inclusion', fmt(inclusionSecs)),
-          if (lastMileSecs != null) col('Last mile', fmt(lastMileSecs)),
+          col(
+            'Total',
+            bestTotalMs != null ? '\u{23F1} ${fmt(bestTotalMs)}' : '--',
+            color: totalColor,
+          ),
+          col('Inclusion', fmt(inclusionMs)),
+          col('Last mile (explorer)', fmt(explorerLastMileMs)),
+          col('Last mile (dapp)', fmt(dappLastMileMs)),
         ],
       ),
     );

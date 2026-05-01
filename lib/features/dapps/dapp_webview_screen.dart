@@ -106,6 +106,55 @@ class _TxRecord {
         if (dappObservedAtMs != null) 'dappObservedAtMs': dappObservedAtMs,
       };
 
+  // ── Latency helpers ─────────────────────────────────────────────────────
+  //
+  // Two independent observation channels feed timing data: the explorer poll
+  // (sets `confirmedAt` + `inclusionLatencyMs`) and the dapp ack via the
+  // bridge's `txObserved` JS-channel message (sets `dappObservedAtMs`,
+  // optionally also `inclusionLatencyMs` when the bridge had a matched tx
+  // in hand).
+  //
+  // Each channel contributes a "total" (observed_at − sentAt) and, when
+  // inclusion latency is also known, a "last mile" (total − inclusion).
+  // The fastest signal wins for the headline metrics, but the per-channel
+  // numbers are still exposed so the latency row can show both side-by-side.
+  int get _sentMs => sentAt.millisecondsSinceEpoch;
+
+  int? get explorerTotalMs {
+    if (confirmedAt == null) return null;
+    final ms = confirmedAt!.millisecondsSinceEpoch - _sentMs;
+    return ms >= 0 ? ms : null;
+  }
+
+  int? get dappTotalMs {
+    if (dappObservedAtMs == null) return null;
+    final ms = dappObservedAtMs! - _sentMs;
+    return ms >= 0 ? ms : null;
+  }
+
+  int? get bestTotalMs {
+    final e = explorerTotalMs;
+    final d = dappTotalMs;
+    if (e != null && d != null) return e < d ? e : d;
+    return e ?? d;
+  }
+
+  int? get explorerLastMileMs {
+    final e = explorerTotalMs;
+    final inc = inclusionLatencyMs;
+    if (e == null || inc == null) return null;
+    final lm = e - inc;
+    return lm >= 0 ? lm : null;
+  }
+
+  int? get dappLastMileMs {
+    final d = dappTotalMs;
+    final inc = inclusionLatencyMs;
+    if (d == null || inc == null) return null;
+    final lm = d - inc;
+    return lm >= 0 ? lm : null;
+  }
+
   factory _TxRecord.fromJson(Map<String, dynamic> j) {
     return _TxRecord(
       id: j['id'] as String,
@@ -228,6 +277,18 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   // from [_TxRecord.confirmedAt], which is set by our own (slower) explorer
   // poll. First ack wins so re-emits and explicit acks don't reset the
   // timestamp.
+  //
+  // When the bridge has the matched tx in hand (the typical post-send
+  // inclusion-poll path), it also forwards `block_height` and
+  // `block_timestamp_ms`. We use those to populate the same fields the
+  // explorer poll sets (`onChainStatus`, `blockHeight`, `onChainTimestampMs`,
+  // `inclusionLatencyMs`) so the badge, the header pill, and the
+  // inclusion / last-mile columns can all flip to "confirmed" without
+  // waiting on the slower explorer poll. Explicit
+  // `window.usernode.acknowledgeTransaction(txId)` callers don't have a
+  // matched tx and just omit those fields — we still mark the tx confirmed
+  // (the ack itself is evidence the tx is on chain) but leave inclusion
+  // metrics for the explorer poll to fill in later.
   Future<void> _handleTxObserved(Map<String, dynamic> payload) async {
     final args = payload['args'];
     if (args is! Map<String, dynamic>) return;
@@ -239,7 +300,26 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     if (rec == null) return;
     if (rec.dappObservedAtMs != null) return;
 
-    final updated = rec.copyWith(dappObservedAtMs: observedAtMs);
+    final blockHeight = (args['block_height'] as num?)?.toInt();
+    final blockTimestampMs = (args['block_timestamp_ms'] as num?)?.toInt();
+
+    // Inclusion latency = block timestamp − sent timestamp. Skip when we
+    // can't compute it (no block_timestamp_ms, or negative due to clock
+    // skew between phone and node).
+    int? inclusionLatencyMs;
+    if (blockTimestampMs != null) {
+      final ms = blockTimestampMs - rec.sentAt.millisecondsSinceEpoch;
+      if (ms >= 0) inclusionLatencyMs = ms;
+    }
+
+    final updated = rec.copyWith(
+      dappObservedAtMs: observedAtMs,
+      // Don't clobber values the explorer poll may have already filled in.
+      onChainStatus: rec.onChainStatus ?? 'confirmed',
+      blockHeight: rec.blockHeight ?? blockHeight,
+      onChainTimestampMs: rec.onChainTimestampMs ?? blockTimestampMs,
+      inclusionLatencyMs: rec.inclusionLatencyMs ?? inclusionLatencyMs,
+    );
     if (mounted) {
       setState(() {
         _txRecords[txId] = updated;
@@ -1293,28 +1373,23 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                                       ? 'sent ${age.inHours}h ago'
                                       : 'sent ${age.inDays}d ago';
 
+                          // Header pill: fastest "total" signal we have for
+                          // a confirmed tx (best of explorer/dapp, then
+                          // explorer-only inclusion latency as a final
+                          // fallback for the explorer-comes-first case
+                          // before its `confirmedAt` lands).
                           String? confirmTimeStr;
                           int? confirmTotalSecs;
-                          if (isConfirmed && rec.confirmedAt != null) {
-                            final totalMs = rec.confirmedAt!
-                                .difference(rec.sentAt)
-                                .inMilliseconds;
-                            if (totalMs >= 0) {
+                          if (isConfirmed) {
+                            final totalMs =
+                                rec.bestTotalMs ?? rec.inclusionLatencyMs;
+                            if (totalMs != null && totalMs >= 0) {
                               final secs = totalMs ~/ 1000;
                               confirmTotalSecs = secs;
                               confirmTimeStr = secs < 60
                                   ? '${secs}s'
                                   : '${secs ~/ 60}m ${secs % 60}s';
                             }
-                          }
-                          if (confirmTimeStr == null &&
-                              isConfirmed &&
-                              rec.inclusionLatencyMs != null) {
-                            final secs = rec.inclusionLatencyMs! ~/ 1000;
-                            confirmTotalSecs = secs;
-                            confirmTimeStr = secs < 60
-                                ? '${secs}s'
-                                : '${secs ~/ 60}m ${secs % 60}s';
                           }
 
                           final txHash =
@@ -1486,52 +1561,14 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
     required Color muted,
     required _TxRecord rec,
   }) {
-    // Two independent observation channels, each contributing a "total"
-    // (observed_at − sentAt) and, when inclusion latency is also known,
-    // a "last mile" (total − inclusion). The explorer poll feeds the
-    // existing inclusion + on-chain timestamp fields; the dapp ack from
-    // window.usernode (tx_observed JS-channel) feeds [dappObservedAtMs]
-    // — typically faster because dapps stream from the node directly.
-    //
-    // Total is the better of the two observation paths. Each unset
-    // metric renders as "--" so users can see which channel hasn't
-    // surfaced the tx yet.
+    // Per-channel totals + last-mile come from the helpers on _TxRecord —
+    // see the doc-comment there. "Total" is the best-of, so the user sees
+    // the fastest path; the per-channel last-mile columns stay split so
+    // it's clear which path delivered first.
+    final bestTotalMs = rec.bestTotalMs;
+    final explorerLastMileMs = rec.explorerLastMileMs;
+    final dappLastMileMs = rec.dappLastMileMs;
     final inclusionMs = rec.inclusionLatencyMs;
-    final sentMs = rec.sentAt.millisecondsSinceEpoch;
-
-    int? explorerTotalMs;
-    int? explorerLastMileMs;
-    if (rec.confirmedAt != null) {
-      final ms = rec.confirmedAt!.millisecondsSinceEpoch - sentMs;
-      if (ms >= 0) {
-        explorerTotalMs = ms;
-        if (inclusionMs != null) {
-          final lm = ms - inclusionMs;
-          if (lm >= 0) explorerLastMileMs = lm;
-        }
-      }
-    }
-
-    int? dappTotalMs;
-    int? dappLastMileMs;
-    if (rec.dappObservedAtMs != null) {
-      final ms = rec.dappObservedAtMs! - sentMs;
-      if (ms >= 0) {
-        dappTotalMs = ms;
-        if (inclusionMs != null) {
-          final lm = ms - inclusionMs;
-          if (lm >= 0) dappLastMileMs = lm;
-        }
-      }
-    }
-
-    int? bestTotalMs;
-    if (explorerTotalMs != null && dappTotalMs != null) {
-      bestTotalMs =
-          explorerTotalMs < dappTotalMs ? explorerTotalMs : dappTotalMs;
-    } else {
-      bestTotalMs = explorerTotalMs ?? dappTotalMs;
-    }
 
     String fmt(int? ms) {
       if (ms == null) return '--';

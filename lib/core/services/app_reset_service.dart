@@ -134,9 +134,11 @@ class AppResetService {
         final name = entry.uri.pathSegments.isNotEmpty
             ? entry.uri.pathSegments.last
             : '';
-        final isVrfDb = name.endsWith('_usernode_vrf_storage.sqlite');
+        final isVrfDb = _isSqliteArtifact(name, '_usernode_vrf_storage.sqlite');
+        final isNodeDb =
+            _isSqliteArtifact(name, '_usernode_node_storage.sqlite');
         final isLogsDir = entry is Directory && name == 'logs';
-        if (!isVrfDb && !isLogsDir) {
+        if (!isVrfDb && !isNodeDb && !isLogsDir) {
           continue;
         }
 
@@ -149,5 +151,11 @@ class AppResetService {
     } catch (e) {
       _log.warn('Failed to clear app support artifacts: $e');
     }
+  }
+
+  bool _isSqliteArtifact(String name, String databaseSuffix) {
+    return name.endsWith(databaseSuffix) ||
+        name.endsWith('$databaseSuffix-wal') ||
+        name.endsWith('$databaseSuffix-shm');
   }
 }

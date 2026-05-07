@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import '../src/challenge_card.dart';
@@ -134,41 +133,53 @@ WidgetbookComponent challengeDetailPageComponent() {
                 'Base reward: up to 5,000 pts based on success rate.\nRank bonus: up to 1,500 pts for top 3 producers.',
           );
 
-          return Scaffold(
-            body: ChallengeDetailPage(
-              title: title,
-              category: category,
-              dateRange: dateRange,
-              rewardCard: showRewardCard
-                  ? ChallengeRewardCard(
-                      category: category,
-                      totalEarned: totalEarned,
-                      data: rewardData,
-                      epochSectionLabel: showEpoch ? epochSectionLabel : null,
-                      epochEarned: showEpoch ? epochEarned : null,
-                      epochLabel: showEpoch ? epochLabel : null,
-                    )
-                  : null,
-              sections: const [
-                (
-                  title: 'The Why',
-                  body:
-                      'Your score is based on how reliably your node produces blocks when assigned. This measures your contribution to network liveness and security.',
-                ),
-                (
-                  title: 'Task',
-                  body:
-                      'Discover block assignments via the Explorer, and produce as many as you can. Your node must be online and synced to receive assignments.',
-                ),
-                (
-                  title: 'Requirements',
-                  body:
-                      'Your score is based on the ratio of blocks produced vs blocks assigned. A node that produces 98 out of 100 assigned blocks gets a 98% success rate.',
-                ),
-              ],
-              totalRewardHeading: totalRewardHeading,
-              totalRewardBody: totalRewardBody,
-            ),
+          final showCta = context.knobs.boolean(
+            label: 'Show CTA Button',
+            initialValue: false,
+          );
+
+          final ctaLabel = showCta
+              ? context.knobs.string(
+                  label: 'CTA Label',
+                  initialValue: 'Take survey',
+                )
+              : null;
+
+          return ChallengeDetailPage(
+            title: title,
+            category: category,
+            dateRange: dateRange,
+            rewardCard: showRewardCard
+                ? ChallengeRewardCard(
+                    category: category,
+                    totalEarned: totalEarned,
+                    data: rewardData,
+                    epochSectionLabel: showEpoch ? epochSectionLabel : null,
+                    epochEarned: showEpoch ? epochEarned : null,
+                    epochLabel: showEpoch ? epochLabel : null,
+                  )
+                : null,
+            sections: const [
+              (
+                title: 'The Why',
+                body:
+                    'Your score is based on how reliably your node produces blocks when assigned. This measures your contribution to network liveness and security.',
+              ),
+              (
+                title: 'Task',
+                body:
+                    'Discover block assignments via the Explorer, and produce as many as you can. Your node must be online and synced to receive assignments.',
+              ),
+              (
+                title: 'Requirements',
+                body:
+                    'Your score is based on the ratio of blocks produced vs blocks assigned. A node that produces 98 out of 100 assigned blocks gets a 98% success rate.',
+              ),
+            ],
+            totalRewardHeading: totalRewardHeading,
+            totalRewardBody: totalRewardBody,
+            ctaLabel: ctaLabel,
+            onCtaTap: showCta ? () {} : null,
           );
         },
       ),

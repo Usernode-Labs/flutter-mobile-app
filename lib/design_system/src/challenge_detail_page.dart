@@ -16,6 +16,8 @@ typedef ChallengeDetailSection = ({String title, String body});
 ///
 /// Renders a [TopAppBar] (large) with category icon, title, and subtitle,
 /// followed by a reward card, description sections, and a total reward card.
+/// When [ctaLabel] and [onCtaTap] are both provided, also renders a pinned
+/// primary CTA button in the bottom navigation bar.
 ///
 /// This is a presentation-only widget: all data comes through constructor
 /// parameters. The feature screen in `lib/features/` wires state to this widget.

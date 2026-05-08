@@ -12,6 +12,8 @@ import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/services/explorer_service.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
+import 'package:crypto_mobile_app/features/dapps/models/dapp_item.dart';
+import 'package:crypto_mobile_app/features/dapps/providers/dapps_provider.dart';
 import 'package:crypto_mobile_app/features/wallet/models/transaction_model.dart';
 import 'package:crypto_mobile_app/features/wallet/screens/wallet_delegates.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
@@ -473,7 +475,7 @@ class _BalanceSection extends StatelessWidget {
   }
 }
 
-class _TransactionTile extends StatelessWidget {
+class _TransactionTile extends ConsumerWidget {
   const _TransactionTile(this.transaction);
   final TransactionModel transaction;
 
@@ -499,28 +501,76 @@ class _TransactionTile extends StatelessWidget {
     }
   }
 
+  /// Match this transaction's counterparty against the dapps directory.
+  /// Returns null for non-transfer types or when the counterparty isn't
+  /// a registered dapp.
+  DappItem? _matchDapp(Map<String, DappItem> byPubkey) {
+    if (byPubkey.isEmpty) return null;
+    if (transaction.type != TransactionType.send &&
+        transaction.type != TransactionType.receive) {
+      return null;
+    }
+    final addr = transaction.counterpartyAddress;
+    if (addr == null || addr.isEmpty) return null;
+    return byPubkey[addr];
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final semantic = theme.extension<AppSemanticColors>()!;
     final isPending = transaction.status == TransactionStatus.pending;
 
-    final titleText = isPending
-        ? '${transaction.title} · ${transaction.statusText}'
-        : transaction.title;
+    final dapp = _matchDapp(ref.watch(dappByPubkeyProvider));
+    final isDappTx = dapp != null;
+
+    String baseTitle = transaction.title;
+    if (isDappTx) {
+      switch (transaction.type) {
+        case TransactionType.send:
+          // Replace generic "Sending" / "Sent" with a dapp-aware variant
+          // so users can tell at a glance which transactions are dapp
+          // interactions vs. plain peer transfers.
+          baseTitle =
+              isPending ? 'Sending to ${dapp.name}' : 'Sent to ${dapp.name}';
+          break;
+        case TransactionType.receive:
+          baseTitle = isPending
+              ? 'Receiving from ${dapp.name}'
+              : 'Received from ${dapp.name}';
+          break;
+        case TransactionType.reward:
+        case TransactionType.genesis:
+        case TransactionType.fee:
+          break;
+      }
+    }
+
+    final titleText =
+        isPending ? '$baseTitle · ${transaction.statusText}' : baseTitle;
+
+    // Use the apps grid icon to visually distinguish dapp activity from
+    // person-to-person transfers (which keep their directional arrow).
+    final tileIcon = isPending && transaction.type == TransactionType.send
+        ? Symbols.hourglass_empty_sharp
+        : isDappTx
+            ? Symbols.apps_sharp
+            : transaction.icon;
 
     return ListTile(
       leading: IconBadge(
-        icon: isPending && transaction.type == TransactionType.send
-            ? Symbols.hourglass_empty_sharp
-            : transaction.icon,
+        icon: tileIcon,
         backgroundColor: isPending
             ? semantic.warning.colorContainer
-            : colorScheme.secondaryContainer,
+            : isDappTx
+                ? colorScheme.tertiaryContainer
+                : colorScheme.secondaryContainer,
         iconColor: isPending
             ? semantic.warning.onColorContainer
-            : colorScheme.onSecondaryContainer,
+            : isDappTx
+                ? colorScheme.onTertiaryContainer
+                : colorScheme.onSecondaryContainer,
       ),
       title: Text(titleText),
       subtitle: Text(

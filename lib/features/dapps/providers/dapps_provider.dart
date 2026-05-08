@@ -42,6 +42,16 @@ final dappsProvider = FutureProvider<List<DappItem>>((ref) async {
   return apps.map((e) => DappItem.fromJson(e as Map<String, dynamic>)).toList();
 });
 
+/// Pubkey → [DappItem] lookup. Used by the wallet UI to tag transactions
+/// whose counterparty is a known dapp. Empty until `dappsProvider` resolves.
+final dappByPubkeyProvider = Provider<Map<String, DappItem>>((ref) {
+  final dapps = ref.watch(dappsProvider).valueOrNull ?? const <DappItem>[];
+  return {
+    for (final d in dapps)
+      if (d.pubkey != null && d.pubkey!.isNotEmpty) d.pubkey!: d,
+  };
+});
+
 const _statsRefreshInterval = Duration(seconds: 30);
 
 final dappStatsProvider = FutureProvider<Map<String, DappStats>>((ref) async {

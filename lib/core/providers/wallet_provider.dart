@@ -454,6 +454,12 @@ class WalletController extends AsyncNotifier<WalletState> {
       icon: icon,
       color: color,
       dataSource: DataSource.local, // Mempool transactions are always local
+      // Outgoing pending tx: the recipient is the dapp/peer we sent to.
+      // Incoming pending tx: TransactionItem doesn't carry sender info,
+      // so leave null (rare case in practice — receives are usually
+      // already confirmed by the time they show up).
+      counterpartyAddress:
+          modelType == TransactionType.send ? txItem.recipientAddress : null,
     );
   }
 

@@ -1414,6 +1414,51 @@ class RustBackendService {
     return response;
   }
 
+  /// Convenience helper to fetch the per-slot lifecycle drill-down for an
+  /// epoch. Returns one [RpcSlotDetail] per slot in the epoch, including
+  /// the flattened block-producer flow summary fields (build/sign/inject
+  /// timings, terminal flow outcome, discard reason).
+  ///
+  /// Returns `null` when the RPC client is unavailable or the call fails.
+  Future<RpcEpochSlotDetailsResp?> getEpochSlotDetails({
+    required int epoch,
+  }) async {
+    _log.trace('getEpochSlotDetails called with params: epoch=$epoch');
+    if (_shouldSkipRpc('getEpochSlotDetails')) return null;
+    final r = _rpc;
+    if (r == null) return null;
+
+    RpcEpochSlotDetailsResp? response;
+    try {
+      response = await r.epochSlotDetails(epoch: epoch);
+    } on PanicException catch (e, st) {
+      _log.error('FRB panic during getEpochSlotDetails',
+          error: e, stackTrace: st);
+      _nodeRunning = false;
+      _rpc = null;
+      _control = null;
+      await SentryUtil.captureError(e, st,
+          tag: 'frb_panic_getEpochSlotDetails');
+      return null;
+    } catch (e, st) {
+      _log.warn('RPC getEpochSlotDetails failed: $e\$st');
+      await SentryUtil.captureError(e, st, tag: 'rpc_getEpochSlotDetails');
+      return null;
+    }
+
+    try {
+      final detailsCount = response?.details.length ?? 0;
+      _log.debug(
+        'getEpochSlotDetails ok',
+        context: {'epoch': response?.epoch, 'detailsCount': detailsCount},
+      );
+    } catch (e, st) {
+      _log.warn('Failed to log getEpochSlotDetails response: $e\$st');
+      await SentryUtil.captureError(e, st, tag: 'getEpochSlotDetails_logging');
+    }
+    return response;
+  }
+
   /// Convenience helper to fetch slot time via RPC.
   Future<RpcSlotTimeResp?> getSlotTime({
     required int epoch,

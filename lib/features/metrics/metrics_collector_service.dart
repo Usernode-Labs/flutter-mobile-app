@@ -8,6 +8,7 @@ import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/models/block_production_event.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/features/metrics/models/metrics_payload.dart';
+import 'package:crypto_mobile_app/features/metrics/models/slot_outcome_report.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
@@ -108,6 +109,55 @@ class MetricsCollectorService {
   /// Update the current app lifecycle state
   void updateAppLifecycleState(AppLifecycleState state) {
     _appLifecycleState = state;
+  }
+
+  /// Capture a focused snapshot of client-side context for slot outcome
+  /// reports.
+  ///
+  /// Unlike [collectMetrics], this skips node status / provider reads and
+  /// only collects the fields a [SlotOutcomeReport] needs (app state,
+  /// network, platform, app version, battery, wakelock / FG status). Cheap
+  /// enough to call inline at slot terminal time without slowing down
+  /// monitoring teardown. Any individual field failure degrades to `null`
+  /// rather than throwing, so the recorder always gets *some* context.
+  Future<ClientContextSnapshot> collectClientContextSnapshot() async {
+    Future<T?> safe<T>(Future<T> Function() f) async {
+      try {
+        return await f();
+      } catch (e) {
+        _log.debug('client-context field failed: $e');
+        return null;
+      }
+    }
+
+    final results = await Future.wait([
+      safe(_collectRuntimeMetrics),
+      safe(_collectPlatformMetrics),
+      safe(_collectBatteryMetrics),
+      safe(_collectNetworkMetrics),
+      Platform.isAndroid
+          ? safe(_collectForegroundServiceMetrics)
+          : Future<ForegroundServiceMetrics?>.value(null),
+    ]);
+
+    final runtime = results[0] as RuntimeMetrics?;
+    final platform = results[1] as PlatformMetrics?;
+    final battery = results[2] as BatteryMetrics?;
+    final network = results[3] as NetworkMetrics?;
+    final fg = results[4] as ForegroundServiceMetrics?;
+
+    return ClientContextSnapshot(
+      appState: runtime?.appState,
+      networkType: network?.networkType,
+      networkConnected: network?.networkConnected,
+      platform: platform?.platform,
+      platformVersion: platform?.platformVersion,
+      appVersion: runtime?.appVersion,
+      appBuildNumber: runtime?.appBuildNumber,
+      batteryLevel: battery?.batteryLevel,
+      wakelockHeld: fg?.wakelockHeld ?? runtime?.keepAliveModeActive,
+      foregroundServiceRunning: fg?.foregroundServiceRunning,
+    );
   }
 
   /// Collect metrics for a specific block production event

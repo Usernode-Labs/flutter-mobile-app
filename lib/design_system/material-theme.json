@@ -172,16 +172,16 @@
         },
         {
             "name": "Success",
-            "color": "#1A6D23",
+            "color": "#2E7D32",
             "harmonized": false,
             "schemes": {
                 "light": {
-                    "color": "#1A6D23",
+                    "color": "#2E7D32",
                     "onColor": "#FFFFFF",
                     "colorContainer": "#BAF1B4",
                     "onColorContainer": "#12681E",
                     "colorSurface": "#E3EAE4",
-                    "onColorSurface": "#1A6D23"
+                    "onColorSurface": "#2E7D32"
                 },
                 "light-medium-contrast": {
                     "color": "#00540C",

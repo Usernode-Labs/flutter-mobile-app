@@ -170,6 +170,76 @@ void main() {
       expect(find.text('Total Reward Up to 2,000 pts'), findsOneWidget);
     });
 
+    testWidgets('renders CTA button when ctaLabel + onCtaTap provided',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        ChallengeDetailPage(
+          title: 'Take the survey',
+          category: ChallengeCategory.community,
+          dateRange: 'Community · Feb 1 - Feb 28',
+          sections: const [
+            (title: 'The Why', body: 'Help us shape the roadmap.'),
+          ],
+          ctaLabel: 'Take survey',
+          onCtaTap: () {},
+        ),
+      ));
+
+      expect(find.text('Take survey'), findsOneWidget);
+    });
+
+    testWidgets('hides CTA button when ctaLabel is null', (tester) async {
+      await tester.pumpWidget(wrap(
+        const ChallengeDetailPage(
+          title: 'No CTA',
+          category: ChallengeCategory.community,
+          dateRange: 'Community · Feb 1 - Feb 28',
+          sections: [
+            (title: 'The Why', body: 'No CTA on this one.'),
+          ],
+        ),
+      ));
+
+      expect(find.byType(Button), findsNothing);
+    });
+
+    testWidgets('CTA tap fires onCtaTap callback', (tester) async {
+      var tapped = false;
+      await tester.pumpWidget(wrap(
+        ChallengeDetailPage(
+          title: 'Take the survey',
+          category: ChallengeCategory.community,
+          dateRange: 'Community · Feb 1 - Feb 28',
+          sections: const [
+            (title: 'The Why', body: 'Help us shape the roadmap.'),
+          ],
+          ctaLabel: 'Take survey',
+          onCtaTap: () => tapped = true,
+        ),
+      ));
+
+      await tester.tap(find.text('Take survey'));
+      expect(tapped, isTrue);
+    });
+
+    testWidgets('hides CTA button when ctaLabel is empty string',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        ChallengeDetailPage(
+          title: 'Empty CTA',
+          category: ChallengeCategory.community,
+          dateRange: 'Community · Feb 1 - Feb 28',
+          sections: const [
+            (title: 'The Why', body: 'Empty label should not render.'),
+          ],
+          ctaLabel: '',
+          onCtaTap: () {},
+        ),
+      ));
+
+      expect(find.byType(Button), findsNothing);
+    });
+
     testWidgets('renders ChallengeCategoryIcon in app bar', (tester) async {
       await tester.pumpWidget(wrap(
         ChallengeDetailPage(

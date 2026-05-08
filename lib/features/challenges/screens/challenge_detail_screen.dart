@@ -12,6 +12,7 @@ import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart'
 import 'package:crypto_mobile_app/core/providers/syncing_text_provider.dart';
 import 'package:crypto_mobile_app/core/providers/produced_blocks_provider.dart';
 import 'package:crypto_mobile_app/core/utils/challenge_point_tracker.dart';
+import 'package:crypto_mobile_app/core/utils/url_launcher.dart';
 import 'package:crypto_mobile_app/design_system/src/block_production_status_card.dart';
 import 'package:crypto_mobile_app/design_system/src/challenge_card.dart';
 import 'package:crypto_mobile_app/design_system/src/challenge_detail_page.dart';
@@ -52,21 +53,19 @@ class ChallengeDetailScreen extends ConsumerWidget {
       ChallengePointTracker.record(_trackerKey, challenge.earnedPoints!);
     }
 
-    return Scaffold(
-      body: FutureBuilder<PointDiff?>(
-        future: ChallengePointTracker.getDiffBestEffort(_trackerKey),
-        builder: (context, diffSnapshot) {
-          return _buildPage(
-            context,
-            ref,
-            eb,
-            diffSnapshot.data,
-            latestEpoch,
-            nodeStatus,
-            blocksSummary.asData?.value,
-          );
-        },
-      ),
+    return FutureBuilder<PointDiff?>(
+      future: ChallengePointTracker.getDiffBestEffort(_trackerKey),
+      builder: (context, diffSnapshot) {
+        return _buildPage(
+          context,
+          ref,
+          eb,
+          diffSnapshot.data,
+          latestEpoch,
+          nodeStatus,
+          blocksSummary.asData?.value,
+        );
+      },
     );
   }
 
@@ -86,6 +85,12 @@ class ChallengeDetailScreen extends ConsumerWidget {
       eventSuccessRate: eb?.successRate,
     );
     final isProduceBlocks = isProduceBlocksChallenge(dto);
+    final ctaLabel = dto.ctaLabel;
+    final ctaLink = dto.ctaLink;
+    final hasCta = ctaLabel != null &&
+        ctaLabel.isNotEmpty &&
+        ctaLink != null &&
+        ctaLink.isNotEmpty;
 
     // Reward card visibility rules:
     // - Missed: never shown
@@ -124,6 +129,8 @@ class ChallengeDetailScreen extends ConsumerWidget {
             ).challengeTotalReward(formatRewardText(dto.reward)),
       totalRewardBody: showRewardCard ? null : (dto.rewardLogic ?? ''),
       onBackTap: () => context.pop(),
+      ctaLabel: hasCta ? ctaLabel : null,
+      onCtaTap: hasCta ? () => launchExternalUrl(ctaLink) : null,
     );
   }
 

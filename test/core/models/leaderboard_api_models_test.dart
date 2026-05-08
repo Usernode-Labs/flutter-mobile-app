@@ -247,6 +247,67 @@ void main() {
       expect(c.scheduleEnd, isNull);
       expect(c.completed, true);
     });
+
+    group('cta_link sanitization', () {
+      ChallengeDto parseWithLink(dynamic link) => ChallengeDto.fromJson({
+            'id': 1,
+            'category': 'social',
+            'goal': 'g',
+            'task': 't',
+            'reward': 0,
+            'enabled': true,
+            'completed': false,
+            'cta_link': link,
+          });
+
+      test('preserves https URLs with a host', () {
+        expect(parseWithLink('https://example.com').ctaLink,
+            'https://example.com');
+        expect(parseWithLink('https://example.com/survey?id=1').ctaLink,
+            'https://example.com/survey?id=1');
+      });
+
+      test('rejects http (insecure)', () {
+        expect(parseWithLink('http://example.com').ctaLink, isNull);
+      });
+
+      test('rejects javascript: scheme', () {
+        expect(parseWithLink('javascript:alert(1)').ctaLink, isNull);
+      });
+
+      test('rejects intent:// scheme', () {
+        expect(
+          parseWithLink('intent://foo#Intent;scheme=https;end').ctaLink,
+          isNull,
+        );
+      });
+
+      test('rejects file:// scheme', () {
+        expect(parseWithLink('file:///etc/passwd').ctaLink, isNull);
+      });
+
+      test('rejects data: scheme', () {
+        expect(parseWithLink('data:text/html,<script>').ctaLink, isNull);
+      });
+
+      test('rejects custom deep-link scheme', () {
+        expect(parseWithLink('myapp://action').ctaLink, isNull);
+      });
+
+      test('rejects https without host', () {
+        expect(parseWithLink('https://').ctaLink, isNull);
+      });
+
+      test('rejects empty string', () {
+        expect(parseWithLink('').ctaLink, isNull);
+      });
+
+      test('rejects non-string types', () {
+        expect(parseWithLink(null).ctaLink, isNull);
+        expect(parseWithLink(42).ctaLink, isNull);
+        expect(parseWithLink({'url': 'https://x.com'}).ctaLink, isNull);
+      });
+    });
   });
 
   // -------------------------------------------------------------------------

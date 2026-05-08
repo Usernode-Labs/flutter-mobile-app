@@ -24,7 +24,8 @@ Uri parseDappUrl(String raw) {
 Uri _dappBaseUri() {
   const raw = String.fromEnvironment(
     'DAPP_HOMEPAGE',
-    defaultValue: 'http://localhost:8000',
+    defaultValue:
+        'https://usernode-dapp-homepage-87a553.social-vibecoding.usernodelabs.org',
   );
   return parseDappUrl(raw);
 }

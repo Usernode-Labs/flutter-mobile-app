@@ -1061,9 +1061,13 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
       child: Scaffold(
         appBar: AppBar(
           leading: IconButton(
-            tooltip: 'Back',
-            onPressed: _handleBack,
-            icon: const Icon(Symbols.arrow_back_sharp),
+            tooltip: 'Home',
+            // Tap = jump straight back to the dapp list, regardless of how
+            // deep the user has navigated inside the WebView. The Android
+            // system back button (PopScope.onPopInvokedWithResult above)
+            // still walks WebView history step-by-step via _handleBack.
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Symbols.home_sharp),
           ),
           title: GestureDetector(
             onTap: _onSecretTap,

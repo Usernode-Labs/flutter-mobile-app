@@ -32,6 +32,13 @@ class TransactionModel {
   final Color color;
   final DataSource dataSource;
 
+  /// Full pubkey of the other party in this transfer — recipient when
+  /// outgoing, sender when incoming. Used by the wallet UI to identify
+  /// dapp-bound activity by joining against `dapps.json`. Null for
+  /// rewards/genesis or when the address isn't available (e.g. pending
+  /// receives from the mempool).
+  final String? counterpartyAddress;
+
   TransactionModel({
     required this.id,
     required this.title,
@@ -44,6 +51,7 @@ class TransactionModel {
     required this.icon,
     required this.color,
     this.dataSource = DataSource.local,
+    this.counterpartyAddress,
   });
 
   bool get isPositive => amount > 0;
@@ -190,6 +198,8 @@ class TransactionModel {
       icon: icon,
       color: color,
       dataSource: dataSource,
+      counterpartyAddress:
+          isOutgoing ? explorerTx.toAddress : explorerTx.fromAddress,
     );
   }
 

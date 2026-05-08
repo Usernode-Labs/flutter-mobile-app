@@ -269,14 +269,19 @@ class AppConfig {
     defaultValue: false,
   );
 
-  // Explorer API configuration
+  // Explorer API configuration. Both default to the same canonical
+  // testnet explorer host; the primary/secondary split is a fallback
+  // mechanism for ops to point one at a backup if/when one exists. The
+  // legacy alpha1/alpha2.usernodelabs.org hosts have been retired (502
+  // / 503); the path prefix moved from /explorer/api to /api in the same
+  // migration.
   static const String primaryExplorerUrl = String.fromEnvironment(
     'EXPLORER_PRIMARY_URL',
-    defaultValue: 'https://alpha1.usernodelabs.org/api',
+    defaultValue: 'https://testnet-explorer.usernodelabs.org/api',
   );
   static const String secondaryExplorerUrl = String.fromEnvironment(
     'EXPLORER_SECONDARY_URL',
-    defaultValue: 'https://alpha1.usernodelabs.org/api',
+    defaultValue: 'https://testnet-explorer.usernodelabs.org/api',
   );
   static const int explorerTimeoutSeconds = int.fromEnvironment(
     'EXPLORER_TIMEOUT_SECONDS',

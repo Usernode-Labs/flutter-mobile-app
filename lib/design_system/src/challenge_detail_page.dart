@@ -4,6 +4,7 @@ import 'package:crypto_mobile_app/core/widgets/app_card.dart';
 
 import '../tokens/app_radii.dart';
 import '../tokens/app_spacing.dart';
+import 'button.dart';
 import 'challenge_card.dart';
 import 'challenge_category_icon.dart';
 import 'top_app_bar.dart';
@@ -15,6 +16,8 @@ typedef ChallengeDetailSection = ({String title, String body});
 ///
 /// Renders a [TopAppBar] (large) with category icon, title, and subtitle,
 /// followed by a reward card, description sections, and a total reward card.
+/// When [ctaLabel] and [onCtaTap] are both provided, also renders a pinned
+/// primary CTA button in the bottom navigation bar.
 ///
 /// This is a presentation-only widget: all data comes through constructor
 /// parameters. The feature screen in `lib/features/` wires state to this widget.
@@ -30,6 +33,8 @@ class ChallengeDetailPage extends StatelessWidget {
     this.totalRewardHeading,
     this.totalRewardBody,
     this.onBackTap,
+    this.ctaLabel,
+    this.onCtaTap,
   });
 
   /// Challenge title, e.g. "Produce Every Block".
@@ -62,49 +67,75 @@ class ChallengeDetailPage extends StatelessWidget {
   /// Called when the back button is tapped.
   final VoidCallback? onBackTap;
 
+  /// Label for the optional bottom CTA button. When null (or [onCtaTap] is
+  /// null), no CTA button is rendered.
+  final String? ctaLabel;
+
+  /// Called when the bottom CTA button is tapped. When null (or [ctaLabel] is
+  /// null), no CTA button is rendered.
+  final VoidCallback? onCtaTap;
+
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final hasCta = ctaLabel != null && ctaLabel!.isNotEmpty && onCtaTap != null;
 
-    return CustomScrollView(
-      slivers: [
-        TopAppBar(
-          title: title,
-          size: TopAppBarSize.large,
-          subtitle: dateRange,
-          image: ChallengeCategoryIcon(category: category),
-          onLeadingTap: onBackTap,
-        ),
-        SliverPadding(
-          padding: EdgeInsets.symmetric(horizontal: spacing.space16),
-          sliver: SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.only(bottom: spacing.space32),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (rewardCard != null) ...[
-                    rewardCard!,
-                    SizedBox(height: spacing.space16),
+    return Scaffold(
+      body: CustomScrollView(
+        slivers: [
+          TopAppBar(
+            title: title,
+            size: TopAppBarSize.large,
+            subtitle: dateRange,
+            image: ChallengeCategoryIcon(category: category),
+            onLeadingTap: onBackTap,
+          ),
+          SliverPadding(
+            padding: EdgeInsets.symmetric(horizontal: spacing.space16),
+            sliver: SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.only(bottom: spacing.space32),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (rewardCard != null) ...[
+                      rewardCard!,
+                      SizedBox(height: spacing.space16),
+                    ],
+                    if (statusSection != null) ...[
+                      statusSection!,
+                      SizedBox(height: spacing.space16),
+                    ],
+                    _SectionsCard(sections: sections),
+                    if (totalRewardHeading != null) ...[
+                      SizedBox(height: spacing.space16),
+                      _TotalRewardCard(
+                        heading: totalRewardHeading!,
+                        body: totalRewardBody ?? '',
+                      ),
+                    ],
                   ],
-                  if (statusSection != null) ...[
-                    statusSection!,
-                    SizedBox(height: spacing.space16),
-                  ],
-                  _SectionsCard(sections: sections),
-                  if (totalRewardHeading != null) ...[
-                    SizedBox(height: spacing.space16),
-                    _TotalRewardCard(
-                      heading: totalRewardHeading!,
-                      body: totalRewardBody ?? '',
-                    ),
-                  ],
-                ],
+                ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
+      bottomNavigationBar: hasCta
+          ? SafeArea(
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: spacing.space16,
+                  vertical: spacing.space12,
+                ),
+                child: Button(
+                  label: ctaLabel!,
+                  onTap: onCtaTap,
+                  variant: ButtonVariant.primary,
+                ),
+              ),
+            )
+          : null,
     );
   }
 }

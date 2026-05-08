@@ -7,6 +7,17 @@
 // ---------------------------------------------------------------------------
 
 /// Coerces a JSON value that may be [int], [double], or numeric [String] → [int].
+/// Returns [raw] only when it is a non-empty `https://` URL with a host,
+/// otherwise null. Backend-provided links must not introduce non-https
+/// schemes (intent://, file://, javascript:, custom deep-links) into UI
+/// surfaces that launch URLs externally.
+String? _sanitizeHttpsUrl(dynamic raw) {
+  if (raw is! String || raw.isEmpty) return null;
+  final uri = Uri.tryParse(raw);
+  if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) return null;
+  return raw;
+}
+
 int _jsonInt(dynamic v) => v is num ? v.toInt() : int.parse(v as String);
 
 /// Nullable variant.
@@ -221,7 +232,7 @@ class ChallengeDto {
       requirements: json['requirements'] as String?,
       rewardLogic: json['reward_logic'] as String?,
       ctaLabel: json['cta_label'] as String?,
-      ctaLink: json['cta_link'] as String?,
+      ctaLink: _sanitizeHttpsUrl(json['cta_link']),
       scheduleStart: json['schedule_start'] as String?,
       scheduleEnd: json['schedule_end'] as String?,
       enabled: json['enabled'] as bool? ?? false,

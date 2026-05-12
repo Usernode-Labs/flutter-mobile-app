@@ -40,8 +40,6 @@
     <string>Camera is used to scan QR codes and documents.</string>
     <key>NSFaceIDUsageDescription</key>
     <string>Biometrics are used to unlock your private data.</string>
-    <key>NSLocalNetworkUsageDescription</key>
-    <string>Local network access is used to reach the zkPassport bridge on this LAN during testing.</string>
     <key>UIBackgroundModes</key>
     <array>
         <string>fetch</string>
@@ -80,15 +78,8 @@
 	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<key>NSAllowsLocalNetworking</key>
-		<true/>
 		<key>NSExceptionDomains</key>
 		<dict>
-			<key>192.168.1.16</key>
-			<dict>
-				<key>NSExceptionAllowsInsecureHTTPLoads</key>
-				<true/>
-			</dict>
 			<key>localhost</key>
 			<dict>
 				<key>NSExceptionAllowsInsecureHTTPLoads</key>

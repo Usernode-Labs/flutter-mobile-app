@@ -42,82 +42,6 @@ import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 
 final _log = LoggingService.instance.withTag('usernode/Router');
 
-String _routeLabel(Route<dynamic>? route) {
-  if (route == null) {
-    return 'null';
-  }
-  final name = route.settings.name;
-  if (name != null && name.isNotEmpty) {
-    return name;
-  }
-  return '${route.runtimeType}#${route.hashCode}';
-}
-
-class LoggingNavigatorObserver extends NavigatorObserver {
-  final List<String> _stack = <String>[];
-
-  void _syncStack() {
-    final navigator = this.navigator;
-    if (navigator == null) {
-      _stack.clear();
-      return;
-    }
-    _stack
-      ..clear()
-      ..addAll(
-        navigator.widget.pages.map((page) {
-          final name = page.name;
-          if (name != null && name.isNotEmpty) {
-            return name;
-          }
-          return '${page.runtimeType}#${page.hashCode}';
-        }),
-      );
-  }
-
-  void _logNav(
-    String action, {
-    Route<dynamic>? route,
-    Route<dynamic>? previousRoute,
-  }) {
-    _syncStack();
-    _log.warn('Navigator $action', context: {
-      'route': _routeLabel(route),
-      'previousRoute': _routeLabel(previousRoute),
-      'stack': _stack.join(' -> '),
-    });
-  }
-
-  @override
-  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    super.didPush(route, previousRoute);
-    _logNav('didPush', route: route, previousRoute: previousRoute);
-  }
-
-  @override
-  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    super.didPop(route, previousRoute);
-    _logNav('didPop', route: route, previousRoute: previousRoute);
-  }
-
-  @override
-  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    super.didRemove(route, previousRoute);
-    _logNav('didRemove', route: route, previousRoute: previousRoute);
-  }
-
-  @override
-  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
-    super.didReplace(newRoute: newRoute, oldRoute: oldRoute);
-    _syncStack();
-    _log.warn('Navigator didReplace', context: {
-      'oldRoute': _routeLabel(oldRoute),
-      'newRoute': _routeLabel(newRoute),
-      'stack': _stack.join(' -> '),
-    });
-  }
-}
-
 class AppRoutes {
   // Core routes
   static const splash = '/splash';
@@ -178,11 +102,6 @@ class GoRouterRefreshStream extends ChangeNotifier {
       hasAnyAccountProvider,
       (previous, next) {
         // Notify GoRouter to re-run its redirect logic when account state changes
-        _log.warn('Router refresh triggered by hasAnyAccountProvider',
-            context: {
-              'previous': previous?.toString(),
-              'next': next.toString(),
-            });
         notifyListeners();
       },
     );
@@ -190,13 +109,6 @@ class GoRouterRefreshStream extends ChangeNotifier {
     _ref.listen<AsyncValue<bool>>(
       hasCompletedOnboardingProvider,
       (previous, next) {
-        _log.warn(
-          'Router refresh triggered by hasCompletedOnboardingProvider',
-          context: {
-            'previous': previous?.toString(),
-            'next': next.toString(),
-          },
-        );
         notifyListeners();
       },
     );
@@ -204,11 +116,6 @@ class GoRouterRefreshStream extends ChangeNotifier {
     _ref.listen<RegistrationFreshness>(
       registrationFreshnessProvider,
       (previous, next) {
-        _log.warn('Router refresh triggered by registrationFreshnessProvider',
-            context: {
-              'previous': previous?.name,
-              'next': next.name,
-            });
         notifyListeners();
       },
     );
@@ -231,21 +138,18 @@ final _navigatorKey = GlobalKey<NavigatorState>(debugLabel: 'mainNavigator');
 GlobalKey<NavigatorState> get appNavigatorKey => _navigatorKey;
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final refreshListenable = GoRouterRefreshStream(ref);
-  final loggingNavigatorObserver = LoggingNavigatorObserver();
-  ref.onDispose(refreshListenable.dispose);
-  // Kick bootstrap once without making the router provider reactive to it.
-  ref.read(leaderboardBootstrapProvider);
-  _log.warn('Creating GoRouter instance');
+  // Watch providers to make router reactive and capture their values
+  final hasAnyAccountAsync = ref.watch(hasAnyAccountProvider);
+  final hasCompletedOnboardingAsync = ref.watch(hasCompletedOnboardingProvider);
+  // Watch freshness + bootstrap so the router reacts to stale detection.
+  final registrationFreshness = ref.watch(registrationFreshnessProvider);
+  ref.watch(leaderboardBootstrapProvider);
 
   return GoRouter(
     navigatorKey: _navigatorKey,
-    observers: [
-      ...SentryUtil.navigatorObservers(),
-      loggingNavigatorObserver,
-    ],
+    observers: SentryUtil.navigatorObservers(),
     initialLocation: AppRoutes.splash,
-    refreshListenable: refreshListenable,
+    refreshListenable: GoRouterRefreshStream(ref),
     routes: [
       GoRoute(
         path: AppRoutes.splash,
@@ -416,10 +320,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
     ],
     redirect: (context, state) {
-      final hasAnyAccountAsync = ref.read(hasAnyAccountProvider);
-      final hasCompletedOnboardingAsync =
-          ref.read(hasCompletedOnboardingProvider);
-      final registrationFreshness = ref.read(registrationFreshnessProvider);
       final hasAny = hasAnyAccountAsync.maybeWhen(
         data: (v) => v,
         orElse: () => null,
@@ -431,18 +331,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       final currentLocation = state.matchedLocation;
 
-      _log.warn('Redirect guard called', context: {
-        'location': currentLocation,
-        'hasAny': hasAny,
-        'onboardingComplete': hasCompletedOnboarding,
-        'registrationFreshness': registrationFreshness.name,
-      });
+      _log.trace(
+          'Redirect guard called - location: $currentLocation, hasAny: $hasAny, onboardingComplete: $hasCompletedOnboarding');
 
       // Still loading state
       if (hasAny == null || hasCompletedOnboarding == null) {
-        _log.warn('Redirect allow: state still loading', context: {
-          'location': currentLocation,
-        });
+        _log.trace('State loading - allowing navigation');
         return null;
       }
 
@@ -455,77 +349,65 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ];
 
       final isPublicRoute = publicRoutes.contains(currentLocation);
-      _log.warn('Route classification', context: {
-        'location': currentLocation,
-        'isPublic': isPublicRoute,
-      });
+      _log.trace(
+          'Route $currentLocation is ${isPublicRoute ? "public" : "private"}');
 
       // No account exists
       if (!hasAny) {
-        _log.warn('Redirect branch: no account exists');
+        _log.trace('No account exists');
         // Splash should redirect to onboarding (transient route)
         if (currentLocation == AppRoutes.splash) {
-          _log.warn('Redirecting splash to onboarding');
+          _log.trace('Redirecting splash to onboarding');
           return AppRoutes.onboarding;
         }
         // Allow onboarding routes
         if (currentLocation.startsWith('/onboarding/')) {
-          _log.warn('Allowing onboarding route');
+          _log.trace('Allowing onboarding route');
           return null;
         }
         // Redirect all other routes to onboarding
-        _log.warn('Redirecting private route to onboarding', context: {
-          'from': currentLocation,
-        });
+        _log.trace('Redirecting private route to onboarding');
         return AppRoutes.onboarding;
       }
 
       // Account exists but onboarding NOT completed - allow onboarding routes
       if (!hasCompletedOnboarding) {
-        _log.warn('Redirect branch: account exists but onboarding incomplete');
+        _log.trace('Account exists but onboarding not completed');
         if (currentLocation.startsWith('/onboarding/')) {
-          _log.warn('Allowing onboarding route during onboarding flow');
+          _log.trace('Allowing onboarding route during onboarding flow');
           return null;
         }
         // Splash should redirect to first permission screen
         if (currentLocation == AppRoutes.splash) {
-          _log.warn('Redirecting splash to onboarding welcome-setup');
+          _log.trace('Redirecting splash to onboarding welcome-setup');
           return AppRoutes.onboardingWelcomeSetup;
         }
       }
 
       // Account exists AND onboarding completed
-      _log.warn('Redirect branch: account exists and onboarding completed');
+      _log.trace('Account exists and onboarding completed');
 
       // Block app usage when registration belongs to a previous season.
       if (registrationFreshness == RegistrationFreshness.stale &&
           currentLocation != AppRoutes.staleRegistration &&
           currentLocation != AppRoutes.onboardingImportApi) {
-        _log.warn('Redirecting to stale registration screen', context: {
-          'from': currentLocation,
-        });
         return AppRoutes.staleRegistration;
       }
 
       // Allow stale registration screen (lives outside /onboarding/)
       if (currentLocation == AppRoutes.staleRegistration) {
-        _log.warn('Allowing stale registration screen');
         return null;
       }
 
       // Redirect from splash and onboarding to home
       if (currentLocation == AppRoutes.splash ||
           currentLocation.startsWith('/onboarding/')) {
-        _log.warn('Redirecting onboarding/splash to home', context: {
-          'from': currentLocation,
-        });
+        _log.trace('Redirecting $currentLocation to /home');
         return AppRoutes.home;
       }
 
       // Allow all other routes when account exists
-      _log.warn('Redirect allow final route', context: {
-        'location': currentLocation,
-      });
+      _log.trace('Allowing route: $currentLocation');
       return null;
     },
   );

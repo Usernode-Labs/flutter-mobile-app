@@ -16,13 +16,6 @@ class RankingController extends LeaderboardNotifier<RankingResult> {
   }
 
   @override
-  bool canRefresh() {
-    final pid = ref.read(participantIdProvider).valueOrNull;
-    final sid = ref.read(seasonEventContextProvider).seasonId;
-    return pid != null && sid != null;
-  }
-
-  @override
   Future<RankingResult> fetch() async {
     final participantId = ref.read(participantIdProvider).value!;
     final ctx = ref.read(seasonEventContextProvider);

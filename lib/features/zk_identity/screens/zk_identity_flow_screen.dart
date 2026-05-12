@@ -7,15 +7,12 @@ import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/zk_identity/models/zk_identity_models.dart';
 import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
 import 'package:crypto_mobile_app/features/zk_identity/zk_identity_status_mapper.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_models.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
-
-final _log = LoggingService.instance.withTag('usernode/ZkIdentityFlowScreen');
 
 class ZkIdentityFlowScreen extends ConsumerStatefulWidget {
   const ZkIdentityFlowScreen({super.key});
@@ -27,32 +24,15 @@ class ZkIdentityFlowScreen extends ConsumerStatefulWidget {
 
 class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
     with WidgetsBindingObserver {
-  static const _verificationRenderWatchdogInterval =
-      Duration(milliseconds: 250);
-  static const _verificationRenderWatchdogTimeout = Duration(seconds: 30);
-
   bool _checkingApp = false;
   bool _appNotInstalled = false;
-  String? _lastPresentationTraceSignature;
-  ProviderSubscription<ZkIdentityFlowState>? _flowSubscription;
-  ProviderSubscription<ZkPassportPipelineState>? _pipelineSubscription;
-  ProviderSubscription<AsyncValue<ZkPassportLocalRegistration>>?
-      _registrationSubscription;
-  Timer? _verificationRenderWatchdog;
-  DateTime? _verificationRenderWatchdogStartedAt;
-  ZkIdentityFlowState? _terminalPresentationOverride;
-  int _buildCount = 0;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     // Reset local checkApp state when navigating away from that step.
-    _flowSubscription =
-        ref.listenManual(zkIdentityStepControllerProvider, (prev, next) {
-      final previous = prev;
-      _clearTerminalPresentationOverrideIfNeeded(next);
-      _syncVerificationRenderWatchdog();
+    ref.listenManual(zkIdentityStepControllerProvider, (prev, next) {
       if (next.currentStep != ZkIdentityStep.checkApp &&
           (_checkingApp || _appNotInstalled)) {
         setState(() {
@@ -60,261 +40,20 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
           _appNotInstalled = false;
         });
       }
-      final flowChanged = previous == null ||
-          previous.currentStepIndex != next.currentStepIndex ||
-          previous.resultMessage != next.resultMessage ||
-          previous.isSuccess != next.isSuccess;
-      if (flowChanged && mounted) {
-        _log.warn('Forcing rebuild after flow-state change', context: {
-          'previousStep': previous?.currentStep.name,
-          'nextStep': next.currentStep.name,
-          'previousMessage': previous?.resultMessage,
-          'nextMessage': next.resultMessage,
-          'previousIsSuccess': previous?.isSuccess,
-          'nextIsSuccess': next.isSuccess,
-        });
-        setState(() {});
-      }
     });
-    _pipelineSubscription =
-        ref.listenManual(zkPassportPipelineProvider, (previous, next) {
-      _syncVerificationRenderWatchdog();
-      _log.warn('Pipeline state changed in screen', context: {
-        'previousStatus': previous?.status.name,
-        'previousPhase': previous?.phase.name,
-        'status': next.status.name,
-        'phase': next.phase.name,
-        'requestId': next.requestId,
-        'message': next.message,
-      });
-      final pipelineChanged = previous == null ||
-          previous.status != next.status ||
-          previous.phase != next.phase ||
-          previous.message != next.message ||
-          previous.requestId != next.requestId;
-      if (pipelineChanged && mounted) {
-        _log.warn('Forcing rebuild after pipeline-state change', context: {
-          'status': next.status.name,
-          'phase': next.phase.name,
-          'requestId': next.requestId,
-        });
-        setState(() {});
-      }
-    });
-    _registrationSubscription =
-        ref.listenManual(zkIdentityRegistrationProvider, (previous, next) {
-      _syncVerificationRenderWatchdog();
-      final prevReg = previous?.valueOrNull;
-      final nextReg = next.valueOrNull;
-      _log.warn('Registration state changed in screen', context: {
-        'previousRegistered': prevReg?.registered,
-        'registered': nextReg?.registered,
-        'nullifierHex': nextReg?.nullifierHex,
-        'facematchVerified': nextReg?.facematchVerified,
-        'registeredAtMs': nextReg?.registeredAtMs,
-      });
-      final registrationChanged = prevReg?.registered != nextReg?.registered ||
-          prevReg?.nullifierHex != nextReg?.nullifierHex ||
-          prevReg?.registeredAtMs != nextReg?.registeredAtMs;
-      if (registrationChanged && mounted) {
-        _log.warn('Forcing rebuild after registration-state change', context: {
-          'registered': nextReg?.registered,
-          'nullifierHex': nextReg?.nullifierHex,
-          'registeredAtMs': nextReg?.registeredAtMs,
-        });
-        setState(() {});
-      }
-    });
-    _log.warn('Flow screen initialized');
-  }
-
-  @override
-  void activate() {
-    super.activate();
-    _log.warn('Flow screen activate');
-  }
-
-  @override
-  void deactivate() {
-    _log.warn('Flow screen deactivate');
-    super.deactivate();
-  }
-
-  @override
-  void didUpdateWidget(covariant ZkIdentityFlowScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _log.warn('Flow screen didUpdateWidget');
   }
 
   @override
   void dispose() {
-    _log.warn('Flow screen dispose');
     WidgetsBinding.instance.removeObserver(this);
-    _flowSubscription?.close();
-    _pipelineSubscription?.close();
-    _registrationSubscription?.close();
-    _stopVerificationRenderWatchdog();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    _log.warn('Flow screen lifecycle changed', context: {
-      'state': state.name,
-      'appNotInstalled': _appNotInstalled,
-    });
-    if (state == AppLifecycleState.resumed) {
-      _syncVerificationRenderWatchdog();
-    } else if (state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.hidden ||
-        state == AppLifecycleState.paused ||
-        state == AppLifecycleState.detached) {
-      _stopVerificationRenderWatchdog();
-    }
     if (state == AppLifecycleState.resumed && _appNotInstalled) {
       _checkApp();
     }
-  }
-
-  void _syncVerificationRenderWatchdog() {
-    if (!mounted) return;
-    final lifecycleState = WidgetsBinding.instance.lifecycleState;
-    if (lifecycleState != AppLifecycleState.resumed) {
-      _stopVerificationRenderWatchdog();
-      return;
-    }
-
-    final flowState = ref.read(zkIdentityStepControllerProvider);
-    final pipelineState = ref.read(zkPassportPipelineProvider);
-    final registration = ref.read(zkIdentityRegistrationProvider).valueOrNull;
-    final recoveredPersistedSuccess = registration?.registered == true &&
-        flowState.currentStep == ZkIdentityStep.verification &&
-        pipelineState.status != ZkPassportPipelineStatus.failure;
-    final effectiveFlowState = resolveZkIdentitySuccessPresentationState(
-      flowState,
-      pipelineSucceeded:
-          pipelineState.status == ZkPassportPipelineStatus.success,
-      registrationCompleted: recoveredPersistedSuccess,
-      successMessage: pipelineState.message,
-    );
-
-    final shouldWatch = flowState.currentStep == ZkIdentityStep.verification &&
-        effectiveFlowState.currentStep != ZkIdentityStep.result &&
-        pipelineState.status != ZkPassportPipelineStatus.failure;
-
-    if (!shouldWatch) {
-      _stopVerificationRenderWatchdog();
-      return;
-    }
-
-    if (_verificationRenderWatchdog != null) {
-      return;
-    }
-
-    _log.warn('Starting verification render watchdog', context: {
-      'controllerStep': flowState.currentStep.name,
-      'pipelineStatus': pipelineState.status.name,
-      'pipelinePhase': pipelineState.phase.name,
-      'registrationCompleted': registration?.registered,
-    });
-    _verificationRenderWatchdogStartedAt = DateTime.now();
-    _verificationRenderWatchdog = Timer.periodic(
-      _verificationRenderWatchdogInterval,
-      (_) => _onVerificationRenderWatchdogTick(),
-    );
-  }
-
-  void _onVerificationRenderWatchdogTick() {
-    if (!mounted) {
-      _stopVerificationRenderWatchdog();
-      return;
-    }
-
-    final startedAt = _verificationRenderWatchdogStartedAt;
-    if (startedAt != null &&
-        DateTime.now().difference(startedAt) >=
-            _verificationRenderWatchdogTimeout) {
-      _log.warn('Verification render watchdog timed out', context: {
-        'controllerStep':
-            ref.read(zkIdentityStepControllerProvider).currentStep.name,
-        'pipelineStatus': ref.read(zkPassportPipelineProvider).status.name,
-        'pipelinePhase': ref.read(zkPassportPipelineProvider).phase.name,
-      });
-      _stopVerificationRenderWatchdog();
-      return;
-    }
-
-    final flowState = ref.read(zkIdentityStepControllerProvider);
-    final pipelineState = ref.read(zkPassportPipelineProvider);
-    final registration = ref.read(zkIdentityRegistrationProvider).valueOrNull;
-    final recoveredPersistedSuccess = registration?.registered == true &&
-        flowState.currentStep == ZkIdentityStep.verification &&
-        pipelineState.status != ZkPassportPipelineStatus.failure;
-    final effectiveFlowState = resolveZkIdentitySuccessPresentationState(
-      flowState,
-      pipelineSucceeded:
-          pipelineState.status == ZkPassportPipelineStatus.success,
-      registrationCompleted: recoveredPersistedSuccess,
-      successMessage: pipelineState.message,
-    );
-
-    final shouldForceRepaint =
-        effectiveFlowState.currentStep == ZkIdentityStep.result ||
-            (flowState.resultMessage != null && !flowState.isSuccess);
-    if (shouldForceRepaint) {
-      _log.warn(
-        'Verification render watchdog forcing terminal presentation',
-        context: {
-          'controllerStep': flowState.currentStep.name,
-          'effectiveStep': effectiveFlowState.currentStep.name,
-          'effectiveMessage': effectiveFlowState.resultMessage,
-          'effectiveIsSuccess': effectiveFlowState.isSuccess,
-          'pipelineStatus': pipelineState.status.name,
-          'pipelinePhase': pipelineState.phase.name,
-          'registrationCompleted': registration?.registered,
-        },
-      );
-      setState(() {
-        _terminalPresentationOverride = effectiveFlowState;
-      });
-      _stopVerificationRenderWatchdog();
-      return;
-    }
-
-    if (flowState.currentStep != ZkIdentityStep.verification ||
-        pipelineState.status == ZkPassportPipelineStatus.failure) {
-      _stopVerificationRenderWatchdog();
-    }
-  }
-
-  void _stopVerificationRenderWatchdog() {
-    if (_verificationRenderWatchdog != null) {
-      _log.warn('Stopping verification render watchdog');
-    }
-    _verificationRenderWatchdog?.cancel();
-    _verificationRenderWatchdog = null;
-    _verificationRenderWatchdogStartedAt = null;
-  }
-
-  void _clearTerminalPresentationOverrideIfNeeded(
-    ZkIdentityFlowState flowState,
-  ) {
-    final override = _terminalPresentationOverride;
-    if (override == null) {
-      return;
-    }
-    if (flowState.currentStep == ZkIdentityStep.verification ||
-        (flowState.currentStep == ZkIdentityStep.result &&
-            flowState.isSuccess == override.isSuccess &&
-            flowState.resultMessage == override.resultMessage)) {
-      return;
-    }
-    _log.warn('Clearing terminal presentation override', context: {
-      'controllerStep': flowState.currentStep.name,
-      'controllerIsSuccess': flowState.isSuccess,
-      'controllerMessage': flowState.resultMessage,
-    });
-    _terminalPresentationOverride = null;
   }
 
   Future<void> _checkApp() async {
@@ -333,40 +72,10 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
 
   @override
   Widget build(BuildContext context) {
-    _buildCount += 1;
     final flowState = ref.watch(zkIdentityStepControllerProvider);
     final pipelineState = ref.watch(zkPassportPipelineProvider);
-    final registration = ref.watch(zkIdentityRegistrationProvider).valueOrNull;
-    final recoveredPersistedSuccess = registration?.registered == true &&
-        flowState.currentStep == ZkIdentityStep.verification &&
-        pipelineState.status != ZkPassportPipelineStatus.failure;
-    final effectiveFlowState = resolveZkIdentitySuccessPresentationState(
-      flowState,
-      pipelineSucceeded:
-          pipelineState.status == ZkPassportPipelineStatus.success,
-      registrationCompleted: recoveredPersistedSuccess,
-      successMessage: pipelineState.message,
-    );
-    final presentedFlowState =
-        _terminalPresentationOverride ?? effectiveFlowState;
-    _tracePresentationState(
-      flowState: flowState,
-      effectiveFlowState: presentedFlowState,
-      pipelineState: pipelineState,
-      registration: registration,
-      recoveredPersistedSuccess: recoveredPersistedSuccess,
-    );
-    _log.warn('Flow screen build', context: {
-      'buildCount': _buildCount,
-      'controllerStep': flowState.currentStep.name,
-      'effectiveStep': effectiveFlowState.currentStep.name,
-      'presentedStep': presentedFlowState.currentStep.name,
-      'overrideActive': _terminalPresentationOverride != null,
-      'pipelineStatus': pipelineState.status.name,
-      'pipelinePhase': pipelineState.phase.name,
-    });
 
-    final steps = presentedFlowState.steps.map((s) {
+    final steps = flowState.steps.map((s) {
       return ZkIdentityStepData(
         label: _stepLabel(s.step),
         description: _stepDescription(s.step),
@@ -376,14 +85,12 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
 
     return ZkIdentityFlowPage(
       steps: steps,
-      currentStepIndex: presentedFlowState.currentStepIndex,
-      centerActiveContent:
-          presentedFlowState.currentStep == ZkIdentityStep.result ||
-              (presentedFlowState.currentStep == ZkIdentityStep.checkApp &&
-                  _appNotInstalled),
-      activeStepContent: _buildBody(context, presentedFlowState, pipelineState),
-      bottomAction:
-          _buildBottomAction(context, presentedFlowState, pipelineState),
+      currentStepIndex: flowState.currentStepIndex,
+      centerActiveContent: flowState.currentStep == ZkIdentityStep.result ||
+          (flowState.currentStep == ZkIdentityStep.checkApp &&
+              _appNotInstalled),
+      activeStepContent: _buildBody(context, flowState, pipelineState),
+      bottomAction: _buildBottomAction(context, flowState, pipelineState),
       onBack: () => context.pop(),
     );
   }
@@ -550,55 +257,6 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
           ],
         ),
     };
-  }
-
-  void _tracePresentationState({
-    required ZkIdentityFlowState flowState,
-    required ZkIdentityFlowState effectiveFlowState,
-    required ZkPassportPipelineState pipelineState,
-    required ZkPassportLocalRegistration? registration,
-    required bool recoveredPersistedSuccess,
-  }) {
-    final signature = [
-      flowState.currentStep.name,
-      flowState.currentStepIndex,
-      flowState.isSuccess,
-      flowState.resultMessage,
-      effectiveFlowState.currentStep.name,
-      effectiveFlowState.currentStepIndex,
-      effectiveFlowState.isSuccess,
-      effectiveFlowState.resultMessage,
-      pipelineState.status.name,
-      pipelineState.phase.name,
-      pipelineState.requestId,
-      registration?.registered,
-      registration?.nullifierHex,
-      recoveredPersistedSuccess,
-      _checkingApp,
-      _appNotInstalled,
-    ].join('|');
-    if (_lastPresentationTraceSignature == signature) {
-      return;
-    }
-    _lastPresentationTraceSignature = signature;
-    _log.warn('Resolved flow presentation state', context: {
-      'controllerStep': flowState.currentStep.name,
-      'controllerStepIndex': flowState.currentStepIndex,
-      'controllerIsSuccess': flowState.isSuccess,
-      'controllerMessage': flowState.resultMessage,
-      'effectiveStep': effectiveFlowState.currentStep.name,
-      'effectiveStepIndex': effectiveFlowState.currentStepIndex,
-      'effectiveIsSuccess': effectiveFlowState.isSuccess,
-      'effectiveMessage': effectiveFlowState.resultMessage,
-      'pipelineStatus': pipelineState.status.name,
-      'pipelinePhase': pipelineState.phase.name,
-      'pipelineRequestId': pipelineState.requestId,
-      'registrationCompleted': registration?.registered,
-      'registrationNullifierHex': registration?.nullifierHex,
-      'recoveredPersistedSuccess': recoveredPersistedSuccess,
-      'checkingApp': _checkingApp,
-      'appNotInstalled': _appNotInstalled,
-    });
   }
 
   Widget? _buildBottomAction(

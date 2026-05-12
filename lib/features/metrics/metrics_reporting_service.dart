@@ -10,6 +10,7 @@ import 'package:crypto_mobile_app/features/metrics/data/slot_outcome_buffer_repo
 import 'package:crypto_mobile_app/features/metrics/models/metrics_payload.dart';
 import 'package:crypto_mobile_app/features/metrics/models/slot_outcome_report.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
+import 'package:crypto_mobile_app/features/metrics/services/slot_outcome_drain_service.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 
 final _log = LoggingService.instance.withTag('usernode/MetricsReporting');
@@ -344,6 +345,18 @@ class MetricsReportingService {
     try {
       final url = Uri.parse(AppConfig.metricsEndpoint);
       final jsonPayload = payload.toJson();
+
+      // First, ask the drain service to pull any newly-terminal slot
+      // outcomes from the embedded node into the buffer. This is the
+      // primary path that populates `slot_outcome_reports` — the recorder
+      // path (SlotMonitorService) only fires when the app is foregrounded
+      // for a slot in real time, which is the rare case. Errors are
+      // swallowed inside drain(); a 0 return just means "nothing new".
+      try {
+        await SlotOutcomeDrainService.instance.drain();
+      } catch (e) {
+        _log.warn('Slot-outcome drain failed: $e');
+      }
 
       // Drain pending slot outcomes (snapshot, not removed) and attach to
       // the payload so the analytics backend can join with node-side

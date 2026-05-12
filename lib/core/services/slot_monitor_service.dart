@@ -19,6 +19,12 @@ class SlotMonitorService {
   bool _isMonitoring = false;
   Timer? _monitoringTimer;
 
+  /// Foreground watchdog: while the app is open we periodically check whether
+  /// we should be monitoring an upcoming slot. Background coverage comes from
+  /// the native `android_alarm_fired` callback wired in `app_bootstrap.dart`.
+  Timer? _autoStartTicker;
+  static const Duration _autoStartInterval = Duration(seconds: 30);
+
   // Cached timing values from node status
   int _blockInterval = 5000; // Default 5 seconds, updated from status
 
@@ -45,7 +51,17 @@ class SlotMonitorService {
     try {
       _log.info('SlotMonitorService initializing...');
       _initialized = true;
-      _log.info('SlotMonitorService initialized');
+
+      _autoStartTicker?.cancel();
+      _autoStartTicker = Timer.periodic(_autoStartInterval, (_) {
+        if (_isMonitoring) return;
+        unawaited(autoStartMonitoring());
+      });
+
+      _log.info(
+        'SlotMonitorService initialized (auto-start tick every '
+        '${_autoStartInterval.inSeconds}s)',
+      );
       return true;
     } catch (e) {
       _log.error('Error initializing SlotMonitorService: $e');
@@ -396,6 +412,8 @@ class SlotMonitorService {
 
   /// Dispose resources
   Future<void> dispose() async {
+    _autoStartTicker?.cancel();
+    _autoStartTicker = null;
     await stopMonitoring();
     await _eventController.close();
     _initialized = false;

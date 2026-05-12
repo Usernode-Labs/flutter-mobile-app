@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
@@ -11,7 +12,9 @@ import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provide
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
+import 'package:crypto_mobile_app/core/services/epoch_slot_scheduler_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
+import 'package:crypto_mobile_app/core/services/slot_monitor_service.dart';
 import 'package:crypto_mobile_app/core/utils/lifecycle.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
@@ -69,6 +72,10 @@ class AppBootstrap {
           eventType,
           eventData,
         );
+        // Per-slot alarm fires arrive here as android_alarm_fired with
+        // alarmId=`slot_<N>`. Drive SlotMonitorService from those so the
+        // recorder pipeline (slot_outcome_reports) actually runs.
+        unawaited(_routeAlarmToSlotMonitor(eventType, eventData));
       },
     );
 
@@ -92,6 +99,26 @@ class AppBootstrap {
 
     // Metrics collector needs the container before any lifecycle/service starts
     MetricsCollectorService.instance.initialize(container);
+
+    // Load persisted scheduled slots so the alarm-fired callback below can
+    // resolve a slotNumber back to its full ScheduledSlot (including epoch +
+    // alarmTime), and start the SlotMonitorService so its foreground
+    // auto-start ticker is ready. Both are best-effort: scheduler.initialize
+    // also runs an RPC call that is allowed to fail at boot.
+    try {
+      await EpochSlotSchedulerService.instance.initialize();
+    } catch (e) {
+      log.warn(
+        'EpochSlotSchedulerService.initialize failed at bootstrap: $e',
+      );
+    }
+    try {
+      await SlotMonitorService.instance.initialize();
+    } catch (e) {
+      log.warn(
+        'SlotMonitorService.initialize failed at bootstrap: $e',
+      );
+    }
 
     if (registerLifecycleObserver) {
       await AppSleepService.instance.initializeForInteractiveApp();
@@ -280,6 +307,82 @@ class AppBootstrap {
       log.error('Bootstrap failed: $e', error: e, stackTrace: st);
       await SentryUtil.captureError(e, st, tag: 'bootstrap');
     }
+  }
+
+  /// Translate per-slot `android_alarm_fired` callbacks into
+  /// [SlotMonitorService.startMonitoringSlot] calls so the recorder produces
+  /// a [SlotOutcomeReport] for each won slot. No-op for non-slot alarms
+  /// (e.g. `fg_resume`, which `AndroidForegroundTaskController` already owns).
+  static Future<void> _routeAlarmToSlotMonitor(
+    String eventType,
+    Map<String, dynamic> eventData,
+  ) async {
+    if (eventType != 'android_alarm_fired') return;
+
+    final alarmId = eventData['alarmId'] as String?;
+    if (alarmId == null || !alarmId.startsWith('slot_')) return;
+
+    final slotNumber = _intFromDynamic(eventData['slotNumber']);
+    if (slotNumber == null || slotNumber < 0) return;
+
+    final log = LoggingService.instance.withTag('usernode/AppBootstrap');
+
+    // Belt-and-suspenders: the scheduler is initialized at bootstrap, but if
+    // the alarm fires before that completes (cold start race) we initialize
+    // again here. Both calls are idempotent.
+    try {
+      await EpochSlotSchedulerService.instance.initialize();
+    } catch (e) {
+      log.debug('Scheduler re-init in alarm handler failed: $e');
+    }
+    try {
+      await SlotMonitorService.instance.initialize();
+    } catch (e) {
+      log.debug('SlotMonitor re-init in alarm handler failed: $e');
+    }
+
+    ScheduledSlot? slot;
+    for (final s in EpochSlotSchedulerService.instance.getScheduledSlots()) {
+      if (s.slotNumber == slotNumber) {
+        slot = s;
+        break;
+      }
+    }
+
+    if (slot == null) {
+      log.warn(
+        'Alarm fired for slot $slotNumber but no ScheduledSlot is persisted; '
+        'skipping recorder hookup',
+        context: {'alarm_id': alarmId},
+      );
+      return;
+    }
+
+    log.info(
+      'Routing alarm to SlotMonitorService',
+      context: {
+        'slot_number': slotNumber,
+        'epoch': slot.epoch,
+        'alarm_id': alarmId,
+      },
+    );
+
+    try {
+      await SlotMonitorService.instance.startMonitoringSlot(slot);
+    } catch (e, st) {
+      log.error(
+        'SlotMonitorService.startMonitoringSlot failed for slot $slotNumber: $e',
+        error: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  static int? _intFromDynamic(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
   }
 
   static void _installGlobalErrorHandlers(TaggedLogger log) {

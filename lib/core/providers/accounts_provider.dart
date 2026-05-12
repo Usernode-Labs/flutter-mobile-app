@@ -30,6 +30,8 @@ class AccountsRepository {
   static const _kIndexKeyBase = 'accounts:index';
   static const _kActiveIdKeyBase = 'accounts:activeId';
   static const _kPathPrefix = "m/44'/60'/0'/0/";
+  static const _kMetaField = 'meta';
+  static final _idIndexPattern = RegExp(r'^acc_(\d+)_');
 
   final FlutterSecureStorage _secure;
   final SharedPreferences _prefs;
@@ -59,7 +61,9 @@ class AccountsRepository {
   Future<List<AccountMeta>> list() async {
     final raw = _prefs.getString(_kIndexKey);
     if (raw == null || raw.isEmpty) {
-      return [];
+      return _recoverIndexFromSecureStorage(
+        reason: raw == null ? 'missing' : 'empty',
+      );
     }
     try {
       final decoded = jsonDecode(raw) as List<dynamic>;
@@ -69,8 +73,132 @@ class AccountsRepository {
       return accounts;
     } catch (e, st) {
       _log.error('Failed to decode accounts list', error: e, stackTrace: st);
+      return _recoverIndexFromSecureStorage(reason: 'corrupt');
+    }
+  }
+
+  Future<List<AccountMeta>> _recoverIndexFromSecureStorage({
+    required String reason,
+  }) async {
+    try {
+      final recovered = await _readRecoveredAccountsFromSecureStorage();
+      if (recovered.isEmpty) {
+        _log.warn(
+          'Account index is $reason and no secure storage accounts were recovered',
+        );
+        return [];
+      }
+
+      await _saveIndex(recovered);
+
+      final activeId = getActiveId();
+      final hasValidActiveId = activeId != null &&
+          recovered.any((account) => account.id == activeId);
+      if (!hasValidActiveId) {
+        await setActiveId(recovered.first.id);
+      }
+
+      _log.warn(
+        'Recovered ${recovered.length} account(s) from secure storage after $reason account index',
+      );
+      return recovered;
+    } catch (e, st) {
+      _log.error(
+        'Failed to recover account index from secure storage',
+        error: e,
+        stackTrace: st,
+      );
       return [];
     }
+  }
+
+  Future<List<AccountMeta>> _readRecoveredAccountsFromSecureStorage() async {
+    final allEntries = await _secure.readAll();
+    final prefix = '$_network:account:';
+    final grouped = <String, Map<String, String>>{};
+
+    for (final entry in allEntries.entries) {
+      if (!entry.key.startsWith(prefix)) {
+        continue;
+      }
+
+      final remainder = entry.key.substring(prefix.length);
+      final separator = remainder.lastIndexOf(':');
+      if (separator <= 0 || separator == remainder.length - 1) {
+        continue;
+      }
+
+      final accountId = remainder.substring(0, separator);
+      final field = remainder.substring(separator + 1);
+      grouped.putIfAbsent(accountId, () => <String, String>{})[field] =
+          entry.value;
+    }
+
+    final recovered = <AccountMeta>[];
+    for (final entry in grouped.entries) {
+      final meta = _recoverMeta(entry.key, entry.value);
+      if (meta != null) {
+        recovered.add(meta);
+      }
+    }
+
+    recovered.sort((a, b) {
+      final byIndex = a.hdIndex.compareTo(b.hdIndex);
+      if (byIndex != 0) {
+        return byIndex;
+      }
+      return a.createdAt.compareTo(b.createdAt);
+    });
+
+    return recovered;
+  }
+
+  AccountMeta? _recoverMeta(String accountId, Map<String, String> fields) {
+    final storedMeta = fields[_kMetaField];
+    if (storedMeta != null && storedMeta.isNotEmpty) {
+      try {
+        return AccountMeta.fromJson(
+          jsonDecode(storedMeta) as Map<String, dynamic>,
+        );
+      } catch (e, st) {
+        _log.warn(
+          'Failed to decode stored account metadata for $accountId: $e',
+        );
+        _log.trace('Stored account metadata decode stack: $st');
+      }
+    }
+
+    final address = fields['address'];
+    final publicKey = fields['publicKey'];
+    if (address == null ||
+        address.isEmpty ||
+        publicKey == null ||
+        publicKey.isEmpty) {
+      return null;
+    }
+
+    final hdIndex = int.tryParse(fields['hdIndex'] ?? '') ??
+        _inferIndexFromId(accountId) ??
+        0;
+
+    return AccountMeta(
+      id: accountId,
+      name: 'Recovered Account ${hdIndex + 1}',
+      createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+      derivationPath: 'recovered',
+      hdIndex: hdIndex,
+      address: address,
+      publicKey: publicKey,
+      backupConfirmed: true,
+    );
+  }
+
+  int? _inferIndexFromId(String accountId) {
+    final match = _idIndexPattern.firstMatch(accountId);
+    if (match == null) {
+      return null;
+    }
+    return int.tryParse(match.group(1)!);
   }
 
   Future<void> _saveIndex(List<AccountMeta> items) async {
@@ -199,6 +327,10 @@ class AccountsRepository {
     await _secure.write(key: '$_network:account:$id:address', value: address);
     await _secure.write(
         key: '$_network:account:$id:hdIndex', value: index.toString());
+    await _secure.write(
+      key: '$_network:account:$id:$_kMetaField',
+      value: jsonEncode(meta.toJson()),
+    );
     _log.debug('Secure storage writes complete');
 
     final next = [...current, meta];

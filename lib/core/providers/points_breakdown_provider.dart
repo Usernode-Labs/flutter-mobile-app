@@ -16,6 +16,13 @@ class BreakdownController extends LeaderboardNotifier<BreakdownResult> {
   }
 
   @override
+  bool canRefresh() {
+    final pid = ref.read(participantIdProvider).valueOrNull;
+    final sid = ref.read(seasonEventContextProvider).seasonId;
+    return pid != null && sid != null;
+  }
+
+  @override
   Future<BreakdownResult> fetch() async {
     final participantId = ref.read(participantIdProvider).value!;
     final ctx = ref.read(seasonEventContextProvider);

@@ -17,6 +17,7 @@ import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_pro
 import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_models.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/repositories/zkpassport_repositories.dart';
 import 'package:crypto_mobile_app/features/zkpassport/services/zkpassport_services.dart';
+import 'package:crypto_mobile_app/src/rust/rpc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final _log = LoggingService.instance.withTag('usernode/ZkPassportFlow');
@@ -901,7 +902,7 @@ class ZkPassportPipelineController
         return;
       }
 
-      final rpc = RustBackendService.instance.rpc;
+      final rpc = await _ensureNodeRpcReadyForPipeline();
       if (rpc == null) {
         await _finalizeRuntimeSession(
           requestId: requestId,
@@ -1126,6 +1127,23 @@ class ZkPassportPipelineController
     } finally {
       _inFlight = false;
     }
+  }
+
+  Future<NodeRpcClient?> _ensureNodeRpcReadyForPipeline() async {
+    final backend = RustBackendService.instance;
+    final existingRpc = backend.rpc;
+    if (existingRpc != null) {
+      await backend.resumeNode();
+      return existingRpc;
+    }
+
+    _log.info('Starting node for zkPassport proof verification');
+    final started = await backend.startNode();
+    if (!started) {
+      return null;
+    }
+    await backend.resumeNode();
+    return backend.rpc;
   }
 
   Uint8List _decodeB64UrlToBytes(String payloadB64Url) {

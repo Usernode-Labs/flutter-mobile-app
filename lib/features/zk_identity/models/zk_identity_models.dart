@@ -82,3 +82,36 @@ class ZkIdentityFlowState {
     );
   }
 }
+
+ZkIdentityFlowState resolveZkIdentitySuccessPresentationState(
+  ZkIdentityFlowState flowState, {
+  required bool pipelineSucceeded,
+  required bool registrationCompleted,
+  String? successMessage,
+}) {
+  if (flowState.currentStep == ZkIdentityStep.result) {
+    return flowState;
+  }
+  if (!pipelineSucceeded && !registrationCompleted) {
+    return flowState;
+  }
+
+  final resultIndex = ZkIdentityStep.result.index;
+  final updated = List<ZkIdentityStepState>.from(flowState.steps);
+  updated[flowState.currentStepIndex] =
+      updated[flowState.currentStepIndex].copyWith(
+    status: ZkIdentityStepVisualStatus.completed,
+  );
+  updated[resultIndex] = updated[resultIndex].copyWith(
+    status: ZkIdentityStepVisualStatus.active,
+  );
+
+  return ZkIdentityFlowState(
+    steps: updated,
+    currentStepIndex: resultIndex,
+    resultMessage: successMessage?.trim().isNotEmpty == true
+        ? successMessage!.trim()
+        : 'zkPassport proof accepted and wrapped successfully.',
+    isSuccess: true,
+  );
+}

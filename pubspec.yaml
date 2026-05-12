@@ -35,7 +35,7 @@ dependencies:
   collection: any
   wakelock_plus: "^1.2.8"
   battery_plus: "^6.0.0"
-  connectivity_plus: "^7.0.0"
+  connectivity_plus: "7.0.0"
   permission_handler: "^11.0.0"
   crypto: "^3.0.3"
   url_launcher: "^6.2.0"

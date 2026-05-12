@@ -41,6 +41,13 @@ abstract class LeaderboardNotifier<T> extends AsyncNotifier<T?> {
   /// ```
   bool watchDeps() => true;
 
+  /// Runtime guard for background refresh calls that use `ref.read()`.
+  ///
+  /// Unlike [watchDeps], this should avoid `ref.watch()` and instead perform
+  /// cheap readiness checks with `ref.read()` so silent refreshes can no-op
+  /// instead of throwing while dependencies are still loading.
+  bool canRefresh() => true;
+
   @override
   Future<T?> build() async => watchDeps() ? await fetch() : null;
 
@@ -49,6 +56,9 @@ abstract class LeaderboardNotifier<T> extends AsyncNotifier<T?> {
   /// On success, updates [state] to the fresh value. On failure, preserves
   /// the last-good value (no `AsyncError` transition) so the UI stays stable.
   Future<void> silentRefresh() async {
+    if (!canRefresh()) {
+      return;
+    }
     try {
       state = AsyncData(await fetch());
     } catch (e) {

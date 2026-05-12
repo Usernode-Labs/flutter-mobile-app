@@ -65,7 +65,9 @@ class _FakePipelineController extends StateNotifier<ZkPassportPipelineState>
   ZkIdentityStepController controller,
   _FakeFlowController flowController,
   _FakePipelineController pipelineController,
-}) _setup({ZkPassportLaunchResult? launchResult}) {
+}) _setup({
+  ZkPassportLaunchResult? launchResult,
+}) {
   final fakeFlow = _FakeFlowController();
   if (launchResult != null) fakeFlow.nextResult = launchResult;
   final fakePipeline = _FakePipelineController();
@@ -92,6 +94,65 @@ class _FakePipelineController extends StateNotifier<ZkPassportPipelineState>
 // ---------------------------------------------------------------------------
 
 void main() {
+  group('resolveZkIdentitySuccessPresentationState', () {
+    test('promotes verification step to success result from pipeline success',
+        () {
+      final flowState = ZkIdentityFlowState.initial()
+          .advanceTo(ZkIdentityStep.verification.index);
+
+      final resolved = resolveZkIdentitySuccessPresentationState(
+        flowState,
+        pipelineSucceeded: true,
+        registrationCompleted: false,
+        successMessage: 'Proof verified',
+      );
+
+      expect(resolved.currentStep, ZkIdentityStep.result);
+      expect(resolved.isSuccess, true);
+      expect(resolved.resultMessage, 'Proof verified');
+      expect(resolved.steps[ZkIdentityStep.verification.index].status,
+          ZkIdentityStepVisualStatus.completed);
+      expect(resolved.steps[ZkIdentityStep.result.index].status,
+          ZkIdentityStepVisualStatus.active);
+    });
+
+    test(
+        'promotes verification step to success result from persisted registration',
+        () {
+      final flowState = ZkIdentityFlowState.initial()
+          .advanceTo(ZkIdentityStep.verification.index);
+
+      final resolved = resolveZkIdentitySuccessPresentationState(
+        flowState,
+        pipelineSucceeded: false,
+        registrationCompleted: true,
+        successMessage: '',
+      );
+
+      expect(resolved.currentStep, ZkIdentityStep.result);
+      expect(resolved.isSuccess, true);
+      expect(
+        resolved.resultMessage,
+        'zkPassport proof accepted and wrapped successfully.',
+      );
+    });
+
+    test('leaves non-terminal flow unchanged without success signal', () {
+      final flowState = ZkIdentityFlowState.initial()
+          .advanceTo(ZkIdentityStep.verification.index);
+
+      final resolved = resolveZkIdentitySuccessPresentationState(
+        flowState,
+        pipelineSucceeded: false,
+        registrationCompleted: false,
+      );
+
+      expect(resolved.currentStep, ZkIdentityStep.verification);
+      expect(resolved.isSuccess, false);
+      expect(resolved.resultMessage, isNull);
+    });
+  });
+
   group('ZkIdentityStepController', () {
     test('initial state starts at checkApp with active status', () {
       final s = _setup();

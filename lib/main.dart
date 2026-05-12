@@ -10,6 +10,8 @@ import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/features/app_sleep/screens/app_sleep_screen.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_reporting_service.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
+import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
+import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_models.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:flutter/material.dart';
@@ -366,6 +368,7 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
   bool _versionCheckShown = false;
   bool _wasSleeping = false;
   final _appSleepService = AppSleepService.instance;
+  final _wakeLog = LoggingService.instance.withTag('usernode/AppWakeRoute');
 
   @override
   void initState() {
@@ -430,8 +433,27 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
       unawaited(_refreshWakeData());
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
+        final zkIdentityChallengeActive =
+            ref.read(zkIdentityChallengeActiveProvider);
+        final zkPassportPipeline = ref.read(zkPassportPipelineProvider);
+        final shouldPreserveCurrentRoute = zkIdentityChallengeActive ||
+            zkPassportPipeline.status == ZkPassportPipelineStatus.processing;
+        _wakeLog.warn('Handling app wake route decision', context: {
+          'zkIdentityChallengeActive': zkIdentityChallengeActive,
+          'pipelineStatus': zkPassportPipeline.status.name,
+          'pipelinePhase': zkPassportPipeline.phase.name,
+          'pipelineRequestId': zkPassportPipeline.requestId,
+          'preserveCurrentRoute': shouldPreserveCurrentRoute,
+        });
+        if (shouldPreserveCurrentRoute) {
+          _wakeLog.warn(
+            'Skipping wake navigation reset while zkPassport flow is active',
+          );
+          return;
+        }
         final navContext = appNavigatorKey.currentContext;
         if (navContext == null) return;
+        _wakeLog.warn('Navigating to home after app wake');
         GoRouter.of(navContext).go(AppRoutes.home);
       });
     }

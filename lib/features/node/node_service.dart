@@ -473,6 +473,10 @@ class RustBackendService {
   }
 
   Future<void> pauseNode() async {
+    if (!_nodeRunning && _control == null) {
+      _log.debug('Skipping node pause; node is not running');
+      return;
+    }
     _log.info('Pausing node');
     _nodePaused = true;
     _control?.pause();

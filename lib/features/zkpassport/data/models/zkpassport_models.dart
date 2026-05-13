@@ -352,6 +352,8 @@ class ZkPassportSessionResultResponse {
     required this.outerProofB64Url,
     required this.nullifierHex,
     required this.nullifierType,
+    required this.uniqueIdentifierType,
+    required this.oprfPkHash,
     required this.error,
     required this.finalizedAtMs,
   });
@@ -361,6 +363,8 @@ class ZkPassportSessionResultResponse {
   final String? outerProofB64Url;
   final String? nullifierHex;
   final int? nullifierType;
+  final int? uniqueIdentifierType;
+  final String? oprfPkHash;
   final String? error;
   final int finalizedAtMs;
 
@@ -374,6 +378,8 @@ class ZkPassportSessionResultResponse {
     final error = _extractError(json);
     final nullifierHex = _extractNullifierHex(json);
     final nullifierType = _extractNullifierType(json);
+    final uniqueIdentifierType = _extractUniqueIdentifierType(json);
+    final oprfPkHash = _extractOprfPkHash(json);
     return ZkPassportSessionResultResponse(
       sessionId:
           (json['sessionId'] as String? ?? json['session_id'] as String? ?? '')
@@ -382,6 +388,8 @@ class ZkPassportSessionResultResponse {
       outerProofB64Url: proof,
       nullifierHex: nullifierHex,
       nullifierType: nullifierType,
+      uniqueIdentifierType: uniqueIdentifierType,
+      oprfPkHash: oprfPkHash,
       error: error,
       finalizedAtMs:
           (json['finalizedAtMs'] as num? ?? json['finalized_at_ms'] as num?)
@@ -455,41 +463,228 @@ class ZkPassportSessionResultResponse {
   }
 
   static String? _extractNullifierHex(Map<String, dynamic> json) {
-    final result = json['result'];
-    if (result is! Map) {
-      return null;
-    }
-    final map = Map<String, dynamic>.from(result);
-    final candidates = [
-      map['nullifier_hex'],
-      map['nullifierHex'],
-      map['scoped_nullifier'],
-      map['scopedNullifier'],
-    ];
-    for (final candidate in candidates) {
-      if (candidate is String && candidate.trim().isNotEmpty) {
-        return candidate.trim();
+    return _extractStringField(json, const [
+      'nullifier_hex',
+      'nullifierHex',
+    ]);
+  }
+
+  static int? _extractNullifierType(Map<String, dynamic> json) {
+    return _extractIntField(json, const [
+      'nullifier_type',
+      'nullifierType',
+    ]);
+  }
+
+  static int? _extractUniqueIdentifierType(Map<String, dynamic> json) {
+    return _extractIntField(json, const [
+      'unique_identifier_type',
+      'uniqueIdentifierType',
+    ]);
+  }
+
+  static String? _extractOprfPkHash(Map<String, dynamic> json) {
+    return _extractStringField(json, const [
+      'oprf_pk_hash',
+      'oprfPkHash',
+    ]);
+  }
+
+  static String? _extractStringField(
+    Map<String, dynamic> json,
+    List<String> keys,
+  ) {
+    for (final map in _bridgeResultMaps(json)) {
+      for (final key in keys) {
+        final value = map[key];
+        if (value is String && value.trim().isNotEmpty) {
+          return value.trim();
+        }
       }
     }
     return null;
   }
 
-  static int? _extractNullifierType(Map<String, dynamic> json) {
-    final result = json['result'];
-    if (result is! Map) {
-      return null;
-    }
-    final map = Map<String, dynamic>.from(result);
-    final raw = map['nullifier_type'] ?? map['nullifierType'];
-    if (raw is int) {
-      return raw;
-    }
-    if (raw is num) {
-      return raw.toInt();
-    }
-    if (raw is String) {
-      return int.tryParse(raw.trim());
+  static int? _extractIntField(
+    Map<String, dynamic> json,
+    List<String> keys,
+  ) {
+    for (final map in _bridgeResultMaps(json)) {
+      for (final key in keys) {
+        final raw = map[key];
+        if (raw is int) {
+          return raw;
+        }
+        if (raw is num) {
+          return raw.toInt();
+        }
+        if (raw is String) {
+          final parsed = int.tryParse(raw.trim());
+          if (parsed != null) {
+            return parsed;
+          }
+        }
+      }
     }
     return null;
   }
+
+  static List<Map<String, dynamic>> _bridgeResultMaps(
+    Map<String, dynamic> json,
+  ) {
+    final maps = <Map<String, dynamic>>[json];
+    final result = json['result'];
+    if (result is Map) {
+      maps.add(Map<String, dynamic>.from(result));
+    }
+    return maps;
+  }
+}
+
+class ZkPassportOuterProofPublicInputs {
+  const ZkPassportOuterProofPublicInputs({
+    required this.semanticInputCount,
+    required this.nullifierTypeHex,
+    required this.scopedNullifierHex,
+    required this.oprfPkHashHex,
+  });
+
+  // SDK 0.14 / utils 0.36 trailing semantic public input layout:
+  // nullifier_type, scoped_nullifier, oprf_pk_hash.
+  static const int outerCount4SemanticPublicInputCount = 9;
+  static const int outerCount5SemanticPublicInputCount = 10;
+
+  final int semanticInputCount;
+  final String nullifierTypeHex;
+  final String scopedNullifierHex;
+  final String oprfPkHashHex;
+
+  static int semanticInputCountFor({required bool facematchStrict}) {
+    return facematchStrict
+        ? outerCount5SemanticPublicInputCount
+        : outerCount4SemanticPublicInputCount;
+  }
+
+  static ZkPassportOuterProofPublicInputs? fromPublicInputsHex(
+    List<String>? publicInputsHex, {
+    required bool facematchStrict,
+  }) {
+    return ZkPassportOuterProofValidation.validate(
+      publicInputsHex: publicInputsHex,
+      facematchStrict: facematchStrict,
+    ).publicInputs;
+  }
+}
+
+class ZkPassportOuterProofValidation {
+  const ZkPassportOuterProofValidation._({
+    required this.publicInputs,
+    required this.errorMessage,
+    required this.normalizedBridgeNullifierHex,
+  });
+
+  final ZkPassportOuterProofPublicInputs? publicInputs;
+  final String? errorMessage;
+  final String? normalizedBridgeNullifierHex;
+
+  bool get isValid => publicInputs != null && errorMessage == null;
+
+  static ZkPassportOuterProofValidation validate({
+    required List<String>? publicInputsHex,
+    required bool facematchStrict,
+    String? bridgeNullifierHex,
+  }) {
+    final inputs = publicInputsHex;
+    if (inputs == null || inputs.isEmpty) {
+      return const ZkPassportOuterProofValidation._(
+        publicInputs: null,
+        errorMessage:
+            'Outer proof verified, but no public inputs were returned; cannot derive scoped nullifier.',
+        normalizedBridgeNullifierHex: null,
+      );
+    }
+
+    final semanticInputCount =
+        ZkPassportOuterProofPublicInputs.semanticInputCountFor(
+      facematchStrict: facematchStrict,
+    );
+    final nullifierTypeIndex = semanticInputCount - 3;
+    final scopedNullifierIndex = semanticInputCount - 2;
+    final oprfPkHashIndex = semanticInputCount - 1;
+    if (inputs.length <= oprfPkHashIndex) {
+      return const ZkPassportOuterProofValidation._(
+        publicInputs: null,
+        errorMessage:
+            'Outer proof verified, but SDK 0.14 public inputs were incomplete; cannot derive scoped nullifier and OPRF public key hash.',
+        normalizedBridgeNullifierHex: null,
+      );
+    }
+
+    final nullifierTypeHex = _normalizeHexField(inputs[nullifierTypeIndex]);
+    if (nullifierTypeHex == null) {
+      return const ZkPassportOuterProofValidation._(
+        publicInputs: null,
+        errorMessage:
+            'Outer proof verified, but nullifier_type was missing from SDK 0.14 public inputs.',
+        normalizedBridgeNullifierHex: null,
+      );
+    }
+
+    final scopedNullifierHex = _normalizeHexField(
+      inputs[scopedNullifierIndex],
+    );
+    if (scopedNullifierHex == null) {
+      return const ZkPassportOuterProofValidation._(
+        publicInputs: null,
+        errorMessage:
+            'Outer proof verified, but scoped_nullifier was missing from SDK 0.14 public inputs.',
+        normalizedBridgeNullifierHex: null,
+      );
+    }
+
+    final oprfPkHashHex = _normalizeHexField(inputs[oprfPkHashIndex]);
+    if (oprfPkHashHex == null) {
+      return const ZkPassportOuterProofValidation._(
+        publicInputs: null,
+        errorMessage:
+            'Outer proof verified, but oprf_pk_hash was missing from SDK 0.14 public inputs.',
+        normalizedBridgeNullifierHex: null,
+      );
+    }
+
+    final normalizedBridgeNullifierHex = _normalizeHexField(bridgeNullifierHex);
+    if (normalizedBridgeNullifierHex != null &&
+        normalizedBridgeNullifierHex != scopedNullifierHex) {
+      return ZkPassportOuterProofValidation._(
+        publicInputs: null,
+        errorMessage:
+            'Bridge nullifier_hex did not match the verifier-derived scoped_nullifier.',
+        normalizedBridgeNullifierHex: normalizedBridgeNullifierHex,
+      );
+    }
+
+    return ZkPassportOuterProofValidation._(
+      publicInputs: ZkPassportOuterProofPublicInputs(
+        semanticInputCount: semanticInputCount,
+        nullifierTypeHex: nullifierTypeHex,
+        scopedNullifierHex: scopedNullifierHex,
+        oprfPkHashHex: oprfPkHashHex,
+      ),
+      errorMessage: null,
+      normalizedBridgeNullifierHex: normalizedBridgeNullifierHex,
+    );
+  }
+}
+
+String? _normalizeHexField(String? raw) {
+  final trimmed = raw?.trim();
+  if (trimmed == null || trimmed.isEmpty) {
+    return null;
+  }
+  final lower = trimmed.toLowerCase();
+  final hex = lower.startsWith('0x') ? lower.substring(2) : lower;
+  if (hex.isEmpty) {
+    return null;
+  }
+  return '0x$hex';
 }

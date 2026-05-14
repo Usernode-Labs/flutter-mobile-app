@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -173,8 +174,38 @@ class BlockProgressData {
 
 /// Unified node status controller
 class NodeStatusController extends AsyncNotifier<NodeStatusState?> {
+  /// Cadence for automatic background refresh.
+  ///
+  /// `nodeStatusProvider` used to be a one-shot AsyncNotifier — `build()`
+  /// ran once on first read and the result was cached for the lifetime
+  /// of the container, with the only refresh path being a manual pull-
+  /// to-refresh in Settings. That meant if the *first* read happened
+  /// before the embedded Rust node had finished booting (which is the
+  /// common case at cold start, because some background tick reads the
+  /// provider within seconds of `main()`), the cached state was `null`
+  /// for the rest of the session. Every consumer (sync icon, wallet
+  /// pill, slot timing, *and* the metrics collector) saw stale state
+  /// until the user happened to land on Settings.
+  ///
+  /// A periodic timer kept here makes the provider self-healing: as
+  /// soon as the Rust node becomes reachable, the next tick picks up
+  /// fresh status and the whole UI catches up. 10s is a reasonable
+  /// balance — `getStatus()` is one FFI hop + one in-process RPC, so
+  /// the overhead is negligible, and most UI consumers don't need
+  /// sub-second freshness.
+  static const _autoRefreshInterval = Duration(seconds: 10);
+
   @override
   Future<NodeStatusState?> build() async {
+    final timer = Timer.periodic(_autoRefreshInterval, (_) {
+      // Skip if a refresh is already in flight; periodic ticks should not
+      // pile up if the underlying RPC is slow or wedged.
+      if (state.isLoading) return;
+      // Fire-and-forget; the AsyncNotifier swallows errors via
+      // `AsyncValue.guard` and surfaces them through `state.hasError`.
+      silentRefresh();
+    });
+    ref.onDispose(timer.cancel);
     return await _load();
   }
 

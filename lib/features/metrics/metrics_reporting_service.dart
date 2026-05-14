@@ -37,6 +37,19 @@ class MetricsReportingService {
   int _successCount = 0;
   int _failureCount = 0;
 
+  /// Debounced out-of-band ship-now machinery. Decoupled from
+  /// [_reportingTimer]: callers ([SlotOutcomeRecorder] mostly) request
+  /// a ship right after appending an outcome to the buffer; the actual
+  /// HTTP POST is delayed [_outcomeShipDebounceDuration] so a burst of
+  /// appends (multi-slot reorg, drain catch-up, …) collapses into one
+  /// POST. [_outcomeShipInFlight] coalesces concurrent ships — a second
+  /// caller while a ship is mid-POST awaits the same Future and then
+  /// gets a fresh snapshot of the buffer on return.
+  Timer? _outcomeShipDebounce;
+  Future<void>? _outcomeShipInFlight;
+  static const Duration _outcomeShipDebounceDuration =
+      Duration(milliseconds: 250);
+
   static const participantWalletMismatchErrorCode =
       'participant_wallet_mismatch';
 
@@ -223,6 +236,133 @@ class MetricsReportingService {
     }
 
     await _reportMetrics();
+  }
+
+  /// Request a debounced, out-of-band ship of any currently-buffered slot
+  /// outcomes.
+  ///
+  /// **Why this exists**: the periodic heartbeat ([_reportingTimer]) is
+  /// the normal path for shipping buffered outcomes, but it's gated by
+  /// `_isRunning` — which [AppSleepService] flips off whenever the app
+  /// enters sleep state (idle timeout, lifecycle non-resumed, wakelock
+  /// release). When [SlotOutcomeRecorder] appends an outcome during an
+  /// alarm-wake window (the common "phone in pocket, scheduled won-slot
+  /// fires" case), the heartbeat isn't running, so the outcome would
+  /// otherwise sit in the buffer until the user opens the app. This
+  /// hook ships it within ~250ms instead, independent of heartbeat
+  /// lifecycle.
+  ///
+  /// **Cadence**: debounced by [_outcomeShipDebounceDuration]; concurrent
+  /// requests during the debounce window collapse to one POST.
+  /// In-flight ships are coalesced via [_outcomeShipInFlight] so a
+  /// second caller during a POST awaits the same Future. Server-side
+  /// `persistSlotOutcomes` is UPSERT-idempotent on
+  /// (`chain_id`, `wallet_address`, `report_uid`), so even if a redundant
+  /// POST happens to slip through (e.g. heartbeat fires while a request
+  /// is mid-flight), the duplicate is a no-op on the database side.
+  ///
+  /// **Payload**: outcome-only — just `slot_outcomes`. Per-outcome
+  /// `chain_id` and `wallet_address` are already on each report (see
+  /// [SlotOutcomeRecorder]); no envelope-level identity is sent. The
+  /// server's `persistSlotOutcomes` uses per-outcome fields directly.
+  ///
+  /// Fire-and-forget — callers don't await this. Failures are logged
+  /// and the buffer is left intact for the next heartbeat or request.
+  void requestSlotOutcomeShip() {
+    if (AppConfig.viewOnly ||
+        !AppConfig.metricsEnabled ||
+        AppConfig.metricsEndpoint.isEmpty) {
+      return;
+    }
+    _outcomeShipDebounce?.cancel();
+    _outcomeShipDebounce = Timer(_outcomeShipDebounceDuration, () {
+      _outcomeShipDebounce = null;
+      unawaited(_shipSlotOutcomesNow());
+    });
+  }
+
+  /// Coalesce concurrent ships into one.
+  Future<void> _shipSlotOutcomesNow() {
+    if (_outcomeShipInFlight != null) {
+      return _outcomeShipInFlight!;
+    }
+    final future = _shipSlotOutcomesNowImpl();
+    _outcomeShipInFlight = future;
+    return future.whenComplete(() {
+      _outcomeShipInFlight = null;
+    });
+  }
+
+  Future<void> _shipSlotOutcomesNowImpl() async {
+    List<SlotOutcomeReport> pending;
+    try {
+      pending = await SlotOutcomeBufferRepository.instance.drain();
+    } catch (e) {
+      _log.warn('Outcome-only drain failed: $e');
+      return;
+    }
+    if (pending.isEmpty) return;
+
+    final body = jsonEncode({
+      'slot_outcomes': pending.map((r) => r.toJson()).toList(),
+    });
+
+    // Reuse the heartbeat's HTTP client when alive, otherwise spin up a
+    // one-shot client so this works during sleep state (the heartbeat
+    // closes [_httpClient] in [stop]).
+    var client = _httpClient;
+    final ownedClient = client == null;
+    client ??= http.Client();
+
+    try {
+      final response = await client
+          .post(
+        Uri.parse(AppConfig.metricsEndpoint),
+        headers: const {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: body,
+      )
+          .timeout(
+        const Duration(seconds: 3),
+        onTimeout: () {
+          throw TimeoutException('Slot outcome ship timed out');
+        },
+      );
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        try {
+          await SlotOutcomeBufferRepository.instance
+              .discard(pending.map((r) => r.id));
+        } catch (e) {
+          _log.warn('Slot outcome discard after ship failed: $e');
+        }
+        _log.info(
+          'Shipped slot outcomes out-of-band',
+          context: {
+            'count': pending.length,
+            'status': response.statusCode,
+          },
+        );
+      } else {
+        _log.warn(
+          'Slot outcome out-of-band ship returned non-2xx',
+          context: {
+            'status': response.statusCode,
+            'count': pending.length,
+          },
+        );
+        // Leave buffer intact; the next heartbeat or request retries.
+      }
+    } catch (e) {
+      _log.warn('Slot outcome out-of-band ship error: $e');
+      // Buffer is intact (drain is non-destructive); next retry handles it.
+    } finally {
+      if (ownedClient) {
+        client.close();
+      }
+    }
   }
 
   /// Report a custom event with optional event data

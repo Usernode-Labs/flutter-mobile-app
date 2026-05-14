@@ -1,6 +1,7 @@
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/features/metrics/data/slot_outcome_buffer_repository.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
+import 'package:crypto_mobile_app/features/metrics/metrics_reporting_service.dart';
 import 'package:crypto_mobile_app/features/metrics/models/slot_outcome_report.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_slots.dart';
@@ -190,6 +191,12 @@ class SlotOutcomeRecorder {
           'node_slot_status': node?.nodeSlotStatus,
         },
       );
+      // Ask the reporting service to ship ASAP rather than waiting for
+      // the next ~30s heartbeat. Debounced + coalesced server-side, so
+      // bursts collapse to one POST. Works whether or not the heartbeat
+      // is currently running (alarm-wake recordings often happen while
+      // AppSleepService has the heartbeat paused).
+      MetricsReportingService.instance.requestSlotOutcomeShip();
     } catch (e, st) {
       _log.error(
         'Failed to buffer slot outcome',

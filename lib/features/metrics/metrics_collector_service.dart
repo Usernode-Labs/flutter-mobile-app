@@ -280,17 +280,33 @@ class MetricsCollectorService {
     final peerId = _cachedPeerId;
     int? participantId;
 
-    // Get chain ID from node status provider (shared cache)
+    // Read chain_id directly from the Rust node, *not* from the Riverpod
+    // cache. `nodeStatusProvider` is a one-shot AsyncNotifier — it builds
+    // exactly once per app session and never refreshes itself. At cold
+    // boot the first read often happens before the embedded node has
+    // reported its chain hash, so the provider caches `null` for the rest
+    // of the session and every consumer that reads through it gets a
+    // stale value. The metrics POST tick is the single best moment to
+    // ask for fresh state, and a direct FFI hop here is cheap enough at
+    // the once-per-25-60s cadence we run at.
+    //
+    // We intentionally do NOT fall back to the selected-network name
+    // (e.g. 'testnet'). A null chain_id is a real signal that the node
+    // wasn't reachable at this instant; stamping a fake string instead
+    // poisons the analytics join against `vrf_slots` server-side and
+    // makes legitimate reports invisible. Leaving chain_id null keeps
+    // those reports debuggable on the server.
     String? chainId;
-    if (_container != null) {
-      try {
-        final nodeStatusAsync = _container!.read(nodeStatusProvider);
-        chainId = nodeStatusAsync.value?.chainId;
-        _log.debug('Got chain_id from nodeStatusProvider: $chainId');
-      } catch (e) {
-        _log.debug('Failed to get chain_id from nodeStatusProvider: $e');
-      }
+    try {
+      final node = await RustBackendService.instance.getStatusNode();
+      chainId = node?.chainId.toString();
+      _log.debug(
+          'Got chain_id from RustBackendService.getStatusNode(): $chainId');
+    } catch (e) {
+      _log.debug('Failed to get chain_id from getStatusNode(): $e');
+    }
 
+    if (_container != null) {
       try {
         participantId = await _container!.read(participantIdProvider.future);
       } catch (e) {
@@ -303,19 +319,6 @@ class MetricsCollectorService {
         participantId = await loadParticipantId();
       } catch (e) {
         _log.debug('Failed to load participant_id from storage: $e');
-      }
-    }
-
-    // Fallback: derive from selected network if chain_id unavailable from provider
-    if (chainId == null || chainId.isEmpty) {
-      try {
-        final networkType =
-            await RustBackendService.instance.getSelectedNetwork();
-        chainId = networkType.name; // 'testnet' or 'internal'
-        _log.debug('Using network type as chain_id fallback: $chainId');
-      } catch (e) {
-        _log.debug('Failed to get network type for chain_id fallback: $e');
-        chainId = null;
       }
     }
 

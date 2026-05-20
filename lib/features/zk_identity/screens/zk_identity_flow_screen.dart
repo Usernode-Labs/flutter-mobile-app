@@ -324,12 +324,8 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
       ZkIdentityStep.result => Button(
           variant: ButtonVariant.primary,
           size: ButtonSize.large,
-          label: flowState.isSuccess
-              ? l10n.zkIdentityDone
-              : l10n.zkIdentityTryAgain,
-          onTap: flowState.isSuccess
-              ? () => context.pop()
-              : () => unawaited(controller.cancelVerification()),
+          label: l10n.zkIdentityDone,
+          onTap: () => context.pop(),
         ),
     };
   }

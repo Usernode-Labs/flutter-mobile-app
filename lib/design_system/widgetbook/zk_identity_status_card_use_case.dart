@@ -33,19 +33,19 @@ WidgetbookComponent zkIdentityStatusCardComponent() {
                 steps: [
                   const ZkIdentityStatusStep(
                     icon: Symbols.check_circle_sharp,
-                    label: 'Status',
-                    value: 'Valid Passport',
+                    label: 'Uniqueness',
+                    value: 'Confirmed',
                   ),
                   if (showFaceMatch)
                     const ZkIdentityStatusStep(
                       icon: Symbols.face_sharp,
-                      label: 'Face Match',
+                      label: 'Face check',
                       value: 'Verified',
                     ),
                   const ZkIdentityStatusStep(
                     icon: Symbols.shield_sharp,
                     label: 'Privacy',
-                    value: 'No data shared',
+                    value: 'Nothing shared',
                   ),
                   if (showDate)
                     const ZkIdentityStatusStep(

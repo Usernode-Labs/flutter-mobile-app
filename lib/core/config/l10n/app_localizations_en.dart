@@ -1421,6 +1421,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get zkIdentityStatusFinalCheckLabel => 'Final Check';
 
   @override
+  String get zkIdentityResultFailureTitle => 'Verification Failed';
+
+  @override
+  String get zkIdentityResultFailureSubtitle =>
+      'Your data is safe — no information was shared.';
+
+  @override
   String get walletSentSuccessfully => 'Sent successfully!';
 
   @override

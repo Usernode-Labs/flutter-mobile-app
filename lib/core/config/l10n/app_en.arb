@@ -1938,6 +1938,14 @@
   "@zkIdentityStatusFinalCheckLabel": {
     "description": "Status card label for the final wrapped-proof verification timing"
   },
+  "zkIdentityResultFailureTitle": "Verification Failed",
+  "@zkIdentityResultFailureTitle": {
+    "description": "Title for the ZK identity verification failure dialog/screen"
+  },
+  "zkIdentityResultFailureSubtitle": "Your data is safe — no information was shared.",
+  "@zkIdentityResultFailureSubtitle": {
+    "description": "Reassuring subtitle shown on ZK identity verification failure"
+  },
 
   "walletSentSuccessfully": "Sent successfully!",
   "@walletSentSuccessfully": {

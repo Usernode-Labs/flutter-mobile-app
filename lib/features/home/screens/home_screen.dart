@@ -211,30 +211,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         barrierDismissible: false,
         builder: (ctx) {
           final spacing = Theme.of(ctx).extension<AppSpacing>()!;
-          final textTheme = Theme.of(ctx).textTheme;
-          final colorScheme = Theme.of(ctx).colorScheme;
 
           if (isFailure) {
             return AlertDialog(
-              title: const Text('Verification Failed'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Your data is safe \u2014 no information was shared.',
-                  ),
-                  if (state.message.isNotEmpty) ...[
-                    SizedBox(height: spacing.space8),
-                    Text(
-                      state.message,
-                      style: textTheme.bodySmall?.copyWith(
-                        color: colorScheme.error,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+              title: Text(l10n.zkIdentityResultFailureTitle),
+              content: Text(l10n.zkIdentityResultFailureSubtitle),
               actions: [
                 Button(
                   label: 'OK',

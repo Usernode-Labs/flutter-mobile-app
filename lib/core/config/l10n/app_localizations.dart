@@ -2542,6 +2542,18 @@ abstract class AppLocalizations {
   /// **'Final Check'**
   String get zkIdentityStatusFinalCheckLabel;
 
+  /// Title for the ZK identity verification failure dialog/screen
+  ///
+  /// In en, this message translates to:
+  /// **'Verification Failed'**
+  String get zkIdentityResultFailureTitle;
+
+  /// Reassuring subtitle shown on ZK identity verification failure
+  ///
+  /// In en, this message translates to:
+  /// **'Your data is safe — no information was shared.'**
+  String get zkIdentityResultFailureSubtitle;
+
   /// Transaction success screen title
   ///
   /// In en, this message translates to:

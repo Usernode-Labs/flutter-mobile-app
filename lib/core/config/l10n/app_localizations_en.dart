@@ -1388,6 +1388,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get zkIdentityCancelVerification => 'Cancel verification';
 
   @override
+  String get zkIdentityGoToZkPassport => 'Go to ZK Passport';
+
+  @override
+  String get zkIdentityTryAgain => 'Try Again';
+
+  @override
+  String get zkIdentityDone => 'Done';
+
+  @override
   String get walletSentSuccessfully => 'Sent successfully!';
 
   @override

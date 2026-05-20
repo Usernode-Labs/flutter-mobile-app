@@ -2476,6 +2476,24 @@ abstract class AppLocalizations {
   /// **'Cancel verification'**
   String get zkIdentityCancelVerification;
 
+  /// Primary button label that opens the ZK Passport companion app
+  ///
+  /// In en, this message translates to:
+  /// **'Go to ZK Passport'**
+  String get zkIdentityGoToZkPassport;
+
+  /// Button label for retrying a failed ZK identity verification
+  ///
+  /// In en, this message translates to:
+  /// **'Try Again'**
+  String get zkIdentityTryAgain;
+
+  /// Button label to dismiss the ZK identity result screen on success
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get zkIdentityDone;
+
   /// Transaction success screen title
   ///
   /// In en, this message translates to:

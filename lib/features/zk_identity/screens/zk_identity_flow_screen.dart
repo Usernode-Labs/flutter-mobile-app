@@ -324,7 +324,9 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
       ZkIdentityStep.result => Button(
           variant: ButtonVariant.primary,
           size: ButtonSize.large,
-          label: flowState.isSuccess ? 'Done' : 'Try Again',
+          label: flowState.isSuccess
+              ? l10n.zkIdentityDone
+              : l10n.zkIdentityTryAgain,
           onTap: flowState.isSuccess
               ? () => context.pop()
               : () => unawaited(controller.cancelVerification()),
@@ -344,7 +346,7 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
       return Button(
         variant: ButtonVariant.primary,
         size: ButtonSize.large,
-        label: 'Try Again',
+        label: l10n.zkIdentityTryAgain,
         onTap: () => unawaited(controller.cancelVerification()),
       );
     }
@@ -361,7 +363,7 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
         Button(
           variant: ButtonVariant.tonal,
           size: ButtonSize.large,
-          label: 'Go To ZK Passport',
+          label: l10n.zkIdentityGoToZkPassport,
           onTap: () => launchUrl(
             Uri.parse('zkpassport://'),
             mode: LaunchMode.externalApplication,

@@ -1894,6 +1894,18 @@
   "@zkIdentityCancelVerification": {
     "description": "Secondary button label for cancelling an in-progress ZK identity verification"
   },
+  "zkIdentityGoToZkPassport": "Go to ZK Passport",
+  "@zkIdentityGoToZkPassport": {
+    "description": "Primary button label that opens the ZK Passport companion app"
+  },
+  "zkIdentityTryAgain": "Try Again",
+  "@zkIdentityTryAgain": {
+    "description": "Button label for retrying a failed ZK identity verification"
+  },
+  "zkIdentityDone": "Done",
+  "@zkIdentityDone": {
+    "description": "Button label to dismiss the ZK identity result screen on success"
+  },
 
   "walletSentSuccessfully": "Sent successfully!",
   "@walletSentSuccessfully": {
